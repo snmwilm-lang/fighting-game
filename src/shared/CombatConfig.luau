@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.2.0",
+	Version = "0.3.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -35,18 +35,36 @@ return table.freeze({
 	GuardRegenDelayTicks = 50,
 	GuardRegenPerTick = 0.6,
 	GuardBreakTicks = 55,
-	BufferTicks = 8,
+	BufferTicks = 12, -- lifetime of a queued press (frozen during hitstop)
+	BufferSize = 3,
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this
 	MinComboScaling = 0.4,
-	MaxJuggleHits = 3, -- airborne hits allowed before the target becomes untouchable until landing
+	MaxJuggleHits = 6, -- airborne hits allowed before the target becomes untouchable until landing
 	JugglePop = 18,
+	SuperJumpVelocity = 50, -- jump cancel after a launcher
+	GroundBounceVelocity = 30,
+	SpikeVelocity = 30,
+	WallBounceVelocity = 26,
+	CrumpleTicks = 52,
 	PushbackDecay = 0.82,
+	AirPushDecay = 0.96,
 	CornerPushRatio = 0.75,
 	CornerMargin = 0.75,
 	KnockdownTicks = 40,
 	GetUpTicks = 14,
 	KOPop = 26,
 	KOHitstop = 26,
+
+	-- Ki meter (3 bars of 100) and ultimate
+	MaxMeter = 300,
+	MeterBar = 100,
+	MeterOnHit = 0.5, -- fractions of the damage dealt / received
+	MeterOnBlock = 0.25,
+	MeterWhenHit = 0.3,
+	MeterWhenBlocking = 0.2,
+	SuperFlashTicks = 40,
+	UltimateLaunch = 34,
+	UltimatePush = 48,
 
 	-- Match
 	RoundSeconds = 99,

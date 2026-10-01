@@ -1,13 +1,16 @@
 --[[
-	Authoritative fighting simulation: movement, attacks, guard, combos and rounds.
-	Pure Luau with no Roblox API and no require, so the same file runs on the server and in
-	offline tests. The server passes CombatConfig and MoveData to newWorld.
+	Authoritative fighting simulation: movement, attacks, guard, combos, ki meter, ultimate
+	cinematic and rounds. Pure Luau with no Roblox API and no require, so the same file runs
+	on the server and in offline tests. The server passes CombatConfig and MoveData to newWorld.
 
 	One call to step() advances exactly one 60 Hz tick and returns presentation events
 	(hits, blocks, KO, announcements). Events never feed back into the simulation.
 ]]
 
 local CombatSimulation = {}
+
+local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimate = "Ultimate" }
+local BUTTON_ORDER = { "light", "heavy", "special", "ultimate" }
 
 local function newFighter(slot, c)
 	local facing = if slot == 1 then 1 else -1
@@ -18,13 +21,14 @@ local function newFighter(slot, c)
 		facing = facing,
 		state = "Idle",
 		dashTicks = 0, dashCooldown = 0, dashDirection = facing,
-		hp = c.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0,
+		hp = c.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		stun = 0, stunKind = nil, launched = false, juggle = 0,
+		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
 		knockdown = 0, getUp = 0,
 		hitstop = 0, frozen = false,
 		comboHits = 0, comboDamage = 0, calmTicks = 0,
-		bufferButton = nil, bufferTicks = 0,
+		buffer = {}, -- queued presses { button, ticks }, oldest first
 		blocking = false, crouching = false, holdBlock = false, holdCrouch = false,
 		wins = 0,
 	}
@@ -32,14 +36,18 @@ end
 
 local function resetFighters(world)
 	for slot = 1, 2 do
-		local wins = if world.fighters[slot] then world.fighters[slot].wins else 0
+		local old = world.fighters[slot]
 		world.fighters[slot] = newFighter(slot, world.config)
-		world.fighters[slot].wins = wins
+		if old then
+			world.fighters[slot].wins = old.wins
+			world.fighters[slot].meter = old.meter -- ki carries over between rounds
+		end
 	end
 	world.epoch += 1
 	world.timerTicks = world.config.RoundSeconds * world.config.TickRate
 	world.winner = nil
 	world.reason = nil
+	world.cinematic = nil
 end
 
 function CombatSimulation.newWorld(config, moveData, training)
@@ -55,7 +63,7 @@ function CombatSimulation.newWorld(config, moveData, training)
 	return world
 end
 
--- Full reset: health, guard, states, buffers, wins and round counter.
+-- Full reset: health, guard, meter, states, buffers, wins and round counter.
 function CombatSimulation.resetMatch(world, training)
 	world.training = training
 	world.fighters = {}
@@ -70,15 +78,22 @@ function CombatSimulation.resetMatch(world, training)
 end
 
 function CombatSimulation.neutralInput()
-	return { axis = 0, crouch = false, jump = false, dash = false, block = false, light = false, heavy = false }
+	return {
+		axis = 0, crouch = false, jump = false, dash = false, block = false,
+		light = false, heavy = false, special = false, ultimate = false,
+	}
 end
 
 local function isGrounded(f)
 	return f.y <= 0 and f.vy <= 0
 end
 
-local function isInvulnerable(f, c)
-	return f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits)
+local function isInvulnerable(f, c, moves)
+	if f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits) then
+		return true
+	end
+	local m = f.move and moves[f.move]
+	return m ~= nil and m.invuln ~= nil and f.moveFrame >= m.invuln.from and f.moveFrame <= m.invuln.to
 end
 
 local function canTurn(f)
@@ -86,11 +101,20 @@ local function canTurn(f)
 		and f.knockdown == 0 and f.dashTicks == 0 and isGrounded(f)
 end
 
+local function gainMeter(f, amount, c)
+	f.meter = math.clamp(f.meter + amount, 0, c.MaxMeter)
+end
+
 -- Integrates position. Returns true on the tick the fighter lands.
 local function physics(f, c)
 	local dt = 1 / c.TickRate
 	f.x = math.clamp(f.x + (f.vx + f.pushVx) * dt, c.ArenaMinX, c.ArenaMaxX)
-	f.pushVx *= c.PushbackDecay
+	if f.wallBounce and ((f.x >= c.ArenaMaxX and f.pushVx > 0) or (f.x <= c.ArenaMinX and f.pushVx < 0)) then
+		f.pushVx = -f.pushVx * 0.3
+		f.vy = c.WallBounceVelocity
+		f.wallBounce, f.wallBounced, f.justWallBounced = false, true, true
+	end
+	f.pushVx *= if f.launched then c.AirPushDecay else c.PushbackDecay
 	if math.abs(f.pushVx) < 0.2 then f.pushVx = 0 end
 	if f.y > 0 or f.vy > 0 then
 		f.vy -= c.Gravity * dt
@@ -103,37 +127,63 @@ local function physics(f, c)
 	return false
 end
 
-local function tryStartMove(f, grounded, moves, starters)
-	if f.bufferTicks <= 0 then return false end
-	local button = f.bufferButton
+local function startMove(world, f, id, events)
+	local m = world.moves[id]
+	f.move, f.moveFrame, f.moveContact = id, 1, nil
+	table.remove(f.buffer, 1)
+	if m.air then f.airAttackUsed = true end
+	if m.meterCost then
+		f.meter -= m.meterCost
+		-- Super flash: everyone freezes while the ultimate is announced.
+		local flash = world.config.SuperFlashTicks
+		for _, other in world.fighters do
+			other.hitstop = math.max(other.hitstop, flash)
+		end
+		f.hitstop = flash
+		table.insert(events, { kind = "SuperFlash", attacker = f.slot, move = id })
+	end
+end
+
+local function chooseMove(world, f, grounded, crouching)
+	local head = f.buffer[1]
+	if not head then return nil end
+	local moves, starters, button = world.moves, world.moveData.Starters, head.button
 	local nextId
 	if f.move then
 		local current = moves[f.move]
-		if f.moveContact and current.cancels and f.moveFrame > current.startup then
+		if not f.moveContact or f.moveFrame <= current.startup then return nil end
+		if button == "Special" and current.kind == "Normal" and not current.air then
+			nextId = starters.Ground.Special
+		elseif button == "Ultimate" and current.kind ~= "Ultimate" and not current.air then
+			nextId = starters.Ground.Ultimate
+		elseif current.cancels then
 			nextId = current.cancels[button]
 		end
 	elseif f.dashTicks == 0 then
 		if grounded then
-			nextId = starters.Ground[button]
+			nextId = (if crouching then starters.Crouch else starters.Ground)[button]
 		elseif not f.airAttackUsed then
 			nextId = starters.Air[button]
 		end
 	end
-	if not nextId then return false end
-	f.move, f.moveFrame, f.moveContact = nextId, 1, nil
-	f.bufferTicks, f.bufferButton = 0, nil
-	if moves[nextId].air then f.airAttackUsed = true end
-	return true
+	local m = nextId and moves[nextId]
+	if m and m.meterCost and f.meter < m.meterCost then return nil end
+	return nextId
 end
 
-local function stepFighter(world, f, input)
+local function stepFighter(world, f, input, events)
 	local c, moves = world.config, world.moves
+	-- Presses queue in the order typed, so mashing L L L R gives exactly that route.
+	for _, field in BUTTON_ORDER do
+		if input[field] then
+			if #f.buffer >= c.BufferSize then table.remove(f.buffer, 1) end
+			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks })
+		end
+	end
 	if f.hitstop > 0 then
 		-- Hitstop suspends everything, including move frames and stun counters.
 		f.hitstop -= 1
 		f.frozen = true
-		if input.light then f.bufferButton, f.bufferTicks = "Light", c.BufferTicks end
-		if input.heavy then f.bufferButton, f.bufferTicks = "Heavy", c.BufferTicks end
 		return
 	end
 	f.frozen = false
@@ -144,8 +194,6 @@ local function stepFighter(world, f, input)
 	elseif f.stunKind ~= "GuardBreak" then
 		f.guard = math.min(c.MaxGuard, f.guard + c.GuardRegenPerTick)
 	end
-	if input.light then f.bufferButton, f.bufferTicks = "Light", c.BufferTicks end
-	if input.heavy then f.bufferButton, f.bufferTicks = "Heavy", c.BufferTicks end
 
 	local grounded = isGrounded(f)
 
@@ -170,9 +218,15 @@ local function stepFighter(world, f, input)
 	if f.launched then
 		f.vx, f.state = 0, "Launched"
 		if physics(f, c) then
-			f.launched, f.juggle = false, 0
-			f.stun, f.stunKind = 0, nil
-			f.knockdown, f.state = c.KnockdownTicks, "Knockdown"
+			if f.pendingBounce then
+				f.pendingBounce, f.bounced = false, true
+				f.vy = c.GroundBounceVelocity
+				f.justBounced = true
+			else
+				f.launched, f.juggle = false, 0
+				f.stun, f.stunKind = 0, nil
+				f.knockdown, f.state = c.KnockdownTicks, "Knockdown"
+			end
 		end
 		return
 	end
@@ -181,7 +235,9 @@ local function stepFighter(world, f, input)
 		f.vx = 0
 		f.crouching = f.stunKind == "Block" and f.holdCrouch
 		f.state = if f.stunKind == "Block" then (if f.crouching then "CrouchBlockstun" else "Blockstun")
-			elseif f.stunKind == "GuardBreak" then "GuardBroken" else "Hitstun"
+			elseif f.stunKind == "GuardBreak" then "GuardBroken"
+			elseif f.stunKind == "Crumple" then "Crumple"
+			else "Hitstun"
 		if f.stun == 0 then
 			if f.stunKind == "GuardBreak" then f.guard = c.MaxGuard end
 			f.stunKind = nil
@@ -192,19 +248,35 @@ local function stepFighter(world, f, input)
 
 	-- Actionable from here: the defender has truly recovered, so any combo on it is over.
 	f.comboHits, f.comboDamage = 0, 0
-
-	if f.move then
-		f.moveFrame += 1
-		if f.moveFrame > world.moveData.total(moves[f.move]) then
-			f.move, f.moveContact = nil, nil
-		end
-	end
-	tryStartMove(f, grounded, moves, world.moveData.Starters)
-	if f.bufferTicks > 0 then f.bufferTicks -= 1 end
+	f.bounced, f.wallBounced, f.crumpled = false, false, false
 
 	if f.move then
 		local m = moves[f.move]
-		f.blocking, f.crouching = false, false
+		f.moveFrame += 1
+		if m.jumpCancel and f.moveContact == "Hit" and input.jump and grounded
+			and f.moveFrame > m.startup + m.active then
+			-- Super jump after a launcher to follow the target.
+			f.move, f.moveContact = nil, nil
+			f.vy = c.SuperJumpVelocity
+			f.vx = input.axis * c.AirSpeed
+			f.airAttackUsed = false
+			grounded = false
+			table.insert(events, { kind = "SuperJump", attacker = f.slot })
+		elseif f.moveFrame > world.moveData.total(m) then
+			f.move, f.moveContact = nil, nil
+		end
+	end
+	local nextId = chooseMove(world, f, grounded, input.crouch)
+	if nextId then startMove(world, f, nextId, events) end
+	for i = #f.buffer, 1, -1 do
+		local entry = f.buffer[i]
+		entry.ticks -= 1
+		if entry.ticks <= 0 then table.remove(f.buffer, i) end
+	end
+
+	if f.move then
+		local m = moves[f.move]
+		f.blocking, f.crouching = false, f.move == "LowKick"
 		if grounded and not m.air then
 			f.vx = if f.moveFrame <= m.startup + m.active then f.facing * m.lunge else 0
 		end
@@ -304,11 +376,27 @@ local function applyPush(a, d, speed, c)
 	local dir = if d.x > a.x then 1 elseif d.x < a.x then -1 else a.facing
 	local cornered = (dir > 0 and d.x >= c.ArenaMaxX - c.CornerMargin)
 		or (dir < 0 and d.x <= c.ArenaMinX + c.CornerMargin)
-	if cornered then
+	if cornered and not d.wallBounce then
 		a.pushVx = -dir * speed * c.CornerPushRatio
 	else
 		d.pushVx = dir * speed
 	end
+end
+
+local function comboScale(d, c, minimum)
+	return math.max(minimum or c.MinComboScaling, c.ComboScaling ^ d.comboHits)
+end
+
+local function startCinematic(world, a, d, events)
+	local cin = world.moveData.Cinematic
+	world.cinematic = {
+		attacker = a.slot, defender = d.slot, tick = 0, length = cin.Length,
+		scale = comboScale(d, world.config, cin.MinScaling),
+	}
+	a.move, a.moveContact, a.state = "KaienRush", "Hit", "Cinematic"
+	a.pushVx, d.pushVx, a.vx = 0, 0, 0
+	d.stun, d.stunKind, d.state = 999, "Hit", "Hitstun"
+	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = "KaienRush" })
 end
 
 local function applyHit(world, a, d, m, events)
@@ -328,6 +416,8 @@ local function applyHit(world, a, d, m, events)
 		d.guard -= m.guardDamage
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
+		if m.kind ~= "Ultimate" then gainMeter(a, m.damage * c.MeterOnBlock, c) end
+		gainMeter(d, m.damage * c.MeterWhenBlocking, c)
 		if d.guard <= 0 then
 			d.guard = 0
 			d.stun, d.stunKind = c.GuardBreakTicks, "GuardBreak"
@@ -345,34 +435,62 @@ local function applyHit(world, a, d, m, events)
 	end
 
 	a.moveContact = "Hit"
-	local scale = math.max(c.MinComboScaling, c.ComboScaling ^ d.comboHits)
-	local damage = math.max(1, math.floor(m.damage * scale + 0.5))
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) + 0.5))
 	d.hp = math.max(0, d.hp - damage)
 	d.comboHits += 1
 	d.comboDamage += damage
+	if m.kind ~= "Ultimate" then gainMeter(a, damage * c.MeterOnHit, c) end
+	gainMeter(d, damage * c.MeterWhenHit, c)
 	d.move, d.moveContact, d.dashTicks = nil, nil, 0
 	d.blocking, d.crouching = false, false
 	d.stun, d.stunKind = m.hitstun, "Hit"
 	d.calmTicks = 0
-	local airborne = not isGrounded(d)
-	if m.launch > 0 then
+	local airborne = not isGrounded(d) or d.launched
+	if m.groundBounce and not d.bounced then
+		if airborne then
+			-- Spiked toward the floor, bounces back up on landing.
+			d.vy = math.min(m.launch, -c.SpikeVelocity)
+			d.pendingBounce = true
+		else
+			d.vy, d.bounced = c.GroundBounceVelocity, true
+			event.bounce = true
+		end
+		d.launched = true
+		d.juggle += 1
+	elseif m.launch > 0 then
 		d.vy = m.launch
-		d.launched, d.juggle = true, 1
-	elseif airborne or d.launched then
+		d.launched = true
+		d.juggle += 1
+	elseif m.launch < 0 then
+		if airborne then
+			d.vy = m.launch
+			d.launched = true
+			d.juggle += 1
+		end
+	elseif airborne then
 		d.vy = math.max(d.vy, c.JugglePop)
 		d.launched = true
 		d.juggle += 1
+	elseif m.crumple and not d.crumpled then
+		d.stun, d.stunKind, d.crumpled = c.CrumpleTicks, "Crumple", true
+		event.crumple = true
+	end
+	if m.wallBounce and not d.wallBounced and d.launched then
+		d.wallBounce = true
 	end
 	applyPush(a, d, m.push, c)
 	a.hitstop, d.hitstop = m.hitstop, m.hitstop
 	event.kind, event.damage, event.combo, event.comboDamage = "Hit", damage, d.comboHits, d.comboDamage
 	if d.hp <= 0 then
 		d.state = "KO"
-		d.stun, d.stunKind, d.launched = 0, nil, false
+		d.stun, d.stunKind, d.launched, d.pendingBounce, d.wallBounce = 0, nil, false, false, false
 		d.vy = math.max(d.vy, c.KOPop)
 		d.pushVx *= 1.6
 		a.hitstop, d.hitstop = c.KOHitstop, c.KOHitstop
 		event.ko = true
+	elseif m.kind == "Ultimate" then
+		a.hitstop, d.hitstop = 0, 0
+		startCinematic(world, a, d, events)
 	end
 	table.insert(events, event)
 end
@@ -384,7 +502,7 @@ local function detectHits(world, events)
 	for _, pair in { { a, b }, { b, a } } do
 		local attacker, defender = pair[1], pair[2]
 		local m = hitboxActive(attacker, moves)
-		if m and not isInvulnerable(defender, c) then
+		if m and not isInvulnerable(defender, c, moves) then
 			local hx1, hx2, hy1, hy2 = CombatSimulation.hitbox(attacker, m)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(defender, c)
 			if hx1 <= dx2 and dx1 <= hx2 and hy1 <= dy2 and dy1 <= hy2 then
@@ -394,7 +512,46 @@ local function detectHits(world, events)
 	end
 	-- Both hits are decided before either applies, so simultaneous attacks trade.
 	for _, hit in pending do
-		applyHit(world, hit[1], hit[2], hit[3], events)
+		if not world.cinematic then applyHit(world, hit[1], hit[2], hit[3], events) end
+	end
+end
+
+-- The ultimate plays as a scripted, authoritative sequence: fixed hits, then a final blow.
+local function stepCinematic(world, events)
+	local c, cin = world.config, world.moveData.Cinematic
+	local state = world.cinematic
+	state.tick += 1
+	local a, d = world.fighters[state.attacker], world.fighters[state.defender]
+	local dir = if d.x >= a.x then 1 else -1
+	local function hit(amount, final)
+		local damage = math.max(1, math.floor(amount * state.scale + 0.5))
+		d.hp = if final then math.max(0, d.hp - damage) else math.max(1, d.hp - damage)
+		d.comboHits += 1
+		d.comboDamage += damage
+		gainMeter(d, damage * c.MeterWhenHit, c)
+		table.insert(events, {
+			kind = "Hit", attacker = a.slot, defender = d.slot, move = "KaienRush", cinematic = true,
+			heavy = final, ko = final and d.hp <= 0, damage = damage, combo = d.comboHits, comboDamage = d.comboDamage,
+			x = d.x - dir * 0.6, y = d.y + 3.4,
+		})
+	end
+	if table.find(cin.Hits, state.tick) then hit(cin.HitDamage, false) end
+	if state.tick == cin.FinalTick then
+		hit(cin.FinalDamage, true)
+		d.stun, d.stunKind = 0, nil
+		d.launched, d.juggle = true, c.MaxJuggleHits -- untouchable until it lands
+		d.vy, d.pushVx = c.UltimateLaunch, dir * c.UltimatePush
+		if d.hp <= 0 then
+			d.state, d.launched = "KO", false
+		end
+	end
+	if state.tick > cin.FinalTick then
+		stepFighter(world, d, CombatSimulation.neutralInput(), events)
+	end
+	if state.tick >= state.length then
+		world.cinematic = nil
+		a.move, a.moveContact, a.state = nil, nil, "Idle"
+		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot })
 	end
 end
 
@@ -427,6 +584,7 @@ local function advancePhase(world, events)
 			table.insert(events, { kind = "Fight" })
 		end
 	elseif world.phase == "Fight" then
+		if world.cinematic then return end -- the round ends only once the cinematic is over
 		local a, b = world.fighters[1], world.fighters[2]
 		if a.hp <= 0 or b.hp <= 0 then
 			endRound(world, events, "KO")
@@ -465,30 +623,50 @@ end
 local function trainingRefill(world)
 	local c = world.config
 	for _, f in world.fighters do
-		local calm = f.comboHits == 0 and f.stun == 0 and not f.launched and f.knockdown == 0 and f.state ~= "KO"
+		local calm = f.comboHits == 0 and f.stun == 0 and not f.launched and f.knockdown == 0
+			and f.state ~= "KO" and not f.move
 		f.calmTicks = if calm then f.calmTicks + 1 else 0
 		if f.calmTicks >= c.TrainingRefillTicks then
 			f.hp = c.MaxHealth
+			f.meter = c.MaxMeter
 		end
 	end
 end
 
--- inputs[slot] = { axis, crouch, jump, dash, block, light, heavy }. Returns a list of events.
+local function collectBounceEvents(world, events)
+	for _, f in world.fighters do
+		if f.justBounced or f.justWallBounced then
+			table.insert(events, { kind = if f.justWallBounced then "WallBounce" else "GroundBounce",
+				defender = f.slot, x = f.x, y = f.y })
+			f.justBounced, f.justWallBounced = false, false
+		end
+	end
+end
+
+-- inputs[slot] = { axis, crouch, jump, dash, block, light, heavy, special, ultimate }.
+-- Returns a list of events.
 function CombatSimulation.step(world, inputs)
 	local events = {}
 	world.tick += 1
+	if world.cinematic then
+		stepCinematic(world, events)
+		collectBounceEvents(world, events)
+		advancePhase(world, events)
+		return events
+	end
 	local fighting = world.phase == "Fight"
 	local neutral = CombatSimulation.neutralInput()
 	local a, b = world.fighters[1], world.fighters[2]
 	local previousDelta = b.x - a.x
 	for slot, f in world.fighters do
-		stepFighter(world, f, if fighting then inputs[slot] or neutral else neutral)
+		stepFighter(world, f, if fighting then inputs[slot] or neutral else neutral, events)
 	end
 	resolvePair(a, b, world.config, previousDelta)
 	if fighting then
 		detectHits(world, events)
 		if world.training then trainingRefill(world) end
 	end
+	collectBounceEvents(world, events)
 	advancePhase(world, events)
 	return events
 end

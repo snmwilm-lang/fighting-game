@@ -5,9 +5,10 @@
 - Le code est synchronisé par Rojo : `src/shared` → ReplicatedStorage.Shared,
   `src/server` → ServerScriptService.Server, `src/client` → StarterPlayerScripts.Client.
   Ne jamais committer de `.rbxlx`.
-- `src/shared/CombatSimulation.luau` reste pur (aucune API Roblox, aucun `require`) pour
-  rester testable. Lancer `luau tests/CombatSimulation.test.luau` après chaque changement de
-  simulation ou de frame data, et ajouter un test pour chaque règle de combat nouvelle.
+- `src/shared/CombatSimulation.luau` et `src/shared/FighterAI.luau` restent purs (aucune API
+  Roblox, aucun `require`) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`
+  et `luau tests/FighterAI.test.luau` après chaque changement de simulation, d'IA ou de frame
+  data, et ajouter un test pour chaque règle de combat nouvelle.
 - Le client ne décide jamais d'un coup, de la vie ni du KO ; les effets sont cosmétiques.
 - Ne jamais affirmer avoir testé dans Roblox Studio. Pas d'ID d'asset (son, animation,
   texture) inventé.

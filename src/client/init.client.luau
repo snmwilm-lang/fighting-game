@@ -10,6 +10,7 @@ local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
 local HUDController = require(script.HUDController)
 local EffectsController = require(script.EffectsController)
+local CinematicController = require(script.CinematicController)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
@@ -17,6 +18,7 @@ local hud = HUDController.new(Config)
 local input = InputController.start(remotes:WaitForChild("Input"))
 local cameraController = CameraController.new(Config)
 local effects = EffectsController.new(Config, cameraController)
+local cinematic = CinematicController.new(Config, hud, effects)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onEffects = function()
@@ -50,6 +52,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
 	world, receivedAt = packet, os.clock()
+	cinematic:snapshot()
 	if generation ~= packet.generation or epoch ~= packet.epoch then
 		-- New match or new round: snap instead of sliding fighters back to their spawns.
 		if generation ~= packet.generation then input.clear() end
@@ -66,6 +69,11 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	if type(batch) ~= "table" then return end
 	for _, event in batch do
 		effects:onEvent(event, displayed, rigs)
+		if event.kind == "SuperFlash" then
+			cinematic:superFlash(event.attacker)
+		elseif event.kind == "Hit" and event.cinematic then
+			cinematic:onHit(event)
+		end
 		if world then hud:onEvent(event, world) end
 	end
 end)
@@ -107,12 +115,18 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		for k, v in state do
 			if k ~= "x" and k ~= "y" then current[k] = v end
 		end
+		current.ghost = nil
 		local m = MoveData.Moves[state.move]
 		if m then
 			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
 		end
 		current.victory = (world.phase == "KO" or world.phase == "MatchEnd") and (world.winner == i or world.matchWinner == i)
 			and world.phaseTicks < Config.KOTicks - 60 and state.state ~= "KO" and state.y <= 0
+	end
+	-- The ultimate cinematic stages poses/positions and owns the camera while it plays.
+	local cinematicActive = cinematic:update(world, displayed, dt, now - receivedAt > 1)
+	for i in world.fighters do
+		local current = displayed[i]
 		local rig = findRig(i)
 		if rig then
 			local pos = Vector3.new(current.x, current.y + Config.RootHeight, Config.PlaneZ)
@@ -123,8 +137,11 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
 		end
 	end
-	cameraController:update(displayed, dt)
+	if not cinematicActive then cameraController:update(displayed, dt) end
+	local localSlot = player:GetAttribute("FighterSlot") or 0
+	local mine = displayed[localSlot]
+	input.setUltimateReady(mine ~= nil and mine.meter >= MoveData.Moves.KaienRush.meterCost)
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
 end)
-print("[FightingGame] Client ready — combat, guard (F), combos (left/right click), anime presentation")
+print("[FightingGame] Client ready — combos (clics), garde F, spéciale E, ultime R + cinématique, CPU")

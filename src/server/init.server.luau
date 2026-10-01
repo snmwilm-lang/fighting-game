@@ -6,6 +6,7 @@ local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Sim = require(Shared.CombatSimulation)
+local FighterAI = require(Shared.FighterAI)
 local ArenaBuilder = require(script.ArenaBuilder)
 local RigBuilder = require(script.RigBuilder)
 
@@ -26,14 +27,25 @@ remotes.Parent = ReplicatedStorage
 
 local slots, clients = {}, {}
 local generation = 0
-local dummyBlocks = false
+-- Training dummy modes, cycled from the HUD (MANNEQUIN) or the M key.
+local DUMMY_MODES = { { name = "IMMOBILE" }, { name = "GARDE", block = true } }
+for level, data in FighterAI.Levels do
+	table.insert(DUMMY_MODES, { name = "CPU " .. data.name, level = level })
+end
+local dummyMode = 1
+local brain = nil
 for i = 1, 2 do
 	slots[i] = { model = RigBuilder.build(i, fightersFolder), owner = nil, input = Sim.neutralInput(), lastInput = 0 }
 end
 local world = Sim.newWorld(Config, MoveData, true)
 
-local function isTraining()
+local function isSolo()
 	return not (slots[1].owner and slots[2].owner)
+end
+
+-- Versus rules (rounds, timer) between two players or against the CPU; training otherwise.
+local function isTraining()
+	return isSolo() and not DUMMY_MODES[dummyMode].level
 end
 
 local function place(slot, fighter)
@@ -45,6 +57,8 @@ end
 local function resetAll()
 	generation += 1
 	Sim.resetMatch(world, isTraining())
+	local level = DUMMY_MODES[dummyMode].level
+	brain = if level and isSolo() then FighterAI.new(level, math.floor(os.clock() * 1000) + generation) else nil
 	for i, slot in slots do
 		slot.input = Sim.neutralInput()
 		place(slot, world.fighters[i])
@@ -115,7 +129,7 @@ resetAll()
 local function finite(n)
 	return typeof(n) == "number" and n == n and math.abs(n) < math.huge
 end
-local BOOLEAN_FIELDS = { "crouch", "block", "jump", "dash", "light", "heavy", "reset", "dummy" }
+local BOOLEAN_FIELDS = { "crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy" }
 inputRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -140,7 +154,8 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	end
 	if packet.dummy and solo and now - client.lastDummy > 0.3 then
 		client.lastDummy = now
-		dummyBlocks = not dummyBlocks
+		dummyMode = dummyMode % #DUMMY_MODES + 1
+		resetAll()
 	end
 	local input = slot.input
 	input.axis, input.crouch, input.block = packet.axis, packet.crouch, packet.block
@@ -149,6 +164,8 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	input.dash = input.dash or packet.dash
 	input.light = input.light or packet.light
 	input.heavy = input.heavy or packet.heavy
+	input.special = input.special or packet.special
+	input.ultimate = input.ultimate or packet.ultimate
 	slot.lastInput = now
 end)
 
@@ -160,17 +177,22 @@ local function snapshot()
 		list[i] = {
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
-			hp = f.hp, guard = f.guard, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
+			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching,
 			owner = if slot.owner then slot.owner.UserId else 0,
-			player = if slot.owner then slot.owner.DisplayName else (if dummyBlocks then "MANNEQUIN · GARDE" else "MANNEQUIN"),
+			player = if slot.owner then slot.owner.DisplayName else "MANNEQUIN · " .. DUMMY_MODES[dummyMode].name,
 			character = character.Name, skin = character.Skin,
 		}
 	end
 	snapshotRemote:FireAllClients({
 		tick = world.tick, generation = generation, epoch = world.epoch,
 		phase = world.phase, phaseTicks = world.phaseTicks, round = world.round,
-		timer = Sim.timerSeconds(world), training = world.training,
+		timer = Sim.timerSeconds(world), training = world.training, solo = isSolo(),
+		dummyMode = DUMMY_MODES[dummyMode].name,
+		cinematic = world.cinematic and {
+			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
+			tick = world.cinematic.tick, length = world.cinematic.length,
+		},
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
 		fighters = list,
 	})
@@ -187,9 +209,11 @@ RunService.Heartbeat:Connect(function(dt)
 			if slot.owner then
 				if os.clock() - slot.lastInput > Config.InputTimeout then slot.input = Sim.neutralInput() end
 				inputs[i] = slot.input
+			elseif brain then
+				inputs[i] = brain:think(world, i)
 			else
 				inputs[i] = Sim.neutralInput()
-				inputs[i].block = dummyBlocks
+				inputs[i].block = DUMMY_MODES[dummyMode].block == true
 			end
 		end
 		for _, event in Sim.step(world, inputs) do
@@ -197,7 +221,8 @@ RunService.Heartbeat:Connect(function(dt)
 			table.insert(batch, event)
 		end
 		for _, slot in slots do
-			slot.input.jump, slot.input.dash, slot.input.light, slot.input.heavy = false, false, false, false
+			local input = slot.input
+			input.jump, input.dash, input.light, input.heavy, input.special, input.ultimate = false, false, false, false, false, false
 		end
 	end
 	-- Rigs are drawn by each client from snapshots; the server only keeps them near the action.
@@ -210,4 +235,4 @@ RunService.Heartbeat:Connect(function(dt)
 		snapshot()
 	end
 end)
-print("[FightingGame] " .. Config.Version .. " ready — server-authoritative combat (classic remotes, no prediction)")
+print("[FightingGame] " .. Config.Version .. " ready — server-authoritative combat, ki meter, ultimate, CPU (classic remotes, no prediction)")

@@ -103,12 +103,40 @@ function HUD.new(config)
 		for i = 1, config.RoundsToWin do
 			local pip = new("Frame", {
 				Size = UDim2.fromOffset(12, 12), Rotation = 45, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = INK, BorderSizePixel = 0,
-				Position = if left then UDim2.new(1, -12 - (i - 1) * 20, 0, 74) else UDim2.new(0, 12 + (i - 1) * 20, 0, 74),
+				Position = if left then UDim2.new(1, -12 - (i - 1) * 20, 0, 92) else UDim2.new(0, 12 + (i - 1) * 20, 0, 92),
 			}, side)
 			stroke(pip, 2, WHITE)
 			pips[i] = pip
 		end
-		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy }
+		-- Ki meter: three bars, the count in big type, and a glow when the ultimate is ready.
+		local meter = new("Frame", {
+			Name = "Ki", BackgroundTransparency = 1, Size = UDim2.new(0.6, 0, 0, 12), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
+			Position = if left then UDim2.fromOffset(barX + 30, 70) else UDim2.new(1, -barX - 30, 0, 70),
+		}, side)
+		local segments = {}
+		for i = 1, config.MaxMeter / config.MeterBar do
+			local segment = new("Frame", {
+				BackgroundColor3 = INK, BorderSizePixel = 0, Size = UDim2.new(1 / 3, -4, 1, 0),
+				Position = if left then UDim2.new((i - 1) / 3, 0, 0, 0) else UDim2.new(1 - i / 3, 4, 0, 0),
+			}, meter)
+			stroke(segment, 1.5, energy).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			local segmentFill = new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
+				AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, segment)
+			segments[i] = segmentFill
+		end
+		local count = text(side, {
+			Name = "KiCount", Text = "0", TextSize = 30, TextColor3 = energy, Size = UDim2.fromOffset(26, 30),
+			Position = if left then UDim2.fromOffset(barX, 62) else UDim2.new(1, -barX - 26, 0, 62),
+		})
+		stroke(count, 2.5)
+		local ready = text(side, {
+			Name = "UltimateReady", Text = "ULTIME PRÊT · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
+			Size = UDim2.fromOffset(150, 14), Position = if left then UDim2.fromOffset(barX + 30, 84) else UDim2.new(1, -barX - 180, 0, 84),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+		})
+		stroke(ready, 2, energy)
+		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
+			segments = segments, kiCount = count, ready = ready }
 	end
 	local timer = new("Frame", {
 		Name = "Timer", Size = UDim2.fromOffset(62, 62), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
@@ -179,12 +207,42 @@ function HUD.new(config)
 	self.debugButton = button("Hitboxes", "HITBOX : NON", 104, function()
 		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX : OUI" else "HITBOX : NON" end
 	end)
-	self.dummyButton = button("Dummy", "MANNEQUIN", 100, function()
+	self.dummyButton = button("Dummy", "MANNEQUIN (M)", 170, function()
 		if self.onDummy then self.onDummy() end
 	end)
-	self.resetButton = button("Reset", "REPLACER (R)", 104, function()
+	self.resetButton = button("Reset", "REPLACER", 84, function()
 		if self.onReset then self.onReset() end
 	end)
+	self.combosButton = button("Combos", "COMBOS", 76, function()
+		self.combosPanel.Visible = not self.combosPanel.Visible
+	end)
+
+	-- Combo routes panel (from MoveData.Routes) plus special, ultimate and air follow-ups.
+	local panel = new("Frame", {
+		Name = "CombosPanel", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+		Size = UDim2.fromOffset(330, 300), Position = UDim2.fromOffset(12, 170),
+	}, gui)
+	stroke(panel, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 8) }, panel)
+	new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, panel)
+	local lines = { { "COMBOS  ·  L = clic gauche, R = clic droit", RED } }
+	for _, route in MoveData.Routes do
+		local names = {}
+		for _, id in route.moves do table.insert(names, MoveData.Moves[id].name) end
+		table.insert(lines, { route.keys .. "  →  " .. table.concat(names, " > "), WHITE })
+	end
+	table.insert(lines, { "↓ + L : KICK BAS (garde basse)  ·  ↓ + R : LANCEUR", WHITE })
+	table.insert(lines, { "Après LANCEUR : ESPACE puis L L R en l'air", WHITE })
+	table.insert(lines, { "E après un coup : RISING STRIKE (invincible)", Color3.fromHex("FFB938") })
+	table.insert(lines, { "R (2 barres de ki) : KAIEN RUSH → cinématique", Color3.fromHex("FF2A3D") })
+	table.insert(lines, { "1 seul effondrement, rebond sol et rebond mur par combo", Color3.fromHex("B9B9C2") })
+	for i, line in lines do
+		local l = text(panel, { Text = line[1], TextColor3 = line[2], Font = if i == 1 then DISPLAY else UI_FONT,
+			TextSize = if i == 1 then 20 else 12, Size = UDim2.new(1, -10, 0, if i == 1 then 24 else 20),
+			TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = i, TextWrapped = true })
+		l.AutomaticSize = Enum.AutomaticSize.Y
+	end
+	self.combosPanel = panel
 
 	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -30), TextSize = 13,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("D6D6DC") })
@@ -193,8 +251,8 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK : bouger · A : saut · ↓ : bas · X : coup (combo) · B : lourd / finisher · RB : garde · RT : dash · SELECT : replacer"
-			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : combo · CLIC D : lourd / finisher · F : garde · SHIFT : dash · R : replacer"
+			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · RB : garde · RT : dash · SELECT : replacer"
+			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · F : garde · SHIFT : dash"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -273,17 +331,27 @@ function HUD:update(world, views, fps, dt)
 		for i, pip in bar.pips do
 			pip.BackgroundColor3 = if view.wins >= i then bar.energy else INK
 		end
+		local bars = self.config.MeterBar
+		for i, segment in bar.segments do
+			segment.Size = UDim2.fromScale(math.clamp((view.meter - (i - 1) * bars) / bars, 0, 1), 1)
+		end
+		bar.kiCount.Text = tostring(math.floor(view.meter / bars))
+		local ready = view.meter >= MoveData.Moves.KaienRush.meterCost
+		bar.ready.Visible = ready
+		if ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
 	for _, c in self.combo do
 		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end
 	end
 	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
 	self.round.Text = if world.training then "ENTRAÎNEMENT" else "ROUND " .. world.round
-	local solo = world.training
+	local solo = world.solo
 	self.resetButton.Visible = solo and localSlot > 0
 	self.dummyButton.Visible = solo and localSlot > 0
+	self.dummyButton.Text = "MANNEQUIN : " .. world.dummyMode .. " (M)"
 	self.status.Text = string.format("v%s · %s · %d FPS", self.config.Version,
-		if localSlot == 0 then "SPECTATEUR" elseif solo then "ENTRAÎNEMENT" else "VERSUS", math.floor(fps + 0.5))
+		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"
+			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5))
 end
 
 return HUD

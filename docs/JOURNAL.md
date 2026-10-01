@@ -1,11 +1,11 @@
 # Journal du projet — état à transmettre
 
-## Version 0.2.0 — 1er octobre 2026
+## Version 0.3.0 — 1er octobre 2026
 
-**Phase :** sur demande de Wilhem, la livraison regroupe le cœur des phases 2 à 4 (coups,
-garde, rounds, combos) et un premier essai visuel de la phase 5, au-dessus de la phase 1 de
-ChatGPT. Le cahier des charges prévoyait d'attendre un rapport de test entre chaque phase :
-**rien de cette version n'a encore été lancé dans Roblox Studio.**
+**Phase :** à la demande de Wilhem, au-dessus de la 0.2.0 : arbre de combos clic gauche /
+clic droit, jauge de ki, compétence spéciale (E), ultime (R) avec cinématique, mannequin
+CPU à 4 niveaux. **Rien n'a encore été lancé dans Roblox Studio** (ni la 0.2.0 ni la 0.3.0) :
+un rapport de test est attendu avant la suite.
 
 ### Architecture réseau retenue
 
@@ -14,102 +14,143 @@ Prototype **classique** : `RemoteEvent` + simulation autoritaire côté serveur 
 inputs validés et affiche des snapshots (30/s) avec une légère extrapolation. **Pas de
 prédiction client ni de rollback** : le joueur ressent la latence réseau sur ses propres
 actions. Input Action System et Server Authority n'ont pas été vérifiés (pas d'accès à
-Studio) ; à réévaluer avant la phase 7.
+Studio) ; à réévaluer avant la phase 7. Le CPU tourne sur le serveur et envoie les mêmes
+inputs qu'un joueur : il obéit aux mêmes règles.
 
 ### Fichiers
 
 | Chemin Rojo | Instance dans Studio | Rôle |
 |---|---|---|
-| `src/shared/CombatConfig.luau` | ReplicatedStorage.Shared.CombatConfig | Valeurs globales (ticks, vitesses, garde, rounds) |
-| `src/shared/MoveData.luau` | …Shared.MoveData | Frame data des coups, cancels, hitboxes |
-| `src/shared/CombatSimulation.luau` | …Shared.CombatSimulation | Simulation pure : mouvement, coups, garde, combos, rounds |
+| `src/shared/CombatConfig.luau` | ReplicatedStorage.Shared.CombatConfig | Valeurs globales (ticks, vitesses, garde, ki, rounds) |
+| `src/shared/MoveData.luau` | …Shared.MoveData | Frame data, routes de combo, script de la cinématique |
+| `src/shared/CombatSimulation.luau` | …Shared.CombatSimulation | Simulation pure : mouvement, coups, garde, combos, ki, ultime, rounds |
+| `src/shared/FighterAI.luau` | …Shared.FighterAI | CPU pur (4 niveaux), produit des inputs |
 | `src/shared/CharacterData.luau` | …Shared.CharacterData | KAI 開, skins CLASSIQUE (P1) et NUIT (P2) |
 | `src/shared/InputConfig.luau` | …Shared.InputConfig | Bindings clavier/souris/manette |
-| `src/server/init.server.luau` | ServerScriptService.Server | Slots joueurs/mannequin, validation des inputs, boucle 60 Hz, snapshots, événements |
+| `src/server/init.server.luau` | ServerScriptService.Server | Slots, modes du mannequin, validation, boucle 60 Hz, snapshots, événements |
 | `src/server/ArenaBuilder.luau` | Server.ArenaBuilder | Arène « Temple écarlate » + éclairage |
 | `src/server/RigBuilder.luau` | Server.RigBuilder | Rig R15 en blocs de KAI (15 Motor6D) |
 | `src/client/init.client.luau` | StarterPlayerScripts.Client | Affichage, interpolation, branchements |
 | `src/client/InputController.luau` | Client.InputController | Adaptateur d'inputs (clavier, souris, manette, tactile) |
 | `src/client/AnimationController.luau` | Client.AnimationController | Seul écrivain des Motor6D ; poses par paliers |
-| `src/client/EffectsController.luau` | Client.EffectsController | VFX : étincelles, smears, bouclier, impact frames, afterimages, debug hitbox |
+| `src/client/EffectsController.luau` | Client.EffectsController | VFX : étincelles, smears, bouclier, impact frames, afterimages, aura, debug hitbox |
+| `src/client/CinematicController.luau` | Client.CinematicController | Cut-in du super flash, cinématique de l'ultime, retour caméra garanti |
 | `src/client/CameraController.luau` | Client.CameraController | Caméra latérale, secousse, zoom d'impact |
-| `src/client/HUDController.luau` | Client.HUDController | Barres de vie/garde, chrono, combos, annonces |
-| `tests/CombatSimulation.test.luau` | — | Tests hors ligne de la simulation |
-
-`Movement.luau` (phase 1) a été fusionné dans `CombatSimulation.luau` pour que la
-simulation soit testable sans `require` Roblox.
+| `src/client/HUDController.luau` | Client.HUDController | Vie, garde, ki, chrono, combos, annonces, panneau COMBOS |
+| `tests/CombatSimulation.test.luau` | — | 30 tests de la simulation |
+| `tests/FighterAI.test.luau` | — | 6 tests du CPU |
+| `tests/TestKit.luau` | — | Aides de test |
 
 ### Conventions
 
 - X = gauche/droite, Y = hauteur, Z verrouillé à 0. 1 tick = 1/60 s.
 - Un coup dure `startup + active + recovery` ticks, la frame 1 étant le tick où il démarre.
   La hitbox existe pour `startup < frame ≤ startup + active` et ne touche qu'une fois.
-- Le hitstop gèle tout le combattant (frames du coup, stun) : les fenêtres actives
-  n'avancent pas pendant le gel.
+- Le hitstop et le super flash gèlent les combattants (frames, stun) : aucune fenêtre
+  n'avance pendant le gel.
+- Les appuis sont mis en file (3 max, 12 ticks de vie, gelés pendant le hitstop) et joués
+  dans l'ordre tapé.
 - L'orientation est verrouillée pendant les attaques, stuns, dashs et sauts.
 - Hurtbox, hitbox et pushbox sont séparées et purement logiques (pas de `Touched`).
-- Le client ne décide jamais d'un coup, de la vie, de la garde ni d'un KO.
+- Le client ne décide jamais d'un coup, de la vie, du ki ni d'un KO. La cinématique est un
+  script autoritaire (coups à des ticks fixes) ; le client ne fait que la mettre en scène.
 
 ### Gameplay
 
-- **Clic gauche** : JAB → CROSS → COUDE → KICK. Chaque coup s'enchaîne si le précédent a
-  touché ou a été bloqué (buffer de 8 ticks).
-- **Clic droit** : seul, FRAPPE LOURDE (grosse dégradation de garde). Après JAB, CROSS,
-  COUDE ou KICK, RISING STRIKE envoie l'adversaire en l'air → chute → knockdown
-  (invulnérable), relevé.
-- En l'air, clic gauche ou droit : KICK AÉRIEN (overhead : non bloquable en garde basse).
-- **F maintenu** : garde. Elle réduit les dégâts à 15 % (jamais de KO en garde), vide la
-  jauge de garde ; à 0, GUARD BREAK (55 ticks sans défense).
-- Combos : réduction de dégâts ×0,9 par coup déjà pris (minimum ×0,4). Jonglage limité à
-  3 coups aériens.
-- Rounds : 99 s, 2 rounds gagnants. Timeout : le plus de vie gagne. Double KO ou égalité :
-  le round compte pour les deux ; si les deux atteignent 2, match nul.
-- Entraînement (seul) : mannequin, pas de chrono, vie qui se recharge après le combo,
-  bouton MANNEQUIN pour le faire garder, R pour replacer.
+**Combos** (L = clic gauche, R = clic droit) — un coup s'enchaîne si le précédent a touché
+ou a été bloqué :
 
-| Coup | Startup | Actif | Récup. | Dégâts | Hitstun | Blockstun | Hitstop |
+| Touches | Route | Effet |
+|---|---|---|
+| L L L L | JAB > CROSS > COUDE > KICK | chute |
+| L L R | JAB > CROSS > LANCEUR | lance ; Espace = super saut, puis L L R aérien (KICK AÉRIEN > DOUBLE KICK > MÉTÉORE) |
+| L R | JAB > COUP AU FOIE | effondrement (52 ticks) pour relancer un combo |
+| L L L R | JAB > CROSS > COUDE > TALON TOURNOYANT | rebond au mur |
+| R R | FRAPPE LOURDE > HACHE CÉLESTE | overhead, rebond au sol |
+| R L | FRAPPE LOURDE > BALAYAGE | coup bas, chute |
+| ↓L / ↓R | KICK BAS / LANCEUR | KICK BAS > CROSS > … |
+| tout normal > E | RISING STRIKE | spéciale invincible (frames 1-10), lance |
+| tout coup > R | KAIEN RUSH | ultime, 2 barres |
+
+Règles anti-boucle : réduction ×0,9 par coup déjà pris (min ×0,4 ; ×0,5 pour l'ultime),
+6 coups aériens maximum, un seul effondrement / rebond sol / rebond mur par combo.
+
+**Ki** : 3 barres (300). Gain : 50 % des dégâts infligés, 30 % des dégâts reçus, 25 % / 20 %
+sur garde. Conservé entre les rounds, remis à 0 à chaque nouveau match. Plein en
+entraînement après chaque combo.
+
+**Ultime KAIEN RUSH** (touche R, 2 barres) : super flash de 40 ticks (cut-in), ruée
+invincible ; si ça touche : cinématique de 150 ticks, 11 coups + coup final (dégâts réduits
+×0,5 au minimum), adversaire projeté. Le chrono est en pause et le round ne peut se finir
+qu'après la cinématique. Bloqué ou raté : pas de cinématique, longue récupération.
+
+**Garde (F)** : 15 % des dégâts (jamais de KO en garde), jauge de garde, GUARD BREAK à 0.
+Garde basse (F + S) contre les coups bas, debout contre les overheads.
+
+**Mannequin** (touche M ou bouton) : IMMOBILE → GARDE → CPU FACILE → NORMAL → DIFFICILE →
+LÉGENDE. Les modes CPU jouent en règles versus (rounds, chrono). Le CPU perçoit avec un
+délai (24 / 16 / 10 / 6 ticks), garde par réaction et par anticipation, contre les sauts
+avec la spéciale, punit les coups ratés, choisit des routes de combo selon son niveau et
+utilise l'ultime (NORMAL et au-dessus).
+
+Résultats hors ligne CPU contre CPU (3 matchs de 4 min par duel) : LÉGENDE bat FACILE 15-0,
+NORMAL 13-0, DIFFICILE 7-1 ; DIFFICILE bat NORMAL 11-0 ; NORMAL bat FACILE 11-0.
+
+| Coup | Startup | Actif | Récup. | Dégâts | Hitstun | Garde | Propriétés |
 |---|---|---|---|---|---|---|---|
-| JAB | 5 | 3 | 9 | 45 | 17 | 11 | 6 |
-| CROSS | 6 | 3 | 11 | 55 | 19 | 12 | 7 |
-| COUDE | 6 | 3 | 13 | 60 | 21 | 13 | 8 |
-| KICK | 8 | 4 | 17 | 75 | 24 | 14 | 9 |
-| FRAPPE LOURDE | 13 | 4 | 22 | 120 | 26 | 16 | 11 |
-| RISING STRIKE | 9 | 5 | 24 | 100 | 30 | 15 | 12 |
-| KICK AÉRIEN | 6 | 8 | 10 | 65 | 20 | 12 | 8 |
+| JAB | 5 | 3 | 9 | 45 | 17 | Mid | |
+| CROSS | 6 | 3 | 11 | 55 | 19 | Mid | |
+| COUDE | 6 | 3 | 13 | 60 | 21 | Mid | |
+| KICK | 8 | 4 | 18 | 80 | 24 | Mid | lance (chute) |
+| COUP AU FOIE | 9 | 3 | 16 | 70 | 22 | Mid | effondrement |
+| LANCEUR | 8 | 4 | 22 | 70 | 26 | Mid | lance, saut-cancel |
+| TALON TOURNOYANT | 10 | 3 | 22 | 95 | 26 | Mid | lance, rebond mur |
+| FRAPPE LOURDE | 13 | 4 | 22 | 110 | 26 | Mid | grosse usure de garde |
+| HACHE CÉLESTE | 12 | 4 | 20 | 90 | 28 | High | rebond sol |
+| BALAYAGE | 9 | 4 | 20 | 60 | 22 | Low | chute |
+| KICK BAS | 5 | 3 | 10 | 35 | 16 | Low | |
+| KICK AÉRIEN | 6 | 6 | 10 | 55 | 20 | High | |
+| DOUBLE KICK | 6 | 4 | 12 | 55 | 20 | High | |
+| MÉTÉORE | 9 | 5 | 14 | 80 | 24 | High | smash vers le sol, rebond |
+| RISING STRIKE | 9 | 5 | 26 | 100 | 30 | Mid | lance, saut-cancel, invincible 1-10 |
+| KAIEN RUSH | 8 | 10 | 36 | 30 (+ cinématique) | 40 | Mid | invincible 1-12, 2 barres |
 
-Vie : 1000. Toutes ces valeurs sont des points de départ à régler en jeu.
+Vie : 1000. Route la plus forte mesurée : L L L E puis R ≈ 480 dégâts (2 barres). Toutes
+ces valeurs sont des points de départ à régler en jeu.
 
 ### Direction artistique appliquée
 
-D'après la planche « KAI 開 » de Wilhem : noir / blanc / rouge, gilet sans manches ouvert,
+Planches « KAI 開 » et roster de Wilhem : noir / blanc / rouge, gilet sans manches ouvert,
 débardeur blanc, ceinture rouge, bandages, pantalon large, cheveux noirs en pointes à
-mèches rouges. P2 = skin NUIT (bleu). Contour encre via `Highlight`. Poses maintenues par
-paliers (12/15/24/s ou fluide, bouton POSES) ; les poses d'attaque changent dès que l'état
-de combat change. Étincelles manga, smear rouge sur les coups lourds, bouclier bleu/violet
-en garde, impact frames noir/blanc/rouge, afterimages au dash, aura de ki. Bouton EFFETS
-pour réduire flashs et secousses (réduit par défaut sur mobile).
+mèches rouges. P2 = skin NUIT (bleu). Contour encre via `Highlight`. Poses par paliers
+(12/15/24/s ou fluide). Étincelles manga, smears par coup lourd, bouclier bleu/violet,
+impact frames noir/blanc/rouge, afterimages (dash et téléportations de l'ultime), aura de
+ki, cut-in diagonal du super, bandes cinéma, plans de caméra coupés « à l'anime ».
+Bouton EFFETS : réduit flashs et secousses (réduit par défaut sur mobile).
 
 ### Tests
 
 | Test | État |
 |---|---|
-| Simulation hors ligne (`luau tests/CombatSimulation.test.luau`) : 17 tests (coup unique, hitstop, garde, overhead, combo 5 coups, knockdown, guard break, orientation verrouillée, coin, KO unique, timeout, double KO, fin de match, recharge entraînement, pushbox) | ✅ passés |
-| Compilation Luau de tous les scripts | ✅ |
-| Jeu dans Studio (solo, 2 clients, manette, tactile, téléphone) | ❌ non exécuté |
-| Rendu visuel (rig, cheveux, poses, arène, effets) | ❌ non vérifié, valeurs à ajuster |
+| `luau tests/CombatSimulation.test.luau` (30 tests : chaque route de combo, file d'appuis, garde haute/basse, ki, ultime et cinématique, rebonds, effondrement, saut-cancel, invincibilité, rounds, KO, timeout, double KO…) | ✅ passés |
+| `luau tests/FighterAI.test.luau` (6 tests : chaque niveau inflige des dégâts, matchs complets sans erreur, hiérarchie des niveaux, garde, routes et ultime, déterminisme) | ✅ passés |
+| Compilation + analyse Luau de tous les scripts | ✅ |
+| Jeu dans Studio (solo, CPU, 2 clients, manette, tactile, téléphone) | ❌ non exécuté |
+| Rendu visuel (rig, poses, cinématique, cut-in, HUD) | ❌ non vérifié, valeurs à ajuster |
 
 ### Problèmes ouverts / risques
 
 - Aucune prédiction client : délai entrée → action égal au ping + jusqu'à 33 ms.
-- Les poses et ornements (cheveux, gilet) sont estimés sans rendu : angles probablement à
-  retoucher.
+- Poses, angles caméra de la cinématique et ornements estimés sans rendu : à retoucher.
 - Pas de sons (aucun ID d'asset inventé) : prévoir des SFX fournis par Wilhem.
 - `UserInputService.PreferredInput` (texte d'aide) à confirmer dans le Studio utilisé.
-- Garde haute/basse : seul le KICK AÉRIEN est « High » ; aucun coup « Low » pour l'instant.
+- Sur mobile, la rangée de boutons du HUD peut déborder sur petit écran.
+- Accès GitHub de Claude refusé (403) : les commits n'ont pas pu être poussés.
 
 ### Prochaine étape proposée
 
-1. Wilhem teste dans Studio (solo puis Server & Clients à 2) et renvoie le rapport : Output
-   complet, captures, courte vidéo.
-2. Corrections de poses / ressenti, puis SFX.
-3. Ensuite : prise, spéciale/ultime (KAIEN RUSH), écran de sélection des skins.
+1. Wilhem teste dans Studio (entraînement, chaque niveau CPU, puis 2 clients) et renvoie le
+   rapport : Output complet, captures, courte vidéo de la cinématique.
+2. Corrections de poses / ressenti / équilibrage, puis SFX.
+3. Ensuite, d'après le roster : sélection de personnage (RYUEN, ZEPHYR, KARA, DAIGO, SORA,
+   AKEMI, TARO) et environnements (ville néon, cascade, torii de nuit).

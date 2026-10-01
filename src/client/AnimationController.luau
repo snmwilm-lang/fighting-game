@@ -97,6 +97,17 @@ local Poses = {
 		RightShoulder = { 172, 0, 8 }, RightElbow = { 15, 0, 0 },
 		LeftShoulder = { 10, 0, -15 }, LeftElbow = { 70, 0, 0 },
 	}),
+	Crumple = merge(legs(75, -125, 40, -100, -12, 12), {
+		Root = { 0, 0, 0, -1.25, 0.1 }, Waist = { -48, 0, 8 }, Neck = { 35, 0, 0 },
+		LeftShoulder = { -8, 0, -12 }, LeftElbow = { 15, 0, 0 },
+		RightShoulder = { 25, 0, 15 }, RightElbow = { 60, 0, 0 },
+	}),
+	-- Super flash: kiai, fists at the hips, chest out.
+	Kiai = merge(legs(28, -40, -28, -40, -20, 20), {
+		Root = { 0, 0, 0, -0.55, 0 }, Waist = { 14, 0, 0 }, Neck = { -18, 0, 0 },
+		LeftShoulder = { 18, 0, -42 }, LeftElbow = { 105, 0, 0 },
+		RightShoulder = { 18, 0, 42 }, RightElbow = { 105, 0, 0 },
+	}),
 	-- Attacks: Startup (anticipation), Active (contact pose), Recovery.
 	Jab = {
 		Startup = merge(STANCE, { Waist = { -8, 22, 0 }, LeftShoulder = { 70, 0, -6 }, LeftElbow = { 120, 0, 0 } }),
@@ -123,6 +134,86 @@ local Poses = {
 			LeftShoulder = { 40, 0, -25 }, LeftElbow = { 110, 0, 0 },
 		}),
 		Recovery = merge(STANCE, { Waist = { -10, 22, 0 }, RightShoulder = { 65, 0, 0 }, RightElbow = { 110, 0, 0 } }),
+	},
+	BodyBlow = {
+		Startup = merge(STANCE, {
+			Root = { 0, 0, 0, -0.5, 0.2 }, Waist = { -10, -35, 0 },
+			RightShoulder = { -20, 0, 30 }, RightElbow = { 100, 0, 0 },
+		}),
+		Active = merge(legs(55, -75, -35, -15), {
+			Root = { 0, 0, 0, -0.75, -0.6 }, Waist = { -28, 42, 0 }, Neck = { 15, -20, 0 },
+			RightShoulder = { 55, 0, -22 }, RightElbow = { 75, 0, 0 },
+			LeftShoulder = { 70, 0, -10 }, LeftElbow = { 110, 0, 0 },
+		}),
+		Recovery = merge(STANCE, { Waist = { -16, 20, 0 }, RightShoulder = { 45, 0, 0 }, RightElbow = { 80, 0, 0 } }),
+	},
+	Uppercut = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), {
+			Waist = { -25, -25, 0 }, RightShoulder = { 10, 0, 25 }, RightElbow = { 120, 0, 0 },
+		}),
+		Active = merge(legs(30, -25, -20, -30), {
+			Root = { 0, 0, 0, 0, -0.2 }, Waist = { 10, 30, 0 }, Neck = { -22, 0, 0 },
+			RightShoulder = { 168, 0, -8 }, RightElbow = { 22, 0, 0 },
+			LeftShoulder = { 45, 0, -30 }, LeftElbow = { 95, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(25, -30, -10, -25)),
+	},
+	SpinKick = {
+		Startup = merge(STANCE, { Root = { 0, 90, 0, -0.3, 0 }, Waist = { 5, -40, 0 }, Neck = { 0, 70, 0 } }),
+		Active = merge(legs(18, -20, -95, -4), {
+			Root = { 0, 175, 0, -0.15, 0 }, Waist = { 22, 0, 0 }, Neck = { -10, 150, 0 },
+			RightAnkle = { 60, 0, 0 },
+			LeftShoulder = { 30, 0, -50 }, RightShoulder = { 20, 0, 55 },
+		}),
+		Recovery = merge(STANCE, { Root = { 0, 30, 0, -0.25, 0 } }),
+	},
+	Hammer = {
+		Startup = merge(STANCE, merge(legs(-6, -12, 155, -10), {
+			Root = { 0, 0, 0, 0.1, 0.2 }, Waist = { 18, 0, 0 },
+			LeftShoulder = { 40, 0, -60 }, RightShoulder = { 40, 0, 60 },
+		})),
+		Active = merge(legs(-4, -10, 62, 0), {
+			Root = { 0, 0, 0, -0.2, -0.4 }, Waist = { -28, 0, 0 }, Neck = { 20, 0, 0 },
+			LeftShoulder = { -20, 0, -55 }, RightShoulder = { -20, 0, 55 },
+			LeftElbow = { 20, 0, 0 }, RightElbow = { 20, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(20, -30, 30, -50)),
+	},
+	Sweep = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Root = { 0, 0, 0, -1.3, 0 }, Waist = { -30, -30, 0 } }),
+		Active = merge(legs(105, -145, 84, 0), {
+			Root = { 0, 0, 0, -1.65, 0.3 }, Waist = { -18, 40, 0 }, Neck = { 25, -30, 0 },
+			LeftShoulder = { 45, 0, -50 }, LeftElbow = { 20, 0, 0 },
+			RightShoulder = { 40, 0, 40 }, RightElbow = { 20, 0, 0 },
+		}),
+		Recovery = merge(STANCE, CROUCH_LEGS),
+	},
+	LowKick = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { RightHip = { 50, 0, 5 }, RightKnee = { -90, 0, 0 } }),
+		Active = merge(merge(STANCE, CROUCH_LEGS), {
+			Waist = { -10, -20, 0 }, RightHip = { 82, 0, 5 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -30, 0, 0 },
+		}),
+		Recovery = merge(STANCE, CROUCH_LEGS),
+	},
+	AirKick2 = {
+		Startup = merge(STANCE, legs(80, -115, 95, -125)),
+		Active = merge(legs(58, -2, 85, -125), {
+			Root = { -28, 0, 0, 0, 0 }, Waist = { -10, 15, 0 }, Neck = { 30, 0, 0 },
+			LeftShoulder = { -30, 0, -35 }, RightShoulder = { -40, 0, 35 },
+		}),
+		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
+	},
+	AirSmash = {
+		Startup = merge(STANCE, merge(legs(70, -110, 60, -100), {
+			Waist = { 15, 0, 0 }, LeftShoulder = { 175, 0, 15 }, RightShoulder = { 175, 0, -15 },
+			LeftElbow = { 40, 0, 0 }, RightElbow = { 40, 0, 0 },
+		})),
+		Active = merge(legs(40, -60, 20, -40), {
+			Root = { -40, 0, 0, 0, 0 }, Waist = { -25, 0, 0 }, Neck = { 30, 0, 0 },
+			LeftShoulder = { 70, 0, 12 }, RightShoulder = { 70, 0, -12 },
+			LeftElbow = { 0, 0, 0 }, RightElbow = { 0, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
 	},
 	Kick = {
 		Startup = merge(STANCE, merge(legs(-8, -12, 85, -115), { Waist = { 0, -22, 0 } })),
@@ -168,6 +259,8 @@ local Poses = {
 		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
 	},
 }
+
+Poses.KaienRush = { Startup = Poses.Kiai, Active = Poses.Smash.Active, Recovery = Poses.Smash.Recovery }
 
 local function lerpPose(a, b, t)
 	local out = {}
@@ -227,6 +320,8 @@ function AnimationController:update(view, time, poseRate)
 		pose, key = Poses.Blockstun, state
 	elseif state == "Hitstun" then
 		pose, key = Poses.Hitstun, state
+	elseif state == "Crumple" then
+		pose, key = Poses.Crumple, state
 	elseif state == "GuardBroken" then
 		pose, key = Poses.GuardBroken, state
 	elseif state == "Launched" then
@@ -239,7 +334,8 @@ function AnimationController:update(view, time, poseRate)
 		pose, key = cycle(Poses.Idle, stepped, 0.9), "Idle" .. stepped
 	end
 	-- Impact shake on the defender while hitstop holds the contact pose.
-	local shaking = view.hitstop > 0 and (state == "Hitstun" or state == "Launched" or state == "Blockstun" or state == "KO")
+	local shaking = view.hitstop > 0 and (state == "Hitstun" or state == "Launched" or state == "Blockstun"
+		or state == "KO" or state == "Crumple")
 	local jitter = if shaking then (math.floor(time * 60) % 2 * 2 - 1) * 0.12 else 0
 	if key == self.lastKey and jitter == self.shake then return end
 	self.lastKey, self.shake = key, jitter

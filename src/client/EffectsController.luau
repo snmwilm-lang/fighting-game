@@ -99,6 +99,13 @@ function EffectsController:slash(fighter, moveId, color)
 		Kick = { from = -70, to = 55, radius = 3.4, height = 3 },
 		Smash = { from = -25, to = 25, radius = 3.9, height = 3.8 },
 		Rising = { from = -80, to = 105, radius = 2.9, height = 3.2 },
+		Uppercut = { from = -80, to = 100, radius = 2.8, height = 3 },
+		SpinKick = { from = -35, to = 45, radius = 3.9, height = 3 },
+		Hammer = { from = 115, to = -25, radius = 3.4, height = 3.2 },
+		Sweep = { from = -75, to = -8, radius = 4, height = 1.1 },
+		AirSmash = { from = 70, to = -70, radius = 3, height = 1.6 },
+		BodyBlow = { from = -45, to = 5, radius = 3.2, height = 2.6 },
+		KaienRush = { from = -25, to = 25, radius = 3.9, height = 3.8 },
 	}
 	local arc = arcs[moveId]
 	if not arc then return end
@@ -117,7 +124,7 @@ function EffectsController:slash(fighter, moveId, color)
 		tween(seg, 0.22, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 1, 1.15) })
 		Debris:AddItem(seg, 0.25)
 	end
-	if moveId == "Smash" then -- speed streaks ahead of the fist
+	if moveId == "Smash" or moveId == "KaienRush" then -- speed streaks ahead of the fist
 		for i = 1, if self.reduced then 3 else 6 do
 			local y = cy + (math.random() - 0.5) * 2.2
 			local start = Vector3.new(fighter.x + fighter.facing * 1.5, y, 1.2)
@@ -220,8 +227,12 @@ function EffectsController:update(slot, view, rig, previous, now)
 			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.2)
 		end
 	end
-	if rig.aura and phase == "Startup" and (view.move == "Smash" or view.move == "Rising") then
+	if rig.aura and phase == "Startup" and (view.move == "Smash" or view.move == "Rising" or view.move == "Uppercut"
+		or view.move == "Hammer" or view.move == "KaienRush") then
 		rig.aura:Emit(if self.reduced then 1 else 3)
+	end
+	if view.ghost and previous and previous.key ~= key then
+		self:afterimage(rig, color)
 	end
 	if view.state == "Dashing" and now - (self.ghostClock[slot] or 0) > 0.045 then
 		self.ghostClock[slot] = now
@@ -232,6 +243,26 @@ function EffectsController:update(slot, view, rig, previous, now)
 end
 
 function EffectsController:onEvent(event, views, rigs)
+	if event.kind == "GroundBounce" or event.kind == "WallBounce" then
+		local x = if event.kind == "WallBounce" then math.clamp(event.x, self.config.ArenaMinX, self.config.ArenaMaxX) else event.x
+		self:dust(x, if event.kind == "WallBounce" then event.y + 2 else 0, 1)
+		self:spark(Vector3.new(x, event.y + 1, 0), WHITE, 1.1)
+		self.camera:shake(if self.reduced then 0.2 else 0.45, 0.22)
+		return
+	elseif event.kind == "SuperJump" then
+		local v = views[event.attacker]
+		if v then self:dust(v.x, 0, v.facing) end
+		return
+	elseif event.kind == "SuperFlash" then
+		local rig = rigs[event.attacker]
+		local v = views[event.attacker]
+		if rig and rig.aura then rig.aura:Emit(if self.reduced then 15 else 45) end
+		if v then
+			self:spark(Vector3.new(v.x, v.y + 3.5, 0), self:energy(event.attacker), 2.2)
+			self.camera:punch(0.35, Vector3.new(v.x, v.y + 3.5, 0))
+		end
+		return
+	end
 	if event.kind == "Hit" or event.kind == "Block" or event.kind == "GuardBreak" then
 		local attackerColor = self:energy(event.attacker)
 		local position = Vector3.new(event.x, event.y, 0)
@@ -243,7 +274,7 @@ function EffectsController:onEvent(event, views, rigs)
 			if rigs[event.defender] then self:flash(rigs[event.defender]) end
 			self.camera:shake((if heavy then 0.5 else 0.18) * shakeScale, if heavy then 0.25 else 0.12)
 			if heavy then
-				self:impactFrame(attackerColor, if event.ko then 2 else 1)
+				self:impactFrame(attackerColor, if event.ko or event.cinematic then 2 else 1)
 				self.camera:punch(if event.ko then 0.45 else 0.12, position)
 			end
 		else

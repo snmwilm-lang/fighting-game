@@ -1,5 +1,5 @@
 --[[
-	Frame data for every attack. Pure data, read by the authoritative simulation and by the
+	Frame data and combo routes. Pure data, read by the authoritative simulation and by the
 	client for presentation only.
 
 	Timeline of a move lasting startup + active + recovery ticks, frame counted from 1:
@@ -8,93 +8,195 @@
 	  startup + active + 1 .. total       recovery
 	The move ends after its last recovery tick. Hitstop suspends the frame counter.
 
-	hitbox: offsets from the attacker, along its facing (near/far) and above its feet (low/high).
-	guard: "Mid" is blocked standing or crouching, "High" only standing, "Low" only crouching.
-	cancels: button -> move id, allowed once the move made contact (hit or block).
+	Fields
+	  hitbox      offsets from the attacker along its facing (near/far) and above its feet (low/high)
+	  guard       "Mid" blocked standing or crouching, "High" only standing, "Low" only crouching
+	  cancels     button -> move id, allowed once the move made contact (hit or block)
+	  launch      vertical velocity given to the target; launched targets fall into a knockdown
+	  crumple     long collapsing hitstun, once per combo
+	  groundBounce / wallBounce   once per combo, the target bounces and stays juggleable
+	  knockdown   the target falls even when hit on the ground
+	  jumpCancel  on hit, jumping during recovery cancels the move (follow the launched target)
+	  invuln      { from, to } frames during which the user cannot be hit
+	  meterCost   ki meter spent to start the move
+	  heavy       presentation hint for bigger effects
 	Blocked hits deal damage * CombatConfig.BlockDamageRatio and can never KO.
-	launch: vertical velocity given to the target; launched targets fall into a knockdown.
-	heavy: presentation hint for bigger effects.
+	Any grounded normal cancels into the special (E) on contact; any normal or special cancels
+	into the ultimate (R) on contact when the meter allows it.
 ]]
 
 local MoveData = {}
 
+local function move(data)
+	data.hitbox = table.freeze(data.hitbox)
+	if data.cancels then data.cancels = table.freeze(data.cancels) end
+	if data.invuln then data.invuln = table.freeze(data.invuln) end
+	data.lunge = data.lunge or 0
+	data.launch = data.launch or 0
+	data.guard = data.guard or "Mid"
+	data.kind = data.kind or "Normal"
+	return table.freeze(data)
+end
+
 MoveData.Moves = table.freeze({
-	Jab = table.freeze({
+	-- Left-click chain: JAB > CROSS > COUDE > KICK
+	Jab = move({
 		id = "Jab", name = "JAB", startup = 5, active = 3, recovery = 9,
-		damage = 45, guardDamage = 6,
-		hitstun = 17, blockstun = 11, hitstop = 6,
-		push = 10, blockPush = 12, lunge = 4, launch = 0,
-		hitbox = table.freeze({ near = 0.4, far = 3.6, low = 2.6, high = 4.6 }),
-		guard = "Mid",
-		cancels = table.freeze({ Light = "Cross", Heavy = "Rising" }),
+		damage = 45, guardDamage = 6, hitstun = 17, blockstun = 11, hitstop = 6,
+		push = 10, blockPush = 12, lunge = 4,
+		hitbox = { near = 0.4, far = 3.6, low = 2.6, high = 4.6 },
+		cancels = { Light = "Cross", Heavy = "BodyBlow" },
 	}),
-	Cross = table.freeze({
+	Cross = move({
 		id = "Cross", name = "CROSS", startup = 6, active = 3, recovery = 11,
-		damage = 55, guardDamage = 8,
-		hitstun = 19, blockstun = 12, hitstop = 7,
-		push = 11, blockPush = 13, lunge = 7, launch = 0,
-		hitbox = table.freeze({ near = 0.4, far = 3.9, low = 2.6, high = 4.6 }),
-		guard = "Mid",
-		cancels = table.freeze({ Light = "Elbow", Heavy = "Rising" }),
+		damage = 55, guardDamage = 8, hitstun = 19, blockstun = 12, hitstop = 7,
+		push = 11, blockPush = 13, lunge = 7,
+		hitbox = { near = 0.4, far = 3.9, low = 2.6, high = 4.6 },
+		cancels = { Light = "Elbow", Heavy = "Uppercut" },
 	}),
-	Elbow = table.freeze({
+	Elbow = move({
 		id = "Elbow", name = "COUDE", startup = 6, active = 3, recovery = 13,
-		damage = 60, guardDamage = 9,
-		hitstun = 21, blockstun = 13, hitstop = 8,
-		push = 9, blockPush = 12, lunge = 10, launch = 0,
-		hitbox = table.freeze({ near = 0.3, far = 3.3, low = 2.8, high = 5.0 }),
-		guard = "Mid",
-		cancels = table.freeze({ Light = "Kick", Heavy = "Rising" }),
+		damage = 60, guardDamage = 9, hitstun = 21, blockstun = 13, hitstop = 8,
+		push = 9, blockPush = 12, lunge = 10,
+		hitbox = { near = 0.3, far = 3.3, low = 2.8, high = 5.0 },
+		cancels = { Light = "Kick", Heavy = "SpinKick" },
 	}),
-	Kick = table.freeze({
-		id = "Kick", name = "KICK", startup = 8, active = 4, recovery = 17,
-		damage = 75, guardDamage = 12,
-		hitstun = 24, blockstun = 14, hitstop = 9,
-		push = 14, blockPush = 18, lunge = 8, launch = 0,
-		hitbox = table.freeze({ near = 0.4, far = 4.4, low = 1.8, high = 4.4 }),
-		guard = "Mid", heavy = true,
-		cancels = table.freeze({ Heavy = "Rising" }),
+	Kick = move({
+		id = "Kick", name = "KICK", startup = 8, active = 4, recovery = 18,
+		damage = 80, guardDamage = 12, hitstun = 24, blockstun = 14, hitstop = 10,
+		push = 24, blockPush = 18, lunge = 8, launch = 16, knockdown = true,
+		hitbox = { near = 0.4, far = 4.4, low = 1.8, high = 4.4 },
+		heavy = true,
 	}),
-	Smash = table.freeze({
+	-- Right-click branches of the left-click chain
+	BodyBlow = move({ -- L > R : crumple, then restart a combo
+		id = "BodyBlow", name = "COUP AU FOIE", startup = 9, active = 3, recovery = 16,
+		damage = 70, guardDamage = 14, hitstun = 22, blockstun = 14, hitstop = 10,
+		push = 4, blockPush = 14, lunge = 10, crumple = true,
+		hitbox = { near = 0.3, far = 3.4, low = 1.8, high = 3.8 },
+		heavy = true,
+	}),
+	Uppercut = move({ -- L > L > R or crouch + R : launcher, jump to follow
+		id = "Uppercut", name = "LANCEUR", startup = 8, active = 4, recovery = 22,
+		damage = 70, guardDamage = 12, hitstun = 26, blockstun = 14, hitstop = 9,
+		push = 3, blockPush = 14, lunge = 6, launch = 46, jumpCancel = true,
+		hitbox = { near = 0.2, far = 3.4, low = 1.6, high = 6.6 },
+		heavy = true,
+	}),
+	SpinKick = move({ -- L > L > L > R : wall bounce
+		id = "SpinKick", name = "TALON TOURNOYANT", startup = 10, active = 3, recovery = 22,
+		damage = 95, guardDamage = 18, hitstun = 26, blockstun = 16, hitstop = 12,
+		push = 46, blockPush = 22, lunge = 6, launch = 14, wallBounce = true,
+		hitbox = { near = 0.4, far = 4.6, low = 2.2, high = 4.8 },
+		heavy = true,
+	}),
+	-- Right-click chain
+	Smash = move({
 		id = "Smash", name = "FRAPPE LOURDE", startup = 13, active = 4, recovery = 22,
-		damage = 120, guardDamage = 40,
-		hitstun = 26, blockstun = 16, hitstop = 11,
-		push = 34, blockPush = 22, lunge = 12, launch = 0,
-		hitbox = table.freeze({ near = 0.4, far = 4.2, low = 2.4, high = 4.8 }),
-		guard = "Mid", heavy = true,
+		damage = 110, guardDamage = 40, hitstun = 26, blockstun = 16, hitstop = 11,
+		push = 30, blockPush = 22, lunge = 12,
+		hitbox = { near = 0.4, far = 4.2, low = 2.4, high = 4.8 },
+		heavy = true,
+		cancels = { Heavy = "Hammer", Light = "Sweep" },
 	}),
-	Rising = table.freeze({
-		id = "Rising", name = "RISING STRIKE", startup = 9, active = 5, recovery = 24,
-		damage = 100, guardDamage = 25,
-		hitstun = 30, blockstun = 15, hitstop = 12,
-		push = 6, blockPush = 18, lunge = 22, launch = 40,
-		hitbox = table.freeze({ near = 0.2, far = 3.6, low = 1.5, high = 6.8 }),
-		guard = "Mid", heavy = true,
+	Hammer = move({ -- R > R : overhead axe kick, ground bounce
+		id = "Hammer", name = "HACHE CÉLESTE", startup = 12, active = 4, recovery = 20,
+		damage = 90, guardDamage = 22, hitstun = 28, blockstun = 15, hitstop = 12,
+		push = 4, blockPush = 16, lunge = 10, launch = 26, groundBounce = true, guard = "High",
+		hitbox = { near = 0.3, far = 3.8, low = 1.0, high = 6.4 },
+		heavy = true,
 	}),
-	AirKick = table.freeze({
-		id = "AirKick", name = "KICK AÉRIEN", startup = 6, active = 8, recovery = 10, air = true,
-		damage = 65, guardDamage = 10,
-		hitstun = 20, blockstun = 12, hitstop = 8,
-		push = 9, blockPush = 12, lunge = 0, launch = 0,
-		hitbox = table.freeze({ near = 0.3, far = 3.4, low = -0.6, high = 2.6 }),
-		guard = "High",
+	Sweep = move({ -- R > L : low sweep, knockdown
+		id = "Sweep", name = "BALAYAGE", startup = 9, active = 4, recovery = 20,
+		damage = 60, guardDamage = 12, hitstun = 22, blockstun = 13, hitstop = 9,
+		push = 8, blockPush = 14, lunge = 12, launch = 10, knockdown = true, guard = "Low",
+		hitbox = { near = 0.3, far = 4.6, low = -0.2, high = 1.4 },
+	}),
+	-- Crouching
+	LowKick = move({
+		id = "LowKick", name = "KICK BAS", startup = 5, active = 3, recovery = 10,
+		damage = 35, guardDamage = 6, hitstun = 16, blockstun = 11, hitstop = 6,
+		push = 9, blockPush = 11, lunge = 3, guard = "Low",
+		hitbox = { near = 0.3, far = 4.0, low = -0.2, high = 1.4 },
+		cancels = { Light = "Cross", Heavy = "Uppercut" },
+	}),
+	-- Air chain: J.L > J.L > J.R
+	AirKick = move({
+		id = "AirKick", name = "KICK AÉRIEN", startup = 6, active = 6, recovery = 10, air = true,
+		damage = 55, guardDamage = 10, hitstun = 20, blockstun = 12, hitstop = 8,
+		push = 6, blockPush = 12, guard = "High",
+		hitbox = { near = 0.3, far = 3.4, low = -0.6, high = 3.2 },
+		cancels = { Light = "AirKick2", Heavy = "AirSmash" },
+	}),
+	AirKick2 = move({
+		id = "AirKick2", name = "DOUBLE KICK", startup = 6, active = 4, recovery = 12, air = true,
+		damage = 55, guardDamage = 10, hitstun = 20, blockstun = 12, hitstop = 8,
+		push = 6, blockPush = 12, guard = "High",
+		hitbox = { near = 0.3, far = 3.6, low = -0.2, high = 3.4 },
+		cancels = { Heavy = "AirSmash" },
+	}),
+	AirSmash = move({
+		id = "AirSmash", name = "MÉTÉORE", startup = 9, active = 5, recovery = 14, air = true,
+		damage = 80, guardDamage = 16, hitstun = 24, blockstun = 14, hitstop = 11,
+		push = 10, blockPush = 14, launch = -30, groundBounce = true, guard = "High",
+		hitbox = { near = 0.2, far = 3.6, low = -1.2, high = 3.0 },
+		heavy = true,
+	}),
+	-- Special (E): invincible rising launcher, also the anti-air reversal
+	Rising = move({
+		id = "Rising", name = "RISING STRIKE", kind = "Special", startup = 9, active = 5, recovery = 26,
+		damage = 100, guardDamage = 25, hitstun = 30, blockstun = 15, hitstop = 12,
+		push = 6, blockPush = 18, lunge = 22, launch = 40, jumpCancel = true,
+		invuln = { from = 1, to = 10 },
+		hitbox = { near = 0.2, far = 3.6, low = 1.0, high = 7.0 },
+		heavy = true,
+	}),
+	-- Ultimate (R): costs ki, starts a cinematic when it connects
+	KaienRush = move({
+		id = "KaienRush", name = "KAIEN RUSH", kind = "Ultimate", startup = 8, active = 10, recovery = 36,
+		damage = 30, guardDamage = 30, hitstun = 40, blockstun = 20, hitstop = 4,
+		push = 2, blockPush = 20, lunge = 34, meterCost = 200,
+		invuln = { from = 1, to = 12 },
+		hitbox = { near = 0.2, far = 3.8, low = 0.8, high = 8.5 },
+		heavy = true,
 	}),
 })
 
 -- Which move a button starts from neutral.
 MoveData.Starters = table.freeze({
-	Ground = table.freeze({ Light = "Jab", Heavy = "Smash" }),
-	Air = table.freeze({ Light = "AirKick", Heavy = "AirKick" }),
+	Ground = table.freeze({ Light = "Jab", Heavy = "Smash", Special = "Rising", Ultimate = "KaienRush" }),
+	Crouch = table.freeze({ Light = "LowKick", Heavy = "Uppercut", Special = "Rising", Ultimate = "KaienRush" }),
+	Air = table.freeze({ Light = "AirKick", Heavy = "AirSmash" }),
 })
 
-function MoveData.total(move)
-	return move.startup + move.active + move.recovery
+-- Scripted hits of the ultimate cinematic: tick within the cinematic -> damage.
+MoveData.Cinematic = table.freeze({
+	Length = 150,
+	FinalTick = 118,
+	Hits = table.freeze({ 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 }),
+	HitDamage = 22,
+	FinalDamage = 170,
+	MinScaling = 0.5,
+})
+
+-- Combo routes shown in the HUD help and used by the CPU. L = clic gauche, R = clic droit.
+MoveData.Routes = table.freeze({
+	{ name = "CHAÎNE", keys = "L L L L", moves = { "Jab", "Cross", "Elbow", "Kick" } },
+	{ name = "LANCEUR", keys = "L L R ↑", moves = { "Jab", "Cross", "Uppercut" } },
+	{ name = "FOIE", keys = "L R", moves = { "Jab", "BodyBlow" } },
+	{ name = "MUR", keys = "L L L R", moves = { "Jab", "Cross", "Elbow", "SpinKick" } },
+	{ name = "HACHE", keys = "R R", moves = { "Smash", "Hammer" } },
+	{ name = "BALAYAGE", keys = "R L", moves = { "Smash", "Sweep" } },
+})
+
+function MoveData.total(m)
+	return m.startup + m.active + m.recovery
 end
 
-function MoveData.phase(move, frame)
-	if frame <= move.startup then
+function MoveData.phase(m, frame)
+	if frame <= m.startup then
 		return "Startup"
-	elseif frame <= move.startup + move.active then
+	elseif frame <= m.startup + m.active then
 		return "Active"
 	end
 	return "Recovery"

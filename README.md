@@ -12,10 +12,29 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Saut | Espace (ou Z/W) | A | SAUT |
 | Accroupi | S | Bas | BAS / joystick bas |
 | Dash | Shift + direction | RT | DASH |
-| Combo (JAB → CROSS → COUDE → KICK) | **Clic gauche** (ou J), à répéter | X | COUP |
-| Lourd / finisher RISING STRIKE | **Clic droit** (ou K) — seul : frappe lourde ; pendant le combo : envoie en l'air | B | LOURD |
-| Garde | **F maintenu** (ou I) — F + S : garde basse | RB | GARDE |
-| Replacer (entraînement) | R | Select | bouton REPLACER |
+| Attaque légère (combo) | **Clic gauche** (ou J) | X | COUP |
+| Attaque lourde | **Clic droit** (ou K) | B | LOURD |
+| Compétence spéciale : RISING STRIKE | **E** | Y | SPÉ |
+| Ultime : KAIEN RUSH (2 barres de ki, cinématique) | **R** | LT | ULTI |
+| Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
+| Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
+| Replacer | Retour arrière | Select | bouton REPLACER |
+
+## Combos (L = clic gauche, R = clic droit)
+
+| Touches | Enchaînement | Effet |
+|---|---|---|
+| L L L L | JAB > CROSS > COUDE > KICK | chute |
+| L L R | JAB > CROSS > LANCEUR | envoie en l'air ; **Espace** pour suivre, puis L L R en l'air |
+| L R | JAB > COUP AU FOIE | effondrement : le temps de relancer un combo |
+| L L L R | … > TALON TOURNOYANT | rebond sur le mur |
+| R R | FRAPPE LOURDE > HACHE CÉLESTE | overhead, rebond au sol |
+| R L | FRAPPE LOURDE > BALAYAGE | coup bas, chute |
+| ↓ + L / ↓ + R | KICK BAS / LANCEUR | KICK BAS s'enchaîne sur CROSS |
+| … touche E | RISING STRIKE | après n'importe quel coup, invincible au démarrage |
+| … touche R | KAIEN RUSH | après n'importe quel coup ou la spéciale, cinématique si ça touche |
+
+Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.
 
 ## Lancer le jeu
 
@@ -35,11 +54,12 @@ rojo build -o "jeuxcombat.rbxlx"
 
 ## Tests hors Studio
 
-La simulation de combat (`src/shared/CombatSimulation.luau`) n'utilise aucune API Roblox ; elle
-se teste avec le [CLI Luau](https://github.com/luau-lang/luau/releases) :
+La simulation de combat (`src/shared/CombatSimulation.luau`) et l'IA (`src/shared/FighterAI.luau`)
+n'utilisent aucune API Roblox ; elles se testent avec le [CLI Luau](https://github.com/luau-lang/luau/releases) :
 
 ```bash
 luau tests/CombatSimulation.test.luau
+luau tests/FighterAI.test.luau
 ```
 
 ## Documents

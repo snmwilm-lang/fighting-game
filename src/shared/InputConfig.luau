@@ -9,7 +9,10 @@ return {
 	Block = { Enum.KeyCode.F, Enum.KeyCode.I, Enum.KeyCode.ButtonR1 },
 	Light = { Enum.KeyCode.J, Enum.KeyCode.ButtonX },
 	Heavy = { Enum.KeyCode.K, Enum.KeyCode.L, Enum.KeyCode.ButtonB },
-	Reset = { Enum.KeyCode.R, Enum.KeyCode.ButtonSelect },
+	Special = { Enum.KeyCode.E, Enum.KeyCode.U, Enum.KeyCode.ButtonY },
+	Ultimate = { Enum.KeyCode.R, Enum.KeyCode.O, Enum.KeyCode.ButtonL2 },
+	Reset = { Enum.KeyCode.Backspace, Enum.KeyCode.ButtonSelect },
+	Dummy = { Enum.KeyCode.M },
 	Mouse = {
 		Light = Enum.UserInputType.MouseButton1,
 		Heavy = Enum.UserInputType.MouseButton2,

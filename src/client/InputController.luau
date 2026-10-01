@@ -9,11 +9,17 @@ local Players = game:GetService("Players")
 local Bindings = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").InputConfig)
 local InputController = {}
 
-local PULSES = { Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy" }
+local PULSES = {
+	Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy",
+	Special = "special", Ultimate = "ultimate", Dummy = "dummy",
+}
 
 function InputController.start(remote)
 	local keys = {}
-	local pulses = { jump = false, dash = false, reset = false, light = false, heavy = false, dummy = false }
+	local pulses = {
+		jump = false, dash = false, reset = false, light = false, heavy = false,
+		special = false, ultimate = false, dummy = false,
+	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
 	local function has(action)
@@ -111,7 +117,10 @@ function InputController.start(remote)
 		Block = { -172, -162, 66, "GARDE", Color3.fromHex("6E7BFF") },
 		Dash = { -268, -56, 58, "DASH" },
 		Crouch = { -262, -138, 54, "BAS" },
+		Special = { -250, -222, 58, "SPÉ", Color3.fromHex("FFB938") },
+		Ultimate = { -152, -254, 62, "ULTI", Color3.fromHex("FF2A3D") },
 	}
+	local ultimateButton
 	for action, info in layout do
 		local button = circle(action, info[3], UDim2.new(1, info[1], 1, info[2]), info[4], info[5])
 		button.InputBegan:Connect(function(input)
@@ -121,6 +130,7 @@ function InputController.start(remote)
 				set(action, input, true)
 			end
 		end)
+		if action == "Ultimate" then ultimateButton = button end
 	end
 	UIS.InputChanged:Connect(function(input)
 		if input == activeTouch then moveTouch(input.Position) end
@@ -152,14 +162,15 @@ function InputController.start(remote)
 		sinceAxis += dt
 		keepalive += dt
 		local axis, crouch, block = read()
-		local pulse = pulses.jump or pulses.dash or pulses.reset or pulses.light or pulses.heavy or pulses.dummy
+		local pulse = false
+		for _, pressed in pulses do pulse = pulse or pressed end
 		-- Pulses and button changes go out immediately; analog drift is capped at 30 Hz.
 		local axisChanged = math.abs(axis - previousAxis) > 0.02 and sinceAxis >= 1 / 30
 		if pulse or crouch ~= previousCrouch or block ~= previousBlock or axisChanged or keepalive >= 0.1 then
 			sequence += 1
 			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
 				jump = pulses.jump, dash = pulses.dash, light = pulses.light, heavy = pulses.heavy,
-				reset = pulses.reset, dummy = pulses.dummy })
+				special = pulses.special, ultimate = pulses.ultimate, reset = pulses.reset, dummy = pulses.dummy })
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
 		end
@@ -168,6 +179,12 @@ function InputController.start(remote)
 		reset = function() pulses.reset = true end,
 		toggleDummy = function() pulses.dummy = true end,
 		clear = clear,
+		-- The touch ULTI button glows when the ki meter can pay for the ultimate.
+		setUltimateReady = function(ready)
+			if not ultimateButton then return end
+			ultimateButton.BackgroundColor3 = if ready then Color3.fromHex("8C0A1C") else Color3.fromHex("101014")
+			ultimateButton.TextTransparency = if ready then 0 else 0.5
+		end,
 	}
 end
 return InputController

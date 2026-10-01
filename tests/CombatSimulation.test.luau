@@ -478,17 +478,44 @@ test("late press: a link pressed just after the move ended still continues the c
 	expect(a.chainKeys == "LL", "chain keys " .. a.chainKeys)
 end)
 
-test("early press: a single press just before the hit counts as clean", function()
+test("typing a whole route ahead, fast, stays clean and earns ÉVEIL ÉCARLATE", function()
+	local world = closeWorld(3, false)
+	local a = world.fighters[1]
+	a.meter = Config.MaxMeter
+	local keys = { "L", "R", "L", "R", "L", "R" }
+	local events = run(world, 600, function(t)
+		local k = keys[t] -- one press per tick, the six presses before the first hit even lands
+		return { input({ light = k == "L", heavy = k == "R" }) }
+	end)
+	local start = find(events, "CinematicStart")
+	expect(start and start.move == "Awakening", "fast typing was not clean: " .. compactRoute(events))
+end)
+
+test("hitting every button at once is spam: earned ultimates locked", function()
+	local world = closeWorld(3, false)
+	local a = world.fighters[1]
+	a.meter = Config.MaxMeter
+	local keys = { "L", "R", "L", "R", "L", "R" }
+	local events = run(world, 600, function(t)
+		local k = keys[t]
+		return { input({ light = k == "L" or t == 3, heavy = k == "R" or t == 3, special = t == 3 }) }
+	end)
+	local start = find(events, "CinematicStart")
+	expect(not start or (start.move ~= "Awakening" and start.move ~= "Kaiten"), "spam earned an ultimate")
+end)
+
+test("a wrong button during the route makes it dirty", function()
 	local world = closeWorld(3)
 	local a = world.fighters[1]
-	local jabHit = 1 + Moves.Jab.startup -- the jab connects on this tick
-	run(world, 40, function(t)
-		return { input({ light = t == 1 or t == jabHit - Config.CleanEarlyTicks + 1 }) }
+	-- JAB then R (COUP AU FOIE) is a valid link: the route stays clean.
+	run(world, 60, function(t) return { input({ light = t == 1, heavy = t == 1 + Moves.Jab.startup + 2 }) } end)
+	expect(a.chainKeys:sub(1, 2) == "LR" and a.chainClean, "a valid link was judged dirty")
+	local wrong = closeWorld(3)
+	run(wrong, 60, function(t)
+		-- After L R (COUP AU FOIE), R again is not a link of the BodyBlow: wrong button.
+		return { input({ light = t == 1, heavy = t == 9 or t == 30 }) }
 	end)
-	expect(a.chainKeys:sub(1, 2) == "LL" and a.chainClean, "early press judged dirty (" .. a.chainKeys .. ")")
-	local spam = closeWorld(3)
-	run(spam, 40, function(t) return { input({ light = t == 1 or t == 2 or t == 3 }) } end)
-	expect(not spam.fighters[1].chainClean, "spam judged clean")
+	expect(not wrong.fighters[1].chainClean, "a wrong button was judged clean")
 end)
 
 test("full routes survive slow reactions (latency) and different starting distances", function()

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.7.0",
+	Version = "0.7.1",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -36,9 +36,8 @@ return table.freeze({
 	GuardRegenPerTick = 0.6,
 	GuardBreakTicks = 55,
 	BufferTicks = 12, -- lifetime of the next queued press (frozen during hitstop)
-	BufferSize = 3,
+	BufferSize = 6, -- a whole 6-press route can be typed ahead
 	LateCancelTicks = 6, -- a press this late after a connected move still links (latency)
-	CleanEarlyTicks = 5, -- a single press this early before the hit still counts as clean
 	ReversalBufferTicks = 4, -- while stunned / getting up, only presses this close to recovery count
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this
 	MinComboScaling = 0.4,

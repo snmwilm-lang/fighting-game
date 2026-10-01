@@ -1,5 +1,19 @@
 # Journal du projet — état à transmettre
 
+## Version 0.7.1 — 1er octobre 2026
+
+Précision de Wilhem : « spammer », c'est appuyer sur tous les boutons, pas appuyer vite sur
+les bons. Nouvelle règle de route **propre** (ultimes 2 et 3) :
+
+- taper la bonne suite, aussi vite qu'on veut et même entièrement d'avance, reste propre ;
+- est du spam : plusieurs boutons sur le même tick, un appui qui déborde de la file, un
+  mauvais bouton quand la fenêtre d'enchaînement est ouverte, ou un appui jamais utilisé ;
+- la file d'appuis passe de 3 à 6 (une route complète d'avance) ; la règle « 1 appui après
+  l'impact » et la tolérance précoce (`CleanEarlyTicks`) sont supprimées.
+
+Tests : 73 (combat, dont « route tapée d'avance très vite = ÉVEIL » et « tous les boutons à
+la fois = pas d'ultime »), 9 (IA), 33 (caméra) ✅.
+
 ## Version 0.7.0 — 1er octobre 2026
 
 Retours de Wilhem : impossible de placer les combos, cinématiques à déboguer ; l'IA lui a
@@ -11,8 +25,7 @@ au relevé alors qu'il veut garder. **Toujours rien de lancé dans Roblox Studio
 
 - **Tolérance tardive** (`LateCancelTicks = 6`) : un appui reçu jusqu'à 6 ticks après la fin
   d'un coup qui a touché enchaîne encore (latence réseau Roblox).
-- **Tolérance précoce** (`CleanEarlyTicks = 5`) : un appui seul jusqu'à 5 ticks avant
-  l'impact compte comme propre. Le spam (appui pendant qu'un autre attend) reste sale.
+- (0.7.1 : la tolérance précoce est remplacée par la nouvelle définition du spam.)
 - Réglages de VENT ASCENDANT, BALAYAGE, TALON FOUDRE, POING DU DRAGON : **les 6 routes
   passent avec 4 à 16 ticks de réaction et un écart de départ de 3 à 4,4** (test permanent).
 - **Entraîneur de combo** (HUD) : route choisie, cases des touches, « MAINTENANT ! » quand le

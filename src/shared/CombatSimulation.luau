@@ -141,9 +141,10 @@ local function startMove(world, f, id, events, isLink)
 	if isLink then
 		-- A link of the current combo: remember the typed route and whether it stayed clean.
 		f.chainKeys ..= letter
-		f.chainClean = f.chainClean and entry ~= nil and entry.clean
+		-- (a link keeps the combo clean; spam is detected when it happens)
 	else
-		f.chainKeys, f.chainClean = letter, entry ~= nil and entry.clean
+		f.chainKeys, f.chainClean = letter, not f.dirtyStart
+		f.dirtyStart = false
 	end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
@@ -202,7 +203,7 @@ local function chooseMove(world, f, grounded, crouching)
 			-- Third ultimate, PORTE DES CIEUX: the five first links of a full route played
 			-- cleanly (one press per link, after each hit), then the R key with 3 bars.
 			local style = CombatSimulation.awakeningStyle(world, f, currentId)
-			if style and head.clean and f.meter >= moves.Kaiten.meterCost then
+			if style and f.meter >= moves.Kaiten.meterCost then
 				nextId = "Kaiten"
 				f.awakenStyle = style
 			end
@@ -211,12 +212,17 @@ local function chooseMove(world, f, grounded, crouching)
 			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
 			if nextId == "Finale" then
 				local style = CombatSimulation.awakeningStyle(world, f, currentId)
-				if style and head.clean and f.meter >= moves.Awakening.meterCost then
+				if style and f.meter >= moves.Awakening.meterCost then
 					nextId = "Awakening"
 					f.awakenStyle = style
 				end
 			end
 		end
+	end
+	if not nextId and f.move and f.moveContact and not head.judged then
+		-- The cancel window is open and this button continues nothing: wrong button.
+		head.judged = true
+		f.chainClean = false
 	end
 	local isLink = nextId ~= nil and currentId ~= nil
 	if not nextId and not f.move and f.dashTicks == 0 then
@@ -240,10 +246,6 @@ end
 local function stepFighter(world, f, input, events)
 	local c, moves = world.config, world.moves
 	-- Presses queue in the order typed, so mashing L L L R gives exactly that route.
-	-- A press is "clean" when nothing else is waiting and, inside a combo, the current move
-	-- has already landed all its hits: one deliberate press per link. Mashing is never clean.
-	local ongoing = f.move and world.moves[f.move]
-	local landed = ongoing == nil or (f.moveContact ~= nil and f.moveHits >= (ongoing.hits or 1))
 	-- While being hit, knocked down, getting up or guarding, presses are ignored except in
 	-- the last few ticks (a deliberate reversal): mashing under pressure never fires on its own.
 	local locked = f.state == "KO" or f.launched or f.knockdown > 0 or f.getUp > 0 or f.stun > 0
@@ -254,18 +256,23 @@ local function stepFighter(world, f, input, events)
 	if recovered and input.block then
 		table.clear(f.buffer) -- holding guard while recovering: guard wins
 	end
+	-- Spam = hitting every button: several buttons on the same tick, a press that overflows
+	-- the queue, a wrong button or a press that is never used. Typing the right route fast
+	-- (even entirely ahead of time) stays clean.
+	local pressed = 0
 	for _, field in BUTTON_ORDER do
 		if input[field] and (not locked or remaining <= c.ReversalBufferTicks) then
-			local crowded = #f.buffer > 0
-			-- Spam (a press while another one is still waiting) dirties the combo at once.
-			-- A single press slightly before the hit lands is judged when the hit lands.
-			if crowded and (f.move or f.grace) then f.chainClean = false end
-			if #f.buffer >= c.BufferSize then table.remove(f.buffer, 1) end
-			table.insert(f.buffer, {
-				button = BUTTONS[field], ticks = c.BufferTicks, clean = not crowded and landed,
-				early = not crowded and not landed, pressTick = world.tick,
-			})
+			pressed += 1
+			if #f.buffer >= c.BufferSize then
+				table.remove(f.buffer, 1)
+				f.chainClean = false
+			end
+			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks })
 		end
+	end
+	if pressed > 1 then
+		f.chainClean = false
+		f.dirtyStart = true -- also spoils a combo that these presses would start
 	end
 	if f.hitstop > 0 then
 		-- Hitstop suspends everything, including move frames and stun counters.
@@ -373,7 +380,10 @@ local function stepFighter(world, f, input, events)
 	local waiting = current and f.moveFrame <= current.startup + current.active
 	if head and not waiting then
 		head.ticks -= 1
-		if head.ticks <= 0 then table.remove(f.buffer, 1) end
+		if head.ticks <= 0 then
+			table.remove(f.buffer, 1)
+			if f.move or f.grace then f.chainClean = false end -- a press that was never used
+		end
 	end
 
 	if f.move then
@@ -578,12 +588,6 @@ local function applyHit(world, a, d, m, events, source)
 		event.y = (math.max(hy1, dy1) + math.min(hy2, dy2)) / 2
 		a.moveHits += 1
 		a.lastHitFrame = a.moveFrame
-		if a.moveHits >= (m.hits or 1) then
-			-- The hit landed: a single press made just before it still counts as clean.
-			for _, entry in a.buffer do
-				if entry.early and world.tick - entry.pressTick <= c.CleanEarlyTicks then entry.clean = true end
-			end
-		end
 	end
 	local hits = m.hits or 1
 	local final = source ~= nil or a.moveHits >= hits

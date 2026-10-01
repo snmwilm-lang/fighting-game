@@ -287,7 +287,7 @@ function HUD.new(config)
 	for _, route in MoveData.FullRoutes do
 		table.insert(lines, { route.keys .. "  →  " .. route.name, WHITE })
 	end
-	table.insert(lines, { "3 ULTIMES (route jouée PROPREMENT : 1 appui par coup, après l'impact, sans spam)", Color3.fromHex("FFD23F") })
+	table.insert(lines, { "3 ULTIMES (route PROPRE : que les bons boutons, même vite ; pas de bouton en trop)", Color3.fromHex("FFD23F") })
 	table.insert(lines, { "1. R seul (2 barres) : KAIEN RUSH", Color3.fromHex("FF2A3D") })
 	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : ÉVEIL ÉCARLATE, finale selon la route", Color3.fromHex("FF2A3D") })
 	table.insert(lines, { "   −95 % de la vie ; sous 50 % : FINAL FINISH ; QTE en rythme pendant la rafale", Color3.fromHex("FF2A3D") })
@@ -436,10 +436,10 @@ function HUD:updateTrainer(view, meterFull)
 			.. " — recommence au 1er coup"
 		self.trainerStatus.TextColor3 = RED
 	elseif progress >= 6 then
-		self.trainerStatus.Text = if view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · pas propre (spam) : pas d'ultime"
+		self.trainerStatus.Text = if view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · spam (mauvais bouton / en trop) : pas d'ultime"
 		self.trainerStatus.TextColor3 = Color3.fromHex("3DDC84")
 	elseif progress >= 1 then
-		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓" else "PAS PROPRE : un seul appui par coup, attends l'impact")
+		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓ (tu peux taper la route d'avance)" else "SPAM : mauvais bouton, bouton en trop ou plusieurs à la fois")
 			.. "  ·  ki " .. (if meterFull then "3 barres ✓" else "< 3 barres")
 		self.trainerStatus.TextColor3 = if view.chainClean then WHITE else Color3.fromHex("FFB938")
 	else

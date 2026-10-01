@@ -1,0 +1,303 @@
+--[[
+	Cosmetic effects only: they never change hitboxes or timing. Everything is local to this
+	client and short-lived. "Reduced" mode drops screen flashes and lowers shake/particle counts
+	(see the project guide: option to reduce flashes and shakes, lighter VFX on mobile).
+]]
+local Debris = game:GetService("Debris")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local MoveData = require(Shared.MoveData)
+local Sim = require(Shared.CombatSimulation)
+local CharacterData = require(Shared.CharacterData)
+
+local EffectsController = {}
+
+local WHITE = Color3.fromHex("FFFFFF")
+local BODY_PARTS = {
+	Head = true, UpperTorso = true, LowerTorso = true,
+	LeftUpperArm = true, LeftLowerArm = true, LeftHand = true,
+	RightUpperArm = true, RightLowerArm = true, RightHand = true,
+	LeftUpperLeg = true, LeftLowerLeg = true, LeftFoot = true,
+	RightUpperLeg = true, RightLowerLeg = true, RightFoot = true,
+}
+
+local function tween(instance, duration, goal, style)
+	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+	t:Play()
+	return t
+end
+
+function EffectsController.new(config, camera)
+	local self = setmetatable({
+		config = config, camera = camera,
+		reduced = UIS.TouchEnabled and not UIS.KeyboardEnabled,
+		debug = false, rigs = {}, ghostClock = {}, debugParts = {},
+	}, { __index = EffectsController })
+	self.folder = Instance.new("Folder")
+	self.folder.Name, self.folder.Parent = "ClientEffects", workspace
+	self.grade = Instance.new("ColorCorrectionEffect")
+	self.grade.Name, self.grade.Enabled, self.grade.Parent = "ImpactFrame", false, Lighting
+	local gui = Instance.new("ScreenGui")
+	gui.Name, gui.ResetOnSpawn, gui.IgnoreGuiInset, gui.DisplayOrder = "ImpactOverlay", false, true, 3
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	self.overlay = gui
+	return self
+end
+
+function EffectsController:energy(slot)
+	return Color3.fromHex(CharacterData[slot].Energy)
+end
+
+function EffectsController:part(size, cframe, color, shape)
+	local p = Instance.new("Part")
+	p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery, p.CastShadow = true, false, false, false, false
+	p.Material, p.Color, p.Size, p.CFrame = Enum.Material.Neon, color, size, cframe
+	if shape then p.Shape = shape end
+	p.Parent = self.folder
+	return p
+end
+
+-- Manga star burst: alternating white and energy-colored rays plus a bright core.
+function EffectsController:spark(position, color, scale)
+	local rays = if self.reduced then 6 else 11
+	local front = position + Vector3.new(0, 0, 1.4)
+	for i = 1, rays do
+		local angle = (i / rays) * math.pi * 2 + math.random() * 0.4
+		local length = (1.2 + math.random() * 1.6) * scale
+		local rot = CFrame.new(front) * CFrame.Angles(0, 0, angle)
+		local ray = self:part(Vector3.new(0.16 * scale, length, 0.05), rot * CFrame.new(0, length / 2 + 0.3, 0),
+			if i % 2 == 0 then WHITE else color)
+		tween(ray, 0.16, { CFrame = rot * CFrame.new(0, length + 0.9 * scale, 0), Size = Vector3.new(0.02, length * 1.5, 0.05), Transparency = 1 })
+		Debris:AddItem(ray, 0.2)
+	end
+	local core = self:part(Vector3.one * 0.8 * scale, CFrame.new(front), WHITE, Enum.PartType.Ball)
+	tween(core, 0.12, { Size = Vector3.one * 2.6 * scale, Transparency = 1 })
+	Debris:AddItem(core, 0.15)
+	local ring = self:part(Vector3.new(0.05, 1, 1) * scale, CFrame.new(front) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
+	ring.Transparency = 0.2
+	tween(ring, 0.2, { Size = Vector3.new(0.05, 4.5, 4.5) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.25)
+end
+
+-- Guard effect in front of the defender (blue/violet star from the art sheet).
+function EffectsController:shield(fighter, color)
+	local center = Vector3.new(fighter.x + fighter.facing * 1.2, fighter.y + 3.4, 0.6)
+	local disc = self:part(Vector3.new(0.1, 3.4, 3.4), CFrame.new(center) * CFrame.Angles(0, math.rad(-fighter.facing * 25), 0), color, Enum.PartType.Cylinder)
+	disc.Material, disc.Transparency = Enum.Material.ForceField, 0
+	tween(disc, 0.22, { Size = Vector3.new(0.1, 5, 5), Transparency = 1 })
+	Debris:AddItem(disc, 0.25)
+	self:spark(center, color, 0.7)
+end
+
+-- Smear arc for strong attacks, drawn in the fighting plane in front of the attacker.
+function EffectsController:slash(fighter, moveId, color)
+	local arcs = {
+		Kick = { from = -70, to = 55, radius = 3.4, height = 3 },
+		Smash = { from = -25, to = 25, radius = 3.9, height = 3.8 },
+		Rising = { from = -80, to = 105, radius = 2.9, height = 3.2 },
+	}
+	local arc = arcs[moveId]
+	if not arc then return end
+	local segments = if self.reduced then 7 else 13
+	local cx, cy = fighter.x + fighter.facing * 0.6, fighter.y + arc.height
+	for i = 0, segments - 1 do
+		local t0, t1 = i / segments, (i + 1) / segments
+		local a0 = math.rad(arc.from + (arc.to - arc.from) * t0)
+		local a1 = math.rad(arc.from + (arc.to - arc.from) * t1)
+		local p0 = Vector3.new(cx + fighter.facing * math.cos(a0) * arc.radius, cy + math.sin(a0) * arc.radius, 1)
+		local p1 = Vector3.new(cx + fighter.facing * math.cos(a1) * arc.radius, cy + math.sin(a1) * arc.radius, 1)
+		local width = 0.15 + 0.75 * math.sin(t0 * math.pi)
+		local seg = self:part(Vector3.new(width, 0.1, (p1 - p0).Magnitude + 0.1), CFrame.lookAt((p0 + p1) / 2, p1, Vector3.zAxis),
+			if i % 3 == 0 then WHITE else color)
+		seg.Transparency = 0.15 + 0.5 * (1 - t0)
+		tween(seg, 0.22, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 1, 1.15) })
+		Debris:AddItem(seg, 0.25)
+	end
+	if moveId == "Smash" then -- speed streaks ahead of the fist
+		for i = 1, if self.reduced then 3 else 6 do
+			local y = cy + (math.random() - 0.5) * 2.2
+			local start = Vector3.new(fighter.x + fighter.facing * 1.5, y, 1.2)
+			local length = 3 + math.random() * 3
+			local streak = self:part(Vector3.new(length, 0.08, 0.08), CFrame.new(start + Vector3.new(fighter.facing * length / 2, 0, 0)),
+				if i % 2 == 0 then WHITE else color)
+			tween(streak, 0.18, { CFrame = streak.CFrame + Vector3.new(fighter.facing * 3, 0, 0), Transparency = 1 })
+			Debris:AddItem(streak, 0.2)
+		end
+	end
+end
+
+function EffectsController:dust(x, y, direction)
+	for i = 1, if self.reduced then 3 else 6 do
+		local puff = self:part(Vector3.one * 0.6, CFrame.new(x + (math.random() - 0.5), y + 0.3, 0.5 + math.random()),
+			Color3.fromHex("C9BFC0"), Enum.PartType.Ball)
+		puff.Material, puff.Transparency = Enum.Material.SmoothPlastic, 0.3
+		local drift = Vector3.new(-direction * (1 + math.random() * 2), 0.5 + math.random(), 0)
+		tween(puff, 0.4, { Position = puff.Position + drift, Size = Vector3.one * (1.5 + i * 0.1), Transparency = 1 })
+		Debris:AddItem(puff, 0.45)
+	end
+end
+
+-- Translucent energy copy of the body, used for dash afterimages.
+function EffectsController:afterimage(rig, color)
+	for _, p in rig.model:GetChildren() do
+		if p:IsA("BasePart") and BODY_PARTS[p.Name] then
+			local ghost = self:part(p.Size, p.CFrame, color)
+			ghost.Transparency = 0.55
+			tween(ghost, 0.24, { Transparency = 1 })
+			Debris:AddItem(ghost, 0.26)
+		end
+	end
+end
+
+function EffectsController:flash(rig)
+	local outline = rig.model:FindFirstChild("InkOutline")
+	if not outline then return end
+	outline.FillTransparency = 0.15
+	task.delay(0.07, function()
+		if outline.Parent then outline.FillTransparency = 1 end
+	end)
+end
+
+-- Manga impact frame: black/white/red contrast for two short beats and radial speed lines.
+function EffectsController:impactFrame(color, strength)
+	local lines = if self.reduced then 10 else 26
+	for i = 1, lines do
+		local angle = (i / lines) * 360 + math.random() * 8
+		local line = Instance.new("Frame")
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.BorderSizePixel = 0
+		line.BackgroundColor3 = if i % 3 == 0 then color else WHITE
+		line.BackgroundTransparency = 0.1
+		line.Size = UDim2.new(0.55, 0, 0, 2 + math.random(0, 3) * strength)
+		local rad = math.rad(angle)
+		line.Position = UDim2.fromScale(0.5 + math.cos(rad) * 0.62, 0.5 + math.sin(rad) * 0.62)
+		line.Rotation = angle
+		line.Parent = self.overlay
+		tween(line, 0.24, { BackgroundTransparency = 1, Size = UDim2.new(0.3, 0, 0, 1) })
+		Debris:AddItem(line, 0.26)
+	end
+	if self.reduced then return end
+	local grade = self.grade
+	grade.Enabled, grade.Saturation, grade.Contrast, grade.Brightness, grade.TintColor = true, -1, 1.2, 0.05, WHITE
+	task.delay(0.05, function()
+		grade.Saturation, grade.Contrast, grade.TintColor = -0.4, 0.8, Color3.new(1, 0.42, 0.46)
+		task.delay(0.05, function() grade.Enabled = false end)
+	end)
+end
+
+function EffectsController:attachRig(slot, rig)
+	local torso = rig.model:FindFirstChild("UpperTorso")
+	if not torso then return end
+	local aura = Instance.new("ParticleEmitter")
+	aura.Name = "KiAura"
+	aura.Color = ColorSequence.new(self:energy(slot), WHITE)
+	aura.LightEmission, aura.Rate, aura.Lifetime = 1, 0, NumberRange.new(0.25, 0.45)
+	aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	aura.Speed, aura.SpreadAngle = NumberRange.new(3, 7), Vector2.new(180, 180)
+	aura.Acceleration = Vector3.new(0, 8, 0)
+	aura.Parent = torso
+	rig.aura = aura
+end
+
+-- Per-frame presentation driven by the interpolated fighter views.
+function EffectsController:update(slot, view, rig, previous, now)
+	local color = self:energy(slot)
+	local phase = if view.state == "Attack" and MoveData.Moves[view.move]
+		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
+	local key = if phase then view.move .. phase else view.state
+	if previous and previous.key ~= key then
+		if phase == "Active" then
+			local m = MoveData.Moves[view.move]
+			if m.heavy then self:slash(view, view.move, color) end
+		elseif view.state == "Dashing" then
+			self:dust(view.x, view.y, view.facing)
+		elseif view.state == "Knockdown" and previous.key ~= "KO" then
+			self:dust(view.x, view.y, view.facing)
+			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.2)
+		end
+	end
+	if rig.aura and phase == "Startup" and (view.move == "Smash" or view.move == "Rising") then
+		rig.aura:Emit(if self.reduced then 1 else 3)
+	end
+	if view.state == "Dashing" and now - (self.ghostClock[slot] or 0) > 0.045 then
+		self.ghostClock[slot] = now
+		self:afterimage(rig, color)
+	end
+	if self.debug then self:drawDebug(slot, view) end
+	return key
+end
+
+function EffectsController:onEvent(event, views, rigs)
+	if event.kind == "Hit" or event.kind == "Block" or event.kind == "GuardBreak" then
+		local attackerColor = self:energy(event.attacker)
+		local position = Vector3.new(event.x, event.y, 0)
+		local m = MoveData.Moves[event.move]
+		local shakeScale = if self.reduced then 0.4 else 1
+		if event.kind == "Hit" then
+			local heavy = event.heavy or event.ko
+			self:spark(position, attackerColor, if heavy then 1.5 else 1)
+			if rigs[event.defender] then self:flash(rigs[event.defender]) end
+			self.camera:shake((if heavy then 0.5 else 0.18) * shakeScale, if heavy then 0.25 else 0.12)
+			if heavy then
+				self:impactFrame(attackerColor, if event.ko then 2 else 1)
+				self.camera:punch(if event.ko then 0.45 else 0.12, position)
+			end
+		else
+			local defender = views[event.defender]
+			local shieldColor = Color3.fromHex(CharacterData[event.defender].Shield)
+			if defender then self:shield(defender, shieldColor) end
+			if event.kind == "GuardBreak" then
+				self:spark(position, Color3.fromHex("FFD23F"), 1.8)
+				self:impactFrame(shieldColor, 1)
+				self.camera:shake(0.5 * shakeScale, 0.3)
+			else
+				self.camera:shake(0.1 * shakeScale, 0.08)
+			end
+		end
+		if m and m.launch > 0 and event.kind == "Hit" and views[event.defender] then
+			self:dust(views[event.defender].x, 0, -views[event.attacker].facing)
+		end
+	end
+end
+
+-- Debug display of hurtboxes (green) and live hitboxes (red), from the shared simulation math.
+function EffectsController:drawDebug(slot, view)
+	local boxes = self.debugParts[slot]
+	if not boxes then
+		boxes = {}
+		for i, c in { Color3.fromRGB(60, 255, 120), Color3.fromRGB(255, 50, 60) } do
+			local p = self:part(Vector3.one, CFrame.identity, c)
+			p.Material, p.Transparency = Enum.Material.SmoothPlastic, 0.65
+			boxes[i] = p
+		end
+		self.debugParts[slot] = boxes
+	end
+	local x1, x2, y1, y2 = Sim.hurtbox(view, self.config)
+	boxes[1].Size = Vector3.new(x2 - x1, y2 - y1, 0.2)
+	boxes[1].CFrame = CFrame.new((x1 + x2) / 2, (y1 + y2) / 2, 1.6)
+	local m = view.state == "Attack" and MoveData.Moves[view.move]
+	if m and MoveData.phase(m, view.moveFrame) == "Active" then
+		local hx1, hx2, hy1, hy2 = Sim.hitbox(view, m)
+		boxes[2].Transparency = 0.5
+		boxes[2].Size = Vector3.new(hx2 - hx1, hy2 - hy1, 0.25)
+		boxes[2].CFrame = CFrame.new((hx1 + hx2) / 2, (hy1 + hy2) / 2, 1.7)
+	else
+		boxes[2].Transparency = 1
+	end
+end
+
+function EffectsController:setDebug(enabled)
+	self.debug = enabled
+	if not enabled then
+		for _, boxes in self.debugParts do
+			for _, p in boxes do p:Destroy() end
+		end
+		self.debugParts = {}
+	end
+end
+
+return EffectsController

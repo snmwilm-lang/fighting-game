@@ -1,15 +1,21 @@
+-- Input adapter: keyboard, mouse, gamepad and custom touch controls all feed the same logical
+-- actions, sent to the server as one validated packet. Attacks and jumps are pulses (sent at
+-- once); movement, crouch and guard are held states.
 local CAS = game:GetService("ContextActionService")
 local UIS = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Bindings = require(game:GetService("ReplicatedStorage").Shared.InputConfig)
+local Bindings = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").InputConfig)
 local InputController = {}
 
+local PULSES = { Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy" }
+
 function InputController.start(remote)
-	local keys, pulses = {}, { jump = false, dash = false, reset = false }
+	local keys = {}
+	local pulses = { jump = false, dash = false, reset = false, light = false, heavy = false, dummy = false }
 	local stick, touchStick = Vector2.zero, Vector2.zero
-	local blocked, sequence, elapsed, keepalive = false, 0, 0, 0
+	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
 	local function has(action)
 		for _, held in keys do if held == action then return true end end
 		return false
@@ -17,17 +23,17 @@ function InputController.start(remote)
 	local function set(action, key, down)
 		if down and not blocked and not UIS:GetFocusedTextBox() then
 			keys[key] = action
-			local pulse = ({ Jump = "jump", Dash = "dash", Reset = "reset" })[action]
+			local pulse = PULSES[action]
 			if pulse then pulses[pulse] = true end
 		else keys[key] = nil end
 	end
 	local function clear()
 		table.clear(keys)
 		stick, touchStick = Vector2.zero, Vector2.zero
-		pulses.jump, pulses.dash, pulses.reset = false, false, false
+		for k in pulses do pulses[k] = false end
 	end
 	for action, codes in Bindings do
-		if type(codes) == "table" then
+		if type(codes) == "table" and action ~= "Mouse" then
 			CAS:BindActionAtPriority("Fight_" .. action, function(_, state, input)
 				if UIS:GetFocusedTextBox() then
 					set(action, input.KeyCode, false)
@@ -43,6 +49,14 @@ function InputController.start(remote)
 			then Vector2.zero else Vector2.new(input.Position.X, input.Position.Y)
 		return Enum.ContextActionResult.Sink
 	end, false, 3000, Enum.KeyCode.Thumbstick1)
+	-- Mouse attacks: left click = combo, right click = heavy / combo finisher.
+	-- gameProcessed skips clicks on HUD buttons.
+	UIS.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or blocked then return end
+		for action, inputType in Bindings.Mouse do
+			if input.UserInputType == inputType then pulses[PULSES[action]] = true end
+		end
+	end)
 	UIS.TextBoxFocused:Connect(clear)
 	UIS.WindowFocusReleased:Connect(function() blocked = true; clear() end)
 	UIS.WindowFocused:Connect(function() blocked = false end)
@@ -50,7 +64,7 @@ function InputController.start(remote)
 	GuiService.MenuClosed:Connect(function() blocked = false end)
 	UIS.GamepadDisconnected:Connect(clear)
 
-	-- Custom touch controls: each finger is tracked until release outside the button.
+	-- Custom touch controls: each finger is tracked until release, even outside the button.
 	local gui = Instance.new("ScreenGui")
 	gui.Name, gui.ResetOnSpawn, gui.DisplayOrder = "MobileControls", false, 10
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -58,17 +72,18 @@ function InputController.start(remote)
 	local controls = Instance.new("Frame")
 	controls.Name, controls.Size, controls.BackgroundTransparency = "Controls", UDim2.fromScale(1, 1), 1
 	controls.Parent = gui
-	local function circle(name, size, position, text)
+	local function circle(name, size, position, text, color)
 		local b = Instance.new("TextButton")
 		b.Name, b.Size, b.Position = name, UDim2.fromOffset(size, size), position
 		b.AnchorPoint = Vector2.new(0.5, 0.5)
-		b.BackgroundColor3, b.BackgroundTransparency = Color3.fromHex("1B2941"), 0.15
-		b.Text, b.TextColor3, b.TextSize, b.Font = text, Color3.fromHex("F0F8FF"), 15, Enum.Font.GothamBold
+		b.BackgroundColor3, b.BackgroundTransparency = Color3.fromHex("101014"), 0.15
+		b.Text, b.TextColor3, b.TextSize, b.Font = text, Color3.fromHex("F5F5F7"), 15, Enum.Font.Bangers
 		b.AutoButtonColor, b.Parent = false, controls
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius, corner.Parent = UDim.new(1, 0), b
 		local stroke = Instance.new("UIStroke")
-		stroke.Color, stroke.Transparency, stroke.Thickness, stroke.Parent = Color3.fromHex("52F2D6"), 0.3, 2, b
+		stroke.Color, stroke.Transparency, stroke.Thickness, stroke.Parent = color or Color3.fromHex("E0102B"), 0.15, 2.5, b
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		return b
 	end
 	local pad = circle("Stick", 130, UDim2.new(0, 95, 1, -95), "")
@@ -89,12 +104,20 @@ function InputController.start(remote)
 			moveTouch(input.Position)
 		end
 	end)
-	for action, info in { Jump = { -75, -142, "SAUT" }, Dash = { -150, -82, "DASH" }, Crouch = { -62, -55, "BAS" } } do
-		local button = circle(action, 66, UDim2.new(1, info[1], 1, info[2]), info[3])
+	local layout = {
+		Light = { -82, -92, 84, "COUP" },
+		Heavy = { -180, -64, 72, "LOURD" },
+		Jump = { -78, -196, 66, "SAUT" },
+		Block = { -172, -162, 66, "GARDE", Color3.fromHex("6E7BFF") },
+		Dash = { -268, -56, 58, "DASH" },
+		Crouch = { -262, -138, 54, "BAS" },
+	}
+	for action, info in layout do
+		local button = circle(action, info[3], UDim2.new(1, info[1], 1, info[2]), info[4], info[5])
 		button.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.Touch then
 				touchButtons[input] = button
-				button.BackgroundColor3 = Color3.fromHex("38766F")
+				button.BackgroundColor3 = Color3.fromHex("5A0A16")
 				set(action, input, true)
 			end
 		end)
@@ -105,38 +128,46 @@ function InputController.start(remote)
 	UIS.InputEnded:Connect(function(input)
 		keys[input] = nil
 		if touchButtons[input] then
-			touchButtons[input].BackgroundColor3 = Color3.fromHex("1B2941")
+			touchButtons[input].BackgroundColor3 = Color3.fromHex("101014")
 			touchButtons[input] = nil
 		end
 		if input == activeTouch then
 			activeTouch, touchStick, knob.Position = nil, Vector2.zero, pad.Position
 		end
 	end)
+
 	local function read()
-		if blocked or UIS:GetFocusedTextBox() then return 0, false end
-		local axis = (if has("Right") then 1 else 0) - (if has("Left") then 1 else 0)
-		if not has("Right") and not has("Left") then
+		if blocked or UIS:GetFocusedTextBox() then return 0, false, false end
+		local right, left = has("Right"), has("Left")
+		local axis = (if right then 1 else 0) - (if left then 1 else 0)
+		if not right and not left then
 			local v = if activeTouch then touchStick.X else stick.X
 			axis = if math.abs(v) > Bindings.Deadzone then math.sign(v) * (math.abs(v) - Bindings.Deadzone) / (1 - Bindings.Deadzone) else 0
 		end
-		return math.clamp(axis, -1, 1), has("Crouch") or stick.Y < -0.55 or touchStick.Y < -0.55
+		local crouch = has("Crouch") or stick.Y < -0.55 or touchStick.Y < -0.55
+		return math.clamp(axis, -1, 1), crouch, has("Block")
 	end
-	local previousAxis, previousCrouch = 0, false
+	local previousAxis, previousCrouch, previousBlock = 0, false, false
 	RunService.Heartbeat:Connect(function(dt)
-		elapsed += dt
+		sinceAxis += dt
 		keepalive += dt
-		if elapsed < 1 / 30 then return end
-		elapsed = 0
-		local axis, crouch = read()
-		if keepalive >= 0.1 or math.abs(axis - previousAxis) > 0.02 or crouch ~= previousCrouch
-			or pulses.jump or pulses.dash or pulses.reset then
+		local axis, crouch, block = read()
+		local pulse = pulses.jump or pulses.dash or pulses.reset or pulses.light or pulses.heavy or pulses.dummy
+		-- Pulses and button changes go out immediately; analog drift is capped at 30 Hz.
+		local axisChanged = math.abs(axis - previousAxis) > 0.02 and sinceAxis >= 1 / 30
+		if pulse or crouch ~= previousCrouch or block ~= previousBlock or axisChanged or keepalive >= 0.1 then
 			sequence += 1
-			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch,
-				jump = pulses.jump, dash = pulses.dash, reset = pulses.reset })
-			previousAxis, previousCrouch, keepalive = axis, crouch, 0
-			pulses.jump, pulses.dash, pulses.reset = false, false, false
+			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
+				jump = pulses.jump, dash = pulses.dash, light = pulses.light, heavy = pulses.heavy,
+				reset = pulses.reset, dummy = pulses.dummy })
+			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
+			for k in pulses do pulses[k] = false end
 		end
 	end)
-	return { reset = function() pulses.reset = true end, clear = clear }
+	return {
+		reset = function() pulses.reset = true end,
+		toggleDummy = function() pulses.dummy = true end,
+		clear = clear,
+	}
 end
 return InputController

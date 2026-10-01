@@ -1,47 +1,147 @@
+-- "Temple écarlate": an original anime-style stage in the black / white / red palette of
+-- the KAI art direction sheet, built from plain parts.
+-- Everything lives in Workspace.Arena; lighting effects are named "Arena*" in Lighting.
+local Lighting = game:GetService("Lighting")
 local ArenaBuilder = {}
+
+local function hex(color)
+	return Color3.fromHex(color)
+end
+
 function ArenaBuilder.build()
 	local arena = Instance.new("Model")
-	arena.Name, arena.Parent = "Arena", workspace
-	local function part(name, size, position, color, material)
+	arena.Name = "Arena"
+	local function part(name, size, cframe, color, material, collide)
 		local p = Instance.new("Part")
-		p.Name, p.Size, p.Position = name, size, position
-		p.Anchored, p.CanCollide, p.CanTouch = true, name == "Floor", false
-		p.Material, p.Color = material or Enum.Material.SmoothPlastic, Color3.fromHex(color)
+		p.Name, p.Size = name, size
+		p.CFrame = if typeof(cframe) == "Vector3" then CFrame.new(cframe) else cframe
+		p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = true, collide == true, false, false
+		p.Material, p.Color = material or Enum.Material.SmoothPlastic, hex(color)
 		p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+		p.CastShadow = false
 		p.Parent = arena
 		return p
 	end
-	part("Floor", Vector3.new(74, 2, 20), Vector3.new(0, -1, 0), "151B2D")
-	part("Apron", Vector3.new(80, 1, 24), Vector3.new(0, -2.5, 0), "080C17")
-	part("FrontEdge", Vector3.new(74, 0.15, 0.16), Vector3.new(0, -0.25, 10.05), "52F2D6", Enum.Material.Neon)
-	part("RearEdge", Vector3.new(74, 0.12, 0.16), Vector3.new(0, 0.05, -9), "F77D50", Enum.Material.Neon)
-	for x = -28, 28, 4 do
-		part("FloorSeam", Vector3.new(0.04, 0.02, 18), Vector3.new(x, 0.015, 0), "2B354D")
+	local function wedge(name, size, cframe, color)
+		local w = Instance.new("WedgePart")
+		w.Name, w.Size, w.CFrame = name, size, cframe
+		w.Anchored, w.CanCollide, w.CanTouch, w.CanQuery = true, false, false, false
+		w.Material, w.Color, w.CastShadow = Enum.Material.SmoothPlastic, hex(color), false
+		w.Parent = arena
+		return w
 	end
-	for _, x in { -28, 28 } do
-		part("Boundary", Vector3.new(0.1, 0.03, 18), Vector3.new(x, 0.04, 0), "EACA84")
+
+	-- Sky: flat painted bands, like an anime background plate.
+	local bands = { { 30, "C4182F" }, { 42, "7A0F1F" }, { 54, "420A14" }, { 70, "1F070C" }, { 88, "0C0508" } }
+	for i, band in bands do
+		local bottom = if i == 1 then -6 else bands[i - 1][1]
+		local height = band[1] - bottom
+		part("SkyBand", Vector3.new(320, height, 1), Vector3.new(0, bottom + height / 2, -90), band[2])
 	end
-	part("Backdrop", Vector3.new(200, 80, 2), Vector3.new(0, 20, -35), "121728")
-	local sun = part("SunDisc", Vector3.new(1, 19, 19), Vector3.new(8, 17, -32), "F77D50", Enum.Material.Neon)
+	local sun = part("Sun", Vector3.new(1, 34, 34), CFrame.new(-18, 22, -88) * CFrame.Angles(0, math.pi / 2, 0),
+		"F5EDE6", Enum.Material.Neon)
 	sun.Shape = Enum.PartType.Cylinder
-	sun.CFrame *= CFrame.Angles(0, math.pi / 2, 0)
-	for i = -8, 8 do
-		local h = 6 + ((i * i * 7) % 15)
-		part("Skyline", Vector3.new(5, h, 3), Vector3.new(i * 8, h / 2 - 3, -28), "1F2941")
+	for i = 1, 3 do -- stripes cut through the sun, a classic retro anime motif
+		part("SunStripe", Vector3.new(36, 0.8 + i * 0.35, 0.5), Vector3.new(-18, 12 + i * 3.2, -87.4), "C4182F")
 	end
-	for _, x in { -34, 34 } do
-		part("GatePillar", Vector3.new(1.5, 15, 2), Vector3.new(x, 6, -8), "29344F")
-		part("GateLight", Vector3.new(0.18, 13, 2.05), Vector3.new(x, 6, -8), "52F2D6", Enum.Material.Neon)
+
+	-- Mountain silhouettes in three depth layers.
+	local layers = { { -78, "5A0C18", 26 }, { -66, "2E0810", 20 }, { -52, "140508", 14 } }
+	for li, layer in layers do
+		local z, color, height = layer[1], layer[2], layer[3]
+		for i = -6, 6 do
+			local h = height * (0.55 + ((i * i * 13 + li * 7) % 10) / 20)
+			local w = 18 + (i * 7 + li) % 9
+			local x = i * 22 + li * 7
+			wedge("Mountain", Vector3.new(2, h, w / 2), CFrame.new(x - w / 4, h / 2 - 4, z) * CFrame.Angles(0, math.pi / 2, 0), color)
+			wedge("Mountain", Vector3.new(2, h, w / 2), CFrame.new(x + w / 4, h / 2 - 4, z) * CFrame.Angles(0, -math.pi / 2, 0), color)
+		end
 	end
-	part("GateBeam", Vector3.new(72, 1.4, 2), Vector3.new(0, 13, -8), "29344F")
-	local lighting = game:GetService("Lighting")
-	lighting.ClockTime, lighting.Brightness = 16.5, 2
-	lighting.Ambient = Color3.fromRGB(125, 135, 158)
-	lighting.OutdoorAmbient = Color3.fromRGB(105, 117, 145)
-	lighting.GlobalShadows = true
-	local grade = Instance.new("ColorCorrectionEffect")
-	grade.Name, grade.Contrast, grade.Saturation = "FightingGameGrade", 0.12, -0.05
-	grade.Parent = lighting
+
+	-- Pagoda silhouette on the right.
+	for level = 0, 3 do
+		local width = 16 - level * 3
+		local y = 4 + level * 6
+		part("PagodaWall", Vector3.new(width - 4, 5, 6), Vector3.new(34, y, -46), "120608")
+		part("PagodaRoof", Vector3.new(width + 3, 0.9, 9), Vector3.new(34, y + 2.9, -46), "0B0B0E")
+		part("PagodaLight", Vector3.new(width - 5, 1.2, 0.2), Vector3.new(34, y - 0.4, -42.9), "FF3B4E", Enum.Material.Neon)
+	end
+
+	-- Floor: wooden temple deck with painted plank lines.
+	part("Floor", Vector3.new(80, 2, 22), Vector3.new(0, -1, 0), "3A2A2C", Enum.Material.SmoothPlastic, true)
+	part("FloorShade", Vector3.new(80, 0.02, 8), Vector3.new(0, 0.01, -7), "2C1F21")
+	for z = -9, 9, 3 do
+		part("Plank", Vector3.new(80, 0.03, 0.08), Vector3.new(0, 0.02, z), "1A1214")
+	end
+	part("Step", Vector3.new(86, 1.2, 4), Vector3.new(0, -1.6, 12.5), "1A1214")
+	part("FrontTrim", Vector3.new(80, 0.18, 0.2), Vector3.new(0, -0.1, 11.05), "FF2A3D", Enum.Material.Neon)
+	for _, x in { -28, 28 } do -- arena limits painted on the deck
+		part("Boundary", Vector3.new(0.18, 0.04, 20), Vector3.new(x, 0.04, 0), "F5EDE6", Enum.Material.Neon)
+	end
+
+	-- Torii gate framing the fight.
+	local toriiRed = "C8102E"
+	for _, x in { -24, 24 } do
+		part("ToriiPillar", Vector3.new(1.8, 22, 1.8), Vector3.new(x, 10, -14), toriiRed)
+		part("ToriiBase", Vector3.new(2.6, 1.4, 2.6), Vector3.new(x, 0.2, -14), "0B0B0E")
+	end
+	part("ToriiNuki", Vector3.new(54, 1.4, 1.2), Vector3.new(0, 16, -14), toriiRed)
+	part("ToriiKasagi", Vector3.new(62, 1.8, 2.4), Vector3.new(0, 20.6, -14), "0B0B0E")
+	part("ToriiShimaki", Vector3.new(58, 1.2, 2), Vector3.new(0, 19.3, -14), toriiRed)
+	for _, side in { -1, 1 } do
+		wedge("ToriiTip", Vector3.new(2.4, 1.6, 3), CFrame.new(side * 32.4, 21, -14) * CFrame.Angles(0, side * -math.pi / 2, 0), "0B0B0E")
+	end
+	part("ToriiPlaque", Vector3.new(4, 3.2, 0.4), Vector3.new(0, 18, -13.3), "0B0B0E")
+
+	-- Paper lanterns with warm light.
+	for _, x in { -36, -16, 16, 36 } do
+		part("LanternPole", Vector3.new(0.4, 7, 0.4), Vector3.new(x, 3.5, -10), "0B0B0E")
+		local lantern = part("Lantern", Vector3.new(1.6, 2.2, 1.6), Vector3.new(x, 7.6, -10), "FF5A4E", Enum.Material.Neon)
+		local light = Instance.new("PointLight")
+		light.Color, light.Range, light.Brightness = hex("FF5A4E"), 16, 1.4
+		light.Parent = lantern
+	end
+
+	-- Drifting embers and petals (built-in sparkle texture tinted, no external asset).
+	local emitterPart = part("PetalSource", Vector3.new(90, 1, 30), Vector3.new(0, 30, -6), "FFFFFF")
+	emitterPart.Transparency = 1
+	local petals = Instance.new("ParticleEmitter")
+	petals.Name = "Petals"
+	petals.Color = ColorSequence.new(hex("FFE3E7"), hex("FF6B7D"))
+	petals.Size = NumberSequence.new(0.35)
+	petals.Rate = 9
+	petals.Lifetime = NumberRange.new(9, 13)
+	petals.Speed = NumberRange.new(1, 3)
+	petals.Acceleration = Vector3.new(1.5, -2.2, 0)
+	petals.SpreadAngle = Vector2.new(30, 30)
+	petals.EmissionDirection = Enum.NormalId.Bottom
+	petals.Rotation = NumberRange.new(0, 360)
+	petals.RotSpeed = NumberRange.new(-90, 90)
+	petals.LightEmission = 0.3
+	petals.Parent = emitterPart
+
+	arena.Parent = workspace
+
+	-- Flat, warm lighting: low environment shading keeps colors as solid fills (cel look).
+	Lighting.ClockTime, Lighting.Brightness = 17.4, 2.2
+	Lighting.Ambient = hex("8E7276")
+	Lighting.OutdoorAmbient = hex("A88286")
+	Lighting.EnvironmentDiffuseScale, Lighting.EnvironmentSpecularScale = 0, 0
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0
+	local function effect(className, name, props)
+		local old = Lighting:FindFirstChild(name)
+		if old then old:Destroy() end
+		local e = Instance.new(className)
+		e.Name = name
+		for k, v in props do e[k] = v end
+		e.Parent = Lighting
+		return e
+	end
+	effect("ColorCorrectionEffect", "ArenaGrade", { Contrast = 0.15, Saturation = 0.18, TintColor = hex("FFF0F0") })
+	effect("BloomEffect", "ArenaBloom", { Intensity = 0.6, Size = 30, Threshold = 1.4 })
+	effect("Atmosphere", "ArenaAtmosphere", { Density = 0.3, Offset = 0.1, Color = hex("A8283A"), Decay = hex("1F070C"), Glare = 0.4, Haze = 1.4 })
 	return arena
 end
+
 return ArenaBuilder

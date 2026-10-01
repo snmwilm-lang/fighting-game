@@ -1,79 +1,289 @@
+-- Manga-style combat HUD in the black / white / red palette of the KAI art direction sheet.
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local CharacterData = require(Shared.CharacterData)
+local MoveData = require(Shared.MoveData)
+
 local HUD = {}
+
+local WHITE = Color3.fromHex("F5F5F7")
+local INK = Color3.fromHex("0B0B0E")
+local RED = Color3.fromHex("E0102B")
+local DISPLAY = Enum.Font.Bangers
+local UI_FONT = Enum.Font.GothamBlack
+
+local function new(className, props, parent)
+	local i = Instance.new(className)
+	for k, v in props do i[k] = v end
+	i.Parent = parent
+	return i
+end
+
+local function stroke(parent, thickness, color)
+	return new("UIStroke", { Thickness = thickness, Color = color or INK, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual }, parent)
+end
+
+local function text(parent, props)
+	local l = new("TextLabel", {
+		BackgroundTransparency = 1, Font = DISPLAY, TextColor3 = WHITE, TextScaled = false,
+		TextSize = 20, Text = "",
+	}, parent)
+	for k, v in props do l[k] = v end
+	return l
+end
+
+local function tween(instance, duration, goal, style, direction)
+	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), goal)
+	t:Play()
+	return t
+end
+
 function HUD.new(config)
-	local self = { poseRate = config.PoseRate, labels = {} }
-	local gui = Instance.new("ScreenGui")
-	gui.Name, gui.ResetOnSpawn, gui.DisplayOrder = "CombatHUD", false, 5
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local function label(parent, name, text, size, position, textSize, color)
-		local l = Instance.new("TextLabel")
-		l.Name, l.Text, l.Size, l.Position = name, text, size, position
-		l.BackgroundTransparency = 1
-		l.Font, l.TextSize, l.TextColor3 = Enum.Font.GothamBold, textSize, color or Color3.fromHex("EFF6FF")
-		l.TextTruncate = Enum.TextTruncate.AtEnd
-		l.Parent = parent
-		return l
+	local self = setmetatable({ config = config, poseRate = config.PoseRate, bars = {}, trail = { 1, 1 }, combo = {} }, { __index = HUD })
+	local gui = new("ScreenGui", { Name = "CombatHUD", ResetOnSpawn = false, DisplayOrder = 5, IgnoreGuiInset = false },
+		Players.LocalPlayer:WaitForChild("PlayerGui"))
+	self.gui = gui
+
+	-- Top header: portraits, health, guard, round pips and timer.
+	local header = new("Frame", { Name = "Header", BackgroundTransparency = 1, Size = UDim2.new(1, -24, 0, 104), Position = UDim2.fromOffset(12, 6) }, gui)
+	for slot = 1, 2 do
+		local data = CharacterData[slot]
+		local energy = Color3.fromHex(data.Energy)
+		local left = slot == 1
+		local side = new("Frame", {
+			Name = "Player" .. slot, BackgroundTransparency = 1,
+			Size = UDim2.new(0.5, -52, 1, 0), Position = if left then UDim2.new() else UDim2.new(0.5, 52, 0, 0),
+		}, header)
+		-- Diamond portrait with the character's kanji.
+		local portrait = new("Frame", {
+			Name = "Portrait", Size = UDim2.fromOffset(54, 54), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = 45,
+			Position = if left then UDim2.fromOffset(36, 40) else UDim2.new(1, -36, 0, 40),
+			BackgroundColor3 = INK, BorderSizePixel = 0,
+		}, side)
+		stroke(portrait, 3, energy)
+		text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 34, TextColor3 = energy, Font = UI_FONT })
+		local barX = 76
+		local bar = new("Frame", {
+			Name = "Health", BackgroundColor3 = INK, BorderSizePixel = 0,
+			Size = UDim2.new(1, -barX - 4, 0, 24), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
+			Position = if left then UDim2.fromOffset(barX, 30) else UDim2.new(1, -barX, 0, 30),
+		}, side)
+		stroke(bar, 2, WHITE)
+		local trail = new("Frame", { Name = "Trail", BackgroundColor3 = RED, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
+			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
+		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
+			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
+		new("UIGradient", {
+			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) }),
+			Rotation = if left then 0 else 180,
+		}, fill)
+		local guard = new("Frame", {
+			Name = "Guard", BackgroundColor3 = INK, BorderSizePixel = 0,
+			Size = UDim2.new(0.6, 0, 0, 6), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
+			Position = if left then UDim2.fromOffset(barX, 58) else UDim2.new(1, -barX, 0, 58),
+		}, side)
+		local guardFill = new("Frame", { BackgroundColor3 = Color3.fromHex(data.Shield), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
+			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, guard)
+		local name = text(side, {
+			Name = "Name", Text = data.Name, TextSize = 26, Size = UDim2.new(0, 120, 0, 26),
+			Position = if left then UDim2.fromOffset(barX, 2) else UDim2.new(1, -barX - 120, 0, 2),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+		})
+		stroke(name, 2)
+		local player = text(side, {
+			Name = "PlayerName", TextSize = 12, Font = UI_FONT, TextColor3 = energy,
+			Size = UDim2.new(1, -barX - 130, 0, 20), Position = if left then UDim2.fromOffset(barX + 64, 7) else UDim2.new(0, 0, 0, 7),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+		})
+		local pips = {}
+		for i = 1, config.RoundsToWin do
+			local pip = new("Frame", {
+				Size = UDim2.fromOffset(12, 12), Rotation = 45, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = INK, BorderSizePixel = 0,
+				Position = if left then UDim2.new(1, -12 - (i - 1) * 20, 0, 74) else UDim2.new(0, 12 + (i - 1) * 20, 0, 74),
+			}, side)
+			stroke(pip, 2, WHITE)
+			pips[i] = pip
+		end
+		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy }
 	end
-	local top = Instance.new("Frame")
-	top.Name, top.Size, top.Position = "Header", UDim2.new(1, -28, 0, 84), UDim2.fromOffset(14, 10)
-	top.BackgroundColor3, top.BackgroundTransparency, top.BorderSizePixel = Color3.fromHex("0C1222"), 0.12, 0
-	top.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius, corner.Parent = UDim.new(0, 12), top
-	label(top, "Title", "RIFT // FIGHT LAB", UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 6), 16)
-	for i = 1, 2 do
-		local color = Color3.fromHex(if i == 1 then "52F2D6" else "FF895A")
-		self.labels[i] = label(top, "Player" .. i, "...", UDim2.new(0.44, 0, 0, 24),
-			UDim2.fromScale(if i == 1 then 0.02 else 0.54, 0.37), 15, color)
-		self.labels[i + 2] = label(top, "State" .. i, "IDLE", UDim2.new(0.44, 0, 0, 20),
-			UDim2.fromScale(if i == 1 then 0.02 else 0.54, 0.67), 12)
+	local timer = new("Frame", {
+		Name = "Timer", Size = UDim2.fromOffset(62, 62), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
+		BackgroundColor3 = INK, BorderSizePixel = 0, Rotation = 45,
+	}, header)
+	stroke(timer, 3, WHITE)
+	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 36, Text = "99" })
+	self.round = text(header, { Size = UDim2.fromOffset(120, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84),
+		TextSize = 14, Font = UI_FONT, Text = "ROUND 1" })
+	stroke(self.round, 1.5)
+
+	-- Combo counters, one per side (shown on the attacker's side).
+	for slot = 1, 2 do
+		local left = slot == 1
+		local frame = new("Frame", {
+			Name = "Combo" .. slot, BackgroundTransparency = 1, Size = UDim2.fromOffset(220, 130), Visible = false,
+			AnchorPoint = Vector2.new(if left then 0 else 1, 0.5), Position = if left then UDim2.new(0, 18, 0.4, 0) else UDim2.new(1, -18, 0.4, 0),
+		}, gui)
+		local scale = new("UIScale", { Scale = 1 }, frame)
+		local align = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
+		local count = text(frame, { Size = UDim2.new(1, 0, 0, 74), TextSize = 78, TextXAlignment = align, TextColor3 = self.bars[slot].energy })
+		stroke(count, 4)
+		local hits = text(frame, { Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 68), TextSize = 30, Text = "HITS !", TextXAlignment = align })
+		stroke(hits, 3)
+		local detail = text(frame, { Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 98), TextSize = 16, Font = UI_FONT, TextXAlignment = align })
+		stroke(detail, 2)
+		self.combo[slot] = { frame = frame, scale = scale, count = count, detail = detail, expires = 0 }
 	end
-	label(top, "VS", "VS", UDim2.fromScale(0.08, 0.5), UDim2.fromScale(0.46, 0.4), 14)
-	self.status = label(gui, "Status", "Connexion au terrain…", UDim2.new(1, -24, 0, 22), UDim2.fromOffset(12, 99), 12)
-	local function button(name, text, x, width, callback)
-		local b = Instance.new("TextButton")
-		b.Name, b.Text = name, text
-		b.Size, b.Position = UDim2.fromOffset(width, 32), UDim2.fromOffset(x, 126)
-		b.Font, b.TextSize = Enum.Font.GothamBold, 11
-		b.TextColor3, b.BackgroundColor3 = Color3.fromHex("EFF6FF"), Color3.fromHex("26344F")
-		b.Parent = gui
-		local round = Instance.new("UICorner")
-		round.CornerRadius, round.Parent = UDim.new(0, 7), b
+
+	-- Announcer.
+	local announce = text(gui, {
+		Name = "Announcer", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.new(1, 0, 0, 120), TextSize = 110, Visible = false,
+	})
+	stroke(announce, 6)
+	self.announceScale = new("UIScale", { Scale = 1 }, announce)
+	self.announce = announce
+	self.announceSub = text(gui, {
+		Name = "AnnouncerSub", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55),
+		Size = UDim2.new(1, 0, 0, 34), TextSize = 30, Visible = false, TextColor3 = RED,
+	})
+	stroke(self.announceSub, 3)
+
+	-- Status and buttons below the header.
+	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 112), TextSize = 12,
+		Font = UI_FONT, TextColor3 = Color3.fromHex("B9B9C2") })
+	local x = 12
+	local function button(name, label, width, callback)
+		local b = new("TextButton", {
+			Name = name, Text = label, Size = UDim2.fromOffset(width, 28), Position = UDim2.fromOffset(x, 134),
+			Font = UI_FONT, TextSize = 11, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
+		}, gui)
+		stroke(b, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		b.Activated:Connect(callback)
+		x += width + 8
 		return b
 	end
 	local poseButton
-	poseButton = button("PoseRate", "POSES : 15/s", 16, 126, function()
+	poseButton = button("PoseRate", "POSES : 15/s", 108, function()
 		local rates = { 12, 15, 24, 60 }
 		local current = table.find(rates, self.poseRate) or 1
 		self.poseRate = rates[current % #rates + 1]
-		poseButton.Text = "POSES : " .. self.poseRate .. "/s"
+		poseButton.Text = if self.poseRate >= 60 then "POSES : FLUIDE" else "POSES : " .. self.poseRate .. "/s"
 	end)
-	self.resetButton = button("Reset", "REPLACER · SOLO", 152, 150, function()
+	self.effectsButton = button("Effects", "EFFETS : FORTS", 118, function()
+		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFETS : RÉDUITS" else "EFFETS : FORTS" end
+	end)
+	self.debugButton = button("Hitboxes", "HITBOX : NON", 104, function()
+		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX : OUI" else "HITBOX : NON" end
+	end)
+	self.dummyButton = button("Dummy", "MANNEQUIN", 100, function()
+		if self.onDummy then self.onDummy() end
+	end)
+	self.resetButton = button("Reset", "REPLACER (R)", 104, function()
 		if self.onReset then self.onReset() end
 	end)
-	self.help = label(gui, "Help", "", UDim2.new(1, -24, 0, 28), UDim2.new(0, 12, 1, -34), 12)
+
+	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -30), TextSize = 13,
+		Font = UI_FONT, TextColor3 = Color3.fromHex("D6D6DC") })
+	stroke(self.help, 1.5)
 	local function updateHelp()
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
-		self.help.Text = if gamepad then "STICK / CROIX : bouger    A / ↑ : saut    ↓ : bas    RT : dash    Y : replacer (solo)"
-			else "Q/A · D : bouger    ESPACE : saut    S : bas    SHIFT : dash    R : replacer (solo)"
+		self.help.Text = if gamepad
+			then "STICK : bouger · A : saut · ↓ : bas · X : coup (combo) · B : lourd / finisher · RB : garde · RT : dash · SELECT : replacer"
+			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : combo · CLIC D : lourd / finisher · F : garde · SHIFT : dash · R : replacer"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
-	return setmetatable(self, { __index = HUD })
+	return self
 end
-function HUD:update(fighters, fps)
-	if not fighters[1] or not fighters[2] then return end
-	local localSlot = Players.LocalPlayer:GetAttribute("FighterSlot") or 0
-	for i, f in fighters do
-		self.labels[i].Text = (if localSlot == i then "VOUS · " else "") .. f.name
-		self.labels[i + 2].Text = string.upper(f.state) .. "  /  X " .. string.format("%.1f", f.x)
+
+function HUD:setEffectsReduced(reduced)
+	self.effectsButton.Text = if reduced then "EFFETS : RÉDUITS" else "EFFETS : FORTS"
+end
+
+function HUD:announceText(main, sub, color)
+	local a = self.announce
+	a.Text, a.TextColor3, a.Visible, a.TextTransparency = main, color or WHITE, true, 0
+	self.announceScale.Scale = 2.4
+	tween(self.announceScale, 0.22, { Scale = 1 }, Enum.EasingStyle.Back)
+	self.announceSub.Text, self.announceSub.Visible = sub or "", sub ~= nil
+	self.announceId = (self.announceId or 0) + 1
+	local id = self.announceId
+	task.delay(1.3, function()
+		if self.announceId ~= id then return end
+		tween(a, 0.25, { TextTransparency = 1 })
+		self.announceSub.Visible = false
+	end)
+end
+
+-- Rounds are announced from the snapshot phase so a client joining mid-intro still sees it.
+function HUD:announceRound(round)
+	self:announceText("ROUND " .. round, CharacterData[1].Name .. " " .. CharacterData[1].Skin .. "  VS  "
+		.. CharacterData[2].Name .. " " .. CharacterData[2].Skin)
+end
+
+function HUD:onEvent(event, world)
+	if event.kind == "Hit" and event.combo and event.combo >= 2 then
+		local c = self.combo[event.attacker]
+		c.frame.Visible = true
+		c.count.Text = tostring(event.combo)
+		local m = MoveData.Moves[event.move]
+		c.detail.Text = (if m and m.heavy then m.name .. " · " else "") .. event.comboDamage .. " DÉGÂTS"
+		c.scale.Scale = 1.5
+		tween(c.scale, 0.15, { Scale = 1 }, Enum.EasingStyle.Back)
+		c.expires = os.clock() + 1.4
+	elseif event.kind == "GuardBreak" then
+		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
+	elseif event.kind == "Fight" then
+		self:announceText("FIGHT !", nil, RED)
+	elseif event.kind == "RoundEnd" then
+		local main = if event.reason == "Timeout" then "TIME OVER" elseif event.winner == 0 then "DOUBLE K.O." else "K.O."
+		local sub
+		if not world.training then
+			sub = if event.winner == 0 then "ÉGALITÉ" else CharacterData[event.winner].Name .. " " .. CharacterData[event.winner].Skin .. " GAGNE LE ROUND"
+			if event.perfect then sub = "PERFECT ! " .. sub end
+		end
+		self:announceText(main, sub, if main == "K.O." then RED else WHITE)
+	elseif event.kind == "MatchEnd" then
+		local main = if event.winner == 0 then "MATCH NUL" else CharacterData[event.winner].Name .. " GAGNE !"
+		self:announceText(main, "VICTOIRE", RED)
 	end
-	local solo = fighters[1].owner == 0 or fighters[2].owner == 0
-	self.resetButton.Visible = solo and localSlot > 0
-	self.status.Text = string.format("PHASE 01 · %s · %d FPS · mouvement uniquement",
-		if localSlot == 0 then "SPECTATEUR" elseif solo then "ENTRAÎNEMENT" else "2 JOUEURS", math.floor(fps + 0.5))
 end
+
+-- Called every rendered frame with the latest authoritative snapshot.
+function HUD:update(world, views, fps, dt)
+	if not views[1] or not views[2] then return end
+	local localSlot = Players.LocalPlayer:GetAttribute("FighterSlot") or 0
+	local maxHealth = self.config.MaxHealth
+	for slot, view in views do
+		local bar = self.bars[slot]
+		local ratio = math.clamp(view.hp / maxHealth, 0, 1)
+		bar.fill.Size = UDim2.fromScale(ratio, 1)
+		-- The red trail waits while the combo continues, then catches up.
+		if view.combo == 0 or self.trail[slot] < ratio then
+			self.trail[slot] = math.max(ratio, self.trail[slot] - dt * 0.6)
+		end
+		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
+		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
+		bar.player.Text = (if localSlot == slot then "VOUS · " else "") .. view.player
+		for i, pip in bar.pips do
+			pip.BackgroundColor3 = if view.wins >= i then bar.energy else INK
+		end
+	end
+	for _, c in self.combo do
+		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end
+	end
+	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
+	self.round.Text = if world.training then "ENTRAÎNEMENT" else "ROUND " .. world.round
+	local solo = world.training
+	self.resetButton.Visible = solo and localSlot > 0
+	self.dummyButton.Visible = solo and localSlot > 0
+	self.status.Text = string.format("v%s · %s · %d FPS", self.config.Version,
+		if localSlot == 0 then "SPECTATEUR" elseif solo then "ENTRAÎNEMENT" else "VERSUS", math.floor(fps + 0.5))
+end
+
 return HUD

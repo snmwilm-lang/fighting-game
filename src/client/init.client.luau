@@ -2,18 +2,32 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage:WaitForChild("Shared").CombatConfig)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.CombatConfig)
+local MoveData = require(Shared.MoveData)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
 local HUDController = require(script.HUDController)
+local EffectsController = require(script.EffectsController)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
 local hud = HUDController.new(Config)
 local input = InputController.start(remotes:WaitForChild("Input"))
 local cameraController = CameraController.new(Config)
+local effects = EffectsController.new(Config, cameraController)
 hud.onReset = input.reset
+hud.onDummy = input.toggleDummy
+hud.onEffects = function()
+	effects.reduced = not effects.reduced
+	return effects.reduced
+end
+hud.onDebug = function()
+	effects:setDebug(not effects.debug)
+	return effects.debug
+end
+hud:setEffectsReduced(effects.reduced)
 
 -- Disable Roblox's walking/jumping controls; our abstract input adapter owns them.
 task.spawn(function()
@@ -30,17 +44,29 @@ task.spawn(function()
 	warn("[FightingGame] Default Reset could not be disabled; use the training Reset button.")
 end)
 
-local latest, displayed, rigs = nil, {}, {}
-local generation, receivedAt, latestTick = -1, 0, -1
-remotes.Snapshot.OnClientEvent:Connect(function(packet)
-	if packet.tick < latestTick then return end
+local world, displayed, rigs, previous = nil, {}, {}, {}
+local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
+remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
+	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
-	latest, receivedAt = packet.fighters, os.clock()
-	if generation ~= packet.generation then
-		generation = packet.generation
+	world, receivedAt = packet, os.clock()
+	if generation ~= packet.generation or epoch ~= packet.epoch then
+		-- New match or new round: snap instead of sliding fighters back to their spawns.
+		if generation ~= packet.generation then input.clear() end
+		generation, epoch = packet.generation, packet.epoch
 		displayed = {}
 		cameraController.center = nil
-		input.clear()
+	end
+	if packet.phase == "Intro" and lastPhase ~= "Intro" then
+		hud:announceRound(packet.round)
+	end
+	lastPhase = packet.phase
+end)
+remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
+	if type(batch) ~= "table" then return end
+	for _, event in batch do
+		effects:onEvent(event, displayed, rigs)
+		if world then hud:onEvent(event, world) end
 	end
 end)
 
@@ -58,34 +84,47 @@ local function findRig(slot)
 		if motorCount < 15 then return nil end -- Wait for complete rig replication.
 		cached = { model = model, root = root, animation = AnimationController.new(model) }
 		rigs[slot] = cached
+		effects:attachRig(slot, cached)
 	end
 	return cached
 end
 
-local fps, hudTime = 60, 0
+local fps = 60
 RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.Value + 1, function(dt)
-	if not latest then return end
+	if not world then return end
+	local now = os.clock()
 	local alpha = 1 - math.exp(-35 * math.min(dt, 0.1))
-	local sinceSnapshot = math.min(os.clock() - receivedAt, 1 / Config.SnapshotRate)
-	for i, state in latest do
+	local sinceSnapshot = math.min(now - receivedAt, 2 / Config.SnapshotRate)
+	for i, state in world.fighters do
 		local current = displayed[i]
-		-- Bounded visual extrapolation; server state remains the source of truth.
-		local targetX = math.clamp(state.x + state.vx * sinceSnapshot, Config.ArenaMinX, Config.ArenaMaxX)
-		local targetY = math.max(0, state.y + state.vy * sinceSnapshot)
+		-- Bounded visual extrapolation, paused during hitstop; server state stays the truth.
+		local ahead = if state.hitstop > 0 then 0 else sinceSnapshot
+		local targetX = math.clamp(state.x + state.vx * ahead, Config.ArenaMinX, Config.ArenaMaxX)
+		local targetY = math.max(0, state.y + state.vy * ahead)
 		if not current then current = { x = state.x, y = state.y }; displayed[i] = current end
 		current.x += (targetX - current.x) * alpha
 		current.y += (targetY - current.y) * alpha
-		current.facing, current.state, current.owner, current.name = state.facing, state.state, state.owner, state.name
+		for k, v in state do
+			if k ~= "x" and k ~= "y" then current[k] = v end
+		end
+		local m = MoveData.Moves[state.move]
+		if m then
+			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
+		end
+		current.victory = (world.phase == "KO" or world.phase == "MatchEnd") and (world.winner == i or world.matchWinner == i)
+			and world.phaseTicks < Config.KOTicks - 60 and state.state ~= "KO" and state.y <= 0
 		local rig = findRig(i)
 		if rig then
 			local pos = Vector3.new(current.x, current.y + Config.RootHeight, Config.PlaneZ)
+			-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
 			rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))
-			rig.animation:update(current.state, os.clock(), hud.poseRate)
+				* CFrame.Angles(0, -current.facing * math.rad(Config.ModelYaw), 0)
+			rig.animation:update(current, now, hud.poseRate)
+			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
 		end
 	end
 	cameraController:update(displayed, dt)
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
-	hudTime += dt
-	if hudTime > 0.1 then hudTime = 0; hud:update(displayed, fps) end
+	hud:update(world, displayed, fps, dt)
 end)
-print("[FightingGame] Client ready — movement, camera, touch/gamepad and stepped poses")
+print("[FightingGame] Client ready — combat, guard (F), combos (left/right click), anime presentation")

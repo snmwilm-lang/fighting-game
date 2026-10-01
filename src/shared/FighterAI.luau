@@ -30,16 +30,16 @@ local ROUTES = {
 
 FighterAI.Levels = table.freeze({
 	{ name = "FACILE", reaction = 22, block = 0.15, lowBlock = 0.2, combo = 0.45, aggression = 0.5,
-		antiAir = 0.05, punish = 0.25, reversal = 0.05, counter = 0.4, zoning = 0, decision = 16, ultimate = 0,
+		antiAir = 0.05, punish = 0.25, reversal = 0.05, counter = 0.4, zoning = 0, promptSpread = 12, decision = 16, ultimate = 0,
 		routes = { "easy" } },
 	{ name = "NORMAL", reaction = 15, block = 0.4, lowBlock = 0.5, combo = 0.72, aggression = 0.62,
-		antiAir = 0.3, punish = 0.5, reversal = 0.15, counter = 0.5, zoning = 0.2, decision = 12, ultimate = 0.25,
+		antiAir = 0.3, punish = 0.5, reversal = 0.15, counter = 0.5, zoning = 0.2, promptSpread = 9, decision = 12, ultimate = 0.25,
 		routes = { "easy", "normal" } },
 	{ name = "DIFFICILE", reaction = 10, block = 0.62, lowBlock = 0.75, combo = 0.88, aggression = 0.72,
-		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, full = 0.25, decision = 8, ultimate = 0.6,
+		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, full = 0.25, promptSpread = 6, decision = 8, ultimate = 0.6,
 		routes = { "normal", "hard" } },
 	{ name = "LÉGENDE", reaction = 6, block = 0.8, lowBlock = 0.92, combo = 0.97, aggression = 0.8,
-		antiAir = 0.85, punish = 0.95, reversal = 0.45, counter = 0.6, zoning = 0.5, full = 0.5, decision = 6, ultimate = 1,
+		antiAir = 0.85, punish = 0.95, reversal = 0.45, counter = 0.6, zoning = 0.5, full = 0.5, promptSpread = 2, decision = 6, ultimate = 1,
 		routes = { "hard" } },
 })
 
@@ -91,6 +91,8 @@ function FighterAI:pickPlan(meter, cost, fullRoutes)
 		local route = fullRoutes[math.floor(self:random() * #fullRoutes) + 1]
 		local keys = {}
 		for key in route.keys:gmatch("%S") do table.insert(keys, key) end
+		-- Earned ultimates: with 3 bars, end on the right click (ÉVEIL) or the R key (PORTE).
+		if meter >= 300 and self:chance(0.5) then keys[6] = "U" end
 		local length = 1
 		while length < #keys and self:chance(self.level.combo) do length += 1 end
 		self.plan, self.step, self.planLength, self.pressedMove = keys, 1, length, nil
@@ -128,6 +130,26 @@ function FighterAI:think(world, slot)
 	local moves = world.moves
 	table.insert(self.history, observe(foe, moves))
 	if #self.history > 40 then table.remove(self.history, 1) end
+	local cinematic = world.cinematic
+	if cinematic and cinematic.attacker == slot and cinematic.prompts then
+		-- Rhythm prompts of ÉVEIL ÉCARLATE: accuracy depends on the level.
+		local prompt = cinematic.prompts[cinematic.nextPrompt]
+		if prompt then
+			self.promptOffset = self.promptOffset or {}
+			local offset = self.promptOffset[cinematic.nextPrompt]
+			if not offset then
+				local spread = self.level.promptSpread
+				offset = math.floor((self:random() * 2 - 1) * spread + 0.5)
+				self.promptOffset[cinematic.nextPrompt] = offset
+			end
+			if cinematic.tick + 1 == prompt.tick + offset then
+				if prompt.button == "Light" then input.light = true
+				elseif prompt.button == "Heavy" then input.heavy = true else input.ultimate = true end
+			end
+		end
+		return input
+	end
+	self.promptOffset = nil
 	if world.phase ~= "Fight" or world.cinematic or me.state == "KO" then
 		self.plan, self.blockTicks = nil, 0
 		return input
@@ -147,7 +169,8 @@ function FighterAI:think(world, slot)
 			if not me.move then self.plan = nil end
 		elseif me.move and me.moveContact then
 			local m = moves[me.move]
-			if moveKey ~= self.pressedMove then
+			-- One clean press per link: wait until every hit of the current move is out.
+			if moveKey ~= self.pressedMove and me.moveHits >= (m.hits or 1) then
 				if me.moveContact == "Block" and self.step > 2 then
 					self.plan = nil -- stay safe on block
 				elseif nextButton == "J" then

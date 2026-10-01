@@ -11,6 +11,7 @@ local CombatSimulation = {}
 
 local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimate = "Ultimate" }
 local BUTTON_ORDER = { "light", "heavy", "special", "ultimate" }
+local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U" }
 
 local function newFighter(slot, c)
 	local facing = if slot == 1 then 1 else -1
@@ -24,6 +25,7 @@ local function newFighter(slot, c)
 		hp = c.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		moveHits = 0, lastHitFrame = 0, projectileSpawned = false,
+		chainKeys = "", chainClean = false, awakenStyle = nil,
 		stun = 0, stunKind = nil, launched = false, juggle = 0,
 		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
 		knockdown = 0, getUp = 0,
@@ -133,9 +135,17 @@ end
 
 local function startMove(world, f, id, events)
 	local m = world.moves[id]
+	local entry = table.remove(f.buffer, 1)
+	local letter = if entry then KEY_LETTER[entry.button] else "?"
+	if f.move then
+		-- A link of the current combo: remember the typed route and whether it stayed clean.
+		f.chainKeys ..= letter
+		f.chainClean = f.chainClean and entry ~= nil and entry.clean
+	else
+		f.chainKeys, f.chainClean = letter, entry ~= nil and entry.clean
+	end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
-	table.remove(f.buffer, 1)
 	if m.air then f.airAttackUsed = true end
 	if m.homing then
 		local target = world.fighters[3 - f.slot]
@@ -159,6 +169,18 @@ local function startMove(world, f, id, events)
 	end
 end
 
+-- Name of the full route whose first five links this combo matches, if it was played cleanly.
+function CombatSimulation.awakeningStyle(world, f)
+	if not f.chainClean or #f.chainKeys ~= 5 then return nil end
+	for _, route in world.moveData.FullRoutes do
+		local keys = route.keys:gsub("%s", "")
+		if keys:sub(1, 5) == f.chainKeys and route.moves[5] == f.move then
+			return route.name
+		end
+	end
+	return nil
+end
+
 local function chooseMove(world, f, grounded, crouching)
 	local head = f.buffer[1]
 	if not head then return nil end
@@ -173,8 +195,23 @@ local function chooseMove(world, f, grounded, crouching)
 			nextId = (if crouching then starters.Crouch else starters.Ground).Special
 		elseif button == "Ultimate" and current.kind ~= "Ultimate" and not current.air then
 			nextId = starters.Ground.Ultimate
+			-- Third ultimate, PORTE DES CIEUX: the five first links of a full route played
+			-- cleanly (one press per link, after each hit), then the R key with 3 bars.
+			local style = CombatSimulation.awakeningStyle(world, f)
+			if style and head.clean and f.meter >= moves.Kaiten.meterCost then
+				nextId = "Kaiten"
+				f.awakenStyle = style
+			end
 		elseif current.cancels then
 			nextId = current.cancels[button]
+			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
+			if nextId == "Finale" then
+				local style = CombatSimulation.awakeningStyle(world, f)
+				if style and head.clean and f.meter >= moves.Awakening.meterCost then
+					nextId = "Awakening"
+					f.awakenStyle = style
+				end
+			end
 		end
 	elseif f.dashTicks == 0 then
 		if grounded then
@@ -184,10 +221,6 @@ local function chooseMove(world, f, grounded, crouching)
 		end
 	end
 	local m = nextId and moves[nextId]
-	-- With a full ki meter, the finisher turns into the unique attack.
-	if m and m.awakens and f.meter >= moves[m.awakens].meterCost then
-		nextId, m = m.awakens, moves[m.awakens]
-	end
 	if m and m.meterCost and f.meter < m.meterCost then return nil end
 	if m and m.projectile then
 		for _, p in world.projectiles do
@@ -200,10 +233,16 @@ end
 local function stepFighter(world, f, input, events)
 	local c, moves = world.config, world.moves
 	-- Presses queue in the order typed, so mashing L L L R gives exactly that route.
+	-- A press is "clean" when nothing else is waiting and, inside a combo, the current move
+	-- has already landed all its hits: one deliberate press per link. Mashing is never clean.
+	local ongoing = f.move and world.moves[f.move]
+	local landed = ongoing == nil or (f.moveContact ~= nil and f.moveHits >= (ongoing.hits or 1))
 	for _, field in BUTTON_ORDER do
 		if input[field] then
+			local clean = #f.buffer == 0 and landed
+			if not clean and f.move then f.chainClean = false end
 			if #f.buffer >= c.BufferSize then table.remove(f.buffer, 1) end
-			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks })
+			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, clean = clean })
 		end
 	end
 	if f.hitstop > 0 then
@@ -442,7 +481,14 @@ local function startCinematic(world, a, d, events, moveId)
 	local c = world.config
 	local cin = world.moveData.Cinematics[moveId]
 	local plan, finish = {}, false
-	if moveId == "Awakening" then
+	if moveId == "Kaiten" then
+		-- A fixed share of the MAXIMUM health, ignoring combo scaling; it can KO.
+		local total = math.floor(c.MaxHealth * cin.MaxHealthShare)
+		finish = total >= d.hp
+		local share = math.floor(total * cin.HitShare)
+		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
+		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
+	elseif moveId == "Awakening" then
 		-- 95 % of the current health whatever it is; below half the maximum: FINAL FINISH.
 		finish = d.hp < c.MaxHealth * cin.FinishThreshold
 		local total = if finish then d.hp else math.floor(d.hp * cin.HealthRatio)
@@ -456,14 +502,33 @@ local function startCinematic(world, a, d, events, moveId)
 		end
 		table.insert(plan, { tick = cin.FinalTick, damage = math.max(1, math.floor(cin.FinalDamage * scale + 0.5)), final = true })
 	end
+	-- ÉVEIL ÉCARLATE: rhythm prompts during the rush, taken from the route that was played.
+	local prompts = {}
+	local style = a.awakenStyle
+	if moveId == "Kaiten" then
+		for _, t in cin.PromptTicks do
+			table.insert(prompts, { tick = t, button = "Ultimate", result = nil })
+		end
+	elseif moveId == "Awakening" then
+		local keys = "LRLR"
+		for _, route in world.moveData.FullRoutes do
+			if route.name == style then keys = route.keys:gsub("%s", "") end
+		end
+		for i, t in cin.PromptTicks do
+			local letter = keys:sub(i, i)
+			table.insert(prompts, { tick = t, button = if letter == "R" then "Heavy" else "Light", result = nil })
+		end
+	end
 	world.cinematic = {
-		attacker = a.slot, defender = d.slot, move = moveId, tick = 0, finish = finish,
+		attacker = a.slot, defender = d.slot, move = moveId, tick = 0, finish = finish, style = style,
 		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
+		prompts = prompts, nextPrompt = 1, perfect = 0,
 	}
 	a.move, a.moveContact, a.state = moveId, "Hit", "Cinematic"
 	a.pushVx, d.pushVx, a.vx = 0, 0, 0
 	d.stun, d.stunKind, d.state = 999, "Hit", "Hitstun"
-	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = moveId, finish = finish })
+	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = moveId,
+		finish = finish, style = style })
 end
 
 -- Applies one hit (or blocked hit) of move m from attacker a on defender d. `source` is set
@@ -651,11 +716,54 @@ end
 
 -- The ultimate plays as a scripted, authoritative sequence: fixed hits, then a final blow.
 -- Cinematics play as scripted, authoritative sequences: fixed hits, then a final blow.
-local function stepCinematic(world, events)
+-- Rhythm prompts: each one is judged once. Pressing early (spam) or the wrong button fails
+-- it; missing the window fails it too. All succeeded: PARFAIT, one ki bar back.
+local function judgePrompts(world, state, input, events)
+	local cin = world.moveData.Cinematics[state.move]
+	local prompt = state.prompts[state.nextPrompt]
+	if not prompt then return end
+	local pressed = if input.light then "Light" elseif input.heavy then "Heavy"
+		elseif input.ultimate then "Ultimate" else nil
+	local delta = state.tick - prompt.tick
+	local result
+	if pressed and delta >= -cin.PromptWindow then
+		result = pressed == prompt.button and delta <= cin.PromptWindow
+	elseif pressed then
+		result = false -- far too early: mashing
+	elseif delta > cin.PromptWindow then
+		result = false -- missed
+	end
+	if result == nil then return end
+	prompt.result = result
+	if result then state.perfect += 1 end
+	table.insert(events, { kind = "Prompt", attacker = state.attacker, index = state.nextPrompt, success = result })
+	state.nextPrompt += 1
+	if state.nextPrompt > #state.prompts then
+		local all = state.perfect == #state.prompts
+		state.grade = if all then "PARFAIT" elseif state.perfect >= #state.prompts - 1 then "GRAND" else "BON"
+		if all and cin.PerfectRefund then gainMeter(world.fighters[state.attacker], cin.PerfectRefund, world.config) end
+		if all and cin.PerfectBonus then
+			-- Gate fully opened: the final blow hits harder.
+			for _, step in state.plan do
+				if step.final then step.damage += math.floor(world.config.MaxHealth * cin.PerfectBonus) end
+			end
+			local d = world.fighters[state.defender]
+			local total = 0
+			for _, step in state.plan do total += step.damage end
+			if total >= d.hp then state.finish, state.length = true, cin.Length + cin.FinishExtra end
+		end
+		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
+	end
+end
+
+local function stepCinematic(world, events, inputs)
 	local c = world.config
 	local state = world.cinematic
 	state.tick += 1
 	local a, d = world.fighters[state.attacker], world.fighters[state.defender]
+	if #state.prompts > 0 then
+		judgePrompts(world, state, inputs[state.attacker] or CombatSimulation.neutralInput(), events)
+	end
 	local dir = if d.x >= a.x then 1 else -1
 	for _, step in state.plan do
 		if step.tick == state.tick then
@@ -691,6 +799,7 @@ local function stepCinematic(world, events)
 	if state.tick >= state.length then
 		world.cinematic = nil
 		a.move, a.moveContact, a.state = nil, nil, "Idle"
+		a.awakenStyle = nil
 		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot, finish = state.finish })
 	end
 end
@@ -789,7 +898,7 @@ function CombatSimulation.step(world, inputs)
 	local events = {}
 	world.tick += 1
 	if world.cinematic then
-		stepCinematic(world, events)
+		stepCinematic(world, events, inputs)
 		collectBounceEvents(world, events)
 		advancePhase(world, events)
 		return events

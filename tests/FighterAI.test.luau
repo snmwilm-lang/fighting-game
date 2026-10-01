@@ -122,6 +122,28 @@ test("CPU zones with ki blasts at long range", function()
 	expect(blasts >= 1, "LÉGENDE never threw a ki blast")
 end)
 
+test("LÉGENDE earns ÉVEIL ÉCARLATE and nails its rhythm prompts", function()
+	local found, grade = false, nil
+	for seed = 1, 12 do
+		local world = Sim.newWorld(Config, MoveData, false)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -2, 2
+		local brain = FighterAI.new(4, seed * 5)
+		for _ = 1, 60 * 60 do
+			world.fighters[2].meter = Config.MaxMeter
+			world.fighters[1].hp = math.max(world.fighters[1].hp, 900)
+			for _, e in Sim.step(world, { Sim.neutralInput(), brain:think(world, 2) }) do
+				if e.kind == "CinematicStart" and (e.move == "Awakening" or e.move == "Kaiten") then found = true end
+				if e.kind == "PromptGrade" then grade = e.grade end
+			end
+			if grade then break end
+		end
+		if grade then break end
+	end
+	expect(found, "LÉGENDE never earned the awakening")
+	expect(grade == "PARFAIT" or grade == "GRAND", "LÉGENDE prompts graded " .. tostring(grade))
+end)
+
 test("the same seed replays the same fight", function()
 	local a = versus(3, 2, 42, 60 * 30)
 	local b = versus(3, 2, 42, 60 * 30)

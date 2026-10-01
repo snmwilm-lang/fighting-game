@@ -24,7 +24,6 @@
 	  holdVy / multiPush / multiHitstop   intermediate hits of a multi-hit move
 	  projectile  spawns a ki blast on the first active frame (one per fighter on screen)
 	  skill       special skill unlocked by alternating clicks: announced on screen
-	  awakens     with a full ki meter this move becomes the one named here instead
 	  homing      the user leaps at the target: horizontal speed up to `lunge`, vertical speed
 	              enough to reach the target's height (decided at the start), steering each tick
 	  track       horizontal steering toward the target until all hits are out (no leap)
@@ -247,13 +246,21 @@ MoveData.Moves = table.freeze({
 		heavy = true,
 		cancels = { Heavy = "Finale" },
 	}),
-	Finale = move({ -- 6th press: finisher; with 3 ki bars it becomes ÉVEIL ÉCARLATE
+	Finale = move({ -- 6th press: finisher. Clean route + 3 bars: ÉVEIL ÉCARLATE (right click) or PORTE DES CIEUX (R key)
 		id = "Finale", name = "COUP DE GRÂCE", kind = "Skill", skill = true,
 		startup = 8, active = 4, recovery = 30,
 		damage = 110, guardDamage = 30, hitstun = 34, blockstun = 18, hitstop = 16,
 		push = 40, blockPush = 22, lunge = 14, launch = 30, knockdown = true,
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
-		heavy = true, awakens = "Awakening",
+		heavy = true,
+	}),
+	Kaiten = move({ -- third ultimate: clean full route ending on the R key, 3 bars
+		id = "Kaiten", name = "開天 · PORTE DES CIEUX", kind = "Ultimate", startup = 8, active = 6, recovery = 44,
+		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
+		push = 2, blockPush = 24, lunge = 18, meterCost = 300,
+		invuln = { from = 1, to = 14 },
+		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		heavy = true,
 	}),
 	Awakening = move({ -- unique attack: 3 bars, cinematic, 95 % of the current health or FINAL FINISH
 		id = "Awakening", name = "ÉVEIL ÉCARLATE", kind = "Ultimate", startup = 8, active = 6, recovery = 40,
@@ -301,6 +308,20 @@ MoveData.Cinematics = table.freeze({
 		FinalDamage = 170,
 		MinScaling = 0.5,
 	}),
+	-- 開天 · PORTE DES CIEUX: a gate drags the target into a crimson world for one blow.
+	-- Removes MaxHealthShare of the MAXIMUM health (KO possible, then the K.O. scene).
+	-- One prompt: the R key right on the climax opens the gate fully (+PerfectBonus).
+	Kaiten = table.freeze({
+		Length = 210,
+		FinalTick = 150,
+		Hits = table.freeze({ 118, 126 }),
+		HitShare = 0.05,
+		MaxHealthShare = 0.5,
+		FinishExtra = 200,
+		PromptTicks = table.freeze({ 140 }),
+		PromptWindow = 4,
+		PerfectBonus = 0.1,
+	}),
 	-- ÉVEIL ÉCARLATE: removes HealthRatio of the target's current health, whatever it is.
 	-- Below FinishThreshold of the maximum health it is a FINAL FINISH (KO) with an extra
 	-- FinishExtra ticks of KO sequence.
@@ -311,7 +332,11 @@ MoveData.Cinematics = table.freeze({
 		HitShare = 0.05,
 		HealthRatio = 0.95,
 		FinishThreshold = 0.5,
-		FinishExtra = 110,
+		FinishExtra = 200, -- the K.O. scene of a FINAL FINISH
+		-- Rhythm prompts during the rush: the four first keys of the route that was played.
+		PromptTicks = table.freeze({ 66, 82, 98, 114 }),
+		PromptWindow = 7,
+		PerfectRefund = 100,
 	}),
 })
 -- Kept for code written against the single-cinematic version.

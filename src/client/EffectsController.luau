@@ -187,9 +187,10 @@ end
 function EffectsController:flash(rig)
 	local outline = rig.model:FindFirstChild("InkOutline")
 	if not outline then return end
+	local base = rig.model:GetAttribute("BaseFill") or 1 -- shadow clones keep their tint
 	outline.FillTransparency = 0.15
 	task.delay(0.07, function()
-		if outline.Parent then outline.FillTransparency = 1 end
+		if outline.Parent then outline.FillTransparency = base end
 	end)
 end
 
@@ -372,6 +373,152 @@ function EffectsController:updateProjectiles(list, ahead, now)
 			self.projectiles[id] = nil
 		end
 	end
+end
+
+-- ===================================================================== cinematic props
+
+-- Flat ring of ki climbing around a spinning fighter.
+function EffectsController:tornadoRing(position, color)
+	local ring = self:part(Vector3.new(0.25, 5, 5), CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2), color, Enum.PartType.Cylinder)
+	ring.Material, ring.Transparency = Enum.Material.ForceField, 0
+	tween(ring, 0.5, { Size = Vector3.new(0.25, 9, 9), CFrame = ring.CFrame + Vector3.new(0, 3.5, 0), Transparency = 1 })
+	Debris:AddItem(ring, 0.55)
+end
+
+-- A dragon of ki spiralling up from the floor.
+function EffectsController:dragonHelix(position, color)
+	local count = if self.reduced then 14 else 30
+	for i = 0, count - 1 do
+		task.delay(i * 0.018, function()
+			local angle = i * 0.55
+			local height = i * 0.55
+			local size = 1.8 - i / count
+			local ball = self:part(Vector3.one * size, CFrame.new(position + Vector3.new(math.cos(angle) * 2.6, height, math.sin(angle) * 2.6)),
+				if i % 4 == 0 then WHITE else color, Enum.PartType.Ball)
+			ball.Transparency = 0.1
+			tween(ball, 0.45, { Transparency = 1, Size = Vector3.one * 0.2 })
+			Debris:AddItem(ball, 0.5)
+		end)
+	end
+end
+
+-- Zigzag lightning bolt between two points.
+function EffectsController:lightning(from, to, color)
+	local points = { from }
+	local segments = 7
+	for i = 1, segments - 1 do
+		local t = i / segments
+		local jitter = Vector3.new((math.random() - 0.5) * 2.4, (math.random() - 0.5) * 1.2, (math.random() - 0.5) * 1.2)
+		table.insert(points, from:Lerp(to, t) + jitter)
+	end
+	table.insert(points, to)
+	for i = 1, #points - 1 do
+		local p0, p1 = points[i], points[i + 1]
+		local bolt = self:part(Vector3.new(0.22, 0.22, (p1 - p0).Magnitude), CFrame.lookAt((p0 + p1) / 2, p1), if i % 2 == 0 then WHITE else color)
+		tween(bolt, 0.16, { Transparency = 1 })
+		Debris:AddItem(bolt, 0.18)
+	end
+	local flash = self:part(Vector3.one * 0.5, CFrame.new(to), WHITE, Enum.PartType.Ball)
+	flash.Transparency = 1
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = color, 30, 6
+	light.Parent = flash
+	Debris:AddItem(flash, 0.12)
+end
+
+-- Giant crescent moon hanging in the sky behind the fighters. Returns it for cleanup.
+function EffectsController:crescent(center, color)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Crescent", self.folder
+	local segments = 18
+	for i = 0, segments - 1 do
+		local a0 = math.rad(-120 + 240 * i / segments)
+		local a1 = math.rad(-120 + 240 * (i + 1) / segments)
+		local thickness = 0.4 + 2.2 * math.sin(math.pi * (i + 0.5) / segments)
+		local radius = 9 - thickness / 2
+		local p0 = center + Vector3.new(math.cos(a0) * radius, math.sin(a0) * radius, 0)
+		local p1 = center + Vector3.new(math.cos(a1) * radius, math.sin(a1) * radius, 0)
+		local piece = self:part(Vector3.new(thickness, 0.4, (p1 - p0).Magnitude + 0.2), CFrame.lookAt((p0 + p1) / 2, p1, Vector3.zAxis), color)
+		piece.Transparency, piece.Parent = 1, model
+		tween(piece, 0.5, { Transparency = 0.05 })
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color, glow.Range, glow.Brightness = color, 40, 2
+	glow.Parent = model:FindFirstChildWhichIsA("BasePart")
+	return model
+end
+
+-- Burning seal on the floor with the character's kanji. Returns it for cleanup.
+function EffectsController:kanjiSeal(center, color, kanji)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Seal", self.folder
+	local disc = self:part(Vector3.new(0.05, 2, 2), CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), color, Enum.PartType.Cylinder)
+	disc.Transparency, disc.Parent = 0.55, model
+	tween(disc, 0.6, { Size = Vector3.new(0.05, 30, 30) }, Enum.EasingStyle.Back)
+	local ring = self:part(Vector3.new(0.08, 2, 2), CFrame.new(center + Vector3.new(0, 0.02, 0)) * CFrame.Angles(0, 0, math.pi / 2), WHITE, Enum.PartType.Cylinder)
+	ring.Material, ring.Transparency, ring.Parent = Enum.Material.ForceField, 0, model
+	tween(ring, 0.6, { Size = Vector3.new(0.08, 31, 31) }, Enum.EasingStyle.Back)
+	local plate = self:part(Vector3.new(18, 0.05, 18), CFrame.new(center + Vector3.new(0, 0.04, 0)), color)
+	plate.Transparency, plate.Parent = 1, model
+	local gui = Instance.new("SurfaceGui")
+	gui.Face, gui.LightInfluence, gui.CanvasSize = Enum.NormalId.Top, 0, Vector2.new(400, 400)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency, label.Size, label.Text = 1, UDim2.fromScale(1, 1), kanji
+	label.TextScaled, label.Font, label.TextColor3, label.TextTransparency = true, Enum.Font.GothamBlack, WHITE, 1
+	label.Parent = gui
+	gui.Parent = plate
+	tween(label, 0.5, { TextTransparency = 0 })
+	return model
+end
+
+-- Giant torii rising from the floor. Its portal lights up with gateOpen. Returns the model.
+function EffectsController:gate(base, dir, color)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "HeavenGate", self.folder
+	local red, ink = Color3.fromHex("C8102E"), Color3.fromHex("0B0B0E")
+	local function piece(size, offset, partColor, material)
+		local p = self:part(size, CFrame.new(base + offset - Vector3.new(0, 30, 0)), partColor)
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.Parent = model
+		tween(p, 1.2, { CFrame = CFrame.new(base + offset) }, Enum.EasingStyle.Quart)
+		return p
+	end
+	-- The opening faces the fight axis (X), pillars on each side along Z.
+	piece(Vector3.new(2.4, 26, 2.4), Vector3.new(0, 13, -6), red)
+	piece(Vector3.new(2.4, 26, 2.4), Vector3.new(0, 13, 6), red)
+	piece(Vector3.new(2, 1.6, 18), Vector3.new(0, 19, 0), red)
+	piece(Vector3.new(3, 2.2, 22), Vector3.new(0, 25, 0), ink)
+	piece(Vector3.new(2.6, 1.4, 20), Vector3.new(0, 23.4, 0), red)
+	local portal = piece(Vector3.new(0.3, 18, 10), Vector3.new(dir * 0.4, 9.5, 0), color, Enum.Material.Neon)
+	portal.Name, portal.Transparency = "Portal", 1
+	return model
+end
+
+function EffectsController:gateOpen(gate)
+	local portal = gate and gate:FindFirstChild("Portal")
+	if not portal then return end
+	tween(portal, 0.8, { Transparency = 0.1 })
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = portal.Color, 50, 5
+	light.Parent = portal
+end
+
+-- The gate bursts apart: every piece flies away (client-side physics only).
+function EffectsController:gateShatter(gate, color)
+	if not gate then return end
+	for _, p in gate:GetChildren() do
+		if p:IsA("BasePart") then
+			if p.Name == "Portal" then
+				tween(p, 0.2, { Transparency = 1, Size = p.Size * 1.6 })
+			else
+				p.Anchored = false
+				p.AssemblyLinearVelocity = Vector3.new((math.random() - 0.5) * 60, 30 + math.random() * 30, (math.random() - 0.5) * 60)
+				p.AssemblyAngularVelocity = Vector3.new(math.random() * 6, math.random() * 6, math.random() * 6)
+			end
+		end
+	end
+	self:spark(gate:GetPivot().Position + Vector3.new(0, 8, 0), color, 4)
+	Debris:AddItem(gate, 3)
 end
 
 -- Debug display of hurtboxes (green) and live hitboxes (red), from the shared simulation math.

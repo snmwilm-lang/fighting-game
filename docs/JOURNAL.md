@@ -1,5 +1,68 @@
 # Journal du projet — état à transmettre
 
+## Version 0.6.0 — 1er octobre 2026
+
+Demandes de Wilhem : l'attaque écarlate doit se mériter (plus de spam) ; un combo combiné
+au R qui change la cinématique ; **3 ultimes par perso** (R classique, fin de chaîne, fin
+de chaîne + R) ; scène de K.O. d'après ses planches ; cinématiques bien plus travaillées ;
+utiliser les personnages Roblox. **Toujours rien de lancé dans Roblox Studio.**
+
+### Les 3 ultimes
+
+| # | Entrée | Coût | Règle |
+|---|---|---|---|
+| 1 | R seul | 2 barres | KAIEN RUSH (inchangé) |
+| 2 | route complète **propre**, 6e = clic droit | 3 barres | ÉVEIL ÉCARLATE : −95 % de la vie actuelle ; < 50 % de la vie max : FINAL FINISH |
+| 3 | route complète **propre**, 6e = touche R | 3 barres | 開天 PORTE DES CIEUX : −50 % de la vie max (sans réduction de combo, peut tuer) ; R pile au sommet (±4 ticks) : +10 % |
+
+**Route propre** (`chainClean`) : chaque appui doit arriver quand rien n'attend dans la file
+et, en plein combo, quand le coup en cours a déjà sorti toutes ses touches. Tout appui
+« sale » (spam, anticipation) verrouille les ultimes 2 et 3 pour ce combo. La route jouée
+(`chainKeys`) doit correspondre aux 5 premiers maillons d'une route complète.
+
+**QTE d'ÉVEIL** : 4 appuis en rythme pendant la rafale (les 4 premières touches de la route
+jouée), fenêtre ±7 ticks ; trop tôt, mauvaise touche ou raté = échec. Tout réussi =
+PARFAIT et +1 barre ; sinon GRAND / BON. Le CPU les réussit selon son niveau.
+
+### Cinématiques (client)
+
+- Plans décrits par des points liés aux **parties du rig** (tête, main, pieds, torse),
+  résolus après placement : le cadrage marche sur KAI comme sur n'importe quel avatar.
+  Coupes franches entre plans, léger travelling avant, **flou de profondeur** sur le sujet.
+- **ÉVEIL** : yeux + kanji, aura en contre-plongée, dash, un angle par coup, puis **finale
+  selon la route** : TORNADE (montée en spirale dans des anneaux de ki), RAFALE (barrage de
+  poings), DRAGON (charge puis uppercut avec dragon de ki en spirale), FOUDRE (saut dans
+  l'orage, plongeon sous les éclairs), MUR (talon qui envoie la cible dans le mur), LUNE
+  (croissant géant puis hache depuis la lune) ; onde de choc, titre.
+- **PORTE DES CIEUX** : sceau 開 en plongée, torii géant qui surgit, porte qui s'ouvre et
+  aspire la cible pendant que KAI marche (vue de dos), monde écarlate, deux coups, gros plan
+  sur le poing et gel noir et blanc (QTE R), coup unique, la porte vole en éclats.
+- **Scène de K.O.** (FINAL FINISH et K.O. qui gagne le match) d'après les planches : chute au
+  ralenti, MAIN AU SOL, SCÈNE 1 (vaincu au premier plan, gagnant debout, angle très bas),
+  DÉTAIL PIEDS, ZOOM VISAGE, SCÈNE 2 (bras croisés, légère contre-plongée), DOS DU GAGNANT,
+  PLAN LARGE ARÈNE, FONDU NOIR + K.O. Les rigs peuvent être orientés librement et placés en
+  profondeur pour composer ces plans.
+
+### Personnages Roblox
+
+Avatar R15 du joueur par défaut ; le CPU / mannequin est un **clone d'ombre** de l'avatar
+adverse (corps sombre, contour et voile de la couleur d'énergie). Sans avatar chargeable
+(joueurs de test Studio) : R15 Roblox par défaut aux couleurs NUIT. Le bouton APPARENCE
+revient à KAI.
+
+### Arène
+
+Bannières rouges à kanji (闘 魂 開 炎), piliers en ruine et gravats en fond, pour les plans
+larges.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/CombatSimulation.test.luau` : 64 tests (dont ÉVEIL et PORTE mérités sur chaque route, spam qui verrouille, QTE PARFAIT / spam = BON, bonus et K.O. de la PORTE, R seul = KAIEN RUSH) | ✅ |
+| `luau tests/FighterAI.test.luau` : 9 tests (dont LÉGENDE mérite un ultime et réussit le rythme) | ✅ |
+| Studio : cinématiques, cadrages, avatars, clone d'ombre | ❌ non exécuté |
+
 ## Version 0.5.0 — 1er octobre 2026
 
 Demandes de Wilhem : routes de 6 appuis au lieu de 4 ; enchaîner les 2 derniers coups avec

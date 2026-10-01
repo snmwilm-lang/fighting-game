@@ -120,6 +120,35 @@ function ArenaBuilder.build()
 	petals.LightEmission = 0.3
 	petals.Parent = emitterPart
 
+	-- Ruined temple dressing (backgrounds of the cinematic wide shots): hanging war banners
+	-- painted with kanji, broken stone pillars and rubble.
+	local banners = { { -30, "闘" }, { -12, "魂" }, { 12, "開" }, { 30, "炎" } }
+	for i, banner in banners do
+		local x, kanji = banner[1], banner[2]
+		local z = if i % 2 == 0 then -22 else -26
+		part("BannerPole", Vector3.new(0.5, 30, 0.5), Vector3.new(x - 2.6, 13, z), "0B0B0E")
+		part("BannerArm", Vector3.new(6, 0.4, 0.4), Vector3.new(x, 27.6, z), "0B0B0E")
+		local cloth = part("Banner", Vector3.new(4.6, 15, 0.12), CFrame.new(x, 19.5, z) * CFrame.Angles(0, 0, math.rad(if i % 2 == 0 then 2 else -2)), "8E1020")
+		local gui = Instance.new("SurfaceGui")
+		gui.Face, gui.LightInfluence, gui.CanvasSize = Enum.NormalId.Front, 0.4, Vector2.new(200, 650)
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency, label.Size, label.Position = 1, UDim2.fromScale(1, 0.5), UDim2.fromScale(0, 0.1)
+		label.Text, label.TextScaled, label.Font = kanji, true, Enum.Font.GothamBlack
+		label.TextColor3, label.TextTransparency = Color3.fromHex("0B0B0E"), 0.1
+		label.Parent = gui
+		gui.Parent = cloth
+		part("BannerTail", Vector3.new(4.6, 1.2, 0.1), CFrame.new(x + 0.6, 11.4, z) * CFrame.Angles(0, 0, -0.25), "8E1020")
+	end
+	local ruins = { { -44, 12, -18 }, { -38, 7, -30 }, { 40, 9, -20 }, { 46, 14, -32 }, { -20, 5, -34 }, { 24, 6, -36 } }
+	for i, ruin in ruins do
+		local x, h, z = ruin[1], ruin[2], ruin[3]
+		part("RuinPillar", Vector3.new(2.6, h, 2.6), CFrame.new(x, h / 2 - 1, z) * CFrame.Angles(0, math.rad(i * 23), math.rad((i % 3 - 1) * 6)), "2A2328")
+		part("RuinCap", Vector3.new(3.2, 0.8, 3.2), CFrame.new(x + (i % 2) * 0.6, h - 0.6, z) * CFrame.Angles(0, math.rad(i * 17), math.rad((i % 2) * 14)), "1C171B")
+		for r = 1, 3 do
+			part("Rubble", Vector3.new(1 + r * 0.4, 0.6 + r * 0.2, 1.2), CFrame.new(x + r * 1.7 - 3, 0, z + r) * CFrame.Angles(0, math.rad(r * 40 + i * 11), math.rad(r * 12)), "241E22")
+		end
+	end
+
 	arena.Parent = workspace
 
 	-- Flat, warm lighting: low environment shading keeps colors as solid fills (cel look).

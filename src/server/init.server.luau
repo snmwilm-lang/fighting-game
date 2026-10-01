@@ -97,10 +97,30 @@ local function swapModel(i, model)
 end
 
 -- Rebuilds a slot's rig: the owner's Roblox avatar (R15) when they chose it, KAI otherwise.
+-- An empty slot (CPU / dummy) becomes a shadow clone of the other player's avatar.
 local function rebuildSlot(i)
 	local slot = slots[i]
 	local owner = slot.owner
 	local client = owner and clients[owner]
+	if not owner then
+		local other = slots[3 - i].owner
+		local otherClient = other and clients[other]
+		if otherClient and otherClient.avatar then
+			slot.building = (slot.building or 0) + 1
+			local ticket = slot.building
+			task.spawn(function()
+				local model = RigBuilder.buildShadow(i, other.UserId) -- yields while loading
+				if slot.owner or slot.building ~= ticket then
+					if model then model:Destroy() end
+					return
+				end
+				swapModel(i, model or RigBuilder.build(i, nil))
+			end)
+		else
+			swapModel(i, RigBuilder.build(i, nil))
+		end
+		return
+	end
 	if client and client.avatar then
 		task.spawn(function()
 			local model = RigBuilder.buildAvatar(i, owner.UserId) -- yields while loading
@@ -130,6 +150,11 @@ local function assign(player)
 			if previousCharacter and previousCharacter ~= slot.model then previousCharacter:Destroy() end
 			player.Character = slot.model
 			resetAll()
+			-- Roblox avatars by default: the player's own R15, the empty slot its shadow.
+			if clients[player].avatar then
+				rebuildSlot(i)
+				if not slots[3 - i].owner then rebuildSlot(3 - i) end
+			end
 			return
 		end
 	end
@@ -141,9 +166,9 @@ local function joined(player)
 	if clients[player] then return end
 	clients[player] = {
 		tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge,
-		lastAvatar = -math.huge, lastSeq = 0, avatar = false,
+		lastAvatar = -math.huge, lastSeq = 0, avatar = true,
 	}
-	player:SetAttribute("Avatar", false)
+	player:SetAttribute("Avatar", true)
 	assign(player)
 end
 Players.PlayerAdded:Connect(joined)
@@ -153,9 +178,8 @@ Players.PlayerRemoving:Connect(function(player)
 		local slot = slots[client.slot]
 		player.Character = nil
 		slot.owner = nil
-		slot.model:Destroy()
-		slot.model = RigBuilder.build(client.slot, fightersFolder)
-		watchRig(client.slot)
+		clients[player] = nil
+		rebuildSlot(client.slot) -- the freed slot becomes the CPU / dummy again
 		resetAll()
 	end
 	clients[player] = nil
@@ -204,6 +228,7 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		client.avatar = not client.avatar
 		player:SetAttribute("Avatar", client.avatar)
 		rebuildSlot(client.slot)
+		if not slots[3 - client.slot].owner then rebuildSlot(3 - client.slot) end
 	end
 	local input = slot.input
 	input.axis, input.crouch, input.block = packet.axis, packet.crouch, packet.block
@@ -245,7 +270,9 @@ local function snapshot()
 		cinematic = world.cinematic and {
 			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
 			tick = world.cinematic.tick, length = world.cinematic.length,
-			move = world.cinematic.move, finish = world.cinematic.finish,
+			move = world.cinematic.move, finish = world.cinematic.finish, style = world.cinematic.style,
+			nextPrompt = world.cinematic.nextPrompt, grade = world.cinematic.grade,
+			prompts = world.cinematic.prompts,
 		},
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
 		fighters = list,

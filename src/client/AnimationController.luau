@@ -120,6 +120,12 @@ local Poses = {
 		LeftShoulder = { 150, 0, -35 }, LeftElbow = { 25, 0, 0 },
 		RightShoulder = { 30, 0, 60 }, RightElbow = { 40, 0, 0 },
 	}),
+	-- Standing tall over the fallen opponent, fists loose, chin up.
+	StandTall = merge(legs(6, -4, -6, -4, -12, 12), {
+		Root = { 0, 0, 0, 0, 0 }, Waist = { 4, 8, 0 }, Neck = { -12, -15, 0 },
+		LeftShoulder = { 8, 0, -16 }, LeftElbow = { 25, 0, 0 },
+		RightShoulder = { 12, 0, 18 }, RightElbow = { 35, 0, 0 },
+	}),
 	-- Back turned on the fallen opponent, arms crossed.
 	ArmsCrossed = merge(legs(8, -6, -8, -6, -10, 10), {
 		Root = { 0, 0, 0, 0, 0 }, Waist = { 6, 0, 0 }, Neck = { -8, -25, 0 },

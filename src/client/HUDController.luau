@@ -253,7 +253,11 @@ function HUD.new(config)
 	for _, route in MoveData.FullRoutes do
 		table.insert(lines, { route.keys .. "  →  " .. route.name, WHITE })
 	end
-	table.insert(lines, { "3 barres + 6e coup : ÉVEIL ÉCARLATE (−95 % de la vie ; < 50 % : FINAL FINISH)", Color3.fromHex("FF2A3D") })
+	table.insert(lines, { "3 ULTIMES (route jouée PROPREMENT : 1 appui par coup, après l'impact, sans spam)", Color3.fromHex("FFD23F") })
+	table.insert(lines, { "1. R seul (2 barres) : KAIEN RUSH", Color3.fromHex("FF2A3D") })
+	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : ÉVEIL ÉCARLATE, finale selon la route", Color3.fromHex("FF2A3D") })
+	table.insert(lines, { "   −95 % de la vie ; sous 50 % : FINAL FINISH ; QTE en rythme pendant la rafale", Color3.fromHex("FF2A3D") })
+	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : 開天 PORTE DES CIEUX (R au sommet : bonus)", Color3.fromHex("FF2A3D") })
 	table.insert(lines, { "↓ + L : KICK BAS (garde basse)  ·  ↓ + R : LANCEUR", WHITE })
 	table.insert(lines, { "Après LANCEUR : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : RISING STRIKE (invincible)", Color3.fromHex("FFB938") })
@@ -376,7 +380,7 @@ function HUD:update(world, views, fps, dt)
 		bar.kiCount.Text = tostring(math.floor(view.meter / bars))
 		local ready = view.meter >= MoveData.Moves.KaienRush.meterCost
 		bar.ready.Visible = ready
-		bar.ready.Text = if view.meter >= MoveData.Moves.Awakening.meterCost then "ÉVEIL PRÊT · 6e COUP" else "ULTIME PRÊT · R"
+		bar.ready.Text = if view.meter >= MoveData.Moves.Awakening.meterCost then "3 BARRES · ÉVEIL / PORTE" else "ULTIME PRÊT · R"
 		if ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
 	for _, c in self.combo do

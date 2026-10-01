@@ -55,10 +55,20 @@ Chaque route ★ se prolonge par **L** (POURSUITE ÉCARLATE, bond à tête cherc
 | L L L R L R | MUR |
 | L L L L R R | LUNE (CROISSANT DE LUNE > COUP DE GRÂCE) |
 
-**Avec 3 barres de ki**, le 6e coup devient **ÉVEIL ÉCARLATE**, une attaque unique avec
-cinématique : l'adversaire perd **95 % de sa vie actuelle**, quelle qu'elle soit. S'il avait
-**moins de 50 %** de sa vie, c'est un **FINAL FINISH** : K.O., chute au sol filmée sous
-plusieurs angles.
+### Les 3 ultimes de KAI
+
+| Ultime | Comment | Effet |
+|---|---|---|
+| **KAIEN RUSH** | touche **R** seule, 2 barres | ruée cinématique |
+| **ÉVEIL ÉCARLATE** | route complète jouée **proprement**, 6e coup au **clic droit**, 3 barres | l'adversaire perd **95 % de sa vie actuelle** ; sous **50 %** : **FINAL FINISH** (K.O. et scène de K.O.) ; la **finale change selon la route** (TORNADE, RAFALE, DRAGON, FOUDRE, MUR, LUNE) ; **QTE en rythme** pendant la rafale : tout réussi = PARFAIT, 1 barre rendue |
+| **開天 PORTE DES CIEUX** | même route propre, 6e coup avec la **touche R**, 3 barres | un torii géant aspire l'adversaire dans un monde écarlate pour un coup unique : 50 % de la vie max (peut tuer) ; **R pile au sommet** : +10 % |
+
+« Proprement » = un seul appui par coup, **après** que le coup précédent a touché (toutes ses
+touches). Spammer pendant la route verrouille ÉVEIL et PORTE (on obtient COUP DE GRÂCE ou
+KAIEN RUSH à la place).
+
+Les persos sont des **personnages Roblox** : ton avatar R15 par défaut (bouton APPARENCE pour
+revenir à KAI), et le CPU est un **clone d'ombre** de ton avatar.
 
 ★ = skill spécial débloqué en **alternant clic gauche et clic droit** : son nom s'affiche à
 l'écran. Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.

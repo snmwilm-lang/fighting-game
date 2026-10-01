@@ -224,12 +224,8 @@ local JOINTS = {
 -- The player's own Roblox avatar as a standard R15 rig. Its 15 Motor6D joints have the same
 -- names as KAI's, so the same poses drive it. Returns an unparented model, or nil if the
 -- avatar cannot be loaded (for example the negative test players of a Studio local server).
-function RigBuilder.buildAvatar(slot, userId)
-	local ok, description = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
-	if not ok or not description then
-		warn("[FightingGame] Avatar indisponible pour " .. tostring(userId) .. " : " .. tostring(description))
-		return nil
-	end
+-- Builds a fighter from a HumanoidDescription (see buildAvatar / buildShadow).
+local function fromDescription(slot, description, label)
 	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType.R15)
 	if not built or not model then
 		warn("[FightingGame] Création de l'avatar R15 impossible : " .. tostring(model))
@@ -237,7 +233,7 @@ function RigBuilder.buildAvatar(slot, userId)
 	end
 	model.Name = "Fighter" .. slot
 	model:SetAttribute("Slot", slot)
-	model:SetAttribute("Character", "AVATAR")
+	model:SetAttribute("Character", label)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BaseScript") then
 			d:Destroy() -- no default Animate/Health scripts: the AnimationController owns the joints
@@ -279,6 +275,44 @@ function RigBuilder.buildAvatar(slot, userId)
 	outline.DepthMode = Enum.HighlightDepthMode.Occluded
 	outline.Parent = model
 	model.PrimaryPart = root
+	return model
+end
+
+function RigBuilder.buildAvatar(slot, userId)
+	local ok, description = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
+	if not ok or not description then
+		warn("[FightingGame] Avatar indisponible pour " .. tostring(userId) .. " : " .. tostring(description))
+		return nil
+	end
+	return fromDescription(slot, description, "AVATAR")
+end
+
+-- The CPU / training dummy: a shadow clone of the opponent's avatar (dark body, glowing
+-- outline). Without a loadable avatar (Studio test players), a default Roblox R15 body in the
+-- NUIT colours. No asset id is involved: only body colours change.
+function RigBuilder.buildShadow(slot, userId)
+	local description
+	if userId and userId > 0 then
+		local ok, result = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
+		if ok and result then description = result end
+	end
+	local shadow = description ~= nil
+	description = description or Instance.new("HumanoidDescription")
+	local data = CharacterData[slot]
+	local body = if shadow then Color3.fromHex("1A1424") else Color3.fromHex(data.SkinTone)
+	description.HeadColor, description.LeftArmColor, description.RightArmColor = body, body, body
+	description.LeftLegColor, description.RightLegColor = if shadow then body else Color3.fromHex(data.Pants),
+		if shadow then body else Color3.fromHex(data.Pants)
+	description.TorsoColor = if shadow then body else Color3.fromHex(data.Vest)
+	local model = fromDescription(slot, description, if shadow then "OMBRE" else "R15")
+	if model and shadow then
+		local outline = model:FindFirstChild("InkOutline")
+		if outline then
+			outline.FillColor, outline.FillTransparency = Color3.fromHex(data.Energy), 0.72
+			outline.OutlineColor = Color3.fromHex(data.Energy)
+			model:SetAttribute("BaseFill", 0.72)
+		end
+	end
 	return model
 end
 

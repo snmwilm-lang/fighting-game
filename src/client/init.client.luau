@@ -75,6 +75,10 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 			cinematic:superFlash(event.attacker, event.move)
 		elseif event.kind == "Hit" and event.cinematic then
 			cinematic:onHit(event)
+		elseif event.kind == "Prompt" then
+			cinematic:onPrompt(event)
+		elseif event.kind == "PromptGrade" then
+			cinematic:onGrade(event)
 		end
 		if world then hud:onEvent(event, world) end
 	end
@@ -120,7 +124,8 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		for k, v in state do
 			if k ~= "x" and k ~= "y" then current[k] = v end
 		end
-		current.ghost = nil
+		-- Staging fields are rebuilt every frame by the cinematic director.
+		current.ghost, current.pose, current.z, current.lookDir = nil, nil, nil, nil
 		local m = MoveData.Moves[state.move]
 		if m then
 			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
@@ -135,16 +140,24 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		local current = displayed[i]
 		local rig = findRig(i)
 		if rig then
-			local pos = Vector3.new(current.x, current.y + rig.rootHeight, Config.PlaneZ)
-			-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
-			rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))
-				* CFrame.Angles(0, -current.facing * math.rad(Config.ModelYaw), 0)
+			local pos = Vector3.new(current.x, current.y + rig.rootHeight, current.z or Config.PlaneZ)
+			if current.lookDir then
+				rig.root.CFrame = CFrame.lookAt(pos, pos + current.lookDir) -- free orientation (K.O. scene)
+			else
+				-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
+				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))
+					* CFrame.Angles(0, -current.facing * math.rad(Config.ModelYaw), 0)
+			end
 			rig.animation:update(current, now, hud.poseRate)
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
 		end
 	end
 	effects:updateProjectiles(world.projectiles, sinceSnapshot, now)
-	if not cinematicActive then cameraController:update(displayed, dt) end
+	if cinematicActive then
+		cinematic:camera(dt, rigs, displayed)
+	else
+		cameraController:update(displayed, dt)
+	end
 	local localSlot = player:GetAttribute("FighterSlot") or 0
 	local mine = displayed[localSlot]
 	input.setUltimateReady(mine ~= nil and mine.meter >= MoveData.Moves.KaienRush.meterCost)

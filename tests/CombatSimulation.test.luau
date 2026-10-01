@@ -306,59 +306,151 @@ for _, route in MoveData.FullRoutes do
 	end)
 end
 
-test("3 bars at the 6th press: ÉVEIL ÉCARLATE removes 95 % of the current health", function()
-	local world = closeWorld(3, false)
-	world.fighters[1].meter = Config.MaxMeter
-	local hpAtStart
-	local events = {}
-	local keys = { "L", "R", "L", "R", "L", "R" }
-	local step, pressedFor = 1, nil
-	for _ = 1, 700 do
+-- Plays a full route cleanly (one press per link, after its hits) and keeps the meter full
+-- until the 6th press; `mash` adds a spam press in the middle of the route.
+local function playEarned(world, keys, options)
+	options = options or {}
+	local events, step, pressedFor, hpAtStart = {}, 1, nil, nil
+	for t = 1, options.ticks or 900 do
 		local a = world.fighters[1]
 		local i = input()
 		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
-		if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
-			and a.moveHits >= (Moves[a.move].hits or 1))) then
-			if keys[step] == "L" then i.light = true else i.heavy = true end
+		local ready = step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))
+		if keys[step] and ready then
+			local k = keys[step]
+			if k == "L" then i.light = true elseif k == "R" then i.heavy = true else i.ultimate = true end
 			pressedFor = key
 			step += 1
+		elseif options.mash and step == 3 and t % 3 == 0 then
+			i.light = true -- spam in the middle of the route
 		end
-		a.meter = math.max(a.meter, if step <= 6 then Config.MaxMeter else 0)
+		if step <= #keys and options.meter ~= false then a.meter = Config.MaxMeter end
+		if world.cinematic and options.prompts then
+			local state = world.cinematic
+			local prompt = state.prompts[state.nextPrompt]
+			if prompt and state.tick + 1 == prompt.tick + (options.offset or 0) then
+				if prompt.button == "Light" then i.light = true
+				elseif prompt.button == "Heavy" then i.heavy = true else i.ultimate = true end
+			end
+		end
 		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
 			table.insert(events, e)
 			if e.kind == "CinematicStart" then hpAtStart = world.fighters[2].hp end
 		end
 	end
+	return events, hpAtStart
+end
+
+local function routeKeys(route, last)
+	local keys = {}
+	for k in route.keys:gmatch("%S") do table.insert(keys, k) end
+	keys[6] = last
+	return keys
+end
+
+for _, route in MoveData.FullRoutes do
+	test("ÉVEIL ÉCARLATE earned on " .. route.name .. ": clean route ending on the right click, 3 bars", function()
+		local world = closeWorld(3, false)
+		local events, hpAtStart = playEarned(world, routeKeys(route, "R"))
+		local start = find(events, "CinematicStart")
+		expect(start and start.move == "Awakening", "no awakening (" .. compactRoute(events) .. ")")
+		expect(start.style == route.name, "style " .. tostring(start.style))
+		local expected = hpAtStart - math.floor(hpAtStart * MoveData.Cinematics.Awakening.HealthRatio)
+		expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
+		expect(find(events, "RoundEnd") == nil, "awakening killed a healthy target")
+	end)
+end
+
+for _, route in MoveData.FullRoutes do
+	test("PORTE DES CIEUX earned on " .. route.name .. ": clean route ending on the R key, 3 bars", function()
+		local world = closeWorld(3, false)
+		local events, hpAtStart = playEarned(world, routeKeys(route, "U"))
+		local start = find(events, "CinematicStart")
+		expect(start and start.move == "Kaiten", "no gate (" .. compactRoute(events) .. ")")
+		local expected = hpAtStart - math.floor(Config.MaxHealth * MoveData.Cinematics.Kaiten.MaxHealthShare)
+		expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
+	end)
+end
+
+test("PORTE DES CIEUX: the R key on the climax adds the bonus, and can KO", function()
+	local world = closeWorld(3, false)
+	world.fighters[2].hp = 900
+	local events, hpAtStart = playEarned(world, routeKeys(MoveData.FullRoutes[3], "U"), { prompts = true, ticks = 1200 })
+	local grade = find(events, "PromptGrade")
+	expect(grade and grade.grade == "PARFAIT", "gate prompt " .. tostring(grade and grade.grade))
+	local cin = MoveData.Cinematics.Kaiten
+	local expected = math.floor(Config.MaxHealth * cin.MaxHealthShare) + math.floor(Config.MaxHealth * cin.PerfectBonus)
+	local dealt = 0
+	for _, e in events do
+		if e.kind == "Hit" and e.cinematic and e.move == "Kaiten" then dealt += e.damage end
+	end
+	expect(dealt == expected, string.format("dealt %d, expected %d (hp at start %d)", dealt, expected, hpAtStart))
+	local low = closeWorld(3, false)
+	low.fighters[2].hp = 700
+	local lowEvents = playEarned(low, routeKeys(MoveData.FullRoutes[3], "U"), { ticks = 1200 })
+	local start = find(lowEvents, "CinematicStart")
+	expect(start and start.finish and find(lowEvents, "RoundEnd"), "gate did not KO a weakened target")
+end)
+
+test("KAIEN RUSH (R alone) stays the classic ultimate", function()
+	local world = closeWorld(3, false)
+	world.fighters[1].meter = Config.MaxMeter
+	local events = run(world, 200, function(t) return { input({ ultimate = t == 1 }) } end)
 	local start = find(events, "CinematicStart")
-	expect(start and start.move == "Awakening" and not start.finish, "no awakening cinematic")
-	local expected = hpAtStart - math.floor(hpAtStart * MoveData.Cinematics.Awakening.HealthRatio)
-	expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
-	expect(find(events, "RoundEnd") == nil, "awakening killed a healthy target")
+	expect(start and start.move == "KaienRush", "R alone did not play KAIEN RUSH")
+end)
+
+test("spamming during the route locks ÉVEIL ÉCARLATE (KAIEN RUSH instead)", function()
+	local world = closeWorld(3, false)
+	for _, last in { "R", "U" } do
+		local world = closeWorld(3, false)
+		local events = playEarned(world, routeKeys(MoveData.FullRoutes[1], last), { mash = true })
+		local start = find(events, "CinematicStart")
+		expect(not start or (start.move ~= "Awakening" and start.move ~= "Kaiten"), "earned ultimate despite mashing")
+	end
 end)
 
 test("below 50 %: ÉVEIL ÉCARLATE is a FINAL FINISH (KO after the cinematic)", function()
 	local world = closeWorld(3, false)
 	world.fighters[2].hp = 480
+	local events = playEarned(world, routeKeys(MoveData.FullRoutes[1], "R"), { ticks = 1100 })
+	local start, finish, roundEnd = find(events, "CinematicStart"), find(events, "CinematicEnd"), find(events, "RoundEnd")
+	expect(start and start.finish, "no FINAL FINISH")
+	expect(roundEnd and roundEnd.winner == 1, "no KO")
+	expect(finish and finish.finish, "cinematic end not flagged as finish")
+end)
+
+test("rhythm prompts: all on time is PARFAIT and gives a ki bar back", function()
+	local world = closeWorld(3, false)
+	local events = playEarned(world, routeKeys(MoveData.FullRoutes[2], "R"), { prompts = true })
+	local grade = find(events, "PromptGrade")
+	expect(grade and grade.grade == "PARFAIT", "grade " .. tostring(grade and grade.grade))
+	expect(world.fighters[1].meter >= MoveData.Cinematics.Awakening.PerfectRefund, "no ki refund")
+end)
+
+test("rhythm prompts: mashing fails them", function()
+	local world = closeWorld(3, false)
 	local events = {}
-	local keys = { "L", "R", "L", "R", "L", "R" }
+	local keys = routeKeys(MoveData.FullRoutes[1], "R")
 	local step, pressedFor = 1, nil
-	for _ = 1, 900 do
+	for t = 1, 900 do
 		local a = world.fighters[1]
 		local i = input()
 		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
 		if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
 			and a.moveHits >= (Moves[a.move].hits or 1))) then
-			if keys[step] == "L" then i.light = true else i.heavy = true end
+			local k = keys[step]
+			if k == "L" then i.light = true elseif k == "R" then i.heavy = true else i.ultimate = true end
 			pressedFor = key
 			step += 1
 		end
 		if step <= 6 then a.meter = Config.MaxMeter end
+		if world.cinematic then i.light, i.heavy = t % 2 == 0, t % 2 == 1 end
 		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
 	end
-	local start, finish, roundEnd = find(events, "CinematicStart"), find(events, "CinematicEnd"), find(events, "RoundEnd")
-	expect(start and start.finish, "no FINAL FINISH")
-	expect(roundEnd and roundEnd.winner == 1, "no KO")
-	expect(finish and finish.finish, "cinematic end not flagged as finish")
+	local grade = find(events, "PromptGrade")
+	expect(grade and grade.grade == "BON", "mashing graded " .. tostring(grade and grade.grade))
 end)
 
 test("6th press without 3 bars stays COUP DE GRÂCE", function()

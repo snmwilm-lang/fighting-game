@@ -367,6 +367,82 @@ test("TARO CLASSIQUE: iron guard, heavier punches, DROITE DU CHAMPION; no weave"
 	expect(esq.fighters[1].move == "TaroParry", "crouch + E in ESQUIVE is not the parry")
 end)
 
+local function firstHit(world, inputs, ticks)
+	local events = run(world, ticks or 40, inputs)
+	for _, e in events do if e.kind == "Hit" then return e, events end end
+	return nil, events
+end
+
+test("RYUKEN: RAGE stacks on every hit landed and is lost when he is hit", function()
+	local calm = kitWorld("RYUKEN", "KAI", 3)
+	local base = firstHit(calm, function(t) return { input({ light = t == 1 }) } end)
+	expect(base and calm.fighters[1].rage == 1, "a landed jab gives no RAGE stack")
+	local angry = kitWorld("RYUKEN", "KAI", 3)
+	angry.fighters[1].rage = Kits.RYUKEN.Passive.Max
+	local hit = firstHit(angry, function(t) return { input({ light = t == 1 }) } end)
+	expect(hit.damage > base.damage * 1.2, string.format("full RAGE jab %d vs %d", hit.damage, base.damage))
+	expect(angry.fighters[1].rage == Kits.RYUKEN.Passive.Max, "RAGE went over its maximum")
+	local hurt = kitWorld("KAI", "RYUKEN", 3)
+	hurt.fighters[2].rage = 6
+	firstHit(hurt, function(t) return { input({ light = t == 1 }) } end)
+	expect(hurt.fighters[2].rage == 0, "RAGE kept after being hit")
+	local blocked = kitWorld("RYUKEN", "KAI", 3)
+	run(blocked, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
+	expect(blocked.fighters[1].rage == 0, "a blocked hit gave RAGE")
+end)
+
+test("SHIN: the tip of the blade (end of the reach) deals more", function()
+	local m = Moves[Kits.SHIN.Roles.Jab]
+	local close = kitWorld("SHIN", "KAI", 2.6)
+	local near = firstHit(close, function(t) return { input({ light = t == 1 }) } end)
+	local far = kitWorld("SHIN", "KAI", m.hitbox.far + Config.HurtHalfWidth - 0.15)
+	local tip = firstHit(far, function(t) return { input({ light = t == 1 }) } end)
+	expect(near and not near.tip, "a close hit counted as the tip")
+	expect(tip and tip.tip and tip.damage > near.damage, "the tip hit is not stronger")
+	expect(m.hitbox.far > Moves.Jab.hitbox.far * 1.15, "the sword does not reach further than a fist")
+end)
+
+test("DAICHA: OMBRE INVERSÉE blinks through, TÉLÉPORTATION reappears behind", function()
+	local world = kitWorld("DAICHA", "KAI", 3)
+	local d, foe = world.fighters[1], world.fighters[2]
+	local events = run(world, 4, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(find(events, "Blink") ~= nil and d.x > foe.x, "the dash did not cross to the other side")
+	expect(d.facing == -1, "DAICHA does not face the opponent after the blink")
+	local far = kitWorld("DAICHA", "KAI", 12)
+	local none = run(far, 4, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(find(none, "Blink") == nil and far.fighters[1].x < far.fighters[2].x, "blinked from far away")
+	local tele = kitWorld("DAICHA", "KAI", 6)
+	local hit, ev = firstHit(tele, function(t) return { input({ special = t == 1 }) } end, 50)
+	expect(find(ev, "Blink") ~= nil and tele.fighters[1].x > tele.fighters[2].x - 0.01, "the teleport did not go behind")
+	expect(hit and hit.move == "DaichaTeleport", "the teleport strike did not land")
+end)
+
+test("HIBECARES: ROI DES RUINES hits harder when hurt; MUR DE PIERRE takes half and hits back", function()
+	local fresh = kitWorld("HIBECARES", "KAI", 3)
+	local a = firstHit(fresh, function(t) return { input({ light = t == 1 }) } end)
+	local hurt = kitWorld("HIBECARES", "KAI", 3)
+	hurt.fighters[1].hp = math.floor(hurt.fighters[1].maxHp * 0.3)
+	local b = firstHit(hurt, function(t) return { input({ light = t == 1 }) } end)
+	expect(b.damage >= math.floor(a.damage * 1.25), string.format("hurt %d vs fresh %d", b.damage, a.damage))
+	-- The wall: KAI's FRAPPE LOURDE (13-tick wind-up) into MUR DE PIERRE.
+	local wall = kitWorld("KAI", "HIBECARES", 3)
+	local h = wall.fighters[2]
+	local events = run(wall, 70, function(t)
+		return { input({ heavy = t == 1 }), input({ crouch = t <= 8, special = t == 7 }) }
+	end)
+	local parry = find(events, "Parry")
+	expect(parry and parry.absorbed == math.floor(Moves.Smash.damage * 0.5 + 0.5), "the wall did not take half the blow")
+	expect(h.hp == h.maxHp - parry.absorbed, "wrong damage through the wall")
+	local counter = find(events, "Hit")
+	expect(counter and counter.move == "HibecaresCounter", "the wall did not hit back")
+	-- Lows too (unlike TARO's parry).
+	local low = kitWorld("KAI", "HIBECARES", 3)
+	local e2 = run(low, 40, function(t)
+		return { input({ crouch = t <= 6, light = t == 5 }), input({ crouch = t <= 3, special = t == 1 }) }
+	end)
+	expect(find(e2, "Parry") ~= nil, "the wall did not stop a low attack")
+end)
+
 test("AKEMI: VOILE D'OMBRE evades the first hit, then recharges", function()
 	local world = kitWorld("KAI", "AKEMI", 3)
 	local d = world.fighters[2]

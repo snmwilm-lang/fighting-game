@@ -26,6 +26,7 @@ local function newFighter(slot, c, kit, stanceId)
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1,
 		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
+		rage = 0, -- RYUKEN's RAGE stacks (passive "Rage")
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
@@ -198,6 +199,17 @@ local function startMove(world, f, id, events, isLink)
 		f.dirtyStart = false
 	end
 	f.moveSerial += 1
+	if m.teleport then
+		-- DAICHA's TÉLÉPORTATION: reappears `teleport` studs behind the opponent, facing them.
+		local foe = world.fighters[3 - f.slot]
+		local side = if foe.x >= f.x then 1 else -1
+		local c = world.config
+		f.x = math.clamp(foe.x + side * m.teleport, c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5)
+		if f.x == foe.x then f.x = foe.x - side * m.teleport end
+		f.facing = if foe.x >= f.x then 1 else -1
+		f.vx, f.dashTicks, f.crossed = 0, 0, true
+		table.insert(events, { kind = "Blink", slot = f.slot, x = f.x, move = id })
+	end
 	if m.dempsey then
 		-- DEMPSEY ROLL: each hook continues the roll (counted for its limit), from the weave.
 		f.dempseyCount = if isLink and f.dempseyCount > 0 then f.dempseyCount + 1 else 1
@@ -537,6 +549,20 @@ local function stepFighter(world, f, input, events)
 		f.dashCooldown = c.DashCooldownTicks
 		local weave = weaveOf(world, f)
 		local foe = world.fighters[3 - f.slot]
+		local passive = kitOf(world, f).Passive
+		if passive and passive.Type == "Blink" and foe and f.dashDirection == (if foe.x >= f.x then 1 else -1)
+			and math.abs(foe.x - f.x) <= passive.Range and foe.state ~= "KO" then
+			-- DAICHA's OMBRE INVERSÉE: the dash blinks through to the other side of the opponent.
+			local side = f.dashDirection
+			local x = math.clamp(foe.x + side * passive.Gap, c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5)
+			if math.abs(x - foe.x) >= passive.Gap * 0.5 then
+				f.x = x
+				f.facing = -side -- facing the opponent; the dash ends a little further on
+				f.dashTicks, f.dashInvuln, f.crossed = 2, passive.Invuln, true
+				f.dashCooldown = passive.Cooldown
+				table.insert(events, { kind = "Blink", slot = f.slot, x = f.x })
+			end
+		end
 		if weave and foe and f.dashDirection == (if foe.x >= f.x then 1 else -1) then
 			-- The boxer's forward dash is a weave: the head ducks under high attacks.
 			f.weaveTicks = c.DashTicks
@@ -711,9 +737,12 @@ local function tryParry(world, a, d, m, events, source)
 	local pm = d.move and world.moves[d.move]
 	local parry = pm and pm.parry
 	if not parry or d.moveFrame < parry.from or d.moveFrame > parry.to then return false end
-	if m.guard == "Low" or m.kind == "Ultimate" then return false end
+	if (m.guard == "Low" and not parry.lows) or m.kind == "Ultimate" then return false end
+	-- A wall (HIBECARES's MUR DE PIERRE) takes part of the blow: never a KO.
+	local absorbed = if parry.absorb then math.floor((m.damage or 0) * parry.absorb + 0.5) else 0
+	if absorbed > 0 then d.hp = math.max(1, d.hp - absorbed) end
 	table.insert(events, { kind = "Parry", attacker = a.slot, defender = d.slot, move = m.id,
-		x = d.x + d.facing * 1.1, y = d.y + 3.6 })
+		x = d.x + d.facing * 1.1, y = d.y + 3.6, absorbed = if absorbed > 0 then absorbed else nil, name = pm.name })
 	d.moveSerial += 1
 	d.move, d.moveFrame, d.moveContact, d.moveHits, d.lastHitFrame = parry.counter, 1, nil, 0, 0
 	d.hitstop = 6
@@ -747,6 +776,25 @@ local function tryEvade(world, a, d, m, events, source)
 	if not source then a.moveHits = m.hits or 1 end -- the attack whiffs
 	table.insert(events, { kind = "Evade", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3 })
 	return true
+end
+
+-- Damage passives of the attacker: RYUKEN's RAGE stacks, SHIN's PRÉCISION (the tip of the
+-- blade), HIBECARES's ROI DES RUINES (the lower his health, the harder he hits). Returns the
+-- multiplier and whether it was a tip hit.
+local function passiveBonus(world, a, d, m, source)
+	local passive = kitOf(world, a).Passive
+	if not passive then return 1, false end
+	if passive.Type == "Rage" then
+		return 1 + a.rage * passive.PerStack, false
+	elseif passive.Type == "Tip" and not source and m.hitbox then
+		local reach = math.abs(d.x - a.x) - world.config.HurtHalfWidth
+		if reach >= m.hitbox.far * passive.From then return 1 + passive.Bonus, true end
+	elseif passive.Type == "Ruins" then
+		local share = a.hp / a.maxHp
+		local t = math.clamp((passive.From - share) / (passive.From - passive.To), 0, 1)
+		return 1 + passive.MaxBonus * t, false
+	end
+	return 1, false
 end
 
 local function applyHit(world, a, d, m, events, source)
@@ -795,8 +843,14 @@ local function applyHit(world, a, d, m, events, source)
 	end
 
 	if not source then a.moveContact = "Hit" end
-	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) + 0.5))
+	local bonus, tip = passiveBonus(world, a, d, m, source)
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)
+	event.tip = tip or nil
+	-- RAGE: a hit landed adds a stack; being hit loses them all.
+	local rage = kitOf(world, a).Passive
+	if rage and rage.Type == "Rage" then a.rage = math.min(rage.Max, a.rage + 1) end
+	d.rage = 0
 	d.comboHits += 1
 	d.comboDamage += damage
 	if m.kind ~= "Ultimate" then gainMeter(a, damage * c.MeterOnHit, c) end
@@ -1178,6 +1232,11 @@ function CombatSimulation.step(world, inputs)
 	local previousDelta = b.x - a.x
 	for slot, f in world.fighters do
 		stepFighter(world, f, if fighting then inputs[slot] or neutral else neutral, events)
+	end
+	-- A blink or a teleport (DAICHA) is the one way to cross the opponent on the ground.
+	if a.crossed or b.crossed then
+		previousDelta = b.x - a.x
+		a.crossed, b.crossed = false, false
 	end
 	resolvePair(a, b, world.config, previousDelta)
 	if fighting then

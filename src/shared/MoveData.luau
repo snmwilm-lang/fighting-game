@@ -479,6 +479,133 @@ derive(AKEMI, {
 	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
 })
 
+-- ===================================================================== RYUKEN 拳 · le poing brisé
+-- Brute force and pressure: heavier fists, a frontal charge that crosses the screen, a
+-- seismic strike along the floor (crouch + E, low) and the passive RAGE (every hit landed
+-- adds a stack of damage, lost when he is hit). From Wilhem's character sheet.
+local RYUKEN = {
+	Jab = "RyukenJab", Cross = "RyukenHook", Elbow = "RyukenBreaker", Kick = "RyukenChain",
+	BodyBlow = "RyukenGut", Uppercut = "RyukenUppercut", PalmStrike = "RyukenPound",
+	DragonTornado = "RyukenRage", DragonFist = "RyukenRising", CrescentMoon = "RyukenSlam",
+	RisingWind = "RyukenStorm", KiFlurry = "RyukenBarrage", ThunderHeel = "RyukenCrash",
+	SpinKick = "RyukenSpin", Smash = "RyukenHeavy", Hammer = "RyukenHammer", Sweep = "RyukenSweep",
+	LowKick = "RyukenLow", AirKick = "RyukenAirPunch", AirKick2 = "RyukenAirHook", AirSmash = "RyukenAirSlam",
+	Rising = "RyukenCharge", KiChase = "RyukenChase", Finale = "RyukenFinale", KiBlast = "RyukenQuake",
+	KaienRush = "RyukenRush", Awakening = "RyukenAwakening", Kaiten = "RyukenGate",
+}
+derive(RYUKEN, {
+	RyukenJab = "JAB", RyukenHook = "CROCHET", RyukenBreaker = "COUDE BRISÉ", RyukenChain = "ENCHAÎNEMENT",
+	RyukenGut = "POING AU FOIE", RyukenUppercut = "UPPERCUT", RyukenPound = "MARTÈLEMENT",
+	RyukenRage = "RAGE DU POING", RyukenRising = "POING ASCENDANT", RyukenSlam = "SLAM",
+	RyukenStorm = "TEMPÊTE DE POINGS", RyukenBarrage = "RAFALE BRISÉE", RyukenCrash = "CHUTE DU POING",
+	RyukenSpin = "REVERS TOURNANT", RyukenHeavy = "POING LOURD", RyukenHammer = "MASSE", RyukenSweep = "FAUCHAGE",
+	RyukenLow = "COUP BAS", RyukenAirPunch = "POING AÉRIEN", RyukenAirHook = "CROCHET AÉRIEN", RyukenAirSlam = "SLAM AÉRIEN",
+	RyukenCharge = "CHARGE FRONTALE", RyukenChase = "POURSUITE", RyukenFinale = "COUP DE GRÂCE", RyukenQuake = "FRAPPE SISMIQUE",
+	RyukenRush = "FUREUR DU POING", RyukenAwakening = "EFFONDREMENT", RyukenGate = "拳 · DERNIER ROUND",
+}, { damage = 1.04, startup = 0, reach = 0.95 }, {
+	RyukenCharge = { lunge = 30, invuln = { from = 1, to = 8 }, damage = 96, launch = 20, wallBounce = true },
+	RyukenQuake = { startup = 12, projectile = { speed = 34, life = 26, damage = 60, height = 0.6, halfHeight = 0.6,
+		halfWidth = 1.1, guard = "Low", guardDamage = 16 } },
+})
+
+-- ===================================================================== SHIN 流 · la lame des courants
+-- A swordsman: the longest reach of all, quick cuts, PAS DU VENT (a dashing cut that slips
+-- through), a current of blade thrown at range (crouch + E) and the passive PRÉCISION (a
+-- hit with the tip of the blade, at the end of its reach, deals more).
+local SHIN = {
+	Jab = "ShinCut1", Cross = "ShinCut2", Elbow = "ShinThrust", Kick = "ShinCombo",
+	BodyBlow = "ShinPierce", Uppercut = "ShinRising", PalmStrike = "ShinFlow",
+	DragonTornado = "ShinCircle", DragonFist = "ShinSkyCut", CrescentMoon = "ShinCrescent",
+	RisingWind = "ShinGale", KiFlurry = "ShinTempest", ThunderHeel = "ShinFalling",
+	SpinKick = "ShinSpin", Smash = "ShinBreaker", Hammer = "ShinCleave", Sweep = "ShinReap",
+	LowKick = "ShinLow", AirKick = "ShinAirCut", AirKick2 = "ShinAirCut2", AirSmash = "ShinDive",
+	Rising = "ShinStep", KiChase = "ShinChase", Finale = "ShinFinale", KiBlast = "ShinCurrent",
+	KaienRush = "ShinRush", Awakening = "ShinAwakening", Kaiten = "ShinGate",
+}
+derive(SHIN, {
+	ShinCut1 = "TRANCHE 1", ShinCut2 = "TRANCHE 2", ShinThrust = "ESTOC", ShinCombo = "COMBO LAME",
+	ShinPierce = "PERCÉE", ShinRising = "TRANCHE MONTANTE", ShinFlow = "FIL DU COURANT",
+	ShinCircle = "LAME CIRCULAIRE", ShinSkyCut = "TRANCHE CÉLESTE", ShinCrescent = "CROISSANT D'ACIER",
+	ShinGale = "SOUFFLE TRANCHANT", ShinTempest = "TEMPÊTE TRANCHANTE", ShinFalling = "CHUTE DE LAME",
+	ShinSpin = "TOURBILLON", ShinBreaker = "BRISE-GARDE", ShinCleave = "FENDOIR", ShinReap = "FAUCHE",
+	ShinLow = "TRANCHE BASSE", ShinAirCut = "TRANCHE AÉRIENNE", ShinAirCut2 = "DOUBLE TRANCHE", ShinDive = "PIQUÉ DE LAME",
+	ShinStep = "PAS DU VENT", ShinChase = "POURSUITE", ShinFinale = "COUPE FINALE", ShinCurrent = "COURANT TRANCHANT",
+	ShinRush = "DANSE DES COURANTS", ShinAwakening = "TEMPÊTE CONTINUE", ShinGate = "零 · ZÉRO HORIZON",
+}, { damage = 0.98, startup = 0, reach = 1.22 }, {
+	ShinStep = { lunge = 34, invuln = { from = 1, to = 9 }, damage = 82, launch = 30 },
+	ShinBreaker = { guardDamage = 46 },
+	ShinCurrent = { startup = 10, projectile = { speed = 48, life = 40, damage = 50, halfHeight = 0.5, halfWidth = 1.4 } },
+})
+
+-- ===================================================================== DAICHA 闇 · l'ombre inversée
+-- A zoner who bends space: a slow, wide sphere of shadow (crouch + E), TÉLÉPORTATION (the
+-- reversal: he reappears behind the opponent) and the passive OMBRE INVERSÉE (a forward
+-- dash close to the opponent blinks through to the other side).
+local DAICHA = {
+	Jab = "DaichaClaw", Cross = "DaichaStep", Elbow = "DaichaThrow", Kick = "DaichaCombo",
+	BodyBlow = "DaichaGrip", Uppercut = "DaichaRise", PalmStrike = "DaichaMark",
+	DragonTornado = "DaichaDistortion", DragonFist = "DaichaSpire", CrescentMoon = "DaichaEclipse",
+	RisingWind = "DaichaVeil", KiFlurry = "DaichaRiver", ThunderHeel = "DaichaFall",
+	SpinKick = "DaichaSpin", Smash = "DaichaPush", Hammer = "DaichaDrop", Sweep = "DaichaReap",
+	LowKick = "DaichaLow", AirKick = "DaichaAirClaw", AirKick2 = "DaichaAirClaw2", AirSmash = "DaichaDive",
+	Rising = "DaichaTeleport", KiChase = "DaichaChase", Finale = "DaichaFinale", KiBlast = "DaichaSphere",
+	KaienRush = "DaichaRush", Awakening = "DaichaAwakening", Kaiten = "DaichaGate",
+}
+derive(DAICHA, {
+	DaichaClaw = "GRIFFURE D'OMBRE", DaichaStep = "PAS OBLIQUE", DaichaThrow = "PROJECTION", DaichaCombo = "COMBO OMBRE",
+	DaichaGrip = "ÉTREINTE", DaichaRise = "OMBRE MONTANTE", DaichaMark = "MARQUE SOMBRE",
+	DaichaDistortion = "DISTORSION", DaichaSpire = "FLÈCHE D'OMBRE", DaichaEclipse = "DEMI-ÉCLIPSE",
+	DaichaVeil = "VOILE INVERSÉ", DaichaRiver = "COURANT D'OMBRES", DaichaFall = "CHUTE INVERSÉE",
+	DaichaSpin = "VRILLE", DaichaPush = "POUSSÉE", DaichaDrop = "CHUTE", DaichaReap = "FAUCHE",
+	DaichaLow = "GRIFFE BASSE", DaichaAirClaw = "GRIFFE AÉRIENNE", DaichaAirClaw2 = "DOUBLE GRIFFE", DaichaDive = "PIQUÉ D'OMBRE",
+	DaichaTeleport = "TÉLÉPORTATION", DaichaChase = "POURSUITE", DaichaFinale = "RETOUR AU NÉANT", DaichaSphere = "SPHÈRE INVERSÉE",
+	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE",
+}, { damage = 1.0, startup = 0, reach = 1.05 }, {
+	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 12 }, teleport = 1.7, damage = 76, launch = 26 },
+	DaichaSphere = { startup = 14, projectile = { speed = 16, life = 140, damage = 72, height = 3.4, halfHeight = 1.3, halfWidth = 1.3 } },
+})
+
+-- ===================================================================== HIBECARES 崩 · le roi des ruines
+-- The tank: the most health, slow and heavy blows, MUR DE PIERRE (crouch + E: a wall of
+-- stone that takes the blow, half the damage, low attacks too, then hits back) and the
+-- passive ROI DES RUINES (the lower his health, the harder he hits).
+local HIBECARES = {
+	Jab = "HibecaresStrike", Cross = "HibecaresBash", Elbow = "HibecaresElbow", Kick = "HibecaresChain",
+	BodyBlow = "HibecaresGrab", Uppercut = "HibecaresUpper", PalmStrike = "HibecaresPress",
+	DragonTornado = "HibecaresRupture", DragonFist = "HibecaresPillar", CrescentMoon = "HibecaresQuake",
+	RisingWind = "HibecaresAvalanche", KiFlurry = "HibecaresRubble", ThunderHeel = "HibecaresStomp",
+	SpinKick = "HibecaresSwing", Smash = "HibecaresHeavy", Hammer = "HibecaresBreaker", Sweep = "HibecaresSweep",
+	LowKick = "HibecaresLow", AirKick = "HibecaresAirFist", AirKick2 = "HibecaresAirSwing", AirSmash = "HibecaresMeteor",
+	Rising = "HibecaresShock", KiChase = "HibecaresChase", Finale = "HibecaresFinale",
+	KaienRush = "HibecaresRush", Awakening = "HibecaresAwakening", Kaiten = "HibecaresGate",
+}
+derive(HIBECARES, {
+	HibecaresStrike = "FRAPPE", HibecaresBash = "COUP DE MASSE", HibecaresElbow = "COUDE DE PIERRE", HibecaresChain = "ENCHAÎNEMENT",
+	HibecaresGrab = "SAISIE DESTRUCTRICE", HibecaresUpper = "SOULÈVEMENT", HibecaresPress = "ÉCRASEMENT",
+	HibecaresRupture = "RUPTURE", HibecaresPillar = "PILIER DE PIERRE", HibecaresQuake = "SÉISME",
+	HibecaresAvalanche = "AVALANCHE", HibecaresRubble = "PLUIE DE GRAVATS", HibecaresStomp = "PIÉTINEMENT",
+	HibecaresSwing = "REVERS DE CHAÎNE", HibecaresHeavy = "COUP LOURD", HibecaresBreaker = "BRISE-GARDE", HibecaresSweep = "BALAYAGE",
+	HibecaresLow = "COUP BAS", HibecaresAirFist = "POING AÉRIEN", HibecaresAirSwing = "CHAÎNE AÉRIENNE", HibecaresMeteor = "CHUTE DE ROC",
+	HibecaresShock = "ONDE DE CHOC", HibecaresChase = "POURSUITE", HibecaresFinale = "EFFONDREMENT DU ROI",
+	HibecaresRush = "COLOSSE ÉVEILLÉ", HibecaresAwakening = "CHÂTIMENT", HibecaresGate = "崩 · RUINES DU MONDE",
+}, { damage = 1.05, startup = 1, reach = 1 }, {
+	HibecaresBreaker = { guardDamage = 40 },
+	HibecaresGrab = { guardDamage = 30 },
+	HibecaresShock = { lunge = 4, invuln = { from = 1, to = 10 }, launch = 30, hitbox = { near = 0, far = 4.6, low = 0, high = 6.5 } },
+})
+Moves.HibecaresWall = move({ -- crouch + E: a wall of stone; takes the blow (half damage) and hits back
+	id = "HibecaresWall", name = "MUR DE PIERRE", kind = "Special", startup = 3, active = 16, recovery = 26,
+	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+	parry = { from = 3, to = 16, counter = "HibecaresCounter", absorb = 0.5, lows = true },
+})
+Moves.HibecaresCounter = move({ -- the wall bursts toward the attacker
+	id = "HibecaresCounter", name = "RIPOSTE DES RUINES", kind = "Special", startup = 4, active = 5, recovery = 22,
+	damage = 90, guardDamage = 26, hitstun = 30, blockstun = 16, hitstop = 14,
+	push = 30, blockPush = 20, lunge = 6, launch = 26, knockdown = true,
+	hitbox = { near = 0, far = 4.2, low = 0, high = 6 },
+	heavy = true,
+})
+
 MoveData.Moves = table.freeze(Moves)
 
 -- ===================================================================== kits
@@ -691,8 +818,63 @@ kit("AKEMI", {
 	GateTitle = { text = "幻舞", sub = "DANSE FANTÔME" },
 	Colors = { TORNADE = "B060FF", RAFALE = "8A3CFF", DRAGON = "D08CFF", FOUDRE = "6E7BFF", MUR = "B060FF", LUNE = "E0C8FF" },
 })
+-- The four fighters of Wilhem's second sheet.
+kit("RYUKEN", {
+	Kanji = "拳", Role = "FORCE",
+	Description = "Brutal : la puissance et la pression. RAGE : chaque coup porté frappe plus fort, perdue quand il est touché.",
+	Roles = RYUKEN,
+	Stats = { MaxHealth = 1500, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40 },
+	-- RAGE: each hit landed (not blocked) adds a stack, PerStack more damage each, Max stacks;
+	-- all lost when RYUKEN is hit.
+	Passive = { Type = "Rage", Name = "RAGE", PerStack = 0.025, Max = 10 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "MASSE", "FAUCHAGE", "RAGE", "RAFALE", "ASCENSION", "CHUTE", "SLAM" },
+	FullRouteNames = { "RAGE", "RAFALE", "ASCENSION", "CHUTE", "MUR", "SLAM" },
+	GateTitle = { text = "拳", sub = "DERNIER ROUND" },
+	Colors = { TORNADE = "FF2A2A", RAFALE = "FF5A1A", DRAGON = "FF2A2A", FOUDRE = "FFD0C0", MUR = "FF2A2A", LUNE = "FF8A6A" },
+})
+kit("SHIN", {
+	Kanji = "流", Role = "VITESSE",
+	Description = "Bretteur : la plus grande allonge, des coupes rapides. PRÉCISION : un coup du bout de la lame fait plus mal.",
+	Roles = SHIN,
+	Stats = { MaxHealth = 1400, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
+	-- PRÉCISION: a hit whose target stands in the outer part of the blade's reach (beyond From
+	-- of it) deals Bonus more.
+	Passive = { Type = "Tip", Name = "PRÉCISION", From = 0.62, Bonus = 0.2 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "PERCÉE", "MUR", "FENDOIR", "FAUCHE", "CERCLE", "TEMPÊTE", "CIEL", "CHUTE", "CROISSANT" },
+	FullRouteNames = { "CERCLE", "TEMPÊTE", "CIEL", "CHUTE", "MUR", "CROISSANT" },
+	GateTitle = { text = "零", sub = "ZÉRO HORIZON" },
+	Colors = { TORNADE = "3D9BFF", RAFALE = "6FD8FF", DRAGON = "3D9BFF", FOUDRE = "C8F0FF", MUR = "3D9BFF", LUNE = "A8E4FF" },
+})
+kit("DAICHA", {
+	Kanji = "闇", Role = "ZONING",
+	Description = "Mystérieux : contrôle l'espace. SPHÈRE INVERSÉE (S + E), TÉLÉPORTATION, et OMBRE INVERSÉE : son dash traverse l'adversaire.",
+	Roles = DAICHA,
+	Stats = { MaxHealth = 1400, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
+	-- OMBRE INVERSÉE: a forward dash within Range studs of the opponent blinks through to
+	-- Gap studs behind them, untouchable for Invuln ticks; Cooldown before the next dash.
+	Passive = { Type = "Blink", Name = "OMBRE INVERSÉE", Range = 5, Gap = 1.8, Invuln = 10, Cooldown = 54 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "MARQUE", "MUR", "CHUTE", "FAUCHE", "DISTORSION", "RIVIÈRE", "FLÈCHE", "INVERSION", "ÉCLIPSE" },
+	FullRouteNames = { "DISTORSION", "RIVIÈRE", "FLÈCHE", "INVERSION", "MUR", "ÉCLIPSE" },
+	GateTitle = { text = "蝕", sub = "ÉCLIPSE TOTALE" },
+	Colors = { TORNADE = "A040FF", RAFALE = "7A2CFF", DRAGON = "C080FF", FOUDRE = "6E7BFF", MUR = "A040FF", LUNE = "E0C8FF" },
+})
+kit("HIBECARES", {
+	Kanji = "崩", Role = "ENDURANCE",
+	Description = "Le roi des ruines : le plus de vie, des coups lourds. MUR DE PIERRE (S + E) encaisse et riposte ; ROI DES RUINES : plus il est blessé, plus il frappe fort.",
+	Roles = HIBECARES,
+	Starters = { Crouch = { Special = "HibecaresWall" } },
+	Stats = { MaxHealth = 1800, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
+	-- ROI DES RUINES: up to MaxBonus more damage, growing as his health falls from From to To
+	-- (shares of his maximum health).
+	Passive = { Type = "Ruins", Name = "ROI DES RUINES", MaxBonus = 0.3, From = 1, To = 0.3 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "SAISIE", "MUR", "BRISE-GARDE", "BALAYAGE", "RUPTURE", "GRAVATS", "PILIER", "PIÉTINEMENT", "SÉISME" },
+	FullRouteNames = { "RUPTURE", "GRAVATS", "PILIER", "PIÉTINEMENT", "MUR", "SÉISME" },
+	GateTitle = { text = "崩", sub = "RUINES DU MONDE" },
+	Colors = { TORNADE = "FF8A1A", RAFALE = "FFB21A", DRAGON = "FF6A1A", FOUDRE = "FFD45A", MUR = "FF8A1A", LUNE = "C8A070" },
+})
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)
 MoveData.Kits = table.freeze(Kits)
+-- (RYUKEN, SHIN, DAICHA and HIBECARES join the order once their looks and cinematics are in)
 MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI" })
 
 -- KAI's tables, kept for code written before the kits.
@@ -709,6 +891,7 @@ end
 moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
 moveKit.TaroChampion = "TARO"
+moveKit.HibecaresWall, moveKit.HibecaresCounter = "HIBECARES", "HIBECARES"
 MoveData.MoveKit = table.freeze(moveKit)
 
 function MoveData.total(m)

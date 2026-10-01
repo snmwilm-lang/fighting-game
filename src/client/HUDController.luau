@@ -665,6 +665,13 @@ function HUD:onEvent(event, world)
 		self:callout(event.defender, "ESQUIVE !")
 	elseif event.kind == "Stance" then
 		self:callout(event.slot, (event.name or event.stance) .. " !")
+		-- The local player: how the new style plays, in one line.
+		if event.slot == (Players.LocalPlayer:GetAttribute("FighterSlot") or 0) then
+			local hint = if event.stance == "ESQUIVE"
+				then "SHIFT vers l'adversaire = ESQUIVE · puis clic gauche = DEMPSEY ROLL · S + E = PARADE"
+				else "Garde de fer, coups plus lourds · S + E = DROITE DU CHAMPION"
+			self:announceText(event.name or event.stance, hint, Color3.fromHex("FFB21A"))
+		end
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then

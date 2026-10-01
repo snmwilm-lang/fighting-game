@@ -7,6 +7,7 @@ local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Sim = require(Shared.CombatSimulation)
 local FighterAI = require(Shared.FighterAI)
+local PressQueue = require(Shared.PressQueue)
 local ArenaBuilder = require(script.ArenaBuilder)
 local RigBuilder = require(script.RigBuilder)
 
@@ -37,7 +38,10 @@ end
 local dummyMode = 1
 local brain = nil
 for i = 1, 2 do
-	slots[i] = { model = RigBuilder.build(i, fightersFolder), owner = nil, input = Sim.neutralInput(), lastInput = 0 }
+	slots[i] = {
+		model = RigBuilder.build(i, fightersFolder), owner = nil, input = Sim.neutralInput(), lastInput = 0,
+		presses = PressQueue.new(), -- attack presses in their order, one per simulation tick
+	}
 end
 local world = Sim.newWorld(Config, MoveData, true)
 
@@ -63,6 +67,7 @@ local function resetAll()
 	brain = if level and isSolo() then FighterAI.new(level, math.floor(os.clock() * 1000) + generation) else nil
 	for i, slot in slots do
 		slot.input = Sim.neutralInput()
+		PressQueue.clear(slot.presses)
 		place(slot, world.fighters[i])
 	end
 end
@@ -213,8 +218,7 @@ local function finite(n)
 	return typeof(n) == "number" and n == n and math.abs(n) < math.huge
 end
 local BOOLEAN_FIELDS = {
-	"crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy", "avatar", "skin",
-	"kit", "foeKit",
+	"crouch", "block", "jump", "dash", "reset", "dummy", "avatar", "skin", "kit", "foeKit",
 }
 
 -- Kits (MoveData.Kits): a pick gives the slot the kit's first style that differs from the
@@ -252,6 +256,7 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	for _, field in BOOLEAN_FIELDS do
 		if typeof(packet[field]) ~= "boolean" then return end
 	end
+	if not PressQueue.valid(packet.presses) then return end
 	client.lastSeq = packet.seq
 	local slot = slots[client.slot]
 	if slot.owner ~= player then return end
@@ -308,10 +313,8 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	-- Pulses stay set until the next simulation tick consumes them.
 	input.jump = input.jump or packet.jump
 	input.dash = input.dash or packet.dash
-	input.light = input.light or packet.light
-	input.heavy = input.heavy or packet.heavy
-	input.special = input.special or packet.special
-	input.ultimate = input.ultimate or packet.ultimate
+	-- Attack presses keep their count and order (see PressQueue): one per tick.
+	PressQueue.push(slot.presses, packet.presses)
 	slot.lastInput = now
 end)
 
@@ -385,7 +388,11 @@ RunService.Heartbeat:Connect(function(dt)
 		local inputs = {}
 		for i, slot in slots do
 			if slot.owner then
-				if os.clock() - slot.lastInput > Config.InputTimeout then slot.input = Sim.neutralInput() end
+				if os.clock() - slot.lastInput > Config.InputTimeout then
+					slot.input = Sim.neutralInput()
+					PressQueue.clear(slot.presses)
+				end
+				PressQueue.pop(slot.presses, slot.input)
 				inputs[i] = slot.input
 			elseif brain then
 				inputs[i] = brain:think(world, i)

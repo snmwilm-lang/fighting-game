@@ -81,6 +81,471 @@ local function attack(view, moves, id, active)
 	view.moveFrame = if active then moves[id].startup + 1 else moves[id].startup
 end
 
+-- ===================================================================== KIT ULTIMATES
+--[[
+	TARO, ZEPHYR and AKEMI stage their three ultimates their own way (Wilhem's ultimate
+	sheet); KAI keeps KAIEN RUSH, ÉVEIL ÉCARLATE and 開天. The authoritative timing (hits,
+	prompt, final blow) is the same for every kit: only the staging differs.
+	  TARO   1 RUSH DÉVASTATEUR     2 UPPERCUT CÉLESTE    3 TEMPÊTE DE CROCHETS
+	  ZEPHYR 1 VENT TRANCHEUR       2 DRAGON ASCENDANT    3 CYCLONE FURIEUX
+	  AKEMI  1 OMBRES MULTIPLES     2 TEMPS SUSPENDU      3 DANSE FANTÔME
+	Positions hang on anchors.center (the target's place when the cinematic starts), so the
+	smoothing of the displayed views never makes them drift. A fighter circling the target
+	stays on the far half (z <= 0): the camera, in front, always sees the target.
+]]
+local KIT = {}
+
+local function center(ctx, d)
+	ctx.anchors.center = ctx.anchors.center or d.x
+	return ctx.anchors.center
+end
+
+-- Places `a` on the far half of a circle around the target (angle 0 = in front of it on the
+-- attack side, pi = behind it) and turns it toward the target.
+local function around(a, cx, dir, angle, radius, y)
+	a.x = cx - dir * math.cos(angle) * radius
+	a.z = -math.abs(math.sin(angle)) * radius
+	a.y = y or 0
+	local lx, lz = cx - a.x, -a.z
+	local l = math.sqrt(lx * lx + lz * lz)
+	if l > 1e-3 then a.lookDir = v(lx / l, 0, lz / l) end
+	a.facing = if lx >= 0 then 1 else -1
+end
+
+local function arc(frame, key, pos, radius, from, to, color, tilt, dir)
+	table.insert(frame.fx, { key = key, kind = "arc", pos = pos, radius = radius, from = from, to = to,
+		color = color, tilt = tilt or 0, dir = dir or 1 })
+end
+
+local function impact(frame, key, pos, color, scale)
+	table.insert(frame.fx, { key = key .. "-wave", kind = "shockwave", pos = v(pos.x, 0, 0), color = color })
+	table.insert(frame.fx, { key = key .. "-spark", kind = "spark", pos = pos, color = color, scale = scale or 2.4 })
+end
+
+-- Common opening of the three gates: the kit's kanji burns on the floor, seen from above.
+local function gateSeal(ctx, frame, a, d, cx, dir, prefix)
+	local A = ctx.cin.attacker
+	a.x, a.facing, a.pose = cx - dir * 4, dir, "Kiai"
+	d.x, d.state = cx, "Hitstun"
+	local mid = (a.x + d.x) / 2
+	table.insert(frame.fx, { key = "seal", kind = "kanjiSeal", pos = v(mid, 0.06, 0), color = ctx.characters[A].Energy,
+		text = ctx.characters[A].Kanji, keep = true })
+	frame.shot = shot(prefix .. "-seal", At(v(mid, 22, 2)), At(v(mid, 0, 0)), 50, math.rad(90))
+end
+
+-- Common end of the three gates: the two setup blows, the wind-up (press R at the climax),
+-- the final blow, the title. `final` stages the final blow's effects.
+local function gateEnd(ctx, frame, a, d, tick, dir, cx, prefix, final)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	d.x = cx
+	if tick < data.PromptTicks[1] - 14 then
+		d.state, d.hitstop = "Hitstun", if tick >= data.Hits[1] and (tick - data.Hits[1]) % 8 < 5 then 1 else 0
+		a.x, a.facing = cx - dir * 2.3, dir
+		local second = tick >= data.Hits[2]
+		attack(a, moves, role(ctx, if second then "Cross" else "Jab"), tick >= data.Hits[1])
+		frame.shot = shot(prefix .. "-setup" .. (if second then "2" else "1"),
+			P(D, "Head", v(if second then dir * 3 else -dir * 3, 0.5, 4.5)), P(D, "Head"), 36)
+	elseif tick < data.FinalTick then
+		d.state = "Hitstun"
+		a.x, a.facing = cx - dir * 2.5, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.grade.mono = tick >= data.PromptTicks[1] - 4
+		table.insert(frame.fx, { key = "charge", kind = "spark", pos = v(a.x, 2.6, 0.4), color = color, scale = 1.4 })
+		frame.shot = shot(prefix .. "-windup", P(A, "RightHand", v(dir * 1.2, 0.3, 2.4)), P(A, "RightHand"), 24, math.rad(4))
+	elseif tick < data.FinalTick + 22 then
+		a.x, a.facing = cx - dir * 2.5, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		final(color)
+		frame.shot = shot(prefix .. "-final", At(v(cx + dir * 3, 5, 19)), At(v(cx - dir * 1, 3.5, 0)), 58)
+	else
+		a.y, a.facing, a.pose = 0, dir, "Kiai"
+		local title = kitOf(ctx).GateTitle
+		frame.title = { text = title.text, color = color, sub = title.sub }
+		frame.shot = shot(prefix .. "-after", P(A, "UpperTorso", v(-dir * 3, 2.5, 22)), P(A, "UpperTorso"), 42)
+	end
+end
+
+-- ---------------------------------------------------------------- TARO 火 · boxer
+
+local TARO_RUSH = { "Jab", "Cross", "Elbow", "BodyBlow", "Kick", "SpinKick", "Uppercut" }
+
+KIT.TARO = {}
+
+-- RUSH DÉVASTATEUR: a straight charge, then punch after punch from the front.
+function KIT.TARO.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	local k = hitsBefore(data.Hits, tick)
+	if tick >= data.FinalTick then
+		a.x, a.facing = cx - dir * 2.4, dir
+		attack(a, moves, role(ctx, "Smash"), true)
+		impact(frame, "taro-rush-final", v(cx, 3.6, 0.6), color, 3)
+		frame.shot = if tick < data.FinalTick + 12
+			then shot("taro-rush-impact", P(D, "UpperTorso", v(-dir * 1.5, 0.4, 7)), P(D, "UpperTorso"), 54)
+			else shot("taro-rush-wide", P(D, "UpperTorso", v(-dir * 6, 5, 30)), P(D, "UpperTorso"), 42)
+		return
+	end
+	d.x, d.state = cx, "Hitstun"
+	if tick < data.Hits[1] then
+		a.x, a.facing, a.pose = lerp(cx - dir * 8, cx - dir * 2.3, progress(tick, 0, data.Hits[1])), dir, "Dash"
+		a.ghost = true
+		frame.shot = shot("taro-rush-charge", P(A, "UpperTorso", v(dir * 3, -1.4, 6.5)), P(A, "UpperTorso"), 38)
+	elseif tick < data.FinalTick - 16 then
+		a.x, a.facing = cx - dir * 2.2, dir
+		attack(a, moves, role(ctx, TARO_RUSH[(k - 1) % #TARO_RUSH + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
+		table.insert(frame.fx, { key = "taro-hit" .. k, kind = "spark", pos = v(cx - dir * 0.5, 3.4 + (k % 3) * 0.4, 0.5),
+			color = color, scale = 1.3 })
+		if k % 2 == 1 then
+			frame.shot = shot("taro-rush-front", P(D, "UpperTorso", v(-dir * 1.5, -0.8, 7.5)), P(D, "UpperTorso"), 42)
+		else
+			frame.shot = shot("taro-rush-low", P(A, "UpperTorso", v(-dir * 2.5, -2.4, 6)), P(D, "Head"), 50, math.rad(-8 * dir))
+		end
+	else
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Smash"), false)
+		table.insert(frame.fx, { key = "taro-charge", kind = "spark", pos = v(a.x - dir * 0.4, 3, 0.4), color = color, scale = 1.6 })
+		frame.shot = shot("taro-rush-windup", P(A, "UpperTorso", v(-dir * 3, -1, 5)), P(D, "UpperTorso"),
+			40 - 10 * progress(tick, data.FinalTick - 16, data.FinalTick))
+	end
+end
+
+-- UPPERCUT CÉLESTE: body blows, a crouched charge, the uppercut that lifts the target in a
+-- pillar of fire, then TARO leaps above it for the aerial finish.
+function KIT.TARO.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local start, final = data.Hits[#data.Hits] + 4, data.FinalTick
+	d.x, d.state = cx, "Hitstun"
+	if tick < start then
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		a.x, a.facing = cx - dir * 2.2, dir
+		attack(a, moves, role(ctx, TARO_RUSH[(k * 2) % 4 + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 6 then 1 else 0
+		table.insert(frame.fx, { key = "celeste-hit" .. k, kind = "spark", pos = v(cx - dir * 0.5, 3.2, 0.5), color = color, scale = 1.2 })
+		local angles = { v(-dir * 4, 1.5, 5.5), v(dir * 3.5, 0.5, 4.5), v(-dir * 2, -2.4, 7) }
+		frame.shot = shot("taro-celeste-blow" .. ((k - 1) % 3 + 1), P(D, "UpperTorso", angles[(k - 1) % 3 + 1]), P(D, "UpperTorso"), 40)
+		return
+	end
+	local p = progress(tick, start, final)
+	a.x, a.facing = cx - dir * 1.7, dir
+	if p < 0.25 then
+		attack(a, moves, role(ctx, "Uppercut"), false)
+		table.insert(frame.fx, { key = "celeste-charge", kind = "spark", pos = v(a.x, 1.6, 0.4), color = color, scale = 1.8 })
+		frame.shot = shot("taro-celeste-charge", P(A, "Head", v(dir * 2.5, -1.6, 4)), P(A, "Head"), 34, math.rad(8 * dir))
+	elseif p < 0.6 then
+		local q = progress(p, 0.25, 0.6)
+		attack(a, moves, role(ctx, "Uppercut"), true)
+		a.y, d.y = lerp(0, 3, q), lerp(0, 10, q)
+		table.insert(frame.fx, { key = "celeste-pillar", kind = "dragonHelix", pos = v(cx, 0, 0), color = color })
+		frame.shot = shot("taro-celeste-rise", At(v(cx - dir * 3, 0.6, 7)), P(D, "UpperTorso"), 62, math.rad(12 * dir))
+	else
+		local q = progress(p, 0.6, 1)
+		d.y, d.pose = 10, "Launched"
+		a.x, a.y = cx - dir * 1.2, lerp(3, 12.5, math.min(1, q / 0.6))
+		attack(a, moves, role(ctx, "AirSmash"), q > 0.7)
+		a.ghost = q > 0.7
+		frame.shot = shot("taro-celeste-air", P(D, "UpperTorso", v(dir * 5, -2.5, 8)), P(A, "Head"), 55)
+	end
+end
+
+-- TEMPÊTE DE CROCHETS: TARO whirls around the target, hook after hook, rings of fire.
+function KIT.TARO.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local D = cin.defender
+	local color = ctx.characters[cin.attacker].Energy
+	local cx = center(ctx, d)
+	if tick < 30 then
+		gateSeal(ctx, frame, a, d, cx, dir, "taro-tempete")
+		return
+	end
+	if tick < data.Hits[1] - 6 then
+		local p = progress(tick, 30, data.Hits[1] - 6)
+		frame.grade.crimson = true
+		d.x, d.state = cx, "Hitstun"
+		local step = math.floor((tick - 30) / 7)
+		d.hitstop = if (tick - 30) % 7 < 3 then 1 else 0
+		around(a, cx, dir, (step * 0.9) % math.pi, 2.3)
+		attack(a, moves, role(ctx, if step % 2 == 0 then "Elbow" else "Kick"), true)
+		arc(frame, "tempete-hook" .. step, v(cx, 3.6, 0), 2.4, step * 70, step * 70 + 160, color, 1.2, dir)
+		if step % 3 == 0 then
+			table.insert(frame.fx, { key = "tempete-ring" .. step, kind = "tornadoRing", pos = v(cx, 2 + (step % 4) * 0.6, 0), color = color })
+		end
+		frame.shot = shot("taro-tempete-whirl", P(D, "UpperTorso", v(-dir * 2, 1.5, lerp(14, 9, p))), P(D, "UpperTorso"), 50)
+		return
+	end
+	gateEnd(ctx, frame, a, d, tick, dir, cx, "taro-tempete", function(c)
+		impact(frame, "tempete-final", v(cx, 3.6, 0.6), c, 3)
+		table.insert(frame.fx, { key = "tempete-burst", kind = "tornadoRing", pos = v(cx, 3, 0), color = c })
+	end)
+end
+
+-- ---------------------------------------------------------------- ZEPHYR 風 · kicks
+
+local ZEPHYR_RUSH = { "Jab", "Cross", "Elbow", "Kick", "SpinKick", "Sweep" }
+
+KIT.ZEPHYR = {}
+
+-- VENT TRANCHEUR: an ultra-fast chain of kicks, a blade of wind on each one.
+function KIT.ZEPHYR.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	if tick >= data.FinalTick then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Kick"), true)
+		impact(frame, "vent-final", v(cx, 4, 0.6), color, 2.8)
+		arc(frame, "vent-final-arc", v(cx - dir * 0.4, 3.8, 0.4), 3.4, -70, 80, color, 0, dir)
+		frame.shot = if tick < data.FinalTick + 12
+			then shot("zephyr-vent-impact", P(D, "UpperTorso", v(-dir * 1.5, 0.4, 7)), P(D, "UpperTorso"), 54)
+			else shot("zephyr-vent-wide", P(D, "UpperTorso", v(-dir * 6, 5, 30)), P(D, "UpperTorso"), 42)
+		return
+	end
+	d.x, d.state = cx, "Hitstun"
+	if tick < data.Hits[1] then
+		a.x, a.facing, a.pose = lerp(cx - dir * 7, cx - dir * 2.6, progress(tick, 0, data.Hits[1])), dir, "Dash"
+		a.ghost = true
+		frame.shot = shot("zephyr-vent-dash", P(A, "UpperTorso", v(dir * 2, 0.6, 9)), P(A, "UpperTorso"), 40)
+	elseif tick < data.FinalTick - 12 then
+		-- A new kick every 4 ticks: twice the rhythm of the hits.
+		local n = math.floor((tick - data.Hits[1]) / 4)
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, ZEPHYR_RUSH[n % #ZEPHYR_RUSH + 1]), true)
+		a.ghost = true
+		d.hitstop = if (tick - data.Hits[1]) % 8 < 3 then 1 else 0
+		arc(frame, "vent-blade" .. n, v(cx - dir * 0.5, 2.6 + (n % 3) * 0.6, 0.4), 2.6, -80 + (n % 4) * 30, 70 + (n % 4) * 30, color,
+			(n % 3 - 1) * 0.5, dir)
+		local angle = -1 + 2 * progress(tick, data.Hits[1], data.FinalTick - 12)
+		frame.shot = shot("zephyr-vent-orbit", P(D, "UpperTorso", v(math.sin(angle) * 11, 2 + math.cos(angle * 2), math.cos(angle) * 11)),
+			P(D, "UpperTorso"), 46)
+	else
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Kick"), false)
+		frame.shot = shot("zephyr-vent-windup", P(A, "UpperTorso", v(-dir * 3, -1.2, 5.5)), P(D, "UpperTorso"), 36)
+	end
+end
+
+-- DRAGON ASCENDANT: the rising kick throws the target up, ZEPHYR climbs with it kicking
+-- from both sides inside a dragon of wind, then spins above and dives.
+function KIT.ZEPHYR.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local D = cin.defender
+	local cx = center(ctx, d)
+	local start, final = data.Hits[#data.Hits] + 4, data.FinalTick
+	d.x, d.state = cx, "Hitstun"
+	local rise = progress(tick, data.Hits[1], start)
+	d.y = lerp(0, 7, rise)
+	if tick < start then
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		if k == 1 then
+			a.x, a.y, a.facing = cx - dir * 1.8, 0, dir
+			attack(a, moves, role(ctx, "Uppercut"), true)
+			table.insert(frame.fx, { key = "dragon-wind", kind = "dragonHelix", pos = v(cx, 0, 0), color = color })
+		else
+			local behind = k % 2 == 0
+			a.x, a.y = cx + (if behind then dir else -dir) * 1.9, d.y - 0.4
+			a.facing = if behind then -dir else dir
+			attack(a, moves, role(ctx, if k % 3 == 0 then "Kick" elseif behind then "AirKick2" else "AirKick"), true)
+		end
+		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
+		arc(frame, "dragon-kick" .. k, v(cx, d.y + 3, 0.4), 2.2, k * 50, k * 50 + 150, color, 0.6, dir)
+		if k % 2 == 1 then
+			frame.shot = shot("zephyr-dragon-under", At(v(cx - dir * 2, 0.8, 9)), P(D, "UpperTorso"), 60, math.rad(10 * dir))
+		else
+			frame.shot = shot("zephyr-dragon-side", P(D, "UpperTorso", v(-dir * 3, -1.5, 9)), P(D, "UpperTorso"), 46)
+		end
+		return
+	end
+	local p = progress(tick, start, final)
+	d.y = 7
+	if p < 0.55 then
+		local q = p / 0.55
+		a.x, a.y, a.facing = cx - dir * 1.4, lerp(d.y - 0.4, d.y + 3.2, q), dir
+		local spin = role(ctx, "DragonTornado")
+		a.state, a.move = "Attack", spin
+		a.moveFrame = moves[spin].startup + 1 + (math.floor(tick / 3) % 2) * (moves[spin].hitInterval or 2)
+		if tick % 5 == 0 then
+			table.insert(frame.fx, { key = "dragon-ring" .. tick, kind = "tornadoRing", pos = v(cx, a.y + 1, 0), color = color })
+		end
+		frame.shot = shot("zephyr-dragon-spin", P(D, "UpperTorso", v(dir * 4, -2.5, 9)), P(D, "UpperTorso"), 56)
+	else
+		local q = progress(p, 0.55, 1)
+		a.x, a.y, a.facing = cx - dir * 1.2, lerp(d.y + 3.2, d.y + 0.6, q), dir
+		attack(a, moves, role(ctx, "AirSmash"), true)
+		a.ghost = true
+		frame.shot = shot("zephyr-dragon-dive", P(D, "UpperTorso", v(-dir * 5, 3, 7)), P(D, "UpperTorso"), 46)
+	end
+end
+
+-- CYCLONE FURIEUX: a vortex lifts the target; ZEPHYR spins around it at full speed.
+function KIT.ZEPHYR.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local D = cin.defender
+	local color = ctx.characters[cin.attacker].Energy
+	local cx = center(ctx, d)
+	if tick < 30 then
+		gateSeal(ctx, frame, a, d, cx, dir, "zephyr-cyclone")
+		return
+	end
+	if tick < data.Hits[1] - 6 then
+		local p = progress(tick, 30, data.Hits[1] - 6)
+		d.x, d.state, d.pose = cx, "Hitstun", "Launched"
+		d.y = lerp(0, 3.5, math.min(1, p * 2)) * (1 - progress(p, 0.85, 1))
+		local angle = math.pi / 2 + math.sin(tick * 0.32) * 1.35
+		around(a, cx, dir, angle, 2.2, d.y * 0.6)
+		local spin = role(ctx, if math.floor(tick / 9) % 2 == 0 then "SpinKick" else "DragonTornado")
+		attack(a, moves, spin, true)
+		a.ghost = true
+		if tick % 4 == 0 then
+			table.insert(frame.fx, { key = "cyclone-ring" .. tick, kind = "tornadoRing", pos = v(cx, 0.5 + (tick % 24) * 0.25, 0), color = color })
+		end
+		frame.shot = shot("zephyr-cyclone-vortex", P(D, "UpperTorso", v(-dir * 1.5, 4, 13)), P(D, "UpperTorso"), 52)
+		return
+	end
+	gateEnd(ctx, frame, a, d, tick, dir, cx, "zephyr-cyclone", function(c)
+		impact(frame, "cyclone-final", v(cx, 3.8, 0.6), c, 3.2)
+		arc(frame, "cyclone-final-arc", v(cx - dir * 0.4, 3.6, 0.4), 3.6, -90, 90, c, 0, dir)
+	end)
+end
+
+-- ---------------------------------------------------------------- AKEMI 影 · shadow
+
+local AKEMI_STRIKES = { "Jab", "Kick", "SpinKick", "Elbow", "Cross", "BodyBlow" }
+
+KIT.AKEMI = {}
+
+-- OMBRES MULTIPLES: shadow copies strike from every side, then AKEMI reappears in front.
+function KIT.AKEMI.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	local k = hitsBefore(data.Hits, tick)
+	if tick >= data.FinalTick then
+		a.x, a.facing = cx - dir * 2.5, dir
+		attack(a, moves, role(ctx, "Smash"), true)
+		impact(frame, "ombres-final", v(cx, 3.6, 0.6), color, 2.8)
+		table.insert(frame.fx, { key = "ombres-cut", kind = "lightning", from = v(cx - dir * 4, 6, 0), to = v(cx + dir * 4, 1, 0), color = color })
+		frame.shot = if tick < data.FinalTick + 12
+			then shot("akemi-ombres-impact", P(D, "UpperTorso", v(-dir * 1.5, 0.4, 7)), P(D, "UpperTorso"), 54)
+			else shot("akemi-ombres-wide", P(D, "UpperTorso", v(-dir * 6, 5, 30)), P(D, "UpperTorso"), 42)
+		return
+	end
+	d.x, d.state = cx, "Hitstun"
+	if tick < data.Hits[1] then
+		a.x, a.facing, a.pose = cx - dir * 6, dir, "Kiai"
+		table.insert(frame.fx, { key = "ombres-seal", kind = "kanjiSeal", pos = v(a.x, 0.06, 0), color = color,
+			text = ctx.characters[A].Kanji, keep = true })
+		frame.shot = shot("akemi-ombres-gather", P(A, "Head", v(dir * 2.4, -0.4, 4.5)), P(A, "Head"), 30)
+	elseif tick < data.FinalTick - 14 then
+		-- Each hit comes from another copy, somewhere on the far half of a circle.
+		around(a, cx, dir, ((k * 0.61) % 1) * math.pi, 2.4, if k % 4 == 0 then 1.4 else 0)
+		attack(a, moves, role(ctx, AKEMI_STRIKES[(k - 1) % #AKEMI_STRIKES + 1]), true)
+		a.ghost = true
+		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
+		table.insert(frame.fx, { key = "ombres-hit" .. k, kind = "spark", pos = v(cx, 3.4, 0.5), color = color, scale = 1.1 })
+		local angle = -0.8 + 1.6 * progress(tick, data.Hits[1], data.FinalTick - 14)
+		frame.shot = shot("akemi-ombres-orbit", P(D, "UpperTorso", v(math.sin(angle) * 10, 6, math.cos(angle) * 10)), P(D, "UpperTorso"), 50)
+	else
+		a.x, a.facing, a.pose = cx - dir * 2.5, dir, "Kiai"
+		a.ghost = true
+		frame.shot = shot("akemi-ombres-return", P(A, "UpperTorso", v(-dir * 3, -0.8, 5.5)), P(D, "UpperTorso"), 38)
+	end
+end
+
+-- TEMPS SUSPENDU: time stops (black and white); AKEMI slips past the target's blow and
+-- strikes it again and again in slow motion, then stands behind it as time resumes.
+function KIT.AKEMI.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local start, final = data.Hits[#data.Hits] + 4, data.FinalTick
+	frame.grade.crimson, frame.grade.mono = false, true
+	d.x, d.state, d.hitstop = cx, "Hitstun", 1
+	if tick < data.Hits[1] + 4 then
+		a.x, a.facing, a.pose = cx - dir * 1.4, dir, "Evade"
+		a.ghost = true
+		table.insert(frame.fx, { key = "temps-bubble", kind = "shockwave", pos = v(cx, 0, 0), color = color })
+		frame.shot = shot("akemi-temps-dodge", P(A, "Head", v(dir * 2.6, 0.2, 4)), P(A, "Head"), 30)
+	elseif tick < start then
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		around(a, cx, dir, if k % 2 == 0 then math.pi * 0.8 else math.pi * 0.2, 2.2)
+		attack(a, moves, role(ctx, AKEMI_STRIKES[(k - 1) % #AKEMI_STRIKES + 1]), tick - data.Hits[k] >= 2)
+		a.ghost = true
+		table.insert(frame.fx, { key = "temps-hit" .. k, kind = "spark", pos = v(cx, 3.3, 0.5), color = color, scale = 1 })
+		local angle = -0.9 + 1.8 * progress(tick, data.Hits[1], start)
+		frame.shot = shot("akemi-temps-slow", P(D, "UpperTorso", v(math.sin(angle) * 9, 1.2, math.cos(angle) * 9)), P(D, "UpperTorso"), 40)
+	else
+		local p = progress(tick, start, final)
+		-- Behind the target, back turned: the cuts appear at once.
+		a.x, a.facing, a.pose = cx + dir * 2.6, dir, "StandTall"
+		if p > 0.7 then
+			frame.grade.mono = false
+			table.insert(frame.fx, { key = "temps-cut1", kind = "lightning", from = v(cx - 2.5, 6, 0.3), to = v(cx + 2.5, 1, 0.3), color = color })
+			table.insert(frame.fx, { key = "temps-cut2", kind = "lightning", from = v(cx + 2.5, 6, 0.3), to = v(cx - 2.5, 1, 0.3), color = color })
+		end
+		frame.shot = shot("akemi-temps-back", P(A, "UpperTorso", v(dir * 3, -1, 6)), P(A, "UpperTorso"), 44)
+	end
+end
+
+-- DANSE FANTÔME: AKEMI dodges and reappears, strike after strike, each blink a flash.
+function KIT.AKEMI.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local D = cin.defender
+	local color = ctx.characters[cin.attacker].Energy
+	local cx = center(ctx, d)
+	if tick < 30 then
+		gateSeal(ctx, frame, a, d, cx, dir, "akemi-danse")
+		return
+	end
+	if tick < data.Hits[1] - 6 then
+		frame.grade.void = true
+		d.x, d.state = cx, "Hitstun"
+		local step = math.floor((tick - 30) / 11)
+		local t = (tick - 30) % 11
+		local angle = if step % 2 == 0 then math.pi * 0.15 else math.pi * 0.85
+		around(a, cx, dir, angle, 2.3)
+		if t < 4 then
+			a.pose = "Evade"
+		else
+			attack(a, moves, role(ctx, AKEMI_STRIKES[step % #AKEMI_STRIKES + 1]), true)
+		end
+		a.ghost = true
+		d.hitstop = if t >= 4 and t < 7 then 1 else 0
+		if step > 0 then
+			local from = if step % 2 == 0 then cx + dir * 2.2 else cx - dir * 2.2
+			table.insert(frame.fx, { key = "danse-blink" .. step, kind = "lightning", from = v(from, 3.5, -0.8), to = v(a.x, 3.5, a.z),
+				color = color })
+		end
+		local side = if step % 2 == 0 then 1 else -1
+		frame.shot = shot("akemi-danse-" .. (if side > 0 then "a" else "b"), P(D, "UpperTorso", v(side * dir * 3.5, 1.4, 9)),
+			P(D, "UpperTorso"), 46)
+		return
+	end
+	gateEnd(ctx, frame, a, d, tick, dir, cx, "akemi-danse", function(c)
+		impact(frame, "danse-final", v(cx, 3.6, 0.6), c, 2.8)
+		table.insert(frame.fx, { key = "danse-cut", kind = "lightning", from = v(cx - 3, 6.5, 0.4), to = v(cx + 3, 0.5, 0.4), color = c })
+	end)
+end
+
+Director.KIT_ULTIMATES = KIT
+
 -- ===================================================================== KAIEN RUSH
 
 local function rush(ctx, frame, a, d, tick, dir)
@@ -248,6 +713,8 @@ local function awakening(ctx, frame, a, d, tick, dir)
 		if route.name == name then template = route.finale or name end
 	end
 	local color = (kit and kit.Colors[template]) or Director.STYLE_COLORS[template] or RED
+	-- TARO, ZEPHYR and AKEMI play their own ÉVEIL between the first hit and the final blow.
+	local staged = kit and KIT[kit.Name] and KIT[kit.Name].Awaken
 	frame.grade.crimson = tick >= 24 and tick < data.FinalTick + 40
 	if tick < 24 then
 		-- 1. Extreme close-up on the eyes, a giant kanji painted over the frame.
@@ -267,6 +734,8 @@ local function awakening(ctx, frame, a, d, tick, dir)
 		a.ghost = true
 		d.state = "Hitstun"
 		frame.shot = shot("eveil-dash", P(A, "UpperTorso", v(dir * 2, 1, 13)), P(A, "UpperTorso"), 40)
+	elseif staged and tick < data.FinalTick then
+		staged(ctx, frame, a, d, tick, dir, color)
 	elseif tick < data.Hits[#data.Hits] + 4 then
 		-- 4. Strikes: a hard cut to a new camera angle on every hit.
 		local k = math.max(1, hitsBefore(data.Hits, tick))
@@ -455,8 +924,12 @@ function Director.cinematic(ctx)
 		return Director.ko(ctx, cin.attacker, cin.defender, a, d, math.min(ctx.tick - data.Length, Director.KO_SCENE))
 	end
 	local frame = newFrame()
+	local kit = kitOf(ctx)
+	local own = kit and KIT[kit.Name]
 	if data.Type == "Awaken" then
 		awakening(ctx, frame, a, d, ctx.tick, dir)
+	elseif own and own[data.Type] then
+		own[data.Type](ctx, frame, a, d, ctx.tick, dir)
 	elseif data.Type == "Gate" then
 		kaiten(ctx, frame, a, d, ctx.tick, dir)
 	else

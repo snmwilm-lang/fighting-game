@@ -369,7 +369,7 @@ derive(TARO, {
 	TaroCorkscrew = "TIRE-BOUCHON", TaroHeavy = "DROITE LOURDE", TaroOverhand = "OVERHAND", TaroDive = "PLONGEON",
 	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
 	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
-	TaroRush = "FOURNAISE", TaroAwakening = "ÉVEIL ARDENT", TaroGate = "火山 · CŒUR DU VOLCAN",
+	TaroRush = "RUSH DÉVASTATEUR", TaroAwakening = "UPPERCUT CÉLESTE", TaroGate = "火嵐 · TEMPÊTE DE CROCHETS",
 }, { damage = 1, reach = 0.94 }, {
 	TaroJab = { startup = 4, recovery = 8 },
 	TaroStraight = { startup = 5 },
@@ -410,7 +410,7 @@ derive(ZEPHYR, {
 	ZephyrBackSpin = "RETOURNÉ", ZephyrPush = "PIED POUSSÉ", ZephyrAxe = "HACHE", ZephyrSweep = "FAUCHAGE",
 	ZephyrLow = "PIED BAS", ZephyrAirKick = "PIED AÉRIEN", ZephyrAirKick2 = "DOUBLE AÉRIEN", ZephyrDiveKick = "PIQUÉ DU FAUCON",
 	ZephyrEnvol = "ENVOL", ZephyrChase = "PIQUÉ DU VENT", ZephyrFinale = "LAME FINALE", ZephyrBlade = "LAME DE VENT",
-	ZephyrRush = "TEMPÊTE DE LAMES", ZephyrAwakening = "ÉVEIL CÉLESTE", ZephyrGate = "天風 · ŒIL DU CYCLONE",
+	ZephyrRush = "VENT TRANCHEUR", ZephyrAwakening = "DRAGON ASCENDANT", ZephyrGate = "旋風 · CYCLONE FURIEUX",
 }, { damage = 1.05, startup = 0, reach = 1.12 }, {
 	ZephyrBlade = { startup = 11, projectile = { speed = 36, life = 75, damage = 58, halfHeight = 0.7 } },
 	ZephyrPush = { push = 36 },
@@ -438,7 +438,7 @@ derive(AKEMI, {
 	AkemiSpin = "VRILLE", AkemiThrust = "ESTOC", AkemiDrop = "CHUTE", AkemiReap = "FAUCHE",
 	AkemiLow = "COUP BAS", AkemiAirEdge = "LAME AÉRIENNE", AkemiAirEdge2 = "DOUBLE LAME", AkemiStoop = "PIQUÉ",
 	AkemiStep = "PAS DE L'OMBRE", AkemiChase = "TRAQUE", AkemiFinale = "EXÉCUTION", AkemiKunai = "KUNAÏ",
-	AkemiRush = "MILLE OMBRES", AkemiAwakening = "ÉVEIL NOCTURNE", AkemiGate = "影月 · LUNE NOIRE",
+	AkemiRush = "OMBRES MULTIPLES", AkemiAwakening = "TEMPS SUSPENDU", AkemiGate = "幻舞 · DANSE FANTÔME",
 }, { damage = 0.88, startup = 0, reach = 1 }, {
 	AkemiStep = { lunge = 26, invuln = { from = 1, to = 11 }, damage = 80 },
 	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
@@ -589,7 +589,7 @@ kit("TARO", {
 	Stats = { MaxHealth = 1600, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
 	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
 	FullRouteNames = { "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MUR", "MÉTÉORE" },
-	GateTitle = { text = "火山", sub = "CŒUR DU VOLCAN" },
+	GateTitle = { text = "火嵐", sub = "TEMPÊTE DE CROCHETS" },
 	Colors = { TORNADE = "FF6A1A", RAFALE = "FF3B1A", DRAGON = "FFB21A", FOUDRE = "FFD45A", MUR = "FF6A1A", LUNE = "FF8C3A" },
 })
 kit("ZEPHYR", {
@@ -599,7 +599,7 @@ kit("ZEPHYR", {
 	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
 	RouteNames = { "CHAÎNE", "LANCEUR", "PLEXUS", "MUR", "HACHE", "FAUCHAGE", "CYCLONE", "CENT PIEDS", "ENVOL", "CIEL", "AZUR" },
 	FullRouteNames = { "CYCLONE", "CENT PIEDS", "ENVOL", "CIEL", "MUR", "AZUR" },
-	GateTitle = { text = "天風", sub = "ŒIL DU CYCLONE" },
+	GateTitle = { text = "旋風", sub = "CYCLONE FURIEUX" },
 	Colors = { TORNADE = "5FE0D0", RAFALE = "9FF0FF", DRAGON = "5FE0D0", FOUDRE = "C8F4FF", MUR = "5FE0D0", LUNE = "E8FFFF" },
 })
 kit("AKEMI", {
@@ -614,7 +614,7 @@ kit("AKEMI", {
 	Passive = { Type = "Evade", Name = "VOILE D'OMBRE", Cooldown = 1200, Invuln = 14, Recovery = 16, Slide = 26 },
 	RouteNames = { "CHAÎNE", "ENVOL", "PERCÉE", "MUR", "CHUTE", "FAUCHE", "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "CROISSANT" },
 	FullRouteNames = { "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "MUR", "CROISSANT" },
-	GateTitle = { text = "影月", sub = "LUNE NOIRE" },
+	GateTitle = { text = "幻舞", sub = "DANSE FANTÔME" },
 	Colors = { TORNADE = "B060FF", RAFALE = "8A3CFF", DRAGON = "D08CFF", FOUDRE = "6E7BFF", MUR = "B060FF", LUNE = "E0C8FF" },
 })
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)

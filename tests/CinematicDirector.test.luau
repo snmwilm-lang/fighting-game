@@ -189,6 +189,21 @@ test("each kit's cinematics use its own moves", function()
 	end
 end)
 
+test("TARO, ZEPHYR and AKEMI stage their own three ultimates (ultimate sheet)", function()
+	local prefix = { TARO = "^taro%-", ZEPHYR = "^zephyr%-", AKEMI = "^akemi%-" }
+	for kit, pattern in prefix do
+		for _, kind in { "Rush", "Awaken", "Gate" } do
+			local failures, shots = playCinematic(kind, MoveData.Kits[kit].FullRoutes[1].name, nil, 0, kit)
+			local own = 0
+			for shotName in shots do
+				if shotName:find(pattern) then own += 1 end
+			end
+			expect(#failures == 0, kit .. " " .. kind .. ": " .. tostring(failures[1]))
+			expect(own >= 3, string.format("%s %s plays only %d shots of its own", kit, kind, own))
+		end
+	end
+end)
+
 test("each ÉVEIL route has its own finale", function()
 	local seen = {}
 	for _, route in MoveData.FullRoutes do

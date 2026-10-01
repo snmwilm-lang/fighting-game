@@ -6,7 +6,9 @@ local UIS = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Bindings = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").InputConfig)
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Bindings = require(Shared.InputConfig)
+local PressQueue = require(Shared.PressQueue)
 local InputController = {}
 
 local PULSES = {
@@ -17,8 +19,7 @@ local PULSES = {
 function InputController.start(remote)
 	local keys = {}
 	local pulses = {
-		jump = false, dash = false, reset = false, light = false, heavy = false,
-		special = false, ultimate = false, dummy = false, avatar = false, skin = false, kit = false, foeKit = false,
+		jump = false, dash = false, reset = false, dummy = false, avatar = false, skin = false, kit = false, foeKit = false,
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
@@ -26,15 +27,26 @@ function InputController.start(remote)
 		for _, held in keys do if held == action then return true end end
 		return false
 	end
+	-- Attack presses in the order they were made: two clicks between two packets stay two
+	-- clicks, a heavy then a light stays heavy first (see PressQueue).
+	local presses = {}
+	local function press(pulse)
+		if PressQueue.BUTTONS[pulse] then
+			if #presses < PressQueue.MAX_PACKET then table.insert(presses, pulse) end
+		else
+			pulses[pulse] = true
+		end
+	end
 	local function set(action, key, down)
 		if down and not blocked and not UIS:GetFocusedTextBox() then
 			keys[key] = action
 			local pulse = PULSES[action]
-			if pulse then pulses[pulse] = true end
+			if pulse then press(pulse) end
 		else keys[key] = nil end
 	end
 	local function clear()
 		table.clear(keys)
+		table.clear(presses)
 		stick, touchStick = Vector2.zero, Vector2.zero
 		for k in pulses do pulses[k] = false end
 	end
@@ -60,7 +72,7 @@ function InputController.start(remote)
 	UIS.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed or blocked then return end
 		for action, inputType in Bindings.Mouse do
-			if input.UserInputType == inputType then pulses[PULSES[action]] = true end
+			if input.UserInputType == inputType then press(PULSES[action]) end
 		end
 	end)
 	UIS.TextBoxFocused:Connect(clear)
@@ -162,16 +174,17 @@ function InputController.start(remote)
 		sinceAxis += dt
 		keepalive += dt
 		local axis, crouch, block = read()
-		local pulse = false
+		local pulse = #presses > 0
 		for _, pressed in pulses do pulse = pulse or pressed end
 		-- Pulses and button changes go out immediately; analog drift is capped at 30 Hz.
 		local axisChanged = math.abs(axis - previousAxis) > 0.02 and sinceAxis >= 1 / 30
 		if pulse or crouch ~= previousCrouch or block ~= previousBlock or axisChanged or keepalive >= 0.1 then
 			sequence += 1
 			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
-				jump = pulses.jump, dash = pulses.dash, light = pulses.light, heavy = pulses.heavy,
-				special = pulses.special, ultimate = pulses.ultimate, reset = pulses.reset, dummy = pulses.dummy,
+				jump = pulses.jump, dash = pulses.dash, presses = table.clone(presses),
+				reset = pulses.reset, dummy = pulses.dummy,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit })
+			table.clear(presses)
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
 		end

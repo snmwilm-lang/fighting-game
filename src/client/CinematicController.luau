@@ -313,6 +313,7 @@ function CinematicController:applyFx(frame)
 			elseif kind == "lightning" then fx:lightning(vec(request.from), vec(request.to), color)
 			elseif kind == "shockwave" then fx:shockwave(vec(request.pos), color)
 			elseif kind == "dust" then fx:dust(request.pos.x, request.pos.y, request.direction or 1)
+			elseif kind == "arc" then fx:arc(vec(request.pos), request.radius, request.from, request.to, color, request.tilt, request.dir)
 			elseif kind == "crescent" then prop = fx:crescent(vec(request.pos), color)
 			elseif kind == "kanjiSeal" then prop = fx:kanjiSeal(vec(request.pos), color, request.text)
 			elseif kind == "gate" then

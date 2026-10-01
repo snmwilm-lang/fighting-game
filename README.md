@@ -89,9 +89,16 @@ Chaque route ★ se prolonge par **L** (poursuite) puis **R** (coup de grâce) :
 
 | Ultime | Comment | KAI | TARO | ZEPHYR | AKEMI |
 |---|---|---|---|---|---|
-| 1 · ruée | **R** seul, 2 barres | KAIEN RUSH | FOURNAISE | TEMPÊTE DE LAMES | MILLE OMBRES |
-| 2 · éveil | route complète **propre**, 6e au **clic droit**, 3 barres | ÉVEIL ÉCARLATE | ÉVEIL ARDENT | ÉVEIL CÉLESTE | ÉVEIL NOCTURNE |
-| 3 · porte | route complète **propre**, 6e à la **touche R**, 3 barres | 開天 PORTE DES CIEUX | 火山 CŒUR DU VOLCAN | 天風 ŒIL DU CYCLONE | 影月 LUNE NOIRE |
+| 1 · ruée | **R** seul, 2 barres | KAIEN RUSH | RUSH DÉVASTATEUR | VENT TRANCHEUR | OMBRES MULTIPLES |
+| 2 · éveil | route complète **propre**, 6e au **clic droit**, 3 barres | ÉVEIL ÉCARLATE | UPPERCUT CÉLESTE | DRAGON ASCENDANT | TEMPS SUSPENDU |
+| 3 · porte | route complète **propre**, 6e à la **touche R**, 3 barres | 開天 PORTE DES CIEUX | 火嵐 TEMPÊTE DE CROCHETS | 旋風 CYCLONE FURIEUX | 幻舞 DANSE FANTÔME |
+
+TARO, ZEPHYR et AKEMI ont chacun leur mise en scène (planche d'ultimes de Wilhem) : TARO
+charge et cogne de face, soulève l'adversaire dans un pilier de feu puis tourne autour de lui
+crochet après crochet ; ZEPHYR enchaîne les coups de pied avec des lames de vent, monte avec
+sa cible dans un dragon de vent, puis l'enferme dans un cyclone ; AKEMI frappe de partout
+avec ses ombres, arrête le temps (noir et blanc) pour frapper au ralenti, puis danse entre
+esquives et coups instantanés. KAI garde les siennes (finale de l'éveil selon la route).
 
 L'éveil retire **95 % de la vie actuelle** ; sous **50 %** c'est un **FINAL FINISH** (K.O.) ;
 la finale change selon la route ; QTE en rythme pendant la rafale. La porte retire 40 % de la
@@ -154,6 +161,7 @@ luau tests/FighterAI.test.luau
 luau tests/CinematicDirector.test.luau
 luau tests/Animation.test.luau
 luau tests/Kits.test.luau
+luau tests/PressQueue.test.luau
 luau tests/Balance.luau -a 4 120   # rapport d'équilibrage CPU contre CPU (niveau, matchs)
 ```
 

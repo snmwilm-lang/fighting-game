@@ -128,7 +128,8 @@ function EffectsController:slash(fighter, moveId, color)
 		CrescentMoon = { from = 120, to = -60, radius = 3.4, height = 3.2 },
 		DragonTornado = { from = -10, to = 350, radius = 3, height = 3.4 },
 	}
-	local arc = arcs[moveId]
+	-- Other kits' moves use the arc of their role (TARO's hook = KAI's elbow slot...).
+	local arc = arcs[moveId] or arcs[ROLE_OF[moveId] or ""]
 	if not arc then return end
 	local segments = if self.reduced then 7 else 13
 	local cx, cy = fighter.x + fighter.facing * 0.6, fighter.y + arc.height
@@ -156,6 +157,27 @@ function EffectsController:slash(fighter, moveId, color)
 			tween(streak, 0.18, { CFrame = streak.CFrame + Vector3.new(fighter.facing * 3, 0, 0), Transparency = 1 })
 			Debris:AddItem(streak, 0.2)
 		end
+	end
+end
+
+-- Free smear arc of a cinematic (wind blades, hooks, cuts): around `center`, from / to in
+-- degrees, in the fighting plane tilted by `tilt` radians around the X axis.
+function EffectsController:arc(center, radius, from, to, color, tilt, dir)
+	local segments = if self.reduced then 7 else 14
+	local ct, st = math.cos(tilt or 0), math.sin(tilt or 0)
+	local function at(angle)
+		local a = math.rad(angle)
+		return center + Vector3.new((dir or 1) * math.cos(a) * radius, math.sin(a) * radius * ct, math.sin(a) * radius * st)
+	end
+	for i = 0, segments - 1 do
+		local t0 = i / segments
+		local p0, p1 = at(from + (to - from) * t0), at(from + (to - from) * (i + 1) / segments)
+		local width = 0.15 + 0.8 * math.sin(t0 * math.pi)
+		local seg = self:part(Vector3.new(width, 0.1, (p1 - p0).Magnitude + 0.1), CFrame.lookAt((p0 + p1) / 2, p1, Vector3.zAxis),
+			if i % 3 == 0 then WHITE else color)
+		seg.Transparency = 0.1 + 0.5 * (1 - t0)
+		tween(seg, 0.24, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 1, 1.15) })
+		Debris:AddItem(seg, 0.27)
 	end
 end
 

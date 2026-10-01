@@ -387,6 +387,34 @@ test("PORTE DES CIEUX: the R key on the climax adds the bonus, and can KO", func
 	expect(start and start.finish and find(lowEvents, "RoundEnd"), "gate did not KO a weakened target")
 end)
 
+test("gate: a perfect gate only KOs if the blows left can finish (every kit)", function()
+	for _, kitName in MoveData.KitOrder do
+		local cin = MoveData.Cinematics[MoveData.Kits[kitName].Ultimates.Gate]
+		local function play(hp)
+			local world = Sim.newWorld(Config, MoveData, false)
+			Sim.setKits(world, kitName, "KAI")
+			world.phase = "Fight"
+			local d = world.fighters[2]
+			Sim.debugCinematic(world, 1, "Gate", nil, hp)
+			local events = {}
+			for _ = 1, cin.Length + cin.FinishExtra + 5 do
+				local state = world.cinematic
+				local press = state ~= nil and state.tick + 1 == cin.PromptTicks[1]
+				for _, e in Sim.step(world, { input({ ultimate = press }), input({}) }) do table.insert(events, e) end
+			end
+			local grade = find(events, "PromptGrade")
+			expect(grade and grade.grade == "PARFAIT", kitName .. ": gate prompt " .. tostring(grade and grade.grade))
+			return d.hp, events
+		end
+		local maxHp = MoveData.Kits.KAI.Stats.MaxHealth
+		local full = math.floor(maxHp * cin.MaxHealthShare) + math.floor(maxHp * cin.PerfectBonus)
+		local left = play(full + 25)
+		expect(left == 25, string.format("%s: %d hp left instead of 25 (gate total %d)", kitName, left, full))
+		local _, events = play(full - 10)
+		expect(find(events, "RoundEnd"), kitName .. ": a perfect gate did not KO a target it out-damages")
+	end
+end)
+
 test("KAIEN RUSH (R alone) stays the classic ultimate", function()
 	local world = closeWorld(3, false)
 	world.fighters[1].meter = Config.MaxMeter

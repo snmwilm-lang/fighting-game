@@ -6,11 +6,12 @@
   `src/server` → ServerScriptService.Server, `src/client` → StarterPlayerScripts.Client.
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
-  `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau` et `Retarget.luau`
-  restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau` et
+  `PressQueue.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
-  `luau tests/Animation.test.luau` et `luau tests/Kits.test.luau` après chaque changement, et
+  `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau` et
+  `luau tests/PressQueue.test.luau` après chaque changement, et
   ajouter un test pour chaque règle de combat, plan de caméra ou animation nouvelle (poses :
   pieds au sol, limites des articulations, pas de glissade ; R15 et R6).
 - Les 4 kits (KAI, TARO, ZEPHYR, AKEMI) partagent la grammaire des combos : un kit associe

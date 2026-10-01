@@ -1,5 +1,60 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.2 — 1er octobre 2026
+
+Wilhem a fourni une **planche d'ultimes** (boxeur, combattant au pied, esquiveur) et un
+**audit Codex** de la 0.9.0 (commit `8bea7a3`). Le message de l'audit est **coupé après le
+point 2** : les points suivants restent à recevoir. Chaque point reçu a été vérifié dans le
+code avant correction. Rien lancé dans Studio.
+
+### Audit, point 1 — un 開天 parfait pouvait tuer sans assez de dégâts ✅ corrigé
+
+Confirmé (`judgePrompts`) : au QTE (tick 140), les deux premières frappes (118, 126) sont
+déjà dans les PV, mais la décision de K.O. additionnait tout le plan. Avec 800 PV et 775 de
+dégâts : K.O. au lieu de 25 PV. La décision compare maintenant les PV restants aux seules
+frappes encore à venir. Test : « gate: a perfect gate only KOs if the blows left can
+finish » (les 4 kits ; 25 PV exacts restants, K.O. si les dégâts suffisent).
+
+### Audit, point 2 — appuis perdus ou réordonnés ✅ corrigé
+
+Confirmé : le serveur fusionnait les appuis avec `or` (2 clics entre deux ticks = 1) et la
+simulation les lisait dans un ordre fixe (lourd puis léger devenait léger d'abord) ; le
+client fusionnait aussi entre deux paquets. Nouveau module pur `src/shared/PressQueue.luau` :
+le client envoie la liste ordonnée des appuis d'attaque (`presses`), le serveur la valide
+(tableau de 8 noms connus au plus), la met en file (6 au plus) et donne **un appui par tick**
+à la simulation. Nouveau `tests/PressQueue.test.luau` (4 tests, dont « lourd puis léger dans
+un seul paquet joue R puis L »). Plusieurs boutons à la même frame arrivent maintenant à un
+tick d'écart : ils restent marqués (« TROP TÔT » / « SPAM ») par la règle du rythme.
+
+### Ultimes selon la planche
+
+| Perso | 1 · R seul | 2 · route + clic droit | 3 · route + R |
+|---|---|---|---|
+| TARO | RUSH DÉVASTATEUR : charge, coups de face, droite finale | UPPERCUT CÉLESTE : coups au corps, uppercut dans un pilier de feu, finition aérienne | 火嵐 TEMPÊTE DE CROCHETS : tourne autour de la cible, crochet après crochet, anneaux de feu |
+| ZEPHYR | VENT TRANCHEUR : un coup de pied toutes les 4 frames, lame de vent sur chacun | DRAGON ASCENDANT : pied montant, montée dans un dragon de vent, coups des deux côtés, vrille puis piqué | 旋風 CYCLONE FURIEUX : vortex qui soulève la cible, rotation de coups de pied |
+| AKEMI | OMBRES MULTIPLES : des copies frappent de tous les côtés | TEMPS SUSPENDU : temps arrêté (noir et blanc), esquive, coups au ralenti, coupures en croix | 幻舞 DANSE FANTÔME : esquives et réapparitions, frappes instantanées |
+
+- Mise en scène pure dans `CinematicDirector` (`Director.KIT_ULTIMATES`) ; timing
+  autoritaire inchangé (frappes, QTE à 140, coup final) : équilibrage identique. KAI garde
+  ses 3 ultimes.
+- Nouvel effet client `arc` (lames de vent, crochets, coupures) ; un perso qui tourne autour
+  de la cible reste sur la moitié arrière, la caméra devant la voit toujours.
+- Corrigé au passage : les traînées d'arc des gros coups (`EffectsController:slash`) ne
+  marchaient que pour les coups de KAI ; elles passent par le rôle du coup.
+
+### Tests
+
+CombatSimulation **78**, FighterAI 9, CinematicDirector **125** (+ « TARO, ZEPHYR et AKEMI
+jouent leurs propres ultimes » ; les 3 ultimes × 4 persos × 3 positions passent les
+contrôles de caméra), Animation 22, Kits 26, **PressQueue 4** ✅. Compilation et analyse
+statique ✅. Studio ❌ non exécuté.
+
+### Problèmes ouverts
+
+- Audit : points 3 et suivants non reçus (message coupé).
+- Ultimes : poses et effets vérifiés hors ligne seulement (cadrage, pas de rendu) ; à juger
+  en jeu avec le LABO CINÉ.
+
 ## Version 0.9.1 — 1er octobre 2026
 
 Retours de Wilhem sur la 0.9.0 (vue en jeu) : après le passage de R15 à R6 « ça ne veut

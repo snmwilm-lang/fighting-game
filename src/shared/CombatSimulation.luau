@@ -881,10 +881,14 @@ local function judgePrompts(world, state, input, events)
 			for _, step in state.plan do
 				if step.final then step.damage += math.floor(world.fighters[state.defender].maxHp * cin.PerfectBonus) end
 			end
+			-- KO only if the blows still to land can take the health that is left (the ones
+			-- already dealt are in d.hp, they must not count twice).
 			local d = world.fighters[state.defender]
-			local total = 0
-			for _, step in state.plan do total += step.damage end
-			if total >= d.hp then state.finish, state.length = true, cin.Length + cin.FinishExtra end
+			local remaining = 0
+			for _, step in state.plan do
+				if step.tick > state.tick then remaining += step.damage end
+			end
+			if remaining >= d.hp then state.finish, state.length = true, cin.Length + cin.FinishExtra end
 		end
 		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
 	end

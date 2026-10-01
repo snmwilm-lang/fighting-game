@@ -192,6 +192,7 @@ function CinematicController:begin(kind)
 	self.active, self.kind = true, kind
 	self.hud.gui.Enabled = false
 	self.titleShown, self.memo, self.anchors, self.gate = nil, {}, {}, nil
+	self.cinClock, self.displayTick = nil, nil
 	tween(self.top, 0.18, { Size = UDim2.fromScale(1, 0.12) })
 	tween(self.bottom, 0.18, { Size = UDim2.fromScale(1, 0.12) })
 end
@@ -202,6 +203,7 @@ end
 
 function CinematicController:finish()
 	self.active, self.shot, self.kind, self.dir = false, nil, nil, nil
+	self.displayTick, self.cinClock = nil, nil
 	self.debugLabel.Visible, self.labRequested = false, false
 	self.hud.gui.Enabled = true
 	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof, self.fire, self.sky, self.shadowGrade } do effect.Enabled = false end
@@ -433,7 +435,20 @@ function CinematicController:update(world, views, dt, stale)
 	end
 	ctx.anchors = self.anchors
 	if cin then
-		local tick = math.min(cin.tick + math.floor((os.clock() - (self.snapshotAt or os.clock())) * self.config.TickRate * (cin.scale or 1)), cin.length)
+		-- A smooth, monotonic cinematic clock: it runs at the slow-motion speed between
+		-- snapshots and eases toward the server's tick, so a late or bunched snapshot (a far
+		-- player) never makes the shots jump back; a big gap (new cinematic) snaps.
+		local speed = self.config.TickRate * (cin.scale or 1)
+		local target = cin.tick + (os.clock() - (self.snapshotAt or os.clock())) * speed
+		local clock = self.cinClock
+		if not clock or math.abs(target - clock) > 15 then
+			clock = target
+		else
+			clock = math.max(clock, clock + dt * speed + (target - (clock + dt * speed)) * math.min(1, dt * 3))
+		end
+		self.cinClock = clock
+		local tick = math.min(math.floor(clock), cin.length)
+		self.displayTick = tick -- sent with QTE presses (lag compensation)
 		self:updatePrompt(cin, tick)
 		self:showDebug(cin.move .. (if cin.style then "/" .. cin.style else "") .. (if cin.finish then "/FINISH" else ""),
 			tick, cin.length)

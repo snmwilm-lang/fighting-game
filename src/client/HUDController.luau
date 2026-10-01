@@ -773,9 +773,16 @@ function HUD:update(world, views, fps, dt)
 			self:announceText("AVATAR INDISPONIBLE", "Corps " .. rig .. " par défaut avec le kit · " .. reason, GOLD)
 		end
 	end
-	self.status.Text = string.format("v%s · %s · %d FPS%s", self.config.Version,
+	-- Ping of each player in the fight (round trip measured by the server).
+	local pings = {}
+	for slot = 1, 2 do
+		local v = views[slot]
+		if v and v.ping then table.insert(pings, (if slot == localSlot then "VOUS " else "ADV. ") .. v.ping .. " ms") end
+	end
+	self.status.Text = string.format("v%s · %s · %d FPS%s%s", self.config.Version,
 		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"
-			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5), note)
+			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5),
+		if #pings > 0 then " · PING " .. table.concat(pings, " / ") else "", note)
 end
 
 return HUD

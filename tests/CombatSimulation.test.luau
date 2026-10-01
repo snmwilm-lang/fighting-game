@@ -701,6 +701,55 @@ test("combo into ultimate: L L then R-ultimate cancel", function()
 	expect(find(events, "CinematicStart") ~= nil, "ultimate cancel did not connect: " .. hitMoves(events))
 end)
 
+test("latency: a far player's late link still connects (within the latency cap)", function()
+	local function linkAfter(latency, late)
+		local world = closeWorld(3)
+		local f = world.fighters[1]
+		f.latencyTicks = latency
+		local ended, events = nil, {}
+		for t = 1, 120 do
+			local i = input({ light = t == 1 or (ended ~= nil and t == ended + late) })
+			for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+			if not ended and t > 2 and f.move == nil then ended = t end
+		end
+		local moves = {}
+		for _, e in events do if e.kind == "Hit" then table.insert(moves, e.move) end end
+		return moves[2]
+	end
+	local late = Config.LateCancelTicks + 4
+	expect(linkAfter(0, late) == "Jab", "a press this late linked without latency: " .. tostring(linkAfter(0, late)))
+	expect(linkAfter(8, late) == "Cross", "the far player's late press did not link: " .. tostring(linkAfter(8, late)))
+	expect(linkAfter(40, Config.LateCancelTicks + Config.MaxLatencyTicks + 3) == "Jab", "the latency cap is not applied")
+end)
+
+test("latency: a QTE is judged at the cinematic tick the far player saw", function()
+	local function judge(latency, seenOffset, lateBy)
+		local world = closeWorld(3)
+		Sim.debugCinematic(world, 1, "Awaken", MoveData.FullRoutes[1].name, 300)
+		world.fighters[1].latencyTicks = latency
+		local cin = MoveData.Cinematics[world.cinematic.move]
+		local prompt = world.cinematic.prompts[1]
+		local result
+		for _ = 1, 600 do
+			local state = world.cinematic
+			if not state or result ~= nil then break end
+			local i = Sim.neutralInput()
+			if state.tick == prompt.tick + cin.PromptWindow + lateBy and state.nextPrompt == 1 then
+				i[if prompt.button == "Light" then "light" elseif prompt.button == "Heavy" then "heavy" else "ultimate"] = true
+				i.cinTick = state.tick - seenOffset
+			end
+			for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
+				if e.kind == "Prompt" and e.index == 1 then result = e.success end
+			end
+		end
+		return result
+	end
+	local late = 4
+	expect(judge(0, late + MoveData.Cinematics.Awakening.PromptWindow, late) == false, "a late press without latency succeeded")
+	expect(judge(8, late + MoveData.Cinematics.Awakening.PromptWindow, late) == true, "the far player's on-time press (as seen) failed")
+	expect(judge(8, 60, late) == false, "a press claimed far in the past was accepted")
+end)
+
 test("ultimate cinematic: scripted hits, timer paused, round ends only after it", function()
 	local world = closeWorld(3, false)
 	world.fighters[1].meter = Config.MaxMeter

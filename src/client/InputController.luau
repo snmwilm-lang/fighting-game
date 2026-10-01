@@ -25,6 +25,7 @@ function InputController.start(remote)
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
+	local cinematicTick = nil -- function: the cinematic tick shown on screen (QTE lag compensation)
 	local function has(action)
 		for _, held in keys do if held == action then return true end end
 		return false
@@ -186,7 +187,8 @@ function InputController.start(remote)
 				jump = pulses.jump, dash = pulses.dash, presses = table.clone(presses),
 				reset = pulses.reset, dummy = pulses.dummy,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
-				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0 })
+				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0,
+				cinTick = cinematicTick and cinematicTick() or nil })
 			table.clear(presses)
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
@@ -200,6 +202,10 @@ function InputController.start(remote)
 		nextKit = function() pulses.kit = true end,
 		nextFoeKit = function() pulses.foeKit = true end,
 		setStance = function(rank) pulses["stance" .. rank] = true end, -- TARO: 1 CLASSIQUE, 2 ESQUIVE
+		setCinematicTick = function(source) cinematicTick = source end,
+		-- What is held right now (axis -1..1, crouch, block): the local fighter is drawn ahead
+		-- of the server by it (visual prediction, see the client's presentation loop).
+		held = function() return read() end, -- axis, crouch, block
 		clear = clear,
 		-- The touch ULTI button glows when the ki meter can pay for the ultimate.
 		setUltimateReady = function(ready)

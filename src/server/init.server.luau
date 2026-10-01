@@ -253,7 +253,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 -- DÉFIER, ACCEPTER, REFUSER, QUITTER LE COMBAT, JOUER (see Lobby for the rules).
-local HUB_ACTIONS = { challenge = true, accept = true, decline = true, quit = true, play = true }
+local HUB_ACTIONS = { challenge = true, accept = true, decline = true, quit = true, play = true, hello = true }
 hubRemote.OnServerEvent:Connect(function(player, action, target)
 	local client = clients[player]
 	if not client or typeof(action) ~= "string" or not HUB_ACTIONS[action] then return end
@@ -262,6 +262,11 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 	if now - client.lastHub < 0.4 then return end
 	client.lastHub = now
 	local id = player.UserId
+	if action == "hello" then
+		-- A client that just started asks for the hub status.
+		hubRemote:FireClient(player, { players = Lobby.status(lobby), seconds = Lobby.CHALLENGE_SECONDS })
+		return
+	end
 	local ok
 	if action == "challenge" then ok = target ~= nil and Lobby.challenge(lobby, id, target, now)
 	elseif action == "accept" then ok = target ~= nil and Lobby.accept(lobby, id, target, now)
@@ -269,6 +274,25 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 	elseif action == "quit" then ok = Lobby.quit(lobby, id)
 	else ok = Lobby.play(lobby, id) end
 	if ok then sync() end
+end)
+-- Network latency of each fighting player, once a second: the simulation compensates far
+-- players a little (late links, QTE), within CombatConfig.MaxLatencyTicks.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		for i, slot in slots do
+			local owner, ping = slot.owner, nil
+			if owner then
+				local ok, value = pcall(owner.GetNetworkPing, owner) -- round trip, in seconds
+				if ok and typeof(value) == "number" and value == value then ping = math.clamp(value, 0, 2) end
+			end
+			slot.ping = ping
+			local f = world.fighters[i]
+			if f then
+				f.latencyTicks = if ping then math.clamp(math.floor(ping / 2 * Config.TickRate + 0.5), 0, Config.MaxLatencyTicks) else 0
+			end
+		end
+	end
 end)
 -- Challenges time out (CHALLENGE_SECONDS).
 task.spawn(function()
@@ -327,6 +351,9 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	if not PressQueue.valid(packet.presses) then return end
 	local stance = packet.stance
 	if stance ~= nil and (not finite(stance) or stance % 1 ~= 0 or stance < 0 or stance > 2) then return end
+	-- The cinematic tick the player saw (QTE lag compensation, bounded by the simulation).
+	local cinTick = packet.cinTick
+	if cinTick ~= nil and (not finite(cinTick) or cinTick < 0 or cinTick > 10000) then return end
 	client.lastSeq = packet.seq
 	local slot = slots[client.slot]
 	if slot.owner ~= player then return end
@@ -384,16 +411,44 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	input.jump = input.jump or packet.jump
 	input.dash = input.dash or packet.dash
 	if stance and stance > 0 then input.stance = stance end -- TARO's style keys (1 / 2)
+	input.cinTick = if cinTick then math.floor(cinTick) else nil
 	-- Attack presses keep their count and order (see PressQueue): one per tick.
 	PressQueue.push(slot.presses, packet.presses)
 	slot.lastInput = now
 end)
 
-local function snapshot()
+-- Fields that rarely change (names, looks, kit) go out only when they change, or every two
+-- seconds for a client that just arrived: snapshots stay small for far players.
+local lastRoster, lastRosterAt = nil, -math.huge
+local function roster()
 	local list = {}
 	for i, slot in slots do
-		local f = world.fighters[i]
 		local character = CharacterData[i]
+		list[i] = {
+			owner = if slot.owner then slot.owner.UserId else 0,
+			player = if slot.owner then slot.owner.DisplayName else "MANNEQUIN · " .. DUMMY_MODES[dummyMode].name,
+			character = character.Name, skin = character.Skin, kit = world.fighters[i].kit, maxHp = world.fighters[i].maxHp,
+		}
+	end
+	return list
+end
+local function rosterKey(list)
+	local parts = {}
+	for i, r in list do
+		parts[i] = table.concat({ r.owner, r.player, r.character, r.skin, r.kit, r.maxHp }, "|")
+	end
+	return table.concat(parts, "#")
+end
+
+local function snapshot()
+	local list = {}
+	local names = roster()
+	local key = rosterKey(names)
+	local now = os.clock()
+	local sendRoster = key ~= lastRoster or now - lastRosterAt > 2
+	if sendRoster then lastRoster, lastRosterAt = key, now end
+	for i, slot in slots do
+		local f = world.fighters[i]
 		list[i] = {
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
@@ -402,9 +457,7 @@ local function snapshot()
 			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",
-			owner = if slot.owner then slot.owner.UserId else 0,
-			player = if slot.owner then slot.owner.DisplayName else "MANNEQUIN · " .. DUMMY_MODES[dummyMode].name,
-			character = character.Name, skin = character.Skin, kit = f.kit,
+			kit = f.kit, ping = slot.ping and math.floor(slot.ping * 1000 + 0.5) or nil,
 		}
 	end
 	local projectiles = {}
@@ -425,7 +478,7 @@ local function snapshot()
 			prompts = world.cinematic.prompts, scale = Sim.cinematicScale(world),
 		},
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
-		fighters = list,
+		fighters = list, roster = if sendRoster then names else nil,
 	})
 end
 

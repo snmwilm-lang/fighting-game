@@ -1,11 +1,11 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.9.7",
+	Version = "0.9.8",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
-	InputTimeout = 0.5,
+	InputTimeout = 0.8, -- held inputs drop after this long without a packet (tolerates lag spikes)
 
 	-- Movement
 	WalkSpeed = 17,
@@ -38,6 +38,7 @@ return table.freeze({
 	BufferTicks = 10, -- lifetime of a queued press (frozen during hitstop and while a hit lands)
 	BufferSize = 3, -- presses kept ahead: enough for rhythm, not to type a whole route
 	LateCancelTicks = 6, -- a press this late after a connected move still links (latency)
+	MaxLatencyTicks = 12, -- latency compensation cap (200 ms one way): late links, QTE judged as seen
 	ReversalBufferTicks = 4, -- while stunned / getting up, only presses this close to recovery count
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this
 	MinComboScaling = 0.4,

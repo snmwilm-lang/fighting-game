@@ -104,7 +104,15 @@ L'éveil retire **95 % de la vie actuelle** ; sous **50 %** c'est un **FINAL FIN
 la finale change selon la route ; QTE en rythme pendant la rafale. La porte retire 40 % de la
 vie max (peut tuer) ; R pile au sommet : +10 %. Les ultimes ne sont ni esquivés ni parés.
 
-### TARO : esquive de buste et DEMPSEY ROLL
+### TARO : deux styles (touches & / 1 et é / 2)
+
+- **BOXEUR CLASSIQUE** (& ou 1) : garde de fer, frappe plus lourde, ↓ + E = DROITE DU
+  CHAMPION (lente, écrase la garde, met au sol).
+- **BOXEUR ESQUIVE** (é ou 2) : plus mobile, ↓ + E = PARADE qui contre, et l'esquive de
+  buste + DEMPSEY ROLL ci-dessous.
+- On change de style au neutre (pas pendant un coup) ; les boutons du HUD font pareil.
+
+### TARO (style ESQUIVE) : esquive de buste et DEMPSEY ROLL
 
 - **Dash vers l'adversaire = esquive de buste** : TARO plonge sous la garde, les coups hauts
   et moyens passent au-dessus de sa tête (« ESQUIVE ! », un peu de ki). Les coups bas, les
@@ -121,6 +129,10 @@ Bouton **HUB** en haut à droite : les joueurs du serveur, **DÉFIER** (le défi
 **ACCEPTER / REFUSER** (bandeau quand on te défie), **QUITTER LE COMBAT**, **JOUER** (quand
 personne ne combat) et **INVITER UN AMI** (l'invitation Roblox : ton ami arrive sur ton
 serveur). Le premier arrivé combat le CPU ; les suivants attendent au hub et regardent.
+
+Le ping des deux joueurs s'affiche sur la ligne d'état. Pour un ami loin (autre région), le
+serveur compense un peu sa latence (enchaînements, QTE des cinématiques) et son propre perso
+réagit tout de suite à l'écran.
 
 Pour jouer en ligne, la place doit être publiée : dans Roblox Studio, **Fichier > Publier
 sur Roblox**, puis dans **Paramètres du jeu > Autorisations**, rendre le jeu public (ou

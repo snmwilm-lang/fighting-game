@@ -1,5 +1,90 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.8 — 1er octobre 2026
+
+Retours de Wilhem : « toujours pas possible de jouer avec mon avatar » ; « et le lobby
+multi » ; « pour le boxeur, un switch de mode : boxeur qui esquive (contres, Dempsey Roll) et
+boxeur classique, sur les touches & et é, seulement TARO » ; « revois les animations des
+cinématiques, optimise au max le ping avec deux joueurs de deux régions différentes » ; puis
+une planche de 4 nouveaux persos (RYUKEN, SHIN, DAICHA, HIBECARES) — prochaine étape.
+
+### Avatar
+
+- Cause probable : la **mise à niveau des articulations d'avatar** de Roblox, qui remplace
+  les Motor6D des corps R15 par des AnimationConstraint. Le serveur refusait alors le corps
+  (« articulation Root absente » → modèle en blocs) ou le client attendait des Motor6D qui
+  n'arrivaient jamais (corps figé).
+- `RigReader.ensureJoints` (partagé) : chaque Motor6D attendu qui manque est reconstruit
+  entre les deux mêmes pièces, depuis leurs points d'attache (comme
+  `Humanoid:BuildRigFromAttachments`), sinon depuis les repères R6 standard ou les pivots du
+  rig KAI mis à l'échelle ; les contraintes remplacées sont retirées. Appelé par le serveur à
+  la création du corps et une fois placé ; par le client en secours si un corps n'a toujours
+  pas ses Motor6D au bout de 2 s.
+- Les erreurs de construction (pcall) sont affichées sur la ligne d'état au lieu d'un
+  « chargement… » sans fin ; la ligne d'état garde la raison même en modèle en blocs.
+- `tools/rigcheck.py` construit aussi `RigReader` et vérifie : R15 en AnimationConstraint avec
+  et sans points d'attache, R15 déjà en Motor6D, R6 sans articulations — 15 / 6 Motor6D
+  reconstruits sans déplacer aucune pièce, rien deux fois.
+
+### TARO : deux styles (touches & / 1 et é / 2, ou les boutons du HUD)
+
+| | BOXEUR CLASSIQUE (& / 1) | BOXEUR ESQUIVE (é / 2) |
+|---|---|---|
+| Garde | **de fer** (−40 % d'usure) | normale |
+| Dégâts | +8 % | −5 % |
+| Vitesse | marche 15, dash 34 | marche 17, dash 40 |
+| ↓ + E | **DROITE DU CHAMPION** (lente, écrase la garde, met au sol) | **PARADE** qui contre |
+| Dash vers l'adversaire | dash normal | **esquive de buste**, puis **DEMPSEY ROLL** |
+| Pose | garde orthodoxe droite, bras avant tendu | peek-a-boo baissé |
+
+- Changement au neutre (pas pendant un coup), au sol, 0,5 s entre deux ; le style reste d'une
+  manche à l'autre ; TARO commence en CLASSIQUE. Événement `Stance` (annonce + son).
+- Données : `kit.Stances` (stats, spéciale accroupie, esquive) ; simulation : `stanceOf`,
+  `startersOf`, `weaveOf`, multiplicateur `DamageDealt` ; IA : change de style de temps en
+  temps, n'utilise le Dempsey qu'en ESQUIVE ; poses `Kits.TARO_CLASSIQUE` (l'Animator prend
+  la variante du style d'abord) et `TaroChampion`.
+
+### Lobby multi
+
+- Le client demande le statut du hub à son démarrage (`hello`) ; annonce « X a rejoint le
+  serveur · HUB pour le défier » / « X a quitté le serveur » ; la liste s'ouvre seule quand un
+  adversaire possible arrive.
+
+### Réseau : deux joueurs de régions différentes
+
+- **Ping** de chaque joueur mesuré par le serveur (`Player:GetNetworkPing`, chaque seconde),
+  affiché sur la ligne d'état (« PING VOUS 40 ms / ADV. 180 ms »).
+- **Compensation de latence** dans la simulation (`latencyTicks`, plafond
+  `MaxLatencyTicks` = 12 ticks = 200 ms aller) : la fenêtre d'enchaînement après un coup
+  s'allonge de la latence du joueur (ses combos ne cassent plus à cause du ping) ; un QTE de
+  cinématique est jugé au tick que le joueur **voyait** quand il a appuyé (`cinTick` envoyé
+  par le client, accepté dans la limite de son aller-retour), et n'est déclaré raté qu'après
+  ce délai. Le serveur reste seul juge.
+- **Prédiction visuelle** de son propre perso : la marche suit tout de suite la direction
+  tenue et est dessinée en avance de la latence ; le serveur corrige par le lissage.
+- **Cinématiques** : horloge locale lisse et monotone (au rythme du ralenti, recalée en
+  douceur sur le serveur) : un paquet en retard ne fait plus sauter les plans en arrière.
+- **Paquets plus légers** : noms, styles, kits et vie max ne partent que quand ils changent
+  (ou toutes les 2 s), au lieu de 30 fois par seconde ; `InputTimeout` 0,8 s (un pic de lag
+  ne lâche plus la garde).
+
+### Tests
+
+- CombatSimulation 82 (+2 : enchaînement tardif d'un joueur lointain, plafond ; QTE jugé au
+  tick vu, refus d'un tick trop ancien) ; Kits 31 (+2 : changement de style, règles du style
+  CLASSIQUE) ; Animation 25 (+1 : les deux gardes diffèrent et restent au sol, R15 et R6) ;
+  Fuzz : appuis de style aléatoires. FighterAI 9, CinematicDirector 126, PressQueue 4,
+  Cinematography 41, Lobby 5 ✅ ; `rigcheck` ✅. Studio ❌ non exécuté.
+- Équilibrage (`luau tests/Balance.luau -a 4 120`) : KAI 42 %, TARO 53 %, ZEPHYR 46 %,
+  AKEMI 59 % ; niveau 3 : 51 / 57 / 52 / 40.
+
+### Problèmes ouverts / prochaine étape
+
+- Avatar : à confirmer en jeu ; si ça échoue encore, la ligne d'état et la fenêtre Output
+  (« [FightingGame] … ») donnent la raison exacte.
+- Garde « au réflexe » toujours plus dure pour le joueur lointain (le serveur est l'arbitre).
+- Prochaine étape : les 4 nouveaux persos de la planche (RYUKEN, SHIN, DAICHA, HIBECARES).
+
 ## Version 0.9.7 — 1er octobre 2026
 
 Demandes de Wilhem : « le chara design de TARO ressemble trop à celui de KAI » ; « rajoute

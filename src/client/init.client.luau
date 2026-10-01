@@ -34,6 +34,7 @@ hud.onSkin = input.nextSkin
 hud.onKit = input.nextKit
 hud.onFoeKit = input.nextFoeKit
 hud.onStance = input.setStance
+input.setCinematicTick(function() return cinematic.displayTick end)
 local debugRemote = remotes:WaitForChild("Debug")
 -- kind: the cinematic type ("Rush", "Awaken", "Gate") of the local fighter's kit.
 hud.onDebugCinematic = function(kind, style, finish)
@@ -76,9 +77,21 @@ local world, displayed, rigs, previous = nil, {}, {}, {}
 effects.rigs = rigs
 local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
 local lastCinematic = nil
+local roster = nil -- last names / looks / kits sent by the server
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
+	-- Names, looks and kits come only when they change (see the server's roster): merged
+	-- into every snapshot so the rest of the client reads them as before.
+	if packet.roster then roster = packet.roster end
+	for slot, fighter in packet.fighters do
+		local r = roster and roster[slot]
+		if r then
+			for k, v in r do
+				if fighter[k] == nil then fighter[k] = v end
+			end
+		end
+	end
 	world, receivedAt = packet, os.clock()
 	-- Kit styles chosen on the server: every module reads CharacterData[slot].
 	for slot, fighter in packet.fighters do
@@ -171,11 +184,28 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	local now = os.clock()
 	local alpha = 1 - math.exp(-35 * math.min(dt, 0.1))
 	local sinceSnapshot = math.min(now - receivedAt, 2 / Config.SnapshotRate)
+	local mySlot = player:GetAttribute("FighterSlot") or 0
 	for i, state in world.fighters do
 		local current = displayed[i]
 		-- Bounded visual extrapolation, paused during hitstop; server state stays the truth.
 		local ahead = if state.hitstop > 0 then 0 else sinceSnapshot
-		local targetX = math.clamp(state.x + state.vx * ahead, Config.ArenaMinX, Config.ArenaMaxX)
+		local vx, predicted = state.vx, nil
+		-- Visual prediction of the local fighter (a far player): walking follows the held
+		-- direction at once and is drawn ahead by the one-way latency. Only the drawing: the
+		-- server decides, and the smoothing pulls the body back if it disagrees.
+		if i == mySlot and not world.cinematic and state.hitstop == 0 and state.y <= 0
+			and (state.state == "Idle" or state.state == "Walking") then
+			local kit = MoveData.Kits[state.kit]
+			local stance = kit and kit.Stances and state.stance and kit.Stances[state.stance]
+			local stats = if stance then stance.Stats elseif kit then kit.Stats else nil
+			local axis, crouch, block = input.held()
+			if stats then
+				vx = if crouch or block then 0 else axis * stats.WalkSpeed
+				ahead += math.min((state.ping or 0) / 2000, 0.12)
+				predicted = if math.abs(vx) > 0.05 then "Walking" else "Idle"
+			end
+		end
+		local targetX = math.clamp(state.x + vx * ahead, Config.ArenaMinX, Config.ArenaMaxX)
 		local targetY = math.max(0, state.y + state.vy * ahead)
 		if not current then current = { x = state.x, y = state.y }; displayed[i] = current end
 		current.x += (targetX - current.x) * alpha
@@ -183,6 +213,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		for k, v in state do
 			if k ~= "x" and k ~= "y" then current[k] = v end
 		end
+		if predicted then current.state, current.vx = predicted, vx end
 		-- Staging fields are rebuilt every frame by the cinematic director.
 		current.ghost, current.pose, current.z, current.lookDir = nil, nil, nil, nil
 		local m = MoveData.Moves[state.move]

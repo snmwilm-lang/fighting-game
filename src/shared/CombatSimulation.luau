@@ -25,6 +25,7 @@ local function newFighter(slot, c, kit, stanceId)
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1,
+		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
@@ -56,6 +57,7 @@ local function resetFighters(world)
 		if old then
 			world.fighters[slot].wins = old.wins
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
+			world.fighters[slot].latencyTicks = old.latencyTicks
 		end
 	end
 	world.epoch += 1
@@ -453,7 +455,8 @@ local function stepFighter(world, f, input, events)
 		elseif f.moveFrame > world.moveData.total(m) then
 			-- A move that connected keeps its cancels for a few more ticks (network latency).
 			if f.moveContact and f.moveHits >= (m.hits or 1) then
-				f.grace = { move = f.move, ticks = c.LateCancelTicks, serial = f.moveSerial }
+				-- (longer for a far player: their press left before it reached the server)
+				f.grace = { move = f.move, ticks = c.LateCancelTicks + math.min(f.latencyTicks or 0, c.MaxLatencyTicks or 12), serial = f.moveSerial }
 			else
 				-- A whiffed attack: presses made during it are forgotten, except a deliberate
 				-- one in its last ticks (no surprise attack after changing your mind).
@@ -955,13 +958,24 @@ local function judgePrompts(world, state, input, events)
 	if not prompt then return end
 	local pressed = if input.light then "Light" elseif input.heavy then "Heavy"
 		elseif input.ultimate then "Ultimate" else nil
-	local delta = state.tick - prompt.tick
+	-- Lag compensation (a far player): the press is judged at the cinematic tick the player
+	-- saw when pressing (input.cinTick), never later than now and never further back than
+	-- their round trip allows; a prompt is only "missed" once that much time has passed.
+	local f = world.fighters[state.attacker]
+	local latency = math.min(f.latencyTicks or 0, world.config.MaxLatencyTicks or 12)
+	local reach = if latency > 0 then 2 * latency + 3 else 0
+	local tick = state.tick
+	local seen = input.cinTick
+	if pressed and reach > 0 and type(seen) == "number" and seen <= tick and seen >= tick - reach then
+		tick = seen
+	end
+	local delta = tick - prompt.tick
 	local result
 	if pressed and delta >= -cin.PromptWindow then
 		result = pressed == prompt.button and delta <= cin.PromptWindow
 	elseif pressed then
 		result = false -- far too early: mashing
-	elseif delta > cin.PromptWindow then
+	elseif state.tick - prompt.tick > cin.PromptWindow + reach then
 		result = false -- missed
 	end
 	if result == nil then return end

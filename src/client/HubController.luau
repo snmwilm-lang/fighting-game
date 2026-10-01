@@ -85,11 +85,36 @@ function HubController.new(remote)
 		banner.Visible = false
 	end)
 	self.banner = banner
+	-- Short notices (a player arrives or leaves), under the HUB button.
+	self.notice = new("TextLabel", {
+		Name = "Notice", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -128, 0, 112), Size = UDim2.fromOffset(300, 30),
+		Font = UI_FONT, TextSize = 12, TextColor3 = GOLD, TextWrapped = true, Text = "",
+	}, gui)
+	stroke(self.notice, 1.5, GOLD)
 	remote.OnClientEvent:Connect(function(packet)
 		if typeof(packet) ~= "table" then return end
+		local before = {}
+		for _, p in self.status do before[p.id] = p.name end
+		local first = not self.received
+		self.received = true
 		self.status, self.seconds = packet.players or {}, packet.seconds or 30
+		local me, arrived = Players.LocalPlayer.UserId, nil
+		for _, p in self.status do
+			if p.id ~= me and before[p.id] == nil then arrived = p end
+			before[p.id] = nil
+		end
+		local left = next(before) and before[next(before)]
+		if arrived and not first then
+			self:say(arrived.name .. " a rejoint le serveur · HUB pour le défier")
+		elseif left and not first then
+			self:say(left .. " a quitté le serveur")
+		end
+		-- Someone to fight and nobody to fight yet: open the list.
+		if arrived and not self:fightingHuman() then self.panel.Visible = true end
 		self:render()
 	end)
+	remote:FireServer("hello") -- the hub status, now
 	task.spawn(function()
 		while gui.Parent do
 			task.wait(0.25)
@@ -97,6 +122,20 @@ function HubController.new(remote)
 		end
 	end)
 	return self
+end
+
+function HubController:say(text)
+	self.notice.Text, self.notice.Visible = text, true
+	self.noticeUntil = os.clock() + 5
+end
+
+-- Is the local player fighting another player (not the CPU)?
+function HubController:fightingHuman()
+	local me, mine, others = Players.LocalPlayer.UserId, nil, 0
+	for _, p in self.status do
+		if p.id == me then mine = p elseif p.slot > 0 then others += 1 end
+	end
+	return mine ~= nil and mine.slot > 0 and others > 0
 end
 
 -- Invite prompt of Roblox (a friend joins this server). Pcall: not available in Studio tests.
@@ -194,6 +233,7 @@ function HubController:render()
 end
 
 function HubController:tick()
+	if self.notice.Visible and os.clock() > (self.noticeUntil or 0) then self.notice.Visible = false end
 	if self.banner.Visible and self.challengeAt then
 		local left = math.max(0, math.ceil(self.seconds - (os.clock() - self.challengeAt)))
 		self.bannerTimer.Text = "Le défi expire dans " .. left .. " s · le combat commence dès que tu acceptes"

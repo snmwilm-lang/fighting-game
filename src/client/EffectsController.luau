@@ -242,7 +242,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
 	local key = if phase then view.move .. phase else view.state
 	if previous and previous.key ~= key then
-		if phase == "Active" then
+		if phase == "Active" and not view.ghost then -- staged cinematic poses bring their own effects
 			local m = MoveData.Moves[view.move]
 			if m.heavy then self:slash(view, view.move, color) end
 		elseif view.state == "Dashing" then
@@ -256,7 +256,8 @@ function EffectsController:update(slot, view, rig, previous, now)
 		or view.move == "Hammer" or view.move == "KaienRush") then
 		rig.aura:Emit(if self.reduced then 1 else 3)
 	end
-	if view.ghost and previous and previous.key ~= key then
+	if view.ghost and previous and previous.key ~= key and now - (self.ghostClock[slot] or 0) > 0.06 then
+		self.ghostClock[slot] = now
 		self:afterimage(rig, color)
 	end
 	if view.state == "Dashing" and now - (self.ghostClock[slot] or 0) > 0.045 then

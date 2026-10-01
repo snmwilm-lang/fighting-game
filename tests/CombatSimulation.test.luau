@@ -136,7 +136,7 @@ end)
 test("route L R: body blow crumples, a new combo connects", function()
 	local world = closeWorld(3)
 	-- After the crumple, wait for recovery like a player would, then start a fresh combo.
-	local presses = { [1] = "L", [7] = "R", [56] = "L", [62] = "L", [68] = "L" }
+	local presses = { [1] = "L", [7] = "R", [64] = "L", [70] = "L", [76] = "L" }
 	local events = run(world, 110, function(t)
 		local p = presses[t]
 		return { input({ light = p == "L", heavy = p == "R" }) }
@@ -458,6 +458,128 @@ test("6th press without 3 bars stays COUP DE GRÂCE", function()
 	world.fighters[1].meter = 0 -- the combo itself fills about half the meter
 	local events = playRoute(world, { "L", "R", "L", "R", "L", "R" })
 	expect(find(events, "CinematicStart") == nil, "unique attack without 3 bars")
+end)
+
+test("late press: a link pressed just after the move ended still continues the combo", function()
+	local world = closeWorld(3)
+	local a = world.fighters[1]
+	local jabEnd
+	local pressedAt
+	local events = run(world, 80, function(t)
+		local i = input({ light = t == 1 })
+		if not jabEnd and t > 2 and a.move == nil then jabEnd = t end
+		if jabEnd and not pressedAt and t == jabEnd + Config.LateCancelTicks - 2 then
+			pressedAt = t
+			i.light = true
+		end
+		return { i }
+	end)
+	expect(compactRoute(events) == "Jab,Cross", "late link was " .. compactRoute(events))
+	expect(a.chainKeys == "LL", "chain keys " .. a.chainKeys)
+end)
+
+test("early press: a single press just before the hit counts as clean", function()
+	local world = closeWorld(3)
+	local a = world.fighters[1]
+	local jabHit = 1 + Moves.Jab.startup -- the jab connects on this tick
+	run(world, 40, function(t)
+		return { input({ light = t == 1 or t == jabHit - Config.CleanEarlyTicks + 1 }) }
+	end)
+	expect(a.chainKeys:sub(1, 2) == "LL" and a.chainClean, "early press judged dirty (" .. a.chainKeys .. ")")
+	local spam = closeWorld(3)
+	run(spam, 40, function(t) return { input({ light = t == 1 or t == 2 or t == 3 }) } end)
+	expect(not spam.fighters[1].chainClean, "spam judged clean")
+end)
+
+test("full routes survive slow reactions (latency) and different starting distances", function()
+	for _, reaction in { 4, 10, 16 } do
+		for _, gap in { 3, 4.4 } do
+			for _, route in MoveData.FullRoutes do
+				local world = closeWorld(gap)
+				local keys = {}
+				for k in route.keys:gmatch("%S") do table.insert(keys, k) end
+				local step, pressedFor, waited = 1, nil, 0
+				local events = {}
+				for _ = 1, 500 do
+					local a = world.fighters[1]
+					local i = input()
+					local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+					if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
+						and a.moveHits >= (Moves[a.move].hits or 1))) then
+						waited += 1
+						if waited > reaction then
+							if keys[step] == "L" then i.light = true else i.heavy = true end
+							pressedFor, step, waited = key, step + 1, 0
+						end
+					end
+					for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+				end
+				expect(compactRoute(events) == table.concat(route.moves, ","),
+					string.format("%s dropped (reaction %d, gap %.1f): %s", route.name, reaction, gap, compactRoute(events)))
+			end
+		end
+	end
+end)
+
+test("mashing while being hit does not attack on recovery", function()
+	local world = closeWorld(3)
+	local d = world.fighters[2]
+	local attacked = false
+	for t = 1, 60 do
+		local mash = d.stun > Config.ReversalBufferTicks and t % 2 == 0
+		Sim.step(world, { input({ light = t == 1 }), input({ light = mash, heavy = mash }) })
+		if d.move then attacked = true end
+	end
+	expect(not attacked, "the hit fighter attacked on its own after recovering")
+end)
+
+test("a press in the last ticks of hitstun is a deliberate reversal", function()
+	local world = closeWorld(3)
+	local d = world.fighters[2]
+	local pressed, reversal = false, false
+	for t = 1, 60 do
+		local press = not pressed and t > 8 and d.stun > 0 and d.stun <= Config.ReversalBufferTicks
+		if press then pressed = true end
+		Sim.step(world, { input({ light = t == 1 }), input({ special = press }) })
+		if d.move == "Rising" then reversal = true end
+	end
+	expect(pressed and reversal, "reversal press was ignored")
+end)
+
+test("holding guard while recovering wins over a buffered attack", function()
+	local world = closeWorld(3)
+	local d = world.fighters[2]
+	local attacked = false
+	for t = 1, 60 do
+		local press = d.stun > 0 and d.stun <= Config.ReversalBufferTicks
+		Sim.step(world, { input({ light = t == 1 }), input({ light = press, block = d.stun <= Config.ReversalBufferTicks }) })
+		if d.move then attacked = true end
+	end
+	expect(not attacked, "attack came out despite holding guard")
+end)
+
+test("training lab: every cinematic can be played directly", function()
+	local cases = {
+		{ "KaienRush" }, { "Kaiten" }, { "Kaiten", nil, 300 },
+	}
+	for _, route in MoveData.FullRoutes do
+		table.insert(cases, { "Awakening", route.name })
+		table.insert(cases, { "Awakening", route.name, 300 })
+	end
+	for _, case in cases do
+		local world = closeWorld(10)
+		local events = Sim.debugCinematic(world, 1, case[1], case[2], case[3])
+		local start = find(events, "CinematicStart")
+		expect(start and start.move == case[1] and start.style == case[2], "debug " .. case[1] .. " did not start")
+		expect(start.finish == (case[3] ~= nil), "finish flag for " .. case[1] .. " " .. tostring(case[3]))
+		local ended = false
+		for _ = 1, 600 do
+			for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do
+				if e.kind == "CinematicEnd" then ended = true end
+			end
+		end
+		expect(ended and world.cinematic == nil, "debug " .. case[1] .. " never ended")
+	end
 end)
 
 test("ultimate needs meter and spends it", function()

@@ -22,6 +22,8 @@ local snapshotRemote = Instance.new("RemoteEvent")
 snapshotRemote.Name, snapshotRemote.Parent = "Snapshot", remotes
 local eventsRemote = Instance.new("RemoteEvent")
 eventsRemote.Name, eventsRemote.Parent = "Events", remotes
+local debugRemote = Instance.new("RemoteEvent")
+debugRemote.Name, debugRemote.Parent = "Debug", remotes
 -- Parent last so clients see the folder with every remote already inside.
 remotes.Parent = ReplicatedStorage
 
@@ -194,7 +196,7 @@ local function finite(n)
 	return typeof(n) == "number" and n == n and math.abs(n) < math.huge
 end
 local BOOLEAN_FIELDS = {
-	"crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy", "avatar",
+	"crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy", "avatar", "skin",
 }
 inputRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
@@ -222,6 +224,17 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		client.lastDummy = now
 		dummyMode = dummyMode % #DUMMY_MODES + 1
 		resetAll()
+	end
+	if packet.skin and now - (client.lastSkin or -math.huge) > 1 then
+		-- Next colour style of the kit; the CPU slot takes another one.
+		client.lastSkin = now
+		local mine, other = client.slot, 3 - client.slot
+		CharacterData[mine] = CharacterData.Skins[CharacterData.nextSkin(CharacterData[mine].Skin, CharacterData[other].Skin)]
+		rebuildSlot(mine)
+		if not slots[other].owner then
+			CharacterData[other] = CharacterData.Skins[CharacterData.nextSkin(CharacterData[other].Skin, CharacterData[mine].Skin)]
+			rebuildSlot(other)
+		end
 	end
 	if packet.avatar and now - client.lastAvatar > 2 then
 		client.lastAvatar = now
@@ -252,9 +265,10 @@ local function snapshot()
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching,
+			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			owner = if slot.owner then slot.owner.UserId else 0,
 			player = if slot.owner then slot.owner.DisplayName else "MANNEQUIN · " .. DUMMY_MODES[dummyMode].name,
-			character = character.Name, skin = character.Skin,
+			character = character.Name, skin = character.Skin, kit = character.Kit,
 		}
 	end
 	local projectiles = {}
@@ -279,10 +293,30 @@ local function snapshot()
 	})
 end
 
+-- Training lab (solo only): play a cinematic directly to check its staging.
+local DEBUG_MOVES = { KaienRush = true, Awakening = true, Kaiten = true }
+local DEBUG_STYLES = {}
+for _, route in MoveData.FullRoutes do DEBUG_STYLES[route.name] = true end
+local pendingDebugEvents = {}
+debugRemote.OnServerEvent:Connect(function(player, moveId, style, finish)
+	local client = clients[player]
+	if not client or not client.slot or not isSolo() then return end
+	if typeof(moveId) ~= "string" or not DEBUG_MOVES[moveId] then return end
+	if style ~= nil and (typeof(style) ~= "string" or not DEBUG_STYLES[style]) then return end
+	if typeof(finish) ~= "boolean" then return end
+	local now = os.clock()
+	if now - (client.lastDebug or -math.huge) < 1 or world.cinematic then return end
+	client.lastDebug = now
+	if moveId == "Awakening" then style = style or "TORNADE" else style = nil end
+	local events = Sim.debugCinematic(world, client.slot, moveId, style, if finish then 300 else nil)
+	for _, event in events do table.insert(pendingDebugEvents, event) end
+end)
+
 local accumulator, lastSnapshot = 0, 0
 RunService.Heartbeat:Connect(function(dt)
 	accumulator = math.min(accumulator + dt, Config.MaxCatchUpSteps / Config.TickRate)
-	local batch = {}
+	local batch = pendingDebugEvents
+	pendingDebugEvents = {}
 	while accumulator >= 1 / Config.TickRate do
 		accumulator -= 1 / Config.TickRate
 		local inputs = {}

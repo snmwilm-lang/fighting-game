@@ -26,6 +26,7 @@ local function newFighter(slot, c)
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		moveHits = 0, lastHitFrame = 0, projectileSpawned = false,
 		chainKeys = "", chainClean = false, awakenStyle = nil,
+		grace = nil, -- { move, ticks }: late presses still link after the move ended
 		stun = 0, stunKind = nil, launched = false, juggle = 0,
 		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
 		knockdown = 0, getUp = 0,
@@ -133,11 +134,11 @@ local function physics(f, c)
 	return false
 end
 
-local function startMove(world, f, id, events)
+local function startMove(world, f, id, events, isLink)
 	local m = world.moves[id]
 	local entry = table.remove(f.buffer, 1)
 	local letter = if entry then KEY_LETTER[entry.button] else "?"
-	if f.move then
+	if isLink then
 		-- A link of the current combo: remember the typed route and whether it stayed clean.
 		f.chainKeys ..= letter
 		f.chainClean = f.chainClean and entry ~= nil and entry.clean
@@ -170,11 +171,11 @@ local function startMove(world, f, id, events)
 end
 
 -- Name of the full route whose first five links this combo matches, if it was played cleanly.
-function CombatSimulation.awakeningStyle(world, f)
+function CombatSimulation.awakeningStyle(world, f, currentId)
 	if not f.chainClean or #f.chainKeys ~= 5 then return nil end
 	for _, route in world.moveData.FullRoutes do
 		local keys = route.keys:gsub("%s", "")
-		if keys:sub(1, 5) == f.chainKeys and route.moves[5] == f.move then
+		if keys:sub(1, 5) == f.chainKeys and route.moves[5] == (currentId or f.move) then
 			return route.name
 		end
 	end
@@ -186,18 +187,21 @@ local function chooseMove(world, f, grounded, crouching)
 	if not head then return nil end
 	local moves, starters, button = world.moves, world.moveData.Starters, head.button
 	local nextId
-	if f.move then
-		local current = moves[f.move]
-		if not f.moveContact or f.moveFrame <= current.startup then return nil end
-		-- A multi-hit move can only be cancelled once all its hits are out.
-		if f.moveHits < (current.hits or 1) and f.moveFrame <= current.startup + current.active then return nil end
+	local currentId = f.move or (f.grace and f.grace.move)
+	if currentId then
+		local current = moves[currentId]
+		if f.move then
+			if not f.moveContact or f.moveFrame <= current.startup then return nil end
+			-- A multi-hit move can only be cancelled once all its hits are out.
+			if f.moveHits < (current.hits or 1) and f.moveFrame <= current.startup + current.active then return nil end
+		end
 		if button == "Special" and current.kind == "Normal" and not current.air then
 			nextId = (if crouching then starters.Crouch else starters.Ground).Special
 		elseif button == "Ultimate" and current.kind ~= "Ultimate" and not current.air then
 			nextId = starters.Ground.Ultimate
 			-- Third ultimate, PORTE DES CIEUX: the five first links of a full route played
 			-- cleanly (one press per link, after each hit), then the R key with 3 bars.
-			local style = CombatSimulation.awakeningStyle(world, f)
+			local style = CombatSimulation.awakeningStyle(world, f, currentId)
 			if style and head.clean and f.meter >= moves.Kaiten.meterCost then
 				nextId = "Kaiten"
 				f.awakenStyle = style
@@ -206,14 +210,17 @@ local function chooseMove(world, f, grounded, crouching)
 			nextId = current.cancels[button]
 			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
 			if nextId == "Finale" then
-				local style = CombatSimulation.awakeningStyle(world, f)
+				local style = CombatSimulation.awakeningStyle(world, f, currentId)
 				if style and head.clean and f.meter >= moves.Awakening.meterCost then
 					nextId = "Awakening"
 					f.awakenStyle = style
 				end
 			end
 		end
-	elseif f.dashTicks == 0 then
+	end
+	local isLink = nextId ~= nil and currentId ~= nil
+	if not nextId and not f.move and f.dashTicks == 0 then
+		-- Neutral start (also when a late press is not a valid cancel of the finished move).
 		if grounded then
 			nextId = (if crouching then starters.Crouch else starters.Ground)[button]
 		elseif not f.airAttackUsed then
@@ -227,7 +234,7 @@ local function chooseMove(world, f, grounded, crouching)
 			if p.owner == f.slot then return nil end -- one ki blast on screen at a time
 		end
 	end
-	return nextId
+	return nextId, isLink
 end
 
 local function stepFighter(world, f, input, events)
@@ -237,12 +244,27 @@ local function stepFighter(world, f, input, events)
 	-- has already landed all its hits: one deliberate press per link. Mashing is never clean.
 	local ongoing = f.move and world.moves[f.move]
 	local landed = ongoing == nil or (f.moveContact ~= nil and f.moveHits >= (ongoing.hits or 1))
+	-- While being hit, knocked down, getting up or guarding, presses are ignored except in
+	-- the last few ticks (a deliberate reversal): mashing under pressure never fires on its own.
+	local locked = f.state == "KO" or f.launched or f.knockdown > 0 or f.getUp > 0 or f.stun > 0
+	local remaining = if f.state == "KO" or f.launched or f.knockdown > 0 then math.huge
+		elseif f.getUp > 0 then f.getUp else f.stun
+	local recovered = f.wasLocked and not locked
+	f.wasLocked = locked
+	if recovered and input.block then
+		table.clear(f.buffer) -- holding guard while recovering: guard wins
+	end
 	for _, field in BUTTON_ORDER do
-		if input[field] then
-			local clean = #f.buffer == 0 and landed
-			if not clean and f.move then f.chainClean = false end
+		if input[field] and (not locked or remaining <= c.ReversalBufferTicks) then
+			local crowded = #f.buffer > 0
+			-- Spam (a press while another one is still waiting) dirties the combo at once.
+			-- A single press slightly before the hit lands is judged when the hit lands.
+			if crowded and (f.move or f.grace) then f.chainClean = false end
 			if #f.buffer >= c.BufferSize then table.remove(f.buffer, 1) end
-			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, clean = clean })
+			table.insert(f.buffer, {
+				button = BUTTONS[field], ticks = c.BufferTicks, clean = not crowded and landed,
+				early = not crowded and not landed, pressTick = world.tick,
+			})
 		end
 	end
 	if f.hitstop > 0 then
@@ -328,11 +350,22 @@ local function stepFighter(world, f, input, events)
 			grounded = false
 			table.insert(events, { kind = "SuperJump", attacker = f.slot })
 		elseif f.moveFrame > world.moveData.total(m) then
+			-- A move that connected keeps its cancels for a few more ticks (network latency).
+			if f.moveContact and f.moveHits >= (m.hits or 1) then
+				f.grace = { move = f.move, ticks = c.LateCancelTicks }
+			end
 			f.move, f.moveContact = nil, nil
 		end
 	end
-	local nextId = chooseMove(world, f, grounded, input.crouch)
-	if nextId then startMove(world, f, nextId, events) end
+	if f.grace and not f.move then
+		f.grace.ticks -= 1
+		if f.grace.ticks < 0 then f.grace = nil end
+	end
+	local nextId, isLink = chooseMove(world, f, grounded, input.crouch)
+	if nextId then
+		f.grace = nil
+		startMove(world, f, nextId, events, isLink)
+	end
 	-- Only the press waiting its turn ages, and only once the current move is recovering:
 	-- presses typed during startup/active wait for the contact that allows the cancel.
 	local head = f.buffer[1]
@@ -545,6 +578,12 @@ local function applyHit(world, a, d, m, events, source)
 		event.y = (math.max(hy1, dy1) + math.min(hy2, dy2)) / 2
 		a.moveHits += 1
 		a.lastHitFrame = a.moveFrame
+		if a.moveHits >= (m.hits or 1) then
+			-- The hit landed: a single press made just before it still counts as clean.
+			for _, entry in a.buffer do
+				if entry.early and world.tick - entry.pressTick <= c.CleanEarlyTicks then entry.clean = true end
+			end
+		end
 	end
 	local hits = m.hits or 1
 	local final = source ~= nil or a.moveHits >= hits
@@ -584,7 +623,7 @@ local function applyHit(world, a, d, m, events, source)
 	d.comboDamage += damage
 	if m.kind ~= "Ultimate" then gainMeter(a, damage * c.MeterOnHit, c) end
 	gainMeter(d, damage * c.MeterWhenHit, c)
-	d.move, d.moveContact, d.dashTicks = nil, nil, 0
+	d.move, d.moveContact, d.dashTicks, d.grace = nil, nil, 0, nil
 	d.blocking, d.crouching = false, false
 	d.stun, d.stunKind = m.hitstun, "Hit"
 	d.calmTicks = 0
@@ -918,6 +957,37 @@ function CombatSimulation.step(world, inputs)
 	end
 	collectBounceEvents(world, events)
 	advancePhase(world, events)
+	return events
+end
+
+-- True when the fighter's next press would be a clean combo link right now
+-- (shown by the combo trainer as "MAINTENANT !").
+function CombatSimulation.cancelReady(world, f)
+	if #f.buffer > 0 then return false end
+	if f.grace then return true end
+	local m = f.move and world.moves[f.move]
+	return m ~= nil and f.moveContact ~= nil and f.moveHits >= (m.hits or 1)
+end
+
+-- Training lab: plays a cinematic directly, without performing its combo. The two fighters
+-- are placed face to face; `hp` sets the target's health (low health = FINAL FINISH).
+function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
+	local events = {}
+	if not world.moveData.Cinematics[moveId] then return events end
+	local a, d = world.fighters[slot], world.fighters[3 - slot]
+	world.cinematic, world.phase, world.projectiles = nil, "Fight", {}
+	for _, f in { a, d } do
+		f.y, f.vy, f.vx, f.pushVx = 0, 0, 0, 0
+		f.move, f.moveContact, f.stun, f.stunKind, f.launched = nil, nil, 0, nil, false
+		f.knockdown, f.getUp, f.hitstop, f.buffer, f.grace = 0, 0, 0, {}, nil
+		if f.state == "KO" then f.state = "Idle" end
+	end
+	local center = math.clamp((a.x + d.x) / 2, world.config.ArenaMinX + 4, world.config.ArenaMaxX - 4)
+	a.x, d.x, a.facing, d.facing = center - 1.3, center + 1.3, 1, -1
+	d.hp = math.clamp(hp or world.config.MaxHealth, 1, world.config.MaxHealth)
+	a.awakenStyle = style
+	table.insert(events, { kind = "SuperFlash", attacker = slot, move = moveId })
+	startCinematic(world, a, d, events, moveId)
 	return events
 end
 

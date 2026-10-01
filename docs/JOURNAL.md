@@ -1,5 +1,76 @@
 # Journal du projet — état à transmettre
 
+## Version 0.7.0 — 1er octobre 2026
+
+Retours de Wilhem : impossible de placer les combos, cinématiques à déboguer ; l'IA lui a
+mis un ultime ; équilibrer les barres de vie ; repenser les persos comme « le perso du
+joueur avec un kit » ; à la manette, les appuis faits pendant qu'on se fait frapper sortent
+au relevé alors qu'il veut garder. **Toujours rien de lancé dans Roblox Studio.**
+
+### Combos jouables
+
+- **Tolérance tardive** (`LateCancelTicks = 6`) : un appui reçu jusqu'à 6 ticks après la fin
+  d'un coup qui a touché enchaîne encore (latence réseau Roblox).
+- **Tolérance précoce** (`CleanEarlyTicks = 5`) : un appui seul jusqu'à 5 ticks avant
+  l'impact compte comme propre. Le spam (appui pendant qu'un autre attend) reste sale.
+- Réglages de VENT ASCENDANT, BALAYAGE, TALON FOUDRE, POING DU DRAGON : **les 6 routes
+  passent avec 4 à 16 ticks de réaction et un écart de départ de 3 à 4,4** (test permanent).
+- **Entraîneur de combo** (HUD) : route choisie, cases des touches, « MAINTENANT ! » quand le
+  serveur juge le prochain appui bon (`cancelReady`), et la raison d'un échec.
+
+### Appuis pendant les coups reçus
+
+Pendant l'étourdissement, la chute, le relevé ou la garde, les appuis sont **ignorés** sauf
+dans les 4 derniers ticks (`ReversalBufferTicks`, reversal volontaire) ; maintenir la garde
+au moment de récupérer **vide** la file d'appuis.
+
+### Cinématiques testables
+
+- Nouvelle **mise en scène pure** `src/shared/CinematicDirector.luau` (positions, poses,
+  plans, effets demandés) ; le client ne fait plus qu'exécuter.
+- `tests/CinematicDirector.test.luau` rejoue chaque cinématique avec la vraie simulation et
+  vérifie chaque frame : caméra au-dessus du sol, hors des corps, dans l'arène, sujet devant
+  et **non caché par l'autre combattant** ; au centre et contre les deux murs ; et que chaque
+  route d'ÉVEIL a sa propre finale et que le FINAL FINISH contient tous les plans de K.O.
+- **Bugs trouvés et corrigés** : « DOS DU GAGNANT » filmait dans le mauvais sens (le gagnant
+  hors champ) ; l'orbite de TORNADE passait derrière KAI qui cachait la cible.
+- **LABO CINÉ** (solo) : lance n'importe quelle cinématique sans combo
+  (`CombatSimulation.debugCinematic`, remote `Debug` validé côté serveur) + aperçu de la scène
+  de K.O. ; avec HITBOX, affichage « plan · tick · FOV » pour signaler un plan précis.
+
+### Équilibrage
+
+Vie 1000 → **1500** : une route complète ≈ 20-27 %, KAIEN RUSH ≈ 28 % ; PORTE DES CIEUX
+40 % de la vie max (+10 % au QTE) ; ÉVEIL inchangé (−95 % de la vie actuelle).
+
+### Kits sur l'avatar Roblox
+
+KAI devient un **kit** : style de combat + tenue posée sur l'avatar du joueur, dimensionnée
+sur ses vraies pièces (bandeau noué, ceinture à nœud et pans, bandages, 開 dans le dos). Quatre
+**styles** de la planche : CLASSIQUE, NUIT, SACRÉ, MAUDIT (bouton STYLE ; le CPU prend un autre
+style). `CharacterData[slot]` est l'apparence courante d'un slot, changée par le serveur et
+synchronisée par le snapshot.
+
+**Proposition pour la suite (à valider)** : un kit par perso du roster de la planche — RYUEN
+龍 (vitesse, combos), ZEPHYR 風 (aérien), KARA 花 (technique, portée), DAIGO 岩 (lourd, zone),
+SORA 雷 (projectiles), AKEMI 影 (assassin, feintes), TARO 火 (puissance). Chaque kit = son
+propre MoveData (routes, 3 ultimes), sa tenue sur l'avatar et ses styles ; écran de sélection
+avant le combat.
+
+### Animation
+
+Fondu court (~0,07 s) entre les poses qui ne sont pas des impacts (garde, marche, accroupi,
+récupérations) ; impacts et réactions aux coups restent instantanés.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/CombatSimulation.test.luau` : 71 tests | ✅ |
+| `luau tests/FighterAI.test.luau` : 9 tests | ✅ |
+| `luau tests/CinematicDirector.test.luau` : 33 tests (caméra de chaque cinématique) | ✅ |
+| Studio | ❌ non exécuté |
+
 ## Version 0.6.0 — 1er octobre 2026
 
 Demandes de Wilhem : l'attaque écarlate doit se mériter (plus de spam) ; un combo combiné

@@ -67,8 +67,22 @@ Chaque route ★ se prolonge par **L** (POURSUITE ÉCARLATE, bond à tête cherc
 touches). Spammer pendant la route verrouille ÉVEIL et PORTE (on obtient COUP DE GRÂCE ou
 KAIEN RUSH à la place).
 
-Les persos sont des **personnages Roblox** : ton avatar R15 par défaut (bouton APPARENCE pour
-revenir à KAI), et le CPU est un **clone d'ombre** de ton avatar.
+Les persos sont des **personnages Roblox** : ton avatar R15 par défaut porte le **kit KAI**
+(bandeau, ceinture, bandages, 開 dans le dos) ; bouton **STYLE** pour CLASSIQUE / NUIT / SACRÉ /
+MAUDIT ; bouton APPARENCE pour le modèle KAI complet. Le CPU est un **clone d'ombre** de ton
+avatar, dans un autre style.
+
+### S'entraîner et vérifier
+
+- **ENTRAÎNEUR** : choisis une route ; la barre en bas montre les touches, s'allume en jaune
+  (« MAINTENANT ! ») quand le prochain appui est bon, et dit pourquoi un combo casse.
+- **LABO CINÉ** (solo) : lance chaque cinématique directement (KAIEN RUSH, ÉVEIL et ses 6
+  finales, PORTE, FINAL FINISH, scène de K.O.). Avec **HITBOX** activé, le nom du plan et le
+  tick s'affichent : il suffit de les noter pour signaler un plan raté.
+- Tolérances : un appui jusqu'à 6 frames après la fin d'un coup enchaîne encore (latence) ;
+  un appui seul jusqu'à 5 frames avant l'impact compte comme propre. Les appuis faits pendant
+  qu'on se fait frapper sont ignorés (sauf les 4 dernières frames, pour un reversal), et
+  maintenir la garde au relevé l'emporte.
 
 ★ = skill spécial débloqué en **alternant clic gauche et clic droit** : son nom s'affiche à
 l'écran. Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.
@@ -97,6 +111,7 @@ n'utilisent aucune API Roblox ; elles se testent avec le [CLI Luau](https://gith
 ```bash
 luau tests/CombatSimulation.test.luau
 luau tests/FighterAI.test.luau
+luau tests/CinematicDirector.test.luau
 ```
 
 ## Documents

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
+local CharacterData = require(Shared.CharacterData)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -22,6 +23,15 @@ local cinematic = CinematicController.new(Config, hud, effects)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onAvatar = input.toggleAvatar
+hud.onSkin = input.nextSkin
+local debugRemote = remotes:WaitForChild("Debug")
+hud.onDebugCinematic = function(moveId, style, finish)
+	cinematic.labRequested = true
+	debugRemote:FireServer(moveId, style, finish == true)
+end
+hud.onPreviewKO = function()
+	cinematic:previewKO(player:GetAttribute("FighterSlot") or 0)
+end
 hud.onEffects = function()
 	effects.reduced = not effects.reduced
 	return effects.reduced
@@ -54,6 +64,13 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
 	world, receivedAt = packet, os.clock()
+	-- Kit styles chosen on the server: every module reads CharacterData[slot].
+	for slot, fighter in packet.fighters do
+		if fighter.skin and CharacterData.Skins[fighter.skin] and CharacterData[slot].Skin ~= fighter.skin then
+			CharacterData[slot] = CharacterData.Skins[fighter.skin]
+			hud:applyLook(slot)
+		end
+	end
 	cinematic:snapshot()
 	if generation ~= packet.generation or epoch ~= packet.epoch then
 		-- New match or new round: snap instead of sliding fighters back to their spawns.
@@ -142,7 +159,8 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		if rig then
 			local pos = Vector3.new(current.x, current.y + rig.rootHeight, current.z or Config.PlaneZ)
 			if current.lookDir then
-				rig.root.CFrame = CFrame.lookAt(pos, pos + current.lookDir) -- free orientation (K.O. scene)
+				local look = current.lookDir
+				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(look.x, look.y, look.z)) -- free orientation (K.O. scene)
 			else
 				-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
 				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))

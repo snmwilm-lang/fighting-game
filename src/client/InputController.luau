@@ -18,7 +18,7 @@ function InputController.start(remote)
 	local keys = {}
 	local pulses = {
 		jump = false, dash = false, reset = false, light = false, heavy = false,
-		special = false, ultimate = false, dummy = false, avatar = false,
+		special = false, ultimate = false, dummy = false, avatar = false, skin = false,
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
@@ -171,7 +171,7 @@ function InputController.start(remote)
 			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
 				jump = pulses.jump, dash = pulses.dash, light = pulses.light, heavy = pulses.heavy,
 				special = pulses.special, ultimate = pulses.ultimate, reset = pulses.reset, dummy = pulses.dummy,
-				avatar = pulses.avatar })
+				avatar = pulses.avatar, skin = pulses.skin })
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
 		end
@@ -180,6 +180,7 @@ function InputController.start(remote)
 		reset = function() pulses.reset = true end,
 		toggleDummy = function() pulses.dummy = true end,
 		toggleAvatar = function() pulses.avatar = true end,
+		nextSkin = function() pulses.skin = true end,
 		clear = clear,
 		-- The touch ULTI button glows when the ki meter can pay for the ultimate.
 		setUltimateReady = function(ready)

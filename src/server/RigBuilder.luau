@@ -224,6 +224,73 @@ local JOINTS = {
 -- The player's own Roblox avatar as a standard R15 rig. Its 15 Motor6D joints have the same
 -- names as KAI's, so the same poses drive it. Returns an unparented model, or nil if the
 -- avatar cannot be loaded (for example the negative test players of a Studio local server).
+-- Kit outfit worn over a Roblox avatar: headband, sash with tails, hand wraps and the kanji
+-- on the back. Every piece is sized from the avatar's own parts, so it fits any body.
+function RigBuilder.applyKit(model, slot)
+	local data = CharacterData[slot]
+	local sash, wraps, energy = Color3.fromHex(data.Sash), Color3.fromHex(data.Wraps), Color3.fromHex(data.Energy)
+	local ink = Color3.fromHex("0B0B0E")
+	local function piece(parentName, name, size, offset, color, shape)
+		local base = model:FindFirstChild(parentName)
+		if not base or not base:IsA("BasePart") then return nil end
+		local p = Instance.new("Part")
+		p.Name, p.Size, p.Color = "Kit" .. name, size, color
+		p.Material = Enum.Material.SmoothPlastic
+		p.CanCollide, p.CanTouch, p.CanQuery, p.Massless, p.CastShadow = false, false, false, true, false
+		if shape then p.Shape = shape end
+		p.CFrame = base.CFrame * offset
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0, weld.Part1, weld.Parent = base, p, p
+		p.Parent = model
+		return p
+	end
+	local function size(name)
+		local part = model:FindFirstChild(name)
+		return if part and part:IsA("BasePart") then part.Size else Vector3.one
+	end
+	-- Hachimaki: a band around the forehead, knotted at the back with two tails.
+	local head = size("Head")
+	piece("Head", "Headband", Vector3.new(head.X * 1.04, head.Y * 0.16, head.Z * 1.04), CFrame.new(0, head.Y * 0.18, 0), sash)
+	for i, sign in { -1, 1 } do
+		piece("Head", "HeadbandTail", Vector3.new(0.18, 0.08, 0.9 + i * 0.25),
+			CFrame.new(sign * 0.12, head.Y * 0.12, head.Z * 0.5 + 0.45) * CFrame.Angles(math.rad(-30 - i * 10), sign * 0.3, 0), sash)
+	end
+	-- Sash around the waist, a big knot in front and long tails.
+	local waist = size("LowerTorso")
+	piece("LowerTorso", "Sash", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.38), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.15, 0), sash)
+	piece("LowerTorso", "SashKnot", Vector3.new(0.42, 0.36, 0.16), CFrame.new(-waist.X * 0.22, waist.Y * 0.15, -waist.Z * 0.58) * CFrame.Angles(0, 0, 0.3), sash)
+	piece("LowerTorso", "SashTail", Vector3.new(0.26, 1.5, 0.06), CFrame.new(-waist.X * 0.3, -0.6, -waist.Z * 0.6) * CFrame.Angles(0, 0, -0.14), sash)
+	piece("LowerTorso", "SashTail2", Vector3.new(0.22, 1.2, 0.06), CFrame.new(-waist.X * 0.14, -0.5, -waist.Z * 0.61) * CFrame.Angles(0, 0, 0.12), sash)
+	piece("LowerTorso", "SashTailBack", Vector3.new(0.28, 1.6, 0.06), CFrame.new(waist.X * 0.25, -0.6, waist.Z * 0.6) * CFrame.Angles(math.rad(14), 0, 0.12), sash)
+	-- Hand wraps: bands on both forearms and around the knuckles.
+	for _, side in { "Left", "Right" } do
+		local arm = size(side .. "LowerArm")
+		for i, y in { 0.28, 0.02, -0.24 } do
+			piece(side .. "LowerArm", "Wrap" .. i, Vector3.new(arm.X * 1.1, 0.1, arm.Z * 1.1),
+				CFrame.new(0, y * arm.Y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.16), wraps)
+		end
+		local hand = size(side .. "Hand")
+		piece(side .. "Hand", "Knuckles", Vector3.new(hand.X * 1.1, hand.Y * 0.4, hand.Z * 1.1), CFrame.new(0, -hand.Y * 0.1, 0), wraps)
+	end
+	-- Kanji on the back: an invisible plate carrying the emblem.
+	local torso = size("UpperTorso")
+	local plate = piece("UpperTorso", "Emblem", Vector3.new(torso.X * 0.7, torso.Y * 0.7, 0.05), CFrame.new(0, 0.05, torso.Z / 2 + 0.04), ink)
+	if plate then
+		plate.Transparency = 1
+		local gui = Instance.new("SurfaceGui")
+		gui.Face, gui.LightInfluence, gui.CanvasSize = Enum.NormalId.Back, 0, Vector2.new(200, 200)
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency, label.Size, label.Text = 1, UDim2.fromScale(1, 1), data.Kanji
+		label.TextScaled, label.Font, label.TextColor3 = true, Enum.Font.GothamBlack, energy
+		local outline = Instance.new("UIStroke")
+		outline.Color, outline.Thickness, outline.Parent = ink, 3, label
+		label.Parent = gui
+		gui.Parent = plate
+	end
+	model:SetAttribute("Kit", data.Kit)
+	model:SetAttribute("Skin", data.Skin)
+end
+
 -- Builds a fighter from a HumanoidDescription (see buildAvatar / buildShadow).
 local function fromDescription(slot, description, label)
 	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType.R15)
@@ -275,6 +342,7 @@ local function fromDescription(slot, description, label)
 	outline.DepthMode = Enum.HighlightDepthMode.Occluded
 	outline.Parent = model
 	model.PrimaryPart = root
+	RigBuilder.applyKit(model, slot)
 	return model
 end
 

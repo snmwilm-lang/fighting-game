@@ -35,6 +35,12 @@ local function text(parent, props)
 	return l
 end
 
+-- Marks an instance coloured by the slot's style ("Energy" or "Shield"), see HUD:applyLook.
+local function tint(instance, kind)
+	instance:SetAttribute("Tint", kind)
+	return instance
+end
+
 local function tween(instance, duration, goal, style, direction)
 	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), goal)
 	t:Play()
@@ -63,8 +69,8 @@ function HUD.new(config)
 			Position = if left then UDim2.fromOffset(36, 40) else UDim2.new(1, -36, 0, 40),
 			BackgroundColor3 = INK, BorderSizePixel = 0,
 		}, side)
-		stroke(portrait, 3, energy)
-		text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 34, TextColor3 = energy, Font = UI_FONT })
+		tint(stroke(portrait, 3, energy), "Energy")
+		tint(text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 34, TextColor3 = energy, Font = UI_FONT }), "Energy")
 		local barX = 76
 		local bar = new("Frame", {
 			Name = "Health", BackgroundColor3 = INK, BorderSizePixel = 0,
@@ -76,7 +82,7 @@ function HUD.new(config)
 			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
 		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
 			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
-		new("UIGradient", {
+		local gradient = new("UIGradient", {
 			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) }),
 			Rotation = if left then 0 else 180,
 		}, fill)
@@ -85,20 +91,20 @@ function HUD.new(config)
 			Size = UDim2.new(0.6, 0, 0, 6), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
 			Position = if left then UDim2.fromOffset(barX, 58) else UDim2.new(1, -barX, 0, 58),
 		}, side)
-		local guardFill = new("Frame", { BackgroundColor3 = Color3.fromHex(data.Shield), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
-			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, guard)
+		local guardFill = tint(new("Frame", { BackgroundColor3 = Color3.fromHex(data.Shield), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
+			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, guard), "Shield")
 		local name = text(side, {
 			Name = "Name", Text = data.Name, TextSize = 26, Size = UDim2.new(0, 120, 0, 26),
 			Position = if left then UDim2.fromOffset(barX, 2) else UDim2.new(1, -barX - 120, 0, 2),
 			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
 		})
 		stroke(name, 2)
-		local player = text(side, {
+		local player = tint(text(side, {
 			Name = "PlayerName", TextSize = 12, Font = UI_FONT, TextColor3 = energy,
 			Size = UDim2.new(1, -barX - 130, 0, 20), Position = if left then UDim2.fromOffset(barX + 64, 7) else UDim2.new(0, 0, 0, 7),
 			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
 			TextTruncate = Enum.TextTruncate.AtEnd,
-		})
+		}), "Energy")
 		local pips = {}
 		for i = 1, config.RoundsToWin do
 			local pip = new("Frame", {
@@ -119,24 +125,24 @@ function HUD.new(config)
 				BackgroundColor3 = INK, BorderSizePixel = 0, Size = UDim2.new(1 / 3, -4, 1, 0),
 				Position = if left then UDim2.new((i - 1) / 3, 0, 0, 0) else UDim2.new(1 - i / 3, 4, 0, 0),
 			}, meter)
-			stroke(segment, 1.5, energy).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			local segmentFill = new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
-				AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, segment)
+			tint(stroke(segment, 1.5, energy), "Energy").ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			local segmentFill = tint(new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
+				AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, segment), "Energy")
 			segments[i] = segmentFill
 		end
-		local count = text(side, {
+		local count = tint(text(side, {
 			Name = "KiCount", Text = "0", TextSize = 30, TextColor3 = energy, Size = UDim2.fromOffset(26, 30),
 			Position = if left then UDim2.fromOffset(barX, 62) else UDim2.new(1, -barX - 26, 0, 62),
-		})
+		}), "Energy")
 		stroke(count, 2.5)
 		local ready = text(side, {
 			Name = "UltimateReady", Text = "ULTIME PRÊT · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
 			Size = UDim2.fromOffset(150, 14), Position = if left then UDim2.fromOffset(barX + 30, 84) else UDim2.new(1, -barX - 180, 0, 84),
 			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
 		})
-		stroke(ready, 2, energy)
+		tint(stroke(ready, 2, energy), "Energy")
 		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
-			segments = segments, kiCount = count, ready = ready }
+			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin }
 	end
 	local timer = new("Frame", {
 		Name = "Timer", Size = UDim2.fromOffset(62, 62), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
@@ -198,10 +204,11 @@ function HUD.new(config)
 	-- Status and buttons below the header.
 	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 112), TextSize = 12,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("B9B9C2") })
-	local x = 12
+	local x, y = 12, 134
 	local function button(name, label, width, callback)
+		if x + width > 660 then x, y = 12, y + 34 end -- wrap to a second row
 		local b = new("TextButton", {
-			Name = name, Text = label, Size = UDim2.fromOffset(width, 28), Position = UDim2.fromOffset(x, 134),
+			Name = name, Text = label, Size = UDim2.fromOffset(width, 28), Position = UDim2.fromOffset(x, y),
 			Font = UI_FONT, TextSize = 11, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
 		}, gui)
 		stroke(b, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -231,14 +238,41 @@ function HUD.new(config)
 	self.avatarButton = button("Avatar", "APPARENCE : KAI", 140, function()
 		if self.onAvatar then self.onAvatar() end
 	end)
+	self.skinButton = button("Skin", "STYLE : CLASSIQUE", 140, function()
+		if self.onSkin then self.onSkin() end
+	end)
 	self.combosButton = button("Combos", "COMBOS", 76, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
 	end)
+	-- Combo trainer: pick a full route, the bar at the bottom shows what to press and when.
+	self.trainerRoute = 0
+	self.routeButton = button("Route", "ENTRAÎNEUR : OFF", 196, function()
+		self.trainerRoute = (self.trainerRoute + 1) % (#MoveData.FullRoutes + 1)
+		local route = MoveData.FullRoutes[self.trainerRoute]
+		self.routeButton.Text = if route then "ENTRAÎNEUR : " .. route.name .. " (" .. route.keys .. ")" else "ENTRAÎNEUR : OFF"
+		self:buildTrainer()
+	end)
+	self.labButton = button("Lab", "LABO CINÉ", 86, function()
+		self.labPanel.Visible = not self.labPanel.Visible
+	end)
+	self:buildLab(gui)
+	local trainer = new("Frame", {
+		Name = "ComboTrainer", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -40),
+		Size = UDim2.fromOffset(6 * 92, 140), BackgroundTransparency = 1, Visible = false,
+	}, gui)
+	self.trainer = trainer
+	self.trainerNow = text(trainer, { Text = "MAINTENANT !", TextSize = 40, TextColor3 = Color3.fromHex("FFD23F"),
+		Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 0), Visible = false })
+	stroke(self.trainerNow, 3)
+	self.trainerStatus = text(trainer, { TextSize = 15, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.fromOffset(0, 120) })
+	stroke(self.trainerStatus, 2)
+	self.trainerBoxes = {}
 
 	-- Combo routes panel (from MoveData.Routes) plus special, ultimate and air follow-ups.
 	local panel = new("Frame", {
 		Name = "CombosPanel", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
-		Size = UDim2.fromOffset(360, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.fromOffset(12, 170),
+		Size = UDim2.fromOffset(360, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.fromOffset(12, 206),
 	}, gui)
 	stroke(panel, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 8) }, panel)
@@ -286,6 +320,154 @@ function HUD.new(config)
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
 	return self
+end
+
+local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "R", E = "E" }
+
+-- Rebuilds the six boxes of the combo trainer for the selected route.
+function HUD:buildTrainer()
+	for _, box in self.trainerBoxes do box.frame:Destroy() end
+	self.trainerBoxes = {}
+	local route = MoveData.FullRoutes[self.trainerRoute]
+	self.trainer.Visible = route ~= nil
+	if not route then return end
+	local keys = {}
+	for k in route.keys:gmatch("%S") do table.insert(keys, k) end
+	for i, key in keys do
+		local frame = new("Frame", {
+			Size = UDim2.fromOffset(84, 70), Position = UDim2.fromOffset((i - 1) * 92, 44),
+			BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+		}, self.trainer)
+		local outline = stroke(frame, 3, Color3.fromHex("55555F"))
+		outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		local keyLabel = text(frame, { Text = KEY_LABEL[key] or key, TextSize = 24, Size = UDim2.new(1, 0, 0, 36) })
+		local m = MoveData.Moves[route.moves[i]]
+		local moveLabel = text(frame, { Text = if m then m.name else route.moves[i], TextSize = 10, Font = UI_FONT,
+			Size = UDim2.new(1, -4, 0, 30), Position = UDim2.fromOffset(2, 36), TextWrapped = true,
+			TextColor3 = Color3.fromHex("B9B9C2") })
+		self.trainerBoxes[i] = { frame = frame, outline = outline, key = key, keyLabel = keyLabel, moveLabel = moveLabel }
+	end
+end
+
+-- Training lab: buttons that play each cinematic directly (solo only).
+function HUD:buildLab(gui)
+	local panel = new("Frame", {
+		Name = "LabPanel", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+		Size = UDim2.fromOffset(300, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.new(1, -312, 0, 206),
+	}, gui)
+	stroke(panel, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }, panel)
+	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, panel)
+	text(panel, { Text = "LABO CINÉ", TextSize = 22, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 0 })
+	text(panel, { Text = "Lance une cinématique sans faire le combo (solo). Active HITBOX pour voir le nom du plan.",
+		TextSize = 11, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 30), TextWrapped = true, LayoutOrder = 1,
+		TextColor3 = Color3.fromHex("B9B9C2") })
+	local order = 2
+	local function add(label, callback)
+		local b = new("TextButton", {
+			Text = label, Size = UDim2.new(1, 0, 0, 26), Font = UI_FONT, TextSize = 12, TextColor3 = WHITE,
+			BackgroundColor3 = Color3.fromHex("1C1C24"), AutoButtonColor = true, LayoutOrder = order,
+		}, panel)
+		order += 1
+		b.Activated:Connect(callback)
+		return b
+	end
+	local function play(moveId, style, finish)
+		return function()
+			if self.onDebugCinematic then self.onDebugCinematic(moveId, style, finish) end
+		end
+	end
+	add("1 · KAIEN RUSH", play("KaienRush", nil, false))
+	for _, route in MoveData.FullRoutes do
+		add("2 · ÉVEIL ÉCARLATE · " .. route.name, play("Awakening", route.name, false))
+	end
+	add("2 · ÉVEIL · FINAL FINISH (cible < 50 %)", play("Awakening", "TORNADE", true))
+	add("3 · PORTE DES CIEUX", play("Kaiten", nil, false))
+	add("3 · PORTE · K.O. (cible faible)", play("Kaiten", nil, true))
+	add("SCÈNE DE K.O. (aperçu seul)", function()
+		if self.onPreviewKO then self.onPreviewKO() end
+	end)
+	self.labPanel = panel
+end
+
+-- Combo trainer: compares the route typed so far (chainKeys from the server) with the
+-- selected route, lights the next box and says why a combo broke.
+function HUD:updateTrainer(view, meterFull)
+	local route = MoveData.FullRoutes[self.trainerRoute]
+	if not route or not view then
+		self.trainer.Visible = false
+		return
+	end
+	self.trainer.Visible = true
+	local keys = route.keys:gsub("%s", "")
+	local typed = view.chainKeys or ""
+	local progress, failed = 0, false
+	if typed ~= "" then
+		if keys:sub(1, #typed) == typed then
+			progress = #typed
+		elseif #typed == 6 and keys:sub(1, 5) == typed:sub(1, 5) and typed:sub(6, 6) == "U" then
+			progress = 6 -- ended on the R key: PORTE DES CIEUX
+		else
+			failed = true
+			for i = 1, #typed do
+				if keys:sub(i, i) == typed:sub(i, i) then progress = i else break end
+			end
+		end
+	end
+	local attacking = view.state == "Attack" or view.cancelReady
+	for i, box in self.trainerBoxes do
+		local color = Color3.fromHex("55555F")
+		if i <= progress then
+			color = Color3.fromHex("3DDC84")
+		elseif failed and i == progress + 1 then
+			color = RED
+		elseif i == progress + 1 and attacking then
+			color = if view.cancelReady then Color3.fromHex("FFD23F") else WHITE
+		end
+		box.outline.Color = color
+		if i == 6 then
+			box.keyLabel.Text = if meterFull then "CLIC D / R" else "CLIC D"
+			box.moveLabel.Text = if meterFull then "ÉVEIL (clic D) · PORTE (R)" else MoveData.Moves.Finale.name
+		end
+	end
+	self.trainerNow.Visible = view.cancelReady == true and progress >= 1 and progress < 6 and not failed
+	if failed then
+		self.trainerStatus.Text = "RATÉ : il fallait " .. (KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?")
+			.. " — recommence au 1er coup"
+		self.trainerStatus.TextColor3 = RED
+	elseif progress >= 6 then
+		self.trainerStatus.Text = if view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · pas propre (spam) : pas d'ultime"
+		self.trainerStatus.TextColor3 = Color3.fromHex("3DDC84")
+	elseif progress >= 1 then
+		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓" else "PAS PROPRE : un seul appui par coup, attends l'impact")
+			.. "  ·  ki " .. (if meterFull then "3 barres ✓" else "< 3 barres")
+		self.trainerStatus.TextColor3 = if view.chainClean then WHITE else Color3.fromHex("FFB938")
+	else
+		self.trainerStatus.Text = "Colle-toi au mannequin (mode IMMOBILE) et appuie sur " .. KEY_LABEL[keys:sub(1, 1)]
+		self.trainerStatus.TextColor3 = Color3.fromHex("B9B9C2")
+	end
+end
+
+-- Recolours a side of the HUD after its fighter changed style (CLASSIQUE, NUIT...).
+function HUD:applyLook(slot)
+	local bar = self.bars[slot]
+	local data = CharacterData[slot]
+	if not bar or bar.skin == data.Skin then return end
+	bar.skin = data.Skin
+	local energy, shield = Color3.fromHex(data.Energy), Color3.fromHex(data.Shield)
+	bar.energy = energy
+	for _, item in bar.side:GetDescendants() do
+		local kind = item:GetAttribute("Tint")
+		local color = if kind == "Energy" then energy elseif kind == "Shield" then shield else nil
+		if color then
+			if item:IsA("UIStroke") then item.Color = color
+			elseif item:IsA("TextLabel") then item.TextColor3 = color
+			elseif item:IsA("GuiObject") then item.BackgroundColor3 = color end
+		end
+	end
+	bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) })
+	self.callouts[slot].label.TextColor3 = energy
+	self.combo[slot].count.TextColor3 = energy
 end
 
 function HUD:setEffectsReduced(reduced)
@@ -389,10 +571,16 @@ function HUD:update(world, views, fps, dt)
 	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
 	self.round.Text = if world.training then "ENTRAÎNEMENT" else "ROUND " .. world.round
 	local solo = world.solo
+	self.labButton.Visible = solo and localSlot > 0
+	if not self.labButton.Visible then self.labPanel.Visible = false end
+	local mine = views[localSlot]
+	self:updateTrainer(mine, mine ~= nil and mine.meter >= MoveData.Moves.Awakening.meterCost)
 	self.resetButton.Visible = solo and localSlot > 0
 	self.dummyButton.Visible = solo and localSlot > 0
 	self.dummyButton.Text = "MANNEQUIN : " .. world.dummyMode .. " (M)"
 	self.avatarButton.Visible = localSlot > 0
+	self.skinButton.Visible = localSlot > 0
+	if localSlot > 0 then self.skinButton.Text = "STYLE : " .. CharacterData[localSlot].Skin end
 	self.avatarButton.Text = if Players.LocalPlayer:GetAttribute("Avatar") then "APPARENCE : MON AVATAR" else "APPARENCE : KAI"
 	self.status.Text = string.format("v%s · %s · %d FPS", self.config.Version,
 		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"

@@ -537,10 +537,28 @@ function AnimationController:update(view, time, poseRate)
 	local shaking = view.hitstop > 0 and (state == "Hitstun" or state == "Launched" or state == "Blockstun"
 		or state == "KO" or state == "Crumple")
 	local jitter = if shaking then (math.floor(time * 60) % 2 * 2 - 1) * 0.12 else 0
-	if key == self.lastKey and jitter == self.shake then return end
-	self.lastKey, self.shake = key, jitter
+	if key ~= self.lastKey then
+		-- Impacts and hit reactions snap (anime punch); every other change eases in over a
+		-- few frames so stance, walk, crouch and guard flow into each other.
+		local family = key:match("^%a+") or key
+		local snap = key:find("A%d?$") ~= nil or state == "Hitstun" or state == "Launched" or state == "Crumple"
+			or state == "GuardBroken" or family == (self.lastKey or ""):match("^%a+")
+		self.from = self.current
+		self.target = pose
+		self.blendStart = time
+		self.blendTime = if snap or not self.from then 0 else 0.07
+		self.lastKey = key
+	elseif jitter == self.shake and not self.blending then
+		return
+	end
+	self.shake = jitter
+	local t = if self.blendTime > 0 then math.clamp((time - self.blendStart) / self.blendTime, 0, 1) else 1
+	t = 1 - (1 - t) * (1 - t) -- ease out
+	self.blending = t < 1
+	local applied = if t < 1 then lerpPose(self.from, self.target, t) else self.target
+	self.current = applied
 	for name, info in self.joints do
-		local v = pose[name]
+		local v = applied[name]
 		local offset = CFrame.identity
 		if v then
 			offset = CFrame.Angles(math.rad(v[1]), math.rad(v[2]), math.rad(v[3]))

@@ -214,11 +214,18 @@ function CinematicController:flash(duration)
 	tween(self.flashFrame, duration or 0.35, { BackgroundTransparency = 1 })
 end
 
+-- Hit / rhythm stamp. It hides itself: events arrive on their own remote and can come just
+-- after the snapshot that ended the cinematic, so finish() alone could leave it on screen.
 function CinematicController:showStamp(text, color)
 	self.stamp.Text, self.stamp.TextColor3 = text, color
 	self.stamp.Visible = true
 	self.stampScale.Scale = 2.2
 	tween(self.stampScale, 0.18, { Scale = 1 }, Enum.EasingStyle.Back)
+	local id = (self.stampId or 0) + 1
+	self.stampId = id
+	task.delay(1.2, function()
+		if self.stampId == id then self.stamp.Visible = false end
+	end)
 end
 
 function CinematicController:showTitle(text, color, subtitle)

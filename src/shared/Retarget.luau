@@ -18,6 +18,12 @@ local Retarget = {}
 local ARMS = { { side = "Left", joint = "Left Shoulder", part = "Left Arm" }, { side = "Right", joint = "Right Shoulder", part = "Right Arm" } }
 local LEGS = { { side = "Left", joint = "Left Hip", part = "Left Leg" }, { side = "Right", joint = "Right Hip", part = "Right Leg" } }
 
+-- Style of the R6 retarget (the R6 fighting look: low wide stance, fists up in front).
+-- ARM_REACH: where a rigid arm aims along the virtual forearm (0 = elbow, 1 = fist).
+-- STANCE_DEPTH: share of the virtual hip height kept by planted legs (lower = wider stance).
+Retarget.ARM_REACH = 0.7
+Retarget.STANCE_DEPTH = 0.88
+
 local function v3(t)
 	return { t[1], t[2], t[3] }
 end
@@ -72,12 +78,7 @@ end
 function Retarget.new(kin, r6)
 	local spec = Retarget.virtualSpec(r6)
 	local virtual = kin.fromSpec(spec)
-	-- Bind offset from the virtual chest to the R6 torso centre.
-	local ut, torso = spec.parts.UpperTorso.pos, r6.bind.Torso
-	return {
-		kin = kin, r6 = r6, virtual = virtual, spec = spec,
-		torsoOffset = { torso[1] - ut[1], torso[2] - ut[2], torso[3] - ut[3] },
-	}
+	return { kin = kin, r6 = r6, virtual = virtual, spec = spec }
 end
 
 local function normalize(x, y, z)
@@ -115,10 +116,16 @@ end
 function Retarget.solve(rt, pose, altitude)
 	local kin, r6, virtual = rt.kin, rt.r6, rt.virtual
 	local v = kin.solve(virtual, pose, 0)
-	local o = rt.torsoOffset
-	local torso = kin.mul(v.UpperTorso, kin.translation(o[1], o[2], o[3]))
+	-- One rigid torso for the virtual hips and chest: turned halfway between them (a chest
+	-- twist of a punch turns the R6 torso by half, not entirely), hung on the virtual waist.
+	local lower, upper = v.LowerTorso, v.UpperTorso
+	local torso = aimFrame(lower[5] + upper[5], lower[8] + upper[8], lower[11] + upper[11],
+		lower[6] + upper[6], lower[9] + upper[9], lower[12] + upper[12])
+	local waist = virtual.joints.Waist.c0
+	local wx, wy, wz = kin.point(lower, waist[1], waist[2], waist[3])
+	local below = r6.sizes.Torso[2] * 0.2 -- the waist sits this far below the torso's centre
 	local jitter = pose.Root and pose.Root[6] or 0
-	torso[1] += jitter
+	torso[1], torso[2], torso[3] = wx + torso[5] * below + jitter, wy + torso[8] * below, wz + torso[11] * below
 	local torsoInv = kin.inverse(torso)
 	local joints = r6.joints
 	local c0 = {}
@@ -137,32 +144,74 @@ function Retarget.solve(rt, pose, altitude)
 	-- A limb turns around its joint pivot, which sits on its top edge (not on its axis): the
 	-- rotation brings the pivot -> bottom-centre line of the R6 part onto the pivot -> target
 	-- line, twisted like the reference axis zRef.
+	local function reach(limb)
+		local joint, size = joints[limb.joint], r6.sizes[limb.part]
+		local c1 = kin.inverse(joint.c1inv)
+		return -c1[1], -size[2] / 2 - c1[2], -c1[3] -- pivot -> bottom centre, part space
+	end
 	local function aim(limb, target, zRef)
 		local joint = joints[limb.joint]
 		if not joint or not target then return end
-		local size = r6.sizes[limb.part]
-		local c1 = kin.inverse(joint.c1inv)
-		local ux, uy, uz = -c1[1], -size[2] / 2 - c1[2], -c1[3] -- pivot -> bottom centre, part space
+		local ux, uy, uz = reach(limb)
 		local px, py, pz = kin.point(torso, joint.c0[1], joint.c0[2], joint.c0[3])
-		local tx, ty, tz = target[1], target[2], target[3]
-		local world = aimFrame(px - tx, py - ty, pz - tz, zRef[1], zRef[2], zRef[3])
+		local world = aimFrame(px - target[1], py - target[2], pz - target[3], zRef[1], zRef[2], zRef[3])
 		local localFrame = aimFrame(-ux, -uy, -uz, 0, 0, 1)
 		place(limb.joint, kin.mul(world, kin.inverse(localFrame)))
 	end
-	-- Arms: toward the fist, turned like the forearm.
+	-- A rigid arm aims at the middle of the virtual forearm: along the fist when the arm is
+	-- straight (punches), forward when it is bent, so a guard raises the arms instead of
+	-- pointing them at the chin through the head.
+	local function between(a, b, t)
+		return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
+	end
+	-- Arms: toward the forearm, turned like it.
 	for _, arm in ARMS do
-		local hand, lower = v[arm.side .. "Hand"], v[arm.side .. "LowerArm"]
-		if hand and lower then
-			local size = virtual.sizes[arm.side .. "Hand"]
-			aim(arm, { kin.point(hand, 0, -size[2] / 2, 0) }, { lower[6], lower[9], lower[12] })
+		local hand, forearm = v[arm.side .. "Hand"], v[arm.side .. "LowerArm"]
+		if hand and forearm then
+			local size, lowerSize = virtual.sizes[arm.side .. "Hand"], virtual.sizes[arm.side .. "LowerArm"]
+			local fist = { kin.point(hand, 0, -size[2] / 2, 0) }
+			local elbow = { kin.point(forearm, 0, lowerSize[2] / 2, 0) }
+			local mid = between(elbow, fist, Retarget.ARM_REACH)
+			-- From the virtual shoulder toward that point, as far as the arm is long (its fist
+			-- in the bind pose: the shoulder pivot sits 5 % below the top, see virtualSpec).
+			local shoulder = virtual.joints[arm.side .. "Shoulder"].c0
+			local ox, oy, oz = kin.point(upper, shoulder[1], shoulder[2], shoulder[3])
+			local dx, dy, dz = normalize(mid[1] - ox, mid[2] - oy, mid[3] - oz)
+			local length = r6.sizes[arm.part][2] * 0.95
+			aim(arm, { ox + dx * length, oy + dy * length, oz + dz * length }, { forearm[6], forearm[9], forearm[12] })
 		end
 	end
-	-- Legs: toward the sole, turned like the foot.
+	-- Legs. A rigid R6 leg cannot fold, so a bent virtual leg is turned into a splayed one of
+	-- full length: planted, its tip stays at the sole's height and goes out horizontally
+	-- toward the foot (the hips keep the virtual height, so a crouch lowers the body and the
+	-- legs splay forward and back); in the air (chambers, jumps) it points along the middle
+	-- of the shin. A straight leg lands exactly on the sole either way.
+	local floorY = virtual.floor
 	for _, leg in LEGS do
-		local foot = v[leg.side .. "Foot"]
-		if foot then
-			local size = virtual.sizes[leg.side .. "Foot"]
-			aim(leg, { kin.point(foot, 0, -size[2] / 2, 0) }, { foot[6], foot[9], foot[12] })
+		local foot, shin, hipJoint = v[leg.side .. "Foot"], v[leg.side .. "LowerLeg"], virtual.joints[leg.side .. "Hip"]
+		if foot and shin and hipJoint and joints[leg.joint] then
+			local size, shinSize = virtual.sizes[leg.side .. "Foot"], virtual.sizes[leg.side .. "LowerLeg"]
+			local sole = { kin.point(foot, 0, -size[2] / 2, 0) }
+			local knee = { kin.point(shin, 0, shinSize[2] / 2, 0) }
+			local hx, hy, hz = kin.point(lower, hipJoint.c0[1], hipJoint.c0[2], hipJoint.c0[3])
+			local length = r6.sizes[leg.part][2] -- the virtual leg's full length (virtualSpec)
+			-- Planted: same height as the sole, horizontally toward it (or the knee).
+			-- A bent planted leg sinks a little further (STANCE_DEPTH); a straight one does not.
+			local sx, sy, sz = sole[1] - hx, sole[2] - hy, sole[3] - hz
+			local bend = math.clamp((1 - math.sqrt(sx * sx + sy * sy + sz * sz) / length) / 0.1, 0, 1)
+			local drop = math.min((hy - sole[2]) * (1 + (Retarget.STANCE_DEPTH - 1) * bend), length)
+			local out = math.sqrt(math.max(0, length * length - drop * drop))
+			local ox, oz = sole[1] - hx, sole[3] - hz
+			local flat = math.sqrt(ox * ox + oz * oz)
+			if flat < 1e-3 then ox, oz = knee[1] - hx, knee[3] - hz; flat = math.sqrt(ox * ox + oz * oz) end
+			if flat < 1e-3 then ox, oz, flat = 0, -1, 1 end
+			local planted = { hx + ox / flat * out, hy - drop, hz + oz / flat * out }
+			-- In the air: along the middle of the shin, as far as the leg is long.
+			local mid = between(knee, sole, 0.5)
+			local dx, dy, dz = normalize(mid[1] - hx, mid[2] - hy, mid[3] - hz)
+			local air = { hx + dx * length, hy + dy * length, hz + dz * length }
+			local w = math.clamp((floorY + 0.6 - sole[2]) / 0.4, 0, 1)
+			aim(leg, between(air, planted, w), { foot[6], foot[9], foot[12] })
 		end
 	end
 

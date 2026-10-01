@@ -26,7 +26,9 @@ AnimationController.__index = AnimationController
 
 function AnimationController.new(model)
 	local skeleton, motors, rigType = RigReader.skeleton(model)
-	local self = setmetatable({ model = model, joints = {}, tails = {} }, AnimationController)
+	-- complete: the real skeleton could be read. A body still replicating (R6 avatars arrive
+	-- part by part) is read again by the caller until it is complete.
+	local self = setmetatable({ model = model, joints = {}, tails = {}, complete = skeleton ~= nil, rigType = rigType }, AnimationController)
 	for name, motor in motors do
 		self.joints[name] = { joint = motor, base = motor.C0 }
 	end

@@ -584,6 +584,10 @@ function HUD:announceText(main, sub, color)
 		if self.announceId ~= id then return end
 		tween(a, 0.25, { TextTransparency = 1 })
 		self.announceSub.Visible = false
+		-- Hidden once faded: the text's UIStroke outline does not fade with it.
+		task.delay(0.26, function()
+			if self.announceId == id then a.Visible = false end
+		end)
 	end)
 end
 
@@ -606,6 +610,9 @@ function HUD:callout(slot, label)
 	task.delay(1.1, function()
 		if callout.id ~= id then return end
 		tween(callout.label, 0.25, { TextTransparency = 1 })
+		task.delay(0.26, function()
+			if callout.id == id then callout.label.Visible = false end
+		end)
 	end)
 end
 

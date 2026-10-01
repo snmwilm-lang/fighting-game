@@ -1,5 +1,54 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.1 — 1er octobre 2026
+
+Retours de Wilhem sur la 0.9.0 (vue en jeu) : après le passage de R15 à R6 « ça ne veut
+plus vraiment marcher », les animations R6 ne sont pas belles (planche de référence R6
+fournie : gardes basses et larges, buste penché, poings levés devant), et un texte qui
+apparaît reste à l'infini. Toujours **rien de lancé dans Studio** de mon côté.
+
+### Animation R6 (`src/shared/Retarget.luau`)
+
+- **Torse** : un seul bloc pour le bassin et la poitrine virtuels, tourné à mi-chemin entre
+  les deux et accroché à la taille (avant, il suivait toute la torsion de la poitrine : le
+  corps entier pivotait sur chaque coup de poing).
+- **Bras** : visent le milieu de l'avant-bras virtuel (`ARM_REACH` = 0,7) au lieu du poing.
+  Bras tendu : identique ; garde : bras levés devant en diagonale, plus à travers la tête.
+- **Jambes** : une jambe pliée ne peut pas se plier en R6. Au sol, elle garde la hauteur du
+  pied et s'écarte à l'horizontale (`STANCE_DEPTH` = 0,88, un peu plus bas) : garde large et
+  basse, l'accroupi baisse vraiment le corps. En l'air (armés de coups de pied, sauts), elle
+  suit le milieu du tibia. Jambe tendue : vise la semelle comme avant.
+- Vérifié par rendus hors ligne (garde, accroupi, course, saut, coups des 4 persos) et par un
+  nouveau test.
+
+### Passage R15 → R6
+
+Cause probable trouvée côté client (non confirmée en jeu) : si le corps R6 n'était pas
+entièrement répliqué quand le client le lisait, le contrôleur d'animation était créé sans
+squelette et gardé : corps figé pour toujours. Le client relit maintenant le squelette
+toutes les 0,25 s tant qu'il est incomplet. Si le problème persiste, il faut la sortie de la
+console (F9) au moment du passage en R6.
+
+### Textes qui restaient affichés
+
+- Le tampon des cinématiques (nom du coup « !! », « RYTHME : … ») ne disparaissait qu'à la
+  fin de la cinématique ; un événement arrivé juste après (remote séparé) le laissait à
+  l'écran. Il se cache maintenant seul après 1,2 s.
+- Annonces et noms de techniques : devenus transparents mais jamais masqués (le contour
+  `UIStroke` restait) ; ils sont maintenant cachés après leur fondu.
+
+### Tests
+
+CombatSimulation 77, FighterAI 9, CinematicDirector 124, **Animation 22** (+ « R6 : l'accroupi
+baisse le corps, la garde garde les poings hors de la tête », pour les 4 persos), Kits 26 ✅.
+Compilation et analyse statique ✅. Studio ❌ non exécuté.
+
+### Prochaine étape proposée
+
+1. Wilhem refait le passage R15 → R6 ; si ça bloque encore, envoyer la console (F9).
+2. Dire si la garde R6 doit être encore plus basse ou les bras plus hauts : ce sont deux
+   réglages (`Retarget.STANCE_DEPTH`, `Retarget.ARM_REACH`).
+
 ## Version 0.9.0 — 1er octobre 2026
 
 Deuxième quête de Wilhem : **R15 et R6**, des combos **ni trop simples ni injouables**

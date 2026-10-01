@@ -545,6 +545,35 @@ test("R6: limbs follow the virtual limbs (punch forward, kick up)", function()
 	expect(fy > 0, string.format("the R6 kick does not rise (foot y %.2f)", fy))
 end)
 
+test("R6: a crouch lowers the body, a guard keeps the fists out of the head", function()
+	local rt = Retarget.new(K, r6Skeleton())
+	local function settled(view)
+		local anim = r6Animator(rt)
+		view.x, view.y, view.vx, view.vy, view.facing, view.hitstop, view.combo, view.kit, view.moveFrame =
+			0, 0, 0, 0, 1, 0, 0, view.kit or "KAI", 0
+		local pose
+		for i = 1, 40 do
+			pose = anim:step(view, { x = 4, y = 0, state = "Idle" }, 1 / 60, i / 60, 60, false)
+		end
+		local _, lift, parts = Retarget.solve(rt, pose, 0)
+		return parts, lift
+	end
+	local stand, standLift = settled({ state = "Idle" })
+	local crouch, crouchLift = settled({ state = "Crouching", crouching = true })
+	local drop = (stand.Torso[2] + standLift) - (crouch.Torso[2] + crouchLift)
+	expect(drop > 0.4, string.format("the R6 crouch only lowers the torso by %.2f", drop))
+	for _, case in { { "Idle", "KAI" }, { "Blocking", "KAI" }, { "Idle", "TARO" }, { "Idle", "AKEMI" }, { "Idle", "ZEPHYR" } } do
+		local parts = settled({ state = case[1], kit = case[2] })
+		local head = K.inverse(parts.Head)
+		for _, arm in { "Left Arm", "Right Arm" } do
+			local x, y, z = K.point(parts[arm], 0, -0.8, 0) -- near the fist
+			local hx, hy, hz = K.point(head, x, y, z)
+			local inside = math.abs(hx) < 0.62 and math.abs(hy) < 0.62 and math.abs(hz) < 0.62
+			expect(not inside, string.format("%s %s: the R6 %s goes through the head", case[2], case[1], arm))
+		end
+	end
+end)
+
 test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled body)", function()
 	for _, scale in { 1, 1.15 } do
 		local world = Sim.newWorld(Config, MoveData, false)

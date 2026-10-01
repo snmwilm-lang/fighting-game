@@ -132,11 +132,19 @@ local function findRig(slot)
 		if motorCount < (if RigReader.rigType(model) == "R6" then 6 else 15) then return nil end
 		local animation = AnimationController.new(model)
 		cached = {
-			model = model, root = root, animation = animation,
+			model = model, root = root, animation = animation, readAt = os.clock(),
 			rootHeight = animation.rootHeight, -- measured on this body: its feet rest on the floor
 		}
 		rigs[slot] = cached
 		effects:attachRig(slot, cached)
+	elseif not cached.animation.complete and os.clock() - cached.readAt > 0.25 then
+		-- Its skeleton was not fully there yet (joints or parts still replicating): read again,
+		-- otherwise the body would stay frozen in its bind pose.
+		cached.readAt = os.clock()
+		local animation = AnimationController.new(model)
+		if animation.complete then
+			cached.animation, cached.rootHeight = animation, animation.rootHeight
+		end
 	end
 	return cached
 end

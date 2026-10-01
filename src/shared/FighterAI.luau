@@ -80,7 +80,7 @@ local function observe(f, moves)
 	end
 	return {
 		x = f.x, y = f.y, vy = f.vy, move = f.move, phase = phase, guard = m and m.guard,
-		moveFrame = f.moveFrame,
+		moveFrame = f.moveFrame, crouching = f.crouching,
 		contact = f.moveContact, airborne = f.y > 0.5, vulnerable = f.stun > 0 or f.launched,
 	}
 end
@@ -182,7 +182,9 @@ function FighterAI:think(world, slot)
 	self.canWeave = (if stance then stance.Weave else kit.Weave) ~= nil
 	local crouchSpecial = moves[starters.Crouch.Special]
 	local canParry = crouchSpecial ~= nil and crouchSpecial.parry ~= nil
+	local parriesLows = canParry and crouchSpecial.parry.lows == true -- HIBECARES's MUR DE PIERRE
 	local canZone = crouchSpecial ~= nil and crouchSpecial.projectile ~= nil
+	local blink = kit.Passive and kit.Passive.Type == "Blink" and kit.Passive -- DAICHA's OMBRE INVERSÉE
 	local foePassive = world.moveData.Kits[foe.kit or "KAI"].Passive
 	local baitEvade = foePassive ~= nil and foePassive.Type == "Evade" and foe.evadeCharge == 0
 
@@ -277,8 +279,8 @@ function FighterAI:think(world, slot)
 			input.special = true
 			return input
 		end
-		-- A boxer reads the attack and parries it (lows beat the parry).
-		if canParry and seen.phase == "Startup" and seen.guard ~= "Low" and not seen.airborne and dist < 4.6
+		-- A boxer reads the attack and parries it (lows beat the parry, not the stone wall).
+		if canParry and seen.phase == "Startup" and (seen.guard ~= "Low" or parriesLows) and not seen.airborne and dist < 4.6
 			and self:chance(self.level.block * 0.3) then
 			input.crouch, input.special = true, true
 			return input
@@ -322,10 +324,16 @@ function FighterAI:think(world, slot)
 				self.intent = "blast"
 			elseif self.canWeave and dist > 2.8 and dist < 8.5 and self:chance(self.level.aggression * 0.3) then
 				self.intent = "dempsey" -- the boxer weaves in and rolls
+			elseif blink and dist > 2 and dist <= blink.Range and me.dashCooldown == 0 and self:chance(self.level.aggression * 0.3) then
+				self.intent = "blink" -- through the opponent, then strike from behind
 			elseif dist > 6 then
 				self.intent = if roll < self.level.aggression * 0.6 then "approach"
 					elseif roll < self.level.aggression * 0.8 then "dash"
 					elseif roll < self.level.aggression then "jumpin" else "wait"
+			elseif parriesLows and seen.crouching and self:chance(self.level.block * 0.4) then
+				-- The stone wall (HIBECARES) reads a crouching opponent: a low is coming, too
+				-- fast to parry on reaction alone.
+				self.intent = "wall"
 			else
 				-- Close range: anticipate (fast pokes cannot be blocked on reaction alone).
 				local guard = self.level.block * 0.55
@@ -348,6 +356,12 @@ function FighterAI:think(world, slot)
 			self.canWeave = true
 			repeat self:pickPlan(0, math.huge, nil, false) until self.plan.weave
 			self.intent = "wait"
+		elseif intent == "wall" then
+			input.crouch, input.special = true, true
+			self.intent = "wait"
+		elseif intent == "blink" then
+			input.axis, input.dash = toward, true
+			self.intent = "attack"
 		elseif intent == "blast" then
 			input.crouch, input.special = true, true
 			self.intent = "wait"

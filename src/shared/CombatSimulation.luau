@@ -526,7 +526,7 @@ local function stepFighter(world, f, input, events)
 				x = f.x + f.facing * data.spawnX, y = f.y + data.height, oldX = f.x,
 				vx = f.facing * data.speed, life = data.life,
 			})
-			table.insert(events, { kind = "Projectile", attacker = f.slot })
+			table.insert(events, { kind = "Projectile", attacker = f.slot, move = f.move })
 		end
 		if physics(f, c) and m.air then
 			f.move, f.moveContact, f.state = nil, nil, "Idle"
@@ -1256,6 +1256,18 @@ function CombatSimulation.cancelReady(world, f)
 	if f.grace then return true end
 	local m = f.move and world.moves[f.move]
 	return m ~= nil and f.moveContact ~= nil and f.moveHits >= (m.hits or 1)
+end
+
+-- What the HUD shows of a fighter's passive: the ticks before it is ready again (AKEMI's
+-- VOILE D'OMBRE, DAICHA's OMBRE INVERSÉE: the dash) or RYUKEN's RAGE stacks; nil for the
+-- passives without a gauge (SHIN's PRÉCISION, HIBECARES's ROI DES RUINES: shown from health).
+function CombatSimulation.passiveGauge(world, f)
+	local passive = kitOf(world, f).Passive
+	if not passive then return nil end
+	if passive.Type == "Evade" then return f.evadeCharge end
+	if passive.Type == "Blink" then return f.dashCooldown end
+	if passive.Type == "Rage" then return f.rage end
+	return nil
 end
 
 -- Training lab: plays a cinematic directly, without performing its combo. The two fighters

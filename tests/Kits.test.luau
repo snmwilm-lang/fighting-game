@@ -1,8 +1,10 @@
--- Offline tests of the four kits (KAI, TARO, ZEPHYR, AKEMI). Run from the repository root:
+-- Offline tests of the eight kits (KAI, TARO, ZEPHYR, AKEMI, RYUKEN, SHIN, DAICHA, HIBECARES).
+-- Run from the repository root:
 --   luau tests/Kits.test.luau
 local Config = require("../src/shared/CombatConfig")
 local MoveData = require("../src/shared/MoveData")
 local Sim = require("../src/shared/CombatSimulation")
+local Palette = require("../src/shared/SoundPalette")
 local T = require("./TestKit")
 local test, expect, input = T.test, T.expect, T.input
 local Moves, Kits = MoveData.Moves, MoveData.Kits
@@ -389,6 +391,57 @@ test("RYUKEN: RAGE stacks on every hit landed and is lost when he is hit", funct
 	local blocked = kitWorld("RYUKEN", "KAI", 3)
 	run(blocked, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
 	expect(blocked.fighters[1].rage == 0, "a blocked hit gave RAGE")
+end)
+
+test("the HUD gauge of each passive: VOILE D'OMBRE / OMBRE INVERSÉE recharge, RAGE stacks, none for the others", function()
+	local rage = kitWorld("RYUKEN", "KAI", 3)
+	expect(Sim.passiveGauge(rage, rage.fighters[1]) == 0, "RAGE gauge not empty at the start")
+	firstHit(rage, function(t) return { input({ light = t == 1 }) } end)
+	expect(Sim.passiveGauge(rage, rage.fighters[1]) == 1, "RAGE gauge does not count the stack")
+	local blink = kitWorld("DAICHA", "KAI", 3)
+	run(blink, 2, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(Sim.passiveGauge(blink, blink.fighters[1]) > 0, "OMBRE INVERSÉE gauge not recharging after the blink")
+	local evade = kitWorld("AKEMI", "KAI", 3)
+	evade.fighters[1].evadeCharge = 90
+	expect(Sim.passiveGauge(evade, evade.fighters[1]) == 90, "VOILE D'OMBRE gauge is not its recharge")
+	for _, name in { "SHIN", "HIBECARES", "KAI", "TARO", "ZEPHYR" } do
+		local world = kitWorld(name, "KAI", 3)
+		expect(Sim.passiveGauge(world, world.fighters[1]) == nil, name .. " shows a gauge it does not have")
+	end
+end)
+
+test("sounds: only the client's own sounds, one material per kit (its own hits), one sound per action", function()
+	local shipped = {}
+	for _, name in Palette.CLIENT_SOUNDS do shipped["rbxasset://sounds/" .. name] = true end
+	for name, file in Palette.FILES do
+		expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
+	end
+	local function check(list, label)
+		expect(type(list) == "table" and #list > 0, label .. " has no sound")
+		for _, spec in list or {} do
+			expect(Palette.FILES[spec[1]], label .. " plays an unknown sound " .. tostring(spec[1]))
+			expect(spec[2] > 0 and spec[2] <= 1 and spec[3] > 0.2 and spec[3] < 3, label .. ": volume / speed out of range")
+			expect(spec[5] == nil or Palette.BUSES[spec[5]], label .. " goes through an unknown bus " .. tostring(spec[5]))
+		end
+	end
+	local signatures = {}
+	for _, name in MoveData.KitOrder do
+		local own = Palette.MATERIALS[name]
+		expect(own, name .. " has no sound material")
+		for _, key in { "swing", "heavySwing", "hit", "heavyHit" } do check(own and own[key], name .. " " .. key) end
+		if own and own.projectile then check(own.projectile, name .. " projectile") end
+		local signature = own and own.hit[1][1] .. own.hit[1][3] .. tostring(own.hit[1][5])
+		expect(not signatures[signature], name .. " hits like " .. tostring(signatures[signature]))
+		signatures[signature] = name
+		-- a kit with a projectile special has its own projectile sound
+		for _, id in Kits[name].Roles do
+			if Moves[id].projectile and name ~= "KAI" then expect(own and own.projectile, name .. " has no projectile sound") end
+		end
+	end
+	for _, kind in { "Block", "GuardBreak", "Clash", "Parry", "Wall", "Evade", "Slip", "Blink", "Stance", "SuperFlash", "Skill",
+		"Prompt", "Perfect", "Graded", "SuperJump", "Bounce", "KO", "Cinematic", "Tip", "Knockdown", "GetUp", "Jump", "Land", "Dash" } do
+		check(Palette.ACTIONS[kind], "action " .. kind)
+	end
 end)
 
 test("SHIN: the tip of the blade (end of the reach) deals more", function()

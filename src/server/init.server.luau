@@ -453,7 +453,7 @@ local function snapshot()
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
-			crouching = f.crouching, maxHp = f.maxHp, evadeCharge = f.evadeCharge, weave = f.weaveTicks > 0,
+			crouching = f.crouching, maxHp = f.maxHp, passive = Sim.passiveGauge(world, f), weave = f.weaveTicks > 0,
 			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",

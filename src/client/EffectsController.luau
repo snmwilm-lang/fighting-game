@@ -349,6 +349,11 @@ function EffectsController:update(slot, view, rig, previous, now)
 		elseif view.meter and view.meter >= MoveData.Moves[(MoveData.Kits[view.kit] or MoveData.Kits.KAI).Ultimates.Rush].meterCost then
 			target = 0.5 + 0.35 * math.sin(now * 5)
 		end
+		-- RYUKEN's RAGE: the body glows hotter with every stack.
+		local passive = (MoveData.Kits[view.kit] or MoveData.Kits.KAI).Passive
+		if passive and passive.Type == "Rage" and (view.passive or 0) > 0 then
+			target = math.max(target, 1.6 * view.passive / passive.Max + 0.25 * math.sin(now * 9))
+		end
 		rig.glow.Brightness += (target - rig.glow.Brightness) * math.min(1, (if target > rig.glow.Brightness then 18 else 5) / 60)
 	end
 	if self.debug then self:drawDebug(slot, view) end
@@ -377,9 +382,16 @@ function EffectsController:onEvent(event, views, rigs)
 		return
 	end
 	if event.kind == "Parry" then
-		-- TARO's PARADE: a golden flash on the glove and a short stop.
+		-- TARO's PARADE: a golden flash on the glove and a short stop. HIBECARES's MUR DE
+		-- PIERRE: the blow breaks on stone (debris, dust).
 		local position = Vector3.new(event.x, event.y, 0)
-		self:spark(position, Color3.fromHex("FFD23F"), 1.6)
+		if event.absorbed then
+			self:debris(position - Vector3.new(0, 1.5, 0), self:energy(event.defender), 0.5)
+			self:dust(event.x, 0, 1)
+			self:spark(position, Color3.fromHex("B8A890"), 1.4)
+		else
+			self:spark(position, Color3.fromHex("FFD23F"), 1.6)
+		end
 		self:spark(position, self:energy(event.defender), 1)
 		if rigs[event.defender] then self:flash(rigs[event.defender]) end
 		self.camera:punch(if self.reduced then 0.08 else 0.18, position)
@@ -393,6 +405,14 @@ function EffectsController:onEvent(event, views, rigs)
 		end
 		local v = views[event.defender]
 		if v then self:dust(v.x, 0, -v.facing) end
+		return
+	elseif event.kind == "Blink" then
+		-- DAICHA's OMBRE INVERSÉE / TÉLÉPORTATION: a shadow copy where he was, a pool of
+		-- shadow where he comes out.
+		local color = self:energy(event.slot)
+		if rigs[event.slot] then self:afterimage(rigs[event.slot], color) end
+		self:arc(Vector3.new(event.x, 0.08, self.config.PlaneZ), 1.4, 0, 360, color, math.pi / 2, 1)
+		self:spark(Vector3.new(event.x, 3, self.config.PlaneZ), Color3.fromHex("1A0B2E"), 0.9)
 		return
 	elseif event.kind == "Slip" then
 		-- TARO's weave: the blow whistles over his head (a white arc above the ducking body).
@@ -425,6 +445,10 @@ function EffectsController:onEvent(event, views, rigs)
 		if event.kind == "Hit" then
 			local heavy = event.heavy or event.ko
 			self:spark(position, attackerColor, if heavy then 1.5 else 1)
+			if event.tip then
+				-- SHIN's PRÉCISION: the tip of the blade, one clean line through the hit.
+				self:cut(position - Vector3.new(1.4, 0.5, 0), position + Vector3.new(1.4, 0.5, 0), attackerColor)
+			end
 			if rigs[event.defender] then self:flash(rigs[event.defender]) end
 			self.camera:shake((if heavy then 0.5 else 0.18) * shakeScale, if heavy then 0.25 else 0.12)
 			if heavy then

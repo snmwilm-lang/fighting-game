@@ -144,6 +144,32 @@ test("LÉGENDE earns ÉVEIL ÉCARLATE and nails its rhythm prompts", function()
 	expect(grade == "PARFAIT" or grade == "GRAND", "LÉGENDE prompts graded " .. tostring(grade))
 end)
 
+-- One CPU (slot 1, kit `kit`) against a scripted opponent (slot 2, KAI); returns the events.
+local function scripted(kit, level, seed, ticks, foeInput)
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit, "KAI")
+	world.phase = "Fight"
+	local brain = FighterAI.new(level, seed)
+	local events, walls = {}, 0
+	for t = 1, ticks do
+		local mine = brain:think(world, 1)
+		if mine.crouch and mine.special then walls += 1 end
+		for _, e in Sim.step(world, { mine, foeInput(t) }) do table.insert(events, e) end
+	end
+	return events, walls
+end
+
+test("DAICHA's CPU blinks through the opponent (OMBRE INVERSÉE); HIBECARES's CPU walls a crouching opponent", function()
+	local blinks = 0
+	for _, e in scripted("DAICHA", 4, 11, 60 * 40, function() return Sim.neutralInput() end) do
+		if e.kind == "Blink" and not e.move then blinks += 1 end
+	end
+	expect(blinks >= 1, "DAICHA's CPU never blinked through")
+	-- A crouching opponent close by: a low is coming (too fast to see), the wall goes up.
+	local _, walls = scripted("HIBECARES", 4, 5, 60 * 20, function() return input({ crouch = true }) end)
+	expect(walls >= 1, "HIBECARES's CPU never put up the stone wall against a crouching opponent")
+end)
+
 test("the same seed replays the same fight", function()
 	local a = versus(3, 2, 42, 60 * 30)
 	local b = versus(3, 2, 42, 60 * 30)

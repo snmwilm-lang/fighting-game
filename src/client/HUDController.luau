@@ -425,15 +425,33 @@ function HUD:fillCombos()
 	else
 		local crouchSpecial = kit.Starters.Crouch.Special
 		local special = MoveData.Moves[crouchSpecial]
-		if special and special.parry then
+		if special and special.parry and special.parry.lows then
+			table.insert(lines, { "↓ + E : " .. special.name .. " (encaisse n'importe quel coup, même bas, en ne prenant que "
+				.. math.floor((special.parry.absorb or 0) * 100 + 0.5) .. " % des dégâts, puis riposte ; perd contre les ultimes)", ORANGE })
+		elseif special and special.parry then
 			table.insert(lines, { "↓ + E : " .. special.name .. " (contre les coups debout et les projectiles ; perd contre les coups bas et les ultimes)", ORANGE })
+		elseif special and special.projectile and special.projectile.guard == "Low" then
+			table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (onde au ras du sol : à garder accroupi, 1 à la fois)", ORANGE })
 		else
 			table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (projectile, 1 à la fois)", ORANGE })
 		end
 	end
-	if kit.Passive and kit.Passive.Type == "Evade" then
-		table.insert(lines, { "PASSIF " .. kit.Passive.Name .. " : au neutre (sans attaquer, sans être touché, sans garder), le 1er coup reçu est esquivé (recul), recharge "
-			.. math.floor(kit.Passive.Cooldown / 60) .. " s. Jamais contre les ultimes.", ORANGE })
+	local passive = kit.Passive
+	if passive and passive.Type == "Evade" then
+		table.insert(lines, { "PASSIF " .. passive.Name .. " : au neutre (sans attaquer, sans être touché, sans garder), le 1er coup reçu est esquivé (recul), recharge "
+			.. math.floor(passive.Cooldown / 60) .. " s. Jamais contre les ultimes.", ORANGE })
+	elseif passive and passive.Type == "Rage" then
+		table.insert(lines, { "PASSIF " .. passive.Name .. " : chaque coup porté (pas en garde) ajoute +" .. passive.PerStack * 100 .. " % de dégâts (jusqu'à "
+			.. passive.Max .. "), tout est perdu dès qu'il est touché.", ORANGE })
+	elseif passive and passive.Type == "Tip" then
+		table.insert(lines, { "PASSIF " .. passive.Name .. " : un coup du bout de la lame (adversaire au bout de l'allonge) fait +"
+			.. math.floor(passive.Bonus * 100 + 0.5) .. " % de dégâts.", ORANGE })
+	elseif passive and passive.Type == "Blink" then
+		table.insert(lines, { "PASSIF " .. passive.Name .. " : SHIFT vers l'adversaire (à moins de " .. passive.Range
+			.. " m) le traverse et réapparaît derrière lui, intouchable un instant ; recharge " .. string.format("%.1f", passive.Cooldown / 60) .. " s.", ORANGE })
+	elseif passive and passive.Type == "Ruins" then
+		table.insert(lines, { "PASSIF " .. passive.Name .. " : plus il est blessé, plus il frappe fort (jusqu'à +"
+			.. math.floor(passive.MaxBonus * 100 + 0.5) .. " % à " .. math.floor(passive.To * 100 + 0.5) .. " % de vie).", ORANGE })
 	end
 	if kit.Stats.DashInvuln then
 		table.insert(lines, { "DASH : intouchable pendant " .. kit.Stats.DashInvuln .. " images au départ", ORANGE })
@@ -644,6 +662,8 @@ function HUD:callout(slot, label)
 end
 
 function HUD:onEvent(event, world)
+	-- SHIN's PRÉCISION: a hit with the tip of the blade.
+	if event.kind == "Hit" and event.tip then self:callout(event.attacker, "BOUT DE LAME !") end
 	if event.kind == "Hit" and event.combo and event.combo >= 2 then
 		local c = self.combo[event.attacker]
 		c.frame.Visible = true
@@ -657,7 +677,13 @@ function HUD:onEvent(event, world)
 		local m = MoveData.Moves[event.move]
 		self:callout(event.attacker, (if m then m.name else event.move) .. " !")
 	elseif event.kind == "Parry" then
-		self:callout(event.defender, "PARADE !")
+		-- TARO's PARADE, HIBECARES's MUR DE PIERRE (the share of the blow it took).
+		local label = if event.name then event.name .. " !" else "PARADE !"
+		if event.absorbed then label ..= " −" .. event.absorbed end
+		self:callout(event.defender, label)
+	elseif event.kind == "Blink" and not event.move then
+		local kit = MoveData.Kits[CharacterData[event.slot].Kit]
+		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TÉLÉPORTATION") .. " !")
 	elseif event.kind == "Evade" then
 		local kit = MoveData.Kits[CharacterData[event.defender].Kit]
 		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ESQUIVE") .. " !")
@@ -706,13 +732,27 @@ function HUD:update(world, views, fps, dt)
 		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
 		bar.player.Text = (if localSlot == slot then "VOUS · " else "") .. view.player .. " · " .. kit.Role
-		-- Passive gauge: ready, or the seconds left before it recharges.
+		-- Passive gauge: ready or the seconds left (VOILE D'OMBRE, OMBRE INVERSÉE), the RAGE
+		-- stacks, the ROI DES RUINES bonus (from health), PRÉCISION's rule.
 		local passive = kit.Passive
 		bar.passive.Visible = passive ~= nil
 		if passive then
-			local charge = view.evadeCharge or 0
-			bar.passive.Text = if charge <= 0 then passive.Name .. " ✓" else passive.Name .. " " .. math.ceil(charge / 60) .. " s"
-			bar.passive.TextTransparency = if charge <= 0 then 0 else 0.45
+			local gauge = view.passive or 0
+			local label, ready
+			if passive.Type == "Rage" then
+				label, ready = passive.Name .. " ×" .. gauge, gauge > 0
+				if gauge > 0 then label ..= " (+" .. math.floor(gauge * passive.PerStack * 100 + 0.5) .. " %)" end
+			elseif passive.Type == "Ruins" then
+				local bonus = math.floor(passive.MaxBonus * math.clamp((passive.From - ratio) / (passive.From - passive.To), 0, 1) * 100 + 0.5)
+				label, ready = passive.Name .. " +" .. bonus .. " %", bonus > 0
+			elseif passive.Type == "Tip" then
+				label, ready = passive.Name .. " : BOUT DE LAME +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
+			else
+				label = if gauge <= 0 then passive.Name .. " ✓" else passive.Name .. " " .. math.ceil(gauge / 60) .. " s"
+				ready = gauge <= 0
+			end
+			bar.passive.Text = label
+			bar.passive.TextTransparency = if ready then 0 else 0.45
 		end
 		for i, pip in bar.pips do
 			pip.BackgroundColor3 = if view.wins >= i then bar.energy else INK

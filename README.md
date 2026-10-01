@@ -1,4 +1,4 @@
-# jeuxcombat — KAI 開 · TARO 火 · ZEPHYR 風 · AKEMI 影
+# jeuxcombat — KAI 開 · TARO 火 · ZEPHYR 風 · AKEMI 影 · RYUKEN 拳 · SHIN 流 · DAICHA 闇 · HIBECARES 崩
 
 Jeu de combat Roblox 2.5D (persos 3D, combat sur un plan 2D, caméra de côté), style anime
 noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox Studio par
@@ -17,7 +17,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Spéciale (invincible au départ) | **E** | Y | SPÉ |
 | Ultime (2 barres de ki, cinématique) | **R** | LT | ULTI |
 | Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
-| Spéciale basse (projectile, ou PARADE de TARO) | **S + E** | Bas + Y | BAS + SPÉ |
+| Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
 | **Changer de perso** | **T** ou bouton PERSO | — | bouton |
 | Perso du CPU (solo) | **G** ou bouton ADVERSAIRE | — | bouton |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
@@ -29,7 +29,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 En versus, on change de perso avant le premier coup du match ou une fois le match fini (le
 match repart à zéro) ; en solo, à tout moment.
 
-## Les 4 combattants
+## Les 8 combattants
 
 | Perso | Style | Vie | Points forts | Points faibles | S + E |
 |---|---|---|---|---|---|
@@ -37,6 +37,10 @@ match repart à zéro) ; en solo, à tout moment.
 | **TARO 火** | **boxeur** : que les poings | 1600 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
 | **ZEPHYR 風** | **que les pieds** | 1450 | **plus grande allonge** (+12 %), saut le plus haut, dégâts +5 % | coups qui démarrent un peu plus tard | LAME DE VENT (projectile) |
 | **AKEMI 影** | **esquive** | **1100** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −12 % | KUNAÏ (projectile) |
+| **RYUKEN 拳** | **force** : poings brisés, pression | 1500 | coups lourds, **CHARGE FRONTALE** qui traverse l'écran, passif **RAGE** | allonge un peu courte ; perd sa RAGE dès qu'il est touché | FRAPPE SISMIQUE (onde au ras du sol : à garder accroupi) |
+| **SHIN 流** | **sabre** : vitesse, précision | 1400 | **la plus grande allonge** (+22 %), coupes rapides, **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
+| **DAICHA 闇** | **zoning** : l'espace inversé | 1400 | **SPHÈRE INVERSÉE** lente et énorme, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
+| **HIBECARES 崩** | **endurance** : le roi des ruines | **1800** | **le plus de vie**, coups lourds, garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
 
 **VOILE D'OMBRE** (passif d'AKEMI) : au neutre — sans attaquer, sans être déjà touchée, sans
 garder — le premier coup reçu est esquivé : AKEMI recule hors de portée, intouchable un
@@ -44,14 +48,27 @@ instant, puis se remet en garde. Recharge en **20 s** (jauge à côté de la bar
 jamais contre les ultimes. Elle remet le neutre à zéro, elle ne donne pas de punition
 gratuite ; pour la vider, un jab seul suffit.
 
+Passifs des 4 nouveaux (jauge à côté de la barre de garde) :
+
+- **RAGE** (RYUKEN) : chaque coup porté (pas en garde) ajoute +2,5 % de dégâts, jusqu'à
+  10 fois (+25 %) ; tout est perdu dès qu'il est touché. Son corps chauffe avec la RAGE.
+- **PRÉCISION** (SHIN) : un coup du **bout de la lame** (l'adversaire au bout de l'allonge)
+  fait +20 % (« BOUT DE LAME ! »).
+- **OMBRE INVERSÉE** (DAICHA) : le dash **vers** l'adversaire, à moins de 5 m, le traverse
+  et ressort derrière lui, intouchable un instant ; 0,9 s avant le suivant.
+- **ROI DES RUINES** (HIBECARES) : plus il est blessé, plus il frappe fort (jusqu'à +30 %
+  à 30 % de vie).
+
 Chaque perso porte **sa tenue sur ton avatar Roblox** (R15 ou R6), taillée sur ses vraies
 pièces : KAI bandeau, ceinture et bandages ; TARO gants de boxe, short, ceinture de
 champion et serviette au cou ; ZEPHYR longue écharpe au vent, protège-tibias ; AKEMI capuche, masque et
-brassards. Kanji du perso dans le dos, 2 à 4 styles de couleurs chacun (bouton STYLE).
+brassards ; RYUKEN bandages et gantelet fissuré qui luit ; SHIN katana et fourreau, col ;
+DAICHA sphère d'ombre à la main, obi ; HIBECARES poings de pierre, chaînes, bandeau. En modèle
+en blocs, chaque perso a sa propre tête (coiffure) et son propre corps (vêtements). Kanji du perso dans le dos, 2 à 4 styles de couleurs chacun (bouton STYLE).
 
 ## Combos (L = clic gauche, R = clic droit)
 
-Les 4 persos ont **la même grammaire** : mêmes touches, mêmes effets, chacun avec ses
+Les 8 persos ont **la même grammaire** : mêmes touches, mêmes effets, chacun avec ses
 propres coups (bouton **COMBOS** en jeu : la liste du perso choisi). Pour KAI :
 
 | Touches | Enchaînement | Effet |
@@ -93,6 +110,17 @@ Chaque route ★ se prolonge par **L** (poursuite) puis **R** (coup de grâce) :
 | 2 · éveil | route complète **propre**, 6e au **clic droit**, 3 barres | ÉVEIL ÉCARLATE | UPPERCUT CÉLESTE | DRAGON ASCENDANT | TEMPS SUSPENDU |
 | 3 · porte | route complète **propre**, 6e à la **touche R**, 3 barres | 開天 PORTE DES CIEUX | 火嵐 TEMPÊTE DE CROCHETS | 旋風 CYCLONE FURIEUX | 幻舞 DANSE FANTÔME |
 
+| Ultime | RYUKEN | SHIN | DAICHA | HIBECARES |
+|---|---|---|---|---|
+| 1 · ruée | FUREUR DU POING | DANSE DES COURANTS | DOMAINE OBSCUR | COLOSSE ÉVEILLÉ |
+| 2 · éveil | EFFONDREMENT | TEMPÊTE CONTINUE | RIVIÈRE D'OMBRES | CHÂTIMENT |
+| 3 · porte | 拳 DERNIER ROUND | 零 ZÉRO HORIZON | 蝕 ÉCLIPSE TOTALE | 崩 RUINES DU MONDE |
+
+Chaque perso a sa propre façon de filmer et son étalonnage, et sa propre scène de K.O. :
+RYUKEN zooms brutaux et gros plans sur les poings (rouge brûlant) ; SHIN longues focales,
+travellings latéraux, l'iai qui fige le temps et une seule ligne de lame (bleu acier) ;
+DAICHA angles penchés, plans en miroir, caméra à l'envers et soleil noir (violet) ;
+HIBECARES contre-plongées monumentales, piliers de pierre, débris et secousses (sépia).
 TARO, ZEPHYR et AKEMI ont chacun leur mise en scène (planche d'ultimes de Wilhem) : TARO
 charge et cogne de face, soulève l'adversaire dans un pilier de feu puis tourne autour de lui
 crochet après crochet ; ZEPHYR enchaîne les coups de pied avec des lames de vent, monte avec
@@ -158,6 +186,17 @@ course sans glissade, corps posé au sol quelle que soit la taille de l'avatar, 
 le coup reçu, regard vers l'adversaire, ressorts, tissus qui ondulent. Chaque perso a sa
 garde, sa course et ses coups. Bouton **POSES** : 12 / 15 / 24 poses par seconde ou FLUIDE.
 
+## Sons
+
+Uniquement les sons fournis avec le client Roblox (`rbxasset://sounds/…`, la liste exacte est
+dans `src/shared/SoundPalette.luau`), sans aucun ID d'asset inventé, retravaillés (hauteur,
+durée, distorsion, écho, réverbération, égaliseur). Chaque action a un seul son, le même
+pour tous (garde, garde brisée, choc, parade, esquive, saut, chute, super, QTE…), et chaque
+perso frappe avec sa matière : poings de ki (KAI), gants de cuir (TARO), pieds qui fendent
+le vent (ZEPHYR), main-lame de l'ombre (AKEMI), poings qui écrasent (RYUKEN), lame d'eau
+(SHIN), ombre en écho (DAICHA), pierre (HIBECARES). Un coup lourd est la version lourde de
+la même matière.
+
 ## S'entraîner et vérifier
 
 - **ENTRAÎNEUR** : choisis une route de ton perso ; la barre en bas montre les touches,
@@ -195,7 +234,7 @@ luau tests/CombatSimulation.test.luau
 luau tests/FighterAI.test.luau
 luau tests/CinematicDirector.test.luau
 luau tests/Animation.test.luau
-luau tests/Kits.test.luau
+luau tests/Kits.test.luau             # les 8 kits, leurs passifs, la palette de sons
 luau tests/PressQueue.test.luau
 luau tests/Fuzz.test.luau            # entrées aléatoires, tous les duels : invariants
 luau tests/Cinematography.test.luau  # cadrage de chaque ultime avec le vrai rig

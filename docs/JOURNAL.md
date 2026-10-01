@@ -1,5 +1,96 @@
 # Journal du projet — état à transmettre
 
+## Version 0.10.0 — 1er octobre 2026
+
+Demandes de Wilhem : la planche des 4 nouveaux persos (« tiens les nouveaux perso » :
+RYUKEN, SHIN, DAICHA, HIBECARES, leurs coups, spéciales et ultimes) ; « comment on dodge avec
+TARO ? » (répondu, et aide du style ESQUIVE dans le jeu) ; « les bruitages, sois cohérent » ;
+« chaque perso a sa propre tête et son propre corps, pas la base de KAI ; fais-le pour tout
+le monde, review total ».
+
+### Les 4 nouveaux persos (les 8 sont jouables : `MoveData.KitOrder`)
+
+| Perso | Rôle | Vie | Passif | S + E |
+|---|---|---|---|---|
+| RYUKEN 拳 | force, pression | 1500 | **RAGE** : +2,5 % de dégâts par coup porté (max 10), perdue quand il est touché | FRAPPE SISMIQUE (onde basse) |
+| SHIN 流 | sabre, allonge +22 % | 1400 | **PRÉCISION** : +20 % au bout de la lame | COURANT TRANCHANT |
+| DAICHA 闇 | zoning | 1400 | **OMBRE INVERSÉE** : le dash vers l'adversaire (≤ 5 m) le traverse | SPHÈRE INVERSÉE (lente, énorme) |
+| HIBECARES 崩 | endurance | 1800 | **ROI DES RUINES** : jusqu'à +30 % de dégâts à 30 % de vie | MUR DE PIERRE (encaisse à moitié, même les bas, et riposte) |
+
+- Données et mécaniques (`MoveData`, `CombatSimulation`) : chaque kit associe les rôles de
+  KAI à ses propres coups (noms de la planche) ; TÉLÉPORTATION de DAICHA (réapparaît derrière),
+  CHARGE FRONTALE de RYUKEN, PAS DU VENT de SHIN ; `passiveBonus`, `crossed` (passer de
+  l'autre côté remet la poussée à zéro), parade `absorb` / `lows` du MUR DE PIERRE.
+- Corps en blocs : **chaque perso a sa propre tête et son propre corps** (`RigBuilder.BODIES`)
+  au lieu de la base de KAI : ZEPHYR, AKEMI, RYUKEN, SHIN, DAICHA, HIBECARES (TARO l'avait
+  déjà). Tenues sur avatar : gantelet fissuré qui luit (RYUKEN), katana et fourreau (SHIN),
+  sphère d'ombre et obi (DAICHA), poings de pierre et chaînes (HIBECARES). Deux styles de
+  couleurs chacun.
+- Poses R15 / R6 de chaque garde et de chaque coup (coupes de sabre, gestes d'ombre, coups
+  lourds, MUR DE PIERRE…) ; 4 poses de mise en scène : `Roar`, `Iai`, `Levitate`, `Colossus`.
+  La garde de DAICHA tend la sphère plus bas (en R6, le bras pointait vers le haut).
+- **12 ultimes et 4 scènes de K.O.**, chacun avec son langage de caméra et son étalonnage
+  (nouveaux : `rage`, `current`, `inverse`, `ruin`) — composés avec `frameOn`, vérifiés au
+  storyboard :
+  - RYUKEN : zooms brutaux, gros plans sur les poings, un impact à chaque coup —
+    FUREUR DU POING, EFFONDREMENT (cratère vu du ciel), 拳 DERNIER ROUND ; K.O. : poings qui
+    fument, rugissement, dos tourné.
+  - SHIN : longues focales, travellings latéraux, l'iai qui fige le temps, une seule ligne de
+    lame — DANSE DES COURANTS, TEMPÊTE CONTINUE, 零 ZÉRO HORIZON (une ligne d'un bout à
+    l'autre de l'horizon) ; K.O. : la lame rengainée, le clic qui ride le sol.
+  - DAICHA : angles penchés, plans en miroir, caméra à l'envers, soleil noir — DOMAINE
+    OBSCUR, RIVIÈRE D'OMBRES, 蝕 ÉCLIPSE TOTALE ; K.O. : l'ombre avale le corps.
+  - HIBECARES : contre-plongées monumentales, piliers de pierre, débris, secousses (`quake`)
+    — COLOSSE ÉVEILLÉ, CHÂTIMENT (soulevé et écrasé de chaque côté), 崩 RUINES DU MONDE ;
+    K.O. : décombres et poussière.
+  - Client : effets `rocks`, `debris`, `crack`, `cut`, `eclipse`, `smoke` ; storyboard : les
+    nouveaux étalonnages et effets, piliers triés en profondeur avec les corps.
+- HUD : jauge de chaque passif (RAGE ×N, OMBRE INVERSÉE prête / recharge, bonus du ROI DES
+  RUINES selon la vie, règle de PRÉCISION) via `Sim.passiveGauge` (champ `passive` du
+  snapshot) ; annonces « BOUT DE LAME ! », « MUR DE PIERRE ! −N », « OMBRE INVERSÉE ! » ;
+  liste des COMBOS avec chaque passif. Effets : ombre et flaque à la téléportation (elle
+  n'avait aucun effet), trait net au bout de la lame, débris sur le mur, corps de RYUKEN qui
+  chauffe avec la RAGE.
+- IA : DAICHA traverse l'adversaire à mi-distance ; HIBECARES lève son mur contre un
+  adversaire accroupi (un bas trop rapide pour être vu) et contre les bas qu'il voit venir.
+
+### Bruitages cohérents
+
+- Constat : le manifeste du client Roblox (dépôt public Roblox-Client-Tracker,
+  `rbxManifest.txt`) ne contient que **11 sons** ; `swordslash.wav`, `swordlunge.wav`,
+  `unsheath.wav` et `electronicpingshort.wav` n'y sont plus. Les sons d'épée (coups lourds,
+  élans), de garde, de parade, de super et le « ping » des QTE ne jouaient donc rien : seuls
+  les pas, sauts et chutes s'entendaient. De plus, un bruit d'épée servait aux poings et un
+  bruit de dégainage à la garde.
+- Nouvelle palette (`src/shared/SoundPalette.luau`, pur et testé) : uniquement ces 11 fichiers,
+  retravaillés (hauteur, durée coupée en fondu, bus de distorsion / écho / réverbération /
+  égaliseur). Un son par action, le même pour tous ; une **matière par perso** (poings de ki,
+  gants de cuir, pieds qui fendent le vent, main-lame de l'ombre, poings qui écrasent, lame
+  d'eau, ombre en écho, pierre) ; un coup lourd = la version lourde de la même matière ;
+  projectile propre à chaque perso ; pas plus lents pour HIBECARES. Aucun ID d'asset.
+
+### Tests
+
+- CombatSimulation 82, FighterAI 10 (+1 : DAICHA traverse, HIBECARES lève le mur),
+  CinematicDirector 246 (8 kits, signatures d'étalonnage), Animation 25 (listes étendues aux
+  8 kits), Kits 53 (+2 : jauge des passifs ; palette de sons : seulement les sons du client,
+  une matière par kit, un son par action), PressQueue 4, Fuzz 2 (tous les duels des 8 kits),
+  Cinematography 81 (cadrage de chaque ultime et K.O. avec le vrai rig), Lobby 5 ✅ ;
+  `rigcheck` ✅. Studio ❌ non exécuté.
+- Équilibrage (`luau tests/Balance.luau -a 4 120`, LÉGENDE, 120 matchs par duel) : KAI 48 %,
+  TARO 53 %, ZEPHYR 48 %, AKEMI 58 %, RYUKEN 56 %, SHIN 45 %, DAICHA 42 %, HIBECARES 51 %
+  (aucun sous 35 % ni au-dessus de 65 %). Duels les plus déséquilibrés : DAICHA contre TARO
+  35 %, contre KAI 37 %.
+
+### Problèmes ouverts / prochaine étape
+
+- Les sons sont tous des sons du client retravaillés : à écouter en jeu (le vent coupé court
+  sert de « whoosh » ; si un son est trop faible, ajuster `SoundPalette`). De vrais SFX de
+  Wilhem pourront remplacer les fichiers sans toucher au reste.
+- DAICHA est le plus faible des 8 (42 %) : à surveiller en vrai match.
+- Avatar : toujours à confirmer en jeu (ligne d'état et Output donnent la raison).
+- Prochaine étape : retours de Wilhem sur les 4 nouveaux en jeu (looks, cinématiques, sons).
+
 ## Version 0.9.8 — 1er octobre 2026
 
 Retours de Wilhem : « toujours pas possible de jouer avec mon avatar » ; « et le lobby

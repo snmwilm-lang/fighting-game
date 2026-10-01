@@ -15,6 +15,7 @@ local EffectsController = require(script.EffectsController)
 local CinematicController = require(script.CinematicController)
 local StageController = require(script.StageController)
 local SoundController = require(script.SoundController)
+local HubController = require(script.HubController)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
@@ -25,6 +26,7 @@ local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
 local stage = StageController.new(Config)
 local sounds = SoundController.new()
+HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onAvatar = input.toggleAvatar

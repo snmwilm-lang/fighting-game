@@ -34,7 +34,7 @@ match repart à zéro) ; en solo, à tout moment.
 | Perso | Style | Vie | Points forts | Points faibles | S + E |
 |---|---|---|---|---|---|
 | **KAI 開** | polyvalent : poings, pieds, ki | 1550 | rien de faible, boule de ki | rien d'extrême | KIKOHO (boule de ki) |
-| **TARO 火** | **boxeur** : que les poings | 1600 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
+| **TARO 火** | **boxeur** : que les poings | 1600 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
 | **ZEPHYR 風** | **que les pieds** | 1450 | **plus grande allonge** (+12 %), saut le plus haut, dégâts +5 % | coups qui démarrent un peu plus tard | LAME DE VENT (projectile) |
 | **AKEMI 影** | **esquive** | **1100** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −12 % | KUNAÏ (projectile) |
 
@@ -45,8 +45,8 @@ jamais contre les ultimes. Elle remet le neutre à zéro, elle ne donne pas de p
 gratuite ; pour la vider, un jab seul suffit.
 
 Chaque perso porte **sa tenue sur ton avatar Roblox** (R15 ou R6), taillée sur ses vraies
-pièces : KAI bandeau, ceinture et bandages ; TARO gants de boxe, short et ceinture de
-champion ; ZEPHYR longue écharpe au vent, protège-tibias ; AKEMI capuche, masque et
+pièces : KAI bandeau, ceinture et bandages ; TARO gants de boxe, short, ceinture de
+champion et serviette au cou ; ZEPHYR longue écharpe au vent, protège-tibias ; AKEMI capuche, masque et
 brassards. Kanji du perso dans le dos, 2 à 4 styles de couleurs chacun (bouton STYLE).
 
 ## Combos (L = clic gauche, R = clic droit)
@@ -103,6 +103,29 @@ esquives et coups instantanés. KAI garde les siennes (finale de l'éveil selon 
 L'éveil retire **95 % de la vie actuelle** ; sous **50 %** c'est un **FINAL FINISH** (K.O.) ;
 la finale change selon la route ; QTE en rythme pendant la rafale. La porte retire 40 % de la
 vie max (peut tuer) ; R pile au sommet : +10 %. Les ultimes ne sont ni esquivés ni parés.
+
+### TARO : esquive de buste et DEMPSEY ROLL
+
+- **Dash vers l'adversaire = esquive de buste** : TARO plonge sous la garde, les coups hauts
+  et moyens passent au-dessus de sa tête (« ESQUIVE ! », un peu de ki). Les coups bas, les
+  projectiles et les ultimes le touchent.
+- **Pendant l'esquive ou juste après** : **L** lance le **DEMPSEY ROLL**, des crochets en
+  huit gauche / droite qui avancent en esquivant à leur départ ; **L** encore (6 crochets
+  au plus), puis **R** pour le **CROCHET FINAL** (envoie au mur). **R** directement depuis
+  l'esquive : le crochet final seul.
+- Le contre : un coup bas, ou garder puis punir la fin du roll.
+
+## Jouer en 1 contre 1 avec un ami (HUB)
+
+Bouton **HUB** en haut à droite : les joueurs du serveur, **DÉFIER** (le défi dure 30 s),
+**ACCEPTER / REFUSER** (bandeau quand on te défie), **QUITTER LE COMBAT**, **JOUER** (quand
+personne ne combat) et **INVITER UN AMI** (l'invitation Roblox : ton ami arrive sur ton
+serveur). Le premier arrivé combat le CPU ; les suivants attendent au hub et regardent.
+
+Pour jouer en ligne, la place doit être publiée : dans Roblox Studio, **Fichier > Publier
+sur Roblox**, puis dans **Paramètres du jeu > Autorisations**, rendre le jeu public (ou
+réservé aux amis). Lance le jeu depuis sa page Roblox, ouvre le HUB et invite ton ami. Pour
+essayer à deux en local : **Test > Clients et serveurs**, 2 joueurs.
 
 ## Avatars R15 et R6
 
@@ -164,6 +187,8 @@ luau tests/Kits.test.luau
 luau tests/PressQueue.test.luau
 luau tests/Fuzz.test.luau            # entrées aléatoires, tous les duels : invariants
 luau tests/Cinematography.test.luau  # cadrage de chaque ultime avec le vrai rig
+luau tests/Lobby.test.luau           # règles du hub (défis, places)
+python3 tools/rigcheck.py check      # construit chaque perso (corps + tenues R15 / R6) hors Studio
 luau tests/Balance.luau -a 4 120   # rapport d'équilibrage CPU contre CPU (niveau, matchs)
 ```
 

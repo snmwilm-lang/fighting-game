@@ -1,5 +1,81 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.7 — 1er octobre 2026
+
+Demandes de Wilhem : « le chara design de TARO ressemble trop à celui de KAI » ; « rajoute
+des mécaniques de boxeur comme le Dempsey Roll » ; « gère aussi ces animations sur mon avatar
+R15 » ; « lance un hub pour que je puisse jouer en 1v1 avec un pote ».
+
+### TARO a son propre look
+
+- Avant : le modèle en blocs de TARO était celui de KAI (cheveux en pics, veste ouverte à
+  col, pantalon large, baskets) avec des gants, et sa palette BRASIER était noir / rouge
+  comme KAI. Maintenant (`RigBuilder.taroHead` / `taroBody`) : cheveux courts en **mèche
+  relevée**, nez scotché, cicatrice au sourcil, protège-dents ; **torse nu** musclé (pecs,
+  abdos, trapèzes) avec une **serviette autour du cou** et **火 tatoué dans le dos** ; avant-bras
+  bandés, **short de boxe** à bande latérale, **bottines de boxe lacées**. Palettes : BRASIER
+  = gants orange, short or, bottines noires, peau mate ; CHAMPION = blanc et or.
+- Sur avatar R15 / R6 : en plus des gants, du short et de la ceinture, la serviette au cou.
+- **Nouvel outil `tools/rigcheck.py`** (+ `tools/RobloxMock.luau`, une imitation des API
+  Roblox utilisées par RigBuilder) : construit chaque perso et chaque style hors Studio
+  (modèle en blocs, tenue sur un corps R6 et sur un corps R15), vérifie que chaque pièce est
+  attachée, de taille correcte et près du corps (`check`), et dessine une planche de design
+  face / dos (`render`). `tools/storyboard.py` accepte maintenant la couleur propre de
+  chaque pièce.
+
+### Mécaniques de boxeur (TARO)
+
+- **Esquive de buste** : le dash *vers l'adversaire* de TARO (`kit.Weave`) le fait plonger
+  sous la garde ; pendant le dash, les coups qui ne sont pas bas passent au-dessus
+  (événement `Slip`, « ESQUIVE ! », +12 de ki la première fois par coup, `SlipMeter`). Les
+  coups bas, les projectiles et les ultimes touchent. Le dash arrière n'esquive pas.
+- **DEMPSEY ROLL** : pendant l'esquive ou dans les 10 ticks qui suivent, **L** lance
+  `TaroDempseyL`, puis L enchaîne `TaroDempseyR`, `TaroDempseyL`… (crochets en huit qui
+  avancent, esquive des coups hauts sur leurs 5 premières images, 6 crochets au plus) ;
+  **R** : `TaroDempseyFinish` (crochet final, envoie au mur). R directement depuis l'esquive
+  = crochet final seul. L sans esquive reste le jab.
+- L'ancienne compétence de combo `TaroDempsey` s'appelle maintenant **RAFALE EN HUIT** (route
+  « HUIT ») pour ne pas confondre.
+- CPU : TARO utilise l'esquive + Dempsey (approche et combos), à tous les niveaux.
+- Animations : pose d'esquive propre à TARO (le buste roule en huit pendant le dash, champ
+  `weave` du snapshot), poses des deux crochets et du crochet final, traînées des poings.
+  Testées en **R15** (rig KAI et avatar aux proportions différentes) et en **R6** (retarget).
+- Client : arc blanc au-dessus de la tête au slip, annonce « ESQUIVE ! », son ; la liste des
+  COMBOS de TARO explique l'esquive et le Dempsey.
+
+### HUB : 1 contre 1 entre amis
+
+- `src/server/Lobby.luau` (pur, testé) : le premier arrivé combat le CPU, les suivants
+  attendent au hub et regardent ; **DÉFIER** (30 s), **ACCEPTER** (le défiant en place 1,
+  le défié en 2, les autres retournent au hub), **REFUSER**, **QUITTER LE COMBAT**, **JOUER**
+  (si personne ne combat) ; quand un combattant part, le premier joueur du hub prend la place.
+- Serveur : le lobby décide qui occupe les places (`sync`), remplace l'ancienne attribution
+  automatique (où le 2e joueur entrait d'office en versus). Télécommande `Hub` (actions
+  validées, anti-spam 0,4 s), statut envoyé à tous à chaque changement, défis expirés.
+- Client `HubController` : bouton **HUB** (en haut à droite), liste des joueurs avec leur
+  état, boutons DÉFIER / ACCEPTER, bandeau « X TE DÉFIE » avec compte à rebours,
+  **INVITER UN AMI** (invitation Roblox `SocialService:PromptGameInvite`, dans un pcall).
+- Pour jouer en ligne, la place doit être **publiée** (Studio : Publier sur Roblox, jeu
+  public ou réservé aux amis) — voir le README.
+
+### Tests
+
+- Nouveau `tests/Lobby.test.luau` (5) ; Kits 29 (+3 : esquive de buste et slip, Dempsey Roll
+  complet / limite / R seul / jab inchangé, esquive au départ des crochets) ; Animation 24
+  (+1 : esquive et Dempsey en R15 et R6, au sol, poing vers l'avant, buste qui roule).
+- CombatSimulation 80, FighterAI 9, CinematicDirector 126, PressQueue 4, Fuzz 2,
+  Cinematography 41 ✅ ; `python3 tools/rigcheck.py check` : tous les corps construits.
+  Studio ❌ non exécuté (le hub et l'invitation ne peuvent se vérifier qu'en jeu).
+- Équilibrage (`luau tests/Balance.luau -a 4 120`) : KAI 45 %, TARO 52 %, ZEPHYR 44 %,
+  AKEMI 58 % ; niveau 3 : 52 / 60 / 49 / 40.
+
+### Problèmes ouverts / prochaine étape
+
+- À vérifier en jeu : le hub à deux joueurs (Test > Clients et serveurs), l'invitation (ne
+  marche que sur une place publiée), la lisibilité du nouveau TARO en jeu.
+- Plusieurs combats en parallèle sur un même serveur (une seule arène aujourd'hui) et un
+  mode classé : à faire si besoin.
+
 ## Version 0.9.6 — 1er octobre 2026
 
 Retour de Wilhem : « en R6 tu peux faire mieux, vraiment beaucoup mieux ». Nouvel outil pour

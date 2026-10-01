@@ -1,0 +1,203 @@
+--[[
+	The hub screen: the players on this server, DÉFIER (challenge one to a 1v1), ACCEPTER /
+	REFUSER a challenge, QUITTER LE COMBAT, JOUER (when nobody fights) and INVITER UN AMI
+	(Roblox's invite prompt, to bring a friend into this server). The server decides
+	everything (src/server/Lobby.luau); this only shows its status and sends requests.
+]]
+local Players = game:GetService("Players")
+local SocialService = game:GetService("SocialService")
+
+local WHITE = Color3.fromHex("F5F5F7")
+local INK = Color3.fromHex("0B0B0E")
+local RED = Color3.fromHex("E0102B")
+local GOLD = Color3.fromHex("FFD23F")
+local GREY = Color3.fromHex("8A8A94")
+local DISPLAY = Enum.Font.Bangers
+local UI_FONT = Enum.Font.GothamBlack
+
+local HubController = {}
+HubController.__index = HubController
+
+local function new(className, props, parent)
+	local i = Instance.new(className)
+	for k, v in props do i[k] = v end
+	i.Parent = parent
+	return i
+end
+
+local function stroke(gui, thickness, color)
+	local s = new("UIStroke", { Thickness = thickness, Color = color or INK }, gui)
+	if gui:IsA("GuiButton") or gui:IsA("Frame") then s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border end
+	return s
+end
+
+local function button(parent, text, color, props)
+	local b = new("TextButton", {
+		Text = text, Font = UI_FONT, TextSize = 12, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
+		Size = UDim2.fromOffset(120, 28),
+	}, parent)
+	for k, v in props or {} do b[k] = v end
+	stroke(b, 1.5, color or RED)
+	return b
+end
+
+function HubController.new(remote)
+	local self = setmetatable({ remote = remote, status = {}, seconds = 30, shownChallenge = nil }, HubController)
+	local player = Players.LocalPlayer
+	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 8 }, player:WaitForChild("PlayerGui"))
+	-- HUB button, top right.
+	self.toggle = button(gui, "HUB", RED, {
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 112), Size = UDim2.fromOffset(110, 30), TextSize = 14,
+	})
+	-- Player list panel.
+	local panel = new("Frame", {
+		Name = "Players", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.08, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 148), Size = UDim2.fromOffset(330, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, gui)
+	stroke(panel, 2, RED)
+	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 10) }, panel)
+	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, panel)
+	self.panel = panel
+	self.toggle.Activated:Connect(function() panel.Visible = not panel.Visible end)
+	-- Incoming challenge banner.
+	local banner = new("Frame", {
+		Name = "Challenge", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.fromOffset(420, 96),
+	}, gui)
+	stroke(banner, 3, GOLD)
+	self.bannerText = new("TextLabel", {
+		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 40), Position = UDim2.fromOffset(8, 6),
+		Font = DISPLAY, TextSize = 30, TextColor3 = GOLD, TextScaled = true, Text = "",
+	}, banner)
+	self.bannerTimer = new("TextLabel", {
+		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 14), Position = UDim2.fromOffset(8, 44),
+		Font = UI_FONT, TextSize = 11, TextColor3 = GREY, Text = "",
+	}, banner)
+	self.acceptButton = button(banner, "ACCEPTER", GOLD, { Position = UDim2.new(0.5, -128, 0, 60), Size = UDim2.fromOffset(120, 28) })
+	self.declineButton = button(banner, "REFUSER", RED, { Position = UDim2.new(0.5, 8, 0, 60), Size = UDim2.fromOffset(120, 28) })
+	self.acceptButton.Activated:Connect(function()
+		if self.shownChallenge then self.remote:FireServer("accept", self.shownChallenge) end
+	end)
+	self.declineButton.Activated:Connect(function()
+		if self.shownChallenge then self.remote:FireServer("decline", self.shownChallenge) end
+		banner.Visible = false
+	end)
+	self.banner = banner
+	remote.OnClientEvent:Connect(function(packet)
+		if typeof(packet) ~= "table" then return end
+		self.status, self.seconds = packet.players or {}, packet.seconds or 30
+		self:render()
+	end)
+	task.spawn(function()
+		while gui.Parent do
+			task.wait(0.25)
+			self:tick()
+		end
+	end)
+	return self
+end
+
+-- Invite prompt of Roblox (a friend joins this server). Pcall: not available in Studio tests.
+function HubController:invite()
+	local player = Players.LocalPlayer
+	local ok, can = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
+	if ok and can then
+		pcall(SocialService.PromptGameInvite, SocialService, player)
+		return true
+	end
+	return false
+end
+
+function HubController:render()
+	local me = Players.LocalPlayer.UserId
+	local mine, fighting = nil, 0
+	for _, p in self.status do
+		if p.id == me then mine = p end
+		if p.slot > 0 then fighting += 1 end
+	end
+	self.toggle.Text = "HUB · " .. #self.status .. (if #self.status > 1 then " JOUEURS" else " JOUEUR")
+	for _, child in self.panel:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	local order = 0
+	local function line(props)
+		order += 1
+		props.LayoutOrder = order
+		props.BackgroundTransparency = 1
+		return new("Frame", props, self.panel)
+	end
+	local title = line({ Size = UDim2.new(1, 0, 0, 30) })
+	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = DISPLAY, TextSize = 28,
+		TextColor3 = WHITE, Text = "HUB · 1 CONTRE 1", TextXAlignment = Enum.TextXAlignment.Left }, title)
+	for _, p in self.status do
+		local row = line({ Size = UDim2.new(1, 0, 0, 30) })
+		local state = if p.slot > 0 then "EN COMBAT" else "AU HUB"
+		new("TextLabel", {
+			BackgroundTransparency = 1, Size = UDim2.new(1, -130, 1, 0), Font = UI_FONT, TextSize = 13,
+			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+			Text = (if p.id == me then "VOUS · " else "") .. p.name .. "  ·  " .. state,
+		}, row)
+		if p.id ~= me then
+			local challengedMe = p.sent == me
+			local sent = mine and mine.sent == p.id
+			local label = if challengedMe then "ACCEPTER" elseif sent then "DÉFI ENVOYÉ" else "DÉFIER"
+			local b = button(row, label, if challengedMe then GOLD else RED, {
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(120, 26),
+				AutoButtonColor = not sent, TextColor3 = if sent then GREY else WHITE,
+			})
+			b.Activated:Connect(function()
+				if challengedMe then
+					self.remote:FireServer("accept", p.id)
+				elseif not sent then
+					self.remote:FireServer("challenge", p.id)
+				end
+			end)
+		end
+	end
+	if #self.status <= 1 then
+		local hint = line({ Size = UDim2.new(1, 0, 0, 34) })
+		new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 11,
+			TextColor3 = GREY, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+			Text = "Personne d'autre ici. Invite un ami : il arrive sur ce serveur et peut te défier." }, hint)
+	end
+	local actions = line({ Size = UDim2.new(1, 0, 0, 28) })
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, actions)
+	local invite = button(actions, "INVITER UN AMI", GOLD, { Size = UDim2.fromOffset(140, 28) })
+	invite.Activated:Connect(function()
+		if not self:invite() then invite.Text = "INDISPONIBLE ICI" end
+	end)
+	if mine and mine.slot > 0 then
+		local quit = button(actions, "QUITTER LE COMBAT", RED, { Size = UDim2.fromOffset(150, 28) })
+		quit.Activated:Connect(function() self.remote:FireServer("quit") end)
+	elseif mine and fighting == 0 then
+		local play = button(actions, "JOUER", RED, { Size = UDim2.fromOffset(100, 28) })
+		play.Activated:Connect(function() self.remote:FireServer("play") end)
+	end
+	-- Incoming challenge: the most recent one is shown in the banner.
+	local from = mine and mine.from and mine.from[#mine.from]
+	if from ~= self.shownChallenge then
+		self.shownChallenge = from
+		self.challengeAt = os.clock()
+	end
+	if from then
+		local name = "?"
+		for _, p in self.status do
+			if p.id == from then name = p.name end
+		end
+		self.bannerText.Text = name .. " TE DÉFIE EN 1 CONTRE 1 !"
+		self.banner.Visible = true
+	else
+		self.banner.Visible = false
+	end
+end
+
+function HubController:tick()
+	if self.banner.Visible and self.challengeAt then
+		local left = math.max(0, math.ceil(self.seconds - (os.clock() - self.challengeAt)))
+		self.bannerTimer.Text = "Le défi expire dans " .. left .. " s · le combat commence dès que tu acceptes"
+	end
+end
+
+return HubController

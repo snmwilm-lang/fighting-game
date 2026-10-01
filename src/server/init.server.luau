@@ -10,6 +10,7 @@ local FighterAI = require(Shared.FighterAI)
 local PressQueue = require(Shared.PressQueue)
 local ArenaBuilder = require(script.ArenaBuilder)
 local RigBuilder = require(script.RigBuilder)
+local Lobby = require(script.Lobby)
 
 Players.CharacterAutoLoads = false
 ArenaBuilder.build()
@@ -25,6 +26,9 @@ local eventsRemote = Instance.new("RemoteEvent")
 eventsRemote.Name, eventsRemote.Parent = "Events", remotes
 local debugRemote = Instance.new("RemoteEvent")
 debugRemote.Name, debugRemote.Parent = "Debug", remotes
+-- Hub (lobby): client -> server (action, target user id), server -> clients (hub status).
+local hubRemote = Instance.new("RemoteEvent")
+hubRemote.Name, hubRemote.Parent = "Hub", remotes
 -- Parent last so clients see the folder with every remote already inside.
 remotes.Parent = ReplicatedStorage
 
@@ -164,51 +168,102 @@ local function rebuildSlot(i)
 	end
 end
 
-local function assign(player)
+-- Hub (see Lobby): who fights in slots 1 and 2 is the lobby's decision; this applies it to
+-- the slots and rigs, then tells every client.
+local lobby = Lobby.new()
+
+local function broadcastHub()
+	hubRemote:FireAllClients({ players = Lobby.status(lobby), seconds = Lobby.CHALLENGE_SECONDS })
+end
+
+local function sync()
+	local changed = false
+	-- Leave the slots first (a player may move from one slot to the other).
 	for i, slot in slots do
-		if not slot.owner then
-			slot.owner = player
-			clients[player].slot = i
-			player:SetAttribute("FighterSlot", i)
-			local previousCharacter = player.Character
-			if previousCharacter and previousCharacter ~= slot.model then previousCharacter:Destroy() end
-			player.Character = slot.model
-			resetAll()
-			-- Roblox avatars by default: the player's own (R15 or R6), the empty slot its shadow.
-			if clients[player].avatar then
-				rebuildSlot(i)
-				if not slots[3 - i].owner then rebuildSlot(3 - i) end
-			end
-			return
+		local want = lobby.slots[i] and Players:GetPlayerByUserId(lobby.slots[i])
+		local owner = slot.owner
+		if owner and owner ~= want then
+			slot.owner = nil
+			if clients[owner] then clients[owner].slot = nil end
+			owner:SetAttribute("FighterSlot", 0)
+			if owner.Character == slot.model then owner.Character = nil end
+			changed = true
 		end
 	end
-	if player.Character then player.Character:Destroy(); player.Character = nil end
-	player:SetAttribute("FighterSlot", 0)
+	for i, slot in slots do
+		local want = lobby.slots[i] and Players:GetPlayerByUserId(lobby.slots[i])
+		if want and clients[want] and slot.owner ~= want then
+			slot.owner = want
+			clients[want].slot = i
+			want:SetAttribute("FighterSlot", i)
+			local previous = want.Character
+			if previous and previous ~= slots[1].model and previous ~= slots[2].model then previous:Destroy() end
+			want.Character = slot.model
+			changed = true
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		local client = clients[player]
+		if client and not client.slot then
+			if player:GetAttribute("FighterSlot") ~= 0 then player:SetAttribute("FighterSlot", 0) end
+			if player.Character and player.Character ~= slots[1].model and player.Character ~= slots[2].model then
+				player.Character:Destroy()
+				player.Character = nil
+			end
+		end
+	end
+	if changed then
+		-- Own avatars on the players' slots, the CPU's shadow clone / block on an empty one.
+		for i = 1, 2 do rebuildSlot(i) end
+		resetAll()
+	end
+	broadcastHub()
 end
 
 local function joined(player)
 	if clients[player] then return end
 	clients[player] = {
 		tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge,
-		lastAvatar = -math.huge, lastSeq = 0, avatar = true, rig = nil,
+		lastAvatar = -math.huge, lastSeq = 0, avatar = true, rig = nil, lastHub = -math.huge,
 	}
 	player:SetAttribute("Avatar", true)
-	assign(player)
+	player:SetAttribute("FighterSlot", 0)
+	Lobby.join(lobby, player.UserId, player.DisplayName)
+	sync()
 end
 Players.PlayerAdded:Connect(joined)
 Players.PlayerRemoving:Connect(function(player)
-	local client = clients[player]
-	if client and client.slot then
-		local slot = slots[client.slot]
-		player.Character = nil
-		slot.owner = nil
-		clients[player] = nil
-		rebuildSlot(client.slot) -- the freed slot becomes the CPU / dummy again
-		resetAll()
-	end
+	-- The lobby frees the slot (the CPU / dummy takes it, or a player waiting in the hub).
+	Lobby.leave(lobby, player.UserId)
+	sync()
 	clients[player] = nil
-	for _, spectator in Players:GetPlayers() do
-		if spectator ~= player and clients[spectator] and not clients[spectator].slot then assign(spectator) end
+end)
+
+-- DÉFIER, ACCEPTER, REFUSER, QUITTER LE COMBAT, JOUER (see Lobby for the rules).
+local HUB_ACTIONS = { challenge = true, accept = true, decline = true, quit = true, play = true }
+hubRemote.OnServerEvent:Connect(function(player, action, target)
+	local client = clients[player]
+	if not client or typeof(action) ~= "string" or not HUB_ACTIONS[action] then return end
+	if target ~= nil and (typeof(target) ~= "number" or target % 1 ~= 0) then return end
+	local now = os.clock()
+	if now - client.lastHub < 0.4 then return end
+	client.lastHub = now
+	local id = player.UserId
+	local ok
+	if action == "challenge" then ok = target ~= nil and Lobby.challenge(lobby, id, target, now)
+	elseif action == "accept" then ok = target ~= nil and Lobby.accept(lobby, id, target, now)
+	elseif action == "decline" then ok = target ~= nil and Lobby.decline(lobby, id, target)
+	elseif action == "quit" then ok = Lobby.quit(lobby, id)
+	else ok = Lobby.play(lobby, id) end
+	if ok then sync() end
+end)
+-- Challenges time out (CHALLENGE_SECONDS).
+task.spawn(function()
+	while true do
+		task.wait(1)
+		local before = next(lobby.challenges) ~= nil
+		Lobby.expire(lobby, os.clock())
+		if before and next(lobby.challenges) == nil then broadcastHub() end
 	end
 end)
 for _, player in Players:GetPlayers() do joined(player) end

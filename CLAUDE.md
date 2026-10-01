@@ -11,8 +11,8 @@
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,
-  `luau tests/PressQueue.test.luau`, `luau tests/Fuzz.test.luau` et
-  `luau tests/Cinematography.test.luau` après chaque changement, et
+  `luau tests/PressQueue.test.luau`, `luau tests/Fuzz.test.luau`,
+  `luau tests/Cinematography.test.luau` et `luau tests/Lobby.test.luau` après chaque changement, et
   ajouter un test pour chaque règle de combat, plan de caméra ou animation nouvelle (poses :
   pieds au sol, limites des articulations, pas de glissade ; R15 et R6). Juger le R6 avec la
   planche `luau tests/PoseSheet.luau -a KIT` (puis `python3 tools/storyboard.py`).
@@ -23,6 +23,9 @@
 - Cinématiques : composer les plans avec `frameOn` (angle, plongée, part de l'écran), jamais
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).
+- `src/server/Lobby.luau` (règles du hub) reste pur aussi. Après une retouche de
+  `RigBuilder.luau` (corps, tenues), lancer `python3 tools/rigcheck.py check` (et
+  `python3 tools/rigcheck.py render rigs.png` pour voir les persos).
 - La géométrie du rig KAI vit dans `RigSpec.luau` (utilisée par le RigBuilder et les tests) :
   ne pas la dupliquer.
 - Le client ne décide jamais d'un coup, de la vie ni du KO ; les effets sont cosmétiques.

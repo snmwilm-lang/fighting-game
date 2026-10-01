@@ -251,6 +251,30 @@ Poses.Sheathe = blind(feet({
 	LeftShoulder = { 20, 0, -12 }, LeftElbow = { 95, 0, 0 },
 	RightShoulder = { -14, 0, 24 }, RightElbow = { 40, 0, 0 },
 }, -0.2, 0.3, 0, 0, 8))
+-- RYUKEN: the roar of RAGE, fists clenched low and out, chest forward, head thrown back.
+Poses.Roar = blind(feet({
+	Root = { 0, 0, 0, -0.55, 0 }, Waist = { 16, 0, 0 }, Neck = { -24, 0, 0 },
+	LeftShoulder = { -8, 0, -34 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { -8, 0, 34 }, RightElbow = { 70, 0, 0 },
+}, -0.3, 0.4, 0, 0, 22))
+-- SHIN: iai, crouched low, the right hand on the hilt at the left hip, eyes on the target.
+Poses.Iai = blind(feet({
+	Root = { 0, 18, 0, -0.95, 0 }, Waist = { -16, 18, 0 }, Neck = { 14, -20, 0 },
+	LeftShoulder = { 10, 0, -10 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 34, 0, -30 }, RightElbow = { 95, 0, 0 },
+}, -0.85, 0.95, 0, -18, 10))
+-- DAICHA: arms open, palms down, perfectly still while the shadows rise around him.
+Poses.Levitate = blind(feet({
+	Root = { 0, 0, 0, -0.05, 0 }, Waist = { 6, 0, 0 }, Neck = { 8, 0, 0 },
+	LeftShoulder = { 30, 0, -62 }, LeftElbow = { 20, 0, 0 },
+	RightShoulder = { 30, 0, 62 }, RightElbow = { 20, 0, 0 },
+}, -0.08, 0.1, 0, 0, 6))
+-- HIBECARES: the king of ruins, wide and planted, both fists joined in front of the belly.
+Poses.Colossus = blind(feet({
+	Root = { 0, 0, 0, -0.75, 0 }, Waist = { -10, 0, 0 }, Neck = { 12, 0, 0 },
+	LeftShoulder = { 40, 0, 30 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 40, 0, -30 }, RightElbow = { 70, 0, 0 },
+}, -0.35, 0.4, 0, 0, 26))
 
 -- ===================================================================== attacks
 -- Startup (anticipation), Active (contact), optional Active2 (second beat of a multi-hit),
@@ -1054,7 +1078,7 @@ local SHIN_CROUCH = feet(merge(SHIN, { Root = { 0, 12, 0, -1.0, 0 }, Waist = { -
 -- DAICHA 闇 · upright and calm, the left hand out with its sphere, the right at the hip.
 local DAICHA = feet({
 	Root = { 0, 6, 0, -0.2, 0.05 }, Waist = { 4, 14, 0 }, Neck = { -4, -12, 0 },
-	LeftShoulder = { 78, 0, 6 }, LeftElbow = { 30, 0, 0 },
+	LeftShoulder = { 46, 0, 6 }, LeftElbow = { 30, 0, 0 },
 	RightShoulder = { 10, 0, -20 }, RightElbow = { 70, 0, 0 },
 }, -0.55, 0.6, 0, -4, 7)
 local DAICHA_CROUCH = feet(merge(DAICHA, { Root = { 0, 6, 0, -0.95, 0 }, Waist = { -18, 14, 0 } }), -0.55, 0.7, 0, -10, 8)
@@ -1099,7 +1123,7 @@ Poses.Kits.SHIN = {
 }
 Poses.Kits.DAICHA = {
 	STANCE = DAICHA,
-	Idle = { DAICHA, merge(DAICHA, { Root = { 0, 6, 0, -0.25, 0.05 }, LeftShoulder = { 82, 0, 6 }, LeftElbow = { 24, 0, 0 } }) },
+	Idle = { DAICHA, merge(DAICHA, { Root = { 0, 6, 0, -0.25, 0.05 }, LeftShoulder = { 50, 0, 6 }, LeftElbow = { 26, 0, 0 } }) },
 	Crouch = DAICHA_CROUCH,
 	Block = feet(merge(DAICHA, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.35, 0 } })), -0.55, 0.6, 0, -6, 7),
 	CrouchBlock = merge(DAICHA_CROUCH, GUARD_ARMS),

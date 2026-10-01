@@ -214,7 +214,8 @@ end
 
 test("every character's cinematics are its own: no shot shared between kits or ultimates", function()
 	local owner = {}
-	local SIGNATURE = { TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow" }
+	local SIGNATURE = { TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow", RYUKEN = "rage", SHIN = "current", DAICHA = "inverse",
+		HIBECARES = "ruin" }
 	for _, kit in MoveData.KitOrder do
 		for _, kind in { "Rush", "Awaken", "Gate" } do
 			local shots, frames, grades = survey(kind, kit, MoveData.Kits[kit].FullRoutes[1].name)
@@ -280,7 +281,8 @@ test("match-winning K.O. scene is well placed for every kit, both winners and ne
 end)
 
 test("each kit has its own K.O. scene: own shots, own grade, ends on K.O.", function()
-	local owners, grades = {}, { KAI = nil, TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow" }
+	local owners, grades = {}, { KAI = nil, TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow", RYUKEN = "rage", SHIN = "current",
+		DAICHA = "inverse", HIBECARES = "ruin" }
 	for _, kit in MoveData.KitOrder do
 		local anchors, shots, graded, ended = {}, {}, false, false
 		for t = 0, Director.KO_SCENE do

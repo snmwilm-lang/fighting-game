@@ -874,8 +874,7 @@ kit("HIBECARES", {
 })
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)
 MoveData.Kits = table.freeze(Kits)
--- (RYUKEN, SHIN, DAICHA and HIBECARES join the order once their looks and cinematics are in)
-MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI" })
+MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES" })
 
 -- KAI's tables, kept for code written before the kits.
 MoveData.Starters = Kits.KAI.Starters

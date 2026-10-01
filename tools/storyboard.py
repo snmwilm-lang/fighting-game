@@ -115,13 +115,25 @@ def render_frame(fr, label):
             col = tuple(int(base[i]*light) for i in range(3))
             depth = dot(sub(c, cam), fwd)
             faces.append((depth, [p[:2] for p in pp], col, ghost))
+    # stone pillars (HIBECARES) are solid: sorted with the bodies, on the far half of their ring
+    for fx in fr['fx']:
+        if fx['kind'] != 'rocks': continue
+        pos, n, rr = fx['pos'], max(3, int(fx['scale'])), fx['radius']
+        for i in range(n):
+            an = math.pi * (i + 0.5) / n
+            bx, bz = pos[0] + math.cos(an)*rr, pos[2] - math.sin(an)*rr
+            h = 3 + ((i*37) % 7) * 0.7
+            pts3 = [(bx-0.6, 0, bz), (bx+0.6, 0, bz), (bx+0.5, h, bz), (bx-0.5, h, bz)]
+            pp = [proj(p) for p in pts3]
+            if all(pp):
+                faces.append((dot(sub((bx, h/2, bz), cam), fwd), [q[:2] for q in pp], (110,98,88), False))
     faces.sort(key=lambda x: -x[0])
     for depth, pts, col, ghost in faces:
         d.polygon(pts, fill=col + (255,), outline=(11,11,14,255))
     # effects
     for fx in fr['fx']:
         age, col, k = fx['age'], fx['color'], fx['kind']
-        a = max(40, 255 - age*14) if k not in ('gate','crescent','kanjiSeal') else 220
+        a = max(40, 255 - age*14) if k not in ('gate','crescent','kanjiSeal','rocks','eclipse') else 220
         rgba = col + (a,)
         pos = fx['pos']
         def poly3(pts3, width=3, close=False):
@@ -167,7 +179,35 @@ def render_frame(fr, label):
         elif k == 'dust':
             p = proj(pos)
             if p: d.ellipse([p[0]-8, p[1]-4, p[0]+8, p[1]+4], fill=(200,190,190,a//2))
-    g = fr['grade'] + '000'
+        elif k == 'smoke':
+            p = proj((pos[0], pos[1] + age*0.08, pos[2]))
+            if p: d.ellipse([p[0]-6, p[1]-6, p[0]+6, p[1]+6], fill=(140,138,144,a//2))
+        elif k == 'debris':
+            s = fx['scale']
+            for i in range(7):
+                an = i * 0.9
+                pr = (pos[0] + math.cos(an)*age*0.25*s, pos[1] + age*0.35*s - (age*0.06)**2*4, pos[2] + math.sin(an)*0.6)
+                p = proj(pr)
+                if p: d.rectangle([p[0]-3, p[1]-3, p[0]+3, p[1]+3], fill=(122,109,98,a))
+        elif k == 'crack':
+            fr0, to = fx['from'], fx['to']
+            pts3 = []
+            for i in range(8):
+                t = i/7
+                j = 0 if i in (0,7) else (0.35 if i%2 else -0.35)
+                pts3.append((fr0[0]+(to[0]-fr0[0])*t + j, 0.05, fr0[2]+(to[2]-fr0[2])*t - j))
+            poly3(pts3, 3)
+        elif k == 'cut':
+            poly3([fx['from'], fx['to']], 5)
+            rgba = (255,255,255,a)
+            poly3([fx['from'], fx['to']], 2)
+        elif k == 'eclipse':
+            p, edge = proj(pos), proj((pos[0] + 4.5*fx['scale'], pos[1], pos[2]))
+            if p and edge:
+                r = abs(edge[0] - p[0]) or 4
+                d.ellipse([p[0]-r*1.18, p[1]-r*1.18, p[0]+r*1.18, p[1]+r*1.18], fill=col + (150,))
+                d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=(7,4,12,255))
+    g = fr['grade'] + '0000000000'
     if g[2] == '1': img = img.convert('L').convert('RGB')
     elif g[1] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,10,20)), 0.45)
     elif g[0] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (255,120,125)), 0.25)
@@ -175,6 +215,10 @@ def render_frame(fr, label):
         if g[3] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (255,150,60)), 0.28)   # fire
         if g[4] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (150,210,255)), 0.3)   # sky
         if g[5] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (40,20,70)), 0.45)     # shadow
+        if g[6] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (255,90,60)), 0.3)     # rage
+        if g[7] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,170,215)), 0.35)  # current
+        if g[8] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,30,170)), 0.42)   # inverse
+        if g[9] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (190,160,110)), 0.38)  # ruin
     d = ImageDraw.Draw(img, 'RGBA')
     if fr.get('speed'):
         for i in range(28):

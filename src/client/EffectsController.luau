@@ -635,6 +635,118 @@ function EffectsController:gateShatter(gate, color)
 	Debris:AddItem(gate, 3)
 end
 
+-- HIBECARES: stone pillars bursting out of the floor on the far half of a ring around
+-- `center` (the near half would hide the fighters). Returns the model for cleanup.
+function EffectsController:rocks(center, radius, count, color)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Rocks", self.folder
+	local stone = Color3.fromHex("6E6258")
+	count = if self.reduced then math.max(3, count // 2) else count
+	for i = 1, count do
+		local angle = math.pi * (i - 0.5) / count
+		local height = 3 + ((i * 37) % 7) * 0.7
+		local width = 1.2 + ((i * 13) % 5) * 0.25
+		local base = center + Vector3.new(math.cos(angle) * radius, 0, -math.sin(angle) * radius)
+		local tilt = CFrame.Angles(math.rad((i * 17) % 21 - 10), math.rad(i * 47), math.rad((i * 29) % 19 - 9))
+		local final = CFrame.new(base + Vector3.new(0, height / 2 - 0.3, 0)) * tilt
+		local rock = self:part(Vector3.new(width, height, width * 0.9), final - Vector3.new(0, height, 0), stone)
+		rock.Material, rock.Parent = Enum.Material.Slate, model
+		tween(rock, 0.25, { CFrame = final }, Enum.EasingStyle.Back)
+		local glow = self:part(Vector3.new(width * 1.6, 0.08, width * 1.6), CFrame.new(base + Vector3.new(0, 0.06, 0)), color)
+		glow.Transparency, glow.Parent = 0.3, model
+		tween(glow, 0.8, { Transparency = 1 })
+	end
+	self:dust(center.X, 0, 1)
+	self:dust(center.X, 0, -1)
+	return model
+end
+
+-- Chunks of stone flung out of the floor, a few glowing (client-side physics only).
+function EffectsController:debris(position, color, scale)
+	local stone = Color3.fromHex("7A6D62")
+	for i = 1, if self.reduced then 4 else 9 do
+		local size = (0.35 + math.random() * 0.6) * scale
+		local spot = position + Vector3.new((math.random() - 0.5) * 2, 0.3, (math.random() - 0.5) * 1.2)
+		local glowing = i % 4 == 0
+		local chunk = self:part(Vector3.new(size, size * 0.8, size), CFrame.new(spot) * CFrame.Angles(math.random() * 6, math.random() * 6,
+			math.random() * 6), if glowing then color else stone)
+		chunk.Material = if glowing then Enum.Material.Neon else Enum.Material.Slate
+		chunk.Anchored = false
+		chunk.AssemblyLinearVelocity = Vector3.new((math.random() - 0.5) * 30, 18 + math.random() * 22, (math.random() - 0.5) * 12)
+			* math.sqrt(scale)
+		chunk.AssemblyAngularVelocity = Vector3.new(math.random() * 10, math.random() * 10, math.random() * 10)
+		tween(chunk, 1.2, { Transparency = 1 }, Enum.EasingStyle.Quint)
+		Debris:AddItem(chunk, 1.3)
+	end
+end
+
+-- A glowing fissure running along the floor from one point to another.
+function EffectsController:crack(from, to, color)
+	local side = (to - from):Cross(Vector3.yAxis)
+	side = if side.Magnitude > 1e-3 then side.Unit else Vector3.xAxis
+	local points, segments = { from }, if self.reduced then 4 else 7
+	for i = 1, segments - 1 do
+		table.insert(points, from:Lerp(to, i / segments) + side * (math.random() - 0.5) * 0.9)
+	end
+	table.insert(points, to)
+	for i = 1, #points - 1 do
+		local p0, p1 = points[i], points[i + 1]
+		task.delay((i - 1) * 0.025, function()
+			local length = (p1 - p0).Magnitude
+			local seg = self:part(Vector3.new(0.28, 0.05, length + 0.1), CFrame.lookAt((p0 + p1) / 2, p1), if i % 3 == 0 then WHITE else color)
+			tween(seg, 1.4, { Transparency = 1, Size = Vector3.new(0.05, 0.05, length + 0.1) })
+			Debris:AddItem(seg, 1.5)
+		end)
+	end
+end
+
+-- SHIN: a perfectly straight line of light, a white core in a coloured sheath that flashes
+-- wide and fades.
+function EffectsController:cut(from, to, color)
+	local length = (to - from).Magnitude
+	if length < 1e-3 then return end
+	local up = if math.abs((to - from).Unit.Y) > 0.95 then Vector3.zAxis else Vector3.yAxis
+	local placed = CFrame.lookAt((from + to) / 2, to, up)
+	local sheath = self:part(Vector3.new(0.5, 0.5, length), placed, color)
+	sheath.Transparency = 0.2
+	tween(sheath, 0.35, { Size = Vector3.new(0.02, 1.6, length * 1.02), Transparency = 1 })
+	Debris:AddItem(sheath, 0.4)
+	local core = self:part(Vector3.new(0.12, 0.12, length), placed, WHITE)
+	tween(core, 0.25, { Size = Vector3.new(0.01, 0.01, length), Transparency = 1 })
+	Debris:AddItem(core, 0.3)
+end
+
+-- DAICHA: a black sun with a burning corona. Returns it for cleanup; gone after `life`
+-- seconds, or kept until the end of the scene.
+function EffectsController:eclipse(center, color, scale, life)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Eclipse", self.folder
+	local size = 9 * scale
+	local corona = self:part(Vector3.one * size * 1.18, CFrame.new(center), color, Enum.PartType.Ball)
+	corona.Transparency, corona.Parent = 1, model
+	tween(corona, 0.6, { Transparency = 0.35 })
+	local sun = self:part(Vector3.one * 0.5, CFrame.new(center + Vector3.new(0, 0, 0.6 * scale)), Color3.fromHex("07040C"), Enum.PartType.Ball)
+	sun.Material, sun.Parent = Enum.Material.SmoothPlastic, model
+	tween(sun, 0.8, { Size = Vector3.one * size }, Enum.EasingStyle.Quart)
+	local glow = Instance.new("PointLight")
+	glow.Color, glow.Range, glow.Brightness = color, 30 * scale + 10, 3
+	glow.Parent = corona
+	if life then Debris:AddItem(model, life) end
+	return model
+end
+
+-- A few grey puffs rising (RYUKEN's smoking fists).
+function EffectsController:smoke(position)
+	for _ = 1, if self.reduced then 2 else 4 do
+		local puff = self:part(Vector3.one * 0.4, CFrame.new(position + Vector3.new((math.random() - 0.5) * 0.4, 0, (math.random() - 0.5) * 0.4)),
+			Color3.fromHex("8C8A90"), Enum.PartType.Ball)
+		puff.Material, puff.Transparency = Enum.Material.SmoothPlastic, 0.35
+		tween(puff, 0.9, { Position = puff.Position + Vector3.new((math.random() - 0.5) * 0.6, 1.6 + math.random(), 0),
+			Size = Vector3.one * 1.3, Transparency = 1 })
+		Debris:AddItem(puff, 1)
+	end
+end
+
 -- Debug display of hurtboxes (green) and live hitboxes (red), from the shared simulation math.
 function EffectsController:drawDebug(slot, view)
 	local boxes = self.debugParts[slot]

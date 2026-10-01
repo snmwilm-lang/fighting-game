@@ -13,8 +13,10 @@
 
 	frame = {
 		shot = { name, from, to, fov, roll, focus },  -- points: { slot, part, offset } or { position }
-		grade = { crimson, void, mono, fire, sky, shadow }, -- colour grading switches
+		grade = { crimson, void, mono, fire, sky, shadow, -- colour grading switches
+			rage, current, inverse, ruin },
 		handheld = number?,                           -- constant camera sway (TARO)
+		quake = number?,                              -- a jolt of the camera (HIBECARES' blows)
 		kanjiBack = text?, title = { text, color, sub }?, hideTitle = bool?,
 		fx = { { key, kind, ... } },                  -- effect requests, played once per key
 		aura = slot?, fade = bool?,
@@ -71,8 +73,10 @@ local function smooth(t)
 end
 
 local function newFrame()
-	-- Grades: crimson / void (KAI), fire (TARO), sky (ZEPHYR), shadow (AKEMI), mono.
-	return { grade = { crimson = false, void = false, mono = false, fire = false, sky = false, shadow = false }, fx = {} }
+	-- Grades: crimson / void (KAI), fire (TARO), sky (ZEPHYR), shadow (AKEMI), rage (RYUKEN),
+	-- current (SHIN), inverse (DAICHA), ruin (HIBECARES), mono.
+	return { grade = { crimson = false, void = false, mono = false, fire = false, sky = false, shadow = false,
+		rage = false, current = false, inverse = false, ruin = false }, fx = {} }
 end
 
 -- The attacker's kit (MoveData.Kits): every kit stages its ultimates with its own moves
@@ -1140,6 +1144,868 @@ function KIT.AKEMI.Gate(ctx, frame, a, d, tick, dir)
 	end
 end
 
+-- ---------------------------------------------------------------- second sheet
+--[[
+	The four fighters of Wilhem's second sheet, each with its own film language too:
+	  RYUKEN 拳    brute force: crash zooms, extreme close-ups on the fists, an impact frame
+	              on every blow, low angles, rage grade (hot red, hard contrast).
+	              1 FUREUR DU POING · 2 EFFONDREMENT · 3 拳 DERNIER ROUND
+	  SHIN 流      the blade: long lenses, smooth lateral tracking, few cuts, the iai freeze,
+	              clean straight lines of light; current grade (cold steel blue).
+	              1 DANSE DES COURANTS · 2 TEMPÊTE CONTINUE · 3 零 ZÉRO HORIZON
+	  DAICHA 闇    inverted space: dutch angles, mirrored jump cuts, the camera upside down,
+	              a black sun; inverse grade (deep violet).
+	              1 DOMAINE OBSCUR · 2 RIVIÈRE D'OMBRES · 3 蝕 ÉCLIPSE TOTALE
+	  HIBECARES 崩 the colossus: monumental low angles, stone pillars, dust and debris, the
+	              deck shaking under every blow; ruin grade (dusty sepia).
+	              1 COLOSSE ÉVEILLÉ · 2 CHÂTIMENT · 3 崩 RUINES DU MONDE
+]]
+
+-- Stone pillars bursting out of the floor on the far half of a ring (never between the
+-- camera and the fighters).
+local function rocks(frame, key, cx, radius, count, color)
+	table.insert(frame.fx, { key = key, kind = "rocks", pos = v(cx, 0, 0), radius = radius, count = count, color = color, keep = true })
+end
+
+local function debris(frame, key, pos, color, scale)
+	table.insert(frame.fx, { key = key, kind = "debris", pos = pos, color = color, scale = scale or 1 })
+end
+
+-- A glowing fissure along the floor.
+local function crack(frame, key, from, to, color)
+	table.insert(frame.fx, { key = key, kind = "crack", from = from, to = to, color = color })
+end
+
+-- A perfectly straight line of light (a blade cut).
+local function slash(frame, key, from, to, color)
+	table.insert(frame.fx, { key = key, kind = "cut", from = from, to = to, color = color })
+end
+
+-- A black sun with a burning corona; `life` seconds, else until the end of the scene.
+local function eclipse(frame, key, pos, color, scale, life)
+	table.insert(frame.fx, { key = key, kind = "eclipse", pos = pos, color = color, scale = scale or 1, life = life, keep = life == nil })
+end
+
+-- ---------------------------------------------------------------- RYUKEN 拳 · force
+
+local RYUKEN_FISTS = { "Jab", "Cross", "BodyBlow", "Elbow", "Uppercut", "Cross", "Kick", "PalmStrike" }
+
+KIT.RYUKEN = {}
+
+-- FUREUR DU POING: the roar, CHARGE FRONTALE across the deck, a barrage where every blow is
+-- an impact frame and a crash cut (tight on the fist / wide), the cocked fist seen from the
+-- floor, the giant punch that blasts the target away, steam rising off the gauntlet.
+function KIT.RYUKEN.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.rage = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	local k = hitsBefore(data.Hits, tick)
+	if tick < 14 then
+		a.x, a.facing, a.pose = cx - dir * 6, dir, "Roar"
+		frame.aura = A
+		if tick % 4 == 0 then ring(frame, "fureur-roar" .. tick, a.x, 1.2 + tick * 0.2, 0.15, color) end
+		frame.shot = frameOn("ryuken-fureur-roar", dir, { a }, { yaw = 30, pitch = -18, fill = lerp(0.9, 1.05, tick / 14), fov = 40,
+			band = "bust", focus = P(A, "Head") })
+	elseif tick < data.Hits[1] then
+		-- CHARGE FRONTALE, shoulder first; the camera waits in front of him.
+		a.x, a.facing = lerp(cx - dir * 6, cx - dir * 2.4, progress(tick, 14, data.Hits[1]) ^ 2), dir
+		attack(a, moves, role(ctx, "Rising"), true)
+		frame.speedLines = color
+		table.insert(frame.fx, { key = "fureur-charge" .. tick // 4, kind = "dust", pos = v(a.x, 0, 0), direction = dir })
+		frame.shot = frameOn("ryuken-fureur-charge", dir, { a, d }, { yaw = 64, pitch = -6, fill = 0.8, fov = 46, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick - 18 then
+		a.x, a.facing = cx - dir * 2.4, dir
+		attack(a, moves, role(ctx, RYUKEN_FISTS[(k - 1) % #RYUKEN_FISTS + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 6 then 1 else 0
+		if tick - data.Hits[k] < 2 then frame.impact = { key = "fureur-hit" .. k, color = color } end
+		spark(frame, "fureur-hit" .. k, v(cx - dir * 0.5, 3.2 + (k % 3) * 0.5, 0.6), color, 1.8)
+		if k >= 6 then crack(frame, "fureur-crack", v(cx, 0.05, 0), v(cx + dir * 5, 0.05, 1.5), color) end
+		if k % 2 == 1 then
+			frame.shot = frameOn("ryuken-fureur-fist", dir, { a, d }, { yaw = 48, pitch = -6, fill = 1.05, fov = 34, band = "bust",
+				roll = -8, focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn("ryuken-fureur-wide", dir, { a, d }, { yaw = -22, pitch = 10, fill = 0.62, fov = 44, roll = 6,
+				focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		-- The cocked fist: a crash zoom from the floor.
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Smash"), false)
+		spark(frame, "fureur-cock", v(a.x - dir * 0.7, 3.2, 0.6), color, 2)
+		frame.shot = frameOn("ryuken-fureur-cock", dir, { a, d }, { yaw = -40, pitch = -14,
+			fill = lerp(0.8, 1.12, smooth(progress(tick, data.FinalTick - 18, data.FinalTick))), fov = 38, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 14 then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Smash"), true)
+		impact(frame, "fureur-giant", v(cx, 3.4, 0.6), color, 3.4)
+		debris(frame, "fureur-debris", v(cx, 0.5, 0), color, 1.4)
+		frame.shot = frameOn("ryuken-fureur-giant", dir, { a, d }, { yaw = 6, pitch = 4, fill = 0.5, fov = 46, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 2.6, dir, "Roar"
+		if tick % 6 == 0 then
+			table.insert(frame.fx, { key = "fureur-steam" .. tick, kind = "smoke", pos = v(a.x + dir * 0.7, 2.4, 0.4) })
+		end
+		frame.shot = frameOn("ryuken-fureur-steam", dir, { a }, { yaw = 34, pitch = -22, fill = 0.82, fov = 42, focus = P(A, "Head") })
+	end
+end
+
+-- EFFONDREMENT: the cracked gauntlet in close-up, a blow on the floor that sends cracks to
+-- the target, the charge, body blows until it drops to one knee, the leap seen from the
+-- floor, the crater seen from straight above, RYUKEN standing in it.
+function KIT.RYUKEN.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local last = data.Hits[#data.Hits]
+	frame.grade.crimson, frame.grade.rage = false, true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 24 then
+		frame.kanjiBack = ctx.characters[A].Kanji
+		a.x, a.facing, a.pose = cx - dir * 7, dir, "Roar"
+		if tick % 6 == 0 then spark(frame, "effondrement-ember" .. tick, v(a.x + dir * 0.6, 2.4, 0.8), color, 0.8) end
+		frame.shot = frameOn("ryuken-effondrement-gauntlet", dir, { a }, { yaw = 52, pitch = -4, fill = 0.95, fov = 30, band = "waist",
+			focus = P(A, "RightHand") })
+	elseif tick < 50 then
+		a.x, a.facing = cx - dir * 7, dir
+		attack(a, moves, role(ctx, "Hammer"), tick >= 34)
+		if tick >= 34 then
+			for i = 1, 3 do
+				crack(frame, "effondrement-crack" .. i, v(a.x + dir * 0.8, 0.05, 0), v(cx + dir * (i - 2) * 0.8, 0.05, (i - 2) * 1.6), color)
+			end
+			table.insert(frame.fx, { key = "effondrement-quake", kind = "shockwave", pos = v(a.x + dir, 0, 0), color = color })
+			if tick < 36 then frame.impact = { key = "effondrement-quake", color = color } end
+		end
+		frame.shot = frameOn("ryuken-effondrement-quake", dir, { a, d }, { yaw = 16, pitch = 48, fill = 0.6, fov = 46, focus = P(A, "UpperTorso") })
+	elseif tick < data.Hits[1] then
+		a.x, a.facing = lerp(cx - dir * 7, cx - dir * 2.3, progress(tick, 50, data.Hits[1]) ^ 2), dir
+		attack(a, moves, role(ctx, "Rising"), true)
+		frame.speedLines = color
+		frame.shot = frameOn("ryuken-effondrement-charge", dir, { a, d }, { yaw = 0, pitch = -8, fill = 0.72, fov = 44, focus = P(A, "UpperTorso") })
+	elseif tick < last + 4 then
+		-- Body blows: the target folds a little more each time and drops to one knee.
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		a.x, a.facing = cx - dir * 2.3, dir
+		attack(a, moves, role(ctx, if k % 3 == 0 then "Elbow" elseif k % 2 == 0 then "Cross" else "BodyBlow"), true)
+		d.hitstop = if tick - data.Hits[k] < 6 then 1 else 0
+		if k >= 5 then d.pose = "Kneel" end
+		if tick - data.Hits[k] < 2 then frame.impact = { key = "effondrement-hit" .. k, color = color } end
+		spark(frame, "effondrement-hit" .. k, v(cx - dir * 0.5, if k >= 5 then 2.2 else 3, 0.6), color, 1.6)
+		if k % 2 == 1 then
+			frame.shot = frameOn("ryuken-effondrement-body", dir, { a, d }, { yaw = 40, pitch = -2, fill = 0.98, fov = 36, band = "waist",
+				focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn("ryuken-effondrement-low", dir, { a, d }, { yaw = -30, pitch = -24, fill = 0.8, fov = 44, roll = -8,
+				focus = P(A, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		-- The leap, both fists joined over his head, seen from the floor.
+		local q = smooth(progress(tick, last + 4, data.FinalTick))
+		d.pose = "Kneel"
+		a.x, a.facing, a.y = cx - dir * 1.6, dir, math.sin(q * math.pi) * 6.5 + q * 0.5
+		attack(a, moves, role(ctx, "AirSmash"), q > 0.75)
+		frame.shot = frameOn("ryuken-effondrement-leap", dir, { a, d }, { yaw = 22, pitch = -34, fill = 0.7, fov = 52, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 16 then
+		a.x, a.y, a.facing = cx - dir * 1.6, 0, dir
+		attack(a, moves, role(ctx, "AirSmash"), true)
+		impact(frame, "effondrement-crater", v(cx, 1, 0.6), color, 3.4)
+		for i = 1, 6 do
+			local angle = i / 6 * math.pi * 2
+			crack(frame, "effondrement-crater" .. i, v(cx, 0.05, 0), v(cx + math.cos(angle) * 6, 0.05, math.sin(angle) * 4), color)
+		end
+		debris(frame, "effondrement-debris", v(cx, 0.4, 0), color, 1.6)
+		frame.shot = frameOn("ryuken-effondrement-crater", dir, { a, d }, { yaw = 6, pitch = 74, fill = 0.48, fov = 50, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.4, 0, dir, "Roar"
+		title(ctx, frame, color, "拳 · RYUKEN")
+		frame.shot = frameOn("ryuken-effondrement-standing", dir, { a }, { yaw = 26, pitch = -20, fill = 0.82, fov = 42, focus = P(A, "Head") })
+	end
+end
+
+-- 拳 DERNIER ROUND: the stare-down in tight shot / reverse shot, his kanji burning under
+-- him, the slow advance cracking the deck, a flurry on the guard, the guard broken (liver,
+-- uppercut), the fist drawn back (press R) and the last punch that shatters the floor.
+function KIT.RYUKEN.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.rage = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 4.5, dir, "Roar"
+		d.state = "Idle"
+		if tick < 15 then
+			frame.shot = frameOn("ryuken-round-glare", dir, { a }, { yaw = 54, pitch = -4, fill = 1.0, fov = 30, band = "bust", focus = P(A, "Head") })
+		else
+			frame.shot = frameOn("ryuken-round-rival", dir, { d }, { yaw = -54, pitch = -4, fill = 1.0, fov = 30, band = "bust", focus = P(D, "Head") })
+		end
+	elseif tick < 60 then
+		a.x, a.facing, a.pose = cx - dir * 4.5, dir, "Roar"
+		frame.aura = A
+		table.insert(frame.fx, { key = "round-seal", kind = "kanjiSeal", pos = v(a.x, 0.06, 0), color = color,
+			text = ctx.characters[A].Kanji, keep = true })
+		frame.shot = frameOn("ryuken-round-seal", dir, { a, d }, { yaw = -10, pitch = 66, fill = 0.55, fov = 46, roll = (tick - 30) * 0.5,
+			focus = P(A, "UpperTorso") })
+	elseif tick < 88 then
+		-- The advance: one step at a time, the deck cracking under each one.
+		local p = progress(tick, 60, 88)
+		a.x, a.facing, a.state, a.vx = lerp(cx - dir * 4.5, cx - dir * 2.4, p), dir, "Walking", dir * 3
+		local step = (tick - 60) // 9
+		crack(frame, "round-step" .. step, v(a.x, 0.05, 0), v(a.x + dir * 2.2, 0.05, (step % 2 - 0.5) * 2), color)
+		frame.shot = frameOn("ryuken-round-advance", dir, { a, d }, { yaw = -62, pitch = -10, fill = 0.82, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < data.Hits[1] - 4 then
+		-- A flurry on the raised guard.
+		local flurry = role(ctx, "KiFlurry")
+		a.x, a.facing = cx - dir * 2.4, dir
+		a.state, a.move = "Attack", flurry
+		a.moveFrame = moves[flurry].startup + 1 + (tick // 2 % 2) * (moves[flurry].hitInterval or 2)
+		d.state = "Blockstun"
+		if tick % 3 == 0 then spark(frame, "round-guard" .. tick, v(cx - dir * 0.6, 3.6 + (tick % 5) * 0.15, 0.5), color, 0.8) end
+		frame.shot = frameOn("ryuken-round-guard", dir, { a, d }, { yaw = 34, pitch = 2, fill = 0.9, fov = 36, band = "bust",
+			focus = P(D, "UpperTorso") })
+	elseif tick < data.PromptTicks[1] - 14 then
+		-- The guard breaks: the liver, then the uppercut.
+		a.x, a.facing = cx - dir * 2.4, dir
+		local second = tick >= data.Hits[2]
+		local landed = if second then data.Hits[2] else data.Hits[1]
+		attack(a, moves, role(ctx, if second then "Uppercut" else "BodyBlow"), tick >= data.Hits[1])
+		if tick >= data.Hits[1] then
+			spark(frame, "round-break" .. landed, v(cx - dir * 0.4, if second then 4.4 else 2.8, 0.6), color, 1.8)
+			if tick - landed < 2 then frame.impact = { key = "round-break" .. landed, color = color } end
+		end
+		frame.shot = frameOn("ryuken-round-break", dir, { a, d }, { yaw = -34, pitch = -12, fill = 0.88, fov = 38, roll = 8,
+			focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.grade.mono = tick >= data.PromptTicks[1] - 4
+		spark(frame, "round-cock", v(a.x - dir * 0.8, 3.4, 0.6), color, 2.2)
+		frame.shot = frameOn("ryuken-round-cock", dir, { a, d }, { yaw = 46, pitch = -10, fill = lerp(0.9, 1.12, progress(tick,
+			data.PromptTicks[1] - 14, data.FinalTick)), fov = 34, band = "bust", focus = P(A, "Head") })
+	elseif tick < data.FinalTick + 22 then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		impact(frame, "round-final", v(cx, 3.6, 0.6), color, 3.6)
+		debris(frame, "round-debris", v(cx, 0.5, 0), color, 2)
+		for i = 1, 5 do
+			local angle = (i - 3) * 0.5
+			crack(frame, "round-shatter" .. i, v(cx - dir * 1.4, 0.05, 0), v(cx + dir * math.cos(angle) * 9, 0.05, math.sin(angle) * 5), color)
+		end
+		frame.shot = frameOn("ryuken-round-shatter", dir, { a, d }, { yaw = 12, pitch = 14, fill = 0.5, fov = 50, focus = P(D, "UpperTorso") })
+	else
+		-- The bell: his back to us, steam on the fists.
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "StandTall"
+		if tick % 7 == 0 then
+			table.insert(frame.fx, { key = "round-steam" .. tick, kind = "smoke", pos = v(a.x + dir * 0.4, 2.4, 0.5) })
+		end
+		local t = kitOf(ctx).GateTitle
+		frame.title = { text = t.text, color = color, sub = t.sub }
+		frame.shot = frameOn("ryuken-round-bell", dir, { a }, { yaw = -140, pitch = -8, fill = 0.78, fov = 40, focus = P(A, "UpperTorso") })
+	end
+end
+
+-- ---------------------------------------------------------------- SHIN 流 · blade
+
+local SHIN_CUTS = { "Jab", "Cross", "Elbow", "Kick", "SpinKick", "Hammer", "BodyBlow", "Sweep" }
+local IAI_DROP = -0.6 -- the iai crouch lowers the head: aim the bust shots lower
+
+KIT.SHIN = {}
+
+-- DANSE DES COURANTS: iai in profile through a long lens, PAS DU VENT, then he crosses the
+-- target on every cut (one long lateral tracking shot, overhead every fourth blow); he stops
+-- in iai and time freezes; the draw, a single line across the frame; the blade flicked clean.
+function KIT.SHIN.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.current = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	local k = hitsBefore(data.Hits, tick)
+	if tick < 14 then
+		a.x, a.facing, a.pose = cx - dir * 7, dir, "Iai"
+		frame.shot = frameOn("shin-danse-iai", dir, { a }, { yaw = 6, pitch = -2, fill = 0.9, fov = 26, band = "bust", lift = IAI_DROP, focus = P(A, "Head") })
+	elseif tick < data.Hits[1] then
+		a.x, a.facing = lerp(cx - dir * 7, cx - dir * 3, smooth(progress(tick, 14, data.Hits[1]))), dir
+		attack(a, moves, role(ctx, "Rising"), true)
+		frame.speedLines = color
+		frame.shot = frameOn("shin-danse-glide", dir, { a, d }, { yaw = 0, pitch = 2, fill = 0.66, fov = 32, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick - 18 then
+		local side = if k % 2 == 1 then -1 else 1
+		a.x, a.facing = cx + side * dir * 3, -side * dir
+		attack(a, moves, role(ctx, SHIN_CUTS[(k - 1) % #SHIN_CUTS + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 4 then 1 else 0
+		arc(frame, "danse-cut" .. k, v(cx, 3.2 + (k % 3) * 0.4, 0.4), 3, -30 + k * 40, 150 + k * 40, color, (k % 2 - 0.5) * 0.8, -side * dir)
+		if k % 4 == 0 then
+			frame.shot = frameOn("shin-danse-above", dir, { a, d }, { yaw = 0, pitch = 64, fill = 0.6, fov = 40, focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn("shin-danse-track", dir, { a, d }, { yaw = lerp(-24, 24, progress(tick, data.Hits[1], data.FinalTick - 18)),
+				pitch = 4, fill = 0.62, fov = 32, focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		-- Iai in front of the target: everything stops.
+		a.x, a.facing, a.pose = cx - dir * 3, dir, "Iai"
+		frame.grade.mono = true
+		frame.shot = frameOn("shin-danse-poise", dir, { a }, { yaw = 30, pitch = -4, fill = lerp(0.88, 1.0, progress(tick, data.FinalTick - 18,
+			data.FinalTick)), fov = 28, band = "bust", lift = IAI_DROP, focus = P(A, "Head") })
+	elseif tick < data.FinalTick + 14 then
+		-- He is already through: one horizontal line across the whole frame.
+		a.x, a.facing = cx + dir * 3.4, dir
+		attack(a, moves, role(ctx, "Smash"), true)
+		slash(frame, "danse-draw", v(cx - dir * 9, 3.6, 0.5), v(cx + dir * 9, 3.6, 0.5), color)
+		impact(frame, "danse-draw", v(cx, 3.6, 0.6), color, 2.6)
+		frame.shot = frameOn("shin-danse-line", dir, { a, d }, { yaw = 2, pitch = 2, fill = 0.5, fov = 34, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx + dir * 3.4, dir, "StandTall"
+		frame.shot = frameOn("shin-danse-wake", dir, { a }, { yaw = lerp(50, 20, progress(tick, data.FinalTick + 14, data.Length)), pitch = 0,
+			fill = 0.75, fov = 30, focus = P(A, "UpperTorso") })
+	end
+end
+
+-- TEMPÊTE CONTINUE: his eyes, the current rising around him in rings while the camera
+-- cranes up, PAS DU VENT, a storm of cuts all around the target (the camera orbiting the
+-- other way, overhead every third), the current lifting the target, the rising slash (one
+-- vertical line to the sky), a cross of light, SHIN still.
+function KIT.SHIN.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local last = data.Hits[#data.Hits]
+	frame.grade.crimson, frame.grade.current = false, true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 30 then
+		frame.kanjiBack = ctx.characters[A].Kanji
+		a.x, a.facing, a.pose = cx - dir * 7, dir, "Iai"
+		frame.shot = frameOn("shin-tempete-eyes", dir, { a }, { yaw = 44, pitch = 0, fill = lerp(0.95, 1.05, tick / 30), fov = 24, band = "bust", lift = IAI_DROP,
+			focus = P(A, "Head") })
+	elseif tick < 56 then
+		local p = progress(tick, 30, 56)
+		a.x, a.facing, a.pose = cx - dir * 7, dir, "Iai"
+		if tick % 4 == 0 then
+			arc(frame, "tempete-current" .. tick, v(a.x, 0.4 + (tick - 30) * 0.18, 0), 1.6 + (tick % 8) * 0.1, 0, 300, color, math.pi / 2, 1)
+		end
+		frame.shot = frameOn("shin-tempete-rise", dir, { a }, { yaw = lerp(-30, 30, p), pitch = lerp(-12, 18, p), fill = 0.8, fov = 34,
+			focus = P(A, "UpperTorso") })
+	elseif tick < data.Hits[1] then
+		a.x, a.facing = lerp(cx - dir * 7, cx - dir * 3, smooth(progress(tick, 56, data.Hits[1]))), dir
+		attack(a, moves, role(ctx, "Rising"), true)
+		frame.speedLines = color
+		frame.shot = frameOn("shin-tempete-step", dir, { a, d }, { yaw = -4, pitch = 0, fill = 0.66, fov = 32, focus = P(A, "UpperTorso") })
+	elseif tick < last + 4 then
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		local p = progress(tick, data.Hits[1], last + 4)
+		around(a, cx, dir, lerp(0.1, 0.9, p) * math.pi, 3)
+		attack(a, moves, role(ctx, SHIN_CUTS[(k * 3) % #SHIN_CUTS + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 4 then 1 else 0
+		arc(frame, "tempete-cut" .. k, v(cx, 3 + (k % 3) * 0.5, 0), 2.8, k * 55, k * 55 + 200, color, (k % 3 - 1) * 0.7, dir)
+		if k % 3 == 0 then
+			frame.shot = frameOn("shin-tempete-overhead", dir, { a, d }, { yaw = 10, pitch = 70, fill = 0.55, fov = 42, focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn("shin-tempete-orbit", dir, { a, d }, { yaw = lerp(60, -60, p), pitch = 6, fill = 0.66, fov = 36,
+				focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick - 12 then
+		-- The current lifts the target; he waits under it, in iai.
+		local p = progress(tick, last + 4, data.FinalTick - 12)
+		a.x, a.z, a.lookDir, a.facing, a.pose = cx - dir * 1.8, nil, nil, dir, "Iai"
+		d.y, d.pose = lerp(0, 3, smooth(p)), "Launched"
+		if tick % 4 == 0 then ring(frame, "tempete-spiral" .. tick, cx, 2.2 - p * 0.6, 0.4 + p * 3 + (tick % 8) * 0.2, color) end
+		frame.shot = frameOn("shin-tempete-lift", dir, { a, d }, { yaw = 30, pitch = -18, fill = 0.7, fov = 40, focus = P(A, "Head") })
+	elseif tick < data.FinalTick then
+		-- The rising slash: one vertical line from the floor to the sky.
+		local q = smooth(progress(tick, data.FinalTick - 12, data.FinalTick))
+		a.x, a.z, a.lookDir, a.facing = cx - dir * 1.8, nil, nil, dir
+		a.y, d.y, d.pose = q * 5, 3 + q * 6, "Launched"
+		attack(a, moves, role(ctx, "Uppercut"), true)
+		slash(frame, "tempete-rise", v(cx, 0, 0.5), v(cx, 18, 0.5), color)
+		frame.impact = { key = "tempete-rise", color = color }
+		frame.shot = frameOn("shin-tempete-skyward", dir, { a, d }, { yaw = 14, pitch = -46, fill = 0.66, fov = 54, focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick + 16 then
+		a.x, a.y, a.facing = cx - dir * 1.8, lerp(5, 0, progress(tick, data.FinalTick, data.FinalTick + 8)), dir
+		attack(a, moves, role(ctx, "Uppercut"), true)
+		slash(frame, "tempete-split", v(cx - 8, 7, 0.5), v(cx + 8, 7, 0.5), color)
+		impact(frame, "tempete-split", v(cx, 7, 0.6), color, 3)
+		frame.shot = frameOn("shin-tempete-split", dir, { a, d }, { yaw = -20, pitch = 10, fill = 0.5, fov = 46, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "StandTall"
+		title(ctx, frame, color, "流 · SHIN")
+		frame.shot = frameOn("shin-tempete-still", dir, { a }, { yaw = lerp(20, -10, progress(tick, data.FinalTick + 16, data.Length)), pitch = -2,
+			fill = 0.8, fov = 30, focus = P(A, "Head") })
+	end
+end
+
+-- 零 ZÉRO HORIZON: two tiny figures on the horizon, 零 under his feet as he lowers into iai,
+-- the long walk without hurry, two cuts too fast to see, the hand on the hilt (press R),
+-- then one line from one end of the horizon to the other.
+function KIT.SHIN.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.current = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 8, dir, "StandTall"
+		d.state = "Idle"
+		frame.shot = frameOn("shin-zero-horizon", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.26, fov = 28, focus = P(A, "UpperTorso") })
+	elseif tick < 60 then
+		a.x, a.facing, a.pose = cx - dir * 8, dir, "Iai"
+		table.insert(frame.fx, { key = "zero-seal", kind = "kanjiSeal", pos = v(a.x, 0.06, 0), color = color, text = "零", keep = true })
+		frame.shot = frameOn("shin-zero-breath", dir, { a }, { yaw = 16, pitch = 0, fill = lerp(0.75, 0.9, progress(tick, 30, 60)), fov = 26,
+			band = "bust", lift = IAI_DROP, focus = P(A, "Head") })
+	elseif tick < data.Hits[1] - 4 then
+		local p = progress(tick, 60, data.Hits[1] - 4)
+		a.x, a.facing, a.state, a.vx = lerp(cx - dir * 8, cx - dir * 3.2, p), dir, "Walking", dir * 3
+		frame.shot = frameOn("shin-zero-walk", dir, { a, d }, { yaw = lerp(-10, 10, p), pitch = -2, fill = 0.6, fov = 30, focus = P(A, "UpperTorso") })
+	elseif tick < data.PromptTicks[1] - 14 then
+		a.x, a.facing = cx - dir * 3.2, dir
+		local second = tick >= data.Hits[2]
+		attack(a, moves, role(ctx, if second then "Cross" else "Jab"), true)
+		arc(frame, "zero-cut" .. (if second then 2 else 1), v(cx, 3.6, 0.4), 3.2, if second then 200 else -20, if second then 20 else 160,
+			color, 0.3, dir)
+		frame.shot = frameOn("shin-zero-cuts", dir, { a, d }, { yaw = 38, pitch = 4, fill = 0.82, fov = 32, focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick then
+		a.x, a.facing, a.pose = cx - dir * 3.4, dir, "Iai"
+		frame.grade.mono = tick >= data.PromptTicks[1] - 4
+		frame.shot = frameOn("shin-zero-hilt", dir, { a }, { yaw = 34, pitch = -6, fill = lerp(0.9, 1.05, progress(tick, data.PromptTicks[1] - 14,
+			data.FinalTick)), fov = 26, band = "bust", lift = IAI_DROP, focus = P(A, "Head") })
+	elseif tick < data.FinalTick + 22 then
+		a.x, a.facing = cx + dir * 4, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		slash(frame, "zero-line", v(cx - 40, 3.6, 0.4), v(cx + 40, 3.6, 0.4), color)
+		impact(frame, "zero-line", v(cx, 3.6, 0.6), "FFFFFF", 2.4)
+		frame.shot = frameOn("shin-zero-line", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.3, fov = 28, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx + dir * 4, dir, "StandTall"
+		a.lookDir = v(dir * 0.2, 0, -1)
+		local t = kitOf(ctx).GateTitle
+		frame.title = { text = t.text, color = color, sub = t.sub }
+		frame.shot = frameOn("shin-zero-after", dir, { a }, { yaw = -24, pitch = 0, fill = 0.7, fov = 30, focus = P(A, "UpperTorso") })
+	end
+end
+
+-- ---------------------------------------------------------------- DAICHA 闇 · inverted shadow
+
+local DAICHA_CLAWS = { "Jab", "Cross", "Elbow", "Kick", "SpinKick", "PalmStrike", "BodyBlow" }
+
+KIT.DAICHA = {}
+
+-- A pool of shadow on the floor where he rises.
+local function pool(frame, key, a, color)
+	arc(frame, key, v(a.x, 0.08, a.z or 0), 1.3, 0, 360, color, math.pi / 2, 1)
+end
+
+-- DOMAINE OBSCUR: his seal spreads under the target (low dutch angle on DAICHA), the camera
+-- rolls the world upside down, he strikes from the mirror of his last place every blow
+-- (mirrored jump cuts, upside down every fourth), floats over the target with the SPHÈRE
+-- INVERSÉE swelling, and crashes it down; the domain implodes.
+function KIT.DAICHA.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.inverse = true
+	if tick < data.FinalTick then
+		d.x, d.state = cx, "Hitstun"
+		table.insert(frame.fx, { key = "domaine-seal", kind = "kanjiSeal", pos = v(cx, 0.06, 0), color = color,
+			text = ctx.characters[A].Kanji, keep = true })
+	end
+	local k = hitsBefore(data.Hits, tick)
+	if tick < 12 then
+		a.x, a.facing, a.pose = cx - dir * 6, dir, "Levitate"
+		frame.shot = frameOn("daicha-domaine-open", dir, { a }, { yaw = 36, pitch = -14, fill = 0.9, fov = 38, roll = 16, focus = P(A, "Head") })
+	elseif tick < data.Hits[1] then
+		a.x, a.facing, a.pose = cx - dir * 6, dir, "Levitate"
+		frame.shot = frameOn("daicha-domaine-invert", dir, { a, d }, { yaw = 10, pitch = 6, fill = 0.66, fov = 42,
+			roll = lerp(0, 180, smooth(progress(tick, 12, data.Hits[1]))), focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick - 18 then
+		local mirror = k % 2 == 0
+		local angle = ((k * 0.29) % 0.45 + 0.05) * math.pi
+		around(a, cx, dir, if mirror then math.pi - angle else angle, 2.8, if k % 3 == 0 then 1.2 else 0)
+		attack(a, moves, role(ctx, DAICHA_CLAWS[(k - 1) % #DAICHA_CLAWS + 1]), true)
+		a.ghost = tick - data.Hits[k] < 3
+		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
+		pool(frame, "domaine-pool" .. k, a, color)
+		spark(frame, "domaine-hit" .. k, v(cx, 3.4, 0.6), color, 1.2)
+		if k % 4 == 0 then
+			frame.shot = frameOn("daicha-domaine-under", dir, { a, d }, { yaw = 0, pitch = -16, fill = 0.7, fov = 44, roll = 180,
+				focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn(if mirror then "daicha-domaine-mirror-r" else "daicha-domaine-mirror-l", dir, { a, d },
+				{ yaw = if mirror then 40 else -40, pitch = 8, fill = 0.72, fov = 40, roll = if mirror then 12 else -12, focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		local p = progress(tick, data.FinalTick - 18, data.FinalTick)
+		a.x, a.z, a.lookDir, a.y, a.facing = cx - dir * 1.4, nil, nil, lerp(0, 4.5, smooth(p)), dir
+		attack(a, moves, role(ctx, "KiBlast"), false)
+		eclipse(frame, "domaine-sphere", v(cx - dir * 0.4, 8.5, 0), color, 0.3, 0.6)
+		frame.shot = frameOn("daicha-domaine-sphere", dir, { a, d }, { yaw = -26, pitch = -30, fill = 0.68, fov = 50, roll = -10,
+			focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 12 then
+		a.x, a.y, a.facing = cx - dir * 1.4, lerp(4.5, 0, progress(tick, data.FinalTick, data.FinalTick + 6)), dir
+		attack(a, moves, role(ctx, "KiBlast"), true)
+		impact(frame, "domaine-slam", v(cx, 2, 0.6), color, 3)
+		for i = 1, 4 do ring(frame, "domaine-implode" .. i, cx, 8 - i * 1.6, 0.1, color) end
+		frame.shot = frameOn("daicha-domaine-slam", dir, { a, d }, { yaw = 4, pitch = 72, fill = 0.5, fov = 48, roll = 24, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "Levitate"
+		frame.shot = frameOn("daicha-domaine-close", dir, { a }, { yaw = -34, pitch = -6, fill = 0.8, fov = 40, roll = -10, focus = P(A, "Head") })
+	end
+end
+
+-- RIVIÈRE D'OMBRES: his eyes upside down turning right side up, a river of shadow flowing
+-- along the floor to the target (filmed at floor level), the river dragging it to him, the
+-- blows rising out of its own shadow at mirrored places, a violet helix lifting it, the
+-- river pulling it back down into the floor.
+function KIT.DAICHA.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local last = data.Hits[#data.Hits]
+	local tx, home = cx - dir * 2, cx - dir * 5.6 -- where the river leaves the target, and DAICHA
+	frame.grade.crimson, frame.grade.inverse = false, true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 24 then
+		frame.kanjiBack = ctx.characters[A].Kanji
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		frame.shot = frameOn("daicha-riviere-gaze", dir, { a }, { yaw = 36, pitch = 2, fill = 1.05, fov = 28, band = "bust",
+			roll = lerp(180, 0, smooth(progress(tick, 0, 24))), focus = P(A, "Head") })
+	elseif tick < 46 then
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		local n = (tick - 24) // 3
+		ring(frame, "riviere-flow" .. n, lerp(home, cx, (n % 8) / 7), 1.2, 0.08, color)
+		frame.shot = frameOn("daicha-riviere-flow", dir, { a, d }, { yaw = 72, pitch = -2, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+	elseif tick < data.Hits[1] then
+		local p = smooth(progress(tick, 46, data.Hits[1]))
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		d.x, d.y, d.pose = lerp(cx, tx, p), 0.6, "Launched"
+		if tick % 3 == 0 then ring(frame, "riviere-drag" .. tick, d.x, 1.6, 0.08, color) end
+		frame.shot = frameOn("daicha-riviere-drag", dir, { a, d }, { yaw = -14, pitch = 12, fill = 0.66, fov = 42, roll = -14,
+			focus = P(D, "UpperTorso") })
+	elseif tick < last + 4 then
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		d.x, d.y = tx, lerp(0.6, 2, progress(tick, data.Hits[1], last))
+		local mirror = k % 2 == 0
+		around(a, tx, dir, (if mirror then 0.78 else 0.22) * math.pi, 2.7, d.y - 0.4)
+		attack(a, moves, role(ctx, DAICHA_CLAWS[(k * 2) % #DAICHA_CLAWS + 1]), true)
+		a.ghost = true
+		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
+		if tick - data.Hits[k] < 2 then frame.impact = { key = "riviere-hit" .. k, color = color } end
+		spark(frame, "riviere-hit" .. k, v(tx, d.y + 3.4, 0.6), color, 1.2)
+		if k % 3 == 0 then
+			frame.shot = frameOn("daicha-riviere-under", dir, { a, d }, { yaw = 6, pitch = -22, fill = 0.7, fov = 46, roll = 180,
+				focus = P(D, "UpperTorso") })
+		else
+			frame.shot = frameOn("daicha-riviere-strike", dir, { a, d }, { yaw = if mirror then 34 else -34, pitch = 6, fill = 0.74, fov = 40,
+				roll = if mirror then 12 else -12, focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		local p = progress(tick, last + 4, data.FinalTick)
+		a.x, a.z, a.lookDir, a.y, a.facing, a.pose = tx - dir * 3, nil, nil, 0, dir, "Levitate"
+		d.x, d.y, d.pose = tx, lerp(2, 8, smooth(p)), "Launched"
+		table.insert(frame.fx, { key = "riviere-helix", kind = "dragonHelix", pos = v(tx, 0, 0), color = color })
+		frame.shot = frameOn("daicha-riviere-helix", dir, { a, d }, { yaw = lerp(-40, 40, p), pitch = -18, fill = 0.66, fov = 50, focus = P(A, "Head") })
+	elseif tick < data.FinalTick + 16 then
+		a.x, a.y, a.facing = tx - dir * 3, 0, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		impact(frame, "riviere-fall", v(tx, 0.5, 0.6), color, 3)
+		for i = 1, 3 do ring(frame, "riviere-swallow" .. i, tx, i * 1.8, 0.08, color) end
+		frame.shot = frameOn("daicha-riviere-crash", dir, { a, d }, { yaw = -8, pitch = 66, fill = 0.5, fov = 46, roll = -20, focus = P(A, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = tx - dir * 3, 0, dir, "Levitate"
+		title(ctx, frame, color, "闇 · DAICHA")
+		frame.shot = frameOn("daicha-riviere-mirror", dir, { a }, { yaw = 30, pitch = -8, fill = 0.8, fov = 38, roll = 10, focus = P(A, "Head") })
+	end
+end
+
+-- 蝕 ÉCLIPSE TOTALE: a black sun rises over the deck (seen from the floor), the target lifted
+-- off the floor, DAICHA at every mirror of it (jump cuts), the claw and the dark mark, the
+-- world upside down at totality (press R), the corona striking down in a flash.
+function KIT.DAICHA.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.inverse = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	eclipse(frame, "eclipse-sun", v(cx, 17, -8), color, 1)
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
+		d.state = "Idle"
+		frame.shot = frameOn("daicha-eclipse-sky", dir, { a, d, { point = true, x = cx, y = 17, z = -8 } }, { yaw = 12, pitch = -26, fill = 0.7,
+			fov = 56, focus = P(A, "UpperTorso") })
+	elseif tick < 70 then
+		local p = progress(tick, 30, 70)
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
+		d.y, d.pose = lerp(0, 2.6, smooth(p)), "Launched"
+		frame.shot = frameOn("daicha-eclipse-lift", dir, { a, d }, { yaw = -20, pitch = -8, fill = 0.72, fov = 42, roll = lerp(0, 18, p),
+			focus = P(D, "UpperTorso") })
+	elseif tick < data.Hits[1] - 6 then
+		local step = (tick - 70) // 7
+		local mirror = step % 2 == 1
+		d.y, d.pose = 2.6, "Launched"
+		around(a, cx, dir, (if mirror then 0.75 else 0.25) * math.pi + (step % 3) * 0.08, 3, 1.2)
+		a.pose, a.ghost = "Levitate", true
+		pool(frame, "eclipse-pool" .. step, a, color)
+		frame.shot = frameOn(if mirror then "daicha-eclipse-mirror-r" else "daicha-eclipse-mirror-l", dir, { a, d },
+			{ yaw = if mirror then 52 else -52, pitch = 4, fill = 0.72, fov = 40, roll = if mirror then -14 else 14, focus = P(D, "UpperTorso") })
+	elseif tick < data.PromptTicks[1] - 14 then
+		d.y, d.pose = 2.6, "Launched"
+		a.x, a.z, a.lookDir, a.y, a.facing = cx - dir * 2.6, nil, nil, 1.2, dir
+		local second = tick >= data.Hits[2]
+		attack(a, moves, role(ctx, if second then "PalmStrike" else "Jab"), tick >= data.Hits[1])
+		if second then
+			table.insert(frame.fx, { key = "eclipse-mark", kind = "kanjiSeal", pos = v(cx, 0.06, 0), color = color,
+				text = ctx.characters[A].Kanji, keep = true })
+		end
+		frame.shot = frameOn("daicha-eclipse-mark", dir, { a, d }, { yaw = 30, pitch = 2, fill = 0.8, fov = 38, roll = 8, focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick then
+		-- Totality: the world upside down, his hand raised to the black sun.
+		d.y, d.pose = 2.6, "Launched"
+		a.x, a.y, a.facing = cx - dir * 2.8, 0, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.grade.mono = tick >= data.PromptTicks[1] - 4
+		frame.shot = frameOn("daicha-eclipse-totality", dir, { a, d }, { yaw = -30, pitch = -14, fill = lerp(0.8, 1.0, progress(tick,
+			data.PromptTicks[1] - 14, data.FinalTick)), fov = 38, roll = 180, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 22 then
+		a.x, a.facing = cx - dir * 2.8, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		impact(frame, "eclipse-flash", v(cx, 3.4, 0.6), color, 3.4)
+		for i = 1, 3 do
+			table.insert(frame.fx, { key = "eclipse-bolt" .. i, kind = "lightning", from = v(cx + (i - 2) * 3, 17, -8), to = v(cx, 3, 0.4), color = color })
+		end
+		frame.shot = frameOn("daicha-eclipse-flash", dir, { a, d, { point = true, x = cx, y = 12, z = -6 } }, { yaw = 16, pitch = -10, fill = 0.6,
+			fov = 54, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 3.4, 0, dir, "Levitate"
+		local t = kitOf(ctx).GateTitle
+		frame.title = { text = t.text, color = color, sub = t.sub }
+		frame.shot = frameOn("daicha-eclipse-dawn", dir, { a }, { yaw = 40, pitch = -12, fill = 0.78, fov = 40, focus = P(A, "Head") })
+	end
+end
+
+-- ---------------------------------------------------------------- HIBECARES 崩 · colossus
+
+local HIBECARES_BLOWS = { "Jab", "Cross", "Elbow", "Smash", "Kick", "SpinKick", "PalmStrike" }
+
+KIT.HIBECARES = {}
+
+-- COLOSSE ÉVEILLÉ: the colossus wakes in a ring of stone pillars (monumental low angle), the
+-- slow walk at floor level, heavy blows that shake the deck (debris, dust, a wide shot every
+-- fourth), both fists raised, the double hammer and its crater, the dust settling.
+function KIT.HIBECARES.Rush(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.ruin = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	local k = hitsBefore(data.Hits, tick)
+	if tick < 14 then
+		a.x, a.facing, a.pose = cx - dir * 4.6, dir, "Colossus"
+		rocks(frame, "colosse-ring", a.x, 3.4, 8, color)
+		if tick < 4 then frame.quake = 1 end
+		frame.shot = frameOn("hibecares-colosse-wake", dir, { a }, { yaw = 26, pitch = -32, fill = 0.85, fov = 46, focus = P(A, "Head") })
+	elseif tick < data.Hits[1] then
+		a.x, a.facing, a.state, a.vx = lerp(cx - dir * 4.6, cx - dir * 2.6, progress(tick, 14, data.Hits[1])), dir, "Walking", dir * 3
+		table.insert(frame.fx, { key = "colosse-step" .. tick // 4, kind = "dust", pos = v(a.x, 0, 0), direction = dir })
+		frame.shot = frameOn("hibecares-colosse-march", dir, { a, d }, { yaw = 54, pitch = -14, fill = 0.8, fov = 44, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick - 18 then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, HIBECARES_BLOWS[(k - 1) % #HIBECARES_BLOWS + 1]), true)
+		d.hitstop = if tick - data.Hits[k] < 6 then 1 else 0
+		spark(frame, "colosse-hit" .. k, v(cx - dir * 0.5, 3 + (k % 2) * 0.6, 0.6), color, 1.6)
+		debris(frame, "colosse-debris" .. k, v(cx, 0.3, 0.4), color, 0.6)
+		if tick - data.Hits[k] < 2 then frame.quake = 0.7 end
+		if k % 4 == 0 then
+			frame.shot = frameOn("hibecares-colosse-tremor", dir, { a, d }, { yaw = -24, pitch = 22, fill = 0.55, fov = 46, focus = P(D, "UpperTorso") })
+		elseif k % 2 == 0 then
+			frame.shot = frameOn("hibecares-colosse-ground", dir, { a, d }, { yaw = -40, pitch = -26, fill = 0.82, fov = 44, focus = P(A, "UpperTorso") })
+		else
+			frame.shot = frameOn("hibecares-colosse-blow", dir, { a, d }, { yaw = 36, pitch = -14, fill = 0.82, fov = 40, focus = P(D, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		a.x, a.facing = cx - dir * 2.4, dir
+		attack(a, moves, role(ctx, "Hammer"), false)
+		frame.shot = frameOn("hibecares-colosse-raise", dir, { a, d }, { yaw = -30, pitch = -36, fill = lerp(0.72, 0.86, progress(tick,
+			data.FinalTick - 18, data.FinalTick)), fov = 50, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 14 then
+		a.x, a.facing = cx - dir * 2.4, dir
+		attack(a, moves, role(ctx, "Hammer"), true)
+		impact(frame, "colosse-crater", v(cx, 1.6, 0.6), color, 3.2)
+		rocks(frame, "colosse-crater", cx, 4.5, 10, color)
+		debris(frame, "colosse-burst", v(cx, 0.5, 0), color, 1.6)
+		if tick < data.FinalTick + 4 then frame.quake = 1.6 end
+		frame.shot = frameOn("hibecares-colosse-crater", dir, { a, d }, { yaw = 10, pitch = 58, fill = 0.48, fov = 48, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 2.4, dir, "Colossus"
+		table.insert(frame.fx, { key = "colosse-settle" .. tick // 8, kind = "dust", pos = v(a.x + dir, 0, 0), direction = -dir })
+		frame.shot = frameOn("hibecares-colosse-dust", dir, { a }, { yaw = 40, pitch = -18, fill = 0.7, fov = 44, focus = P(A, "Head") })
+	end
+end
+
+-- CHÂTIMENT: the king in close-up from below, a stomp that splits the floor to the target,
+-- SAISIE DESTRUCTRICE, then the punishment: lifted overhead and slammed down on one side,
+-- then the other, on every blow; the target planted in the fissure, ONDE DE CHOC and a ring
+-- of rock erupting under it.
+function KIT.HIBECARES.Awaken(ctx, frame, a, d, tick, dir, color)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local cx = center(ctx, d)
+	local last = data.Hits[#data.Hits]
+	frame.grade.crimson, frame.grade.ruin = false, true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	if tick < 24 then
+		frame.kanjiBack = ctx.characters[A].Kanji
+		a.x, a.facing, a.pose = cx - dir * 6.5, dir, "Colossus"
+		frame.shot = frameOn("hibecares-chatiment-crown", dir, { a }, { yaw = 34, pitch = -26, fill = 1.0, fov = 34, band = "bust",
+			focus = P(A, "Head") })
+	elseif tick < 48 then
+		a.x, a.facing = cx - dir * 6.5, dir
+		attack(a, moves, role(ctx, "ThunderHeel"), tick >= 34)
+		if tick >= 34 then
+			crack(frame, "chatiment-fissure", v(a.x + dir, 0.05, 0), v(cx + dir * 1.5, 0.05, 0.3), color)
+			if tick < 36 then
+				frame.impact = { key = "chatiment-stomp", color = color }
+				frame.quake = 1.2
+			end
+		end
+		frame.shot = frameOn("hibecares-chatiment-stomp", dir, { a, d }, { yaw = 8, pitch = 18, fill = 0.6, fov = 44, focus = P(A, "UpperTorso") })
+	elseif tick < data.Hits[1] then
+		local p = progress(tick, 48, data.Hits[1])
+		if p < 0.6 then
+			a.x, a.facing, a.state, a.vx = lerp(cx - dir * 6.5, cx - dir * 2.2, p / 0.6), dir, "Walking", dir * 3
+		else
+			a.x, a.facing = cx - dir * 2.2, dir
+			attack(a, moves, role(ctx, "BodyBlow"), true)
+		end
+		frame.shot = frameOn("hibecares-chatiment-seize", dir, { a, d }, { yaw = -46, pitch = -10, fill = 0.8, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < last + 4 then
+		-- The punishment: overhead, then slammed down beside him, one side then the other.
+		local k = math.max(1, hitsBefore(data.Hits, tick))
+		local beat = tick - data.Hits[k]
+		local side = if k % 2 == 1 then 1 else -1
+		a.x, a.facing = cx - dir * 0.6, dir
+		if beat < 4 then
+			d.x, d.y, d.pose = a.x + side * dir * 2.6, 0, "DownFace"
+			attack(a, moves, role(ctx, "Hammer"), true)
+			debris(frame, "chatiment-slam" .. k, v(d.x, 0.3, 0.4), color, 0.9)
+			table.insert(frame.fx, { key = "chatiment-dust" .. k, kind = "dust", pos = v(d.x, 0, 0), direction = side * dir })
+			if beat < 2 then
+				frame.impact = { key = "chatiment-slam" .. k, color = color }
+				frame.quake = 0.9
+			end
+			frame.shot = frameOn("hibecares-chatiment-slam", dir, { a, d }, { yaw = 14, pitch = 34, fill = 0.62, fov = 44, focus = P(A, "UpperTorso") })
+		else
+			d.x, d.y, d.pose = a.x, 6.4, "Launched"
+			attack(a, moves, role(ctx, "Hammer"), false)
+			frame.shot = frameOn("hibecares-chatiment-lift", dir, { a, d }, { yaw = -24, pitch = -30, fill = 0.66, fov = 50, focus = P(A, "UpperTorso") })
+		end
+	elseif tick < data.FinalTick then
+		local p = progress(tick, last + 4, data.FinalTick)
+		a.x, a.facing = cx - dir * 0.6, dir
+		d.x, d.y, d.pose = cx + dir * 2, 0, "DownFace"
+		attack(a, moves, role(ctx, "Rising"), false)
+		if tick % 6 == 0 then
+			crack(frame, "chatiment-glow" .. tick, v(d.x - 3, 0.05, (tick % 12) * 0.2 - 1), v(d.x + 3, 0.05, 1 - (tick % 12) * 0.2), color)
+		end
+		frame.shot = frameOn("hibecares-chatiment-fissure", dir, { a, d }, { yaw = 30, pitch = -12, fill = lerp(0.62, 0.74, p), fov = 44,
+			focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 16 then
+		a.x, a.facing = cx - dir * 0.6, dir
+		attack(a, moves, role(ctx, "Rising"), true)
+		impact(frame, "chatiment-eruption", v(cx + dir * 2, 2, 0.6), color, 3.4)
+		rocks(frame, "chatiment-eruption", cx + dir * 2, 2.6, 7, color)
+		debris(frame, "chatiment-eruption", v(cx + dir * 2, 0.4, 0), color, 1.8)
+		if tick < data.FinalTick + 4 then frame.quake = 1.6 end
+		frame.shot = frameOn("hibecares-chatiment-eruption", dir, { a, d }, { yaw = -16, pitch = -16, fill = 0.55, fov = 50, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 1.6, dir, "Colossus"
+		title(ctx, frame, color, "崩 · HIBECARES")
+		frame.shot = frameOn("hibecares-chatiment-king", dir, { a }, { yaw = 28, pitch = -28, fill = 0.82, fov = 44, focus = P(A, "Head") })
+	end
+end
+
+-- 崩 RUINES DU MONDE: from far away a ring of stone pillars bursts out around both fighters,
+-- a second ring closer (low, inside it), the pillars collapse and stone rains while he walks
+-- through it, two blows, the king's fist drawn back (press R), and the world breaks: cracks
+-- to every side, the deck shaking; the king among the ruins.
+function KIT.HIBECARES.Gate(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local cx = center(ctx, d)
+	frame.grade.ruin = true
+	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
+	local mid = cx - dir * 2.2
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 4.4, dir, "Colossus"
+		d.state = "Idle"
+		rocks(frame, "ruines-ring", mid, 9, 14, color)
+		if tick < 6 then frame.quake = 1.2 end
+		frame.shot = frameOn("hibecares-ruines-far", dir, { a, d, { point = true, x = mid, y = 6, z = -9 } }, { yaw = 8, pitch = 6, fill = 0.42,
+			fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < 70 then
+		local p = progress(tick, 30, 70)
+		a.x, a.facing, a.pose = cx - dir * 4.4, dir, "Colossus"
+		if tick >= 44 then rocks(frame, "ruines-ring2", mid, 6, 10, color) end
+		if tick >= 44 and tick < 48 then frame.quake = 0.8 end
+		frame.shot = frameOn("hibecares-ruines-arena", dir, { a, d }, { yaw = lerp(-50, 20, p), pitch = -18, fill = 0.66, fov = 48, focus = P(A, "Head") })
+	elseif tick < data.Hits[1] - 6 then
+		local p = progress(tick, 70, data.Hits[1] - 6)
+		a.x, a.facing, a.state, a.vx = lerp(cx - dir * 4.4, cx - dir * 2.4, p), dir, "Walking", dir * 2
+		if tick % 5 == 0 then
+			local n = (tick * 7) % 11
+			debris(frame, "ruines-rain" .. tick, v(cx + (n - 5) * 0.6, 6, n % 3 - 1), color, 0.8)
+			frame.quake = 0.4
+		end
+		frame.shot = frameOn("hibecares-ruines-collapse", dir, { a, d }, { yaw = 24, pitch = 10, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+	elseif tick < data.PromptTicks[1] - 14 then
+		a.x, a.facing = cx - dir * 2.4, dir
+		local second = tick >= data.Hits[2]
+		attack(a, moves, role(ctx, if second then "Elbow" else "Cross"), tick >= data.Hits[1])
+		if tick >= data.Hits[1] then debris(frame, "ruines-blow" .. (if second then 2 else 1), v(cx, 2.4, 0.5), color, 0.8) end
+		frame.shot = frameOn("hibecares-ruines-blows", dir, { a, d }, { yaw = -36, pitch = -8, fill = 0.82, fov = 40, focus = P(D, "UpperTorso") })
+	elseif tick < data.FinalTick then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Smash"), false)
+		frame.grade.mono = tick >= data.PromptTicks[1] - 4
+		frame.shot = frameOn("hibecares-ruines-fist", dir, { a, d }, { yaw = 40, pitch = -30, fill = lerp(0.82, 1.0, progress(tick,
+			data.PromptTicks[1] - 14, data.FinalTick)), fov = 42, focus = P(A, "UpperTorso") })
+	elseif tick < data.FinalTick + 22 then
+		a.x, a.facing = cx - dir * 2.6, dir
+		attack(a, moves, role(ctx, "Smash"), true)
+		impact(frame, "ruines-world", v(cx, 3, 0.6), color, 3.8)
+		for i = 1, 8 do
+			local angle = i / 8 * math.pi * 2
+			crack(frame, "ruines-crack" .. i, v(cx, 0.05, 0), v(cx + math.cos(angle) * 10, 0.05, math.sin(angle) * 6), color)
+		end
+		debris(frame, "ruines-burst", v(cx, 0.6, 0), color, 2.2)
+		if tick < data.FinalTick + 6 then frame.quake = 2 end
+		frame.shot = frameOn("hibecares-ruines-world", dir, { a, d }, { yaw = -10, pitch = 26, fill = 0.42, fov = 50, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "Colossus"
+		local t = kitOf(ctx).GateTitle
+		frame.title = { text = t.text, color = color, sub = t.sub }
+		frame.shot = frameOn("hibecares-ruines-throne", dir, { a }, { yaw = -30, pitch = -14, fill = 0.6, fov = 42, focus = P(A, "Head") })
+	end
+end
+
 Director.KIT_ULTIMATES = KIT
 
 -- ===================================================================== K.O. SCENE
@@ -1154,6 +2020,10 @@ Director.KIT_ULTIMATES = KIT
 	         from above, a slow orbit, then the camera lifts toward the sky. Sky grade.
 	  AKEMI  the shadow: locked frames, the stage empty, AKEMI appears behind the body, sheathes
 	         her blade and the cut lands late; she is gone, only her seal remains. Shadow grade.
+	  RYUKEN the smoking fist, the roar of RAGE over the body, his back turned. Rage grade.
+	  SHIN   the blade flicked clean, the slow sheathe and its click, the horizon. Current grade.
+	  DAICHA a pool of shadow swallows the body; his eyes in the dark. Inverse grade.
+	  HIBECARES stone erupting around the body, the dust settling, the king. Ruin grade.
 ]]
 local KO = {}
 
@@ -1308,6 +2178,198 @@ function KO.AKEMI(ctx, frame, W, L, w, l, t, side)
 		table.insert(frame.fx, { key = "ko-akemi-seal", kind = "kanjiSeal", pos = v(l.x, 0.06, 0), color = color, text = "影" })
 		if t >= 188 then koEnd(ctx, frame, W, color) end
 		frame.shot = frameOn("ko-akemi-gone", dir, { l }, { yaw = 0, pitch = 48, fill = 0.4, fov = 36 })
+	end
+	return frame
+end
+
+-- Where a standing fighter's hand hangs (right = 1, left = -1), in world space, for effects.
+local function hangingHand(view, right)
+	local look = view.lookDir or v(view.facing or 1, 0, 0)
+	local l = math.max(1e-3, math.sqrt(look.x * look.x + (look.z or 0) * (look.z or 0)))
+	local fx, fz = look.x / l, (look.z or 0) / l
+	return v(view.x - fz * 1.8 * right + fx * 1.4, 2.8, (view.z or 0) + fx * 1.8 * right + fz * 1.4)
+end
+
+-- RYUKEN: smoke rising off the cracked gauntlet, the roar of RAGE over the body, his face as
+-- the rage goes out of it, his back turned. Rage grade.
+function KO.RYUKEN(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.rage = t >= 30
+	w.x, w.z = l.x + side * 2.2, -2.2
+	w.lookDir = v(-side * 0.5, 0, 0.85)
+	if t < 30 then
+		-- 0. The fall at floor level, black and white; the deck cracks under the body.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(3.5, 0, t / 22), if t < 22 then "Launched" else "DownFace"
+		w.pose = "StandTall"
+		if t >= 22 then crack(frame, "ko-ryuken-crack", v(l.x - 3, 0.05, 0.4), v(l.x + 3, 0.05, -0.4), color) end
+		frame.shot = frameOn("ko-ryuken-fall", dir, { l }, { yaw = 40, pitch = 4, fill = 0.36, fov = 36, roll = 10 * side, lift = 1.4 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 64 then
+		-- 1. LES POINGS: the fists, tight, smoking.
+		w.pose = "StandTall"
+		for i, hand in { -1, 1 } do
+			table.insert(frame.fx, { key = "ko-ryuken-smoke" .. i .. "-" .. t // 6, kind = "smoke", pos = hangingHand(w, hand) })
+		end
+		frame.shot = frameOn("ko-ryuken-fist", dir, { w }, { yaw = 30, pitch = 4, fill = 0.9, band = "waist", lift = -0.8, fov = 30,
+			focus = P(W, "RightHand") })
+	elseif t < 104 then
+		-- 2. LE RUGISSEMENT: the roar over the body, from the floor.
+		w.pose = "Roar"
+		table.insert(frame.fx, { key = "ko-ryuken-roar", kind = "shockwave", pos = v(w.x, 0, w.z), color = color })
+		frame.shot = frameOn("ko-ryuken-roar", dir, { w, l }, { yaw = 18, pitch = -16, fill = 0.66, fov = 46, focus = P(W, "Head") })
+	elseif t < 144 then
+		-- 3. LE SOUFFLE: his face, the rage going out of it.
+		w.pose = "StandTall"
+		frame.shot = frameOn("ko-ryuken-face", dir, { w }, { yaw = 24, pitch = -4, fill = 0.62, band = "face", fov = 28, focus = P(W, "Head") })
+	else
+		-- 4. DOS TOURNÉ: he turns his back on the body, high and wide.
+		w.pose = "StandTall"
+		w.lookDir = v(side * 0.9, 0, -0.3)
+		if t >= 188 then koEnd(ctx, frame, W, color) end
+		frame.shot = frameOn("ko-ryuken-leave", dir, { w, l }, { yaw = -26, pitch = 26, fill = 0.5, fov = 42 })
+	end
+	return frame
+end
+
+-- SHIN: the blade still drawn, flicked clean; the slow sheathe and its click rippling the
+-- floor like water; both on the horizon; he walks away. Current grade, long lenses.
+function KO.SHIN(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.current = t >= 30
+	w.x, w.z = l.x + side * 3.2, -1.6
+	w.lookDir = v(-side, 0, 0.2)
+	if t < 30 then
+		-- 0. The fall in profile, long lens, black and white.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(3, 0, t / 24), if t < 22 then "Launched" else "DownFace"
+		w.pose = "Iai"
+		frame.shot = frameOn("ko-shin-fall", dir, { l }, { yaw = 80, pitch = 2, fill = 0.32, fov = 26, lift = 1.2 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 70 then
+		-- 1. LA LAME: still in iai over the body; one flick of the blade.
+		w.pose = "Iai"
+		if t >= 36 then arc(frame, "ko-shin-flick", v(w.x, 2.4, w.z), 2.2, 200, 330, color, 0.2, -side) end
+		frame.shot = frameOn("ko-shin-blade", dir, { w }, { yaw = 50, pitch = 0, fill = 0.85, band = "bust", lift = IAI_DROP, fov = 26, focus = P(W, "Head") })
+	elseif t < 112 then
+		-- 2. LE FOURREAU: the blade slides home; at the click the floor ripples.
+		w.pose = if t < 96 then "Iai" else "StandTall"
+		if t >= 96 then
+			local n = (t - 96) // 4
+			ring(frame, "ko-shin-ripple" .. n, w.x, 1 + n * 0.9, 0.06, color)
+			if t < 100 then frame.impact = { key = "ko-shin-click", color = color } end
+		end
+		frame.shot = frameOn("ko-shin-sheathe", dir, { w, l }, { yaw = -20, pitch = 8, fill = 0.62, fov = 32, focus = P(W, "UpperTorso") })
+	elseif t < 150 then
+		-- 3. L'HORIZON: both, very small, far away along the floor.
+		w.pose = "StandTall"
+		frame.shot = frameOn("ko-shin-horizon", dir, { w, l }, { yaw = 4, pitch = 2, fill = 0.3, fov = 26 })
+	else
+		-- 4. IL S'EN VA: he walks away into the background, tracked sideways.
+		local k = progress(t, 150, 188)
+		w.z, w.facing = lerp(-1.6, -5, k), side
+		w.lookDir = v(side * 0.3, 0, -1)
+		if t < 188 then
+			w.state, w.vx = "Walking", side * 2
+		else
+			w.pose = "StandTall"
+			koEnd(ctx, frame, W, color)
+		end
+		frame.shot = frameOn("ko-shin-leave", dir, { w }, { yaw = -70, pitch = 0, fill = 0.72, fov = 30, focus = P(W, "UpperTorso") })
+	end
+	return frame
+end
+
+-- DAICHA: upside down, the fall; a pool of shadow spreading under the body; his eyes in the
+-- dark; the shadow swallows the body; DAICHA alone on his seal. Inverse grade.
+function KO.DAICHA(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.inverse = t >= 30
+	w.x, w.z = l.x + side * 2.6, -2.6
+	w.lookDir = v(-side * 0.4, 0, 0.9)
+	if t < 30 then
+		-- 0. The fall, the world upside down, black and white.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(3, 0, t / 24), if t < 22 then "Launched" else "DownFace"
+		w.pose = "Levitate"
+		frame.shot = frameOn("ko-daicha-fall", dir, { l }, { yaw = 20, pitch = 10, fill = 0.34, fov = 34, roll = 180, lift = 1.4 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	w.pose = "Levitate"
+	if t < 70 then
+		-- 1. L'OMBRE: a pool of shadow spreads under the body, seen from above, the frame turning.
+		local n = (t - 30) // 6
+		ring(frame, "ko-daicha-pool" .. n, l.x, 0.8 + n * 0.5, 0.06, color)
+		frame.shot = frameOn("ko-daicha-pool", dir, { l }, { yaw = 0, pitch = 72, fill = 0.4, fov = 40, roll = -(t - 30) * 0.8 })
+	elseif t < 110 then
+		-- 2. LES YEUX: DAICHA in the dark, only his eyes glowing.
+		if t >= 74 then spark(frame, "ko-daicha-eyes", v(w.x, 5.3, w.z + 0.5), color, 0.5) end
+		frame.shot = frameOn("ko-daicha-eyes", dir, { w }, { yaw = 22, pitch = -6, fill = 0.85, band = "bust", fov = 28, roll = -8,
+			focus = P(W, "Head") })
+	elseif t < 150 then
+		-- 3. ENGLOUTI: the shadow coils up around the body and swallows it.
+		if t < 132 then
+			table.insert(frame.fx, { key = "ko-daicha-swallow", kind = "dragonHelix", pos = v(l.x, 0, 0), color = color })
+		else
+			vanish(l)
+		end
+		frame.shot = frameOn("ko-daicha-swallow", dir, { w, { point = true, x = l.x, y = 0.4, z = 0 } }, { yaw = -24, pitch = 30, fill = 0.55,
+			fov = 42, focus = P(W, "UpperTorso") })
+	else
+		-- 4. SEUL: DAICHA alone on his seal, a dutch angle.
+		vanish(l)
+		table.insert(frame.fx, { key = "ko-daicha-seal", kind = "kanjiSeal", pos = v(w.x, 0.06, w.z), color = color, text = "闇" })
+		if t >= 188 then koEnd(ctx, frame, W, color) end
+		frame.shot = frameOn("ko-daicha-alone", dir, { w }, { yaw = 30, pitch = -10, fill = 0.7, fov = 40, roll = 14, focus = P(W, "Head") })
+	end
+	return frame
+end
+
+-- HIBECARES: the deck caves in under the fall; stone erupts around the body; the dust
+-- settles at floor level; the king from below; the ruins far and wide. Ruin grade.
+function KO.HIBECARES(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.ruin = t >= 30
+	w.x, w.z = l.x + side * 3.4, -2.8
+	w.lookDir = v(-side * 0.5, 0, 0.85)
+	w.pose = "Colossus"
+	if t < 30 then
+		-- 0. The fall, black and white, the deck caving in.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(4, 0, t / 22), if t < 22 then "Launched" else "DownFace"
+		if t >= 22 then
+			debris(frame, "ko-hibecares-impact", v(l.x, 0.3, 0), color, 1.2)
+			if t < 26 then frame.quake = 1.4 end
+		end
+		frame.shot = frameOn("ko-hibecares-fall", dir, { l }, { yaw = -30, pitch = -2, fill = 0.36, fov = 40, lift = 1.2 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 70 then
+		-- 1. LES DÉCOMBRES: stone erupts in a ring around the body.
+		rocks(frame, "ko-hibecares-rocks", l.x, 2.3, 7, color)
+		if t < 34 then frame.quake = 1 end
+		frame.shot = frameOn("ko-hibecares-rubble", dir, { l, w }, { yaw = 30, pitch = 24, fill = 0.5, fov = 44 })
+	elseif t < 112 then
+		-- 2. LA POUSSIÈRE: at floor level along the body, the dust settles.
+		table.insert(frame.fx, { key = "ko-hibecares-dust" .. (t - 70) // 8, kind = "dust", pos = v(l.x, 0, 0), direction = side })
+		frame.shot = frameOn("ko-hibecares-dust", dir, { l }, { yaw = 24, pitch = 6, fill = 0.66, fov = 40, focus = P(L, "Head") })
+	elseif t < 150 then
+		-- 3. LE ROI: monumental, from the floor.
+		frame.shot = frameOn("ko-hibecares-king", dir, { w }, { yaw = -34, pitch = -30, fill = 0.85, fov = 46, focus = P(W, "Head") })
+	else
+		-- 4. LES RUINES: far and wide, the king and the body among the stones.
+		if t >= 188 then koEnd(ctx, frame, W, color) end
+		frame.shot = frameOn("ko-hibecares-ruins", dir, { w, l }, { yaw = -20, pitch = 12, fill = 0.36, fov = 40 })
 	end
 	return frame
 end

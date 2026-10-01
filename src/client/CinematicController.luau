@@ -163,6 +163,12 @@ function CinematicController.new(config, hud, effects)
 	self.fire = grade("Fire", { Name = "KitFire", Enabled = false, TintColor = Color3.fromRGB(255, 180, 120), Contrast = 0.25, Saturation = 0.25, Brightness = 0.02 })
 	self.sky = grade("Sky", { Name = "KitSky", Enabled = false, TintColor = Color3.fromRGB(190, 230, 255), Contrast = 0.1, Saturation = -0.15, Brightness = 0.06 })
 	self.shadowGrade = grade("Shadow", { Name = "KitShadow", Enabled = false, TintColor = Color3.fromRGB(175, 150, 230), Contrast = 0.45, Saturation = -0.35, Brightness = -0.12 })
+	-- RYUKEN's rage (hot red, hard contrast), SHIN's current (cold steel), DAICHA's inverted
+	-- shadow (deep violet), HIBECARES' ruin (dusty sepia).
+	self.rage = grade("Rage", { Name = "KitRage", Enabled = false, TintColor = Color3.fromRGB(255, 150, 130), Contrast = 0.42, Saturation = 0.3, Brightness = -0.04 })
+	self.current = grade("Current", { Name = "KitCurrent", Enabled = false, TintColor = Color3.fromRGB(165, 210, 245), Contrast = 0.32, Saturation = -0.45, Brightness = 0.02 })
+	self.inverse = grade("Inverse", { Name = "KitInverse", Enabled = false, TintColor = Color3.fromRGB(215, 135, 255), Contrast = 0.6, Saturation = 0.05, Brightness = -0.2 })
+	self.ruin = grade("Ruin", { Name = "KitRuin", Enabled = false, TintColor = Color3.fromRGB(235, 205, 160), Contrast = 0.3, Saturation = -0.45, Brightness = -0.02 })
 	self.dof = new("DepthOfFieldEffect", { Name = "CinematicDoF", Enabled = false, FarIntensity = 0.65, NearIntensity = 0.35, InFocusRadius = 4 }, Lighting)
 	return self
 end
@@ -206,7 +212,10 @@ function CinematicController:finish()
 	self.displayTick, self.cinClock = nil, nil
 	self.debugLabel.Visible, self.labRequested = false, false
 	self.hud.gui.Enabled = true
-	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof, self.fire, self.sky, self.shadowGrade } do effect.Enabled = false end
+	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof, self.fire, self.sky, self.shadowGrade,
+		self.rage, self.current, self.inverse, self.ruin } do
+		effect.Enabled = false
+	end
 	self.handheld = 0
 	self.stamp.Visible, self.title.Visible, self.subtitle.Visible, self.kanjiBack.Visible = false, false, false, false
 	self.prompt.Visible, self.promptResult.Visible = false, false
@@ -340,6 +349,12 @@ function CinematicController:applyFx(frame)
 				self.gate = prop
 			elseif kind == "gateOpen" then fx:gateOpen(self.gate)
 			elseif kind == "gateShatter" then fx:gateShatter(self.gate, color)
+			elseif kind == "rocks" then prop = fx:rocks(vec(request.pos), request.radius, request.count or 8, color)
+			elseif kind == "debris" then fx:debris(vec(request.pos), color, request.scale or 1)
+			elseif kind == "crack" then fx:crack(vec(request.from), vec(request.to), color)
+			elseif kind == "cut" then fx:cut(vec(request.from), vec(request.to), color)
+			elseif kind == "eclipse" then prop = fx:eclipse(vec(request.pos), color, request.scale or 1, request.life)
+			elseif kind == "smoke" then fx:smoke(vec(request.pos))
 			end
 			if prop then table.insert(self.props, prop) end
 		end
@@ -358,8 +373,14 @@ function CinematicController:applyFrame(frame)
 	self.fire.Enabled = frame.grade.fire == true and not reduced
 	self.sky.Enabled = frame.grade.sky == true and not reduced
 	self.shadowGrade.Enabled = frame.grade.shadow == true and not reduced
+	self.rage.Enabled = frame.grade.rage == true and not reduced
+	self.current.Enabled = frame.grade.current == true and not reduced
+	self.inverse.Enabled = frame.grade.inverse == true and not reduced
+	self.ruin.Enabled = frame.grade.ruin == true and not reduced
 	-- TARO's handheld camera: a slow constant sway (smaller in reduced mode).
 	self.handheld = (frame.handheld or 0) * (if reduced then 0.3 else 1)
+	-- A jolt of the camera (HIBECARES' blows shaking the deck).
+	if frame.quake then self.shake = math.max(self.shake, frame.quake * (if reduced then 0.4 else 1)) end
 	if frame.grade.mono then
 		self.mono.Enabled = not reduced
 	elseif not self.monoBeat then

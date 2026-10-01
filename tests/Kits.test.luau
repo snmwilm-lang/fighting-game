@@ -97,8 +97,8 @@ local function esquive(world, slot) return stance(world, slot, "ESQUIVE") end
 
 print("Kits")
 
-test("the four kits exist, with their own moves for every role", function()
-	expect(#MoveData.KitOrder == 4, "kit count")
+test("the eight kits exist, with their own moves for every role", function()
+	expect(#MoveData.KitOrder == 8, "kit count")
 	for _, name in MoveData.KitOrder do
 		local kit = Kits[name]
 		expect(kit and kit.Stats.MaxHealth > 0, name .. " has no stats")

@@ -385,7 +385,8 @@ end)
 test("each kit has its own stance, guard and run", function()
 	local anim = newAnimator()
 	local base = anim:resolve(Poses.STANCE)
-	for _, name in { "TARO", "ZEPHYR", "AKEMI" } do
+	for _, name in MoveData.KitOrder do
+		if name == "KAI" then continue end
 		anim.kit = name
 		local stance = anim:resolve(anim:base("STANCE"))
 		expect(stance ~= base and stance.Root[4] ~= base.Root[4], name .. " uses KAI's stance")
@@ -562,7 +563,9 @@ test("R6: a crouch lowers the body, a guard keeps the fists out of the head", fu
 	local crouch, crouchLift = settled({ state = "Crouching", crouching = true })
 	local drop = (stand.Torso[2] + standLift) - (crouch.Torso[2] + crouchLift)
 	expect(drop > 0.4, string.format("the R6 crouch only lowers the torso by %.2f", drop))
-	for _, case in { { "Idle", "KAI" }, { "Blocking", "KAI" }, { "Idle", "TARO" }, { "Idle", "AKEMI" }, { "Idle", "ZEPHYR" } } do
+	local cases = { { "Blocking", "KAI" } }
+	for _, kit in MoveData.KitOrder do table.insert(cases, { "Idle", kit }) end
+	for _, case in cases do
 		local parts = settled({ state = case[1], kit = case[2] })
 		local head = K.inverse(parts.Head)
 		for _, arm in { "Left Arm", "Right Arm" } do

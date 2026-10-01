@@ -107,7 +107,7 @@ end)
 test("CPU against random player: invariants hold, ultimates and cinematics end", function()
 	for i, kit in MoveData.KitOrder do
 		local world = Sim.newWorld(Config, MoveData, false)
-		Sim.setKits(world, kit, MoveData.KitOrder[(i % 4) + 1])
+		Sim.setKits(world, kit, MoveData.KitOrder[(i % #MoveData.KitOrder) + 1])
 		local brain = FighterAI.new(4, i * 5)
 		local p2 = randomPlayer(i * 123)
 		local last = { { ticks = 0 }, { ticks = 0 } }

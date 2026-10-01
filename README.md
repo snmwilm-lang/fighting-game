@@ -167,6 +167,16 @@ luau tests/Cinematography.test.luau  # cadrage de chaque ultime avec le vrai rig
 luau tests/Balance.luau -a 4 120   # rapport d'équilibrage CPU contre CPU (niveau, matchs)
 ```
 
+### Planche de poses R6 / R15
+
+Les mêmes poses sur un corps R6 (à gauche) et sur le rig R15 (à droite), vues par la caméra du
+jeu :
+
+```bash
+luau tests/PoseSheet.luau -a AKEMI 0 > sheet.txt
+python3 tools/storyboard.py sheet.txt sheet.png
+```
+
 ### Storyboard des cinématiques
 
 Planche de ce que voit la caméra, image par image (corps posés par le vrai moteur

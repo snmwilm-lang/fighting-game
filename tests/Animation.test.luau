@@ -574,6 +574,40 @@ test("R6: a crouch lowers the body, a guard keeps the fists out of the head", fu
 	end
 end)
 
+test("R6: guard arms point at the opponent, pitched down; standing legs stay close; low moves stay low", function()
+	local rt = Retarget.new(K, r6Skeleton())
+	local function settled(view)
+		local anim = r6Animator(rt)
+		view.x, view.y, view.vx, view.vy, view.facing, view.hitstop, view.combo = 0, 0, 0, 0, 1, 0, 0
+		local pose
+		for i = 1, 40 do
+			pose = anim:step(view, { x = 3, y = 0, state = "Idle" }, 1 / 60, i / 60, 60, false)
+		end
+		local _, lift, parts = Retarget.solve(rt, pose, 0)
+		return parts, lift
+	end
+	-- Direction of a limb toward its tip (rig space: forward is -Z).
+	local function tip(t) return -t[5], -t[8], -t[11] end
+	for _, kit in MoveData.KitOrder do
+		for _, state in { "Idle", "Blocking" } do -- (runs swing the arms: AKEMI's trail behind)
+			local parts = settled({ state = state, kit = kit })
+			for _, arm in { "Left Arm", "Right Arm" } do
+				local _, y, z = tip(parts[arm])
+				expect(y < -0.1 and y > -0.9, string.format("%s %s: R6 %s pitched %.2f (want down, not hanging)", kit, state, arm, y))
+				expect(-z > 0.25, string.format("%s %s: R6 %s does not point forward (%.2f)", kit, state, arm, -z))
+			end
+			for _, leg in { "Left Leg", "Right Leg" } do
+				local _, y = tip(parts[leg])
+				expect(y < -0.8, string.format("%s %s: R6 %s splayed (%.2f from vertical)", kit, state, leg, y))
+			end
+		end
+	end
+	-- A low kick keeps the body as low as the R15 one would (no straightening).
+	local stand, standLift = settled({ state = "Idle", kit = "KAI" })
+	local low, lowLift = settled({ state = "Attack", move = "LowKick", moveFrame = MoveData.Moves.LowKick.startup + 1, kit = "KAI" })
+	expect((stand.Torso[2] + standLift) - (low.Torso[2] + lowLift) > 0.25, "the R6 low kick stands as tall as the guard")
+end)
+
 test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled body)", function()
 	for _, scale in { 1, 1.15 } do
 		local world = Sim.newWorld(Config, MoveData, false)

@@ -1,5 +1,46 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.6 — 1er octobre 2026
+
+Retour de Wilhem : « en R6 tu peux faire mieux, vraiment beaucoup mieux ». Nouvel outil pour
+le voir au lieu de le deviner : **planche de poses R6 / R15** (`tests/PoseSheet.luau`), même
+moteur que le jeu, corps R6 à gauche et rig R15 à droite, vue de la caméra du jeu.
+
+### Ce que la planche montrait, et les corrections (`Retarget.luau`)
+
+- **Jambes en compas** : un R6 n'a pas de genoux ; le bassin descendait à la hauteur du R15
+  (genoux pliés), donc les jambes rigides s'ouvraient en grand V (jusqu'à ~60°). Désormais,
+  en garde debout, les jambes gardent `LEG_KEEP` (75 %) de l'écart vers la jambe tendue :
+  garde à ~25-35° au lieu de 45-60°. La hauteur est jugée sur tout le corps (la jambe d'appui
+  la plus haute) : l'accroupi, le balayage et les coups bas restent aussi bas qu'avant.
+- **Bras « zombie » en garde** : les bras rigides suivaient l'avant-bras R15, soit tendus à
+  l'horizontale, soit levés vers le visage, et le bras arrière partait sur le côté vers la
+  caméra. Nouvelle **garde R6** : bras vers l'adversaire (avant du buste, légèrement rentrés
+  vers l'axe), inclinés de `ARM_GUARD_PITCH` (38°) sous l'horizontale ; ils se tendent vers
+  le poing à mesure que le bras R15 s'allonge (coup = ~95 % d'allonge, garde = 45-75 %). Un
+  poing levé au-dessus de la tête (marteau, victoire) garde sa ligne.
+- **Buste** : le torse rigide suit la poitrine à 70 % (`CHEST_SHARE`, avant 50 %) : la
+  rotation des coups se voit davantage.
+- Contrôlé : les coups de pied et de poing R6 partent bien dans la même direction que le R15
+  (mesures sur la planche).
+
+### Tests
+
+- Animation 23 (+1 : pour les 4 kits, en garde et en blocage, chaque bras R6 pointe vers
+  l'avant et vers le bas, chaque jambe reste à moins de ~37° de la verticale ; le LowKick R6
+  reste plus bas que la garde). Vérifié : ce test échoue avec l'ancien réglage.
+- CombatSimulation 80, FighterAI 9, CinematicDirector 126, Kits 26, PressQueue 4, Fuzz 2,
+  Cinematography 41 ✅. Studio ❌ non exécuté. Équilibrage inchangé (aucune donnée de combat
+  touchée).
+- Planche : `luau tests/PoseSheet.luau -a KIT [angle] > sheet.txt` puis
+  `python3 tools/storyboard.py sheet.txt sheet.png`.
+
+### Problèmes ouverts / prochaine étape
+
+- À juger en jeu sur de vrais avatars R6 (proportions et accessoires variés).
+- Les blocs R6 étant massifs, en vue 3/4 le bras côté caméra masque parfois le buste.
+- Prochaine étape : le jeu en ligne et le lobby.
+
 ## Version 0.9.5 — 1er octobre 2026
 
 Retours de Wilhem : « en fin de combo l'adversaire finit en l'air, donc les ultimes ne sont

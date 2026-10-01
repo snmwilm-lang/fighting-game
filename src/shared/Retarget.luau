@@ -23,6 +23,14 @@ local LEGS = { { side = "Left", joint = "Left Hip", part = "Left Leg" }, { side 
 -- STANCE_DEPTH: share of the virtual hip height kept by planted legs (lower = wider stance).
 Retarget.ARM_REACH = 0.7
 Retarget.STANCE_DEPTH = 0.88
+-- ARM_GUARD_PITCH: a bent virtual arm (a guard) becomes a rigid arm pointed at the opponent,
+-- this many degrees under the horizontal; it straightens toward the fist as the arm extends.
+Retarget.ARM_GUARD_PITCH = 38
+-- LEG_KEEP: share of the gap between the virtual hip height and the full leg length that a
+-- planted rigid leg keeps (0 = the virtual height: wide compass legs; 1 = always straight).
+Retarget.LEG_KEEP = 0.75
+-- CHEST_SHARE: how much the rigid R6 torso turns like the virtual chest (the rest like the hips).
+Retarget.CHEST_SHARE = 0.7
 
 local function v3(t)
 	return { t[1], t[2], t[3] }
@@ -116,11 +124,13 @@ end
 function Retarget.solve(rt, pose, altitude)
 	local kin, r6, virtual = rt.kin, rt.r6, rt.virtual
 	local v = kin.solve(virtual, pose, 0)
-	-- One rigid torso for the virtual hips and chest: turned halfway between them (a chest
-	-- twist of a punch turns the R6 torso by half, not entirely), hung on the virtual waist.
+	-- One rigid torso for the virtual hips and chest: turned mostly like the chest
+	-- (CHEST_SHARE), since it carries the whole twist of a punch, hung on the virtual waist.
 	local lower, upper = v.LowerTorso, v.UpperTorso
-	local torso = aimFrame(lower[5] + upper[5], lower[8] + upper[8], lower[11] + upper[11],
-		lower[6] + upper[6], lower[9] + upper[9], lower[12] + upper[12])
+	local cw = Retarget.CHEST_SHARE
+	local lw = 1 - cw
+	local torso = aimFrame(lower[5] * lw + upper[5] * cw, lower[8] * lw + upper[8] * cw, lower[11] * lw + upper[11] * cw,
+		lower[6] * lw + upper[6] * cw, lower[9] * lw + upper[9] * cw, lower[12] * lw + upper[12] * cw)
 	local waist = virtual.joints.Waist.c0
 	local wx, wy, wz = kin.point(lower, waist[1], waist[2], waist[3])
 	local below = r6.sizes.Torso[2] * 0.2 -- the waist sits this far below the torso's centre
@@ -171,12 +181,33 @@ function Retarget.solve(rt, pose, altitude)
 			local size, lowerSize = virtual.sizes[arm.side .. "Hand"], virtual.sizes[arm.side .. "LowerArm"]
 			local fist = { kin.point(hand, 0, -size[2] / 2, 0) }
 			local elbow = { kin.point(forearm, 0, lowerSize[2] / 2, 0) }
+			-- Straight arm (punch): toward the fist; bent arm (guard): toward the elbow.
+			local sh = virtual.joints[arm.side .. "Shoulder"].c0
+			local sx, sy, sz = kin.point(upper, sh[1], sh[2], sh[3])
+			local reachTotal = virtual.sizes[arm.side .. "UpperArm"][2] + lowerSize[2] + size[2]
+			local fx, fy, fz = fist[1] - sx, fist[2] - sy, fist[3] - sz
+			-- (a guard holds the fist at 45-75 % of the arm's reach, a strike at about 95 %)
+			local straight = math.clamp((math.sqrt(fx * fx + fy * fy + fz * fz) / reachTotal - 0.78) / 0.15, 0, 1)
+			-- A fist raised above the head (overheads, victory) keeps its own line.
+			straight = math.max(straight, math.clamp((fy - 1.4) / 0.5, 0, 1))
 			local mid = between(elbow, fist, Retarget.ARM_REACH)
 			-- From the virtual shoulder toward that point, as far as the arm is long (its fist
 			-- in the bind pose: the shoulder pivot sits 5 % below the top, see virtualSpec).
 			local shoulder = virtual.joints[arm.side .. "Shoulder"].c0
 			local ox, oy, oz = kin.point(upper, shoulder[1], shoulder[2], shoulder[3])
 			local dx, dy, dz = normalize(mid[1] - ox, mid[2] - oy, mid[3] - oz)
+			-- Bent arm (guard): the R6 guard, toward the opponent (the chest's front) and pitched
+			-- down, never at the face nor out to the side.
+			if straight < 1 then
+				-- chest forward (-Z), turned a little toward the body's centre line (+-X)
+				local inward = if arm.side == "Left" then 0.22 else -0.22
+				local hx, hz = -upper[6] + upper[4] * inward, -upper[12] + upper[10] * inward
+				local hl = math.sqrt(hx * hx + hz * hz)
+				if hl < 1e-3 then hx, hz, hl = 0, -1, 1 end
+				local pitch = math.rad(Retarget.ARM_GUARD_PITCH)
+				local gx, gy, gz = hx / hl * math.cos(pitch), -math.sin(pitch), hz / hl * math.cos(pitch)
+				dx, dy, dz = normalize(gx + (dx - gx) * straight, gy + (dy - gy) * straight, gz + (dz - gz) * straight)
+			end
 			local length = r6.sizes[arm.part][2] * 0.95
 			aim(arm, { ox + dx * length, oy + dy * length, oz + dz * length }, { forearm[6], forearm[9], forearm[12] })
 		end
@@ -187,6 +218,7 @@ function Retarget.solve(rt, pose, altitude)
 	-- legs splay forward and back); in the air (chambers, jumps) it points along the middle
 	-- of the shin. A straight leg lands exactly on the sole either way.
 	local floorY = virtual.floor
+	local legs, stance = {}, 0
 	for _, leg in LEGS do
 		local foot, shin, hipJoint = v[leg.side .. "Foot"], v[leg.side .. "LowerLeg"], virtual.joints[leg.side .. "Hip"]
 		if foot and shin and hipJoint and joints[leg.joint] then
@@ -200,19 +232,29 @@ function Retarget.solve(rt, pose, altitude)
 			local sx, sy, sz = sole[1] - hx, sole[2] - hy, sole[3] - hz
 			local bend = math.clamp((1 - math.sqrt(sx * sx + sy * sy + sz * sz) / length) / 0.1, 0, 1)
 			local drop = math.min((hy - sole[2]) * (1 + (Retarget.STANCE_DEPTH - 1) * bend), length)
-			local out = math.sqrt(math.max(0, length * length - drop * drop))
-			local ox, oz = sole[1] - hx, sole[3] - hz
-			local flat = math.sqrt(ox * ox + oz * oz)
-			if flat < 1e-3 then ox, oz = knee[1] - hx, knee[3] - hz; flat = math.sqrt(ox * ox + oz * oz) end
-			if flat < 1e-3 then ox, oz, flat = 0, -1, 1 end
-			local planted = { hx + ox / flat * out, hy - drop, hz + oz / flat * out }
-			-- In the air: along the middle of the shin, as far as the leg is long.
-			local mid = between(knee, sole, 0.5)
-			local dx, dy, dz = normalize(mid[1] - hx, mid[2] - hy, mid[3] - hz)
-			local air = { hx + dx * length, hy + dy * length, hz + dz * length }
-			local w = math.clamp((floorY + 0.6 - sole[2]) / 0.4, 0, 1)
-			aim(leg, between(air, planted, w), { foot[6], foot[9], foot[12] })
+			stance = math.max(stance, drop / length)
+			table.insert(legs, { leg = leg, foot = foot, sole = sole, knee = knee, hip = { hx, hy, hz }, length = length, drop = drop })
 		end
+	end
+	-- Only a standing stance straightens (its higher hip above 60 % of the leg: guards sit at
+	-- 66-79 %); crouches and low moves (54 % or less) keep their depth.
+	local keep = Retarget.LEG_KEEP * math.clamp((stance - 0.54) / 0.06, 0, 1)
+	for _, l in legs do
+		local leg, foot, sole, knee, length = l.leg, l.foot, l.sole, l.knee, l.length
+		local hx, hy, hz = l.hip[1], l.hip[2], l.hip[3]
+		local drop = l.drop + (length - l.drop) * keep
+		local out = math.sqrt(math.max(0, length * length - drop * drop))
+		local ox, oz = sole[1] - hx, sole[3] - hz
+		local flat = math.sqrt(ox * ox + oz * oz)
+		if flat < 1e-3 then ox, oz = knee[1] - hx, knee[3] - hz; flat = math.sqrt(ox * ox + oz * oz) end
+		if flat < 1e-3 then ox, oz, flat = 0, -1, 1 end
+		local planted = { hx + ox / flat * out, hy - drop, hz + oz / flat * out }
+		-- In the air: along the middle of the shin, as far as the leg is long.
+		local mid = between(knee, sole, 0.5)
+		local dx, dy, dz = normalize(mid[1] - hx, mid[2] - hy, mid[3] - hz)
+		local air = { hx + dx * length, hy + dy * length, hz + dz * length }
+		local w = math.clamp((floorY + 0.6 - sole[2]) / 0.4, 0, 1)
+		aim(leg, between(air, planted, w), { foot[6], foot[9], foot[12] })
 	end
 
 	-- Grounding with the R6 body itself.

@@ -19,6 +19,11 @@
 	  jumpCancel  on hit, jumping during recovery cancels the move (follow the launched target)
 	  invuln      { from, to } frames during which the user cannot be hit
 	  meterCost   ki meter spent to start the move
+	  hits / hitInterval   multi-hit: up to `hits` hits, at least `hitInterval` frames apart;
+	              launch, bounces and crumple only apply on the final hit
+	  holdVy / multiPush / multiHitstop   intermediate hits of a multi-hit move
+	  projectile  spawns a ki blast on the first active frame (one per fighter on screen)
+	  skill       special skill unlocked by alternating clicks: announced on screen
 	  heavy       presentation hint for bigger effects
 	Blocked hits deal damage * CombatConfig.BlockDamageRatio and can never KO.
 	Any grounded normal cancels into the special (E) on contact; any normal or special cancels
@@ -28,7 +33,13 @@
 local MoveData = {}
 
 local function move(data)
-	data.hitbox = table.freeze(data.hitbox)
+	if data.hitbox then data.hitbox = table.freeze(data.hitbox) end
+	if data.projectile then
+		local p = data.projectile
+		p.id, p.name, p.kind = data.id, data.name, "Special"
+		p.guard, p.launch = p.guard or "Mid", 0
+		data.projectile = table.freeze(p)
+	end
 	if data.cancels then data.cancels = table.freeze(data.cancels) end
 	if data.invuln then data.invuln = table.freeze(data.invuln) end
 	data.lunge = data.lunge or 0
@@ -67,6 +78,7 @@ MoveData.Moves = table.freeze({
 		push = 24, blockPush = 18, lunge = 8, launch = 16, knockdown = true,
 		hitbox = { near = 0.4, far = 4.4, low = 1.8, high = 4.4 },
 		heavy = true,
+		cancels = { Heavy = "CrescentMoon" },
 	}),
 	-- Right-click branches of the left-click chain
 	BodyBlow = move({ -- L > R : crumple, then restart a combo
@@ -75,6 +87,7 @@ MoveData.Moves = table.freeze({
 		push = 4, blockPush = 14, lunge = 10, crumple = true,
 		hitbox = { near = 0.3, far = 3.4, low = 1.8, high = 3.8 },
 		heavy = true,
+		cancels = { Light = "PalmStrike" },
 	}),
 	Uppercut = move({ -- L > L > R or crouch + R : launcher, jump to follow
 		id = "Uppercut", name = "LANCEUR", startup = 8, active = 4, recovery = 22,
@@ -82,6 +95,69 @@ MoveData.Moves = table.freeze({
 		push = 3, blockPush = 14, lunge = 6, launch = 46, jumpCancel = true,
 		hitbox = { near = 0.2, far = 3.4, low = 1.6, high = 6.6 },
 		heavy = true,
+		cancels = { Heavy = "DragonFist" },
+	}),
+	-- Alternating routes: L > R > L > R and friends unlock special skills.
+	PalmStrike = move({ -- L > R > L : ki palm on the crumpling target
+		id = "PalmStrike", name = "PAUME DE KI", startup = 8, active = 4, recovery = 18,
+		damage = 75, guardDamage = 14, hitstun = 26, blockstun = 14, hitstop = 10,
+		push = 10, blockPush = 16, lunge = 8,
+		hitbox = { near = 0.3, far = 3.8, low = 1.8, high = 4.8 },
+		heavy = true,
+		cancels = { Heavy = "DragonTornado" },
+	}),
+	DragonTornado = move({ -- L > R > L > R : skill, spinning multi-hit launcher
+		id = "DragonTornado", name = "TORNADE DU DRAGON", kind = "Skill", skill = true,
+		startup = 9, active = 16, recovery = 24, hits = 4, hitInterval = 4,
+		damage = 30, guardDamage = 10, hitstun = 30, blockstun = 12, hitstop = 12,
+		multiHitstop = 3, holdVy = 14, multiPush = 1,
+		push = 6, blockPush = 18, lunge = 12, launch = 46, jumpCancel = true,
+		hitbox = { near = 0, far = 3.6, low = 0, high = 7.4 },
+		heavy = true,
+	}),
+	DragonFist = move({ -- L > L > R > R or R > R > L > R : skill, rising triple uppercut
+		id = "DragonFist", name = "POING DU DRAGON", kind = "Skill", skill = true,
+		startup = 7, active = 12, recovery = 28, hits = 3, hitInterval = 4,
+		damage = 40, guardDamage = 12, hitstun = 30, blockstun = 14, hitstop = 14,
+		multiHitstop = 4, holdVy = 20, multiPush = 1,
+		push = 4, blockPush = 18, lunge = 14, launch = 50,
+		hitbox = { near = 0, far = 3.6, low = 0.5, high = 8.5 },
+		heavy = true,
+	}),
+	CrescentMoon = move({ -- L L L L > R : skill, flipping kicks that spike the target down
+		id = "CrescentMoon", name = "CROISSANT DE LUNE", kind = "Skill", skill = true,
+		startup = 7, active = 13, recovery = 24, hits = 3, hitInterval = 5,
+		damage = 35, guardDamage = 12, hitstun = 28, blockstun = 14, hitstop = 13,
+		multiHitstop = 4, holdVy = 12, multiPush = 2,
+		push = 8, blockPush = 18, lunge = 14, launch = -30, groundBounce = true,
+		hitbox = { near = 0, far = 4.2, low = 0, high = 7.5 },
+		heavy = true,
+	}),
+	RisingWind = move({ -- R > L > R : double kick that lifts the swept target
+		id = "RisingWind", name = "VENT ASCENDANT", startup = 7, active = 8, recovery = 20,
+		hits = 2, hitInterval = 4, damage = 40, guardDamage = 10, hitstun = 26, blockstun = 13, hitstop = 9,
+		multiHitstop = 3, holdVy = 12, multiPush = 1,
+		push = 6, blockPush = 14, lunge = 10, launch = 30,
+		hitbox = { near = 0.2, far = 4.0, low = -0.5, high = 5.5 },
+		heavy = true,
+		cancels = { Light = "KiFlurry" },
+	}),
+	KiFlurry = move({ -- R > L > R > L : skill, rush of ki punches ending in a wall bounce
+		id = "KiFlurry", name = "RAFALE DE KI", kind = "Skill", skill = true,
+		startup = 6, active = 24, recovery = 22, hits = 7, hitInterval = 3,
+		damage = 18, guardDamage = 6, hitstun = 28, blockstun = 12, hitstop = 14,
+		multiHitstop = 2, holdVy = 7, multiPush = 1,
+		push = 44, blockPush = 20, lunge = 6, launch = 18, wallBounce = true,
+		hitbox = { near = 0.3, far = 4.2, low = 0, high = 7.5 },
+		heavy = true,
+	}),
+	ThunderHeel = move({ -- R > R > L : catches the bounce, launches
+		id = "ThunderHeel", name = "TALON FOUDRE", startup = 7, active = 4, recovery = 20,
+		damage = 70, guardDamage = 12, hitstun = 26, blockstun = 14, hitstop = 10,
+		push = 3, blockPush = 14, lunge = 8, launch = 40, jumpCancel = true,
+		hitbox = { near = 0.2, far = 3.8, low = 0, high = 7 },
+		heavy = true,
+		cancels = { Heavy = "DragonFist" },
 	}),
 	SpinKick = move({ -- L > L > L > R : wall bounce
 		id = "SpinKick", name = "TALON TOURNOYANT", startup = 10, active = 3, recovery = 22,
@@ -105,12 +181,14 @@ MoveData.Moves = table.freeze({
 		push = 4, blockPush = 16, lunge = 10, launch = 26, groundBounce = true, guard = "High",
 		hitbox = { near = 0.3, far = 3.8, low = 1.0, high = 6.4 },
 		heavy = true,
+		cancels = { Light = "ThunderHeel" },
 	}),
 	Sweep = move({ -- R > L : low sweep, knockdown
 		id = "Sweep", name = "BALAYAGE", startup = 9, active = 4, recovery = 20,
 		damage = 60, guardDamage = 12, hitstun = 22, blockstun = 13, hitstop = 9,
 		push = 8, blockPush = 14, lunge = 12, launch = 10, knockdown = true, guard = "Low",
 		hitbox = { near = 0.3, far = 4.6, low = -0.2, high = 1.4 },
+		cancels = { Heavy = "RisingWind" },
 	}),
 	-- Crouching
 	LowKick = move({
@@ -151,6 +229,16 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0.2, far = 3.6, low = 1.0, high = 7.0 },
 		heavy = true,
 	}),
+	-- Crouch + E: ki blast projectile
+	KiBlast = move({
+		id = "KiBlast", name = "KIKOHO", kind = "Special", startup = 12, active = 2, recovery = 26,
+		damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+		projectile = {
+			speed = 30, life = 90, spawnX = 1.8, height = 3.6, halfWidth = 0.9, halfHeight = 0.9,
+			damage = 70, guardDamage = 14, hitstun = 22, blockstun = 15, hitstop = 9,
+			push = 14, blockPush = 16, heavy = false,
+		},
+	}),
 	-- Ultimate (R): costs ki, starts a cinematic when it connects
 	KaienRush = move({
 		id = "KaienRush", name = "KAIEN RUSH", kind = "Ultimate", startup = 8, active = 10, recovery = 36,
@@ -165,7 +253,7 @@ MoveData.Moves = table.freeze({
 -- Which move a button starts from neutral.
 MoveData.Starters = table.freeze({
 	Ground = table.freeze({ Light = "Jab", Heavy = "Smash", Special = "Rising", Ultimate = "KaienRush" }),
-	Crouch = table.freeze({ Light = "LowKick", Heavy = "Uppercut", Special = "Rising", Ultimate = "KaienRush" }),
+	Crouch = table.freeze({ Light = "LowKick", Heavy = "Uppercut", Special = "KiBlast", Ultimate = "KaienRush" }),
 	Air = table.freeze({ Light = "AirKick", Heavy = "AirSmash" }),
 })
 
@@ -187,6 +275,11 @@ MoveData.Routes = table.freeze({
 	{ name = "MUR", keys = "L L L R", moves = { "Jab", "Cross", "Elbow", "SpinKick" } },
 	{ name = "HACHE", keys = "R R", moves = { "Smash", "Hammer" } },
 	{ name = "BALAYAGE", keys = "R L", moves = { "Smash", "Sweep" } },
+	{ name = "★ TORNADE", keys = "L R L R", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado" } },
+	{ name = "★ RAFALE", keys = "R L R L", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry" } },
+	{ name = "★ DRAGON", keys = "L L R R", moves = { "Jab", "Cross", "Uppercut", "DragonFist" } },
+	{ name = "★ FOUDRE", keys = "R R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist" } },
+	{ name = "★ LUNE", keys = "L L L L R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon" } },
 })
 
 function MoveData.total(m)

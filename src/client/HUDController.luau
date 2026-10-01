@@ -180,6 +180,21 @@ function HUD.new(config)
 	})
 	stroke(self.announceSub, 3)
 
+	-- Skill callouts, one per side, slanted like an anime technique name.
+	self.callouts = {}
+	for slot = 1, 2 do
+		local left = slot == 1
+		local callout = text(gui, {
+			Name = "Skill" .. slot, Visible = false, TextSize = 52, Rotation = if left then -5 else 5,
+			Size = UDim2.new(0.5, 0, 0, 60), AnchorPoint = Vector2.new(if left then 0 else 1, 0.5),
+			Position = if left then UDim2.new(0, 16, 0.24, 0) else UDim2.new(1, -16, 0.24, 0),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+			TextColor3 = self.bars[slot].energy,
+		})
+		stroke(callout, 4, INK)
+		self.callouts[slot] = { label = callout, scale = new("UIScale", {}, callout) }
+	end
+
 	-- Status and buttons below the header.
 	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 112), TextSize = 12,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("B9B9C2") })
@@ -213,6 +228,9 @@ function HUD.new(config)
 	self.resetButton = button("Reset", "REPLACER", 84, function()
 		if self.onReset then self.onReset() end
 	end)
+	self.avatarButton = button("Avatar", "APPARENCE : KAI", 140, function()
+		if self.onAvatar then self.onAvatar() end
+	end)
 	self.combosButton = button("Combos", "COMBOS", 76, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
 	end)
@@ -220,7 +238,7 @@ function HUD.new(config)
 	-- Combo routes panel (from MoveData.Routes) plus special, ultimate and air follow-ups.
 	local panel = new("Frame", {
 		Name = "CombosPanel", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
-		Size = UDim2.fromOffset(330, 300), Position = UDim2.fromOffset(12, 170),
+		Size = UDim2.fromOffset(360, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.fromOffset(12, 170),
 	}, gui)
 	stroke(panel, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 8) }, panel)
@@ -234,6 +252,8 @@ function HUD.new(config)
 	table.insert(lines, { "↓ + L : KICK BAS (garde basse)  ·  ↓ + R : LANCEUR", WHITE })
 	table.insert(lines, { "Après LANCEUR : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : RISING STRIKE (invincible)", Color3.fromHex("FFB938") })
+	table.insert(lines, { "↓ + E : KIKOHO (boule de ki, 1 à la fois)", Color3.fromHex("FFB938") })
+	table.insert(lines, { "★ = skill : alterne clic gauche / clic droit", Color3.fromHex("FFD23F") })
 	table.insert(lines, { "R (2 barres de ki) : KAIEN RUSH → cinématique", Color3.fromHex("FF2A3D") })
 	table.insert(lines, { "1 seul effondrement, rebond sol et rebond mur par combo", Color3.fromHex("B9B9C2") })
 	for i, line in lines do
@@ -294,6 +314,19 @@ function HUD:onEvent(event, world)
 		c.scale.Scale = 1.5
 		tween(c.scale, 0.15, { Scale = 1 }, Enum.EasingStyle.Back)
 		c.expires = os.clock() + 1.4
+	elseif event.kind == "Skill" then
+		local callout = self.callouts[event.attacker]
+		local m = MoveData.Moves[event.move]
+		callout.label.Text = (if m then m.name else event.move) .. " !"
+		callout.label.Visible, callout.label.TextTransparency = true, 0
+		callout.scale.Scale = 1.8
+		tween(callout.scale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+		local id = (callout.id or 0) + 1
+		callout.id = id
+		task.delay(1.1, function()
+			if callout.id ~= id then return end
+			tween(callout.label, 0.25, { TextTransparency = 1 })
+		end)
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then
@@ -349,6 +382,8 @@ function HUD:update(world, views, fps, dt)
 	self.resetButton.Visible = solo and localSlot > 0
 	self.dummyButton.Visible = solo and localSlot > 0
 	self.dummyButton.Text = "MANNEQUIN : " .. world.dummyMode .. " (M)"
+	self.avatarButton.Visible = localSlot > 0
+	self.avatarButton.Text = if Players.LocalPlayer:GetAttribute("Avatar") then "APPARENCE : MON AVATAR" else "APPARENCE : KAI"
 	self.status.Text = string.format("v%s · %s · %d FPS", self.config.Version,
 		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"
 			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5))

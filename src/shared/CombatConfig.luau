@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.3.0",
+	Version = "0.4.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -35,7 +35,7 @@ return table.freeze({
 	GuardRegenDelayTicks = 50,
 	GuardRegenPerTick = 0.6,
 	GuardBreakTicks = 55,
-	BufferTicks = 12, -- lifetime of a queued press (frozen during hitstop)
+	BufferTicks = 12, -- lifetime of the next queued press (frozen during hitstop)
 	BufferSize = 3,
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this
 	MinComboScaling = 0.4,

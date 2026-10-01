@@ -166,7 +166,7 @@ function CinematicController:stage(cin, views, tick)
 		d.hitstop = if k > 0 and tick - lastHit < 6 then 1 else 0
 	elseif tick < CIN.FinalTick then
 		a.x, a.y, a.facing = d.x - dir * 2.8, 0, dir
-		a.state, a.move, a.moveFrame = "Attack", "Smash", 1
+		a.state, a.move, a.moveFrame = "Attack", "Smash", MoveData.Moves.Smash.startup
 		d.state, d.hitstop = "Hitstun", 0
 	else
 		a.x, a.y, a.facing = d.x - dir * 2.8, 0, dir

@@ -88,6 +88,40 @@ test("LÉGENDE uses combo routes and the ultimate", function()
 	expect(stats.ultimates >= 1, "never landed an ultimate")
 end)
 
+test("under constant pressure every CPU level fights back", function()
+	-- A player who only attacks: walks in and strings JAB > CROSS > COUDE every 30 ticks.
+	for level = 1, #FighterAI.Levels do
+		local world = Sim.newWorld(Config, MoveData, false)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -2, 2
+		local brain = FighterAI.new(level, 9)
+		local cpuDamage, cpuHits = 0, 0
+		for t = 1, 60 * 45 do
+			local p = t % 30
+			local player = input({ axis = 1, light = p == 1 or p == 7 or p == 13 })
+			for _, e in Sim.step(world, { player, brain:think(world, 2) }) do
+				if e.kind == "Hit" and e.attacker == 2 then cpuDamage += e.damage; cpuHits += 1 end
+			end
+		end
+		expect(cpuHits >= 3, FighterAI.Levels[level].name .. " only hit back " .. cpuHits .. " times")
+	end
+end)
+
+test("CPU zones with ki blasts at long range", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = -20, 20
+	local brain = FighterAI.new(4, 21)
+	local blasts = 0
+	for _ = 1, 60 * 20 do
+		for _, e in Sim.step(world, { input({ axis = -1 }), brain:think(world, 2) }) do
+			if e.kind == "Projectile" and e.attacker == 2 then blasts += 1 end
+		end
+		world.fighters[1].x = math.min(world.fighters[1].x, world.fighters[2].x - 12)
+	end
+	expect(blasts >= 1, "LÉGENDE never threw a ki blast")
+end)
+
 test("the same seed replays the same fight", function()
 	local a = versus(3, 2, 42, 60 * 30)
 	local b = versus(3, 2, 42, 60 * 30)

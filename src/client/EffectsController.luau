@@ -263,6 +263,21 @@ function EffectsController:onEvent(event, views, rigs)
 		end
 		return
 	end
+	if event.kind == "Clash" then
+		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 2)
+		self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)
+		return
+	elseif event.kind == "Skill" then
+		local rig = rigs[event.attacker]
+		if rig and rig.aura then rig.aura:Emit(if self.reduced then 8 else 24) end
+		local v = views[event.attacker]
+		if v then self.camera:punch(0.1, Vector3.new(v.x, v.y + 3.5, 0)) end
+		return
+	elseif event.kind == "Projectile" then
+		local v = views[event.attacker]
+		if v then self:spark(Vector3.new(v.x + v.facing * 1.8, v.y + 3.6, 0), self:energy(event.attacker), 0.8) end
+		return
+	end
 	if event.kind == "Hit" or event.kind == "Block" or event.kind == "GuardBreak" then
 		local attackerColor = self:energy(event.attacker)
 		local position = Vector3.new(event.x, event.y, 0)
@@ -295,6 +310,46 @@ function EffectsController:onEvent(event, views, rigs)
 	end
 end
 
+-- Ki blasts: a glowing core with a ki shell and a short trail, extrapolated between snapshots.
+function EffectsController:updateProjectiles(list, ahead, now)
+	self.projectiles = self.projectiles or {}
+	local alive = {}
+	for _, p in list or {} do
+		alive[p.id] = true
+		local visual = self.projectiles[p.id]
+		local color = self:energy(p.owner)
+		if not visual then
+			local core = self:part(Vector3.one * 1.1, CFrame.new(p.x, p.y, 0), WHITE, Enum.PartType.Ball)
+			local shell = self:part(Vector3.one * 2, CFrame.new(p.x, p.y, 0), color, Enum.PartType.Ball)
+			shell.Material, shell.Transparency = Enum.Material.ForceField, 0
+			local light = Instance.new("PointLight")
+			light.Color, light.Range, light.Brightness = color, 12, 3
+			light.Parent = core
+			visual = { core = core, shell = shell, color = color, trail = 0 }
+			self.projectiles[p.id] = visual
+		end
+		local position = Vector3.new(p.x + p.vx * ahead, p.y, 0.4)
+		local pulse = 1 + 0.12 * math.sin(now * 40)
+		visual.core.CFrame = CFrame.new(position)
+		visual.shell.CFrame = CFrame.new(position)
+		visual.shell.Size = Vector3.one * 2 * pulse
+		if now - visual.trail > (if self.reduced then 0.06 else 0.03) then
+			visual.trail = now
+			local ghost = self:part(Vector3.one * 1.3, CFrame.new(position), visual.color, Enum.PartType.Ball)
+			ghost.Transparency = 0.4
+			tween(ghost, 0.2, { Transparency = 1, Size = Vector3.one * 0.3 })
+			Debris:AddItem(ghost, 0.22)
+		end
+	end
+	for id, visual in self.projectiles do
+		if not alive[id] then
+			visual.core:Destroy()
+			visual.shell:Destroy()
+			self.projectiles[id] = nil
+		end
+	end
+end
+
 -- Debug display of hurtboxes (green) and live hitboxes (red), from the shared simulation math.
 function EffectsController:drawDebug(slot, view)
 	local boxes = self.debugParts[slot]
@@ -311,7 +366,7 @@ function EffectsController:drawDebug(slot, view)
 	boxes[1].Size = Vector3.new(x2 - x1, y2 - y1, 0.2)
 	boxes[1].CFrame = CFrame.new((x1 + x2) / 2, (y1 + y2) / 2, 1.6)
 	local m = view.state == "Attack" and MoveData.Moves[view.move]
-	if m and MoveData.phase(m, view.moveFrame) == "Active" then
+	if m and m.hitbox and MoveData.phase(m, view.moveFrame) == "Active" then
 		local hx1, hx2, hy1, hy2 = Sim.hitbox(view, m)
 		boxes[2].Transparency = 0.5
 		boxes[2].Size = Vector3.new(hx2 - hx1, hy2 - hy1, 0.25)

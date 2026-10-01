@@ -1,5 +1,59 @@
 # Journal du projet — état à transmettre
 
+## Version 0.4.0 — 1er octobre 2026
+
+Demandes de Wilhem : plus de diversité, skills spéciaux en alternant clic gauche / clic
+droit, meilleures animations, possibilité d'utiliser les rigs Roblox, et correction « quand
+j'active l'IA, je tape tout seul ». **Toujours rien de lancé dans Roblox Studio.**
+
+### Nouveautés
+
+- **Skills par alternance** (★, nom annoncé à l'écran) : L R L R → TORNADE DU DRAGON
+  (4 touches, lance) ; R L R L → RAFALE DE KI (7 coups, rebond mur) ; L L R R et
+  R R L R → POING DU DRAGON (triple uppercut) ; L L L L R → CROISSANT DE LUNE (saltos, rebond
+  au sol). Nouveaux maillons : PAUME DE KI (L R L), VENT ASCENDANT (R L R), TALON FOUDRE
+  (R R L). Dégâts mesurés : 245 à 303 contre 202 pour la chaîne simple.
+- **Coups multi-touches** (`hits`, `hitInterval`) : lancement / rebonds seulement sur la
+  dernière touche ; un coup multi-touches ne s'annule qu'une fois toutes ses touches sorties ;
+  le jonglage compte les coups, pas les touches.
+- **KIKOHO** (S + E) : boule de ki, une à la fois, détection balayée (pas de traversée entre
+  deux ticks), blocable, annulée par une boule adverse (clash).
+- **File d'appuis** : seul le prochain appui vieillit, et pas pendant le démarrage / l'actif
+  du coup en cours — taper L R L R d'avance donne exactement la route.
+- **IA** : sous pression, le CPU restait en garde après chaque coup reçu ou bloqué (jusqu'à
+  90 %) et ne contre-attaquait presque jamais, surtout en FACILE (premier mode CPU de la
+  touche M). Maintenant : punition une fois par coup adverse en récupération,
+  reversal invincible (E) et contre-attaque à la sortie d'étourdissement ou au réveil,
+  boules de ki à distance, routes ★ en DIFFICILE / LÉGENDE, agressivité relevée. Mesure
+  (4 min de pression continue d'un joueur qui ne fait qu'attaquer) : le CPU rend 74 à 81
+  touches en FACILE, ~110 en NORMAL / DIFFICILE, ~200 en LÉGENDE.
+- **Animations** : démarrage interpolé (par paliers) de la garde vers l'anticipation,
+  impact net, retour progressif en garde ; deux poses alternées pour les coups multi-touches ;
+  marche arrière ; deux réactions aux coups en alternance ; pose de kiai à l'intro ; poses
+  pour tous les nouveaux coups.
+- **Rigs Roblox** : bouton APPARENCE pour jouer avec son propre avatar R15
+  (`Players:CreateHumanoidModelFromDescription`). Les 15 articulations R15 ont les mêmes noms
+  que celles de KAI : les mêmes poses s'appliquent. Repli automatique sur KAI si l'avatar ne
+  se charge pas (joueurs de test d'un serveur local Studio). Le R6 n'est pas utilisé : il
+  n'a pas de coudes ni de genoux.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/CombatSimulation.test.luau` : 39 tests (dont les 5 skills, multi-touches, KIKOHO, clash, garde de la boule) | ✅ |
+| `luau tests/FighterAI.test.luau` : 8 tests (dont « sous pression, chaque niveau rend des coups » et « zoning à distance ») | ✅ |
+| Compilation + analyse Luau de tous les scripts | ✅ |
+| Studio, avatar R15, rendu des poses et des effets | ❌ non exécuté |
+
+### Problèmes ouverts
+
+- Accès GitHub de Claude en **lecture seule** : l'app Claude doit avoir l'accès en écriture
+  (« Contents: Read and write ») sur le dépôt pour que les commits soient poussés.
+- Avatars R15 : accessoires très grands ou avatars Rthro à vérifier visuellement ; les
+  hurtboxes restent celles de KAI (identiques pour tous).
+- Le reste des problèmes ouverts de la 0.3.0 ci-dessous tient toujours.
+
 ## Version 0.3.0 — 1er octobre 2026
 
 **Phase :** à la demande de Wilhem, au-dessus de la 0.2.0 : arbre de combos clic gauche /

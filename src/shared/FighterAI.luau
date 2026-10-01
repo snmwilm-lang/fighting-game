@@ -6,30 +6,41 @@
 	The CPU perceives its opponent with a reaction delay (in ticks) and makes decisions with a
 	seeded random generator, so a given seed always plays the same way (useful for tests).
 	Higher levels react faster, guard more often and in the right height, punish whiffs,
-	anti-air jump-ins and use longer combo routes, specials and the ultimate.
+	reverse pressure with the invincible special, anti-air jump-ins, zone with ki blasts and use
+	longer combo routes (alternating skills included), specials and the ultimate. Every level
+	fights back: guarding never locks the CPU into a passive loop.
 ]]
 local FighterAI = {}
 
 -- L = light, R = heavy, E = special, U = ultimate, J = jump cancel. `crouch` starts crouching.
 local ROUTES = {
-	easy = { { "L" }, { "L", "L" }, { "R" } },
-	normal = { { "L", "L", "L", "L" }, { "L", "L", "E" }, { "R", "R" }, { "L", "R" }, { "R", "L" } },
+	easy = { { "L" }, { "L", "L" }, { "R" }, { "L", "L", "L" } },
+	normal = {
+		{ "L", "L", "L", "L" }, { "L", "L", "E" }, { "R", "R" }, { "L", "R" }, { "R", "L" },
+		{ "L", "R", "L" }, { "L", "L", "R" },
+	},
 	hard = {
 		{ "L", "L", "L", "R" }, { "L", "L", "L", "E" }, { "L", "L", "R", "J", "L", "L", "R" },
 		{ "R", "R" }, { "R", "L" }, { crouch = true, "L", "L", "E" },
+		{ "L", "R", "L", "R" }, { "R", "L", "R", "L" }, { "L", "L", "R", "R" }, { "R", "R", "L", "R" },
+		{ "L", "L", "L", "L", "R" },
 	},
 	ultimate = { { "L", "L", "L", "E", "U" }, { "L", "L", "U" }, { "R", "U" } },
 }
 
 FighterAI.Levels = table.freeze({
-	{ name = "FACILE", reaction = 24, block = 0.15, lowBlock = 0.2, combo = 0.4, aggression = 0.3,
-		antiAir = 0.05, punish = 0.1, decision = 20, ultimate = 0, routes = { "easy" } },
-	{ name = "NORMAL", reaction = 16, block = 0.45, lowBlock = 0.5, combo = 0.7, aggression = 0.5,
-		antiAir = 0.3, punish = 0.35, decision = 14, ultimate = 0.25, routes = { "easy", "normal" } },
-	{ name = "DIFFICILE", reaction = 10, block = 0.7, lowBlock = 0.75, combo = 0.88, aggression = 0.65,
-		antiAir = 0.6, punish = 0.7, decision = 9, ultimate = 0.6, routes = { "normal", "hard" } },
-	{ name = "LÉGENDE", reaction = 6, block = 0.9, lowBlock = 0.92, combo = 0.97, aggression = 0.75,
-		antiAir = 0.85, punish = 0.95, decision = 6, ultimate = 1, routes = { "hard" } },
+	{ name = "FACILE", reaction = 22, block = 0.15, lowBlock = 0.2, combo = 0.45, aggression = 0.5,
+		antiAir = 0.05, punish = 0.25, reversal = 0.05, counter = 0.4, zoning = 0, decision = 16, ultimate = 0,
+		routes = { "easy" } },
+	{ name = "NORMAL", reaction = 15, block = 0.4, lowBlock = 0.5, combo = 0.72, aggression = 0.62,
+		antiAir = 0.3, punish = 0.5, reversal = 0.15, counter = 0.5, zoning = 0.2, decision = 12, ultimate = 0.25,
+		routes = { "easy", "normal" } },
+	{ name = "DIFFICILE", reaction = 10, block = 0.62, lowBlock = 0.75, combo = 0.88, aggression = 0.72,
+		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, decision = 8, ultimate = 0.6,
+		routes = { "normal", "hard" } },
+	{ name = "LÉGENDE", reaction = 6, block = 0.8, lowBlock = 0.92, combo = 0.97, aggression = 0.8,
+		antiAir = 0.85, punish = 0.95, reversal = 0.45, counter = 0.6, zoning = 0.5, decision = 6, ultimate = 1,
+		routes = { "hard" } },
 })
 
 local function neutral()
@@ -69,6 +80,7 @@ local function observe(f, moves)
 	end
 	return {
 		x = f.x, y = f.y, vy = f.vy, move = f.move, phase = phase, guard = m and m.guard,
+		moveFrame = f.moveFrame,
 		contact = f.moveContact, airborne = f.y > 0.5, vulnerable = f.stun > 0 or f.launched,
 	}
 end
@@ -151,18 +163,40 @@ function FighterAI:think(world, slot)
 			self.plan = nil -- combo dropped or finished
 		end
 	end
+	if me.knockdown > 0 or me.getUp > 0 then self.wasDown = true end
+	if me.stun > 0 then self.wasStunned = true end
 	if me.move or (me.stun > 0 and me.stunKind ~= "Block") or me.launched or me.knockdown > 0 or me.getUp > 0 then
 		return input
 	end
 
-	-- 2. Defense from what it perceived: guard at the right height or anti-air.
-	-- Coming out of hitstun or blockstun under pressure, good players keep guarding.
-	if self.wasStunned and me.stun == 0 and dist < 6 and self:chance(self.level.block) then
-		self.blockTicks = 14
-		self.blockLow = seen.guard == "Low"
+	-- 2. Leaving stun or getting up next to the opponent: reversal, counter or keep guarding.
+	local recovered = (self.wasStunned or self.wasDown) and me.stun == 0
+	self.wasStunned, self.wasDown = me.stun > 0, false
+	if recovered and dist < 5 and grounded then
+		if self:chance(self.level.reversal) then
+			input.special = true -- invincible RISING STRIKE through the pressure
+			return input
+		elseif self:chance(self.level.counter) then
+			self.blockTicks = 0
+			self:pickPlan(me.meter, ultimateCost) -- poke back right away (fast jab first)
+			self.plan = { self.plan[1] == "R" and "L" or self.plan[1], table.unpack(self.plan, 2) }
+			self.planLength = math.min(self.planLength, #self.plan)
+		elseif self:chance(self.level.block * 0.6) then
+			self.blockTicks = 10
+			self.blockLow = seen.guard == "Low"
+		end
 	end
-	self.wasStunned = me.stun > 0
-	if self.blockTicks > 0 then
+	-- 3. Punish: the opponent's move is recovering (whiffed or blocked). One roll per move.
+	local opportunity = seen.move and seen.phase == "Recovery" and dist < 4.8
+		and (seen.move .. ":" .. (world.tick - seen.moveFrame)) -- start tick identifies the move
+	if opportunity and opportunity ~= self.lastOpportunity then
+		self.lastOpportunity = opportunity
+		if self:chance(self.level.punish) then
+			self.blockTicks = 0
+			self:pickPlan(me.meter, ultimateCost)
+		end
+	end
+	if self.blockTicks > 0 and not self.plan then
 		self.blockTicks -= 1
 		input.block, input.crouch = true, self.blockLow
 		if me.stunKind == "Block" or self.blockTicks > 0 then return input end
@@ -187,10 +221,6 @@ function FighterAI:think(world, slot)
 		return input
 	end
 
-	-- 3. Punish a whiffed or blocked move still recovering.
-	if seen.move and seen.phase == "Recovery" and dist < 4.6 and self:chance(self.level.punish) then
-		self:pickPlan(me.meter, ultimateCost)
-	end
 	-- Hit a crumpling or launched opponent that is close.
 	if not self.plan and foe.stunKind == "Crumple" and dist < 4.2 then
 		self:pickPlan(me.meter, ultimateCost)
@@ -203,7 +233,9 @@ function FighterAI:think(world, slot)
 			self.intentTicks = self.level.decision + math.floor(self:random() * self.level.decision)
 			local roll = self:random()
 			self.guardLow = self.level.lowBlock > 0.5 and self:chance(0.5)
-			if dist > 6 then
+			if dist > 8 and self:chance(self.level.zoning) then
+				self.intent = "blast"
+			elseif dist > 6 then
 				self.intent = if roll < self.level.aggression * 0.6 then "approach"
 					elseif roll < self.level.aggression * 0.8 then "dash"
 					elseif roll < self.level.aggression then "jumpin" else "wait"
@@ -223,6 +255,9 @@ function FighterAI:think(world, slot)
 			self.intent = "approach"
 		elseif intent == "jumpin" then
 			input.axis, input.jump = toward, true
+			self.intent = "wait"
+		elseif intent == "blast" then
+			input.crouch, input.special = true, true
 			self.intent = "wait"
 		elseif intent == "retreat" then
 			input.axis = -toward

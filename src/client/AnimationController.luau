@@ -51,6 +51,12 @@ local Poses = {
 		merge(STANCE, legs(-20, -28, 36, -24)),
 		merge(STANCE, legs(18, -70, 8, -14)),
 	},
+	WalkBack = {
+		merge(STANCE, merge(legs(10, -30, -30, -20), { Waist = { 0, 12, 0 }, LeftShoulder = { 80, 0, 0 } })),
+		merge(STANCE, merge(legs(-8, -20, 14, -60), { Waist = { 2, 12, 0 }, LeftShoulder = { 82, 0, 0 } })),
+		merge(STANCE, merge(legs(-28, -22, 10, -30), { Waist = { 0, 12, 0 }, LeftShoulder = { 80, 0, 0 } })),
+		merge(STANCE, merge(legs(14, -60, -8, -20), { Waist = { 2, 12, 0 }, LeftShoulder = { 82, 0, 0 } })),
+	},
 	Crouch = merge(merge(STANCE, CROUCH_LEGS), { Waist = { -22, 12, 0 }, Neck = { 18, -10, 0 } }),
 	Jump = merge(STANCE, merge(legs(70, -95, 30, -60), {
 		LeftShoulder = { 110, 0, -30 }, RightShoulder = { 40, 0, 35 }, Waist = { -12, 0, 0 },
@@ -72,6 +78,11 @@ local Poses = {
 		Root = { 0, 0, 0, -0.2, 0.35 }, Waist = { 22, -18, 0 }, Neck = { -28, 10, 0 },
 		LeftShoulder = { 25, 0, -40 }, LeftElbow = { 35, 0, 0 },
 		RightShoulder = { 12, 0, 50 }, RightElbow = { 25, 0, 0 },
+	}),
+	HitstunB = merge(legs(15, -40, -15, -20), {
+		Root = { 0, 0, 0, -0.45, 0.3 }, Waist = { -30, 25, 10 }, Neck = { 30, -20, 0 },
+		LeftShoulder = { 60, 0, -20 }, LeftElbow = { 90, 0, 0 },
+		RightShoulder = { -10, 0, 30 }, RightElbow = { 20, 0, 0 },
 	}),
 	GuardBroken = merge(legs(-5, -30, 15, -40), {
 		Root = { 0, 0, 0, -0.35, 0.3 }, Waist = { 28, 0, 0 }, Neck = { -30, 0, 0 },
@@ -215,6 +226,103 @@ local Poses = {
 		}),
 		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
 	},
+	PalmStrike = {
+		Startup = merge(STANCE, {
+			Waist = { -5, -35, 0 }, RightShoulder = { 10, 0, 30 }, RightElbow = { 110, 0, 0 },
+			LeftShoulder = { 20, 0, -20 }, LeftElbow = { 100, 0, 0 },
+		}),
+		Active = merge(legs(55, -65, -35, -10), {
+			Root = { 0, 0, 0, -0.45, -0.6 }, Waist = { -15, 30, 0 }, Neck = { 10, -20, 0 },
+			RightShoulder = { 88, 0, -10 }, RightElbow = { 5, 0, 0 }, RightWrist = { -60, 0, 0 },
+			LeftShoulder = { 86, 0, 12 }, LeftElbow = { 10, 0, 0 }, LeftWrist = { -60, 0, 0 },
+		}),
+		Recovery = merge(STANCE, { Waist = { -12, 18, 0 } }),
+	},
+	DragonTornado = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Root = { 0, -60, 0, -1, 0 }, Waist = { -20, -30, 0 } }),
+		Active = merge(legs(-10, -60, 100, -10, -5, 30), {
+			Root = { 0, 0, 0, 0.6, 0 }, Waist = { 5, 0, 0 }, Neck = { -10, 0, 0 },
+			LeftShoulder = { 80, 0, -70 }, RightShoulder = { 80, 0, 70 }, LeftElbow = { 10, 0, 0 }, RightElbow = { 10, 0, 0 },
+		}),
+		Active2 = merge(legs(100, -10, -10, -60, -30, 5), {
+			Root = { 0, 180, 0, 0.9, 0 }, Waist = { 5, 0, 0 }, Neck = { -10, 0, 0 },
+			LeftShoulder = { 80, 0, -70 }, RightShoulder = { 80, 0, 70 }, LeftElbow = { 10, 0, 0 }, RightElbow = { 10, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(40, -70, 20, -50)),
+	},
+	DragonFist = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Waist = { -28, -25, 0 }, RightShoulder = { 10, 0, 25 }, RightElbow = { 125, 0, 0 } }),
+		Active = merge(legs(25, -20, -25, -40), {
+			Root = { 0, 0, 0, 0.6, -0.2 }, Waist = { 14, 30, 0 }, Neck = { -28, 0, 0 },
+			RightShoulder = { 175, 0, -6 }, RightElbow = { 10, 0, 0 },
+			LeftShoulder = { 40, 0, -32 }, LeftElbow = { 100, 0, 0 },
+		}),
+		Active2 = merge(legs(-25, -40, 25, -20), {
+			Root = { 0, 0, 0, 0.9, -0.2 }, Waist = { 14, -30, 0 }, Neck = { -28, 0, 0 },
+			LeftShoulder = { 175, 0, 6 }, LeftElbow = { 10, 0, 0 },
+			RightShoulder = { 40, 0, 32 }, RightElbow = { 100, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(30, -40, -10, -30)),
+	},
+	CrescentMoon = {
+		Startup = merge(STANCE, legs(80, -110, 70, -100)),
+		Active = merge(legs(30, -60, 120, -2), {
+			Root = { -60, 0, 0, 0.5, 0 }, Waist = { -10, 0, 0 },
+			LeftShoulder = { -30, 0, -50 }, RightShoulder = { -30, 0, 50 },
+		}),
+		Active2 = merge(legs(120, -2, 30, -60), {
+			Root = { -200, 0, 0, 0.7, 0 }, Waist = { -10, 0, 0 },
+			LeftShoulder = { -30, 0, -50 }, RightShoulder = { -30, 0, 50 },
+		}),
+		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
+	},
+	RisingWind = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Waist = { -20, -20, 0 } }),
+		Active = merge(legs(-6, -10, 110, -2, -5, 20), {
+			Root = { 0, 0, 0, 0.4, 0.1 }, Waist = { 14, -25, 0 },
+			LeftShoulder = { 40, 0, -50 }, RightShoulder = { 30, 0, 50 },
+		}),
+		Active2 = merge(legs(110, -2, -6, -10, -20, 5), {
+			Root = { 0, 0, 0, 0.7, 0.1 }, Waist = { 14, 25, 0 },
+			LeftShoulder = { 30, 0, -50 }, RightShoulder = { 40, 0, 50 },
+		}),
+		Recovery = merge(STANCE, legs(30, -50, 30, -50)),
+	},
+	KiFlurry = {
+		Startup = merge(STANCE, { Waist = { -10, -20, 0 }, RightShoulder = { 40, 0, 25 }, RightElbow = { 130, 0, 0 } }),
+		Active = merge(merge(STANCE, legs(40, -48, -26, -10)), {
+			Root = { 0, 0, 0, -0.4, -0.4 }, Waist = { -14, 32, 0 },
+			RightShoulder = { 90, 0, -10 }, RightElbow = { 0, 0, 0 },
+			LeftShoulder = { 60, 0, -20 }, LeftElbow = { 115, 0, 0 },
+		}),
+		Active2 = merge(merge(STANCE, legs(40, -48, -26, -10)), {
+			Root = { 0, 0, 0, -0.4, -0.45 }, Waist = { -14, -28, 0 },
+			LeftShoulder = { 90, 0, 10 }, LeftElbow = { 0, 0, 0 },
+			RightShoulder = { 60, 0, 20 }, RightElbow = { 115, 0, 0 },
+		}),
+		Recovery = merge(STANCE, { Waist = { -10, 15, 0 } }),
+	},
+	ThunderHeel = {
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Waist = { -25, 0, 0 } }),
+		Active = merge(legs(-20, -40, 130, 0), {
+			Root = { -30, 0, 0, 0.3, 0 }, Waist = { 10, 0, 0 }, Neck = { -20, 0, 0 },
+			LeftShoulder = { -40, 0, -60 }, RightShoulder = { -40, 0, 60 },
+		}),
+		Recovery = merge(STANCE, legs(30, -50, 20, -40)),
+	},
+	KiBlast = {
+		Startup = merge(STANCE, merge(legs(35, -50, -25, -25, -15, 15), {
+			Root = { 0, 0, 0, -0.5, 0.2 }, Waist = { -5, -40, 0 },
+			LeftShoulder = { 30, 0, 30 }, LeftElbow = { 110, 0, 0 },
+			RightShoulder = { 30, 0, -10 }, RightElbow = { 110, 0, 0 },
+		})),
+		Active = merge(legs(45, -55, -30, -10, -15, 15), {
+			Root = { 0, 0, 0, -0.5, -0.4 }, Waist = { -12, 10, 0 }, Neck = { 6, -10, 0 },
+			LeftShoulder = { 90, 0, 12 }, LeftElbow = { 0, 0, 0 }, LeftWrist = { -70, 0, 0 },
+			RightShoulder = { 90, 0, -12 }, RightElbow = { 0, 0, 0 }, RightWrist = { -70, 0, 0 },
+		}),
+		Recovery = merge(STANCE, { Waist = { -10, 0, 0 } }),
+	},
 	Kick = {
 		Startup = merge(STANCE, merge(legs(-8, -12, 85, -115), { Waist = { 0, -22, 0 } })),
 		Active = merge(STANCE, {
@@ -262,10 +370,19 @@ local Poses = {
 
 Poses.KaienRush = { Startup = Poses.Kiai, Active = Poses.Smash.Active, Recovery = Poses.Smash.Recovery }
 
+local IDENTITY = { 0, 0, 0, 0, 0 }
+
 local function lerpPose(a, b, t)
 	local out = {}
+	for name, vb in b do
+		if not a[name] then
+			local v = {}
+			for i = 1, 5 do v[i] = (vb[i] or 0) * t end
+			out[name] = v
+		end
+	end
 	for name, va in a do
-		local vb = b[name] or va
+		local vb = b[name] or IDENTITY
 		local v = {}
 		for i = 1, 5 do
 			local x, y = va[i] or 0, vb[i] or 0
@@ -293,17 +410,55 @@ function AnimationController.new(model)
 end
 
 -- view: { state, move, moveFrame, hitstop, victory } from the interpolated snapshot.
+-- Attack pose for a given authoritative frame. Startup eases from the stance into the
+-- anticipation, the contact pose snaps in on the first active frame (anime impact), and the
+-- recovery settles back to the guard. Progress is quantized to poseRate (held poses), and
+-- multi-hit moves alternate two contact poses, one per hit.
+local function attackPose(id, frame, poseRate)
+	local m, set = MoveData.Moves[id], Poses[id]
+	local function quantize(progress, length)
+		local steps = math.max(1, math.floor(length * poseRate / 60 + 0.5))
+		return math.clamp(math.floor(progress * steps + 0.5) / steps, 0, 1)
+	end
+	if frame <= m.startup then
+		if m.meterCost then return set.Startup, id .. "S" end -- held kiai during the super flash
+		local t = quantize(frame / m.startup, m.startup)
+		return lerpPose(STANCE, set.Startup, math.min(1, t * 1.5)), id .. "S" .. t
+	elseif frame <= m.startup + m.active then
+		if set.Active2 and m.hits and m.hits > 1 then
+			local beat = math.floor((frame - m.startup - 1) / m.hitInterval) % 2
+			return if beat == 0 then set.Active else set.Active2, id .. "A" .. beat
+		end
+		return set.Active, id .. "A"
+	end
+	local r = (frame - m.startup - m.active) / m.recovery
+	if r < 0.45 then
+		local t = quantize(r / 0.45, m.recovery * 0.45)
+		return lerpPose(set.Active, set.Recovery, t), id .. "R" .. t
+	end
+	local t = quantize((r - 0.45) / 0.55, m.recovery * 0.55)
+	return lerpPose(set.Recovery, STANCE, t), id .. "E" .. t
+end
+
+-- view: { state, move, moveFrame, hitstop, victory, intro, vx, facing, combo } from the
+-- interpolated snapshot.
 function AnimationController:update(view, time, poseRate)
 	local state = view.state
 	local stepped = math.floor(time * poseRate) / poseRate
 	local pose, key
 	if state == "Attack" and Poses[view.move] then
-		local phase = MoveData.phase(MoveData.Moves[view.move], view.moveFrame)
-		pose, key = Poses[view.move][phase], view.move .. phase
+		pose, key = attackPose(view.move, view.moveFrame, poseRate)
 	elseif view.victory then
 		pose, key = Poses.Victory, "Victory"
+	elseif view.intro then
+		pose, key = Poses.Kiai, "Intro"
 	elseif state == "Walking" then
-		pose, key = cycle(Poses.Walk, stepped, 1.6), "Walk" .. stepped
+		local backward = (view.vx or 0) * (view.facing or 1) < 0
+		if backward then
+			pose, key = cycle(Poses.WalkBack, stepped, 1.2), "WalkBack" .. stepped
+		else
+			pose, key = cycle(Poses.Walk, stepped, 1.6), "Walk" .. stepped
+		end
 	elseif state == "Crouching" then
 		pose, key = Poses.Crouch, state
 	elseif state == "Jumping" then
@@ -319,7 +474,9 @@ function AnimationController:update(view, time, poseRate)
 	elseif state == "Blockstun" then
 		pose, key = Poses.Blockstun, state
 	elseif state == "Hitstun" then
-		pose, key = Poses.Hitstun, state
+		-- Alternate two reactions so consecutive hits read as separate impacts.
+		local variant = if (view.combo or 0) % 2 == 0 then "HitstunB" else "Hitstun"
+		pose, key = Poses[variant], variant
 	elseif state == "Crumple" then
 		pose, key = Poses.Crumple, state
 	elseif state == "GuardBroken" then

@@ -1,6 +1,7 @@
 -- KAI as a block R15 rig built from plain parts (no external catalog or animation assets).
 -- The 15 Motor6D joints are the contract with the client AnimationController.
 -- Hair, face, vest, sash and wraps are cosmetic parts welded on top of the skeleton.
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CharacterData = require(ReplicatedStorage:WaitForChild("Shared").CharacterData)
 local RigBuilder = {}
@@ -145,6 +146,74 @@ function RigBuilder.build(slot, parent)
 	outline.DepthMode = Enum.HighlightDepthMode.Occluded
 	outline.Parent = model
 	model.PrimaryPart, model.Parent = root, parent
+	model:SetAttribute("RootHeight", 3)
 	return model
 end
+
+local JOINTS = {
+	"Root", "Waist", "Neck", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow",
+	"RightWrist", "LeftHip", "LeftKnee", "LeftAnkle", "RightHip", "RightKnee", "RightAnkle",
+}
+
+-- The player's own Roblox avatar as a standard R15 rig. Its 15 Motor6D joints have the same
+-- names as KAI's, so the same poses drive it. Returns an unparented model, or nil if the
+-- avatar cannot be loaded (for example the negative test players of a Studio local server).
+function RigBuilder.buildAvatar(slot, userId)
+	local ok, description = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
+	if not ok or not description then
+		warn("[FightingGame] Avatar indisponible pour " .. tostring(userId) .. " : " .. tostring(description))
+		return nil
+	end
+	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType.R15)
+	if not built or not model then
+		warn("[FightingGame] Création de l'avatar R15 impossible : " .. tostring(model))
+		return nil
+	end
+	model.Name = "Fighter" .. slot
+	model:SetAttribute("Slot", slot)
+	model:SetAttribute("Character", "AVATAR")
+	for _, d in model:GetDescendants() do
+		if d:IsA("BaseScript") then
+			d:Destroy() -- no default Animate/Health scripts: the AnimationController owns the joints
+		elseif d:IsA("BasePart") then
+			d.CanCollide, d.CanTouch, d.CanQuery, d.Massless = false, false, false, true
+		end
+	end
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid then
+		model:Destroy()
+		return nil
+	end
+	for _, name in JOINTS do
+		local found = false
+		for _, d in model:GetDescendants() do
+			if d:IsA("Motor6D") and d.Name == name then
+				found = true
+				break
+			end
+		end
+		if not found then
+			warn("[FightingGame] Avatar sans articulation " .. name .. ", retour à KAI")
+			model:Destroy()
+			return nil
+		end
+	end
+	root.Anchored, root.Transparency = true, 1
+	humanoid.AutoRotate, humanoid.EvaluateStateMachine = false, false
+	humanoid.BreakJointsOnDeath, humanoid.RequiresNeck = false, false
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.WalkSpeed, humanoid.JumpPower = 0, 0
+	-- Feet on the floor: root center sits HipHeight + half the root above the ground.
+	model:SetAttribute("RootHeight", humanoid.HipHeight + root.Size.Y / 2)
+	local outline = Instance.new("Highlight")
+	outline.Name, outline.Adornee = "InkOutline", model
+	outline.FillTransparency, outline.FillColor = 1, Color3.new(1, 1, 1)
+	outline.OutlineColor, outline.OutlineTransparency = Color3.fromHex("0B0B0E"), 0
+	outline.DepthMode = Enum.HighlightDepthMode.Occluded
+	outline.Parent = model
+	model.PrimaryPart = root
+	return model
+end
+
 return RigBuilder

@@ -21,6 +21,7 @@ local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
+hud.onAvatar = input.toggleAvatar
 hud.onEffects = function()
 	effects.reduced = not effects.reduced
 	return effects.reduced
@@ -90,7 +91,10 @@ local function findRig(slot)
 			if child:IsA("Motor6D") then motorCount += 1 end
 		end
 		if motorCount < 15 then return nil end -- Wait for complete rig replication.
-		cached = { model = model, root = root, animation = AnimationController.new(model) }
+		cached = {
+			model = model, root = root, animation = AnimationController.new(model),
+			rootHeight = model:GetAttribute("RootHeight") or Config.RootHeight,
+		}
 		rigs[slot] = cached
 		effects:attachRig(slot, cached)
 	end
@@ -120,6 +124,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		if m then
 			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
 		end
+		current.intro = world.phase == "Intro" and world.phaseTicks > 50
 		current.victory = (world.phase == "KO" or world.phase == "MatchEnd") and (world.winner == i or world.matchWinner == i)
 			and world.phaseTicks < Config.KOTicks - 60 and state.state ~= "KO" and state.y <= 0
 	end
@@ -129,7 +134,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		local current = displayed[i]
 		local rig = findRig(i)
 		if rig then
-			local pos = Vector3.new(current.x, current.y + Config.RootHeight, Config.PlaneZ)
+			local pos = Vector3.new(current.x, current.y + rig.rootHeight, Config.PlaneZ)
 			-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
 			rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))
 				* CFrame.Angles(0, -current.facing * math.rad(Config.ModelYaw), 0)
@@ -137,6 +142,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
 		end
 	end
+	effects:updateProjectiles(world.projectiles, sinceSnapshot, now)
 	if not cinematicActive then cameraController:update(displayed, dt) end
 	local localSlot = player:GetAttribute("FighterSlot") or 0
 	local mine = displayed[localSlot]

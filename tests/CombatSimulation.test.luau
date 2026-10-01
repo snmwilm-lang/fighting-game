@@ -150,7 +150,7 @@ end)
 
 test("route L L R then jump: launcher into an air chain", function()
 	local world = closeWorld(3)
-	local presses = { [1] = "L", [7] = "L", [13] = "R", [19] = "R" }
+	local presses = { [1] = "L", [7] = "L", [13] = "R" }
 	local launchedAt
 	local events = run(world, 160, function(t)
 		local i = input()
@@ -203,6 +203,70 @@ test("special E cancels a normal and is invincible at startup", function()
 	local reversal = closeWorld(3)
 	local e2 = run(reversal, 40, function(t) return { input({ light = t == 1 }), input({ special = t == 2 }) } end)
 	expect(hitMoves(e2) == "Rising", "jab beat the invincible special: " .. hitMoves(e2))
+end)
+
+local function skillTest(name, sequence, every, expectedRoute, setup)
+	test(name, function()
+		local world = closeWorld(3)
+		if setup then setup(world) end
+		local events = run(world, 200, mash(sequence, every))
+		local route = hitMoves(events)
+		local compact = {}
+		for move in route:gmatch("[^,]+") do
+			if compact[#compact] ~= move then table.insert(compact, move) end
+		end
+		expect(table.concat(compact, ",") == expectedRoute, "route was " .. route)
+		local skill = find(events, "Skill")
+		expect(skill ~= nil, "no skill announced")
+	end)
+end
+
+skillTest("skill L R L R: TORNADE DU DRAGON (multi-hit launcher)", { "L", "R", "L", "R" }, 6,
+	"Jab,BodyBlow,PalmStrike,DragonTornado")
+skillTest("skill R L R L: RAFALE DE KI", { "R", "L", "R", "L" }, 8,
+	"Smash,Sweep,RisingWind,KiFlurry")
+skillTest("skill L L R R: POING DU DRAGON", { "L", "L", "R", "R" }, 6,
+	"Jab,Cross,Uppercut,DragonFist")
+skillTest("skill R R L R: TALON FOUDRE into POING DU DRAGON", { "R", "R", "L", "R" }, 8,
+	"Smash,Hammer,ThunderHeel,DragonFist")
+skillTest("skill L L L L R: CROISSANT DE LUNE", { "L", "L", "L", "L", "R" }, 6,
+	"Jab,Cross,Elbow,Kick,CrescentMoon")
+
+test("multi-hit skills hit several times, once per interval", function()
+	local world = closeWorld(3)
+	local events = run(world, 200, mash({ "L", "R", "L", "R" }, 6))
+	local tornado = 0
+	for _, e in events do
+		if e.kind == "Hit" and e.move == "DragonTornado" then tornado += 1 end
+	end
+	expect(tornado == Moves.DragonTornado.hits, "tornado hit " .. tornado .. " times")
+	expect(world.fighters[2].juggle <= Config.MaxJuggleHits, "juggle counted per hit")
+end)
+
+test("crouch + E fires a ki blast that travels and hits at range", function()
+	local world = closeWorld(14)
+	local events = run(world, 90, function(t) return { input({ crouch = t <= 2, special = t == 1 }) } end)
+	expect(count(events, "Projectile") == 1, "no ki blast")
+	expect(hitMoves(events) == "KiBlast", "ki blast did not hit: " .. hitMoves(events))
+	expect(#world.projectiles == 0, "projectile not removed after the hit")
+end)
+
+test("only one ki blast on screen per fighter, and blasts can be guarded", function()
+	local world = closeWorld(30)
+	local events = run(world, 120, function(t)
+		return { input({ crouch = true, special = t % 30 == 1 }), input({ block = true }) }
+	end)
+	expect(count(events, "Projectile") <= 2, "too many blasts")
+	expect(count(events, "Block") >= 1 and count(events, "Hit") == 0, "blast not blocked")
+end)
+
+test("opposing ki blasts clash", function()
+	local world = closeWorld(20)
+	local events = run(world, 80, function(t)
+		local i = input({ crouch = true, special = t == 1 })
+		return { i, input({ crouch = true, special = t == 1 }) }
+	end)
+	expect(count(events, "Clash") == 1 and count(events, "Hit") == 0, "blasts did not clash")
 end)
 
 test("ultimate needs meter and spends it", function()

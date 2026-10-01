@@ -84,6 +84,42 @@ local function watchRig(i)
 end
 for i = 1, 2 do watchRig(i) end
 
+local function swapModel(i, model)
+	local slot = slots[i]
+	local owner = slot.owner
+	if owner then owner.Character = nil end
+	slot.model:Destroy()
+	model.Parent = fightersFolder
+	slot.model = model
+	if owner then owner.Character = model end
+	watchRig(i)
+	place(slot, world.fighters[i])
+end
+
+-- Rebuilds a slot's rig: the owner's Roblox avatar (R15) when they chose it, KAI otherwise.
+local function rebuildSlot(i)
+	local slot = slots[i]
+	local owner = slot.owner
+	local client = owner and clients[owner]
+	if client and client.avatar then
+		task.spawn(function()
+			local model = RigBuilder.buildAvatar(i, owner.UserId) -- yields while loading
+			if slot.owner ~= owner or not client.avatar then
+				if model then model:Destroy() end
+				return
+			end
+			if not model then
+				client.avatar = false
+				owner:SetAttribute("Avatar", false)
+				model = RigBuilder.build(i, nil)
+			end
+			swapModel(i, model)
+		end)
+	else
+		swapModel(i, RigBuilder.build(i, nil))
+	end
+end
+
 local function assign(player)
 	for i, slot in slots do
 		if not slot.owner then
@@ -103,7 +139,11 @@ end
 
 local function joined(player)
 	if clients[player] then return end
-	clients[player] = { tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge, lastSeq = 0 }
+	clients[player] = {
+		tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge,
+		lastAvatar = -math.huge, lastSeq = 0, avatar = false,
+	}
+	player:SetAttribute("Avatar", false)
 	assign(player)
 end
 Players.PlayerAdded:Connect(joined)
@@ -129,7 +169,9 @@ resetAll()
 local function finite(n)
 	return typeof(n) == "number" and n == n and math.abs(n) < math.huge
 end
-local BOOLEAN_FIELDS = { "crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy" }
+local BOOLEAN_FIELDS = {
+	"crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy", "avatar",
+}
 inputRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -156,6 +198,12 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		client.lastDummy = now
 		dummyMode = dummyMode % #DUMMY_MODES + 1
 		resetAll()
+	end
+	if packet.avatar and now - client.lastAvatar > 2 then
+		client.lastAvatar = now
+		client.avatar = not client.avatar
+		player:SetAttribute("Avatar", client.avatar)
+		rebuildSlot(client.slot)
 	end
 	local input = slot.input
 	input.axis, input.crouch, input.block = packet.axis, packet.crouch, packet.block
@@ -184,7 +232,12 @@ local function snapshot()
 			character = character.Name, skin = character.Skin,
 		}
 	end
+	local projectiles = {}
+	for _, p in world.projectiles do
+		table.insert(projectiles, { id = p.id, x = p.x, y = p.y, vx = p.vx, owner = p.owner })
+	end
 	snapshotRemote:FireAllClients({
+		projectiles = projectiles,
 		tick = world.tick, generation = generation, epoch = world.epoch,
 		phase = world.phase, phaseTicks = world.phaseTicks, round = world.round,
 		timer = Sim.timerSeconds(world), training = world.training, solo = isSolo(),

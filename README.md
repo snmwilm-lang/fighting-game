@@ -17,7 +17,9 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Compétence spéciale : RISING STRIKE | **E** | Y | SPÉ |
 | Ultime : KAIEN RUSH (2 barres de ki, cinématique) | **R** | LT | ULTI |
 | Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
+| Boule de ki : KIKOHO | **S + E** | Bas + Y | BAS + SPÉ |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
+| Apparence : KAI ou ton avatar Roblox (R15) | bouton APPARENCE | — | bouton |
 | Replacer | Retour arrière | Select | bouton REPLACER |
 
 ## Combos (L = clic gauche, R = clic droit)
@@ -31,10 +33,16 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | R R | FRAPPE LOURDE > HACHE CÉLESTE | overhead, rebond au sol |
 | R L | FRAPPE LOURDE > BALAYAGE | coup bas, chute |
 | ↓ + L / ↓ + R | KICK BAS / LANCEUR | KICK BAS s'enchaîne sur CROSS |
+| **L R L R** ★ | JAB > COUP AU FOIE > PAUME DE KI > **TORNADE DU DRAGON** | skill : 4 touches, lance |
+| **R L R L** ★ | FRAPPE > BALAYAGE > VENT ASCENDANT > **RAFALE DE KI** | skill : 7 coups de poing, rebond mur |
+| **L L R R** ★ | JAB > CROSS > LANCEUR > **POING DU DRAGON** | skill : triple uppercut |
+| **R R L R** ★ | FRAPPE > HACHE > TALON FOUDRE > **POING DU DRAGON** | skill |
+| **L L L L R** ★ | … > KICK > **CROISSANT DE LUNE** | skill : saltos, rebond au sol |
 | … touche E | RISING STRIKE | après n'importe quel coup, invincible au démarrage |
 | … touche R | KAIEN RUSH | après n'importe quel coup ou la spéciale, cinématique si ça touche |
 
-Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.
+★ = skill spécial débloqué en **alternant clic gauche et clic droit** : son nom s'affiche à
+l'écran. Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.
 
 ## Lancer le jeu
 

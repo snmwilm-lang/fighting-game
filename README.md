@@ -162,7 +162,19 @@ luau tests/CinematicDirector.test.luau
 luau tests/Animation.test.luau
 luau tests/Kits.test.luau
 luau tests/PressQueue.test.luau
+luau tests/Fuzz.test.luau            # entrées aléatoires, tous les duels : invariants
+luau tests/Cinematography.test.luau  # cadrage de chaque ultime avec le vrai rig
 luau tests/Balance.luau -a 4 120   # rapport d'équilibrage CPU contre CPU (niveau, matchs)
+```
+
+### Storyboard des cinématiques
+
+Planche de ce que voit la caméra, image par image (corps posés par le vrai moteur
+d'animation, effets simplifiés) — Python 3 et Pillow :
+
+```bash
+luau tests/Storyboard.luau -a TARO Gate - 0 8 > story.txt
+python3 tools/storyboard.py story.txt story.png
 ```
 
 ## Documents

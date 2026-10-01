@@ -1,5 +1,73 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.3 — 1er octobre 2026
+
+Mission de Wilhem : corriger un maximum de bugs, améliorer les animations et **vraiment
+améliorer les cinématiques** (« prends le temps qu'il faut, make it cool »). Ensuite : le
+jeu en ligne et le lobby. Toujours **rien de lancé dans Studio**.
+
+### Chasse aux bugs
+
+- **Nouveau `tests/Fuzz.test.luau`** : des joueurs aléatoires (appuis en rafale, garde,
+  sauts, dashs, ultimes, deux boutons à la fois) sur les 16 duels de kits, en versus et en
+  entraînement, plus le CPU contre un joueur aléatoire. À chaque tick : pas de NaN, vie / ki /
+  garde dans leurs bornes, personne sous le sol ni hors de l'arène, file d'appuis bornée,
+  aucun état bloqué, chaque cinématique se termine. ✅ (aucun bug de simulation trouvé ;
+  une « attaque bloquée » signalée était une vraie chaîne de coups, le critère a été affiné.)
+- **Nouveau `tests/Cinematography.test.luau`** (41 cas) : chaque ultime des 4 persos (et ses
+  versions K.O., au centre et contre le mur) est joué avec la vraie simulation, le vrai
+  réalisateur et le **vrai moteur d'animation** (corps posés membre par membre) ; à chaque
+  image : caméra hors des corps, sujet à l'écran et lisible.
+- Bugs trouvés et corrigés :
+  - **caméra dans les corps** sur une grande partie des plans (« windup », poing, gros plan
+    des yeux, charge du dragon, plans serrés de l'éveil…) : jusqu'à 20 fois la hauteur de
+    l'écran, la caméra à 0,66 stud d'un bras ;
+  - **plan « ko-feet » de la scène K.O.** : la caméra était dans le corps du perdant ;
+  - corps qui se chevauchaient pendant les tourbillons (TARO, ZEPHYR, AKEMI) ;
+  - cible des ruées de kit épinglée au centre après le coup final.
+
+### Cinématiques refaites
+
+- `CinematicDirector` : les plans ne sont plus posés à la main (« tête + décalage ») mais
+  **composés** par `frameOn` : angle autour des sujets (relatif au sens de l'attaque),
+  plongée / contre-plongée, part de l'écran à remplir, tranche du corps (plein pied, buste),
+  distance minimale aux corps. Chaque ultime a été repris plan par plan et vérifié en
+  storyboard :
+  - ouverture (pose de prêt, plan héroïque en contre-plongée, ruée suivie de côté) ;
+  - rafales en **coupes franches** sur un jeu d'angles forts (trois-quarts, moyen,
+    plongée verticale, contre-plongée inclinée, large derrière l'attaquant) ;
+  - élan en contre-plongée derrière l'attaquant avec **poussée lente** vers les deux ;
+  - impact incliné, puis plan large qui suit la cible projetée ;
+  - TEMPS SUSPENDU : AKEMI face caméra, la cible figée derrière, les coupures en croix
+    au retour du temps.
+- Nouveaux procédés côté client : **lignes de vitesse** anime pendant les ruées et les
+  rafales, et **impact** (image d'impact contrastée + coup de zoom de la caméra + secousse)
+  sur les grosses frappes, une fois par coup.
+- Outil **storyboard** : `tests/Storyboard.luau` + `tools/storyboard.py` dessinent la planche
+  de ce que voit la caméra (Python 3 + Pillow, pour vérifier une cinématique hors Studio).
+
+### Animations
+
+Revue des poses de KAI (R15) état par état et coup par coup, de face et de profil : pas de
+défaut trouvé (les coups de pied paraissaient pliés en vue 3/4, ils sont bien tendus de
+profil). Le R6 a été retravaillé en 0.9.1.
+
+### Tests
+
+CombatSimulation 78, FighterAI 9, CinematicDirector 125, Animation 22, Kits 26, PressQueue 4,
+**Fuzz 2**, **Cinematography 41** ✅. Compilation et analyse statique ✅. Studio ❌.
+
+### Problèmes ouverts
+
+- Storyboards hors ligne : corps en blocs, effets simplifiés ; le rendu réel (avatars,
+  particules, étalonnage) reste à juger en jeu avec le LABO CINÉ.
+- Audit Codex : points 3 et suivants toujours non reçus.
+
+### Prochaine étape : en ligne et lobby
+
+À préparer avec Wilhem (proposition dans la réponse) : lieu de rassemblement, file de
+matchmaking, arènes de match en serveurs réservés (TeleportService), retour au lobby.
+
 ## Version 0.9.2 — 1er octobre 2026
 
 Wilhem a fourni une **planche d'ultimes** (boxeur, combattant au pied, esquiveur) et un

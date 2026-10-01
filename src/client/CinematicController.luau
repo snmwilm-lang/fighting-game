@@ -141,6 +141,17 @@ function CinematicController.new(config, hud, effects)
 		Position = UDim2.new(0, 12, 0.13, 0), Size = UDim2.fromOffset(460, 24),
 	}, gui)
 
+	-- Anime speed lines: thin rays from the edges toward the centre, redrawn every frame.
+	local lines = new("Frame", { Name = "SpeedLines", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, ZIndex = 2 }, gui)
+	self.speedLines, self.speedRays = lines, {}
+	for i = 1, 30 do
+		self.speedRays[i] = new("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5), BorderSizePixel = 0, BackgroundColor3 = WHITE, ZIndex = 2,
+			Rotation = i / 30 * 360,
+		}, lines)
+	end
+	self.fovKick = 0
+
 	local function grade(name, props)
 		return new("ColorCorrectionEffect", props, Lighting)
 	end
@@ -192,6 +203,7 @@ function CinematicController:finish()
 	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof } do effect.Enabled = false end
 	self.stamp.Visible, self.title.Visible, self.subtitle.Visible, self.kanjiBack.Visible = false, false, false, false
 	self.prompt.Visible, self.promptResult.Visible = false, false
+	self.speedLines.Visible, self.speedColor, self.fovKick = false, nil, 0
 	tween(self.fade, 0.4, { BackgroundTransparency = 1 })
 	tween(self.top, 0.25, { Size = UDim2.fromScale(1, 0) })
 	tween(self.bottom, 0.25, { Size = UDim2.fromScale(1, 0) })
@@ -348,6 +360,16 @@ function CinematicController:applyFrame(frame)
 	elseif frame.hideTitle then
 		self:hideTitle()
 	end
+	-- Speed lines while the frame asks for them (off in reduced mode).
+	self.speedColor = if frame.speedLines and not reduced then Color3.fromHex(frame.speedLines) else nil
+	-- Impact frame and a zoom punch, once per key.
+	if frame.impact and not self.memo["impact:" .. frame.impact.key] then
+		self.memo["impact:" .. frame.impact.key] = true
+		local color = Color3.fromHex(frame.impact.color)
+		self.fovKick = if reduced then 3 else 9
+		self.shake = math.max(self.shake, if reduced then 0.3 else 0.9)
+		self.effects:impactFrame(color, if reduced then 0.6 else 1.4)
+	end
 	if frame.fade and not self.memo.fade then
 		self.memo.fade = true
 		tween(self.fade, 0.35, { BackgroundTransparency = 0 })
@@ -452,7 +474,10 @@ function CinematicController:camera(dt, rigs, views)
 		shake = Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * self.shake
 		self.shake *= math.exp(-9 * dt)
 	end
-	camera.FieldOfView = s.fov
+	-- Zoom punch: the field of view snaps in on an impact and eases back.
+	camera.FieldOfView = s.fov - self.fovKick
+	self.fovKick *= math.exp(-10 * dt)
+	self:drawSpeedLines()
 	local info = self.debugInfo
 	self.debugLabel.Visible = (self.effects.debug or self.labRequested) and info ~= nil
 	if self.debugLabel.Visible then
@@ -464,6 +489,20 @@ function CinematicController:camera(dt, rigs, views)
 	self.dof.Enabled = not self.effects.reduced
 	self.dof.FocusDistance = (camera.CFrame.Position - focus).Magnitude
 	self.dof.InFocusRadius = math.max(2.5, self.dof.FocusDistance * 0.18)
+end
+
+function CinematicController:drawSpeedLines()
+	local color = self.speedColor
+	self.speedLines.Visible = color ~= nil and self.active
+	if not self.speedLines.Visible then return end
+	for i, ray in self.speedRays do
+		local angle = math.rad(ray.Rotation)
+		local start = 0.3 + math.random() * 0.18 -- distance from the centre, share of the screen
+		ray.Position = UDim2.fromScale(0.5 + math.cos(angle) * start, 0.5 + math.sin(angle) * start)
+		ray.Size = UDim2.new(0.25 + math.random() * 0.3, 0, 0, 1 + math.random(0, 3))
+		ray.BackgroundColor3 = if i % 3 == 0 then color else WHITE
+		ray.BackgroundTransparency = 0.25 + math.random() * 0.45
+	end
 end
 
 function CinematicController:snapshot()

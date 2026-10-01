@@ -1,6 +1,7 @@
 -- KAI as a block R15 rig built from plain parts (no external catalog or animation assets).
 -- The 15 Motor6D joints are the contract with the client AnimationController.
--- Hair, face, vest, sash and wraps are cosmetic parts welded on top of the skeleton.
+-- Hair, face, vest, sash, wraps and sneakers are cosmetic parts welded on top of the skeleton:
+-- they follow the joints but never change hitboxes (those come from the simulation).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CharacterData = require(ReplicatedStorage:WaitForChild("Shared").CharacterData)
@@ -71,64 +72,129 @@ function RigBuilder.build(slot, parent)
 		weld.Part0, weld.Part1, weld.Parent = base, p, p
 		return p
 	end
-	local hair, hairTip = color("Hair"), color("HairTip")
-	-- Face (front of the rig is -Z): sharp determined eyes and angled brows.
-	for _, sign in { -1, 1 } do
-		ornament("Head", "EyeWhite", Vector3.new(0.3, 0.15, 0.04), CFrame.new(sign * 0.23, 0.03, -0.51), Color3.fromHex("F7F7FA"))
-		ornament("Head", "Iris", Vector3.new(0.13, 0.15, 0.04), CFrame.new(sign * 0.2, 0.03, -0.53), color("Eyes"))
-		ornament("Head", "Brow", Vector3.new(0.36, 0.08, 0.04),
-			CFrame.new(sign * 0.23, 0.19, -0.52) * CFrame.Angles(0, 0, sign * 0.32), ink)
-		ornament("Head", "SideLock", Vector3.new(0.16, 0.75, 0.55), CFrame.new(sign * 0.6, 0.02, -0.12), hair)
+	local function shaped(parentName, name, size, offset, partColor, shape)
+		local p = ornament(parentName, name, size, offset, partColor)
+		p.Shape = shape
+		return p
 	end
-	ornament("Head", "Mouth", Vector3.new(0.24, 0.04, 0.04), CFrame.new(0, -0.27, -0.51), ink)
-	-- Messy spiky black hair with red highlights.
+	local skin, hair, hairTip = color("SkinTone"), color("Hair"), color("HairTip")
+	local wrapLine = Color3.fromHex("C3C3CC")
+	local white = Color3.fromHex("F7F7FA")
+
+	-- Neck, ears and face (front of the rig is -Z): sharp eyes with ink lids and highlights.
+	shaped("UpperTorso", "Neck", Vector3.new(0.55, 0.52, 0.52), CFrame.new(0, 0.82, 0.02) * CFrame.Angles(0, 0, math.pi / 2), skin, Enum.PartType.Cylinder)
+	for _, sign in { -1, 1 } do
+		ornament("Head", "Ear", Vector3.new(0.1, 0.3, 0.22), CFrame.new(sign * 0.57, -0.02, 0.05), skin)
+		ornament("Head", "EyeWhite", Vector3.new(0.32, 0.15, 0.04), CFrame.new(sign * 0.23, 0.03, -0.51), white)
+		ornament("Head", "Iris", Vector3.new(0.14, 0.15, 0.04), CFrame.new(sign * 0.19, 0.02, -0.53), color("Eyes"))
+		ornament("Head", "Pupil", Vector3.new(0.06, 0.09, 0.04), CFrame.new(sign * 0.19, 0.02, -0.535), ink)
+		local glint = ornament("Head", "EyeGlint", Vector3.new(0.04, 0.04, 0.04), CFrame.new(sign * 0.16, 0.06, -0.55), white)
+		glint.Material = Enum.Material.Neon
+		ornament("Head", "Lid", Vector3.new(0.38, 0.05, 0.05),
+			CFrame.new(sign * 0.23, 0.12, -0.525) * CFrame.Angles(0, 0, sign * 0.18), ink)
+		ornament("Head", "Brow", Vector3.new(0.38, 0.08, 0.05),
+			CFrame.new(sign * 0.24, 0.22, -0.53) * CFrame.Angles(0, 0, sign * 0.34), ink)
+		ornament("Head", "SideLock", Vector3.new(0.16, 0.8, 0.55), CFrame.new(sign * 0.6, 0.02, -0.12), hair)
+		ornament("Head", "SideSpike", Vector3.new(0.18, 0.55, 0.5),
+			CFrame.new(sign * 0.62, -0.42, -0.1) * CFrame.Angles(math.rad(180), 0, sign * 0.25), hair, "WedgePart")
+	end
+	ornament("Head", "Nose", Vector3.new(0.12, 0.14, 0.12), CFrame.new(0, -0.1, -0.54) * CFrame.Angles(math.rad(180), 0, 0), skin, "WedgePart")
+	ornament("Head", "Mouth", Vector3.new(0.26, 0.04, 0.04), CFrame.new(0.02, -0.3, -0.51) * CFrame.Angles(0, 0, 0.08), ink)
+	ornament("Head", "Jaw", Vector3.new(0.9, 0.12, 0.8), CFrame.new(0, -0.53, -0.04), skin)
+
+	-- Messy spiky black hair with red highlights: cap, fringe, crown and back spikes.
 	ornament("Head", "HairCap", Vector3.new(1.24, 0.42, 1.14), CFrame.new(0, 0.48, 0.04), hair)
-	for i, x in { -0.4, -0.13, 0.13, 0.4 } do
-		ornament("Head", "Bang", Vector3.new(0.3, 0.5, 0.12),
-			CFrame.new(x, 0.3, -0.55) * CFrame.Angles(math.rad(180), 0, (i - 2.5) * 0.25), hair, "WedgePart")
+	for i, x in { -0.42, -0.2, 0.02, 0.24, 0.44 } do
+		ornament("Head", "Fringe", Vector3.new(0.26, 0.5 + (i % 2) * 0.15, 0.12),
+			CFrame.new(x, 0.26 - (i % 2) * 0.06, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 3) * 0.22),
+			if i == 2 then hairTip else hair, "WedgePart")
 	end
-	local spikes = {
-		{ x = -0.45, h = 0.85, tilt = -0.45, tip = false },
-		{ x = -0.24, h = 1.2, tilt = -0.2, tip = true },
-		{ x = 0, h = 1.45, tilt = 0.02, tip = false },
-		{ x = 0.24, h = 1.15, tilt = 0.22, tip = true },
-		{ x = 0.45, h = 0.8, tilt = 0.45, tip = false },
+	local crown = {
+		{ x = -0.48, h = 0.8, tilt = -0.55, z = 0.1, tip = false },
+		{ x = -0.3, h = 1.15, tilt = -0.3, z = 0.0, tip = true },
+		{ x = -0.08, h = 1.4, tilt = -0.08, z = 0.18, tip = false },
+		{ x = 0.12, h = 1.55, tilt = 0.05, z = -0.05, tip = false },
+		{ x = 0.32, h = 1.2, tilt = 0.28, z = 0.1, tip = true },
+		{ x = 0.5, h = 0.85, tilt = 0.55, z = 0.05, tip = false },
 	}
-	for _, s in spikes do
-		ornament("Head", "HairSpike", Vector3.new(0.3, s.h, 1.2),
-			CFrame.new(s.x, 0.62 + s.h / 2, 0.15) * CFrame.Angles(0, 0, s.tilt), if s.tip then hairTip else hair, "WedgePart")
+	for _, sp in crown do
+		ornament("Head", "HairSpike", Vector3.new(0.3, sp.h, 1.15),
+			CFrame.new(sp.x, 0.62 + sp.h / 2, sp.z + 0.12) * CFrame.Angles(0, 0, sp.tilt), if sp.tip then hairTip else hair, "WedgePart")
 	end
+	for i, sign in { -1, 0, 1 } do
+		ornament("Head", "BackSpike", Vector3.new(0.34, 1 - math.abs(sign) * 0.15, 0.85),
+			CFrame.new(sign * 0.32, 0.12 - i * 0.03, 0.72) * CFrame.Angles(math.rad(-118), 0, sign * 0.35), hair, "WedgePart")
+	end
+
+	-- Tank top: scoop neckline, chest and abs lines drawn in ink.
+	ornament("UpperTorso", "Neckline", Vector3.new(0.62, 0.26, 0.04), CFrame.new(0, 0.58, -0.505), skin)
 	for _, sign in { -1, 1 } do
-		ornament("Head", "BackSpike", Vector3.new(0.32, 0.95, 0.85),
-			CFrame.new(sign * 0.3, 0.1, 0.75) * CFrame.Angles(math.rad(-120), 0, sign * 0.3), hair, "WedgePart")
+		ornament("UpperTorso", "ChestLine", Vector3.new(0.6, 0.04, 0.04), CFrame.new(sign * 0.33, 0.12, -0.51) * CFrame.Angles(0, 0, sign * -0.18), ink)
 	end
-	-- Open sleeveless vest over the white tank top, with a raised collar.
+	ornament("UpperTorso", "AbsLine", Vector3.new(0.04, 0.45, 0.04), CFrame.new(0, -0.35, -0.51), Color3.fromHex("BDBDC6"))
+
+	-- Open sleeveless vest: front panels, raised collar lined in red, flared hem, 開 on the back.
 	local vest, trim = color("Vest"), color("VestTrim")
 	for _, sign in { -1, 1 } do
-		ornament("UpperTorso", "VestFront", Vector3.new(0.62, 1.42, 0.08), CFrame.new(sign * 0.66, 0, -0.52), vest)
-		ornament("UpperTorso", "VestSide", Vector3.new(0.08, 1.42, 1.04), CFrame.new(sign * 0.97, 0, 0), vest)
-		ornament("UpperTorso", "VestTrim", Vector3.new(0.06, 1.42, 0.1), CFrame.new(sign * 0.33, 0, -0.55), trim)
-		ornament("UpperTorso", "Shoulder", Vector3.new(0.5, 0.18, 1.06), CFrame.new(sign * 0.72, 0.68, 0), vest)
-		ornament(if sign < 0 then "LeftUpperArm" else "RightUpperArm", "Muscle", Vector3.new(0.74, 0.4, 0.8),
-			CFrame.new(0, 0.1, -0.02), color("SkinTone"))
-		ornament(if sign < 0 then "LeftLowerArm" else "RightLowerArm", "WrapBand", Vector3.new(0.66, 0.08, 0.7),
-			CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, 0.15), Color3.fromHex("C9C9D1"))
-		ornament(if sign < 0 then "LeftFoot" else "RightFoot", "ShoeStripe", Vector3.new(0.82, 0.14, 0.7),
-			CFrame.new(0, 0.02, 0.1), color("ShoeAccent"))
-		ornament(if sign < 0 then "LeftFoot" else "RightFoot", "Sole", Vector3.new(0.84, 0.12, 1.24),
-			CFrame.new(0, -0.18, 0), color("Sole"))
-		ornament(if sign < 0 then "LeftLowerLeg" else "RightLowerLeg", "PantsCuff", Vector3.new(0.86, 0.22, 0.92),
-			CFrame.new(0, -0.38, 0), color("PantsShade"))
+		ornament("UpperTorso", "VestFront", Vector3.new(0.6, 1.62, 0.08), CFrame.new(sign * 0.67, -0.1, -0.52), vest)
+		ornament("UpperTorso", "VestSide", Vector3.new(0.08, 1.62, 1.04), CFrame.new(sign * 0.98, -0.1, 0), vest)
+		ornament("UpperTorso", "VestTrim", Vector3.new(0.06, 1.62, 0.1), CFrame.new(sign * 0.35, -0.1, -0.55), trim)
+		ornament("UpperTorso", "Shoulder", Vector3.new(0.52, 0.18, 1.08), CFrame.new(sign * 0.72, 0.68, 0), vest)
+		ornament("UpperTorso", "CollarSide", Vector3.new(0.14, 0.55, 0.62),
+			CFrame.new(sign * 0.6, 0.86, 0.12) * CFrame.Angles(0, 0, sign * -0.12), vest)
+		ornament("UpperTorso", "CollarLining", Vector3.new(0.05, 0.5, 0.58),
+			CFrame.new(sign * 0.52, 0.86, 0.12) * CFrame.Angles(0, 0, sign * -0.12), trim)
 	end
-	ornament("UpperTorso", "VestBack", Vector3.new(1.94, 1.42, 0.08), CFrame.new(0, 0, 0.52), vest)
-	ornament("UpperTorso", "Collar", Vector3.new(1.3, 0.42, 0.5), CFrame.new(0, 0.82, 0.3) * CFrame.Angles(math.rad(-15), 0, 0), vest)
-	-- Red sash with a knot and two long tails.
+	ornament("UpperTorso", "VestBack", Vector3.new(1.96, 1.62, 0.08), CFrame.new(0, -0.1, 0.52), vest)
+	ornament("UpperTorso", "Collar", Vector3.new(1.3, 0.58, 0.16), CFrame.new(0, 0.9, 0.42) * CFrame.Angles(math.rad(-12), 0, 0), vest)
+	ornament("UpperTorso", "CollarLiningBack", Vector3.new(1.2, 0.5, 0.05), CFrame.new(0, 0.9, 0.33) * CFrame.Angles(math.rad(-12), 0, 0), trim)
+	local back = parts.VestBack
+	if back then
+		local emblem = Instance.new("SurfaceGui")
+		emblem.Name, emblem.Face, emblem.LightInfluence = "Emblem", Enum.NormalId.Back, 0
+		emblem.CanvasSize = Vector2.new(200, 160)
+		local kanji = Instance.new("TextLabel")
+		kanji.BackgroundTransparency, kanji.Size = 1, UDim2.fromScale(1, 1)
+		kanji.Text, kanji.TextScaled, kanji.Font = data.Kanji, true, Enum.Font.GothamBlack
+		kanji.TextColor3 = trim
+		kanji.Parent = emblem
+		emblem.Parent = back
+	end
+
+	-- Arms: deltoids and biceps, forearm wraps with bands, knuckle wraps.
+	for _, side in { "Left", "Right" } do
+		local sign = if side == "Left" then -1 else 1
+		shaped(side .. "UpperArm", "Deltoid", Vector3.new(0.82, 0.82, 0.82), CFrame.new(0, 0.32, 0), skin, Enum.PartType.Ball)
+		shaped(side .. "UpperArm", "Bicep", Vector3.new(0.6, 0.6, 0.6), CFrame.new(0, -0.08, -0.13), skin, Enum.PartType.Ball)
+		for i, y in { 0.3, 0.08, -0.14, -0.36 } do
+			ornament(side .. "LowerArm", "WrapBand", Vector3.new(0.66, 0.06, 0.7),
+				CFrame.new(0, y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.18), wrapLine)
+		end
+		ornament(side .. "Hand", "Knuckles", Vector3.new(0.78, 0.16, 0.2), CFrame.new(0, -0.12, -0.32), wrapLine)
+		ornament(side .. "Hand", "Thumb", Vector3.new(0.2, 0.32, 0.26), CFrame.new(-sign * 0.38, 0.02, -0.22), skin)
+		-- Baggy pants: wide thighs, folds, gathered cuffs; sneakers with toe cap, stripe and laces.
+		ornament(side .. "UpperLeg", "Thigh", Vector3.new(0.94, 0.9, 0.98), CFrame.new(0, 0.1, 0), color("Pants"))
+		ornament(side .. "UpperLeg", "Fold", Vector3.new(0.5, 0.04, 0.04),
+			CFrame.new(sign * 0.1, -0.35, -0.5) * CFrame.Angles(0, 0, sign * 0.3), ink)
+		ornament(side .. "LowerLeg", "Fold", Vector3.new(0.45, 0.04, 0.04),
+			CFrame.new(-sign * 0.05, 0.25, -0.44) * CFrame.Angles(0, 0, sign * -0.3), ink)
+		ornament(side .. "LowerLeg", "PantsCuff", Vector3.new(0.9, 0.26, 0.94), CFrame.new(0, -0.38, 0), color("PantsShade"))
+		ornament(side .. "Foot", "Sole", Vector3.new(0.84, 0.12, 1.26), CFrame.new(0, -0.18, 0), color("Sole"))
+		ornament(side .. "Foot", "ToeCap", Vector3.new(0.82, 0.24, 0.32), CFrame.new(0, -0.07, -0.47), color("Shoes"))
+		ornament(side .. "Foot", "ShoeStripe", Vector3.new(0.86, 0.12, 0.62), CFrame.new(0, 0.0, 0.12) * CFrame.Angles(0.25, 0, 0), color("ShoeAccent"))
+		ornament(side .. "Foot", "HeelTab", Vector3.new(0.3, 0.3, 0.1), CFrame.new(0, 0.12, 0.6), color("ShoeAccent"))
+		for i = 0, 2 do
+			ornament(side .. "Foot", "Lace", Vector3.new(0.4, 0.04, 0.04), CFrame.new(0, 0.21, -0.32 + i * 0.16), ink)
+		end
+	end
+
+	-- Red sash: thick wrap, big knot and long tails (front and back).
 	local sash = color("Sash")
-	ornament("LowerTorso", "Sash", Vector3.new(1.78, 0.34, 1.02), CFrame.new(0, 0.18, 0), sash)
-	ornament("LowerTorso", "SashKnot", Vector3.new(0.4, 0.34, 0.14), CFrame.new(-0.35, 0.18, -0.54), sash)
-	ornament("LowerTorso", "SashTail", Vector3.new(0.24, 1.5, 0.06), CFrame.new(-0.45, -0.6, -0.56) * CFrame.Angles(0, 0, -0.12), sash)
-	ornament("LowerTorso", "SashTail", Vector3.new(0.2, 1.25, 0.06), CFrame.new(-0.22, -0.5, -0.57) * CFrame.Angles(0, 0, 0.1), sash)
-	ornament("LowerTorso", "SashTailBack", Vector3.new(0.26, 1.6, 0.06), CFrame.new(0.4, -0.6, 0.54) * CFrame.Angles(math.rad(12), 0, 0.1), sash)
+	ornament("LowerTorso", "Sash", Vector3.new(1.78, 0.38, 1.02), CFrame.new(0, 0.18, 0), sash)
+	ornament("LowerTorso", "SashKnot", Vector3.new(0.44, 0.38, 0.16), CFrame.new(-0.36, 0.18, -0.55) * CFrame.Angles(0, 0, 0.3), sash)
+	ornament("LowerTorso", "SashTail", Vector3.new(0.26, 1.7, 0.06), CFrame.new(-0.48, -0.7, -0.56) * CFrame.Angles(0, 0, -0.14), sash)
+	ornament("LowerTorso", "SashTail", Vector3.new(0.22, 1.35, 0.06), CFrame.new(-0.24, -0.55, -0.57) * CFrame.Angles(0, 0, 0.12), sash)
+	ornament("LowerTorso", "SashTailBack", Vector3.new(0.28, 1.8, 0.06), CFrame.new(0.4, -0.7, 0.54) * CFrame.Angles(math.rad(14), 0, 0.12), sash)
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R15

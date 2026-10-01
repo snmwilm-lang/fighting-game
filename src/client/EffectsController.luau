@@ -106,6 +106,13 @@ function EffectsController:slash(fighter, moveId, color)
 		AirSmash = { from = 70, to = -70, radius = 3, height = 1.6 },
 		BodyBlow = { from = -45, to = 5, radius = 3.2, height = 2.6 },
 		KaienRush = { from = -25, to = 25, radius = 3.9, height = 3.8 },
+		KiChase = { from = -60, to = 60, radius = 3.4, height = 3.4 },
+		Finale = { from = -40, to = 40, radius = 4.4, height = 3.6 },
+		Awakening = { from = -40, to = 40, radius = 4.4, height = 3.6 },
+		DragonFist = { from = -80, to = 100, radius = 2.8, height = 3 },
+		KiFlurry = { from = -20, to = 20, radius = 3.6, height = 3.6 },
+		CrescentMoon = { from = 120, to = -60, radius = 3.4, height = 3.2 },
+		DragonTornado = { from = -10, to = 350, radius = 3, height = 3.4 },
 	}
 	local arc = arcs[moveId]
 	if not arc then return end
@@ -124,7 +131,7 @@ function EffectsController:slash(fighter, moveId, color)
 		tween(seg, 0.22, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 1, 1.15) })
 		Debris:AddItem(seg, 0.25)
 	end
-	if moveId == "Smash" or moveId == "KaienRush" then -- speed streaks ahead of the fist
+	if moveId == "Smash" or moveId == "KaienRush" or moveId == "Finale" or moveId == "Awakening" then -- speed streaks
 		for i = 1, if self.reduced then 3 else 6 do
 			local y = cy + (math.random() - 0.5) * 2.2
 			local start = Vector3.new(fighter.x + fighter.facing * 1.5, y, 1.2)
@@ -135,6 +142,23 @@ function EffectsController:slash(fighter, moveId, color)
 			Debris:AddItem(streak, 0.2)
 		end
 	end
+end
+
+-- Ground shockwave of a cinematic finisher: a flat ring racing outward and a ki pillar.
+function EffectsController:shockwave(position, color)
+	local ring = self:part(Vector3.new(0.3, 2, 2), CFrame.new(position + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		color, Enum.PartType.Cylinder)
+	ring.Transparency = 0.1
+	tween(ring, 0.6, { Size = Vector3.new(0.3, 60, 60), Transparency = 1 })
+	Debris:AddItem(ring, 0.65)
+	local pillar = self:part(Vector3.new(30, 4, 4), CFrame.new(position + Vector3.new(0, 15, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		WHITE, Enum.PartType.Cylinder)
+	pillar.Transparency = 0.2
+	tween(pillar, 0.5, { Size = Vector3.new(40, 12, 12), Transparency = 1 })
+	Debris:AddItem(pillar, 0.55)
+	self:spark(position + Vector3.new(0, 3, 0), color, 3)
+	self:dust(position.X, 0, 1)
+	self:dust(position.X, 0, -1)
 end
 
 function EffectsController:dust(x, y, direction)

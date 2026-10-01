@@ -269,6 +269,105 @@ test("opposing ki blasts clash", function()
 	expect(count(events, "Clash") == 1 and count(events, "Hit") == 0, "blasts did not clash")
 end)
 
+-- Plays a route like a player: the next button is pressed once the current move connects.
+local function playRoute(world, keys, ticks)
+	local events, step, pressedFor = {}, 1, nil
+	for _ = 1, ticks or 400 do
+		local a = world.fighters[1]
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		local ready = step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))
+		if keys[step] and ready then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			pressedFor = key
+			step += 1
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+	end
+	return events
+end
+
+local function compactRoute(events)
+	local list = {}
+	for _, e in events do
+		if e.kind == "Hit" and not e.cinematic and list[#list] ~= e.move then table.insert(list, e.move) end
+	end
+	return table.concat(list, ",")
+end
+
+for _, route in MoveData.FullRoutes do
+	test("6-press route " .. route.keys .. " (" .. route.name .. ") ends in COUP DE GRÂCE", function()
+		local world = closeWorld(3)
+		local keys = {}
+		for k in route.keys:gmatch("%S") do table.insert(keys, k) end
+		local events = playRoute(world, keys)
+		expect(compactRoute(events) == table.concat(route.moves, ","), "route was " .. compactRoute(events))
+	end)
+end
+
+test("3 bars at the 6th press: ÉVEIL ÉCARLATE removes 95 % of the current health", function()
+	local world = closeWorld(3, false)
+	world.fighters[1].meter = Config.MaxMeter
+	local hpAtStart
+	local events = {}
+	local keys = { "L", "R", "L", "R", "L", "R" }
+	local step, pressedFor = 1, nil
+	for _ = 1, 700 do
+		local a = world.fighters[1]
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))) then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			pressedFor = key
+			step += 1
+		end
+		a.meter = math.max(a.meter, if step <= 6 then Config.MaxMeter else 0)
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
+			table.insert(events, e)
+			if e.kind == "CinematicStart" then hpAtStart = world.fighters[2].hp end
+		end
+	end
+	local start = find(events, "CinematicStart")
+	expect(start and start.move == "Awakening" and not start.finish, "no awakening cinematic")
+	local expected = hpAtStart - math.floor(hpAtStart * MoveData.Cinematics.Awakening.HealthRatio)
+	expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
+	expect(find(events, "RoundEnd") == nil, "awakening killed a healthy target")
+end)
+
+test("below 50 %: ÉVEIL ÉCARLATE is a FINAL FINISH (KO after the cinematic)", function()
+	local world = closeWorld(3, false)
+	world.fighters[2].hp = 480
+	local events = {}
+	local keys = { "L", "R", "L", "R", "L", "R" }
+	local step, pressedFor = 1, nil
+	for _ = 1, 900 do
+		local a = world.fighters[1]
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))) then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			pressedFor = key
+			step += 1
+		end
+		if step <= 6 then a.meter = Config.MaxMeter end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+	end
+	local start, finish, roundEnd = find(events, "CinematicStart"), find(events, "CinematicEnd"), find(events, "RoundEnd")
+	expect(start and start.finish, "no FINAL FINISH")
+	expect(roundEnd and roundEnd.winner == 1, "no KO")
+	expect(finish and finish.finish, "cinematic end not flagged as finish")
+end)
+
+test("6th press without 3 bars stays COUP DE GRÂCE", function()
+	local world = closeWorld(3)
+	world.fighters[1].meter = 0 -- the combo itself fills about half the meter
+	local events = playRoute(world, { "L", "R", "L", "R", "L", "R" })
+	expect(find(events, "CinematicStart") == nil, "unique attack without 3 bars")
+end)
+
 test("ultimate needs meter and spends it", function()
 	local world = closeWorld(3)
 	local e1 = run(world, 30, function(t) return { input({ ultimate = t == 1 }) } end)
@@ -306,7 +405,7 @@ test("ultimate cinematic: scripted hits, timer paused, round ends only after it"
 	expect(start and finish, "cinematic did not run")
 	local cinematicHits = 0
 	for _, e in events do if e.cinematic then cinematicHits += 1 end end
-	expect(cinematicHits == #MoveData.Cinematic.Hits + 1, "cinematic hits " .. cinematicHits)
+	expect(cinematicHits == #MoveData.Cinematics.KaienRush.Hits + 1, "cinematic hits " .. cinematicHits)
 	expect(roundEnd and roundEnd.tick >= finish.tick, "KO announced before the cinematic ended")
 	expect(world.fighters[1].wins == 1, "no win after the ultimate KO")
 end)

@@ -36,10 +36,10 @@ FighterAI.Levels = table.freeze({
 		antiAir = 0.3, punish = 0.5, reversal = 0.15, counter = 0.5, zoning = 0.2, decision = 12, ultimate = 0.25,
 		routes = { "easy", "normal" } },
 	{ name = "DIFFICILE", reaction = 10, block = 0.62, lowBlock = 0.75, combo = 0.88, aggression = 0.72,
-		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, decision = 8, ultimate = 0.6,
+		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, full = 0.25, decision = 8, ultimate = 0.6,
 		routes = { "normal", "hard" } },
 	{ name = "LÉGENDE", reaction = 6, block = 0.8, lowBlock = 0.92, combo = 0.97, aggression = 0.8,
-		antiAir = 0.85, punish = 0.95, reversal = 0.45, counter = 0.6, zoning = 0.5, decision = 6, ultimate = 1,
+		antiAir = 0.85, punish = 0.95, reversal = 0.45, counter = 0.6, zoning = 0.5, full = 0.5, decision = 6, ultimate = 1,
 		routes = { "hard" } },
 })
 
@@ -85,7 +85,17 @@ local function observe(f, moves)
 	}
 end
 
-function FighterAI:pickPlan(meter, cost)
+function FighterAI:pickPlan(meter, cost, fullRoutes)
+	-- The 6-press routes (ending in COUP DE GRÂCE, or ÉVEIL ÉCARLATE with 3 bars).
+	if fullRoutes and self.level.full and self:chance(self.level.full) then
+		local route = fullRoutes[math.floor(self:random() * #fullRoutes) + 1]
+		local keys = {}
+		for key in route.keys:gmatch("%S") do table.insert(keys, key) end
+		local length = 1
+		while length < #keys and self:chance(self.level.combo) do length += 1 end
+		self.plan, self.step, self.planLength, self.pressedMove = keys, 1, length, nil
+		return
+	end
 	local pool = {}
 	for _, key in self.level.routes do
 		for _, route in ROUTES[key] do table.insert(pool, route) end
@@ -178,7 +188,7 @@ function FighterAI:think(world, slot)
 			return input
 		elseif self:chance(self.level.counter) then
 			self.blockTicks = 0
-			self:pickPlan(me.meter, ultimateCost) -- poke back right away (fast jab first)
+			self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes) -- poke back right away (fast jab first)
 			self.plan = { self.plan[1] == "R" and "L" or self.plan[1], table.unpack(self.plan, 2) }
 			self.planLength = math.min(self.planLength, #self.plan)
 		elseif self:chance(self.level.block * 0.6) then
@@ -193,7 +203,7 @@ function FighterAI:think(world, slot)
 		self.lastOpportunity = opportunity
 		if self:chance(self.level.punish) then
 			self.blockTicks = 0
-			self:pickPlan(me.meter, ultimateCost)
+			self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
 		end
 	end
 	if self.blockTicks > 0 and not self.plan then
@@ -223,7 +233,7 @@ function FighterAI:think(world, slot)
 
 	-- Hit a crumpling or launched opponent that is close.
 	if not self.plan and foe.stunKind == "Crumple" and dist < 4.2 then
-		self:pickPlan(me.meter, ultimateCost)
+		self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
 	end
 
 	-- 4. Neutral game: walk, dash, jump in, poke, start combos.
@@ -267,7 +277,7 @@ function FighterAI:think(world, slot)
 			if dist > 4.2 then
 				input.axis = toward
 			else
-				self:pickPlan(me.meter, ultimateCost)
+				self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
 				self.intent = "wait"
 			end
 		end

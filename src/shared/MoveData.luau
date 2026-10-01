@@ -24,6 +24,10 @@
 	  holdVy / multiPush / multiHitstop   intermediate hits of a multi-hit move
 	  projectile  spawns a ki blast on the first active frame (one per fighter on screen)
 	  skill       special skill unlocked by alternating clicks: announced on screen
+	  awakens     with a full ki meter this move becomes the one named here instead
+	  homing      the user leaps at the target: horizontal speed up to `lunge`, vertical speed
+	              enough to reach the target's height (decided at the start), steering each tick
+	  track       horizontal steering toward the target until all hits are out (no leap)
 	  heavy       presentation hint for bigger effects
 	Blocked hits deal damage * CombatConfig.BlockDamageRatio and can never KO.
 	Any grounded normal cancels into the special (E) on contact; any normal or special cancels
@@ -111,18 +115,20 @@ MoveData.Moves = table.freeze({
 		startup = 9, active = 16, recovery = 24, hits = 4, hitInterval = 4,
 		damage = 30, guardDamage = 10, hitstun = 30, blockstun = 12, hitstop = 12,
 		multiHitstop = 3, holdVy = 14, multiPush = 1,
-		push = 6, blockPush = 18, lunge = 12, launch = 46, jumpCancel = true,
+		push = 6, blockPush = 18, lunge = 12, launch = 46, jumpCancel = true, track = true,
 		hitbox = { near = 0, far = 3.6, low = 0, high = 7.4 },
 		heavy = true,
+		cancels = { Light = "KiChase" },
 	}),
 	DragonFist = move({ -- L > L > R > R or R > R > L > R : skill, rising triple uppercut
 		id = "DragonFist", name = "POING DU DRAGON", kind = "Skill", skill = true,
 		startup = 7, active = 12, recovery = 28, hits = 3, hitInterval = 4,
 		damage = 40, guardDamage = 12, hitstun = 30, blockstun = 14, hitstop = 14,
-		multiHitstop = 4, holdVy = 20, multiPush = 1,
-		push = 4, blockPush = 18, lunge = 14, launch = 50,
-		hitbox = { near = 0, far = 3.6, low = 0.5, high = 8.5 },
+		multiHitstop = 4, holdVy = 6, multiPush = 1,
+		push = 4, blockPush = 18, lunge = 14, launch = 34, track = true,
+		hitbox = { near = 0, far = 3.6, low = 0.5, high = 10 },
 		heavy = true,
+		cancels = { Light = "KiChase" },
 	}),
 	CrescentMoon = move({ -- L L L L > R : skill, flipping kicks that spike the target down
 		id = "CrescentMoon", name = "CROISSANT DE LUNE", kind = "Skill", skill = true,
@@ -132,6 +138,7 @@ MoveData.Moves = table.freeze({
 		push = 8, blockPush = 18, lunge = 14, launch = -30, groundBounce = true,
 		hitbox = { near = 0, far = 4.2, low = 0, high = 7.5 },
 		heavy = true,
+		cancels = { Heavy = "Finale" },
 	}),
 	RisingWind = move({ -- R > L > R : double kick that lifts the swept target
 		id = "RisingWind", name = "VENT ASCENDANT", startup = 7, active = 8, recovery = 20,
@@ -150,6 +157,7 @@ MoveData.Moves = table.freeze({
 		push = 44, blockPush = 20, lunge = 6, launch = 18, wallBounce = true,
 		hitbox = { near = 0.3, far = 4.2, low = 0, high = 7.5 },
 		heavy = true,
+		cancels = { Light = "KiChase" },
 	}),
 	ThunderHeel = move({ -- R > R > L : catches the bounce, launches
 		id = "ThunderHeel", name = "TALON FOUDRE", startup = 7, active = 4, recovery = 20,
@@ -165,6 +173,7 @@ MoveData.Moves = table.freeze({
 		push = 46, blockPush = 22, lunge = 6, launch = 14, wallBounce = true,
 		hitbox = { near = 0.4, far = 4.6, low = 2.2, high = 4.8 },
 		heavy = true,
+		cancels = { Light = "KiChase" },
 	}),
 	-- Right-click chain
 	Smash = move({
@@ -229,6 +238,31 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0.2, far = 3.6, low = 1.0, high = 7.0 },
 		heavy = true,
 	}),
+	-- The two last links of every 6-press route: L (chase) then R (finisher).
+	KiChase = move({ -- 5th press: dash through the air to catch any launched / bouncing target
+		id = "KiChase", name = "POURSUITE ÉCARLATE", startup = 6, active = 8, recovery = 22,
+		damage = 50, guardDamage = 10, hitstun = 30, blockstun = 14, hitstop = 9,
+		push = 4, blockPush = 14, lunge = 34, launch = 26, homing = true, -- ki-charged leap at the target
+		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		heavy = true,
+		cancels = { Heavy = "Finale" },
+	}),
+	Finale = move({ -- 6th press: finisher; with 3 ki bars it becomes ÉVEIL ÉCARLATE
+		id = "Finale", name = "COUP DE GRÂCE", kind = "Skill", skill = true,
+		startup = 8, active = 4, recovery = 30,
+		damage = 110, guardDamage = 30, hitstun = 34, blockstun = 18, hitstop = 16,
+		push = 40, blockPush = 22, lunge = 14, launch = 30, knockdown = true,
+		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		heavy = true, awakens = "Awakening",
+	}),
+	Awakening = move({ -- unique attack: 3 bars, cinematic, 95 % of the current health or FINAL FINISH
+		id = "Awakening", name = "ÉVEIL ÉCARLATE", kind = "Ultimate", startup = 8, active = 6, recovery = 40,
+		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
+		push = 2, blockPush = 24, lunge = 20, meterCost = 300,
+		invuln = { from = 1, to = 14 },
+		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		heavy = true,
+	}),
 	-- Crouch + E: ki blast projectile
 	KiBlast = move({
 		id = "KiBlast", name = "KIKOHO", kind = "Special", startup = 12, active = 2, recovery = 26,
@@ -257,15 +291,31 @@ MoveData.Starters = table.freeze({
 	Air = table.freeze({ Light = "AirKick", Heavy = "AirSmash" }),
 })
 
--- Scripted hits of the ultimate cinematic: tick within the cinematic -> damage.
-MoveData.Cinematic = table.freeze({
-	Length = 150,
-	FinalTick = 118,
-	Hits = table.freeze({ 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 }),
-	HitDamage = 22,
-	FinalDamage = 170,
-	MinScaling = 0.5,
+-- Scripted cinematics: ticks of the hits inside the cinematic and how damage is decided.
+MoveData.Cinematics = table.freeze({
+	KaienRush = table.freeze({
+		Length = 150,
+		FinalTick = 118,
+		Hits = table.freeze({ 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 }),
+		HitDamage = 22,
+		FinalDamage = 170,
+		MinScaling = 0.5,
+	}),
+	-- ÉVEIL ÉCARLATE: removes HealthRatio of the target's current health, whatever it is.
+	-- Below FinishThreshold of the maximum health it is a FINAL FINISH (KO) with an extra
+	-- FinishExtra ticks of KO sequence.
+	Awakening = table.freeze({
+		Length = 220,
+		FinalTick = 160,
+		Hits = table.freeze({ 70, 78, 86, 94, 102, 110, 118 }),
+		HitShare = 0.05,
+		HealthRatio = 0.95,
+		FinishThreshold = 0.5,
+		FinishExtra = 110,
+	}),
 })
+-- Kept for code written against the single-cinematic version.
+MoveData.Cinematic = MoveData.Cinematics.KaienRush
 
 -- Combo routes shown in the HUD help and used by the CPU. L = clic gauche, R = clic droit.
 MoveData.Routes = table.freeze({
@@ -280,6 +330,17 @@ MoveData.Routes = table.freeze({
 	{ name = "★ DRAGON", keys = "L L R R", moves = { "Jab", "Cross", "Uppercut", "DragonFist" } },
 	{ name = "★ FOUDRE", keys = "R R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist" } },
 	{ name = "★ LUNE", keys = "L L L L R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon" } },
+})
+
+-- The six full 6-press routes. Their last link is COUP DE GRÂCE, which becomes
+-- ÉVEIL ÉCARLATE when the ki meter is full (3 bars).
+MoveData.FullRoutes = table.freeze({
+	{ name = "TORNADE", keys = "L R L R L R", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado", "KiChase", "Finale" } },
+	{ name = "RAFALE", keys = "R L R L L R", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry", "KiChase", "Finale" } },
+	{ name = "DRAGON", keys = "L L R R L R", moves = { "Jab", "Cross", "Uppercut", "DragonFist", "KiChase", "Finale" } },
+	{ name = "FOUDRE", keys = "R R L R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist", "KiChase", "Finale" } },
+	{ name = "MUR", keys = "L L L R L R", moves = { "Jab", "Cross", "Elbow", "SpinKick", "KiChase", "Finale" } },
+	{ name = "LUNE", keys = "L L L L R R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon", "Finale" } },
 })
 
 function MoveData.total(m)

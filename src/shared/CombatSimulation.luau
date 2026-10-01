@@ -137,6 +137,13 @@ local function startMove(world, f, id, events)
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
 	table.remove(f.buffer, 1)
 	if m.air then f.airAttackUsed = true end
+	if m.homing then
+		local target = world.fighters[3 - f.slot]
+		local c = world.config
+		-- Leap high enough to meet the target (vertical speed decided once, at the start).
+		local height = math.max(0, target.y + 1.5 - f.y)
+		f.vy = math.clamp(math.sqrt(2 * c.Gravity * height), 0, 48)
+	end
 	if m.skill then
 		table.insert(events, { kind = "Skill", attacker = f.slot, move = id })
 	end
@@ -177,6 +184,10 @@ local function chooseMove(world, f, grounded, crouching)
 		end
 	end
 	local m = nextId and moves[nextId]
+	-- With a full ki meter, the finisher turns into the unique attack.
+	if m and m.awakens and f.meter >= moves[m.awakens].meterCost then
+		nextId, m = m.awakens, moves[m.awakens]
+	end
 	if m and m.meterCost and f.meter < m.meterCost then return nil end
 	if m and m.projectile then
 		for _, p in world.projectiles do
@@ -296,7 +307,13 @@ local function stepFighter(world, f, input, events)
 	if f.move then
 		local m = moves[f.move]
 		f.blocking, f.crouching = false, f.move == "LowKick"
-		if grounded and not m.air then
+		if m.homing or m.track then
+			-- Steer toward a spot just in front of the target every tick until the hits are out.
+			local target = world.fighters[3 - f.slot]
+			local steering = f.moveFrame <= m.startup + m.active and f.moveHits < (m.hits or 1)
+			local gap = target.x - f.facing * 1.4 - f.x
+			f.vx = if steering then math.clamp(gap * 10, -m.lunge, m.lunge) elseif grounded then 0 else f.vx * 0.9
+		elseif grounded and not m.air then
 			f.vx = if f.moveFrame <= m.startup + m.active then f.facing * m.lunge else 0
 		end
 		f.state = "Attack"
@@ -420,16 +437,33 @@ local function comboScale(d, c, minimum)
 	return math.max(minimum or c.MinComboScaling, c.ComboScaling ^ d.comboHits)
 end
 
-local function startCinematic(world, a, d, events)
-	local cin = world.moveData.Cinematic
+-- Builds the authoritative script of a cinematic: which tick deals how much damage.
+local function startCinematic(world, a, d, events, moveId)
+	local c = world.config
+	local cin = world.moveData.Cinematics[moveId]
+	local plan, finish = {}, false
+	if moveId == "Awakening" then
+		-- 95 % of the current health whatever it is; below half the maximum: FINAL FINISH.
+		finish = d.hp < c.MaxHealth * cin.FinishThreshold
+		local total = if finish then d.hp else math.floor(d.hp * cin.HealthRatio)
+		local share = math.floor(total * cin.HitShare)
+		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
+		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
+	else
+		local scale = comboScale(d, c, cin.MinScaling)
+		for _, t in cin.Hits do
+			table.insert(plan, { tick = t, damage = math.max(1, math.floor(cin.HitDamage * scale + 0.5)) })
+		end
+		table.insert(plan, { tick = cin.FinalTick, damage = math.max(1, math.floor(cin.FinalDamage * scale + 0.5)), final = true })
+	end
 	world.cinematic = {
-		attacker = a.slot, defender = d.slot, tick = 0, length = cin.Length,
-		scale = comboScale(d, world.config, cin.MinScaling),
+		attacker = a.slot, defender = d.slot, move = moveId, tick = 0, finish = finish,
+		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
 	}
-	a.move, a.moveContact, a.state = "KaienRush", "Hit", "Cinematic"
+	a.move, a.moveContact, a.state = moveId, "Hit", "Cinematic"
 	a.pushVx, d.pushVx, a.vx = 0, 0, 0
 	d.stun, d.stunKind, d.state = 999, "Hit", "Hitstun"
-	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = "KaienRush" })
+	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = moveId, finish = finish })
 end
 
 -- Applies one hit (or blocked hit) of move m from attacker a on defender d. `source` is set
@@ -542,7 +576,7 @@ local function applyHit(world, a, d, m, events, source)
 		event.ko = true
 	elseif m.kind == "Ultimate" and not source then
 		a.hitstop, d.hitstop = 0, 0
-		startCinematic(world, a, d, events)
+		startCinematic(world, a, d, events, m.id)
 	end
 	table.insert(events, event)
 end
@@ -616,41 +650,48 @@ local function detectHits(world, events)
 end
 
 -- The ultimate plays as a scripted, authoritative sequence: fixed hits, then a final blow.
+-- Cinematics play as scripted, authoritative sequences: fixed hits, then a final blow.
 local function stepCinematic(world, events)
-	local c, cin = world.config, world.moveData.Cinematic
+	local c = world.config
 	local state = world.cinematic
 	state.tick += 1
 	local a, d = world.fighters[state.attacker], world.fighters[state.defender]
 	local dir = if d.x >= a.x then 1 else -1
-	local function hit(amount, final)
-		local damage = math.max(1, math.floor(amount * state.scale + 0.5))
-		d.hp = if final then math.max(0, d.hp - damage) else math.max(1, d.hp - damage)
-		d.comboHits += 1
-		d.comboDamage += damage
-		gainMeter(d, damage * c.MeterWhenHit, c)
-		table.insert(events, {
-			kind = "Hit", attacker = a.slot, defender = d.slot, move = "KaienRush", cinematic = true,
-			heavy = final, ko = final and d.hp <= 0, damage = damage, combo = d.comboHits, comboDamage = d.comboDamage,
-			x = d.x - dir * 0.6, y = d.y + 3.4,
-		})
-	end
-	if table.find(cin.Hits, state.tick) then hit(cin.HitDamage, false) end
-	if state.tick == cin.FinalTick then
-		hit(cin.FinalDamage, true)
-		d.stun, d.stunKind = 0, nil
-		d.launched, d.juggle = true, c.MaxJuggleHits -- untouchable until it lands
-		d.vy, d.pushVx = c.UltimateLaunch, dir * c.UltimatePush
-		if d.hp <= 0 then
-			d.state, d.launched = "KO", false
+	for _, step in state.plan do
+		if step.tick == state.tick then
+			local finishing = step.final and state.finish
+			-- Only KAIEN RUSH's last blow or a FINAL FINISH can KO; ÉVEIL ÉCARLATE otherwise
+			-- always leaves the target standing on its last 5 %.
+			local canKO = step.final and state.move == "KaienRush"
+			d.hp = if finishing then 0 else math.max(if canKO then 0 else 1, d.hp - step.damage)
+			d.comboHits += 1
+			d.comboDamage += step.damage
+			if state.move == "KaienRush" then gainMeter(d, step.damage * c.MeterWhenHit, c) end
+			table.insert(events, {
+				kind = "Hit", attacker = a.slot, defender = d.slot, move = state.move, cinematic = true,
+				heavy = step.final == true, ko = d.hp <= 0, damage = step.damage, combo = d.comboHits,
+				comboDamage = d.comboDamage, x = d.x - dir * 0.6, y = d.y + 3.4, finish = finishing,
+			})
+			if step.final then
+				d.stun, d.stunKind = 0, nil
+				if d.hp <= 0 then
+					-- FINAL FINISH: the target is thrown down and stays on the floor.
+					d.state, d.launched = "KO", false
+					d.vy, d.pushVx = c.KOPop * 0.6, dir * 14
+				else
+					d.launched, d.juggle = true, c.MaxJuggleHits -- untouchable until it lands
+					d.vy, d.pushVx = c.UltimateLaunch, dir * c.UltimatePush
+				end
+			end
 		end
 	end
-	if state.tick > cin.FinalTick then
+	if state.tick > state.finalTick then
 		stepFighter(world, d, CombatSimulation.neutralInput(), events)
 	end
 	if state.tick >= state.length then
 		world.cinematic = nil
 		a.move, a.moveContact, a.state = nil, nil, "Idle"
-		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot })
+		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot, finish = state.finish })
 	end
 end
 

@@ -1,5 +1,54 @@
 # Journal du projet — état à transmettre
 
+## Version 0.5.0 — 1er octobre 2026
+
+Demandes de Wilhem : routes de 6 appuis au lieu de 4 ; enchaîner les 2 derniers coups avec
+3 barres déclenche une attaque unique en cinématique qui retire 95 % de la vie ; sous 50 %
+c'est un « final finish » avec pose de K.O. au sol et plusieurs points de vue ; travailler
+les modèles et les cinématiques. **Toujours rien de lancé dans Roblox Studio.**
+
+Interprétation retenue (à confirmer) : 95 % de la vie **actuelle** de la cible, quel que soit
+son total ; sous 50 % de la vie **maximale**, FINAL FINISH (K.O. garanti).
+
+### Nouveautés
+
+- **6 routes complètes de 6 appuis** (`MoveData.FullRoutes`) : TORNADE (L R L R L R),
+  RAFALE (R L R L L R), DRAGON (L L R R L R), FOUDRE (R R L R L R), MUR (L L L R L R),
+  LUNE (L L L L R R). Les deux derniers maillons : POURSUITE ÉCARLATE (L, bond à tête
+  chercheuse qui vise la hauteur et la position de la cible) puis COUP DE GRÂCE (R).
+  Dégâts mesurés : 311 à 407, et la route remplit ~la moitié de la jauge.
+- **ÉVEIL ÉCARLATE** (champ `awakens` de COUP DE GRÂCE) : avec 300 de ki au moment du 6e
+  coup, il le remplace (3 barres consommées, super flash, invincible 1-14). Cinématique
+  autoritaire de 220 ticks : 7 coups puis le coup final ; dégâts totaux = 95 % de la vie au
+  début de la cinématique (la cible reste à ~5 %), sans réduction de combo.
+- **FINAL FINISH** : si la cible a moins de 50 % de sa vie maximale, la cinématique dure
+  110 ticks de plus et se termine par un K.O. Le round ne se termine qu'après.
+- **Cinématique ÉVEIL ÉCARLATE** (client) : gros plan sur les yeux avec le kanji peint,
+  contre-plongée pendant l'éruption d'aura sous un ciel écarlate, travelling du dash, un
+  angle de caméra différent à chaque coup (épaule, face, plongée, contre-plongée inclinée,
+  trois-quarts), bond dans le ciel vu du sol, plongeon, onde de choc et instant noir et
+  blanc. FINAL FINISH : chute au ralenti en noir et blanc, plan au ras du sol à l'impact,
+  plongée sur le corps face contre terre, puis KAI bras croisés dos à l'adversaire tombé ;
+  titres « FINAL FINISH » et « K.O. ».
+- **Modèle de KAI** : cou, oreilles, nez, mâchoire, yeux avec paupières encrées, pupilles et
+  reflets ; frange et 6 mèches de couronne ; débardeur à encolure, lignes de pectoraux et
+  d'abdos ; gilet à col montant doublé de rouge, ourlet évasé, **kanji 開 dans le dos** ;
+  deltoïdes et biceps arrondis ; bandages à bandes ; pantalon large avec plis et revers ;
+  baskets avec embout, bande, talon et lacets ; ceinture épaisse à gros nœud.
+- **IA** : DIFFICILE et LÉGENDE jouent aussi les routes de 6 appuis (donc l'ÉVEIL quand
+  leur jauge est pleine).
+- Mécaniques ajoutées : `homing` (bond vers la cible) et `track` (suivi horizontal des coups
+  multi-touches) pour que les routes tiennent quelle que soit la trajectoire de la cible.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/CombatSimulation.test.luau` : 48 tests (dont les 6 routes complètes jouées comme un joueur, ÉVEIL = −95 % exact, FINAL FINISH = K.O. après la cinématique, pas d'ÉVEIL sans 3 barres) | ✅ |
+| `luau tests/FighterAI.test.luau` : 8 tests | ✅ |
+| Compilation + analyse Luau | ✅ |
+| Studio : modèle, cinématiques, angles de caméra | ❌ non exécuté — angles et poses estimés sans rendu |
+
 ## Version 0.4.0 — 1er octobre 2026
 
 Demandes de Wilhem : plus de diversité, skills spéciaux en alternant clic gauche / clic

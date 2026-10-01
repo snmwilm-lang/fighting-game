@@ -245,6 +245,7 @@ local function snapshot()
 		cinematic = world.cinematic and {
 			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
 			tick = world.cinematic.tick, length = world.cinematic.length,
+			move = world.cinematic.move, finish = world.cinematic.finish,
 		},
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
 		fighters = list,

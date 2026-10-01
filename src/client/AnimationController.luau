@@ -114,6 +114,18 @@ local Poses = {
 		RightShoulder = { 25, 0, 15 }, RightElbow = { 60, 0, 0 },
 	}),
 	-- Super flash: kiai, fists at the hips, chest out.
+	-- FINAL FINISH: face down on the floor.
+	DownFace = merge(legs(-5, -10, 10, -25), {
+		Root = { -86, 0, 0, -2.55, 0 }, Waist = { -4, 0, 0 }, Neck = { 25, 20, 0 },
+		LeftShoulder = { 150, 0, -35 }, LeftElbow = { 25, 0, 0 },
+		RightShoulder = { 30, 0, 60 }, RightElbow = { 40, 0, 0 },
+	}),
+	-- Back turned on the fallen opponent, arms crossed.
+	ArmsCrossed = merge(legs(8, -6, -8, -6, -10, 10), {
+		Root = { 0, 0, 0, 0, 0 }, Waist = { 6, 0, 0 }, Neck = { -8, -25, 0 },
+		LeftShoulder = { 62, 0, 38 }, LeftElbow = { 118, 0, 0 },
+		RightShoulder = { 58, 0, -38 }, RightElbow = { 122, 0, 0 },
+	}),
 	Kiai = merge(legs(28, -40, -28, -40, -20, 20), {
 		Root = { 0, 0, 0, -0.55, 0 }, Waist = { 14, 0, 0 }, Neck = { -18, 0, 0 },
 		LeftShoulder = { 18, 0, -42 }, LeftElbow = { 105, 0, 0 },
@@ -323,6 +335,28 @@ local Poses = {
 		}),
 		Recovery = merge(STANCE, { Waist = { -10, 0, 0 } }),
 	},
+	KiChase = { -- leaping flying knee wrapped in ki
+		Startup = merge(merge(STANCE, CROUCH_LEGS), { Waist = { -30, 0, 0 }, LeftShoulder = { -40, 0, -30 }, RightShoulder = { -40, 0, 30 } }),
+		Active = merge(legs(110, -140, -20, -30), {
+			Root = { -25, 0, 0, 0.3, 0 }, Waist = { -15, 10, 0 }, Neck = { 20, 0, 0 },
+			LeftShoulder = { -50, 0, -40 }, LeftElbow = { 20, 0, 0 },
+			RightShoulder = { 100, 0, -10 }, RightElbow = { 40, 0, 0 },
+		}),
+		Recovery = merge(STANCE, legs(50, -80, 30, -60)),
+	},
+	Finale = { -- double ki fist driven through the target
+		Startup = merge(STANCE, merge(legs(40, -60, -30, -30, -15, 15), {
+			Root = { 0, 0, 0, -0.6, 0.5 }, Waist = { 0, -50, 0 }, Neck = { 10, 40, 0 },
+			LeftShoulder = { 20, 0, 40 }, LeftElbow = { 120, 0, 0 },
+			RightShoulder = { -40, 0, 30 }, RightElbow = { 110, 0, 0 },
+		})),
+		Active = merge(legs(70, -80, -50, -6, -15, 10), {
+			Root = { 0, 0, 0, -0.7, -1.0 }, Waist = { -30, 30, 0 }, Neck = { 15, -25, 0 },
+			LeftShoulder = { 92, 0, 18 }, LeftElbow = { 5, 0, 0 },
+			RightShoulder = { 92, 0, -10 }, RightElbow = { 0, 0, 0 },
+		}),
+		Recovery = merge(STANCE, { Root = { 0, 0, 0, -0.5, -0.4 }, Waist = { -20, 20, 0 } }),
+	},
 	Kick = {
 		Startup = merge(STANCE, merge(legs(-8, -12, 85, -115), { Waist = { 0, -22, 0 } })),
 		Active = merge(STANCE, {
@@ -369,6 +403,7 @@ local Poses = {
 }
 
 Poses.KaienRush = { Startup = Poses.Kiai, Active = Poses.Smash.Active, Recovery = Poses.Smash.Recovery }
+Poses.Awakening = { Startup = Poses.Kiai, Active = Poses.Finale.Active, Recovery = Poses.Finale.Recovery }
 
 local IDENTITY = { 0, 0, 0, 0, 0 }
 
@@ -446,7 +481,9 @@ function AnimationController:update(view, time, poseRate)
 	local state = view.state
 	local stepped = math.floor(time * poseRate) / poseRate
 	local pose, key
-	if state == "Attack" and Poses[view.move] then
+	if view.pose and Poses[view.pose] and Poses[view.pose].Root then
+		pose, key = Poses[view.pose], "Pose" .. view.pose -- staged by a cinematic
+	elseif state == "Attack" and Poses[view.move] then
 		pose, key = attackPose(view.move, view.moveFrame, poseRate)
 	elseif view.victory then
 		pose, key = Poses.Victory, "Victory"

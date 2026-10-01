@@ -41,6 +41,25 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | … touche E | RISING STRIKE | après n'importe quel coup, invincible au démarrage |
 | … touche R | KAIEN RUSH | après n'importe quel coup ou la spéciale, cinématique si ça touche |
 
+### Routes complètes (6 appuis)
+
+Chaque route ★ se prolonge par **L** (POURSUITE ÉCARLATE, bond à tête chercheuse) puis
+**R** (COUP DE GRÂCE) :
+
+| Touches | Route |
+|---|---|
+| L R L R L R | TORNADE |
+| R L R L L R | RAFALE |
+| L L R R L R | DRAGON |
+| R R L R L R | FOUDRE |
+| L L L R L R | MUR |
+| L L L L R R | LUNE (CROISSANT DE LUNE > COUP DE GRÂCE) |
+
+**Avec 3 barres de ki**, le 6e coup devient **ÉVEIL ÉCARLATE**, une attaque unique avec
+cinématique : l'adversaire perd **95 % de sa vie actuelle**, quelle qu'elle soit. S'il avait
+**moins de 50 %** de sa vie, c'est un **FINAL FINISH** : K.O., chute au sol filmée sous
+plusieurs angles.
+
 ★ = skill spécial débloqué en **alternant clic gauche et clic droit** : son nom s'affiche à
 l'écran. Les appuis sont mis en file dans l'ordre (3 max) : on peut taper la route d'avance.
 

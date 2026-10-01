@@ -48,6 +48,7 @@ task.spawn(function()
 end)
 
 local world, displayed, rigs, previous = nil, {}, {}, {}
+effects.rigs = rigs
 local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	if packet.tick < latestTick and packet.generation == generation then return end
@@ -71,7 +72,7 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	for _, event in batch do
 		effects:onEvent(event, displayed, rigs)
 		if event.kind == "SuperFlash" then
-			cinematic:superFlash(event.attacker)
+			cinematic:superFlash(event.attacker, event.move)
 		elseif event.kind == "Hit" and event.cinematic then
 			cinematic:onHit(event)
 		end

@@ -249,6 +249,11 @@ function HUD.new(config)
 		for _, id in route.moves do table.insert(names, MoveData.Moves[id].name) end
 		table.insert(lines, { route.keys .. "  →  " .. table.concat(names, " > "), WHITE })
 	end
+	table.insert(lines, { "ROUTES COMPLÈTES (6 appuis, fin : POURSUITE > GRÂCE)", RED })
+	for _, route in MoveData.FullRoutes do
+		table.insert(lines, { route.keys .. "  →  " .. route.name, WHITE })
+	end
+	table.insert(lines, { "3 barres + 6e coup : ÉVEIL ÉCARLATE (−95 % de la vie ; < 50 % : FINAL FINISH)", Color3.fromHex("FF2A3D") })
 	table.insert(lines, { "↓ + L : KICK BAS (garde basse)  ·  ↓ + R : LANCEUR", WHITE })
 	table.insert(lines, { "Après LANCEUR : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : RISING STRIKE (invincible)", Color3.fromHex("FFB938") })
@@ -371,6 +376,7 @@ function HUD:update(world, views, fps, dt)
 		bar.kiCount.Text = tostring(math.floor(view.meter / bars))
 		local ready = view.meter >= MoveData.Moves.KaienRush.meterCost
 		bar.ready.Visible = ready
+		bar.ready.Text = if view.meter >= MoveData.Moves.Awakening.meterCost then "ÉVEIL PRÊT · 6e COUP" else "ULTIME PRÊT · R"
 		if ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
 	for _, c in self.combo do

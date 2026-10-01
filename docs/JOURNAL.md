@@ -48,8 +48,6 @@ j'active l'IA, je tape tout seul ». **Toujours rien de lancé dans Roblox Studi
 
 ### Problèmes ouverts
 
-- Accès GitHub de Claude en **lecture seule** : l'app Claude doit avoir l'accès en écriture
-  (« Contents: Read and write ») sur le dépôt pour que les commits soient poussés.
 - Avatars R15 : accessoires très grands ou avatars Rthro à vérifier visuellement ; les
   hurtboxes restent celles de KAI (identiques pour tous).
 - Le reste des problèmes ouverts de la 0.3.0 ci-dessous tient toujours.
@@ -199,7 +197,6 @@ Bouton EFFETS : réduit flashs et secousses (réduit par défaut sur mobile).
 - Pas de sons (aucun ID d'asset inventé) : prévoir des SFX fournis par Wilhem.
 - `UserInputService.PreferredInput` (texte d'aide) à confirmer dans le Studio utilisé.
 - Sur mobile, la rangée de boutons du HUD peut déborder sur petit écran.
-- Accès GitHub de Claude refusé (403) : les commits n'ont pas pu être poussés.
 
 ### Prochaine étape proposée
 

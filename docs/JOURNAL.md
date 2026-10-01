@@ -1,5 +1,45 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.4 — 1er octobre 2026
+
+Retour de Wilhem : « toutes les animations cinématiques se ressemblent, chaque perso doit
+être différent à 100 % ». C'était vrai : TARO, ZEPHYR et AKEMI partageaient la même ossature
+(ouverture « prêt + ruée », fin « élan, impact, suivi », sceau + plan héroïque des portes,
+intro « yeux, héros, ruée » et conclusion des éveils, même jeu d'angles). Tout est refait.
+
+### Une identité de mise en scène par perso
+
+| Perso | Caméra | Étalonnage | Signature |
+|---|---|---|---|
+| KAI 開 | coupes franches, orbites | rouge / sang (crimson, void) | ruée en téléportations, éveil vu des yeux, torii |
+| TARO 火 | plans bas, **caméra portée** (balancement constant), champ / contrechamp façon retransmission de boxe | **feu** (orange chaud) | il **marche** sur la cible et la repousse : jamais de ruée ni de téléportation ; pose GloveTap (gants frappés), victoire en champion |
+| ZEPHYR 風 | grands mouvements continus (grue, orbite), objectifs larges, peu de coupes | **ciel** (froid, lumineux) | tout est **aérien** : bond depuis le lointain, montée dans le vent, vortex vu de très loin puis de l'intérieur ; pose WindGather ; fin de dos face au ciel |
+| AKEMI 影 | **plans fixes**, coupes sèches, souvent **sans elle à l'image** | **ombre** (violet sombre) + noir et blanc | elle disparaît, la cible la cherche du regard ; frappes de nulle part ; temps arrêté, tableaux fixes ; pose Sheathe (lame rengainée) |
+
+Les 9 ultimes de TARO, ZEPHYR et AKEMI ont chacun leur propre déroulé (début, milieu, fin) ;
+le timing autoritaire (frappes, QTE, coup final) est inchangé, donc l'équilibrage aussi.
+
+- `CinematicDirector` : nouvelles stagings complètes (l'éveil de ces kits n'utilise plus
+  l'intro ni la conclusion de KAI) ; nouveaux champs de frame `grade.fire / sky / shadow` et
+  `handheld`.
+- `PoseLibrary` : poses GloveTap, WindGather, Sheathe ; `Animator` : une pose mise en scène
+  prend d'abord la version du kit (victoire, garde…).
+- `CinematicController` : étalonnages feu / ciel / ombre, caméra portée.
+- Test : « every character's cinematics are its own » (aucun plan partagé entre deux kits ni
+  entre deux ultimes, au moins 5 plans par ultime, chaque kit garde son étalonnage et
+  n'utilise jamais celui d'un autre). Les storyboards ont servi à régler chaque plan.
+
+### Tests
+
+CombatSimulation 78, FighterAI 9, CinematicDirector 125, Animation 22, Kits 26, PressQueue 4,
+Fuzz 2, Cinematography 41 ✅. Studio ❌ non exécuté.
+
+### Problèmes ouverts
+
+- À juger en jeu : force de la caméra portée de TARO, teintes des trois étalonnages, AKEMI
+  « hors champ » (placée au-dessus de la scène pendant ses disparitions).
+- Audit Codex : points 3 et suivants toujours non reçus.
+
 ## Version 0.9.3 — 1er octobre 2026
 
 Mission de Wilhem : corriger un maximum de bugs, améliorer les animations et **vraiment

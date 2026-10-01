@@ -164,10 +164,14 @@ def render_frame(fr, label):
         elif k == 'dust':
             p = proj(pos)
             if p: d.ellipse([p[0]-8, p[1]-4, p[0]+8, p[1]+4], fill=(200,190,190,a//2))
-    g = fr['grade']
+    g = fr['grade'] + '000'
     if g[2] == '1': img = img.convert('L').convert('RGB')
     elif g[1] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,10,20)), 0.45)
     elif g[0] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (255,120,125)), 0.25)
+    if g[2] != '1':
+        if g[3] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (255,150,60)), 0.28)   # fire
+        if g[4] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (150,210,255)), 0.3)   # sky
+        if g[5] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (40,20,70)), 0.45)     # shadow
     d = ImageDraw.Draw(img, 'RGBA')
     if fr.get('speed'):
         for i in range(28):

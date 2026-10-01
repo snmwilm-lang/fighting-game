@@ -360,7 +360,8 @@ function Animator:evaluate(view, time, poseRate)
 	local poses, tr = self.poses, self.track
 	local state = view.state
 	local stepped = math.floor(time * poseRate) / poseRate
-	local staged = view.pose and poses[view.pose]
+	-- A staged pose (cinematics): the kit's own version first (its victory, guard...).
+	local staged = view.pose and self:base(view.pose)
 	if staged and staged.Root then
 		return self:resolve(staged), "Pose:" .. view.pose, false
 	end

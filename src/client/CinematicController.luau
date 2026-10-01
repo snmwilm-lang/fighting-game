@@ -159,6 +159,10 @@ function CinematicController.new(config, hud, effects)
 	self.crimson = grade("Crimson", { Name = "Crimson", Enabled = false, TintColor = Color3.fromRGB(255, 120, 125), Contrast = 0.3, Saturation = 0.15, Brightness = -0.05 })
 	self.void = grade("Void", { Name = "Void", Enabled = false, TintColor = Color3.fromRGB(255, 70, 80), Contrast = 0.55, Saturation = -0.3, Brightness = -0.28 })
 	self.mono = grade("FinishMono", { Name = "FinishMono", Enabled = false, Saturation = -1, Contrast = 0.6, Brightness = 0.02 })
+	-- Each kit's own grade: TARO's fire, ZEPHYR's sky, AKEMI's shadow.
+	self.fire = grade("Fire", { Name = "KitFire", Enabled = false, TintColor = Color3.fromRGB(255, 180, 120), Contrast = 0.25, Saturation = 0.25, Brightness = 0.02 })
+	self.sky = grade("Sky", { Name = "KitSky", Enabled = false, TintColor = Color3.fromRGB(190, 230, 255), Contrast = 0.1, Saturation = -0.15, Brightness = 0.06 })
+	self.shadowGrade = grade("Shadow", { Name = "KitShadow", Enabled = false, TintColor = Color3.fromRGB(175, 150, 230), Contrast = 0.45, Saturation = -0.35, Brightness = -0.12 })
 	self.dof = new("DepthOfFieldEffect", { Name = "CinematicDoF", Enabled = false, FarIntensity = 0.65, NearIntensity = 0.35, InFocusRadius = 4 }, Lighting)
 	return self
 end
@@ -200,7 +204,8 @@ function CinematicController:finish()
 	self.active, self.shot, self.kind, self.dir = false, nil, nil, nil
 	self.debugLabel.Visible, self.labRequested = false, false
 	self.hud.gui.Enabled = true
-	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof } do effect.Enabled = false end
+	for _, effect in { self.darken, self.crimson, self.void, self.mono, self.dof, self.fire, self.sky, self.shadowGrade } do effect.Enabled = false end
+	self.handheld = 0
 	self.stamp.Visible, self.title.Visible, self.subtitle.Visible, self.kanjiBack.Visible = false, false, false, false
 	self.prompt.Visible, self.promptResult.Visible = false, false
 	self.speedLines.Visible, self.speedColor, self.fovKick = false, nil, 0
@@ -348,6 +353,11 @@ function CinematicController:applyFrame(frame)
 	local reduced = self.effects.reduced
 	self.crimson.Enabled = frame.grade.crimson and not reduced
 	self.void.Enabled = frame.grade.void and not reduced
+	self.fire.Enabled = frame.grade.fire == true and not reduced
+	self.sky.Enabled = frame.grade.sky == true and not reduced
+	self.shadowGrade.Enabled = frame.grade.shadow == true and not reduced
+	-- TARO's handheld camera: a slow constant sway (smaller in reduced mode).
+	self.handheld = (frame.handheld or 0) * (if reduced then 0.3 else 1)
 	if frame.grade.mono then
 		self.mono.Enabled = not reduced
 	elseif not self.monoBeat then
@@ -470,8 +480,12 @@ function CinematicController:camera(dt, rigs, views)
 	self.shotTime = (self.shotTime or 0) + dt
 	local push = self.cameraCFrame.LookVector * math.min(self.shotTime, 1.2) * 0.6
 	local shake = Vector3.zero
+	if (self.handheld or 0) > 0 then
+		local t = os.clock()
+		shake = Vector3.new(math.sin(t * 2.3) + math.sin(t * 5.1) * 0.4, math.sin(t * 1.7 + 1) + math.sin(t * 4.3) * 0.3, 0) * self.handheld
+	end
 	if self.shake > 0.01 then
-		shake = Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * self.shake
+		shake += Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * self.shake
 		self.shake *= math.exp(-9 * dt)
 	end
 	-- Zoom punch: the field of view snaps in on an impact and eases back.

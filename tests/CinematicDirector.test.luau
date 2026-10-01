@@ -189,17 +189,53 @@ test("each kit's cinematics use its own moves", function()
 	end
 end)
 
-test("TARO, ZEPHYR and AKEMI stage their own three ultimates (ultimate sheet)", function()
-	local prefix = { TARO = "^taro%-", ZEPHYR = "^zephyr%-", AKEMI = "^akemi%-" }
-	for kit, pattern in prefix do
-		for _, kind in { "Rush", "Awaken", "Gate" } do
-			local failures, shots = playCinematic(kind, MoveData.Kits[kit].FullRoutes[1].name, nil, 0, kit)
-			local own = 0
-			for shotName in shots do
-				if shotName:find(pattern) then own += 1 end
+-- Every frame of one cinematic (name of each shot and the grades it used).
+local function survey(kind, kit, style)
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit, "KAI")
+	world.phase = "Fight"
+	Sim.debugCinematic(world, 1, kind, style, nil)
+	local anchors, shots, frames, grades = {}, {}, 0, {}
+	while world.cinematic do
+		local cin = world.cinematic
+		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views(world), anchors = anchors,
+			moveData = MoveData, config = Config, characters = CharacterData })
+		if frame then
+			frames += 1
+			shots[frame.shot.name] = true
+			for grade, on in frame.grade do
+				if on then grades[grade] = (grades[grade] or 0) + 1 end
 			end
-			expect(#failures == 0, kit .. " " .. kind .. ": " .. tostring(failures[1]))
-			expect(own >= 3, string.format("%s %s plays only %d shots of its own", kit, kind, own))
+		end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	end
+	return shots, frames, grades
+end
+
+test("every character's cinematics are its own: no shot shared between kits or ultimates", function()
+	local owner = {}
+	local SIGNATURE = { TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow" }
+	for _, kit in MoveData.KitOrder do
+		for _, kind in { "Rush", "Awaken", "Gate" } do
+			local shots, frames, grades = survey(kind, kit, MoveData.Kits[kit].FullRoutes[1].name)
+			local own = 0
+			for name in shots do
+				local key = kit .. " " .. kind
+				expect(not owner[name], string.format("%s reuses the shot %s of %s", key, name, tostring(owner[name])))
+				owner[name] = key
+				own += 1
+			end
+			expect(own >= 5, string.format("%s %s has only %d shots", kit, kind, own))
+			local signature = SIGNATURE[kit]
+			if signature then
+				expect((grades[signature] or 0) >= frames * 0.8, string.format("%s %s: its %s grade is on %d of %d frames",
+					kit, kind, signature, grades[signature] or 0, frames))
+			end
+			for other, grade in SIGNATURE do
+				if other ~= kit then
+					expect(not grades[grade], string.format("%s %s uses %s's %s grade", kit, kind, other, grade))
+				end
+			end
 		end
 	end
 end)

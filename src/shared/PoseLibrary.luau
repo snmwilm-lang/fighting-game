@@ -232,6 +232,25 @@ Poses.Kiai = blind(feet({
 	LeftShoulder = { 18, 0, -42 }, LeftElbow = { 105, 0, 0 },
 	RightShoulder = { 18, 0, 42 }, RightElbow = { 105, 0, 0 },
 }, -0.15, 0.25, 0, 0, 20))
+-- Signature poses of the kits' cinematics.
+-- TARO: gloves pounded together in front of the chest, head down, shoulders rolled in.
+Poses.GloveTap = blind(feet({
+	Root = { 0, 0, 0, -0.5, 0 }, Waist = { -14, 0, 0 }, Neck = { 22, 0, 0 },
+	LeftShoulder = { 78, 0, 22 }, LeftElbow = { 112, 0, 0 },
+	RightShoulder = { 78, 0, -22 }, RightElbow = { 112, 0, 0 },
+}, -0.35, 0.45, 0, -8, 14))
+-- ZEPHYR: gathering the wind, arms spread low, weight on the back leg.
+Poses.WindGather = blind(feet({
+	Root = { 0, 10, 0, -0.7, 0.15 }, Waist = { 6, 14, 0 }, Neck = { -10, -12, 0 },
+	LeftShoulder = { 10, 0, -78 }, LeftElbow = { 18, 0, 0 },
+	RightShoulder = { 14, 0, 82 }, RightElbow = { 22, 0, 0 },
+}, -0.7, 0.9, 0, -10, 16))
+-- AKEMI: the blade hand sheathed at the hip, head lowered, standing very still.
+Poses.Sheathe = blind(feet({
+	Root = { 0, -10, 0, -0.12, 0 }, Waist = { 8, -16, 0 }, Neck = { 20, 10, 0 },
+	LeftShoulder = { 20, 0, -12 }, LeftElbow = { 95, 0, 0 },
+	RightShoulder = { -14, 0, 24 }, RightElbow = { 40, 0, 0 },
+}, -0.2, 0.3, 0, 0, 8))
 
 -- ===================================================================== attacks
 -- Startup (anticipation), Active (contact), optional Active2 (second beat of a multi-hit),

@@ -19,8 +19,9 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 	end
 	if info.tick % step ~= 0 then return end
 	local s, g = frame.shot, frame.grade
-	print(string.format("FRAME %d %s %s %s %d%d%d %d %s", info.tick, s.name, fmt(s.fov), fmt(s.roll),
-		g.crimson and 1 or 0, g.void and 1 or 0, g.mono and 1 or 0, if frame.speedLines then 1 else 0,
+	print(string.format("FRAME %d %s %s %s %d%d%d%d%d%d %d %s", info.tick, s.name, fmt(s.fov), fmt(s.roll),
+		g.crimson and 1 or 0, g.void and 1 or 0, g.mono and 1 or 0, g.fire and 1 or 0, g.sky and 1 or 0, g.shadow and 1 or 0,
+		if frame.speedLines then 1 else 0,
 		if frame.title then frame.title.text else "-"))
 	print("CAM " .. table.concat({ fmt(info.cam[1]), fmt(info.cam[2]), fmt(info.cam[3]),
 		fmt(info.target[1]), fmt(info.target[2]), fmt(info.target[3]) }, " "))

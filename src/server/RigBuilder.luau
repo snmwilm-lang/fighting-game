@@ -4,8 +4,28 @@
 -- they follow the joints but never change hitboxes (those come from the simulation).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CharacterData = require(ReplicatedStorage:WaitForChild("Shared").CharacterData)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local CharacterData = require(Shared.CharacterData)
+local RigSpec = require(Shared.RigSpec)
+local RigReader = require(Shared.RigReader)
 local RigBuilder = {}
+
+-- Avatars are scaled to about KAI's height so the fixed hurtboxes (CombatConfig.HurtHeight)
+-- match the body on screen; very small or very tall avatars are brought into this range.
+local TARGET_HEIGHT, HEIGHT_TOLERANCE = 5.7, 0.08
+
+-- A cloth tail hanging from `pivot` (relative to `base`): its Weld, named TailJoint, is swung
+-- by the client AnimationController (springs), so sashes and headband tails sway.
+local function hangTail(base, p, pivot)
+	local half = p.Size.Y / 2
+	p.CFrame = base.CFrame * pivot * CFrame.new(0, -half, 0)
+	local weld = Instance.new("Weld")
+	weld.Name = "TailJoint"
+	weld.Part0, weld.Part1 = base, p
+	weld.C0, weld.C1 = pivot, CFrame.new(0, half, 0)
+	weld.Parent = p
+	return p
+end
 
 function RigBuilder.build(slot, parent)
 	local data = CharacterData[slot]
@@ -25,43 +45,40 @@ function RigBuilder.build(slot, parent)
 		p.Material = Enum.Material.SmoothPlastic
 		p.CanCollide, p.CanTouch, p.CanQuery, p.Massless = false, false, false, true
 		p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
-		p.CastShadow = false
+		p.CastShadow = name ~= "HumanoidRootPart" -- the body casts a shadow on the deck
 		p.Parent = model
 		if not parts[name] then parts[name] = p end
 		return p
 	end
-	local root = part("HumanoidRootPart", Vector3.new(2, 2, 1), Vector3.zero, ink)
-	root.Transparency, root.Anchored = 1, true
-	part("LowerTorso", Vector3.new(1.7, 0.65, 0.95), Vector3.zero, color("Pants"))
-	part("UpperTorso", Vector3.new(1.9, 1.4, 1), Vector3.new(0, 1, 0), color("Shirt"))
-	part("Head", Vector3.new(1.1, 1.1, 1), Vector3.new(0, 2.3, 0), color("SkinTone"))
-	local function joint(name, aName, bName, pivot)
-		local a, b = parts[aName], parts[bName]
-		local j = Instance.new("Motor6D")
-		j.Name, j.Part0, j.Part1 = name, a, b
-		j.C0 = a.CFrame:ToObjectSpace(CFrame.new(pivot))
-		j.C1 = b.CFrame:ToObjectSpace(CFrame.new(pivot))
-		j.Parent = b
-	end
-	joint("Root", "HumanoidRootPart", "LowerTorso", Vector3.zero)
-	joint("Waist", "LowerTorso", "UpperTorso", Vector3.new(0, 0.35, 0))
-	joint("Neck", "UpperTorso", "Head", Vector3.new(0, 1.72, 0))
+	-- Body parts and joints from the shared geometry (the offline animation tests use it too).
+	local spec = RigSpec.KAI
+	local PART_COLORS = {
+		HumanoidRootPart = ink, LowerTorso = color("Pants"), UpperTorso = color("Shirt"), Head = color("SkinTone"),
+		UpperArm = color("SkinTone"), LowerArm = color("Wraps"), Hand = color("Wraps"),
+		UpperLeg = color("Pants"), LowerLeg = color("PantsShade"), Foot = color("Shoes"),
+	}
+	local ORDER = { "HumanoidRootPart", "LowerTorso", "UpperTorso", "Head" }
 	for _, side in { "Left", "Right" } do
-		local sign = if side == "Left" then -1 else 1
-		-- Sleeveless: bare, muscular arms; wrapped forearms and fists.
-		part(side .. "UpperArm", Vector3.new(0.7, 1.1, 0.76), Vector3.new(sign * 1.37, 0.92, 0), color("SkinTone"))
-		part(side .. "LowerArm", Vector3.new(0.62, 0.95, 0.66), Vector3.new(sign * 1.37, -0.08, 0), color("Wraps"))
-		part(side .. "Hand", Vector3.new(0.74, 0.62, 0.76), Vector3.new(sign * 1.37, -0.8, 0), color("Wraps"))
-		joint(side .. "Shoulder", "UpperTorso", side .. "UpperArm", Vector3.new(sign * 1.1, 1.5, 0))
-		joint(side .. "Elbow", side .. "UpperArm", side .. "LowerArm", Vector3.new(sign * 1.37, 0.4, 0))
-		joint(side .. "Wrist", side .. "LowerArm", side .. "Hand", Vector3.new(sign * 1.37, -0.55, 0))
-		-- Baggy martial-arts pants, sneakers.
-		part(side .. "UpperLeg", Vector3.new(0.86, 1.25, 0.92), Vector3.new(sign * 0.47, -0.95, 0), color("Pants"))
-		part(side .. "LowerLeg", Vector3.new(0.8, 1.05, 0.86), Vector3.new(sign * 0.47, -2.08, 0), color("PantsShade"))
-		part(side .. "Foot", Vector3.new(0.8, 0.42, 1.2), Vector3.new(sign * 0.47, -2.8, -0.15), color("Shoes"))
-		joint(side .. "Hip", "LowerTorso", side .. "UpperLeg", Vector3.new(sign * 0.47, -0.3, 0))
-		joint(side .. "Knee", side .. "UpperLeg", side .. "LowerLeg", Vector3.new(sign * 0.47, -1.57, 0))
-		joint(side .. "Ankle", side .. "LowerLeg", side .. "Foot", Vector3.new(sign * 0.47, -2.6, 0))
+		for _, piece in { "UpperArm", "LowerArm", "Hand", "UpperLeg", "LowerLeg", "Foot" } do
+			table.insert(ORDER, side .. piece)
+		end
+	end
+	for _, name in ORDER do
+		local p = spec.parts[name]
+		local kind = name:gsub("^Left", ""):gsub("^Right", "")
+		part(name, Vector3.new(p.size[1], p.size[2], p.size[3]), Vector3.new(p.pos[1], p.pos[2], p.pos[3]),
+			PART_COLORS[kind] or PART_COLORS[name])
+	end
+	local root = parts.HumanoidRootPart
+	root.Transparency, root.Anchored = 1, true
+	for _, j in spec.joints do
+		local a, b = parts[j.part0], parts[j.part1]
+		local pivot = CFrame.new(j.pivot[1], j.pivot[2], j.pivot[3])
+		local motor = Instance.new("Motor6D")
+		motor.Name, motor.Part0, motor.Part1 = j.name, a, b
+		motor.C0 = a.CFrame:ToObjectSpace(pivot)
+		motor.C1 = b.CFrame:ToObjectSpace(pivot)
+		motor.Parent = b
 	end
 
 	-- Cosmetics: offset is relative to the bind pose of the part they are welded to.
@@ -192,9 +209,14 @@ function RigBuilder.build(slot, parent)
 	local sash = color("Sash")
 	ornament("LowerTorso", "Sash", Vector3.new(1.78, 0.38, 1.02), CFrame.new(0, 0.18, 0), sash)
 	ornament("LowerTorso", "SashKnot", Vector3.new(0.44, 0.38, 0.16), CFrame.new(-0.36, 0.18, -0.55) * CFrame.Angles(0, 0, 0.3), sash)
-	ornament("LowerTorso", "SashTail", Vector3.new(0.26, 1.7, 0.06), CFrame.new(-0.48, -0.7, -0.56) * CFrame.Angles(0, 0, -0.14), sash)
-	ornament("LowerTorso", "SashTail", Vector3.new(0.22, 1.35, 0.06), CFrame.new(-0.24, -0.55, -0.57) * CFrame.Angles(0, 0, 0.12), sash)
-	ornament("LowerTorso", "SashTailBack", Vector3.new(0.28, 1.8, 0.06), CFrame.new(0.4, -0.7, 0.54) * CFrame.Angles(math.rad(14), 0, 0.12), sash)
+	local function tail(name, size, pivot)
+		local base = parts.LowerTorso
+		local p = part(name, size, base.CFrame, sash)
+		return hangTail(base, p, pivot)
+	end
+	tail("SashTail", Vector3.new(0.26, 1.7, 0.06), CFrame.new(-0.48, 0.15, -0.56) * CFrame.Angles(0, 0, -0.14))
+	tail("SashTail", Vector3.new(0.22, 1.35, 0.06), CFrame.new(-0.24, 0.12, -0.57) * CFrame.Angles(0, 0, 0.12))
+	tail("SashTailBack", Vector3.new(0.28, 1.8, 0.06), CFrame.new(0.4, 0.18, 0.54) * CFrame.Angles(math.rad(14), 0, 0.12))
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R15
@@ -216,14 +238,6 @@ function RigBuilder.build(slot, parent)
 	return model
 end
 
-local JOINTS = {
-	"Root", "Waist", "Neck", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow",
-	"RightWrist", "LeftHip", "LeftKnee", "LeftAnkle", "RightHip", "RightKnee", "RightAnkle",
-}
-
--- The player's own Roblox avatar as a standard R15 rig. Its 15 Motor6D joints have the same
--- names as KAI's, so the same poses drive it. Returns an unparented model, or nil if the
--- avatar cannot be loaded (for example the negative test players of a Studio local server).
 -- Kit outfit worn over a Roblox avatar: headband, sash with tails, hand wraps and the kanji
 -- on the back. Every piece is sized from the avatar's own parts, so it fits any body.
 function RigBuilder.applyKit(model, slot)
@@ -236,7 +250,7 @@ function RigBuilder.applyKit(model, slot)
 		local p = Instance.new("Part")
 		p.Name, p.Size, p.Color = "Kit" .. name, size, color
 		p.Material = Enum.Material.SmoothPlastic
-		p.CanCollide, p.CanTouch, p.CanQuery, p.Massless, p.CastShadow = false, false, false, true, false
+		p.CanCollide, p.CanTouch, p.CanQuery, p.Massless, p.CastShadow = false, false, false, true, true
 		if shape then p.Shape = shape end
 		p.CFrame = base.CFrame * offset
 		local weld = Instance.new("WeldConstraint")
@@ -248,20 +262,29 @@ function RigBuilder.applyKit(model, slot)
 		local part = model:FindFirstChild(name)
 		return if part and part:IsA("BasePart") then part.Size else Vector3.one
 	end
-	-- Hachimaki: a band around the forehead, knotted at the back with two tails.
+	-- Swaying cloth strip hanging from `pivot` on a body part.
+	local function tailPiece(parentName, name, stripSize, pivot)
+		local base = model:FindFirstChild(parentName)
+		local p = piece(parentName, name, stripSize, CFrame.identity, sash)
+		if not p or not base then return end
+		p:FindFirstChildOfClass("WeldConstraint"):Destroy()
+		hangTail(base, p, pivot)
+	end
+	-- Hachimaki: a band around the forehead, knotted at the back with two tails in the wind.
 	local head = size("Head")
 	piece("Head", "Headband", Vector3.new(head.X * 1.04, head.Y * 0.16, head.Z * 1.04), CFrame.new(0, head.Y * 0.18, 0), sash)
+	piece("Head", "HeadbandKnot", Vector3.new(0.3, 0.22, 0.16), CFrame.new(0, head.Y * 0.16, head.Z * 0.53), sash)
 	for i, sign in { -1, 1 } do
-		piece("Head", "HeadbandTail", Vector3.new(0.18, 0.08, 0.9 + i * 0.25),
-			CFrame.new(sign * 0.12, head.Y * 0.12, head.Z * 0.5 + 0.45) * CFrame.Angles(math.rad(-30 - i * 10), sign * 0.3, 0), sash)
+		tailPiece("Head", "HeadbandTail", Vector3.new(0.18, 0.95 + i * 0.25, 0.06),
+			CFrame.new(sign * 0.1, head.Y * 0.14, head.Z * 0.56) * CFrame.Angles(math.rad(-58 - i * 8), 0, sign * 0.25))
 	end
 	-- Sash around the waist, a big knot in front and long tails.
 	local waist = size("LowerTorso")
 	piece("LowerTorso", "Sash", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.38), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.15, 0), sash)
 	piece("LowerTorso", "SashKnot", Vector3.new(0.42, 0.36, 0.16), CFrame.new(-waist.X * 0.22, waist.Y * 0.15, -waist.Z * 0.58) * CFrame.Angles(0, 0, 0.3), sash)
-	piece("LowerTorso", "SashTail", Vector3.new(0.26, 1.5, 0.06), CFrame.new(-waist.X * 0.3, -0.6, -waist.Z * 0.6) * CFrame.Angles(0, 0, -0.14), sash)
-	piece("LowerTorso", "SashTail2", Vector3.new(0.22, 1.2, 0.06), CFrame.new(-waist.X * 0.14, -0.5, -waist.Z * 0.61) * CFrame.Angles(0, 0, 0.12), sash)
-	piece("LowerTorso", "SashTailBack", Vector3.new(0.28, 1.6, 0.06), CFrame.new(waist.X * 0.25, -0.6, waist.Z * 0.6) * CFrame.Angles(math.rad(14), 0, 0.12), sash)
+	tailPiece("LowerTorso", "SashTail", Vector3.new(0.26, 1.5, 0.06), CFrame.new(-waist.X * 0.3, waist.Y * 0.12, -waist.Z * 0.6) * CFrame.Angles(0, 0, -0.14))
+	tailPiece("LowerTorso", "SashTail2", Vector3.new(0.22, 1.2, 0.06), CFrame.new(-waist.X * 0.14, waist.Y * 0.1, -waist.Z * 0.61) * CFrame.Angles(0, 0, 0.12))
+	tailPiece("LowerTorso", "SashTailBack", Vector3.new(0.28, 1.6, 0.06), CFrame.new(waist.X * 0.25, waist.Y * 0.15, waist.Z * 0.6) * CFrame.Angles(math.rad(14), 0, 0.12))
 	-- Hand wraps: bands on both forearms and around the knuckles.
 	for _, side in { "Left", "Right" } do
 		local arm = size(side .. "LowerArm")
@@ -291,12 +314,55 @@ function RigBuilder.applyKit(model, slot)
 	model:SetAttribute("Skin", data.Skin)
 end
 
+-- Avatar appearances, fetched once per player and cloned for each build (style changes and
+-- the CPU's shadow clone rebuild rigs often).
+local descriptions = {}
+
+-- The player's HumanoidDescription: from the account (UserId), then from the appearance id
+-- (Studio test players have negative UserIds), each tried twice. Returns nil and the reason.
+local function describe(player)
+	local cached = descriptions[player.UserId]
+	if cached and cached.Parent == nil then return cached:Clone(), nil end
+	local ids = {}
+	if player.UserId > 0 then table.insert(ids, player.UserId) end
+	local appearance = player.CharacterAppearanceId
+	if appearance and appearance > 0 and appearance ~= player.UserId then table.insert(ids, appearance) end
+	if #ids == 0 then return nil, "joueur de test Studio (pas de compte Roblox)" end
+	local reason = "inconnue"
+	for _, id in ids do
+		for attempt = 1, 2 do
+			local ok, result = pcall(Players.GetHumanoidDescriptionFromUserId, Players, id)
+			if ok and result then
+				descriptions[player.UserId] = result
+				return result:Clone(), nil
+			end
+			reason = tostring(result)
+			task.wait(attempt * 0.75)
+		end
+	end
+	return nil, reason
+end
+
+local function hasJoints(model)
+	for _, name in RigSpec.JOINTS do
+		local found = false
+		for _, d in model:GetDescendants() do
+			if d:IsA("Motor6D") and d.Name == name then
+				found = true
+				break
+			end
+		end
+		if not found then return false, name end
+	end
+	return true
+end
+
 -- Builds a fighter from a HumanoidDescription (see buildAvatar / buildShadow).
+-- Returns the model, or nil and the reason.
 local function fromDescription(slot, description, label)
 	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType.R15)
 	if not built or not model then
-		warn("[FightingGame] Création de l'avatar R15 impossible : " .. tostring(model))
-		return nil
+		return nil, "création du corps R15 impossible : " .. tostring(model)
 	end
 	model.Name = "Fighter" .. slot
 	model:SetAttribute("Slot", slot)
@@ -312,29 +378,29 @@ local function fromDescription(slot, description, label)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if not root or not humanoid then
 		model:Destroy()
-		return nil
+		return nil, "corps sans HumanoidRootPart"
 	end
-	for _, name in JOINTS do
-		local found = false
-		for _, d in model:GetDescendants() do
-			if d:IsA("Motor6D") and d.Name == name then
-				found = true
-				break
-			end
-		end
-		if not found then
-			warn("[FightingGame] Avatar sans articulation " .. name .. ", retour à KAI")
-			model:Destroy()
-			return nil
-		end
+	local complete, missing = hasJoints(model)
+	if not complete then
+		model:Destroy()
+		return nil, "articulation " .. tostring(missing) .. " absente"
 	end
 	root.Anchored, root.Transparency = true, 1
 	humanoid.AutoRotate, humanoid.EvaluateStateMachine = false, false
 	humanoid.BreakJointsOnDeath, humanoid.RequiresNeck = false, false
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed, humanoid.JumpPower = 0, 0
-	-- Feet on the floor: root center sits HipHeight + half the root above the ground.
-	model:SetAttribute("RootHeight", humanoid.HipHeight + root.Size.Y / 2)
+	-- Bring the body to KAI's height (hurtboxes are fixed by the simulation).
+	local skeleton = RigReader.skeleton(model)
+	local height = skeleton and RigReader.height(skeleton)
+	if height and height > 0 and math.abs(TARGET_HEIGHT / height - 1) > HEIGHT_TOLERANCE then
+		humanoid.AutomaticScalingEnabled = false
+		local factor = math.clamp(TARGET_HEIGHT / height, 0.6, 1.6)
+		local scaled, problem = pcall(function() model:ScaleTo(model:GetScale() * factor) end)
+		if not scaled then warn("[FightingGame] Mise à l'échelle de l'avatar impossible : " .. tostring(problem)) end
+		skeleton = RigReader.skeleton(model)
+	end
+	model:SetAttribute("RootHeight", if skeleton then -skeleton.floor else humanoid.HipHeight + root.Size.Y / 2)
 	local outline = Instance.new("Highlight")
 	outline.Name, outline.Adornee = "InkOutline", model
 	outline.FillTransparency, outline.FillColor = 1, Color3.new(1, 1, 1)
@@ -343,36 +409,65 @@ local function fromDescription(slot, description, label)
 	outline.Parent = model
 	model.PrimaryPart = root
 	RigBuilder.applyKit(model, slot)
-	return model
+	return model, nil
 end
 
-function RigBuilder.buildAvatar(slot, userId)
-	local ok, description = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
-	if not ok or not description then
-		warn("[FightingGame] Avatar indisponible pour " .. tostring(userId) .. " : " .. tostring(description))
-		return nil
+-- A plain R15 body in the kit's colours (no asset id): used when the avatar cannot load.
+local function defaultDescription(slot)
+	local data = CharacterData[slot]
+	local description = Instance.new("HumanoidDescription")
+	local skin = Color3.fromHex(data.SkinTone)
+	description.HeadColor, description.LeftArmColor, description.RightArmColor = skin, skin, skin
+	description.LeftLegColor, description.RightLegColor = Color3.fromHex(data.Pants), Color3.fromHex(data.Pants)
+	description.TorsoColor = Color3.fromHex(data.Vest)
+	return description
+end
+
+--[[
+	The player's own Roblox avatar wearing the kit. Never gives up silently:
+	  avatar loaded                -> model, "OK"
+	  avatar unavailable           -> default R15 body + kit, "DÉFAUT|<reason>"
+	  avatar body cannot be built  -> retried without its accessories, then the default body
+	Returns nil only if even the default R15 body fails (the server then uses KAI).
+]]
+function RigBuilder.buildAvatar(slot, player)
+	local description, reason = describe(player)
+	if description then
+		local model, problem = fromDescription(slot, description, "AVATAR")
+		if model then return model, "OK" end
+		reason = problem
+		-- Some accessories / layered clothing can fail to build: keep the body and colours.
+		local plain = defaultDescription(slot)
+		for _, field in { "HeadColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor", "TorsoColor",
+			"Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "Face",
+			"HeightScale", "WidthScale", "DepthScale", "HeadScale", "BodyTypeScale", "ProportionScale" } do
+			pcall(function() plain[field] = description[field] end)
+		end
+		model = fromDescription(slot, plain, "AVATAR")
+		if model then return model, "SANS ACCESSOIRES|" .. tostring(reason) end
 	end
-	return fromDescription(slot, description, "AVATAR")
+	warn("[FightingGame] Avatar indisponible pour " .. player.Name .. " : " .. tostring(reason))
+	local model, problem = fromDescription(slot, defaultDescription(slot), "R15")
+	if model then return model, "DÉFAUT|" .. tostring(reason) end
+	return nil, "KAI|" .. tostring(problem)
 end
 
 -- The CPU / training dummy: a shadow clone of the opponent's avatar (dark body, glowing
 -- outline). Without a loadable avatar (Studio test players), a default Roblox R15 body in the
 -- NUIT colours. No asset id is involved: only body colours change.
-function RigBuilder.buildShadow(slot, userId)
-	local description
-	if userId and userId > 0 then
-		local ok, result = pcall(Players.GetHumanoidDescriptionFromUserId, Players, userId)
-		if ok and result then description = result end
-	end
+function RigBuilder.buildShadow(slot, player)
+	local description = if player then describe(player) else nil
 	local shadow = description ~= nil
-	description = description or Instance.new("HumanoidDescription")
 	local data = CharacterData[slot]
-	local body = if shadow then Color3.fromHex("1A1424") else Color3.fromHex(data.SkinTone)
-	description.HeadColor, description.LeftArmColor, description.RightArmColor = body, body, body
-	description.LeftLegColor, description.RightLegColor = if shadow then body else Color3.fromHex(data.Pants),
-		if shadow then body else Color3.fromHex(data.Pants)
-	description.TorsoColor = if shadow then body else Color3.fromHex(data.Vest)
+	if shadow then
+		local body = Color3.fromHex("1A1424")
+		description.HeadColor, description.LeftArmColor, description.RightArmColor = body, body, body
+		description.LeftLegColor, description.RightLegColor, description.TorsoColor = body, body, body
+	else
+		description = defaultDescription(slot)
+	end
 	local model = fromDescription(slot, description, if shadow then "OMBRE" else "R15")
+	if not model and shadow then model = fromDescription(slot, defaultDescription(slot), "R15") end
 	if model and shadow then
 		local outline = model:FindFirstChild("InkOutline")
 		if outline then

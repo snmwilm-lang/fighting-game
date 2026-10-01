@@ -1,5 +1,125 @@
 # Journal du projet — état à transmettre
 
+## Version 0.8.0 — 1er octobre 2026
+
+Mission de Wilhem : **qualité** — graphismes, jouer **son avatar avec le kit KAI**, et une
+**vraie amélioration des animations**. Toujours **rien de lancé dans Roblox Studio** : tout
+ce qui suit est vérifié hors ligne (tests Luau) ou relu, pas vu en jeu.
+
+### Animation : nouveau moteur, testé hors Studio
+
+L'animation n'est plus une table de poses dans le client : c'est un module pur
+(`Animator`) qui tourne aussi dans les tests, avec la cinématique directe (FK) du vrai rig.
+
+| Module | Rôle |
+|---|---|
+| `src/shared/RigSpec.luau` | Géométrie du rig KAI (pièces, pivots) : une seule source pour le RigBuilder et les tests |
+| `src/shared/Kinematics.luau` | Maths pures : transformations au format CFrame, FK, IK de jambe à 2 os, pied qui roule sur le talon / la pointe, ressorts |
+| `src/shared/PoseLibrary.luau` | Toutes les poses (déplacées du client) + nouvelles poses |
+| `src/shared/Animator.luau` | Timelines, marche, mélanges, ressorts, regard, ancrage au sol |
+| `src/shared/RigReader.luau` | Lit les Motor6D d'un rig vivant (KAI ou avatar R15) au format de Kinematics |
+| `src/client/AnimationController.luau` | Réécrit : lit le squelette réel, appelle l'Animator, écrit les Motor6D et les tissus |
+
+Ce qui change à l'écran :
+
+- **Coups en 4 temps** : anticipation (la pose de départ est poussée 15 % plus loin puis
+  tenue), **frame d'impact** qui dépasse la pose de contact pendant 2 ticks (smear), contact,
+  puis récupération et retour en garde avec un léger rebond. Toujours calé sur la frame
+  autoritaire du serveur ; « POSES : 12/15/24/s » garde l'effet par paliers de l'anime.
+- **Pieds plantés par IK** : garde, accroupi, coups de poing, réactions… les pieds sont posés
+  au sol par cinématique inverse, talon levé sur les coups (le pied pivote sur sa pointe).
+- **Course sans glissade** : la marche avant devient une course de combattant (phase en
+  l'air), la marche arrière un pas chassé ; la phase suit la distance réellement parcourue à
+  l'écran, le pied d'appui ne glisse plus (vérifié pour KAI et pour un corps d'avatar).
+- **Ancrage au sol pour tout corps** : le point le plus bas (ou les pieds plantés) est posé
+  sur le sol à chaque frame, quelle que soit la taille de l'avatar ; plus rien ne flotte ni
+  ne traverse le sol (couché, à genoux, balayage…).
+- **Réactions selon le coup reçu** : tête rejetée (2 variantes alternées), plié en deux
+  (coups au corps, rafales), jambes fauchées (coups bas) ; impact puis vacillement.
+- **Nouvelles séquences** : relevé en 3 temps (au sol → un genou → garde), chute avec impact
+  et rebond des membres, effondrement en 2 temps (mains au ventre → à genoux), garde brisée
+  qui titube, saut en 3 phases selon la vitesse verticale, **atterrissage amorti**, dash
+  arrière en petit saut, victoire avec poing levé, pose 開天 PORTE DES CIEUX (manquait).
+- **Mouvements secondaires** (ressorts) : inclinaison selon l'accélération, secousse du
+  buste à chaque coup reçu, respiration, et **le regard suit l'adversaire** (lève la tête
+  vers une cible en l'air, la baisse vers un adversaire au sol).
+- **Demi-tour** : quand les combattants se croisent, le corps pivote en quelques frames
+  (par le côté caméra) au lieu de se retourner d'un coup.
+- **Tissus** : pans de ceinture et du bandeau sur des `Weld` (`TailJoint`) qui ondulent avec
+  le mouvement (ressorts), sur KAI et sur le kit posé sur l'avatar.
+
+### Ton avatar avec le kit KAI
+
+- Chargement en cascade, jamais d'échec silencieux : compte (UserId) → identifiant
+  d'apparence (`CharacterAppearanceId`, utile en Studio) → 2 essais chacun → avatar **sans
+  accessoires** si le corps complet ne se construit pas → **corps R15 par défaut** aux
+  couleurs du style → KAI seulement si même ça échoue. Le kit est posé dans tous les cas.
+- L'avatar est **mis à la taille de KAI** (≈ 5,7 studs) avec `Model:ScaleTo` quand il est
+  trop petit ou trop grand : les hurtboxes de la simulation correspondent au corps affiché.
+- Attribut joueur `AvatarStatus` (`CHARGEMENT`, `OK`, `SANS ACCESSOIRES|raison`,
+  `DÉFAUT|raison`, `KAI|raison`) : le HUD l'affiche dans la ligne d'état et annonce
+  « AVATAR INDISPONIBLE » avec la raison.
+- Apparence mise en cache par joueur (changer de style ne recharge plus l'avatar).
+
+### Graphismes
+
+- Arène : plancher en `WoodPlanks` avec zone de combat usée, marches et ruines en `Slate` /
+  `Cobblestone`, bannières en `Fabric`, lanternes rondes avec chapeau et lumière qui projette
+  des ombres, **cerisiers** (2e plan de profondeur), **braises** qui montent du plancher,
+  **brume au sol** (texture moteur `rbxasset://textures/particles/smoke_main.dds`).
+- Lumière de coucher de soleil retravaillée, ombres du soleil plus nettes, `SunRays`,
+  bloom et étalonnage ajustés ; le corps de KAI **projette maintenant son ombre**.
+- Client (`StageController`, nouveau) : lanternes qui vacillent, bannières au vent, **ombre
+  de contact** douce sous chaque combattant (rétrécit en l'air), léger flou de profondeur
+  sur le décor pendant le combat (coupé pendant les cinématiques).
+- **Traînées de mouvement** (`Trail`) sur le poing ou le pied qui frappe, couleur du ki ;
+  **lueur de ki** (lumière) pendant les compétences et ultimes, pulsation quand l'ultime est
+  prêt.
+
+### Sons (provisoires)
+
+`SoundController` (nouveau) : impacts, garde, garde brisée, sauts, atterrissages, chutes,
+relevés, souffle des coups, super flash, QTE, pas de course. **Uniquement des sons livrés
+avec le moteur Roblox** (`rbxasset://sounds/...` : `action_jump_land.mp3`, `action_jump.mp3`,
+`action_get_up.mp3`, `action_footsteps_plastic.mp3`, `swordslash.wav`, `swordlunge.wav`,
+`unsheath.wav`, `electronicpingshort.wav`) : ce sont des fichiers du client Roblox, pas des
+ID d'asset. Bouton **SON** pour couper. À remplacer par les SFX du jeu quand Wilhem les fournit.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/Animation.test.luau` (16, nouveau) : chaque coup a ses poses, chaque état a son animation, angles dans les limites, pieds plantés au sol et à plat (KAI **et** un corps d'avatar aux proportions différentes), rien ne traverse le sol, couché = vraiment au sol, **course sans glissade** dans les 2 sens et les 2 orientations, phase en l'air, timelines (impact snappé, retour exact en garde, pas de saut > 75°/frame), anticipation et smear, paliers, réactions selon le coup, atterrissage, regard, ressorts stables, **combat CPU complet de 45 s** sans NaN ni traversée du sol | ✅ |
+| `luau tests/CombatSimulation.test.luau` (73) | ✅ |
+| `luau tests/FighterAI.test.luau` (9) | ✅ |
+| `luau tests/CinematicDirector.test.luau` (33) | ✅ |
+| Compilation Luau de tous les scripts | ✅ |
+| Jeu dans Studio (rendu, avatar réel, sons, performances) | ❌ non exécuté |
+
+Les tests ont trouvé et fait corriger : pieds qui glissaient au contact du sol (la course
+démarre et s'arrête maintenant à vitesse nulle par rapport au sol), torsion du bassin qui
+décalait les pieds, bras qui calaient le corps 1 stud au-dessus du sol en position couchée,
+pied replié qui traversait le sol (KICK BAS), genou arrière sous le sol (BALAYAGE), cou
+au-delà de sa limite pendant les coups.
+
+### Problèmes ouverts
+
+- Rien vu en jeu : poses, vitesse de la course, force des ressorts, ombres et flou de
+  profondeur sont à juger dans Studio (le bouton POSES : FLUIDE aide à comparer).
+- Sons provisoires (fichiers du moteur), à remplacer.
+- `Model:ScaleTo` sur un avatar non parenté à vérifier en jeu (sinon la mise à l'échelle est
+  sautée, un avertissement s'affiche).
+- La lecture des `CFrame` des pièces juste après l'écriture des `Motor6D` (tissus) peut avoir
+  une frame de retard : sans gravité visible.
+
+### Prochaine étape proposée
+
+1. Wilhem lance la 0.8.0 dans Studio : son avatar avec le kit (et la ligne d'état si ça
+   échoue), la course, les coups en POSES 15/s puis FLUIDE, les chutes et relevés.
+2. Retours visuels précis (« tel coup, telle frame ») : le labo + HITBOX donnent le plan et
+   le tick ; les poses se règlent dans `PoseLibrary.luau` et les tests vérifient le reste.
+3. Ensuite : kits du roster (proposition 0.7.0) et SFX du jeu.
+
 ## Version 0.7.1 — 1er octobre 2026
 
 Précision de Wilhem : « spammer », c'est appuyer sur tous les boutons, pas appuyer vite sur

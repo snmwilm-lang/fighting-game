@@ -226,6 +226,9 @@ function HUD.new(config)
 	self.effectsButton = button("Effects", "EFFETS : FORTS", 118, function()
 		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFETS : RÉDUITS" else "EFFETS : FORTS" end
 	end)
+	self.soundButton = button("Sound", "SON : OUI", 84, function()
+		if self.onSound then self.soundButton.Text = if self.onSound() then "SON : OUI" else "SON : NON" end
+	end)
 	self.debugButton = button("Hitboxes", "HITBOX : NON", 104, function()
 		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX : OUI" else "HITBOX : NON" end
 	end)
@@ -581,10 +584,27 @@ function HUD:update(world, views, fps, dt)
 	self.avatarButton.Visible = localSlot > 0
 	self.skinButton.Visible = localSlot > 0
 	if localSlot > 0 then self.skinButton.Text = "STYLE : " .. CharacterData[localSlot].Skin end
-	self.avatarButton.Text = if Players.LocalPlayer:GetAttribute("Avatar") then "APPARENCE : MON AVATAR" else "APPARENCE : KAI"
-	self.status.Text = string.format("v%s · %s · %d FPS", self.config.Version,
+	local player = Players.LocalPlayer
+	self.avatarButton.Text = if player:GetAttribute("Avatar") then "APPARENCE : MON AVATAR + KIT" else "APPARENCE : KAI"
+	-- Avatar loading feedback: the reason is shown when the avatar could not be used.
+	local avatarStatus = player:GetAttribute("AvatarStatus")
+	local kind, reason = string.match(tostring(avatarStatus or ""), "^([^|]*)|?(.*)$")
+	local note = ""
+	if player:GetAttribute("Avatar") and kind and kind ~= "" then
+		note = if kind == "CHARGEMENT" then " · AVATAR : chargement…"
+			elseif kind == "OK" then " · AVATAR + KIT " .. CharacterData[math.max(localSlot, 1)].Kit
+			elseif kind == "SANS ACCESSOIRES" then " · AVATAR sans accessoires (" .. reason .. ")"
+			else " · avatar indisponible, corps par défaut (" .. reason .. ")"
+	end
+	if avatarStatus ~= self.lastAvatarStatus then
+		self.lastAvatarStatus = avatarStatus
+		if kind == "DÉFAUT" or kind == "KAI" then
+			self:announceText("AVATAR INDISPONIBLE", "Corps R15 par défaut avec le kit · " .. reason, Color3.fromHex("FFD23F"))
+		end
+	end
+	self.status.Text = string.format("v%s · %s · %d FPS%s", self.config.Version,
 		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"
-			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5))
+			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5), note)
 end
 
 return HUD

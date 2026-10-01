@@ -1,0 +1,438 @@
+-- Offline checks of the animation: every pose and timeline is rebuilt with forward
+-- kinematics on the real KAI rig geometry (RigSpec) and on a smaller avatar-like body.
+-- Run from the repository root:
+--   luau tests/Animation.test.luau
+local Config = require("../src/shared/CombatConfig")
+local MoveData = require("../src/shared/MoveData")
+local Sim = require("../src/shared/CombatSimulation")
+local FighterAI = require("../src/shared/FighterAI")
+local RigSpec = require("../src/shared/RigSpec")
+local K = require("../src/shared/Kinematics")
+local Poses = require("../src/shared/PoseLibrary")
+local Animator = require("../src/shared/Animator")
+local T = require("./TestKit")
+local test, expect = T.test, T.expect
+
+local KAI = K.fromSpec(RigSpec.KAI)
+
+-- A different body: shorter legs, longer arms, bigger head (like many Roblox avatars).
+local function avatarSpec()
+	local parts, joints = {}, {}
+	local legScale, armScale = 0.82, 1.1
+	for name, p in RigSpec.KAI.parts do
+		local pos, size = { p.pos[1], p.pos[2], p.pos[3] }, { p.size[1], p.size[2], p.size[3] }
+		if name:find("Leg") or name:find("Foot") then
+			pos[2] = -0.3 + (pos[2] + 0.3) * legScale
+			size[2] *= legScale
+		elseif name:find("Arm") or name:find("Hand") then
+			pos[2] = 1.5 + (pos[2] - 1.5) * armScale
+		elseif name == "Head" then
+			size = { 1.4, 1.3, 1.3 }
+		end
+		parts[name] = { pos = pos, size = size }
+	end
+	for _, j in RigSpec.KAI.joints do
+		local pivot = { j.pivot[1], j.pivot[2], j.pivot[3] }
+		if j.name:find("Hip") or j.name:find("Knee") or j.name:find("Ankle") then
+			pivot[2] = -0.3 + (pivot[2] + 0.3) * legScale
+		elseif j.name:find("Elbow") or j.name:find("Wrist") then
+			pivot[2] = 1.5 + (pivot[2] - 1.5) * armScale
+		end
+		table.insert(joints, { name = j.name, part0 = j.part0, part1 = j.part1, pivot = pivot })
+	end
+	return { parts = parts, joints = joints }
+end
+local AVATAR = K.fromSpec(avatarSpec())
+
+local function newAnimator(skel)
+	return Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = skel or KAI })
+end
+
+local function finite(n)
+	return type(n) == "number" and n == n and math.abs(n) < 1e5
+end
+
+local function checkPose(pose, label, slack)
+	slack = slack or 1
+	for name, v in pose do
+		for i, x in v do
+			expect(finite(x), label .. ": " .. name .. "[" .. i .. "] is not finite")
+		end
+		local range = Poses.LIMITS[name]
+		if range then
+			expect(v[1] >= range[1] - slack and v[1] <= range[2] + slack,
+				string.format("%s: %s rx %.1f outside [%d, %d]", label, name, v[1], range[1], range[2]))
+		end
+	end
+end
+
+-- Foot heights above the floor once the pose is grounded (KAI or another skeleton).
+local function feetAboveFloor(anim, pose, altitude)
+	local lift = anim:groundLift(pose, altitude or 0)
+	local solved = K.solve(anim.skel, pose, lift)
+	local floor = anim.skel.floor - (altitude or 0)
+	return (K.footBottom(anim.skel, solved, "Left") or 0) - floor, (K.footBottom(anim.skel, solved, "Right") or 0) - floor,
+		K.lowest(anim.skel, solved) - floor, solved
+end
+
+local CHANNELS = { Ground = true, Look = true, Plant = true, Stance = true }
+
+-- Library poses: name -> raw pose (attack sets flattened to "Jab.Active").
+local function libraryPoses()
+	local list = {}
+	for name, entry in Poses do
+		if name == "LIMITS" then continue end
+		if entry.Root then
+			list[name] = entry
+		else
+			for key, pose in entry do list[name .. "." .. tostring(key)] = pose end
+		end
+	end
+	return list
+end
+
+print("Animation")
+
+test("every move of MoveData has its key poses", function()
+	for id, m in MoveData.Moves do
+		local set = Poses[id]
+		expect(set and set.Startup and set.Active and set.Recovery, id .. " has no Startup/Active/Recovery poses")
+		if m.hits and m.hits > 1 and set.Active2 then
+			expect(m.hitInterval, id .. " alternates two contact poses but has no hitInterval")
+		end
+	end
+end)
+
+test("every simulation state has its own animation", function()
+	local anim = newAnimator()
+	local states = { "Idle", "Walking", "Crouching", "Jumping", "Falling", "Dashing", "Blocking", "CrouchBlocking",
+		"Blockstun", "CrouchBlockstun", "Hitstun", "Crumple", "GuardBroken", "Launched", "Knockdown", "GetUp", "KO" }
+	local seen = {}
+	for _, state in states do
+		anim.track.stateAge = 0.5
+		local _, key = anim:evaluate({ state = state, x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 1 }, 1, 15)
+		local family = key:match("^[^:]+")
+		expect(state == "Idle" or family ~= "Idle", state .. " falls back to the idle animation")
+		seen[family] = true
+	end
+	local count = 0
+	for _ in seen do count += 1 end
+	expect(count >= 14, "too few distinct animations: " .. count)
+end)
+
+test("library poses are finite and inside the joint ranges (KAI and avatar)", function()
+	for _, skel in { KAI, AVATAR } do
+		local anim = newAnimator(skel)
+		for name, pose in libraryPoses() do
+			checkPose(anim:resolve(pose), name)
+		end
+	end
+end)
+
+test("planted poses keep both feet on the floor, flat or as pitched (KAI and avatar)", function()
+	for label, skel in { KAI = KAI, AVATAR = AVATAR } do
+		local anim = newAnimator(skel)
+		local checked = 0
+		for name, pose in libraryPoses() do
+			local stance = pose.Stance
+			if stance and (pose.Ground and pose.Ground[1] or 1) == 1 then
+				local resolved = anim:resolve(pose)
+				local left, right = feetAboveFloor(anim, resolved)
+				local solved = K.solve(skel, resolved, 0)
+				for i, side in { "Left", "Right" } do
+					if not pose[side .. "Hip"] then
+						local height: number = if side == "Left" then left else right
+						expect(height < 0.06, string.format("%s %s: %s foot floats %.2f above the floor", label, name, side, height))
+						local pitch = math.deg(K.pitch(solved[side .. "Foot"]))
+						expect(math.abs(pitch - stance[2 + i]) < 2.5,
+							string.format("%s %s: %s foot pitch %.1f instead of %.1f", label, name, side, pitch, stance[2 + i]))
+						checked += 1
+					end
+				end
+			end
+		end
+		expect(checked > 60, "too few planted feet checked: " .. checked)
+	end
+end)
+
+-- Height of what carries the body (the planted feet, else the lowest point) after grounding.
+local function support(anim, pose, altitude)
+	local left, right, body = feetAboveFloor(anim, pose, altitude)
+	local feet = math.min(left, right)
+	local planted = pose.Plant or {}
+	local pl, pr = math.clamp(planted[1] or 0, 0, 1), math.clamp(planted[2] or 0, 0, 1)
+	local foot = if math.abs(pl - pr) < 0.01 then feet elseif pl > pr then left else right
+	return body + (foot - body) * math.max(pl, pr), feet, body
+end
+
+test("grounded poses rest on the floor and never sink (KAI and avatar)", function()
+	for label, skel in { KAI = KAI, AVATAR = AVATAR } do
+		local anim = newAnimator(skel)
+		for name, pose in libraryPoses() do
+			local resolved = anim:resolve(pose)
+			local reference, feet, body = support(anim, resolved)
+			expect(feet > -0.01, string.format("%s %s: a foot sinks %.2f into the floor", label, name, -feet))
+			expect(body > -Animator.CORNER_TOLERANCE - 0.01, string.format("%s %s sinks %.2f into the floor", label, name, -body))
+			if (resolved.Ground and resolved.Ground[1] or 1) == 1 then
+				expect(math.abs(reference) < 0.01, string.format("%s %s floats %.2f above the floor", label, name, reference))
+			end
+		end
+	end
+end)
+
+test("lying poses lie on the floor for any body size", function()
+	-- The test avatar has an oversized head: lying on its back, the head lifts the shoulders.
+	for skel, propped in { [KAI] = 0.3, [AVATAR] = 0.45 } do
+		local anim = newAnimator(skel)
+		for _, name in { "Down", "DownFace", "DownImpact", "Crumple", "Kneel" } do
+			local resolved = anim:resolve(Poses[name])
+			local _, _, lowest, solved = feetAboveFloor(anim, resolved)
+			expect(math.abs(lowest) < 0.01, name .. " does not touch the floor")
+			if name:find("Down") then
+				for _, part in { "UpperTorso", "LowerTorso" } do
+					local size = skel.sizes[part]
+					local bottom = K.boxBottom(solved[part], size[1] / 2, size[2] / 2, size[3] / 2) - skel.floor
+					expect(bottom < propped, string.format("%s: %s floats %.2f above the floor (propped up)", name, part, bottom))
+				end
+			end
+		end
+	end
+end)
+
+-- World position of a root-space point for a rig placed like the client does.
+local function world(x, facing, local3)
+	local yaw = math.rad(Config.ModelYaw)
+	local rot = K.mul({ 0, 0, 0, 0, 0, -facing, 0, 1, 0, facing, 0, 0 }, K.angles(0, -facing * yaw, 0))
+	local wx, wy, wz = K.vector(rot, local3[1], local3[2], local3[3])
+	return x + wx, wy, wz
+end
+
+local function walk(skel, direction, facing)
+	local anim = newAnimator(skel)
+	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = facing, hitstop = 0, combo = 0 }
+	local dt, x = 1 / 60, 0
+	local slips, frames, airborne, maxLift = 0, 0, 0, 0
+	local previous = {}
+	for frame = 1, 150 do
+		local moving = frame > 10
+		view.state = if moving then "Walking" else "Idle"
+		view.vx = if moving then direction * facing * Config.WalkSpeed else 0
+		if moving then x += view.vx * dt end
+		view.x = x
+		local pose, lift = anim:step(view, nil, dt, frame * dt, 15, false)
+		checkPose(pose, "walk frame " .. frame)
+		local solved = K.solve(skel, pose, lift)
+		local floor = skel.floor
+		local onFloor = 0
+		for _, side in { "Left", "Right" } do
+			local foot = solved[side .. "Foot"]
+			local height = K.footBottom(skel, solved, side) - floor
+			expect(height > -0.02, "a foot goes through the floor while walking")
+			-- The toe and the heel of the sole: a rolling foot keeps one of them still.
+			local h = skel.legs[side].footHalf
+			local tx, ty, tz = K.point(foot, 0, -h[2], -h[3])
+			local hx, hy, hz = K.point(foot, 0, -h[2], h[3])
+			local toeX = world(x, facing, { tx, ty, tz })
+			local heelX = world(x, facing, { hx, hy, hz })
+			if moving and frame > 20 then
+				maxLift = math.max(maxLift, height)
+				if height < 0.01 then
+					onFloor += 1
+					local p = previous[side]
+					if p and p.planted then
+						frames += 1
+						if math.min(math.abs(toeX - p.toe), math.abs(heelX - p.heel)) > 0.03 then slips += 1 end
+					end
+				end
+			end
+			previous[side] = { toe = toeX, heel = heelX, planted = height < 0.01 }
+		end
+		if moving and frame > 20 and onFloor == 0 then airborne += 1 end
+	end
+	return slips, frames, airborne, maxLift
+end
+
+test("walking forward and backward keeps the planted foot still (no foot skating)", function()
+	for label, skel in { KAI = KAI, AVATAR = AVATAR } do
+		for _, direction in { 1, -1 } do
+			for _, facing in { 1, -1 } do
+				local slips, frames, _, maxLift = walk(skel, direction, facing)
+				expect(frames > 40, label .. ": too few planted frames " .. frames)
+				expect(slips == 0, string.format("%s dir %d facing %d: the planted foot slid on %d/%d frames",
+					label, direction, facing, slips, frames))
+				expect(maxLift > 0.25, label .. ": the swing foot barely lifts")
+			end
+		end
+	end
+end)
+
+test("the forward run has a flight phase, the back walk barely leaves the floor", function()
+	local _, _, flight = walk(KAI, 1, 1)
+	expect(flight > 10, "no flight phase in the forward run: " .. flight)
+	local _, _, backFlight = walk(KAI, -1, 1)
+	expect(backFlight < flight, "the back walk floats more than the run")
+end)
+
+test("attack timelines: anticipation, contact snap, settle back to the stance", function()
+	for id, m in MoveData.Moves do
+		local anim = newAnimator()
+		local total = MoveData.total(m)
+		local previous, previousKey
+		local stance = anim:resolve(Poses.STANCE)
+		for frame = 1, total do
+			local pose, key, snap = anim:attack(id, frame, 60)
+			checkPose(pose, id .. " frame " .. frame, 3)
+			if frame == m.startup + 1 then
+				expect(snap and key:find(":I"), id .. ": the first active frame is not a snapped impact")
+			end
+			if previous and not snap and not m.meterCost then
+				for name, v in pose do
+					local p = previous[name]
+					if p and not CHANNELS[name] then
+						for i = 1, 3 do
+							local delta = math.abs(v[i] - p[i])
+							expect(delta < 75, string.format("%s frame %d (%s): %s[%d] jumps %.0f°", id, frame, key, name, i, delta))
+						end
+					end
+				end
+			end
+			previous, previousKey = pose, key
+		end
+		local final = anim:attack(id, total, 60)
+		for name, v in stance do
+			local f = final[name]
+			for i = 1, #v do
+				expect(math.abs(f[i] - v[i]) < 1e-6, id .. ": the recovery does not end on the stance (" .. name .. ")")
+			end
+		end
+		local _ = previousKey
+	end
+end)
+
+test("anticipation pushes past the startup key, impacts overshoot the contact key", function()
+	local anim = newAnimator()
+	local m = MoveData.Moves.Cross
+	local coil = anim:attack("Cross", m.startup, 60)
+	local startup = anim:resolve(Poses.Cross.Startup)
+	local stance = anim:resolve(Poses.STANCE)
+	-- Waist twist winds further back than the startup key.
+	expect(math.abs(coil.Waist[2] - stance.Waist[2]) > math.abs(startup.Waist[2] - stance.Waist[2]), "no coil")
+	local impact = anim:attack("Cross", m.startup + 1, 60)
+	local active = anim:resolve(Poses.Cross.Active)
+	expect(impact.Waist[2] > active.Waist[2], "the impact frame does not overshoot the contact pose")
+	local held = anim:attack("Cross", m.startup + 3, 60)
+	expect(held.Waist[2] == active.Waist[2], "the contact pose is not reached after the smear frames")
+end)
+
+test("stepped timing: fewer distinct keys at 12 poses/s than at 60", function()
+	local function keys(rate)
+		local anim, seen, n = newAnimator(), {}, 0
+		for frame = 1, MoveData.total(MoveData.Moves.Smash) do
+			local _, key = anim:attack("Smash", frame, rate)
+			if not seen[key] then seen[key], n = true, n + 1 end
+		end
+		return n
+	end
+	expect(keys(12) < keys(60) / 2, "pose rate does not hold steps")
+end)
+
+test("hit reactions follow the move that hit", function()
+	local anim = newAnimator()
+	local view = { state = "Hitstun", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 1 }
+	local function reaction(move, combo)
+		anim.track.hitBy, anim.track.hitAge = move, 0.2
+		view.combo = combo
+		local _, key = anim:evaluate(view, 1, 15)
+		return key:match("^[^:]+")
+	end
+	expect(reaction("Sweep", 1) == "HitLow", "a sweep does not hit low")
+	expect(reaction("LowKick", 2) == "HitLow", "a low kick does not hit low")
+	expect(reaction("BodyBlow", 1) == "HitBody", "a body blow does not double over")
+	local a, b = reaction("Jab", 1), reaction("Cross", 2)
+	expect(a ~= b and a:find("HitHigh") and b:find("HitHigh"), "consecutive face hits do not alternate")
+end)
+
+test("landing squashes the knees, then recovers", function()
+	local anim = newAnimator()
+	local dt = 1 / 60
+	local view = { state = "Falling", x = 0, y = 2, vx = 0, vy = -40, facing = 1, hitstop = 0, combo = 0 }
+	anim:step(view, nil, dt, 0, 60, false)
+	view.state, view.y, view.vy = "Idle", 0, 0
+	local pose = anim:step(view, nil, dt, dt, 60, false)
+	local squash = pose.Root[4]
+	for i = 2, 30 do pose = anim:step(view, nil, dt, i * dt, 60, false) end
+	expect(squash < pose.Root[4] - 0.2, string.format("no landing squash (%.2f then %.2f)", squash, pose.Root[4]))
+	local left, right = feetAboveFloor(anim, pose)
+	expect(left < 0.06 and right < 0.06, "the feet leave the floor after landing")
+end)
+
+test("the head looks at the opponent: up at a juggled target, down at a fallen one", function()
+	local function neckAfter(other)
+		local anim = newAnimator()
+		local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0 }
+		local base = anim:resolve(Poses.Idle[1]).Neck[1]
+		local pose
+		for i = 1, 90 do pose = anim:step(view, other, 1 / 60, i / 60, 60, false) end
+		return pose.Neck[1] - base
+	end
+	local up = neckAfter({ state = "Launched", x = 4, y = 7 })
+	local level = neckAfter({ state = "Idle", x = 6, y = 0 })
+	local down = neckAfter({ state = "Knockdown", x = 4, y = 0 })
+	expect(up > level + 15, string.format("does not look up (%.1f vs %.1f)", up, level))
+	expect(down < level - 10, string.format("does not look down (%.1f vs %.1f)", down, level))
+	expect(math.abs(up) <= 40 and math.abs(down) <= 40, "the neck turns too far")
+end)
+
+test("springs stay stable at low frame rates and settle on their target", function()
+	local s = { x = 0, v = 0 }
+	for _ = 1, 40 do K.spring(s, 10, 0.1, 6, 0.3) end
+	expect(math.abs(s.x - 10) < 0.05, "the spring does not settle: " .. s.x)
+	local wobble = { x = 0, v = 300 }
+	local peak = 0
+	for _ = 1, 120 do peak = math.max(peak, math.abs(K.spring(wobble, 0, 1 / 60, 3.2, 0.32))) end
+	expect(peak > 5 and peak < 40, "hit recoil wobble out of range: " .. peak)
+end)
+
+test("a full CPU fight animates without NaN, floor clipping or floating", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.resetMatch(world, false)
+	local brains = { FighterAI.new(4, 11), FighterAI.new(3, 12) }
+	local anims = { newAnimator(KAI), newAnimator(AVATAR) }
+	local dt = 1 / 60
+	local states = {}
+	for tick = 1, 60 * 45 do
+		local inputs = { brains[1]:think(world, 1), brains[2]:think(world, 2) }
+		Sim.step(world, inputs)
+		for i, f in world.fighters do
+			local view = {
+				x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
+				move = f.move, moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits,
+			}
+			local o = world.fighters[3 - i]
+			local other = { x = o.x, y = o.y, state = o.state, move = o.move }
+			local anim = anims[i]
+			local pose, lift = anim:step(view, other, dt, tick * dt, 15, false)
+			checkPose(pose, f.state .. " tick " .. tick, 3)
+			expect(finite(lift), "lift is not finite")
+			local solved = K.solve(anim.skel, pose, lift)
+			local body = K.lowest(anim.skel, solved) - anim.skel.floor + f.y
+			local feet = math.min(K.footBottom(anim.skel, solved, "Left") or 0, K.footBottom(anim.skel, solved, "Right") or 0)
+				- anim.skel.floor + f.y
+			expect(feet > -0.03, string.format("%s (%s): a foot clips %.2f through the floor at tick %d", f.state, tostring(f.move), -feet, tick))
+			expect(body > -Animator.CORNER_TOLERANCE - 0.03,
+				string.format("%s (%s) clips %.2f through the floor at tick %d", f.state, tostring(f.move), -body, tick))
+			local ground = pose.Ground and pose.Ground[1] or 1
+			if f.y <= 0 and ground >= 0.999 and anim.blendTime == 0 then
+				local reference = support(anim, pose, 0)
+				expect(reference < 0.03, string.format("%s (%s) floats %.2f at tick %d", f.state, tostring(f.move), reference, tick))
+			end
+			states[f.state] = true
+		end
+		if world.phase == "MatchEnd" then break end
+	end
+	for _, needed in { "Walking", "Attack", "Hitstun", "Blocking" } do
+		expect(states[needed], "the fight never showed " .. needed)
+	end
+end)
+
+T.finish()

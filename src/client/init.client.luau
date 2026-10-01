@@ -12,6 +12,8 @@ local AnimationController = require(script.AnimationController)
 local HUDController = require(script.HUDController)
 local EffectsController = require(script.EffectsController)
 local CinematicController = require(script.CinematicController)
+local StageController = require(script.StageController)
+local SoundController = require(script.SoundController)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
@@ -20,6 +22,8 @@ local input = InputController.start(remotes:WaitForChild("Input"))
 local cameraController = CameraController.new(Config)
 local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
+local stage = StageController.new(Config)
+local sounds = SoundController.new()
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onAvatar = input.toggleAvatar
@@ -35,6 +39,10 @@ end
 hud.onEffects = function()
 	effects.reduced = not effects.reduced
 	return effects.reduced
+end
+hud.onSound = function()
+	sounds:setEnabled(not sounds.enabled)
+	return sounds.enabled
 end
 hud.onDebug = function()
 	effects:setDebug(not effects.debug)
@@ -88,6 +96,7 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	if type(batch) ~= "table" then return end
 	for _, event in batch do
 		effects:onEvent(event, displayed, rigs)
+		sounds:onEvent(event)
 		if event.kind == "SuperFlash" then
 			cinematic:superFlash(event.attacker, event.move)
 		elseif event.kind == "Hit" and event.cinematic then
@@ -113,9 +122,10 @@ local function findRig(slot)
 			if child:IsA("Motor6D") then motorCount += 1 end
 		end
 		if motorCount < 15 then return nil end -- Wait for complete rig replication.
+		local animation = AnimationController.new(model)
 		cached = {
-			model = model, root = root, animation = AnimationController.new(model),
-			rootHeight = model:GetAttribute("RootHeight") or Config.RootHeight,
+			model = model, root = root, animation = animation,
+			rootHeight = animation.rootHeight, -- measured on this body: its feet rest on the floor
 		}
 		rigs[slot] = cached
 		effects:attachRig(slot, cached)
@@ -162,15 +172,21 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 				local look = current.lookDir
 				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(look.x, look.y, look.z)) -- free orientation (K.O. scene)
 			else
-				-- Turn the rig slightly toward the camera, like sprites drawn in 3/4 view.
-				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(current.facing, 0, 0))
-					* CFrame.Angles(0, -current.facing * math.rad(Config.ModelYaw), 0)
+				-- Heading in the floor plane: 0 = facing +X, pi = facing -X. A side switch turns
+				-- the body through the camera side in a few frames instead of popping.
+				local target = if current.facing > 0 then 0 else math.pi
+				rig.heading = if rig.heading then rig.heading + (target - rig.heading) * math.min(1, dt * 25) else target
+				-- Turned slightly toward the camera, like sprites drawn in 3/4 view.
+				local heading = rig.heading + math.rad(Config.ModelYaw) * math.cos(rig.heading)
+				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(math.cos(heading), 0, math.sin(heading)))
 			end
-			rig.animation:update(current, now, hud.poseRate)
+			rig.animation:update(current, displayed[3 - i], dt, now, hud.poseRate, cinematicActive)
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
+			sounds:update(i, current, MoveData.Moves)
 		end
 	end
 	effects:updateProjectiles(world.projectiles, sinceSnapshot, now)
+	stage:update(now, displayed, cinematicActive)
 	if cinematicActive then
 		cinematic:camera(dt, rigs, displayed)
 	else

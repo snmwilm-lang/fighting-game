@@ -25,6 +25,20 @@ local BODY_PARTS = {
 	RightUpperLeg = true, RightLowerLeg = true, RightFoot = true,
 }
 
+-- Limbs that strike with each move: their motion trails light up during the swing.
+local STRIKE_LIMBS = {
+	Jab = { "LeftHand" }, Cross = { "RightHand" }, Elbow = { "RightHand" }, BodyBlow = { "RightHand" },
+	Uppercut = { "RightHand" }, Rising = { "RightHand" }, Smash = { "RightHand" }, KaienRush = { "RightHand" },
+	PalmStrike = { "LeftHand", "RightHand" }, KiBlast = { "LeftHand", "RightHand" }, Finale = { "LeftHand", "RightHand" },
+	Awakening = { "LeftHand", "RightHand" }, Kaiten = { "LeftHand", "RightHand" }, KiFlurry = { "LeftHand", "RightHand" },
+	DragonFist = { "LeftHand", "RightHand" }, AirSmash = { "LeftHand", "RightHand" },
+	Kick = { "RightFoot" }, SpinKick = { "RightFoot" }, Hammer = { "RightFoot" }, Sweep = { "RightFoot" },
+	LowKick = { "RightFoot" }, AirKick = { "RightFoot" }, AirKick2 = { "LeftFoot" }, ThunderHeel = { "RightFoot" },
+	KiChase = { "LeftFoot" }, DragonTornado = { "LeftFoot", "RightFoot" }, CrescentMoon = { "LeftFoot", "RightFoot" },
+	RisingWind = { "LeftFoot", "RightFoot" },
+}
+local TRAIL_LIMBS = { "LeftHand", "RightHand", "LeftFoot", "RightFoot" }
+
 local function tween(instance, duration, goal, style)
 	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
 	t:Play()
@@ -224,6 +238,33 @@ end
 function EffectsController:attachRig(slot, rig)
 	local torso = rig.model:FindFirstChild("UpperTorso")
 	if not torso then return end
+	-- Motion trails on fists and feet (ki colour fading to white), lit only while striking.
+	rig.trails = {}
+	for _, limb in TRAIL_LIMBS do
+		local part = rig.model:FindFirstChild(limb)
+		if part and part:IsA("BasePart") then
+			local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+			a0.Name, a1.Name = "TrailTop", "TrailBottom"
+			a0.Position, a1.Position = Vector3.new(0, part.Size.Y * 0.4, 0), Vector3.new(0, -part.Size.Y * 0.45, 0)
+			a0.Parent, a1.Parent = part, part
+			local trail = Instance.new("Trail")
+			trail.Name = "StrikeTrail"
+			trail.Attachment0, trail.Attachment1 = a0, a1
+			trail.Color = ColorSequence.new(self:energy(slot), WHITE)
+			trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.15) })
+			trail.Lifetime, trail.MinLength, trail.LightEmission, trail.FaceCamera = 0.13, 0.05, 1, true
+			trail.Enabled = false
+			trail.Parent = part
+			rig.trails[limb] = trail
+		end
+	end
+	-- Ki glow: lights the body in its ki colour when charging, skills and ultimates.
+	local glow = Instance.new("PointLight")
+	glow.Name = "KiGlow"
+	glow.Color, glow.Range, glow.Brightness, glow.Shadows = self:energy(slot), 10, 0, false
+	glow.Parent = torso
+	rig.glow = glow
 	local aura = Instance.new("ParticleEmitter")
 	aura.Name = "KiAura"
 	aura.Color = ColorSequence.new(self:energy(slot), WHITE)
@@ -263,6 +304,26 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if view.state == "Dashing" and now - (self.ghostClock[slot] or 0) > 0.045 then
 		self.ghostClock[slot] = now
 		self:afterimage(rig, color)
+	end
+	-- Strike trails from the end of the wind-up to the start of the recovery.
+	if rig.trails then
+		local m = view.state == "Attack" and MoveData.Moves[view.move]
+		local limbs = m and STRIKE_LIMBS[view.move]
+		local swinging = m and view.moveFrame >= m.startup * 0.6 and view.moveFrame <= m.startup + m.active + m.recovery * 0.25
+		for limb, trail in rig.trails do
+			local on = limbs ~= nil and swinging and table.find(limbs, limb) ~= nil and not (self.reduced and not m.heavy)
+			if trail.Enabled ~= on then trail.Enabled = on end
+		end
+	end
+	if rig.glow then
+		local m = view.state == "Attack" and MoveData.Moves[view.move]
+		local target = 0
+		if m and (m.meterCost or m.skill) then
+			target = if MoveData.phase(m, view.moveFrame) == "Recovery" then 0.6 else 2.6
+		elseif view.meter and view.meter >= (MoveData.Moves.KaienRush.meterCost or 200) then
+			target = 0.5 + 0.35 * math.sin(now * 5)
+		end
+		rig.glow.Brightness += (target - rig.glow.Brightness) * math.min(1, (if target > rig.glow.Brightness then 18 else 5) / 60)
 	end
 	if self.debug then self:drawDebug(slot, view) end
 	return key

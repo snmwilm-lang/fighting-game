@@ -19,7 +19,8 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
 | Boule de ki : KIKOHO | **S + E** | Bas + Y | BAS + SPÉ |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
-| Apparence : KAI ou ton avatar Roblox (R15) | bouton APPARENCE | — | bouton |
+| Apparence : ton avatar Roblox + kit KAI, ou le modèle KAI | bouton APPARENCE | — | bouton |
+| Sons on / off | bouton SON | — | bouton |
 | Replacer | Retour arrière | Select | bouton REPLACER |
 
 ## Combos (L = clic gauche, R = clic droit)
@@ -69,9 +70,18 @@ plusieurs boutons à la fois — verrouille ÉVEIL et PORTE (on obtient COUP DE 
 RUSH à la place).
 
 Les persos sont des **personnages Roblox** : ton avatar R15 par défaut porte le **kit KAI**
-(bandeau, ceinture, bandages, 開 dans le dos) ; bouton **STYLE** pour CLASSIQUE / NUIT / SACRÉ /
-MAUDIT ; bouton APPARENCE pour le modèle KAI complet. Le CPU est un **clone d'ombre** de ton
-avatar, dans un autre style.
+(bandeau, ceinture, bandages, 開 dans le dos), mis à la taille de KAI ; bouton **STYLE** pour
+CLASSIQUE / NUIT / SACRÉ / MAUDIT ; bouton APPARENCE pour le modèle KAI complet. Le CPU est un
+**clone d'ombre** de ton avatar, dans un autre style. Si l'avatar ne peut pas se charger, un
+corps R15 par défaut porte le kit et la ligne d'état en haut de l'écran dit pourquoi.
+
+### Animation
+
+Moteur d'animation pur (`src/shared/Animator.luau`), testé hors Studio avec la cinématique du
+vrai rig : coups en 4 temps (anticipation, impact, contact, retour), pieds plantés par IK,
+course sans glissade, corps posé au sol quelle que soit la taille de l'avatar, réactions selon
+le coup reçu, regard vers l'adversaire, ressorts (inclinaison, secousses), tissus qui ondulent.
+Bouton **POSES** : 12 / 15 / 24 poses par seconde (style anime) ou FLUIDE.
 
 ### S'entraîner et vérifier
 
@@ -106,13 +116,15 @@ rojo build -o "jeuxcombat.rbxlx"
 
 ## Tests hors Studio
 
-La simulation de combat (`src/shared/CombatSimulation.luau`) et l'IA (`src/shared/FighterAI.luau`)
-n'utilisent aucune API Roblox ; elles se testent avec le [CLI Luau](https://github.com/luau-lang/luau/releases) :
+La simulation de combat, l'IA, la mise en scène des cinématiques et l'animation
+(`src/shared/`) n'utilisent aucune API Roblox ; elles se testent avec le
+[CLI Luau](https://github.com/luau-lang/luau/releases) :
 
 ```bash
 luau tests/CombatSimulation.test.luau
 luau tests/FighterAI.test.luau
 luau tests/CinematicDirector.test.luau
+luau tests/Animation.test.luau
 ```
 
 ## Documents

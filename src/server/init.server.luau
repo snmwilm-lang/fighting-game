@@ -111,7 +111,7 @@ local function rebuildSlot(i)
 			slot.building = (slot.building or 0) + 1
 			local ticket = slot.building
 			task.spawn(function()
-				local model = RigBuilder.buildShadow(i, other.UserId) -- yields while loading
+				local model = RigBuilder.buildShadow(i, other) -- yields while loading
 				if slot.owner or slot.building ~= ticket then
 					if model then model:Destroy() end
 					return
@@ -124,9 +124,13 @@ local function rebuildSlot(i)
 		return
 	end
 	if client and client.avatar then
+		slot.building = (slot.building or 0) + 1
+		local ticket = slot.building
+		owner:SetAttribute("AvatarStatus", "CHARGEMENT")
 		task.spawn(function()
-			local model = RigBuilder.buildAvatar(i, owner.UserId) -- yields while loading
-			if slot.owner ~= owner or not client.avatar then
+			-- Own avatar + kit; a default R15 body + kit if the avatar cannot load (see RigBuilder).
+			local model, status = RigBuilder.buildAvatar(i, owner) -- yields while loading
+			if slot.owner ~= owner or not client.avatar or slot.building ~= ticket then
 				if model then model:Destroy() end
 				return
 			end
@@ -135,9 +139,11 @@ local function rebuildSlot(i)
 				owner:SetAttribute("Avatar", false)
 				model = RigBuilder.build(i, nil)
 			end
+			owner:SetAttribute("AvatarStatus", status)
 			swapModel(i, model)
 		end)
 	else
+		slot.building = (slot.building or 0) + 1
 		swapModel(i, RigBuilder.build(i, nil))
 	end
 end

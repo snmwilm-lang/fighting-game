@@ -10,7 +10,7 @@
 -- Every style carries the fields of the KAI block model (Hair, Vest...) and the outfit
 -- colours: Sash = main outfit colour (KAI sash, TARO gloves, ZEPHYR scarf, AKEMI mask),
 -- Wraps = second colour (bands, guards).
-local KANJI = { KAI = "開", TARO = "火", ZEPHYR = "風", AKEMI = "影" }
+local KANJI = { KAI = "開", TARO = "火", ZEPHYR = "風", AKEMI = "影", RYUKEN = "拳", SHIN = "流", DAICHA = "闇", HIBECARES = "崩" }
 
 local function style(kit, name, colors)
 	colors.Name = kit
@@ -117,6 +117,75 @@ local Skins = table.freeze({
 		Shoes = "120A0C", ShoeAccent = "E0102B", Sole = "0A0607",
 		Energy = "FF2A3D", Shield = "FF9F40",
 	}),
+	-- RYUKEN 拳 (Wilhem's second sheet): white hair, red fists, black (BRISÉ); crimson and
+	-- black (SANG NOIR).
+	["BRISÉ"] = style("RYUKEN", "BRISÉ", {
+		Hair = "F2ECE8", HairTip = "FF3B3B", SkinTone = "D9A07F", Eyes = "D01818",
+		Vest = "1A1416", VestTrim = "E0102B", Shirt = "1A1416",
+		Sash = "C8102E", Wraps = "E0102B",
+		Pants = "26262C", PantsShade = "18181C",
+		Shoes = "1A1416", ShoeAccent = "E0102B", Sole = "F2ECE8",
+		Energy = "FF2A2A", Shield = "FFB0A0",
+	}),
+	["SANG NOIR"] = style("RYUKEN", "SANG NOIR", {
+		Hair = "1A1214", HairTip = "FF2A2A", SkinTone = "C98F6E", Eyes = "FF2A2A",
+		Vest = "5A0A12", VestTrim = "FF2A2A", Shirt = "5A0A12",
+		Sash = "1A1214", Wraps = "1A1214",
+		Pants = "120E10", PantsShade = "0A0809",
+		Shoes = "120E10", ShoeAccent = "FF2A2A", Sole = "5A0A12",
+		Energy = "FF4A2A", Shield = "FFD0A0",
+	}),
+	-- SHIN 流: navy coat, blue edge, silver blade (COURANT); black and steel (ACIER).
+	COURANT = style("SHIN", "COURANT", {
+		Hair = "141A2E", HairTip = "3D9BFF", SkinTone = "E3B08F", Eyes = "2E8BFF",
+		Vest = "18223F", VestTrim = "3D9BFF", Shirt = "E4ECF7",
+		Sash = "3D9BFF", Wraps = "C8D4E8",
+		Pants = "141A2E", PantsShade = "0C1020",
+		Shoes = "1B2238", ShoeAccent = "3D9BFF", Sole = "0C1020",
+		Energy = "4DA8FF", Shield = "C8F0FF",
+	}),
+	ACIER = style("SHIN", "ACIER", {
+		Hair = "D6DCE8", HairTip = "6FD8FF", SkinTone = "D9A07F", Eyes = "6FD8FF",
+		Vest = "1C1C22", VestTrim = "B8C4D8", Shirt = "2A2A32",
+		Sash = "B8C4D8", Wraps = "1C1C22",
+		Pants = "1C1C22", PantsShade = "101014",
+		Shoes = "1C1C22", ShoeAccent = "B8C4D8", Sole = "101014",
+		Energy = "8FE0FF", Shield = "3D9BFF",
+	}),
+	-- DAICHA 闇: white robe, violet sash and shadows (INVERSÉ); black robe, gold eyes (ÉCLIPSE).
+	["INVERSÉ"] = style("DAICHA", "INVERSÉ", {
+		Hair = "120A1C", HairTip = "A040FF", SkinTone = "E8C0A8", Eyes = "B060FF",
+		Vest = "F0EEF4", VestTrim = "A040FF", Shirt = "F0EEF4",
+		Sash = "7A2CC8", Wraps = "2A1A3A",
+		Pants = "1E1428", PantsShade = "120C18",
+		Shoes = "1E1428", ShoeAccent = "A040FF", Sole = "120C18",
+		Energy = "B060FF", Shield = "6E7BFF",
+	}),
+	["ÉCLIPSE"] = style("DAICHA", "ÉCLIPSE", {
+		Hair = "0A0A0E", HairTip = "FFD45A", SkinTone = "D8B09A", Eyes = "FFD45A",
+		Vest = "16121E", VestTrim = "FFD45A", Shirt = "16121E",
+		Sash = "FFD45A", Wraps = "16121E",
+		Pants = "0E0A14", PantsShade = "08060C",
+		Shoes = "0E0A14", ShoeAccent = "FFD45A", Sole = "08060C",
+		Energy = "C080FF", Shield = "FFD45A",
+	}),
+	-- HIBECARES 崩: stone, rust and embers (RUINES); molten rock (MAGMA).
+	RUINES = style("HIBECARES", "RUINES", {
+		Hair = "2A1E16", HairTip = "FF8A1A", SkinTone = "C98F6E", Eyes = "FF6A1A",
+		Vest = "6A5A4A", VestTrim = "C8102E", Shirt = "6A5A4A",
+		Sash = "C8102E", Wraps = "8A8070",
+		Pants = "4A3E34", PantsShade = "32281F",
+		Shoes = "2A2420", ShoeAccent = "8A8070", Sole = "1A1612",
+		Energy = "FF8A1A", Shield = "FFD45A",
+	}),
+	MAGMA = style("HIBECARES", "MAGMA", {
+		Hair = "120C0A", HairTip = "FF4A1A", SkinTone = "B97A55", Eyes = "FFB21A",
+		Vest = "2A2420", VestTrim = "FF4A1A", Shirt = "2A2420",
+		Sash = "FF4A1A", Wraps = "3A3430",
+		Pants = "1E1A16", PantsShade = "120E0C",
+		Shoes = "1E1A16", ShoeAccent = "FF4A1A", Sole = "120E0C",
+		Energy = "FF5A1A", Shield = "FFB21A",
+	}),
 })
 
 local STYLE_ORDER = table.freeze({
@@ -124,6 +193,10 @@ local STYLE_ORDER = table.freeze({
 	TARO = table.freeze({ "BRASIER", "CHAMPION" }),
 	ZEPHYR = table.freeze({ "AZUR", "TEMPÊTE" }),
 	AKEMI = table.freeze({ "OMBRE", "LUNE ROUGE" }),
+	RYUKEN = table.freeze({ "BRISÉ", "SANG NOIR" }),
+	SHIN = table.freeze({ "COURANT", "ACIER" }),
+	DAICHA = table.freeze({ "INVERSÉ", "ÉCLIPSE" }),
+	HIBECARES = table.freeze({ "RUINES", "MAGMA" }),
 })
 
 local CharacterData = {

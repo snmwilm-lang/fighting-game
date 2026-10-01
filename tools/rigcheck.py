@@ -85,7 +85,7 @@ local function emit(models, label, cam)
 	end
 end
 
-local KITS = { "KAI", "TARO", "ZEPHYR", "AKEMI" }
+local KITS = { "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES" }
 for _, kit in KITS do
 	for i, style in CharacterData.StyleOrder[kit] do
 		CharacterData[1] = CharacterData.Skins[style]

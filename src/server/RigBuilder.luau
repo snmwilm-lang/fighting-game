@@ -109,6 +109,331 @@ function RigBuilder.taroBody(ornament, shaped, parts, color, data, ink)
 	ornament("LowerTorso", "Trunks", Vector3.new(1.76, 0.5, 1.0), CFrame.new(0, -0.14, 0), color("Pants"))
 end
 
+--[[
+	Each fighter's own block body: hair (head) and clothes (body), drawn over the shared
+	skeleton (RigSpec.KAI) and face. KAI keeps the base body below; every other kit has its
+	own silhouette, so no one looks like KAI wearing another outfit. `ctx` gives:
+	ornament(part, name, size, offset, color, class), shaped(part, name, size, offset, color,
+	shape), tail(part, name, size, pivot, color) for a swaying strip, color(key), ink, white,
+	skin, hair, hairTip. Offsets are relative to the bind pose of the part (front is -Z).
+]]
+local BODIES = {}
+
+local function material(p, mat)
+	p.Material = mat
+	return p
+end
+
+-- Legs and feet shared by the bodies. opts.wide: wide trousers (hakama, dobok) down to the
+-- ankle; opts.feet: "sneakers", "boots", "tabi" or "bare".
+local function legs(ctx, opts)
+	local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+	for _, side in { "Left", "Right" } do
+		local sign = if side == "Left" then -1 else 1
+		if opts.wide then
+			o(side .. "UpperLeg", "WideLeg", Vector3.new(1.06, 1.1, 1.08), CFrame.new(sign * 0.04, 0.04, 0), color("Pants"))
+			if not opts.shins then -- (bare shins: ZEPHYR's guards show)
+				o(side .. "LowerLeg", "WideFlare", Vector3.new(1.02, 0.9, 1.04), CFrame.new(sign * 0.03, 0.02, 0), color("Pants"))
+			end
+			o(side .. "UpperLeg", "Pleat", Vector3.new(0.04, 1.0, 0.04), CFrame.new(sign * 0.18, 0, -0.55), ink)
+			o(side .. "LowerLeg", "Pleat", Vector3.new(0.04, 0.8, 0.04), CFrame.new(-sign * 0.12, 0.05, -0.53), ink)
+		else
+			o(side .. "UpperLeg", "Thigh", Vector3.new(0.94, 0.9, 0.98), CFrame.new(0, 0.1, 0), color("Pants"))
+			o(side .. "UpperLeg", "Fold", Vector3.new(0.5, 0.04, 0.04), CFrame.new(sign * 0.1, -0.35, -0.5) * CFrame.Angles(0, 0, sign * 0.3), ink)
+		end
+		local feet = opts.feet or "sneakers"
+		if feet == "sneakers" then
+			if not opts.wide then o(side .. "LowerLeg", "PantsCuff", Vector3.new(0.9, 0.26, 0.94), CFrame.new(0, -0.38, 0), color("PantsShade")) end
+			o(side .. "Foot", "Sole", Vector3.new(0.84, 0.12, 1.26), CFrame.new(0, -0.18, 0), color("Sole"))
+			o(side .. "Foot", "ToeCap", Vector3.new(0.82, 0.24, 0.32), CFrame.new(0, -0.07, -0.47), color("Shoes"))
+			o(side .. "Foot", "ShoeStripe", Vector3.new(0.86, 0.12, 0.62), CFrame.new(0, 0, 0.12) * CFrame.Angles(0.25, 0, 0), color("ShoeAccent"))
+		elseif feet == "boots" then
+			o(side .. "LowerLeg", "BootShaft", Vector3.new(0.9, 0.7, 0.94), CFrame.new(0, -0.18, 0), color("Shoes"))
+			o(side .. "LowerLeg", "BootCuff", Vector3.new(0.96, 0.14, 1.0), CFrame.new(0, 0.18, 0), color("ShoeAccent"))
+			o(side .. "Foot", "Sole", Vector3.new(0.9, 0.16, 1.3), CFrame.new(0, -0.17, -0.02), color("Sole"))
+			o(side .. "Foot", "BootToe", Vector3.new(0.86, 0.34, 0.46), CFrame.new(0, -0.02, -0.42), color("Shoes"))
+			o(side .. "Foot", "Strap", Vector3.new(0.9, 0.08, 0.5), CFrame.new(0, 0.12, 0.1), color("ShoeAccent"))
+		elseif feet == "tabi" then
+			for i, y in { 0.3, 0.08, -0.14, -0.36 } do
+				o(side .. "LowerLeg", "ShinWrap" .. i, Vector3.new(0.86, 0.06, 0.9), CFrame.new(0, y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.16), color("Wraps"))
+			end
+			o(side .. "Foot", "Sole", Vector3.new(0.82, 0.08, 1.22), CFrame.new(0, -0.19, 0), ink)
+			o(side .. "Foot", "SplitToe", Vector3.new(0.04, 0.3, 0.34), CFrame.new(sign * 0.12, -0.04, -0.46), ink)
+		else -- bare feet with ankle wraps
+			o(side .. "Foot", "AnkleWrap", Vector3.new(0.86, 0.14, 0.9), CFrame.new(0, 0.12, 0.08), color("Wraps"))
+			o(side .. "Foot", "Toes", Vector3.new(0.7, 0.06, 0.04), CFrame.new(0, -0.08, -0.6), ctx.ink)
+		end
+	end
+end
+
+-- Bare arms: shoulders and biceps, optional forearm bands (bandages) and knuckle wraps.
+local function bareArms(ctx, bands, knuckles)
+	for _, side in { "Left", "Right" } do
+		ctx.shaped(side .. "UpperArm", "Deltoid", Vector3.new(0.84, 0.84, 0.84), CFrame.new(0, 0.3, 0), ctx.skin, Enum.PartType.Ball)
+		ctx.shaped(side .. "UpperArm", "Bicep", Vector3.new(0.62, 0.62, 0.62), CFrame.new(0, -0.08, -0.13), ctx.skin, Enum.PartType.Ball)
+		if bands then
+			for i, y in { 0.3, 0.06, -0.18, -0.38 } do
+				ctx.ornament(side .. "LowerArm", "Band" .. i, Vector3.new(0.66, 0.06, 0.7),
+					CFrame.new(0, y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.2), bands)
+			end
+		end
+		if knuckles then
+			ctx.ornament(side .. "Hand", "Knuckles", Vector3.new(0.78, 0.16, 0.2), CFrame.new(0, -0.12, -0.32), knuckles)
+		end
+	end
+end
+
+-- ZEPHYR 風: hair swept back by the wind, a crossed taekwondo top tied with a belt, wide
+-- trousers, bare feet with ankle wraps (the shin guards come from his outfit).
+BODIES.ZEPHYR = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("Shirt"), color("Shirt"), color("SkinTone"), color("SkinTone")
+		pc.LowerLeg, pc.Foot = color("Pants"), color("SkinTone")
+	end,
+	head = function(ctx)
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.2, 0.36, 1.12), CFrame.new(0, 0.5, 0.06), hair)
+		-- Long locks streaming back (to the side of the attack: the wind).
+		for i, y in { 0.62, 0.42, 0.22 } do
+			o("Head", "WindLock", Vector3.new(0.9 - i * 0.12, 0.2, 1.3 + i * 0.25),
+				CFrame.new(0, y, 0.55 + i * 0.12) * CFrame.Angles(math.rad(14 - i * 6), 0, 0), if i == 1 then tip else hair, "WedgePart")
+		end
+		for _, sign in { -1, 1 } do
+			o("Head", "SideSweep", Vector3.new(0.12, 0.45, 0.8), CFrame.new(sign * 0.58, 0.18, 0.15) * CFrame.Angles(0, 0, sign * -0.1), hair)
+		end
+		o("Head", "Fringe", Vector3.new(0.9, 0.22, 0.14), CFrame.new(0.05, 0.42, -0.54) * CFrame.Angles(0, 0, -0.12), hair)
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		-- Crossed top: the two lapels overlap in a V, dark trim, a belt with hanging ends.
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "Lapel", Vector3.new(0.16, 1.2, 0.06), CFrame.new(sign * 0.2, 0.1, -0.52) * CFrame.Angles(0, 0, sign * 0.42), color("Vest"))
+			o(if sign < 0 then "LeftUpperArm" else "RightUpperArm", "Sleeve", Vector3.new(0.8, 0.5, 0.86), CFrame.new(0, 0.3, 0), color("Shirt"))
+		end
+		o("UpperTorso", "Neckline", Vector3.new(0.34, 0.3, 0.04), CFrame.new(0, 0.54, -0.505), ctx.skin)
+		ctx.shaped("LeftLowerArm", "Forearm", Vector3.new(0.64, 0.64, 0.64), CFrame.new(0, 0.2, 0), ctx.skin, Enum.PartType.Ball)
+		ctx.shaped("RightLowerArm", "Forearm", Vector3.new(0.64, 0.64, 0.64), CFrame.new(0, 0.2, 0), ctx.skin, Enum.PartType.Ball)
+		o("LowerTorso", "Belt", Vector3.new(1.76, 0.26, 1.0), CFrame.new(0, 0.2, 0), color("Vest"))
+		o("LowerTorso", "BeltKnot", Vector3.new(0.3, 0.26, 0.14), CFrame.new(0.1, 0.2, -0.55), color("Vest"))
+		ctx.tail("LowerTorso", "BeltEnd", Vector3.new(0.14, 0.7, 0.05), CFrame.new(0.02, 0.12, -0.56) * CFrame.Angles(0, 0, 0.12), color("Vest"))
+		ctx.tail("LowerTorso", "BeltEnd2", Vector3.new(0.14, 0.6, 0.05), CFrame.new(0.2, 0.12, -0.56) * CFrame.Angles(0, 0, -0.1), color("Vest"))
+		o("UpperTorso", "Hem", Vector3.new(1.96, 0.3, 1.04), CFrame.new(0, -0.6, 0), color("Shirt"))
+		legs(ctx, { wide = true, feet = "bare", shins = true })
+		o("UpperTorso", "ChestLine", Vector3.new(0.04, 0.5, 0.04), CFrame.new(0, -0.1, -0.51), ink)
+	end,
+}
+
+-- AKEMI 影: short hair under the hood, a close-fitting dark suit with crossed straps and a
+-- blade sheath on the back, slim trousers, shin wraps and split-toe boots.
+BODIES.AKEMI = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("Vest"), color("Vest"), color("Vest"), color("Vest")
+		pc.LowerLeg, pc.Foot = color("Pants"), color("Shoes")
+	end,
+	head = function(ctx)
+		local o, hair = ctx.ornament, ctx.hair
+		o("Head", "HairCap", Vector3.new(1.18, 0.3, 1.1), CFrame.new(0, 0.5, 0.06), hair)
+		o("Head", "Bangs", Vector3.new(1.0, 0.3, 0.14), CFrame.new(0, 0.34, -0.54) * CFrame.Angles(math.rad(180), 0, 0), hair, "WedgePart")
+		for _, sign in { -1, 1 } do
+			o("Head", "SideBang", Vector3.new(0.14, 0.5, 0.3), CFrame.new(sign * 0.55, 0.12, -0.32), ctx.hairTip)
+		end
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "Strap", Vector3.new(0.14, 1.7, 0.06), CFrame.new(0, 0, -0.52) * CFrame.Angles(0, 0, sign * 0.62), color("Wraps"))
+			o("UpperTorso", "Seam", Vector3.new(0.04, 1.2, 0.04), CFrame.new(sign * 0.6, -0.1, -0.51), ink)
+		end
+		o("UpperTorso", "StrapBuckle", Vector3.new(0.24, 0.24, 0.08), CFrame.new(0, 0.05, -0.56), color("VestTrim"))
+		material(o("UpperTorso", "Sheath", Vector3.new(0.2, 1.7, 0.2), CFrame.new(0.1, 0.1, 0.62) * CFrame.Angles(0, 0, 0.55), ink), Enum.Material.SmoothPlastic)
+		o("UpperTorso", "SheathTip", Vector3.new(0.22, 0.2, 0.22), CFrame.new(0.55, 0.78, 0.62) * CFrame.Angles(0, 0, 0.55), color("VestTrim"))
+		for _, side in { "Left", "Right" } do
+			o(side .. "Hand", "Glove", Vector3.new(0.78, 0.66, 0.8), CFrame.new(0, 0, 0), color("Vest"))
+		end
+		o("LowerTorso", "Belt", Vector3.new(1.74, 0.2, 0.99), CFrame.new(0, 0.2, 0), color("Wraps"))
+		legs(ctx, { feet = "tabi" })
+	end,
+}
+
+-- RYUKEN 拳: tall white hair standing up like flames (red tips), a scar across the nose, a
+-- black tank top with a torn hem, red bandages up the forearms and a buckled belt.
+BODIES.RYUKEN = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.LowerArm, pc.Hand = color("Shirt"), color("Wraps"), color("Wraps")
+	end,
+	head = function(ctx)
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.24, 0.4, 1.14), CFrame.new(0, 0.5, 0.04), hair)
+		local flames = {
+			{ x = -0.42, h = 1.3, tilt = -0.5, z = 0.1, lean = -20 }, { x = -0.22, h = 1.7, tilt = -0.25, z = 0, lean = -28 },
+			{ x = 0, h = 2.0, tilt = 0, z = 0.12, lean = -34 }, { x = 0.22, h = 1.75, tilt = 0.25, z = 0, lean = -28 },
+			{ x = 0.42, h = 1.35, tilt = 0.5, z = 0.1, lean = -20 }, { x = 0, h = 1.2, tilt = 0, z = 0.48, lean = -60 },
+		}
+		for i, f in flames do
+			o("Head", "HairFlame", Vector3.new(0.32, f.h, 0.9),
+				CFrame.new(f.x, 0.6 + f.h / 2.4, f.z) * CFrame.Angles(math.rad(f.lean), 0, f.tilt), if i % 2 == 0 then tip else hair, "WedgePart")
+		end
+		for i, x in { -0.36, -0.1, 0.18, 0.4 } do
+			o("Head", "Fringe", Vector3.new(0.24, 0.42, 0.12), CFrame.new(x, 0.3, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 2.5) * 0.2), hair, "WedgePart")
+		end
+		o("Head", "Scar", Vector3.new(0.5, 0.05, 0.04), CFrame.new(0, -0.02, -0.56) * CFrame.Angles(0, 0, 0.35), ctx.color("Wraps"))
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		o("UpperTorso", "Neckline", Vector3.new(0.62, 0.3, 0.04), CFrame.new(0, 0.56, -0.505), ctx.skin)
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "ChestLine", Vector3.new(0.6, 0.04, 0.04), CFrame.new(sign * 0.33, 0.12, -0.51) * CFrame.Angles(0, 0, sign * -0.18), ink)
+			o("UpperTorso", "Trap", Vector3.new(0.46, 0.24, 0.6), CFrame.new(sign * 0.52, 0.74, 0.05) * CFrame.Angles(0, 0, sign * -0.3), ctx.skin)
+		end
+		-- Torn hem: ragged teeth under the tank top.
+		for i = -3, 3 do
+			o("UpperTorso", "TornHem", Vector3.new(0.26, 0.2 + (i % 2) * 0.1, 0.06), CFrame.new(i * 0.26, -0.72, -0.51) * CFrame.Angles(math.rad(180), 0, 0), color("Shirt"), "WedgePart")
+		end
+		bareArms(ctx, ink, ink)
+		o("LowerTorso", "Belt", Vector3.new(1.76, 0.24, 1.0), CFrame.new(0, 0.2, 0), ink)
+		o("LowerTorso", "Buckle", Vector3.new(0.34, 0.28, 0.08), CFrame.new(0, 0.2, -0.53), color("VestTrim"))
+		legs(ctx, { feet = "sneakers" })
+	end,
+}
+
+-- SHIN 流: bangs swept over one eye, a high ponytail, a high collar over the mouth, a long
+-- coat with blue edges and tails down to the knees, gloves, wide trousers and boots.
+BODIES.SHIN = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("Vest"), color("Vest"), color("Vest"), color("Wraps")
+		pc.LowerLeg = color("Pants")
+	end,
+	head = function(ctx)
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.2, 0.36, 1.12), CFrame.new(0, 0.5, 0.06), hair)
+		o("Head", "SweptBang", Vector3.new(0.7, 0.75, 0.16), CFrame.new(0.2, 0.18, -0.55) * CFrame.Angles(math.rad(180), 0, 0.35), hair, "WedgePart")
+		o("Head", "BangTip", Vector3.new(0.3, 0.3, 0.17), CFrame.new(0.32, -0.12, -0.56) * CFrame.Angles(math.rad(180), 0, 0.35), tip, "WedgePart")
+		for _, sign in { -1, 1 } do
+			o("Head", "SideHair", Vector3.new(0.12, 0.62, 0.7), CFrame.new(sign * 0.58, 0.1, 0.05), hair)
+		end
+		o("Head", "TieKnot", Vector3.new(0.3, 0.26, 0.24), CFrame.new(0, 0.62, 0.5), ctx.color("Sash"))
+		ctx.tail("Head", "Ponytail", Vector3.new(0.32, 1.25, 0.26), CFrame.new(0, 0.6, 0.56) * CFrame.Angles(math.rad(-30), 0, 0), hair)
+		-- High collar over the mouth.
+		o("Head", "Collar", Vector3.new(1.16, 0.42, 1.08), CFrame.new(0, -0.42, 0.02), ctx.color("Shirt"))
+		o("Head", "CollarEdge", Vector3.new(1.18, 0.07, 1.1), CFrame.new(0, -0.2, 0.02), ctx.color("VestTrim"))
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		local trim = color("VestTrim")
+		-- Coat closed across the chest (diagonal edge), blue trims, sleeves with cuffs.
+		o("UpperTorso", "CoatEdge", Vector3.new(0.08, 1.5, 0.06), CFrame.new(-0.1, 0, -0.52) * CFrame.Angles(0, 0, 0.32), trim)
+		o("UpperTorso", "Shoulders", Vector3.new(2.0, 0.22, 1.08), CFrame.new(0, 0.62, 0), color("Vest"))
+		for _, side in { "Left", "Right" } do
+			o(side .. "LowerArm", "Cuff", Vector3.new(0.74, 0.2, 0.78), CFrame.new(0, -0.38, 0), trim)
+			o(side .. "UpperArm", "Sleeve", Vector3.new(0.8, 0.9, 0.84), CFrame.new(0, 0.04, 0), color("Vest"))
+		end
+		o("LowerTorso", "Sash", Vector3.new(1.76, 0.24, 1.0), CFrame.new(0, 0.22, 0), color("Sash"))
+		-- Coat tails: two in front, one behind, swaying.
+		for _, x in { -0.45, 0.45 } do
+			ctx.tail("LowerTorso", "CoatTail", Vector3.new(0.72, 1.6, 0.06), CFrame.new(x, 0.08, -0.52), color("Vest"))
+		end
+		ctx.tail("LowerTorso", "CoatBack", Vector3.new(1.5, 1.8, 0.06), CFrame.new(0, 0.1, 0.52) * CFrame.Angles(math.rad(8), 0, 0), color("Vest"))
+		legs(ctx, { wide = true, feet = "boots" })
+	end,
+}
+
+-- DAICHA 闇: long straight hair down the back, a white robe crossed in violet, wide sleeves,
+-- an obi with a knot and tails, dark trousers and soft boots.
+BODIES.DAICHA = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("Shirt"), color("Shirt"), color("Shirt"), color("SkinTone")
+	end,
+	head = function(ctx)
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.22, 0.36, 1.14), CFrame.new(0, 0.5, 0.05), hair)
+		o("Head", "Bangs", Vector3.new(1.06, 0.36, 0.14), CFrame.new(0, 0.32, -0.55) * CFrame.Angles(math.rad(180), 0, 0), hair, "WedgePart")
+		for _, sign in { -1, 1 } do
+			o("Head", "Curtain", Vector3.new(0.14, 1.3, 0.5), CFrame.new(sign * 0.6, -0.15, -0.1), hair)
+			o("Head", "CurtainTip", Vector3.new(0.15, 0.24, 0.5), CFrame.new(sign * 0.6, -0.86, -0.1), tip)
+		end
+		o("Head", "BackHair", Vector3.new(1.16, 1.1, 0.2), CFrame.new(0, 0, 0.56), hair)
+		ctx.tail("Head", "LongHair", Vector3.new(1.0, 1.9, 0.14), CFrame.new(0, -0.5, 0.62), hair)
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		local trim = color("VestTrim")
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "CrossCollar", Vector3.new(0.14, 1.3, 0.06), CFrame.new(sign * 0.18, 0.12, -0.52) * CFrame.Angles(0, 0, sign * 0.5), trim)
+		end
+		o("UpperTorso", "Neckline", Vector3.new(0.3, 0.3, 0.04), CFrame.new(0, 0.56, -0.505), ctx.skin)
+		for _, side in { "Left", "Right" } do
+			-- Wide sleeves hanging from the forearm.
+			o(side .. "LowerArm", "WideSleeve", Vector3.new(0.86, 0.95, 0.9), CFrame.new(0, -0.1, 0.06), color("Shirt"))
+			o(side .. "LowerArm", "SleeveEdge", Vector3.new(0.88, 0.1, 0.92), CFrame.new(0, -0.55, 0.06), trim)
+		end
+		o("LowerTorso", "Obi", Vector3.new(1.78, 0.44, 1.02), CFrame.new(0, 0.12, 0), color("Sash"))
+		o("LowerTorso", "ObiKnot", Vector3.new(0.5, 0.34, 0.2), CFrame.new(0, 0.12, 0.58), color("Sash"))
+		ctx.tail("LowerTorso", "ObiTail", Vector3.new(0.2, 1.3, 0.05), CFrame.new(-0.12, 0.06, 0.66) * CFrame.Angles(0, 0, 0.1), color("Sash"))
+		ctx.tail("LowerTorso", "ObiTail2", Vector3.new(0.2, 1.1, 0.05), CFrame.new(0.12, 0.06, 0.66) * CFrame.Angles(0, 0, -0.1), color("Sash"))
+		o("UpperTorso", "RobeHem", Vector3.new(1.98, 0.5, 1.06), CFrame.new(0, -0.66, 0), color("Shirt"))
+		legs(ctx, { wide = true, feet = "tabi" })
+		o("UpperTorso", "Fold", Vector3.new(0.04, 0.6, 0.04), CFrame.new(0.45, -0.2, -0.51), ink)
+	end,
+}
+
+-- HIBECARES 崩: wild hair under a red headband with his mark, a ragged sleeveless tunic, a
+-- chain across the chest, a stone pauldron, rope belt, heavy boots (his stone gauntlets and
+-- arm chains come from his outfit).
+BODIES.HIBECARES = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.Hand = color("Vest"), color("Wraps")
+		pc.LowerArm = color("SkinTone")
+	end,
+	head = function(ctx)
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.3, 0.44, 1.2), CFrame.new(0, 0.5, 0.06), hair)
+		for i = 1, 7 do
+			local a = (i - 4) * 0.4
+			o("Head", "WildHair", Vector3.new(0.38, 0.8 + (i % 3) * 0.2, 0.7),
+				CFrame.new(math.sin(a) * 0.55, 0.62 + math.cos(a) * 0.2, 0.1) * CFrame.Angles(math.rad(-25), 0, a * 1.1), if i == 4 then tip else hair, "WedgePart")
+		end
+		for _, sign in { -1, 1 } do
+			o("Head", "Shag", Vector3.new(0.2, 0.7, 0.8), CFrame.new(sign * 0.62, -0.05, 0.12) * CFrame.Angles(0, 0, sign * 0.15), hair)
+		end
+		local band = ctx.color("Sash")
+		o("Head", "Headband", Vector3.new(1.18, 0.2, 1.1), CFrame.new(0, 0.26, 0), band)
+		o("Head", "BandMark", Vector3.new(0.3, 0.16, 0.04), CFrame.new(0, 0.26, -0.57), ctx.white)
+		ctx.tail("Head", "BandTail", Vector3.new(0.18, 1.0, 0.05), CFrame.new(0.15, 0.24, 0.56) * CFrame.Angles(math.rad(-50), 0, 0.2), band)
+		o("Head", "Stubble", Vector3.new(0.8, 0.14, 0.06), CFrame.new(0, -0.44, -0.5), Color3.fromHex("5A4436"))
+	end,
+	body = function(ctx)
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		local metal = Color3.fromHex("4A4A52")
+		-- Ragged hem and torn shoulders of the tunic.
+		for i = -3, 3 do
+			o("UpperTorso", "Rag", Vector3.new(0.28, 0.26 + (i % 2) * 0.14, 0.06), CFrame.new(i * 0.27, -0.76, -0.51) * CFrame.Angles(math.rad(180), 0, 0), color("Vest"), "WedgePart")
+		end
+		-- A chain across the chest, link after link.
+		for i = 0, 8 do
+			local t = i / 8
+			material(o("UpperTorso", "ChainLink", Vector3.new(0.16, 0.24, 0.1),
+				CFrame.new(-0.8 + t * 1.6, 0.6 - t * 1.2, -0.56) * CFrame.Angles(0, 0, 0.64 + (i % 2) * 1.57), metal), Enum.Material.Metal)
+		end
+		material(o("LeftUpperArm", "Pauldron", Vector3.new(0.96, 0.5, 0.96), CFrame.new(0, 0.42, 0), color("Wraps")), Enum.Material.Slate)
+		material(o("LeftUpperArm", "PauldronRim", Vector3.new(1.0, 0.1, 1.0), CFrame.new(0, 0.18, 0), metal), Enum.Material.Metal)
+		bareArms(ctx, nil, nil)
+		o("LowerTorso", "Rope", Vector3.new(1.78, 0.18, 1.02), CFrame.new(0, 0.24, 0), color("PantsShade"))
+		o("LowerTorso", "RopeKnot", Vector3.new(0.26, 0.24, 0.16), CFrame.new(-0.3, 0.24, -0.56), color("PantsShade"))
+		legs(ctx, { feet = "boots" })
+	end,
+}
+
+-- TARO 火 (see taroHead / taroBody above).
+BODIES.TARO = {
+	colors = function(pc, color)
+		pc.UpperTorso, pc.LowerArm = color("SkinTone"), color("SkinTone")
+		pc.LowerLeg = color("SkinTone")
+	end,
+	head = function(ctx) RigBuilder.taroHead(ctx.ornament, ctx.hair, ctx.hairTip, ctx.skin, ctx.ink, ctx.white) end,
+	body = function(ctx) RigBuilder.taroBody(ctx.ornament, ctx.shaped, ctx.parts, ctx.color, ctx.data, ctx.ink) end,
+}
+RigBuilder.BODIES = BODIES
+
 function RigBuilder.build(slot, parent)
 	local data = CharacterData[slot]
 	local function color(key)
@@ -134,16 +459,13 @@ function RigBuilder.build(slot, parent)
 	end
 	-- Body parts and joints from the shared geometry (the offline animation tests use it too).
 	local spec = RigSpec.KAI
-	local taro = data.Kit == "TARO" -- the boxer has his own body (see the TARO sections below)
+	local custom = BODIES[data.Kit] -- every kit but KAI has its own hair and clothes (BODIES)
 	local PART_COLORS = {
 		HumanoidRootPart = ink, LowerTorso = color("Pants"), UpperTorso = color("Shirt"), Head = color("SkinTone"),
 		UpperArm = color("SkinTone"), LowerArm = color("Wraps"), Hand = color("Wraps"),
 		UpperLeg = color("Pants"), LowerLeg = color("PantsShade"), Foot = color("Shoes"),
 	}
-	if taro then
-		PART_COLORS.UpperTorso, PART_COLORS.LowerArm = color("SkinTone"), color("SkinTone")
-		PART_COLORS.LowerLeg = color("SkinTone")
-	end
+	if custom then custom.colors(PART_COLORS, color) end
 	local ORDER = { "HumanoidRootPart", "LowerTorso", "UpperTorso", "Head" }
 	for _, side in { "Left", "Right" } do
 		for _, piece in { "UpperArm", "LowerArm", "Hand", "UpperLeg", "LowerLeg", "Foot" } do
@@ -198,7 +520,7 @@ function RigBuilder.build(slot, parent)
 			CFrame.new(sign * 0.23, 0.12, -0.525) * CFrame.Angles(0, 0, sign * 0.18), ink)
 		ornament("Head", "Brow", Vector3.new(0.38, 0.08, 0.05),
 			CFrame.new(sign * 0.24, 0.22, -0.53) * CFrame.Angles(0, 0, sign * 0.34), ink)
-		if not taro then -- (KAI's side locks; TARO's hair is cut short)
+		if not custom then -- (KAI's side locks; the other kits have their own hair)
 			ornament("Head", "SideLock", Vector3.new(0.16, 0.8, 0.55), CFrame.new(sign * 0.6, 0.02, -0.12), hair)
 			ornament("Head", "SideSpike", Vector3.new(0.18, 0.55, 0.5),
 				CFrame.new(sign * 0.62, -0.42, -0.1) * CFrame.Angles(math.rad(180), 0, sign * 0.25), hair, "WedgePart")
@@ -208,8 +530,16 @@ function RigBuilder.build(slot, parent)
 	ornament("Head", "Mouth", Vector3.new(0.26, 0.04, 0.04), CFrame.new(0.02, -0.3, -0.51) * CFrame.Angles(0, 0, 0.08), ink)
 	ornament("Head", "Jaw", Vector3.new(0.9, 0.12, 0.8), CFrame.new(0, -0.53, -0.04), skin)
 
-	if taro then
-		RigBuilder.taroHead(ornament, hair, hairTip, skin, ink, white)
+	-- Shared context of the kits' own bodies (see BODIES).
+	local function bodyTail(regionName, name, size, pivot, partColor)
+		local base = parts[regionName]
+		local p = part(name, size, base.CFrame, partColor)
+		return hangTail(base, p, pivot)
+	end
+	local ctx = { ornament = ornament, shaped = shaped, tail = bodyTail, parts = parts, color = color, data = data,
+		ink = ink, white = white, skin = skin, hair = hair, hairTip = hairTip }
+	if custom then
+		custom.head(ctx)
 	else
 	-- Messy spiky black hair with red highlights: cap, fringe, crown and back spikes.
 	ornament("Head", "HairCap", Vector3.new(1.24, 0.42, 1.14), CFrame.new(0, 0.48, 0.04), hair)
@@ -226,7 +556,7 @@ function RigBuilder.build(slot, parent)
 		{ x = 0.32, h = 1.2, tilt = 0.28, z = 0.1, tip = true },
 		{ x = 0.5, h = 0.85, tilt = 0.55, z = 0.05, tip = false },
 	}
-	for _, sp in if data.Kit == "AKEMI" then {} else crown do -- under AKEMI's hood
+	for _, sp in crown do
 		ornament("Head", "HairSpike", Vector3.new(0.3, sp.h, 1.15),
 			CFrame.new(sp.x, 0.62 + sp.h / 2, sp.z + 0.12) * CFrame.Angles(0, 0, sp.tilt), if sp.tip then hairTip else hair, "WedgePart")
 	end
@@ -236,8 +566,8 @@ function RigBuilder.build(slot, parent)
 	end
 	end
 
-	if taro then
-		RigBuilder.taroBody(ornament, shaped, parts, color, data, ink)
+	if custom then
+		custom.body(ctx)
 	else
 	-- Tank top: scoop neckline, chest and abs lines drawn in ink.
 	ornament("UpperTorso", "Neckline", Vector3.new(0.62, 0.26, 0.04), CFrame.new(0, 0.58, -0.505), skin)
@@ -331,7 +661,8 @@ function RigBuilder.build(slot, parent)
 	outline.DepthMode = Enum.HighlightDepthMode.Occluded
 	outline.Parent = model
 	-- Another kit: its outfit over the block body (gloves, scarf, hood...).
-	if data.Kit ~= "KAI" then RigBuilder.applyKit(model, slot, true) end
+	-- (TARO's body draws its own kanji, a tattoo; the others carry it on the back)
+	if data.Kit ~= "KAI" then RigBuilder.applyKit(model, slot, data.Kit == "TARO", true) end
 	model:SetAttribute("Kit", data.Kit)
 	model:SetAttribute("Skin", data.Skin)
 	model.PrimaryPart, model.Parent = root, parent
@@ -489,12 +820,87 @@ function OUTFITS.AKEMI(o)
 	o.tail("LowerTorso", "ObiTail", Vector3.new(0.18, 1.1, 0.05), CFrame.new(waist.X * 0.3, waist.Y * 0.15, waist.Z * 0.6) * CFrame.Angles(math.rad(10), 0, 0.1), o.second)
 end
 
+-- RYUKEN 拳: red bandages up both forearms and a cracked black gauntlet on the right fist,
+-- its cracks glowing.
+function OUTFITS.RYUKEN(o)
+	for _, side in SIDES do
+		local name = side[1]
+		local arm = o.size(name .. "LowerArm")
+		for i, y in { 0.32, 0.1, -0.12, -0.34 } do
+			o.piece(name .. "LowerArm", "Bandage" .. i, Vector3.new(arm.X * 1.08, 0.1, arm.Z * 1.08),
+				CFrame.new(0, y * arm.Y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.18), o.second)
+		end
+	end
+	local hand = o.size("RightHand")
+	local w = math.max(hand.X, hand.Z)
+	o.piece("RightHand", "Gauntlet", Vector3.new(w * 1.2, w * 1.0, w * 1.22), CFrame.new(0, -w * 0.05, 0), o.color("Shirt"))
+	for i = 1, 3 do
+		o.piece("RightHand", "Crack" .. i, Vector3.new(w * 0.06, w * 0.7, 0.04), CFrame.new((i - 2) * w * 0.3, -w * 0.05, -w * 0.62)
+			* CFrame.Angles(0, 0, (i - 2) * 0.5), o.energy).Material = Enum.Material.Neon
+	end
+end
+
+-- SHIN 流: a katana in the right hand (its edge glowing), the sheath at the left hip, and on
+-- avatars a high collar.
+function OUTFITS.SHIN(o)
+	local hand = o.size("RightHand")
+	local h = hand.Y
+	local grip = CFrame.new(0, -h * 0.1, -0.1) * CFrame.Angles(math.rad(25), 0, 0)
+	local steel, edge = Color3.fromHex("D6DCE8"), o.energy
+	o.piece("RightHand", "Handle", Vector3.new(0.18, 0.18, 0.9), grip * CFrame.new(0, 0, 0.05), INK)
+	o.piece("RightHand", "Guard", Vector3.new(0.5, 0.5, 0.08), grip * CFrame.new(0, 0, -0.42), o.color("VestTrim"), Enum.PartType.Cylinder)
+	o.piece("RightHand", "Blade", Vector3.new(0.08, 0.22, 3.4), grip * CFrame.new(0, 0, -2.16), steel).Material = Enum.Material.Metal
+	o.piece("RightHand", "Edge", Vector3.new(0.09, 0.05, 3.3), grip * CFrame.new(0, -0.12, -2.12), edge).Material = Enum.Material.Neon
+	local waist = o.size("LowerTorso")
+	o.piece("LowerTorso", "Sheath", Vector3.new(0.2, 0.24, 3.0), CFrame.new(-waist.X * 0.52, 0, waist.Z * 0.2)
+		* CFrame.Angles(math.rad(-20), math.rad(10), 0), INK)
+	if not o.block then
+		local head = o.size("Head")
+		o.piece("Head", "Collar", Vector3.new(head.X * 1.06, head.Y * 0.38, head.Z * 1.06), CFrame.new(0, -head.Y * 0.36, 0), o.main)
+	end
+end
+
+-- DAICHA 闇: a sphere of shadow floating by the left hand (its glowing core), and on avatars
+-- the violet obi.
+function OUTFITS.DAICHA(o)
+	local hand = o.size("LeftHand")
+	o.piece("LeftHand", "ShadowOrb", Vector3.one * 0.9, CFrame.new(0, -hand.Y * 0.2, -0.95), Color3.fromHex("140A20"), Enum.PartType.Ball)
+	o.piece("LeftHand", "OrbCore", Vector3.one * 0.42, CFrame.new(0, -hand.Y * 0.2, -0.95), o.energy, Enum.PartType.Ball).Material = Enum.Material.Neon
+	if not o.block then
+		local waist = o.size("LowerTorso")
+		o.piece("LowerTorso", "Obi", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.4), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.12, 0), o.main)
+		o.tail("LowerTorso", "ObiTail", Vector3.new(0.2, 1.2, 0.05), CFrame.new(0, waist.Y * 0.1, waist.Z * 0.6), o.main)
+	end
+end
+
+-- HIBECARES 崩: stone gauntlets on both fists, chains wound round the forearms, and on avatars
+-- the red headband.
+function OUTFITS.HIBECARES(o)
+	local metal = Color3.fromHex("4A4A52")
+	for _, side in SIDES do
+		local name = side[1]
+		local hand = o.size(name .. "Hand")
+		local w = math.max(hand.X, hand.Z)
+		o.piece(name .. "Hand", "StoneFist", Vector3.new(w * 1.32, w * 1.12, w * 1.34), CFrame.new(0, -w * 0.06, -w * 0.04), o.second).Material = Enum.Material.Slate
+		o.piece(name .. "Hand", "Ember", Vector3.new(w * 0.5, 0.06, 0.04), CFrame.new(0, -w * 0.1, -w * 0.68), o.energy).Material = Enum.Material.Neon
+		local arm = o.size(name .. "LowerArm")
+		for i, y in { 0.3, 0.05, -0.2 } do
+			o.piece(name .. "LowerArm", "Chain" .. i, Vector3.new(arm.X * 1.14, 0.12, arm.Z * 1.14),
+				CFrame.new(0, y * arm.Y, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.25), metal).Material = Enum.Material.Metal
+		end
+	end
+	if not o.block then
+		local head = o.size("Head")
+		o.piece("Head", "Headband", Vector3.new(head.X * 1.05, head.Y * 0.18, head.Z * 1.05), CFrame.new(0, head.Y * 0.2, 0), o.main)
+	end
+end
+
 --[[
 	The kit's outfit worn over a body (a Roblox R15 or R6 avatar, or the block model of a kit
 	other than KAI): every piece is sized from the body's own parts so it fits any avatar, and
 	the kit's kanji goes on the back unless `noEmblem` (the block model draws its own).
 ]]
-function RigBuilder.applyKit(model, slot, noEmblem)
+function RigBuilder.applyKit(model, slot, noEmblem, block)
 	local data = CharacterData[slot]
 	local function color(key)
 		return Color3.fromHex(data[key] or "FFFFFF")
@@ -508,7 +914,7 @@ function RigBuilder.applyKit(model, slot, noEmblem)
 		return p
 	end
 	-- (block: the kit's own block body, which already draws some pieces, e.g. TARO's towel)
-	local o = { main = color("Sash"), second = color("Wraps"), energy = color("Energy"), color = color, block = noEmblem == true }
+	local o = { main = color("Sash"), second = color("Wraps"), energy = color("Energy"), color = color, block = block == true }
 	function o.size(name)
 		local _, _, size = region(model, name)
 		return size or Vector3.one

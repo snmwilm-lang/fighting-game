@@ -111,6 +111,55 @@ for _, kit in KITS do
 		end
 	end
 end
+-- Roblox's avatar joint upgrade: the joints arrive as AnimationConstraints (with rig
+-- attachments, or not) instead of Motor6D. RigReader.ensureJoints rebuilds the Motor6D so
+-- the body can be animated, without moving any part.
+local function near(a, b)
+	local ax, ay, az, a1, a2, a3, a4, a5, a6, a7, a8, a9 = a:GetComponents()
+	local bx, by, bz, b1, b2, b3, b4, b5, b6, b7, b8, b9 = b:GetComponents()
+	local d = 0
+	for _, pair in { { ax, bx }, { ay, by }, { az, bz }, { a1, b1 }, { a5, b5 }, { a9, b9 }, { a2, b2 }, { a4, b4 } } do
+		d = math.max(d, math.abs(pair[1] - pair[2]))
+	end
+	return d < 1e-4
+end
+local function upgraded(model, withAttachments)
+	for _, d in model:GetDescendants() do
+		if d.ClassName == "Motor6D" then
+			local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+			a0.Name, a1.Name = d.Name .. (if withAttachments then "RigAttachment" else "Point"), d.Name .. (if withAttachments then "RigAttachment" else "Point")
+			a0.CFrame, a1.CFrame = d.C0, d.C1
+			a0.Parent, a1.Parent = d.Part0, d.Part1
+			local c = Instance.new("AnimationConstraint")
+			c.Name, c.Attachment0, c.Attachment1 = d.Name, a0, a1
+			c.Parent = d.Part1
+			d:Destroy()
+		end
+	end
+	return model
+end
+local function jointsCheck(label, model, expected)
+	local before = {}
+	for _, p in Mock.parts(model) do before[p] = p.CFrame end
+	local rebuilt = RigReader.ensureJoints(model)
+	if rebuilt ~= expected then fail(string.format("%s: %d joints rebuilt instead of %d", label, rebuilt, expected)) end
+	local skeleton = RigReader.skeleton(model)
+	if not skeleton then fail(label .. ": the skeleton still cannot be read") end
+	for _, d in model:GetDescendants() do
+		if d.ClassName == "AnimationConstraint" then fail(label .. ": constraint " .. d.Name .. " left") end
+		if d.ClassName == "Motor6D" and not near(d.Part0.CFrame * d.C0 * d.C1:Inverse(), d.Part1.CFrame) then
+			fail(label .. ": joint " .. d.Name .. " would move " .. d.Part1.Name)
+		end
+	end
+	if RigReader.ensureJoints(model) ~= 0 then fail(label .. ": joints rebuilt twice") end
+	if mode == "check" then print("ok   " .. label) end
+end
+CharacterData[1] = CharacterData.Skins.CLASSIQUE
+jointsCheck("R15 with AnimationConstraints + rig attachments", upgraded(RigBuilder.build(1, nil), true), 15)
+jointsCheck("R15 with AnimationConstraints, no rig attachment", upgraded(RigBuilder.build(1, nil), false), 15)
+jointsCheck("R15 already in Motor6D", RigBuilder.build(1, nil), 0)
+jointsCheck("R6 without joints", r6Body(), 6)
+
 if mode == "check" then
 	print(if failures == 0 then "all bodies built" else failures .. " failure(s)")
 end
@@ -122,11 +171,14 @@ def combined():
         'Mock.game, Mock.workspace, Mock.Instance, Mock.Vector3, Mock.CFrame, Mock.Color3, Mock.Enum, Mock.UDim2, Mock.Vector2\n' \
         'local typeof = Mock.typeof\n' \
         'local task = { spawn = function(f, ...) return f(...) end, defer = function() end, wait = function() end }\n'
+    reader = open(os.path.join(ROOT, 'src/shared/RigReader.luau'), encoding='utf-8').read()
+    reader = reader.replace('local Shared = script.Parent', '')
+    reader = re.sub(r'require\(Shared\.(\w+)\)', r'require("../src/shared/\1")', reader)
     src = open(os.path.join(ROOT, 'src/server/RigBuilder.luau'), encoding='utf-8').read()
-    # RigReader reads live avatars (script.Parent): not needed for the bodies built here.
-    src = src.replace('require(Shared.RigReader)', '{}')
+    src = src.replace('require(Shared.RigReader)', 'RigReader')
     src = re.sub(r'require\(Shared\.(\w+)\)', r'require("../src/shared/\1")', src)
-    return mock + 'local RigBuilder = (function()\n' + src + '\nend)()\n' + DRIVER
+    return (mock + 'local RigReader = (function()\n' + reader + '\nend)()\n'
+            + 'local RigBuilder = (function()\n' + src + '\nend)()\n' + DRIVER)
 
 def run(mode):
     path = os.path.join(ROOT, 'tools', '.rigcheck.luau')

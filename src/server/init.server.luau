@@ -8,6 +8,7 @@ local CharacterData = require(Shared.CharacterData)
 local Sim = require(Shared.CombatSimulation)
 local FighterAI = require(Shared.FighterAI)
 local PressQueue = require(Shared.PressQueue)
+local RigReader = require(Shared.RigReader)
 local ArenaBuilder = require(script.ArenaBuilder)
 local RigBuilder = require(script.RigBuilder)
 local Lobby = require(script.Lobby)
@@ -101,6 +102,9 @@ local function swapModel(i, model)
 	if owner then owner.Character = nil end
 	slot.model:Destroy()
 	model.Parent = fightersFolder
+	-- Once in the world, check the joints again (a Humanoid may rebuild its own).
+	local rebuilt = RigReader.ensureJoints(model)
+	if rebuilt > 0 then print("[FightingGame] " .. model.Name .. " : " .. rebuilt .. " articulations reconstruites après placement") end
 	slot.model = model
 	if owner then owner.Character = model end
 	watchRig(i)
@@ -131,7 +135,11 @@ local function rebuildSlot(i)
 			slot.building = (slot.building or 0) + 1
 			local ticket = slot.building
 			task.spawn(function()
-				local model = RigBuilder.buildShadow(i, other, rigOf(other, otherClient)) -- yields while loading
+				local ok, model = pcall(RigBuilder.buildShadow, i, other, rigOf(other, otherClient)) -- yields while loading
+				if not ok then
+					warn("[FightingGame] Clone d'ombre impossible : " .. tostring(model))
+					model = nil
+				end
 				if slot.owner or slot.building ~= ticket then
 					if model then model:Destroy() end
 					return
@@ -149,7 +157,12 @@ local function rebuildSlot(i)
 		owner:SetAttribute("AvatarStatus", "CHARGEMENT")
 		task.spawn(function()
 			-- Own avatar + kit; a default body + kit if the avatar cannot load (see RigBuilder).
-			local model, status = RigBuilder.buildAvatar(i, owner, rigOf(owner, client)) -- yields while loading
+			local ok, model, status = pcall(RigBuilder.buildAvatar, i, owner, rigOf(owner, client)) -- yields while loading
+			if not ok then
+				-- A Roblox error while building: say it on screen instead of loading forever.
+				warn("[FightingGame] Avatar impossible : " .. tostring(model))
+				model, status = nil, "MODÈLE|" .. tostring(model):sub(1, 90)
+			end
 			if slot.owner ~= owner or not client.avatar or slot.building ~= ticket then
 				if model then model:Destroy() end
 				return

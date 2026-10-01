@@ -124,6 +124,7 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	end
 end)
 
+local firstSeen = setmetatable({}, { __mode = "k" }) -- model -> first time seen incomplete
 local function findRig(slot)
 	local model = folder:FindFirstChild("Fighter" .. slot)
 	if not model then return nil end
@@ -136,7 +137,14 @@ local function findRig(slot)
 			if child:IsA("Motor6D") then motorCount += 1 end
 		end
 		-- Wait for complete rig replication (15 joints on R15 and KAI, 6 on R6).
-		if motorCount < (if RigReader.rigType(model) == "R6" then 6 else 15) then return nil end
+		local needed = if RigReader.rigType(model) == "R6" then 6 else 15
+		if motorCount < needed then
+			-- Joints that never arrive as Motor6D (Roblox's avatar joint upgrade turns them into
+			-- constraints): after a moment, rebuild them here so the body can be animated.
+			firstSeen[model] = firstSeen[model] or os.clock()
+			if os.clock() - firstSeen[model] < 2 or RigReader.ensureJoints(model) == 0 then return nil end
+			warn("[FightingGame] Articulations de " .. model.Name .. " reconstruites côté client")
+		end
 		local animation = AnimationController.new(model)
 		cached = {
 			model = model, root = root, animation = animation, readAt = os.clock(),

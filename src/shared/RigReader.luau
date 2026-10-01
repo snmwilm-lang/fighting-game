@@ -35,6 +35,77 @@ function RigReader.skeleton(model)
 	return if ok then skeleton else nil, motors, rigType
 end
 
+--[[
+	The animation drives Motor6D joints with RigSpec's names. A body built by Roblox can
+	arrive without them: Roblox's avatar joint upgrade replaces R15 Motor6D by
+	AnimationConstraint (+ BallSocketConstraint), and some bodies carry a joint under another
+	name. Every missing Motor6D is rebuilt between the same two parts, from their rig
+	attachments (as Humanoid:BuildRigFromAttachments does), else from the standard R6 joint
+	frames or the KAI rig's pivots scaled to the parts; the joints it replaces between those
+	two parts are removed. Returns the number of joints rebuilt (0 for a body already fine).
+	The server calls it on every body; a client only on a body whose joints never arrived.
+]]
+local function cframe(c, k)
+	return CFrame.new(c[1] * k, c[2] * k, c[3] * k, c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12])
+end
+local REPLACED = { "AnimationConstraint", "BallSocketConstraint", "HingeConstraint", "Weld", "WeldConstraint", "Motor6D" }
+
+function RigReader.ensureJoints(model)
+	local rigType = RigReader.rigType(model)
+	local list = if rigType == "R6" then RigSpec.R6.joints else RigSpec.KAI.joints
+	local found = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("Motor6D") and d.Part0 and d.Part1 then found[d.Name] = d end
+	end
+	local rebuilt = 0
+	for _, j in list do
+		local part0, part1 = model:FindFirstChild(j.part0), model:FindFirstChild(j.part1)
+		if not found[j.name] and part0 and part1 and part0:IsA("BasePart") and part1:IsA("BasePart") then
+			local c0, c1
+			local a0, a1 = part0:FindFirstChild(j.name .. "RigAttachment"), part1:FindFirstChild(j.name .. "RigAttachment")
+			if a0 and a1 and a0:IsA("Attachment") and a1:IsA("Attachment") then
+				c0, c1 = a0.CFrame, a1.CFrame
+			elseif rigType == "R6" then
+				local torso = model:FindFirstChild("Torso")
+				local k = if torso and torso:IsA("BasePart") then torso.Size.Y / 2 else 1
+				c0, c1 = cframe(j.c0, k), cframe(j.c1, k)
+			else
+				-- The KAI rig's pivot, placed on this body's part in proportion to its size.
+				local spec = RigSpec.KAI.parts[j.part1]
+				local s = part1.Size
+				local offset = Vector3.new(
+					(j.pivot[1] - spec.pos[1]) / spec.size[1] * s.X,
+					(j.pivot[2] - spec.pos[2]) / spec.size[2] * s.Y,
+					(j.pivot[3] - spec.pos[3]) / spec.size[3] * s.Z)
+				local pivot = part1.CFrame * CFrame.new(offset)
+				c0, c1 = part0.CFrame:ToObjectSpace(pivot), part1.CFrame:ToObjectSpace(pivot)
+			end
+			-- Whatever joined these two parts before goes (accessory welds join other parts).
+			for _, d in model:GetDescendants() do
+				for _, class in REPLACED do
+					if d:IsA(class) then
+						local p0, p1
+						if d:IsA("Constraint") then
+							p0 = d.Attachment0 and d.Attachment0.Parent
+							p1 = d.Attachment1 and d.Attachment1.Parent
+						else
+							p0, p1 = d.Part0, d.Part1
+						end
+						if (p0 == part0 and p1 == part1) or (p0 == part1 and p1 == part0) then d:Destroy() end
+						break
+					end
+				end
+			end
+			local motor = Instance.new("Motor6D")
+			motor.Name, motor.Part0, motor.Part1, motor.C0, motor.C1 = j.name, part0, part1, c0, c1
+			motor.Parent = if rigType == "R6" then part0 else part1
+			found[j.name] = motor
+			rebuilt += 1
+		end
+	end
+	return rebuilt
+end
+
 -- R15 part names used by effects and cinematics, found on an R6 body too.
 local R6_ALIASES = {
 	UpperTorso = "Torso", LowerTorso = "Torso",

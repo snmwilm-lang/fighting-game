@@ -728,7 +728,9 @@ function HUD:update(world, views, fps, dt)
 	local avatarStatus = player:GetAttribute("AvatarStatus")
 	local kind, reason = string.match(tostring(avatarStatus or ""), "^([^|]*)|?(.*)$")
 	local note = ""
-	if player:GetAttribute("Avatar") and kind and kind ~= "" then
+	if kind == "MODÈLE" then
+		note = " · avatar impossible, modèle en blocs (" .. reason .. ")"
+	elseif player:GetAttribute("Avatar") and kind and kind ~= "" then
 		note = if kind == "CHARGEMENT" then " · AVATAR : chargement…"
 			elseif kind == "OK" then " · AVATAR " .. rig .. " + KIT " .. CharacterData[math.max(localSlot, 1)].Kit
 			elseif kind == "SANS ACCESSOIRES" then " · AVATAR sans accessoires (" .. reason .. ")"

@@ -140,6 +140,7 @@ local function newInstance(className)
 		self.Size, self.CFrame, self.Color = vec(1, 1, 1), Mock.CFrame.identity, Mock.Color3.new(0.6, 0.6, 0.6)
 		self.Transparency, self.Shape = 0, "PartType.Block"
 	end
+	if className == "Attachment" then self.CFrame = Mock.CFrame.identity end
 	table.insert(instances, self)
 	return setmetatable(self, Inst)
 end
@@ -166,10 +167,15 @@ function Inst.__newindex(t, k, v)
 	end
 	rawset(t, k, v)
 end
+-- A few base classes of the Roblox hierarchy.
+local PARENT_CLASS = {
+	AnimationConstraint = "Constraint", BallSocketConstraint = "Constraint", HingeConstraint = "Constraint",
+	Motor6D = "JointInstance", Weld = "JointInstance",
+}
 function Inst.IsA(t, class)
 	if class == "BasePart" then return BASEPARTS[t.ClassName] == true end
 	if class == "Instance" then return true end
-	return t.ClassName == class
+	return t.ClassName == class or PARENT_CLASS[t.ClassName] == class
 end
 function Inst.FindFirstChild(t, name, recursive)
 	for _, c in rawget(t, "_children") do

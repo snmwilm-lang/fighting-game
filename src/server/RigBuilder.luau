@@ -636,6 +636,12 @@ local function fromDescription(slot, description, label, rigType)
 		model:Destroy()
 		return nil, "corps sans HumanoidRootPart"
 	end
+	-- Joints the animation can drive (Motor6D), whatever Roblox built (see RigReader).
+	local rebuilt = RigReader.ensureJoints(model)
+	if rebuilt > 0 then
+		model:SetAttribute("JointsRebuilt", rebuilt)
+		print(string.format("[FightingGame] Avatar %s : %d articulations reconstruites en Motor6D", rigType, rebuilt))
+	end
 	local complete, missing = hasJoints(model, rigType)
 	if not complete then
 		model:Destroy()

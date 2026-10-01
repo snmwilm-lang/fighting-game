@@ -17,6 +17,7 @@ local RigReader = require(Shared.RigReader)
 local Kinematics = require(Shared.Kinematics)
 local PoseLibrary = require(Shared.PoseLibrary)
 local Animator = require(Shared.Animator)
+local Retarget = require(Shared.Retarget)
 
 local rad = math.rad
 
@@ -24,17 +25,25 @@ local AnimationController = {}
 AnimationController.__index = AnimationController
 
 function AnimationController.new(model)
-	local skeleton, motors = RigReader.skeleton(model)
-	skeleton = skeleton or Kinematics.fromSpec(RigSpec.KAI)
+	local skeleton, motors, rigType = RigReader.skeleton(model)
 	local self = setmetatable({ model = model, joints = {}, tails = {} }, AnimationController)
 	for name, motor in motors do
 		self.joints[name] = { joint = motor, base = motor.C0 }
 	end
+	local animated = skeleton
+	if rigType == "R6" and skeleton then
+		-- R6: the animation runs on a virtual R15 body with its proportions, then each rigid
+		-- R6 limb is aimed along it (see Retarget).
+		self.retarget = Retarget.new(Kinematics, skeleton)
+		animated = self.retarget.virtual
+	end
+	animated = animated or Kinematics.fromSpec(RigSpec.KAI)
 	self.animator = Animator.new({
-		poses = PoseLibrary, moves = MoveData.Moves, kin = Kinematics, config = Config, skeleton = skeleton,
+		poses = PoseLibrary, moves = MoveData.Moves, kin = Kinematics, config = Config, skeleton = animated,
+		kits = MoveData.Kits, moveKit = MoveData.MoveKit,
 	})
 	-- Root height that rests the bind pose's feet on the floor, measured on this body.
-	self.rootHeight = self.animator.rootHeight
+	self.rootHeight = if self.retarget then -skeleton.floor else self.animator.rootHeight
 	-- Cloth tails (sash, headband) hang from Welds named TailJoint (see RigBuilder).
 	for _, d in model:GetDescendants() do
 		if d:IsA("Weld") and d.Name == "TailJoint" and d.Part0 and d.Part1 then
@@ -51,6 +60,15 @@ end
 -- facing, hitstop, combo, victory, intro, pose }); other: the opponent's view.
 function AnimationController:update(view, other, dt, now, poseRate, cinematic)
 	local pose, lift = self.animator:step(view, other, dt, now, poseRate, cinematic)
+	if self.retarget then
+		local c0 = Retarget.solve(self.retarget, pose, view.y or 0)
+		for name, info in self.joints do
+			local value = c0[name]
+			if value then info.joint.C0 = CFrame.new(table.unpack(value)) end
+		end
+		self:swayTails(dt, now)
+		return
+	end
 	for name, info in self.joints do
 		local v = pose[name]
 		local offset = CFrame.identity

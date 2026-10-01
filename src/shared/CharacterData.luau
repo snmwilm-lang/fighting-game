@@ -1,18 +1,27 @@
 -- Kits. A kit is a fighting style worn by the player's own Roblox avatar: its moveset and
--- ultimates, its ki colour, and an outfit overlay (headband, sash, hand wraps, back emblem)
--- sized on the avatar's real parts. KAI 開 is the first kit, from Wilhem's art direction
--- sheet; its four colour styles come from the same sheet (CLASSIQUE, NUIT, SACRÉ, MAUDIT).
+-- ultimates (MoveData.Kits), its ki colour, and an outfit overlay sized on the avatar's real
+-- parts. Each kit has colour styles: KAI 開 (CLASSIQUE, NUIT, SACRÉ, MAUDIT, from Wilhem's
+-- art direction sheet), TARO 火 the boxer, ZEPHYR 風 the kicker, AKEMI 影 the shadow.
 --
 -- CharacterData[slot] is the look currently used by a slot. It is the only mutable part of
--- this module: the server changes it when a player picks another style and sends the style
--- name in the snapshot; clients apply it the same way, so every module sees the same look.
--- Colours are hex strings so the data stays engine-independent.
-local function skin(name, colors)
-	colors.Name = "KAI"
-	colors.Kanji = "開"
-	colors.Kit = "KAI"
+-- this module: the server changes it when a player picks another kit or style and sends the
+-- style name in the snapshot; clients apply it the same way, so every module sees the same
+-- look. Colours are hex strings so the data stays engine-independent.
+-- Every style carries the fields of the KAI block model (Hair, Vest...) and the outfit
+-- colours: Sash = main outfit colour (KAI sash, TARO gloves, ZEPHYR scarf, AKEMI mask),
+-- Wraps = second colour (bands, guards).
+local KANJI = { KAI = "開", TARO = "火", ZEPHYR = "風", AKEMI = "影" }
+
+local function style(kit, name, colors)
+	colors.Name = kit
+	colors.Kanji = KANJI[kit]
+	colors.Kit = kit
 	colors.Skin = name
 	return table.freeze(colors)
+end
+
+local function skin(name, colors)
+	return style("KAI", name, colors)
 end
 
 local Skins = table.freeze({
@@ -56,24 +65,93 @@ local Skins = table.freeze({
 		Energy = "B060FF",
 		Shield = "FF4FD8",
 	}),
+	-- TARO 火: red gloves and gold trim (BRASIER), white and gold champion (CHAMPION).
+	BRASIER = style("TARO", "BRASIER", {
+		Hair = "1A1210", HairTip = "FF6A1A", SkinTone = "D9A07F", Eyes = "B8420E",
+		Vest = "1B1B21", VestTrim = "FFB21A", Shirt = "2A1A16",
+		Sash = "D8261A", Wraps = "FFB21A",
+		Pants = "B8261A", PantsShade = "7A1610",
+		Shoes = "1B1B21", ShoeAccent = "FFB21A", Sole = "F2F2F5",
+		Energy = "FF6A1A", Shield = "FFD45A",
+	}),
+	CHAMPION = style("TARO", "CHAMPION", {
+		Hair = "2A1A12", HairTip = "FFD45A", SkinTone = "C98F6E", Eyes = "8E5A10",
+		Vest = "F2F2F5", VestTrim = "FFD45A", Shirt = "F2F2F5",
+		Sash = "F2F2F5", Wraps = "FFD45A",
+		Pants = "F2F2F5", PantsShade = "D6CDBA",
+		Shoes = "F2F2F5", ShoeAccent = "FFD45A", Sole = "1B1B21",
+		Energy = "FFB21A", Shield = "FF6A1A",
+	}),
+	-- ZEPHYR 風: teal scarf (AZUR), storm grey and white (TEMPÊTE).
+	AZUR = style("ZEPHYR", "AZUR", {
+		Hair = "E8F4F2", HairTip = "5FE0D0", SkinTone = "E3B08F", Eyes = "1E9A8E",
+		Vest = "1E5E66", VestTrim = "5FE0D0", Shirt = "E8F4F2",
+		Sash = "2BB8A8", Wraps = "E8F4F2",
+		Pants = "1A3C44", PantsShade = "12282E",
+		Shoes = "E8F4F2", ShoeAccent = "5FE0D0", Sole = "1A3C44",
+		Energy = "5FE0D0", Shield = "C8F4FF",
+	}),
+	["TEMPÊTE"] = style("ZEPHYR", "TEMPÊTE", {
+		Hair = "2A2E38", HairTip = "C8F4FF", SkinTone = "D9A07F", Eyes = "6E7BFF",
+		Vest = "3A3F4C", VestTrim = "C8F4FF", Shirt = "D6DCE8",
+		Sash = "D6DCE8", Wraps = "6E7BFF",
+		Pants = "2A2E38", PantsShade = "1C1F27",
+		Shoes = "D6DCE8", ShoeAccent = "6E7BFF", Sole = "1C1F27",
+		Energy = "9FD8FF", Shield = "6E7BFF",
+	}),
+	-- AKEMI 影: black and violet (OMBRE), black and crimson (LUNE ROUGE).
+	OMBRE = style("AKEMI", "OMBRE", {
+		Hair = "0E0A14", HairTip = "8A3CFF", SkinTone = "D8B09A", Eyes = "8A3CFF",
+		Vest = "14101C", VestTrim = "8A3CFF", Shirt = "1E1828",
+		Sash = "1E1828", Wraps = "8A3CFF",
+		Pants = "14101C", PantsShade = "0C0812",
+		Shoes = "14101C", ShoeAccent = "8A3CFF", Sole = "0C0812",
+		Energy = "B060FF", Shield = "6E7BFF",
+	}),
+	["LUNE ROUGE"] = style("AKEMI", "LUNE ROUGE", {
+		Hair = "0E0A0C", HairTip = "E0102B", SkinTone = "E3B8A0", Eyes = "C8102E",
+		Vest = "120A0C", VestTrim = "E0102B", Shirt = "1E1214",
+		Sash = "1E1214", Wraps = "E0102B",
+		Pants = "120A0C", PantsShade = "0A0607",
+		Shoes = "120A0C", ShoeAccent = "E0102B", Sole = "0A0607",
+		Energy = "FF2A3D", Shield = "FF9F40",
+	}),
+})
+
+local STYLE_ORDER = table.freeze({
+	KAI = table.freeze({ "CLASSIQUE", "NUIT", "SACRÉ", "MAUDIT" }),
+	TARO = table.freeze({ "BRASIER", "CHAMPION" }),
+	ZEPHYR = table.freeze({ "AZUR", "TEMPÊTE" }),
+	AKEMI = table.freeze({ "OMBRE", "LUNE ROUGE" }),
 })
 
 local CharacterData = {
 	Skins = Skins,
-	SkinOrder = table.freeze({ "CLASSIQUE", "NUIT", "SACRÉ", "MAUDIT" }),
+	StyleOrder = STYLE_ORDER,
+	SkinOrder = STYLE_ORDER.KAI, -- KAI's styles (older name)
 	Skins.CLASSIQUE, -- slot 1
 	Skins.NUIT, -- slot 2
 }
 
--- Next style in the order, skipping `avoid` (the opponent's style).
+-- Next style of the same kit, skipping `avoid` (the opponent's style).
 function CharacterData.nextSkin(current, avoid)
-	local order = CharacterData.SkinOrder
+	local kit = Skins[current] and Skins[current].Kit or "KAI"
+	local order = STYLE_ORDER[kit]
 	local index = table.find(order, current) or 0
 	for step = 1, #order do
 		local name = order[(index + step - 1) % #order + 1]
 		if name ~= avoid then return name end
 	end
 	return current
+end
+
+-- First style of a kit that differs from `avoid`.
+function CharacterData.defaultStyle(kit, avoid)
+	local order = STYLE_ORDER[kit] or STYLE_ORDER.KAI
+	for _, name in order do
+		if name ~= avoid then return name end
+	end
+	return order[1]
 end
 
 return CharacterData

@@ -110,8 +110,11 @@ local function views(world)
 	return list
 end
 
-local function playCinematic(moveId, style, hp, center)
+-- kind: "Rush", "Awaken" or "Gate", played by `kit` (KAI by default) against KAI.
+local function playCinematic(kind, style, hp, center, kit)
 	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit or "KAI", "KAI")
+	local moveId = kind
 	world.phase = "Fight"
 	world.fighters[1].x, world.fighters[2].x = center - 1.3, center + 1.3
 	Sim.debugCinematic(world, 1, moveId, style, hp)
@@ -140,34 +143,56 @@ end
 
 print("CinematicDirector")
 
-local cases = { { "KaienRush" }, { "Kaiten" }, { "Kaiten", nil, 300 } }
-for _, route in MoveData.FullRoutes do
-	table.insert(cases, { "Awakening", route.name })
-end
-table.insert(cases, { "Awakening", "TORNADE", 300 })
-
-for _, case in cases do
-	for _, center in { 0, Config.ArenaMaxX - 4, Config.ArenaMinX + 4 } do
-		local name = string.format("%s%s%s at x=%d", case[1], if case[2] then "/" .. case[2] else "",
-			if case[3] then "/FINISH" else "", center)
-		test(name .. ": every shot is well placed", function()
-			local failures = playCinematic(case[1], case[2], case[3], center)
-			report(name, failures)
-		end)
+for _, kit in MoveData.KitOrder do
+	local routes = MoveData.Kits[kit].FullRoutes
+	local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 } }
+	for _, route in routes do
+		table.insert(cases, { "Awaken", route.name })
+	end
+	table.insert(cases, { "Awaken", routes[1].name, 300 })
+	for _, case in cases do
+		for _, center in { 0, Config.ArenaMaxX - 4, Config.ArenaMinX + 4 } do
+			local name = string.format("%s %s%s%s at x=%d", kit, case[1], if case[2] then "/" .. case[2] else "",
+				if case[3] then "/FINISH" else "", center)
+			test(name .. ": every shot is well placed", function()
+				local failures = playCinematic(case[1], case[2], case[3], center, kit)
+				report(name, failures)
+			end)
+		end
 	end
 end
 
 test("FINAL FINISH plays every shot of the K.O. storyboard", function()
-	local _, shots = playCinematic("Awakening", "DRAGON", 300, 0)
+	local _, shots = playCinematic("Awaken", "DRAGON", 300, 0)
 	for _, name in { "ko-fall", "ko-hand", "ko-scene1", "ko-feet", "ko-face", "ko-scene2", "ko-back", "ko-wide" } do
 		expect(shots[name], "missing shot " .. name)
+	end
+end)
+
+test("each kit's cinematics use its own moves", function()
+	for _, kit in MoveData.KitOrder do
+		local world = Sim.newWorld(Config, MoveData, true)
+		Sim.setKits(world, kit, "KAI")
+		world.phase = "Fight"
+		Sim.debugCinematic(world, 1, "Awaken", MoveData.Kits[kit].FullRoutes[1].name, nil)
+		local anchors = {}
+		while world.cinematic do
+			local cin = world.cinematic
+			local v = views(world)
+			Director.cinematic({ cin = cin, tick = cin.tick, views = v, anchors = anchors,
+				moveData = MoveData, config = Config, characters = CharacterData })
+			if v[1].state == "Attack" and v[1].move then
+				expect(MoveData.MoveKit[v[1].move] == kit, kit .. " staged with " .. v[1].move)
+			end
+			Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+		end
 	end
 end)
 
 test("each ÉVEIL route has its own finale", function()
 	local seen = {}
 	for _, route in MoveData.FullRoutes do
-		local _, shots = playCinematic("Awakening", route.name, nil, 0)
+		local _, shots = playCinematic("Awaken", route.name, nil, 0)
 		local own = {}
 		for shotName in shots do
 			if not shotName:find("^eveil") and not shotName:find("^ko") then table.insert(own, shotName) end

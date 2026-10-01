@@ -98,8 +98,19 @@ local function swapModel(i, model)
 	place(slot, world.fighters[i])
 end
 
--- Rebuilds a slot's rig: the owner's Roblox avatar (R15) when they chose it, KAI otherwise.
--- An empty slot (CPU / dummy) becomes a shadow clone of the other player's avatar.
+-- The avatar body type of a player: the one they picked in APPARENCE, else the one of their
+-- Roblox account (read once, may yield).
+local function rigOf(player, client)
+	if not client.rig then
+		client.rig = RigBuilder.preferredRig(player)
+		player:SetAttribute("AvatarRig", client.rig)
+	end
+	return client.rig
+end
+
+-- Rebuilds a slot's rig: the owner's Roblox avatar (R15 or R6) wearing the kit when they
+-- chose it, the block model otherwise. An empty slot (CPU / dummy) becomes a shadow clone of
+-- the other player's avatar, with the same body type.
 local function rebuildSlot(i)
 	local slot = slots[i]
 	local owner = slot.owner
@@ -111,7 +122,7 @@ local function rebuildSlot(i)
 			slot.building = (slot.building or 0) + 1
 			local ticket = slot.building
 			task.spawn(function()
-				local model = RigBuilder.buildShadow(i, other) -- yields while loading
+				local model = RigBuilder.buildShadow(i, other, rigOf(other, otherClient)) -- yields while loading
 				if slot.owner or slot.building ~= ticket then
 					if model then model:Destroy() end
 					return
@@ -128,8 +139,8 @@ local function rebuildSlot(i)
 		local ticket = slot.building
 		owner:SetAttribute("AvatarStatus", "CHARGEMENT")
 		task.spawn(function()
-			-- Own avatar + kit; a default R15 body + kit if the avatar cannot load (see RigBuilder).
-			local model, status = RigBuilder.buildAvatar(i, owner) -- yields while loading
+			-- Own avatar + kit; a default body + kit if the avatar cannot load (see RigBuilder).
+			local model, status = RigBuilder.buildAvatar(i, owner, rigOf(owner, client)) -- yields while loading
 			if slot.owner ~= owner or not client.avatar or slot.building ~= ticket then
 				if model then model:Destroy() end
 				return
@@ -158,7 +169,7 @@ local function assign(player)
 			if previousCharacter and previousCharacter ~= slot.model then previousCharacter:Destroy() end
 			player.Character = slot.model
 			resetAll()
-			-- Roblox avatars by default: the player's own R15, the empty slot its shadow.
+			-- Roblox avatars by default: the player's own (R15 or R6), the empty slot its shadow.
 			if clients[player].avatar then
 				rebuildSlot(i)
 				if not slots[3 - i].owner then rebuildSlot(3 - i) end
@@ -174,7 +185,7 @@ local function joined(player)
 	if clients[player] then return end
 	clients[player] = {
 		tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge,
-		lastAvatar = -math.huge, lastSeq = 0, avatar = true,
+		lastAvatar = -math.huge, lastSeq = 0, avatar = true, rig = nil,
 	}
 	player:SetAttribute("Avatar", true)
 	assign(player)
@@ -203,7 +214,30 @@ local function finite(n)
 end
 local BOOLEAN_FIELDS = {
 	"crouch", "block", "jump", "dash", "light", "heavy", "special", "ultimate", "reset", "dummy", "avatar", "skin",
+	"kit", "foeKit",
 }
+
+-- Kits (MoveData.Kits): a pick gives the slot the kit's first style that differs from the
+-- other slot's, then starts a fresh match with the kits' stats.
+local function nextKit(kit)
+	local order = MoveData.KitOrder
+	return order[(table.find(order, kit) or 0) % #order + 1]
+end
+local function pickKit(i, kit)
+	CharacterData[i] = CharacterData.Skins[CharacterData.defaultStyle(kit, CharacterData[3 - i].Skin)]
+	Sim.setKits(world, CharacterData[1].Kit, CharacterData[2].Kit)
+	rebuildSlot(i)
+end
+-- Solo: any time. Versus: only before the first hit of the match or once it is over, so a
+-- pick never wipes a fight in progress.
+local function canPickKit()
+	if isSolo() or world.phase == "MatchEnd" then return true end
+	if world.round ~= 1 then return false end
+	for _, f in world.fighters do
+		if f.hp < f.maxHp or f.wins > 0 then return false end
+	end
+	return true
+end
 inputRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -231,6 +265,18 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		dummyMode = dummyMode % #DUMMY_MODES + 1
 		resetAll()
 	end
+	if packet.kit and now - (client.lastKit or -math.huge) > 0.5 and canPickKit() then
+		client.lastKit = now
+		pickKit(client.slot, nextKit(CharacterData[client.slot].Kit))
+		resetAll()
+	end
+	if packet.foeKit and solo and now - (client.lastKit or -math.huge) > 0.5 then
+		-- The CPU / dummy's kit (solo only).
+		client.lastKit = now
+		local other = 3 - client.slot
+		pickKit(other, nextKit(CharacterData[other].Kit))
+		resetAll()
+	end
 	if packet.skin and now - (client.lastSkin or -math.huge) > 1 then
 		-- Next colour style of the kit; the CPU slot takes another one.
 		client.lastSkin = now
@@ -243,9 +289,17 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		end
 	end
 	if packet.avatar and now - client.lastAvatar > 2 then
+		-- APPARENCE: avatar R15 -> avatar R6 -> block model -> avatar R15...
 		client.lastAvatar = now
-		client.avatar = not client.avatar
+		if not client.avatar then
+			client.avatar, client.rig = true, "R15"
+		elseif client.rig ~= "R6" then
+			client.rig = "R6"
+		else
+			client.avatar = false
+		end
 		player:SetAttribute("Avatar", client.avatar)
+		player:SetAttribute("AvatarRig", client.rig)
 		rebuildSlot(client.slot)
 		if not slots[3 - client.slot].owner then rebuildSlot(3 - client.slot) end
 	end
@@ -270,11 +324,12 @@ local function snapshot()
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
-			crouching = f.crouching,
+			crouching = f.crouching, maxHp = f.maxHp, evadeCharge = f.evadeCharge,
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
+			dirtyReason = f.dirtyReason or "",
 			owner = if slot.owner then slot.owner.UserId else 0,
 			player = if slot.owner then slot.owner.DisplayName else "MANNEQUIN · " .. DUMMY_MODES[dummyMode].name,
-			character = character.Name, skin = character.Skin, kit = character.Kit,
+			character = character.Name, skin = character.Skin, kit = f.kit,
 		}
 	end
 	local projectiles = {}
@@ -299,22 +354,24 @@ local function snapshot()
 	})
 end
 
--- Training lab (solo only): play a cinematic directly to check its staging.
-local DEBUG_MOVES = { KaienRush = true, Awakening = true, Kaiten = true }
-local DEBUG_STYLES = {}
-for _, route in MoveData.FullRoutes do DEBUG_STYLES[route.name] = true end
+-- Training lab (solo only): play one of the player's kit's cinematics directly to check its
+-- staging. `kind` is the cinematic type, `style` (ÉVEIL only) a full route of the kit.
+local DEBUG_TYPES = { Rush = true, Awaken = true, Gate = true }
 local pendingDebugEvents = {}
-debugRemote.OnServerEvent:Connect(function(player, moveId, style, finish)
+debugRemote.OnServerEvent:Connect(function(player, kind, style, finish)
 	local client = clients[player]
 	if not client or not client.slot or not isSolo() then return end
-	if typeof(moveId) ~= "string" or not DEBUG_MOVES[moveId] then return end
-	if style ~= nil and (typeof(style) ~= "string" or not DEBUG_STYLES[style]) then return end
+	if typeof(kind) ~= "string" or not DEBUG_TYPES[kind] then return end
 	if typeof(finish) ~= "boolean" then return end
+	local kit = Sim.kitOf(world, world.fighters[client.slot])
+	local known = false
+	for _, route in kit.FullRoutes do known = known or route.name == style end
+	if style ~= nil and (typeof(style) ~= "string" or not known) then return end
 	local now = os.clock()
 	if now - (client.lastDebug or -math.huge) < 1 or world.cinematic then return end
 	client.lastDebug = now
-	if moveId == "Awakening" then style = style or "TORNADE" else style = nil end
-	local events = Sim.debugCinematic(world, client.slot, moveId, style, if finish then 300 else nil)
+	if kind == "Awaken" then style = style or kit.FullRoutes[1].name else style = nil end
+	local events = Sim.debugCinematic(world, client.slot, kind, style, if finish then 300 else nil)
 	for _, event in events do table.insert(pendingDebugEvents, event) end
 end)
 

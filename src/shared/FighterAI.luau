@@ -85,7 +85,12 @@ local function observe(f, moves)
 	}
 end
 
-function FighterAI:pickPlan(meter, cost, fullRoutes)
+function FighterAI:pickPlan(meter, cost, fullRoutes, bait)
+	-- Against a ready evade passive (VOILE D'OMBRE), a lone jab spends it first.
+	if bait and self:chance(self.level.punish) then
+		self.plan, self.step, self.planLength, self.pressedMove = { "L" }, 1, 1, nil
+		return
+	end
 	-- The 6-press routes (ending in COUP DE GRÂCE, or ÉVEIL ÉCARLATE with 3 bars).
 	if fullRoutes and self.level.full and self:chance(self.level.full) then
 		local route = fullRoutes[math.floor(self:random() * #fullRoutes) + 1]
@@ -158,7 +163,15 @@ function FighterAI:think(world, slot)
 	local dx = seen.x - me.x
 	local dist, toward = math.abs(dx), if dx >= 0 then 1 else -1
 	local grounded = me.y <= 0 and me.vy <= 0
-	local ultimateCost = moves.KaienRush.meterCost
+	-- Every kit shares the combo grammar; its own moves, ultimates and specials differ.
+	local kit = world.moveData.Kits[me.kit or "KAI"]
+	local ultimateCost = moves[kit.Ultimates.Rush].meterCost
+	local fullRoutes = kit.FullRoutes
+	local crouchSpecial = moves[kit.Starters.Crouch.Special]
+	local canParry = crouchSpecial ~= nil and crouchSpecial.parry ~= nil
+	local canZone = crouchSpecial ~= nil and crouchSpecial.projectile ~= nil
+	local foePassive = world.moveData.Kits[foe.kit or "KAI"].Passive
+	local baitEvade = foePassive ~= nil and foePassive.Type == "Evade" and foe.evadeCharge == 0
 
 	-- 1. Continue the current combo plan, one press per move once it made contact.
 	local plan = self.plan
@@ -211,7 +224,7 @@ function FighterAI:think(world, slot)
 			return input
 		elseif self:chance(self.level.counter) then
 			self.blockTicks = 0
-			self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes) -- poke back right away (fast jab first)
+			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade) -- poke back right away (fast jab first)
 			self.plan = { self.plan[1] == "R" and "L" or self.plan[1], table.unpack(self.plan, 2) }
 			self.planLength = math.min(self.planLength, #self.plan)
 		elseif self:chance(self.level.block * 0.6) then
@@ -226,7 +239,19 @@ function FighterAI:think(world, slot)
 		self.lastOpportunity = opportunity
 		if self:chance(self.level.punish) then
 			self.blockTicks = 0
-			self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
+			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
+		end
+	end
+	-- Incoming projectile (seen with the reaction delay): guard it once per projectile.
+	for _, p in world.projectiles do
+		local coming = p.owner ~= slot and math.sign(p.vx) == math.sign(me.x - p.x)
+		local eta = math.abs(me.x - p.x) / math.max(1, math.abs(p.vx)) * 60
+		if coming and eta < 18 and eta > self.level.reaction * 0.5 and p.id ~= self.lastProjectile and grounded
+			and not self.plan then
+			self.lastProjectile = p.id
+			if self:chance(self.level.block) then
+				self.blockTicks, self.blockLow = math.ceil(eta) + 4, false
+			end
 		end
 	end
 	if self.blockTicks > 0 and not self.plan then
@@ -237,6 +262,12 @@ function FighterAI:think(world, slot)
 	if seen.move and (seen.phase == "Startup" or seen.phase == "Active") and dist < 6.5 then
 		if seen.airborne and seen.vy < 0 and grounded and self:chance(self.level.antiAir) then
 			input.special = true
+			return input
+		end
+		-- A boxer reads the attack and parries it (lows beat the parry).
+		if canParry and seen.phase == "Startup" and seen.guard ~= "Low" and not seen.airborne and dist < 4.6
+			and self:chance(self.level.block * 0.3) then
+			input.crouch, input.special = true, true
 			return input
 		end
 		if self:chance(self.level.block) then
@@ -256,7 +287,7 @@ function FighterAI:think(world, slot)
 
 	-- Hit a crumpling or launched opponent that is close.
 	if not self.plan and foe.stunKind == "Crumple" and dist < 4.2 then
-		self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
+		self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
 	end
 
 	-- 4. Neutral game: walk, dash, jump in, poke, start combos.
@@ -266,7 +297,7 @@ function FighterAI:think(world, slot)
 			self.intentTicks = self.level.decision + math.floor(self:random() * self.level.decision)
 			local roll = self:random()
 			self.guardLow = self.level.lowBlock > 0.5 and self:chance(0.5)
-			if dist > 8 and self:chance(self.level.zoning) then
+			if dist > 8 and canZone and self:chance(self.level.zoning) then
 				self.intent = "blast"
 			elseif dist > 6 then
 				self.intent = if roll < self.level.aggression * 0.6 then "approach"
@@ -300,7 +331,7 @@ function FighterAI:think(world, slot)
 			if dist > 4.2 then
 				input.axis = toward
 			else
-				self:pickPlan(me.meter, ultimateCost, world.moveData.FullRoutes)
+				self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
 				self.intent = "wait"
 			end
 		end

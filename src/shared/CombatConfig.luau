@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.8.0",
+	Version = "0.9.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -29,14 +29,14 @@ return table.freeze({
 	CrouchHurtHeight = 4.0,
 
 	-- Combat
-	MaxHealth = 1500, -- a full 6-press route takes ~20-27 %, KAIEN RUSH ~28 %
+	MaxHealth = 1550, -- KAI's health (each kit has its own, see MoveData.Kits[kit].Stats)
 	MaxGuard = 100,
 	BlockDamageRatio = 0.15, -- the guard reduces damage, it does not cancel it
 	GuardRegenDelayTicks = 50,
 	GuardRegenPerTick = 0.6,
 	GuardBreakTicks = 55,
-	BufferTicks = 12, -- lifetime of the next queued press (frozen during hitstop)
-	BufferSize = 6, -- a whole 6-press route can be typed ahead
+	BufferTicks = 10, -- lifetime of a queued press (frozen during hitstop and while a hit lands)
+	BufferSize = 3, -- presses kept ahead: enough for rhythm, not to type a whole route
 	LateCancelTicks = 6, -- a press this late after a connected move still links (latency)
 	ReversalBufferTicks = 4, -- while stunned / getting up, only presses this close to recovery count
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this

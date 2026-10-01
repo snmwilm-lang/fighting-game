@@ -522,6 +522,466 @@ Poses.Kaiten = {
 Poses.KaienRush = { Startup = Poses.Kiai, Active = Poses.Smash.Active, Recovery = Poses.Smash.Recovery }
 Poses.Awakening = { Startup = Poses.Kiai, Active = Poses.Finale.Active, Recovery = Poses.Finale.Recovery }
 
+-- AKEMI's VOILE D'OMBRE: a low slide back out of reach, arms trailing.
+Poses.Evade = blind(feet({
+	Root = { -10, -8, 0, -0.9, 0.35 }, Waist = { 8, -10, 0 }, Neck = { 6, 12, 0 },
+	LeftShoulder = { -40, 0, -40 }, LeftElbow = { 20, 0, 0 },
+	RightShoulder = { -30, 0, 40 }, RightElbow = { 30, 0, 0 },
+}, -0.5, 1.1, 14, -12, 12))
+
+-- ===================================================================== kits
+-- Every kit has its own stance (the base every attack timeline starts from and returns to),
+-- guard, run and victory. A move without key poses of its own uses those of its role (the
+-- KAI move of the same combo slot); the moves below are the ones that must look different:
+-- TARO only punches, ZEPHYR only kicks, AKEMI fights like a shadow assassin.
+-- Hooks: the upper arm goes out to the side (shoulder rz), the forearm bends inward with the
+-- elbow's rz, so the fist travels horizontally.
+
+-- TARO 火 · peek-a-boo guard, fists at the chin, elbows tucked, bouncing on the balls of the feet.
+local TARO = feet({
+	Root = { 0, -6, 0, -0.42, 0 }, Waist = { -14, 8, 0 }, Neck = { 14, -8, 0 },
+	LeftShoulder = { 62, 0, 20 }, LeftElbow = { 138, 0, 0 },
+	RightShoulder = { 56, 0, -20 }, RightElbow = { 142, 0, 0 },
+}, -0.62, 0.72, 0, -14, 9)
+local TARO_CROUCH = feet(merge(TARO, { Root = { 0, -6, 0, -1.05, 0 }, Waist = { -24, 8, 0 }, Neck = { 22, -8, 0 } }), -0.55, 0.72, 0, -12, 9)
+local TARO_GUARD = {
+	Waist = { -18, 0, 0 }, Neck = { 18, 0, 0 },
+	LeftShoulder = { 80, 0, 32 }, LeftElbow = { 150, 0, 0 },
+	RightShoulder = { 78, 0, -32 }, RightElbow = { 152, 0, 0 },
+}
+-- ZEPHYR 風 · light taekwondo stance, hands low, weight on the back leg, front foot ready to kick.
+local ZEPHYR = feet({
+	Root = { 0, 8, 0, -0.22, 0 }, Waist = { -4, 16, 0 }, Neck = { 4, -14, 0 },
+	LeftShoulder = { 48, 0, -18 }, LeftElbow = { 75, 0, 0 },
+	RightShoulder = { 36, 0, 20 }, RightElbow = { 85, 0, 0 },
+}, -0.85, 0.8, -8, -12, 6)
+local ZEPHYR_CROUCH = feet(merge(ZEPHYR, { Root = { 0, 8, 0, -0.95, 0 }, Waist = { -18, 16, 0 }, Neck = { 16, -14, 0 } }), -0.6, 0.75, 0, -12, 8)
+-- AKEMI 影 · low assassin stance, leaning in, knife hand forward, the other hand back.
+local AKEMI = feet({
+	Root = { 0, 14, 0, -0.62, 0 }, Waist = { -22, 20, 0 }, Neck = { 22, -16, 0 },
+	LeftShoulder = { -10, 0, -24 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 62, 0, 14 }, RightElbow = { 30, 0, 0 },
+}, -0.95, 0.95, 0, -16, 11)
+local AKEMI_CROUCH = feet(merge(AKEMI, { Root = { 0, 0, 0, -0.95, 0 }, Waist = { -30, 20, 0 }, Neck = { 28, -16, 0 } }), -0.7, 0.8, 0, -26, 12)
+
+-- Upper body of a gait (the Animator generates the legs): a stance without its feet.
+local function upper(base, changes)
+	local out = merge(base, changes)
+	out.Stance = nil
+	for _, joint in LEG_JOINTS do out[joint] = nil end
+	return out
+end
+
+Poses.Kits = {
+	TARO = {
+		STANCE = TARO,
+		Idle = { TARO, merge(TARO, { Root = { 0, -6, 0, -0.56, 0 }, LeftShoulder = { 66, 0, 20 }, RightShoulder = { 60, 0, -20 } }) },
+		Crouch = TARO_CROUCH,
+		Block = feet(merge(TARO, merge(TARO_GUARD, { Root = { 0, 0, 0, -0.48, 0 } })), -0.66, 0.74, 0, -12, 9),
+		CrouchBlock = merge(TARO_CROUCH, TARO_GUARD),
+		RunUpper = upper(TARO, { Root = { -4, 0, 0, 0, 0 }, Waist = { -18, 6, 0 }, Neck = { 18, -6, 0 } }),
+		BackUpper = upper(TARO, merge(TARO_GUARD, { Root = { 0, 0, 0, 0, 0 } })),
+		Victory = feet({
+			Root = { 0, 0, 0, -0.1, 0 }, Waist = { 12, 0, 0 }, Neck = { -18, 0, 0 },
+			LeftShoulder = { 165, 0, -25 }, LeftElbow = { 30, 0, 0 },
+			RightShoulder = { 165, 0, 25 }, RightElbow = { 30, 0, 0 },
+			Look = { 0 },
+		}, -0.3, 0.4, 0, 0, 10),
+	},
+	ZEPHYR = {
+		STANCE = ZEPHYR,
+		Idle = { ZEPHYR, merge(ZEPHYR, { Root = { 0, 8, 0, -0.34, 0 }, LeftShoulder = { 52, 0, -18 }, RightShoulder = { 40, 0, 20 } }) },
+		Crouch = ZEPHYR_CROUCH,
+		Block = feet(merge(ZEPHYR, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.32, 0 } })), -0.8, 0.82, 0, -10, 7),
+		CrouchBlock = merge(ZEPHYR_CROUCH, GUARD_ARMS),
+		RunUpper = upper(ZEPHYR, { Root = { -8, 0, 0, 0, 0 }, Waist = { -12, 10, 0 }, Neck = { 12, -8, 0 },
+			LeftShoulder = { 30, 0, -24 }, RightShoulder = { 26, 0, 24 } }),
+		BackUpper = upper(ZEPHYR, { Root = { 0, 0, 0, 0, 0 }, Waist = { 0, 16, 0 } }),
+		-- Victory: the right leg raised high, arms spread.
+		Victory = feet({
+			Root = { 6, 0, 0, -0.1, 0 }, Waist = { 8, 0, 0 }, Neck = { -10, 0, 0 },
+			LeftShoulder = { 30, 0, -70 }, LeftElbow = { 10, 0, 0 },
+			RightShoulder = { 30, 0, 70 }, RightElbow = { 10, 0, 0 },
+			Look = { 0 },
+		}, -0.1, 0.3, 0, 0, 4, {
+			RightHip = { 150, 0, 10 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -30, 0, 0 },
+		}),
+	},
+	AKEMI = {
+		STANCE = AKEMI,
+		Idle = { AKEMI, merge(AKEMI, { Root = { 0, 14, 0, -0.72, 0 }, Waist = { -24, 20, 0 } }) },
+		Crouch = AKEMI_CROUCH,
+		Block = feet(merge(AKEMI, merge(GUARD_ARMS, { Root = { 0, 6, 0, -0.66, 0 } })), -0.9, 0.92, 0, -14, 11),
+		CrouchBlock = merge(AKEMI_CROUCH, GUARD_ARMS),
+		-- The shadow run: leaning far forward, arms trailing behind.
+		RunUpper = {
+			Root = { -16, 0, 0, 0, 0 }, Waist = { -24, 6, 0 }, Neck = { 30, -6, 0 },
+			LeftShoulder = { -55, 0, -14 }, LeftElbow = { 12, 0, 0 },
+			RightShoulder = { -50, 0, 14 }, RightElbow = { 12, 0, 0 },
+		},
+		BackUpper = upper(AKEMI, { Root = { 0, 0, 0, 0, 0 } }),
+		Victory = blind(feet({
+			Root = { 0, 30, 0, -0.1, 0 }, Waist = { 4, 0, 0 }, Neck = { -6, -40, 0 },
+			LeftShoulder = { 62, 0, 38 }, LeftElbow = { 118, 0, 0 },
+			RightShoulder = { 58, 0, -38 }, RightElbow = { 122, 0, 0 },
+		}, -0.2, 0.25, 0, 0, 10)),
+	},
+}
+
+-- ----------------------------------------------------------------- TARO · punches only
+local function hookArm(side, rz, elbow)
+	local s = if side == "Left" then -1 else 1
+	return { [side .. "Shoulder"] = { 90, 0, s * rz }, [side .. "Elbow"] = { 0, 0, -s * elbow } }
+end
+Poses.TaroJab = {
+	Startup = merge(TARO, { Waist = { -12, 22, 0 }, LeftShoulder = { 66, 0, 10 }, LeftElbow = { 130, 0, 0 } }),
+	Active = feet(merge(TARO, {
+		Root = { 0, -12, 0, -0.42, -0.32 }, Waist = { -14, -26, 0 },
+		LeftShoulder = { 90, 0, 8 }, LeftElbow = { 2, 0, 0 },
+	}), -1.0, 0.7, 0, -14, 9),
+	Recovery = merge(TARO, { LeftShoulder = { 78, 0, 10 }, LeftElbow = { 60, 0, 0 } }),
+}
+Poses.TaroStraight = {
+	Startup = merge(TARO, { Waist = { -10, -16, 0 }, RightShoulder = { 50, 0, -10 }, RightElbow = { 145, 0, 0 } }),
+	Active = feet(merge(TARO, {
+		Root = { 0, 16, 0, -0.45, -0.55 }, Waist = { -16, 32, 0 },
+		RightShoulder = { 90, 0, -6 }, RightElbow = { 2, 0, 0 },
+	}), -1.2, 0.5, 0, -24, 9),
+	Recovery = merge(TARO, { Waist = { -12, 18, 0 }, RightShoulder = { 70, 0, -6 }, RightElbow = { 70, 0, 0 } }),
+}
+Poses.TaroHook = {
+	Startup = merge(TARO, merge(hookArm("Right", 80, 55), { Root = { 0, -12, 0, -0.42, 0 }, Waist = { -10, -30, 0 } })),
+	Active = feet(merge(TARO, merge(hookArm("Right", 55, 95), {
+		Root = { 0, 22, 0, -0.48, -0.4 }, Waist = { -16, 48, 0 }, Neck = { 16, -24, 0 },
+	})), -1.05, 0.6, 0, -22, 9),
+	Recovery = merge(TARO, { Waist = { -12, 22, 0 } }),
+}
+Poses.TaroBolo = { -- looping uppercut from the floor
+	Startup = feet(merge(TARO, {
+		Root = { 0, -20, 0, -0.65, 0.15 }, Waist = { -22, -40, 0 },
+		RightShoulder = { -30, 0, 30 }, RightElbow = { 40, 0, 0 },
+	}), -0.7, 0.85, 0, -10, 10),
+	Active = feet(merge(TARO, {
+		Root = { 0, 16, 0, -0.3, -0.35 }, Waist = { 8, 40, 0 }, Neck = { -8, -10, 0 },
+		RightShoulder = { 150, 0, 20 }, RightElbow = { 35, 0, 0 },
+	}), -1.0, 0.55, 0, -30, 9),
+	Recovery = merge(TARO, { Waist = { -6, 20, 0 }, RightShoulder = { 100, 0, 0 }, RightElbow = { 70, 0, 0 } }),
+}
+Poses.TaroCorkscrew = { -- full-body twist into a straight right
+	Startup = feet(merge(TARO, {
+		Root = { 0, -40, 0, -0.5, 0.2 }, Waist = { -8, -40, 0 }, Neck = { 10, 40, 0 },
+		RightShoulder = { 40, 0, 40 }, RightElbow = { 120, 0, 0 },
+	}), -0.6, 0.95, 0, -8, 9),
+	Active = feet(merge(TARO, {
+		Root = { 0, 30, 0, -0.5, -0.7 }, Waist = { -18, 42, 0 }, Neck = { 18, -30, 0 },
+		RightShoulder = { 90, 40, -10 }, RightElbow = { 2, 0, 0 },
+	}), -1.45, 0.45, 0, -26, 9),
+	Recovery = merge(TARO, { Waist = { -14, 24, 0 } }),
+}
+Poses.TaroOverhand = { -- overhead right, the fist dropping on the head
+	Startup = feet(merge(TARO, {
+		Root = { 0, -20, 0, -0.35, 0.3 }, Waist = { 10, -35, 0 }, Neck = { 0, 30, 0 },
+		RightShoulder = { 165, 0, 30 }, RightElbow = { 70, 0, 0 },
+	}), -0.55, 1.0, 0, -6, 9),
+	Active = feet({
+		Root = { 0, 18, 0, -0.6, -0.6 }, Waist = { -34, 40, 0 }, Neck = { 30, -20, 0 },
+		RightShoulder = { 70, 0, -10 }, RightElbow = { 10, 0, 0 },
+		LeftShoulder = { 40, 0, -20 }, LeftElbow = { 120, 0, 0 },
+	}, -1.3, 0.5, 0, -24, 9),
+	Recovery = merge(TARO, { Waist = { -18, 20, 0 } }),
+}
+Poses.TaroDive = { -- ducking punch to the knees (low)
+	Startup = merge(TARO_CROUCH, { Waist = { -30, -20, 0 }, RightShoulder = { 40, 0, 10 }, RightElbow = { 120, 0, 0 } }),
+	Active = feet({
+		Root = { 0, 12, 0, -1.0, -0.4 }, Waist = { -42, 30, 0 }, Neck = { 36, 0, 0 },
+		RightShoulder = { 78, 0, -8 }, RightElbow = { 2, 0, 0 },
+		LeftShoulder = { 60, 0, 20 }, LeftElbow = { 130, 0, 0 },
+	}, -1.3, 1.0, 0, -32, 10),
+	Recovery = merge(TARO_CROUCH, { Waist = { -26, 10, 0 } }),
+}
+Poses.TaroLowJab = {
+	Startup = merge(TARO_CROUCH, { LeftShoulder = { 60, 0, 10 }, LeftElbow = { 125, 0, 0 } }),
+	Active = merge(TARO_CROUCH, { Waist = { -28, -20, 0 }, LeftShoulder = { 68, 0, 0 }, LeftElbow = { 2, 0, 0 } }),
+	Recovery = TARO_CROUCH,
+}
+local AIR_TUCK = legs(80, -120, 60, -110)
+Poses.TaroAirJab = {
+	Startup = merge(TARO, AIR_TUCK),
+	Active = merge(merge(TARO, AIR_TUCK), { Root = { -10, 0, 0, 0, 0 }, Waist = { -10, -20, 0 }, LeftShoulder = { 92, 0, 6 }, LeftElbow = { 2, 0, 0 } }),
+	Recovery = merge(TARO, legs(50, -80, 30, -60)),
+}
+Poses.TaroAirHook = {
+	Startup = merge(merge(TARO, AIR_TUCK), { Waist = { -10, -24, 0 } }),
+	Active = merge(merge(TARO, AIR_TUCK), merge(hookArm("Right", 55, 95), { Root = { -10, 0, 0, 0, 0 }, Waist = { -10, 40, 0 } })),
+	Recovery = merge(TARO, legs(50, -80, 30, -60)),
+}
+Poses.TaroMeteor = { -- leap and hammer both fists down twice
+	Startup = TARO_CROUCH,
+	Active = blind(airborne(merge(legs(50, -90, 40, -80), {
+		Root = { 10, 0, 0, 0.6, 0 }, Waist = { 14, 0, 0 },
+		LeftShoulder = { 175, 0, 15 }, RightShoulder = { 175, 0, -15 },
+		LeftElbow = { 40, 0, 0 }, RightElbow = { 40, 0, 0 },
+	}))),
+	Active2 = blind(airborne(merge(legs(40, -60, 20, -40), {
+		Root = { -40, 0, 0, 0.8, 0 }, Waist = { -25, 0, 0 }, Neck = { 30, 0, 0 },
+		LeftShoulder = { 70, 0, 12 }, RightShoulder = { 70, 0, -12 },
+		LeftElbow = { 2, 0, 0 }, RightElbow = { 2, 0, 0 },
+	}))),
+	Recovery = merge(TARO, legs(40, -70, 20, -50)),
+}
+Poses.TaroTwinUpper = {
+	Startup = merge(TARO_CROUCH, { Waist = { -26, -20, 0 } }),
+	Active = airborne(merge(legs(-20, -40, 20, -20), {
+		Root = { 0, 0, 0, 0.3, -0.2 }, Waist = { 12, -28, 0 }, Neck = { -6, 0, 0 },
+		LeftShoulder = { 172, 0, 6 }, LeftElbow = { 10, 0, 0 },
+		RightShoulder = { 56, 0, -20 }, RightElbow = { 140, 0, 0 },
+	})),
+	Active2 = airborne(merge(legs(20, -20, -20, -40), {
+		Root = { 0, 0, 0, 0.55, -0.2 }, Waist = { 12, 28, 0 }, Neck = { -6, 0, 0 },
+		RightShoulder = { 172, 0, -6 }, RightElbow = { 10, 0, 0 },
+		LeftShoulder = { 62, 0, 20 }, LeftElbow = { 138, 0, 0 },
+	})),
+	Recovery = merge(TARO, legs(30, -40, -10, -30)),
+}
+Poses.TaroGatling = { -- machine-gun straights, the guard hand at the chin
+	Startup = merge(TARO, { Waist = { -12, -20, 0 }, RightShoulder = { 50, 0, -10 }, RightElbow = { 140, 0, 0 } }),
+	Active = feet(merge(TARO, {
+		Root = { 0, 12, 0, -0.5, -0.4 }, Waist = { -16, 28, 0 },
+		RightShoulder = { 92, 0, -8 }, RightElbow = { 2, 0, 0 },
+	}), -1.1, 0.6, 0, -18, 9),
+	Active2 = feet(merge(TARO, {
+		Root = { 0, -12, 0, -0.5, -0.45 }, Waist = { -16, -26, 0 },
+		LeftShoulder = { 92, 0, 8 }, LeftElbow = { 2, 0, 0 },
+	}), -1.15, 0.6, 0, -18, 9),
+	Recovery = merge(TARO, { Waist = { -12, 12, 0 } }),
+}
+Poses.TaroDempsey = { -- weaving left-right hooks
+	Startup = feet(merge(TARO, { Root = { 0, 0, 0, -0.6, 0 }, Waist = { -20, 0, 18 } }), -0.7, 0.8, 0, -14, 9),
+	Active = feet(merge(TARO, merge(hookArm("Left", 55, 95), {
+		Root = { 0, -15, 0, -0.58, -0.4 }, Waist = { -18, -34, 18 },
+	})), -1.1, 0.6, 0, -18, 9),
+	Active2 = feet(merge(TARO, merge(hookArm("Right", 55, 95), {
+		Root = { 0, 15, 0, -0.58, -0.45 }, Waist = { -18, 34, -18 },
+	})), -1.15, 0.6, 0, -18, 9),
+	Recovery = merge(TARO, { Waist = { -14, 10, 0 } }),
+}
+Poses.TaroRisingHook = {
+	Startup = merge(TARO_CROUCH, { Waist = { -26, -26, 0 }, RightShoulder = { 30, 0, 40 }, RightElbow = { 110, 0, 0 } }),
+	Active = airborne(merge(legs(32, -12, -30, -40), {
+		Root = { 0, 0, 0, 0.35, -0.2 }, Waist = { 14, 36, 0 }, Neck = { -6, 0, 0 },
+		RightShoulder = { 160, 0, 40 }, RightElbow = { 40, 0, 0 },
+		LeftShoulder = { 62, 0, 20 }, LeftElbow = { 138, 0, 0 },
+	})),
+	Recovery = merge(TARO, legs(30, -50, 20, -40)),
+}
+Poses.TaroChase = { -- superman punch: a flying straight
+	Startup = merge(TARO_CROUCH, { Waist = { -30, 0, 0 }, RightShoulder = { 20, 0, 20 }, RightElbow = { 120, 0, 0 } }),
+	Active = airborne(merge(legs(-10, -40, -50, -30), {
+		Root = { -25, 0, 0, 0.4, 0 }, Waist = { -10, 20, 0 }, Neck = { 28, 0, 0 },
+		RightShoulder = { 92, 0, -4 }, RightElbow = { 2, 0, 0 },
+		LeftShoulder = { -40, 0, -30 }, LeftElbow = { 30, 0, 0 },
+	})),
+	Recovery = merge(TARO, legs(50, -80, 30, -60)),
+}
+Poses.TaroRam = { -- both fists driven into the body
+	Startup = merge(TARO, { Waist = { -10, -30, 0 }, RightShoulder = { 20, 0, 20 }, RightElbow = { 120, 0, 0 } }),
+	Active = feet(merge(TARO, {
+		Root = { 0, 10, 0, -0.5, -0.6 }, Waist = { -18, 20, 0 },
+		LeftShoulder = { 82, 0, 10 }, LeftElbow = { 4, 0, 0 },
+		RightShoulder = { 82, 0, -10 }, RightElbow = { 4, 0, 0 },
+	}), -1.3, 0.5, 0, -22, 9),
+	Recovery = merge(TARO, { Waist = { -12, 14, 0 } }),
+}
+Poses.TaroParry = {
+	Startup = merge(TARO, TARO_GUARD),
+	Active = feet(merge(TARO, merge(TARO_GUARD, { Root = { 4, 0, 0, -0.5, 0.15 }, Waist = { -10, 0, 0 } })), -0.55, 0.8, 0, -10, 9),
+	Recovery = TARO,
+}
+Poses.TaroCounter = {
+	Startup = feet(merge(TARO, { Root = { 0, -14, 0, -0.62, 0.1 }, Waist = { -22, -26, 14 } }), -0.7, 0.85, 0, -12, 9),
+	Active = Poses.TaroStraight.Active,
+	Recovery = Poses.TaroStraight.Recovery,
+}
+
+-- ----------------------------------------------------------------- ZEPHYR · kicks only
+Poses.ZephyrFront = { -- front leg: chamber, snap the ball of the foot forward
+	Startup = merge(ZEPHYR, { LeftHip = { 95, 0, -5 }, LeftKnee = { -115, 0, 0 }, LeftAnkle = { 10, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 0, 4, 0, -0.1, -0.15 }, Waist = { 6, 10, 0 },
+		LeftHip = { 92, 0, -5 }, LeftKnee = { -6, 0, 0 }, LeftAnkle = { -25, 0, 0 },
+	}),
+	Recovery = merge(ZEPHYR, { LeftHip = { 60, 0, -5 }, LeftKnee = { -90, 0, 0 }, LeftAnkle = { 20, 0, 0 } }),
+}
+Poses.ZephyrSide = { -- turn the hips, the right heel thrust sideways into the target
+	Startup = merge(ZEPHYR, { Root = { 0, 60, 0, -0.2, 0 }, Waist = { 0, -30, 0 }, Neck = { 0, -30, 0 },
+		RightHip = { 30, 0, 60 }, RightKnee = { -120, 0, 0 }, RightAnkle = { 20, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 0, 85, 0, -0.15, -0.2 }, Waist = { 12, -45, 0 }, Neck = { -4, -40, 0 },
+		RightHip = { 0, 0, 85 }, RightKnee = { -2, 0, 0 }, RightAnkle = { 0, 0, -20 },
+		LeftShoulder = { 30, 0, -40 }, RightShoulder = { 20, 0, 40 },
+	}),
+	Recovery = merge(ZEPHYR, { Root = { 0, 30, 0, -0.2, 0 } }),
+}
+Poses.ZephyrRound = Poses.Kick
+Poses.ZephyrHigh = { -- head kick, leaning back
+	Startup = merge(ZEPHYR, { Root = { 0, -20, 0, -0.2, 0 }, RightHip = { 100, 0, 30 }, RightKnee = { -125, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 10, -10, 0, -0.05, 0.1 }, Waist = { 14, -36, -12 }, Neck = { -18, 25, 0 },
+		RightHip = { 142, 0, 26 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -30, 0, 0 },
+		LeftShoulder = { 40, 0, -50 }, RightShoulder = { 30, 0, 55 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 70, 0, 10 }, RightKnee = { -100, 0, 0 } }),
+}
+Poses.ZephyrPlexus = { -- straight heel to the solar plexus
+	Startup = merge(ZEPHYR, { RightHip = { 95, 0, 5 }, RightKnee = { -125, 0, 0 }, RightAnkle = { 30, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 6, 0, 0, -0.2, -0.3 }, Waist = { 8, 10, 0 },
+		RightHip = { 88, 0, 5 }, RightKnee = { -2, 0, 0 }, RightAnkle = { 25, 0, 0 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 62, 0, 5 }, RightKnee = { -100, 0, 0 } }),
+}
+Poses.ZephyrRiser = { -- straight leg swung up under the chin (launcher)
+	Startup = merge(ZEPHYR_CROUCH, { Waist = { -20, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 18, 0, 0, -0.05, 0 }, Waist = { 10, 0, 0 }, Neck = { -20, 0, 0 },
+		RightHip = { 152, 0, 6 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -20, 0, 0 },
+		LeftShoulder = { 20, 0, -50 }, RightShoulder = { 20, 0, 50 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 60, 0, 5 }, RightKnee = { -90, 0, 0 } }),
+}
+Poses.ZephyrHeel = Poses.Hammer
+Poses.ZephyrSkyward = { -- climbing vertical kicks, one leg then the other
+	Startup = ZEPHYR_CROUCH,
+	Active = airborne(merge(legs(-10, -30, 150, -4), {
+		Root = { 14, 0, 0, 0.6, 0 }, Waist = { 8, 0, 0 },
+		LeftShoulder = { 20, 0, -60 }, RightShoulder = { 20, 0, 60 },
+	})),
+	Active2 = airborne(merge(legs(150, -4, -10, -30), {
+		Root = { 14, 0, 0, 0.9, 0 }, Waist = { 8, 0, 0 },
+		LeftShoulder = { 20, 0, -60 }, RightShoulder = { 20, 0, 60 },
+	})),
+	Recovery = merge(ZEPHYR, legs(40, -70, 20, -50)),
+}
+Poses.ZephyrHundred = { -- lightning kicks on one leg
+	Startup = merge(ZEPHYR, { RightHip = { 90, 0, 20 }, RightKnee = { -120, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 10, 0, 0, -0.1, 0 }, Waist = { 12, -20, 0 },
+		RightHip = { 95, 0, 20 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -20, 0, 0 },
+		LeftShoulder = { 30, 0, -50 }, RightShoulder = { 20, 0, 50 },
+	}),
+	Active2 = merge(ZEPHYR, {
+		Root = { 10, 0, 0, -0.1, 0 }, Waist = { 12, -10, 0 },
+		RightHip = { 70, 0, 30 }, RightKnee = { -50, 0, 0 }, RightAnkle = { 0, 0, 0 },
+		LeftShoulder = { 30, 0, -50 }, RightShoulder = { 20, 0, 50 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 62, 0, 5 }, RightKnee = { -100, 0, 0 } }),
+}
+Poses.ZephyrPush = { -- big push kick, the sole driving the target away
+	Startup = merge(ZEPHYR, { Root = { 0, 0, 0, -0.25, 0.25 }, RightHip = { 105, 0, 5 }, RightKnee = { -130, 0, 0 }, RightAnkle = { 40, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 10, 0, 0, -0.2, -0.55 }, Waist = { 10, 6, 0 }, Neck = { -8, 0, 0 },
+		RightHip = { 88, 0, 5 }, RightKnee = { -2, 0, 0 }, RightAnkle = { 35, 0, 0 },
+		LeftShoulder = { 30, 0, -40 }, RightShoulder = { 20, 0, 40 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 62, 0, 5 }, RightKnee = { -100, 0, 0 } }),
+}
+Poses.ZephyrDiveKick = { -- falcon dive: body angled down, one leg spearing forward
+	Startup = merge(ZEPHYR, legs(80, -115, 95, -125)),
+	Active = merge(legs(110, -125, 45, -2), {
+		Root = { -45, 0, 0, 0, 0 }, Waist = { -10, 10, 0 }, Neck = { 30, 0, 0 },
+		LeftShoulder = { -50, 0, -30 }, RightShoulder = { -50, 0, 30 },
+		LeftElbow = { 20, 0, 0 }, RightElbow = { 20, 0, 0 },
+	}),
+	Recovery = merge(ZEPHYR, legs(50, -80, 30, -60)),
+}
+Poses.ZephyrEnvol = Poses.ThunderHeel
+Poses.ZephyrChase = { -- flying side kick at the target
+	Startup = merge(ZEPHYR_CROUCH, { Waist = { -28, 0, 0 } }),
+	Active = airborne(merge(legs(100, -130, 85, -2), {
+		Root = { -20, 30, 0, 0.3, 0 }, Waist = { -6, -20, 0 }, Neck = { 20, -20, 0 },
+		LeftShoulder = { -40, 0, -40 }, RightShoulder = { -30, 0, 40 },
+	})),
+	Recovery = merge(ZEPHYR, legs(50, -80, 30, -60)),
+}
+Poses.ZephyrFinale = { -- jumping spinning hook kick
+	Startup = merge(ZEPHYR_CROUCH, { Root = { 0, -60, 0, -0.95, 0 }, Waist = { -20, -30, 0 } }),
+	Active = airborne(merge(legs(20, -40, 120, -4, -5, 40), {
+		Root = { 0, 150, 0, 0.5, 0 }, Waist = { 14, 40, 0 }, Neck = { -6, 70, 0 },
+		RightAnkle = { -30, 0, 0 },
+		LeftShoulder = { 40, 0, -60 }, RightShoulder = { 30, 0, 60 },
+	})),
+	Recovery = merge(ZEPHYR, legs(40, -70, 20, -50)),
+}
+Poses.ZephyrBlade = { -- outside crescent kick that throws a blade of wind
+	Startup = merge(ZEPHYR, { RightHip = { 60, 0, 50 }, RightKnee = { -60, 0, 0 } }),
+	Active = merge(ZEPHYR, {
+		Root = { 8, -10, 0, -0.1, 0 }, Waist = { 10, -30, 0 },
+		RightHip = { 120, 0, 30 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -20, 0, 0 },
+		LeftShoulder = { 40, 0, -60 }, RightShoulder = { 30, 0, 50 },
+	}),
+	Recovery = merge(ZEPHYR, { RightHip = { 62, 0, 5 }, RightKnee = { -100, 0, 0 } }),
+}
+Poses.ZephyrRush = { Startup = Poses.Kiai, Active = Poses.ZephyrPush.Active, Recovery = Poses.ZephyrPush.Recovery }
+Poses.ZephyrAwakening = { Startup = Poses.Kiai, Active = Poses.ZephyrHigh.Active, Recovery = Poses.ZephyrHigh.Recovery }
+Poses.ZephyrGate = { Startup = Poses.Kiai, Active = Poses.ZephyrRiser.Active, Recovery = Poses.ZephyrRiser.Recovery }
+
+-- ----------------------------------------------------------------- AKEMI · shadow assassin
+Poses.AkemiEdge = { -- knife-hand thrust from the low stance
+	Startup = merge(AKEMI, { Waist = { -20, 30, 0 }, RightShoulder = { 40, 0, 20 }, RightElbow = { 110, 0, 0 } }),
+	Active = feet(merge(AKEMI, {
+		Root = { 0, 20, 0, -0.7, -0.5 }, Waist = { -26, 28, 0 },
+		RightShoulder = { 92, 0, -4 }, RightElbow = { 2, 0, 0 },
+	}), -1.4, 0.7, 0, -18, 11),
+	Recovery = merge(AKEMI, { RightShoulder = { 70, 0, 14 }, RightElbow = { 40, 0, 0 } }),
+}
+Poses.AkemiStep = { -- PAS DE L'OMBRE: a low lunge through the target, slashing across
+	Startup = feet(merge(AKEMI, { Root = { 0, 30, 0, -0.95, 0.2 }, Waist = { -30, 30, 0 },
+		RightShoulder = { 120, 0, 50 }, RightElbow = { 30, 0, 0 } }), -0.7, 1.0, 0, -12, 12),
+	Active = feet(merge(AKEMI, {
+		Root = { 0, -10, 0, -1.0, -0.9 }, Waist = { -34, -30, 0 }, Neck = { 30, 20, 0 },
+		RightShoulder = { 80, 0, -50 }, RightElbow = { 4, 0, 0 },
+		LeftShoulder = { -40, 0, -30 }, LeftElbow = { 20, 0, 0 },
+	}), -1.7, 0.6, 0, -24, 12),
+	Recovery = merge(AKEMI, { Waist = { -26, 10, 0 } }),
+}
+Poses.AkemiKunai = { -- overhand throw
+	Startup = merge(AKEMI, { Waist = { -14, 34, 0 }, RightShoulder = { 160, 0, 30 }, RightElbow = { 70, 0, 0 } }),
+	Active = feet(merge(AKEMI, {
+		Root = { 0, -10, 0, -0.66, -0.3 }, Waist = { -26, -20, 0 },
+		RightShoulder = { 82, 0, -14 }, RightElbow = { 4, 0, 0 }, RightWrist = { -30, 0, 0 },
+	}), -1.2, 0.8, 0, -18, 11),
+	Recovery = merge(AKEMI, { Waist = { -20, 10, 0 } }),
+}
+Poses.AkemiRush = { Startup = Poses.Kiai, Active = Poses.AkemiStep.Active, Recovery = Poses.AkemiStep.Recovery }
+
+-- Limbs that strike with each move (its own entry, else its role's): used by the motion
+-- trails and checked by the tests (TARO strikes with fists only, ZEPHYR with feet only).
+Poses.STRIKE = {
+	Jab = { "LeftHand" }, Cross = { "RightHand" }, Elbow = { "RightHand" }, Kick = { "RightFoot" },
+	BodyBlow = { "RightHand" }, Uppercut = { "RightHand" }, PalmStrike = { "LeftHand", "RightHand" },
+	DragonTornado = { "LeftFoot", "RightFoot" }, DragonFist = { "LeftHand", "RightHand" },
+	CrescentMoon = { "LeftFoot", "RightFoot" }, RisingWind = { "LeftFoot", "RightFoot" },
+	KiFlurry = { "LeftHand", "RightHand" }, ThunderHeel = { "RightFoot" }, SpinKick = { "RightFoot" },
+	Smash = { "RightHand" }, Hammer = { "RightFoot" }, Sweep = { "RightFoot" }, LowKick = { "RightFoot" },
+	AirKick = { "RightFoot" }, AirKick2 = { "LeftFoot" }, AirSmash = { "LeftHand", "RightHand" },
+	Rising = { "RightHand" }, KiChase = { "LeftFoot" }, Finale = { "LeftHand", "RightHand" },
+	KiBlast = { "LeftHand", "RightHand" }, KaienRush = { "RightHand" }, Awakening = { "LeftHand", "RightHand" },
+	Kaiten = { "LeftHand", "RightHand" },
+	TaroHook = { "RightHand" }, TaroBolo = { "RightHand" }, TaroCorkscrew = { "RightHand" },
+	TaroOverhand = { "RightHand" }, TaroDive = { "RightHand" }, TaroLowJab = { "LeftHand" },
+	TaroAirJab = { "LeftHand" }, TaroAirHook = { "RightHand" }, TaroMeteor = { "LeftHand", "RightHand" },
+	TaroTwinUpper = { "LeftHand", "RightHand" }, TaroGatling = { "LeftHand", "RightHand" },
+	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
+	TaroCounter = { "RightHand" }, TaroParry = {},
+	ZephyrFront = { "LeftFoot" }, ZephyrSide = { "RightFoot" }, ZephyrRound = { "RightFoot" },
+	ZephyrHigh = { "RightFoot" }, ZephyrPlexus = { "RightFoot" }, ZephyrRiser = { "RightFoot" },
+	ZephyrHeel = { "RightFoot" }, ZephyrSkyward = { "LeftFoot", "RightFoot" }, ZephyrHundred = { "RightFoot" },
+	ZephyrPush = { "RightFoot" }, ZephyrDiveKick = { "RightFoot" }, ZephyrEnvol = { "RightFoot" },
+	ZephyrChase = { "RightFoot" }, ZephyrFinale = { "RightFoot" }, ZephyrBlade = { "RightFoot" },
+	ZephyrRush = { "RightFoot" }, ZephyrAwakening = { "RightFoot" }, ZephyrGate = { "RightFoot" },
+	AkemiEdge = { "RightHand" }, AkemiStep = { "RightHand" }, AkemiKunai = { "RightHand" }, AkemiRush = { "RightHand" },
+}
+
 -- Joint ranges (degrees) the Animator clamps exaggerated keys to; the tests check them too.
 Poses.LIMITS = table.freeze({
 	LeftElbow = { -5, 155 }, RightElbow = { -5, 155 },
@@ -535,20 +995,19 @@ Poses.LIMITS = table.freeze({
 
 -- Every pose carries its channels explicitly so blends never mix a missing channel with zero.
 local seen = {}
-local function normalize(pose)
-	if seen[pose] then return end
-	seen[pose] = true
-	pose.Root = pose.Root or { 0, 0, 0, 0, 0 }
-	pose.Ground = pose.Ground or { 1 }
-	pose.Look = pose.Look or { 1 }
+local function normalize(entry)
+	if type(entry) ~= "table" or seen[entry] or table.isfrozen(entry) then return end
+	seen[entry] = true
+	if entry.Root or entry.Waist or entry.Stance then
+		entry.Root = entry.Root or { 0, 0, 0, 0, 0 }
+		entry.Ground = entry.Ground or { 1 }
+		entry.Look = entry.Look or { 1 }
+	else
+		for _, child in entry do normalize(child) end
+	end
 end
 for name, entry in Poses do
-	if name == "LIMITS" then continue end
-	if entry.Root or entry.Waist or entry.Stance then
-		normalize(entry)
-	else
-		for _, pose in entry do normalize(pose) end
-	end
+	if name ~= "STRIKE" then normalize(entry) end
 end
 
 return Poses

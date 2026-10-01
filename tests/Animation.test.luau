@@ -10,6 +10,7 @@ local RigSpec = require("../src/shared/RigSpec")
 local K = require("../src/shared/Kinematics")
 local Poses = require("../src/shared/PoseLibrary")
 local Animator = require("../src/shared/Animator")
+local Retarget = require("../src/shared/Retarget")
 local T = require("./TestKit")
 local test, expect = T.test, T.expect
 
@@ -45,7 +46,8 @@ end
 local AVATAR = K.fromSpec(avatarSpec())
 
 local function newAnimator(skel)
-	return Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = skel or KAI })
+	return Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = skel or KAI,
+		kits = MoveData.Kits, moveKit = MoveData.MoveKit })
 end
 
 local function finite(n)
@@ -77,25 +79,29 @@ end
 
 local CHANNELS = { Ground = true, Look = true, Plant = true, Stance = true }
 
--- Library poses: name -> raw pose (attack sets flattened to "Jab.Active").
+-- Library poses: name -> raw pose (nested sets flattened to "Jab.Active", "Kits.TARO.STANCE").
 local function libraryPoses()
 	local list = {}
-	for name, entry in Poses do
-		if name == "LIMITS" then continue end
+	local function walk(prefix, entry)
+		if type(entry) ~= "table" then return end
 		if entry.Root then
-			list[name] = entry
+			list[prefix] = entry
 		else
-			for key, pose in entry do list[name .. "." .. tostring(key)] = pose end
+			for key, child in entry do walk(prefix .. "." .. tostring(key), child) end
 		end
+	end
+	for name, entry in Poses do
+		if name ~= "LIMITS" and name ~= "STRIKE" then walk(name, entry) end
 	end
 	return list
 end
 
 print("Animation")
 
-test("every move of MoveData has its key poses", function()
+test("every move of MoveData has its key poses (its own or its role's)", function()
+	local anim = newAnimator()
 	for id, m in MoveData.Moves do
-		local set = Poses[id]
+		local set = anim:moveSet(id)
 		expect(set and set.Startup and set.Active and set.Recovery, id .. " has no Startup/Active/Recovery poses")
 		if m.hits and m.hits > 1 and set.Active2 then
 			expect(m.hitInterval, id .. " alternates two contact poses but has no hitInterval")
@@ -278,7 +284,7 @@ test("attack timelines: anticipation, contact snap, settle back to the stance", 
 		local anim = newAnimator()
 		local total = MoveData.total(m)
 		local previous, previousKey
-		local stance = anim:resolve(Poses.STANCE)
+		local stance = anim:resolve(anim:base("STANCE", anim.moveKit[id]))
 		for frame = 1, total do
 			local pose, key, snap = anim:attack(id, frame, 60)
 			checkPose(pose, id .. " frame " .. frame, 3)
@@ -334,6 +340,59 @@ test("stepped timing: fewer distinct keys at 12 poses/s than at 60", function()
 		return n
 	end
 	expect(keys(12) < keys(60) / 2, "pose rate does not hold steps")
+end)
+
+-- Strike limbs of a move: its own entry in Poses.STRIKE, else its role's.
+local function strikeOf(anim, id)
+	return Poses.STRIKE[id] or Poses.STRIKE[anim.roleOf[id] or ""]
+end
+
+test("each kit fights in its style: TARO only punches, ZEPHYR only kicks", function()
+	local anim = newAnimator()
+	for _, name in { "TARO", "ZEPHYR" } do
+		local kit = MoveData.Kits[name]
+		local ids = {}
+		for _, id in kit.Roles do table.insert(ids, id) end
+		if name == "TARO" then table.insert(ids, "TaroCounter") end
+		for _, id in ids do
+			local limbs = strikeOf(anim, id)
+			expect(limbs ~= nil, id .. " has no strike limbs")
+			for _, limb in limbs do
+				local isHand = limb:find("Hand") ~= nil
+				expect(if name == "TARO" then isHand else not isHand, string.format("%s strikes with %s", id, limb))
+			end
+			-- The contact pose agrees: a punch keeps both feet low, a kick raises or extends a foot.
+			local m = MoveData.Moves[id]
+			local pose = anim:attack(id, m.startup + 3, 60)
+			if m.hitbox and not m.air and m.kind ~= "Ultimate" and (pose.Ground and pose.Ground[1] or 1) > 0.5 then
+				local solved = K.solve(KAI, pose, 0)
+				local function footUp(side)
+					local foot = solved[side .. "Foot"]
+					local other = solved[(if side == "Left" then "Right" else "Left") .. "Foot"]
+					return foot[2] - other[2] > 0.9 or -foot[3] > 1.9
+				end
+				local kicking = footUp("Left") or footUp("Right")
+				if name == "TARO" then
+					expect(not kicking, id .. ": a foot is raised like a kick")
+				else
+					expect(kicking, id .. ": no foot is raised or extended")
+				end
+			end
+		end
+	end
+end)
+
+test("each kit has its own stance, guard and run", function()
+	local anim = newAnimator()
+	local base = anim:resolve(Poses.STANCE)
+	for _, name in { "TARO", "ZEPHYR", "AKEMI" } do
+		anim.kit = name
+		local stance = anim:resolve(anim:base("STANCE"))
+		expect(stance ~= base and stance.Root[4] ~= base.Root[4], name .. " uses KAI's stance")
+		local left, right = feetAboveFloor(anim, stance)
+		expect(left < 0.06 and right < 0.06, name .. "'s stance floats")
+		expect(anim:base("RunUpper") ~= Poses.RunUpper and anim:base("Block") ~= Poses.Block, name .. " has no own run / guard")
+	end
 end)
 
 test("hit reactions follow the move that hit", function()
@@ -432,6 +491,92 @@ test("a full CPU fight animates without NaN, floor clipping or floating", functi
 	end
 	for _, needed in { "Walking", "Attack", "Hitstun", "Blocking" } do
 		expect(states[needed], "the fight never showed " .. needed)
+	end
+end)
+
+-- ===================================================================== R6
+
+local function r6Skeleton(scale)
+	scale = scale or 1
+	local sizes, joints = {}, {}
+	for name, p in RigSpec.R6.parts do sizes[name] = { p.size[1] * scale, p.size[2] * scale, p.size[3] * scale } end
+	for _, j in RigSpec.R6.joints do
+		local c0, c1 = table.clone(j.c0), table.clone(j.c1)
+		for i = 1, 3 do c0[i] *= scale; c1[i] *= scale end
+		table.insert(joints, { name = j.name, part0 = j.part0, part1 = j.part1, c0 = c0, c1 = c1 })
+	end
+	return K.skeleton(joints, sizes)
+end
+
+local function r6Animator(rt)
+	return Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = rt.virtual,
+		kits = MoveData.Kits, moveKit = MoveData.MoveKit })
+end
+
+test("R6: the standard R6 rig stands in its bind pose, feet on the floor", function()
+	local r6 = r6Skeleton()
+	expect(math.abs(r6.floor + 3) < 1e-6, "R6 floor " .. r6.floor)
+	local rt = Retarget.new(K, r6)
+	expect(math.abs(rt.virtual.floor - r6.floor) < 0.02, "the virtual R15 is not as tall as the R6 body")
+	local c0, lift = Retarget.solve(rt, {}, 0)
+	expect(math.abs(lift) < 0.02, "bind pose lifted " .. lift)
+	for _, j in RigSpec.R6.joints do
+		local got = c0[j.name]
+		expect(got, "no C0 for " .. j.name)
+		for i = 1, 12 do
+			expect(math.abs(got[i] - j.c0[i]) < 0.02, string.format("%s C0[%d] %.3f instead of %.3f", j.name, i, got[i], j.c0[i]))
+		end
+	end
+end)
+
+test("R6: limbs follow the virtual limbs (punch forward, kick up)", function()
+	local rt = Retarget.new(K, r6Skeleton())
+	local anim = r6Animator(rt)
+	local function tip(pose, part)
+		local _, _, parts = Retarget.solve(rt, pose, 0)
+		local x, y, z = K.point(parts[part], 0, -1, 0)
+		return x, y, z
+	end
+	local cross = anim:attack("Cross", MoveData.Moves.Cross.startup + 3, 60)
+	local _, hy, hz = tip(cross, "Right Arm")
+	expect(hz < -1.2 and hy > -0.2, string.format("the R6 fist is not forward (y %.2f, z %.2f)", hy, hz))
+	local kick = anim:attack("ZephyrHigh", MoveData.Moves.ZephyrHigh.startup + 3, 60)
+	local _, fy = tip(kick, "Right Leg")
+	expect(fy > 0, string.format("the R6 kick does not rise (foot y %.2f)", fy))
+end)
+
+test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled body)", function()
+	for _, scale in { 1, 1.15 } do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, "ZEPHYR", "TARO")
+		local brains = { FighterAI.new(4, 5), FighterAI.new(3, 6) }
+		local rts = { Retarget.new(K, r6Skeleton(scale)), Retarget.new(K, r6Skeleton(scale)) }
+		local anims = { r6Animator(rts[1]), r6Animator(rts[2]) }
+		for tick = 1, 60 * 30 do
+			Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) })
+			for i, f in world.fighters do
+				local view = { x = f.x, y = f.y, vx = f.vx, vy = f.vy, facing = f.facing, state = f.state, move = f.move,
+					moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit }
+				local o = world.fighters[3 - i]
+				local pose = anims[i]:step(view, { x = o.x, y = o.y, state = o.state, move = o.move }, 1 / 60, tick / 60, 15, false)
+				local c0, lift, parts = Retarget.solve(rts[i], pose, f.y)
+				expect(finite(lift), "R6 lift is not finite")
+				for name, value in c0 do
+					for _, x in value do expect(finite(x), "R6 " .. name .. " C0 is not finite") end
+				end
+				local lowest = math.huge
+				for name, t in parts do
+					local size = rts[i].r6.sizes[name]
+					lowest = math.min(lowest, K.boxBottom(t, size[1] / 2, size[2] / 2, size[3] / 2))
+				end
+				local height = lowest + lift - rts[i].r6.floor + f.y
+				expect(height > -0.03, string.format("R6 %s (%s) sinks %.2f at tick %d", f.state, tostring(f.move), -height, tick))
+				local ground = pose.Ground and pose.Ground[1] or 1
+				if f.y <= 0 and ground >= 0.999 then
+					expect(height < 0.03, string.format("R6 %s (%s) floats %.2f at tick %d", f.state, tostring(f.move), height, tick))
+				end
+			end
+		end
 	end
 end)
 

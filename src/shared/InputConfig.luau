@@ -13,6 +13,8 @@ return {
 	Ultimate = { Enum.KeyCode.R, Enum.KeyCode.O, Enum.KeyCode.ButtonL2 },
 	Reset = { Enum.KeyCode.Backspace, Enum.KeyCode.ButtonSelect },
 	Dummy = { Enum.KeyCode.M },
+	Kit = { Enum.KeyCode.T }, -- next fighter (kit)
+	FoeKit = { Enum.KeyCode.G }, -- the CPU's fighter (solo)
 	Mouse = {
 		Light = Enum.UserInputType.MouseButton1,
 		Heavy = Enum.UserInputType.MouseButton2,

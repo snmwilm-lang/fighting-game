@@ -61,6 +61,17 @@ function K.point(a, x, y, z)
 		a[3] + a[10] * x + a[11] * y + a[12] * z
 end
 
+-- Rotation part only (no translation).
+function K.rotation(a)
+	return { 0, 0, 0, a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12] }
+end
+
+-- Euler angles (radians) of a rotation, inverse of angles(): R = Rx(x) * Ry(y) * Rz(z).
+function K.toAngles(a)
+	local y = math.asin(math.clamp(a[6], -1, 1))
+	return atan2(-a[9], a[12]), y, atan2(-a[5], a[4])
+end
+
 -- Direction (rotation only).
 function K.vector(a, x, y, z)
 	return a[4] * x + a[5] * y + a[6] * z, a[7] * x + a[8] * y + a[9] * z, a[10] * x + a[11] * y + a[12] * z
@@ -244,10 +255,13 @@ function K.solveLeg(skel, pose, side, tx, ty, tz, footPitch, spread)
 	end
 	local wy, wz = reach(k)
 	local h = atan2(-z, -y) - atan2(-wz, -wy)
-	local a = -(h + k) - pitch(hipFrame) + rad(footPitch or 0)
+	-- Ankle: whatever the hip spread, knee bend and pelvis tilt or twist above it, the foot
+	-- ends flat (or pitched by footPitch) and pointing forward in the root space.
+	local above = K.mul(K.mul(K.rotation(hipFrame), K.angles(h, 0, rad(spread))), K.angles(k, 0, 0))
+	local ax, ay, az = K.toAngles(K.mul(K.inverse(above), K.angles(rad(footPitch or 0), 0, 0)))
 	pose[side .. "Hip"] = { math.deg(h), 0, spread }
 	pose[side .. "Knee"] = { math.deg(k), 0, 0 }
-	pose[side .. "Ankle"] = { math.deg(a), 0, -spread } -- the sole stays flat under a spread leg
+	pose[side .. "Ankle"] = { math.deg(ax), math.deg(ay), math.deg(az) }
 end
 
 --[[

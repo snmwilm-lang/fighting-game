@@ -40,7 +40,37 @@ end
 for _, p in parts do table.freeze(p) end
 for _, j in joints do table.freeze(j) end
 
+-- The standard Roblox R6 body: 6 parts, 6 Motor6D whose C0 / C1 carry rotations (the R6
+-- joints turn around their own Z axis). Values of a default R6 character; real avatars may be
+-- scaled, the client reads their actual joints.
+local function cf(x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22)
+	return table.freeze({ x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 })
+end
+local R6 = table.freeze({
+	parts = table.freeze({
+		HumanoidRootPart = { size = v(2, 2, 1) }, Torso = { size = v(2, 2, 1) }, Head = { size = v(2, 1, 1) },
+		["Left Arm"] = { size = v(1, 2, 1) }, ["Right Arm"] = { size = v(1, 2, 1) },
+		["Left Leg"] = { size = v(1, 2, 1) }, ["Right Leg"] = { size = v(1, 2, 1) },
+	}),
+	joints = table.freeze({
+		{ name = "RootJoint", part0 = "HumanoidRootPart", part1 = "Torso",
+			c0 = cf(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0), c1 = cf(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0) },
+		{ name = "Neck", part0 = "Torso", part1 = "Head",
+			c0 = cf(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0), c1 = cf(0, -0.5, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0) },
+		{ name = "Right Shoulder", part0 = "Torso", part1 = "Right Arm",
+			c0 = cf(1, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0), c1 = cf(-0.5, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0) },
+		{ name = "Left Shoulder", part0 = "Torso", part1 = "Left Arm",
+			c0 = cf(-1, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0), c1 = cf(0.5, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0) },
+		{ name = "Right Hip", part0 = "Torso", part1 = "Right Leg",
+			c0 = cf(1, -1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0), c1 = cf(0.5, 1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0) },
+		{ name = "Left Hip", part0 = "Torso", part1 = "Left Leg",
+			c0 = cf(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0), c1 = cf(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0) },
+	}),
+})
+
 return table.freeze({
+	R6 = R6,
+	R6_JOINTS = table.freeze({ "RootJoint", "Neck", "Left Shoulder", "Right Shoulder", "Left Hip", "Right Hip" }),
 	KAI = table.freeze({
 		parts = table.freeze(parts),
 		joints = table.freeze(joints), -- parent first

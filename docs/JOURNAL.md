@@ -1,5 +1,142 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.0 — 1er octobre 2026
+
+Deuxième quête de Wilhem : **R15 et R6**, des combos **ni trop simples ni injouables**
+(« le juste milieu »), **4 persos** avec chacun leur style (un boxeur, un perso qui ne frappe
+qu'avec les pieds, un perso qui esquive avec un passif mais encaisse peu, le reste libre),
+des **coups qui ne partent plus quand on change d'avis**, et un jeu **vraiment équilibré,
+compétitif**. Toujours **rien de lancé dans Roblox Studio** : tout est vérifié hors ligne
+(tests Luau, analyse statique) ou relu, pas vu en jeu.
+
+### Combos : la règle du rythme
+
+- Un appui ne compte « propre » que s'il est fait **après la sortie du coup d'avant**
+  (frames actives, impact, récupération ou 6 frames de tolérance). Tapé pendant l'élan, le
+  combo continue mais n'est plus propre (`dirtyReason` = « TROP TÔT ») : plus d'ÉVEIL ni de
+  PORTE. Fini de taper toute la route d'avance.
+- File de **3 appuis**, chacun expire en **10 frames** (« APPUI PERDU ») ; plusieurs boutons
+  à la fois / appui de trop = « SPAM » ; mauvais bouton = « MAUVAIS BOUTON ».
+- **Changer d'avis gagne** : garde, saut ou dash vident la file ; un coup dans le vide
+  oublie les appuis faits pendant son élan (sauf un appui délibéré dans ses 4 dernières
+  frames). Testé au clavier comme à la souris côté simulation (les deux envoient les mêmes
+  impulsions).
+- L'ENTRAÎNEUR affiche la raison exacte (snapshot `dirtyReason`).
+
+### 4 persos (kits)
+
+Un kit associe chaque **rôle** de KAI (Jab, Cross, Smash, KiChase, Finale, KaienRush…) à
+ses propres coups : même grammaire de combos pour tous, l'IA et les cinématiques marchent
+pour chacun. `MoveData.Kits`, `MoveData.KitOrder`, `MoveData.MoveKit`.
+
+| Perso | Vie | Identité | S + E |
+|---|---|---|---|
+| KAI 開 polyvalent | 1550 | équilibré | KIKOHO |
+| TARO 火 boxeur | 1600 | que les poings, allonge ×0,94, jab en 4 frames, garde de fer (usure ×0,8) | PARADE (frames 3–12) → CONTRE |
+| ZEPHYR 風 jambes | 1450 | que les pieds, allonge ×1,12, dégâts ×1,05, saut le plus haut | LAME DE VENT |
+| AKEMI 影 esquive | 1100 | la plus rapide, dégâts ×0,88, dash intouchable 5 frames, passif VOILE D'OMBRE (20 s) | KUNAÏ |
+
+- Chaque kit a ses noms, ses 11 routes, ses 6 routes complètes, ses 3 ultimes et leurs
+  cinématiques (couleurs et finales propres), ses poses (garde, course, accroupi, coups,
+  victoire) et 2 à 4 styles de couleurs (`CharacterData` : BRASIER / CHAMPION, AZUR /
+  TEMPÊTE, OMBRE / LUNE ROUGE en plus des 4 de KAI).
+- **Tenues sur l'avatar** (`RigBuilder.applyKit`, R15 et R6) : KAI bandeau + ceinture +
+  bandages ; TARO gants de boxe, short, ceinture de champion ; ZEPHYR longue écharpe qui
+  flotte, protège-tibias ; AKEMI capuche, masque à nœud flottant, brassards. Kanji dans le
+  dos. Sur le modèle en blocs, la tenue du kit s'ajoute au corps de KAI.
+- Choix : **T** / bouton PERSO, **G** / bouton ADVERSAIRE (CPU, solo). Serveur : impulsions
+  `kit` / `foeKit` validées et limitées (0,5 s), `Sim.setKits`, nouveau match. En versus,
+  seulement avant le premier coup du match ou après sa fin.
+- HUD : barres de vie à la vie max du perso, kanji / nom / rôle, jauge du passif, liste
+  COMBOS, ENTRAÎNEUR et LABO du perso local, annonces « PARADE ! » et « VOILE D'OMBRE ! ».
+  Effets (étincelle dorée, image rémanente) et sons (fichiers moteur) de parade / esquive.
+
+### Équilibrage (CPU contre CPU, `luau tests/Balance.luau`)
+
+Taux de victoire de la ligne contre la colonne, chaque duel joué des deux côtés.
+
+| LÉGENDE, 120 matchs | KAI | TARO | ZEPHYR | AKEMI | moyenne |
+|---|---|---|---|---|---|
+| KAI | — | 43 % | 53 % | 40 % | 45 % |
+| TARO | 57 % | — | 48 % | 55 % | 53 % |
+| ZEPHYR | 48 % | 52 % | — | 33 % | 44 % |
+| AKEMI | 60 % | 45 % | 68 % | — | 57 % |
+
+| DIFFICILE, 200 matchs | KAI | TARO | ZEPHYR | AKEMI | moyenne |
+|---|---|---|---|---|---|
+| KAI | — | 55 % | 50 % | 56 % | 53 % |
+| TARO | 45 % | — | 48 % | 64 % | 53 % |
+| ZEPHYR | 51 % | 52 % | — | 56 % | 53 % |
+| AKEMI | 44 % | 36 % | 44 % | — | 42 % |
+
+Toutes les moyennes entre 42 et 57 % (test de régression : 35–65 %). AKEMI monte avec le
+niveau (perso technique) ; les duels extrêmes (AKEMI–ZEPHYR 68 % en LÉGENDE, TARO–AKEMI
+64 % en DIFFICILE) changent de sens selon le niveau : c'est surtout le style du CPU qui
+pèse. Leviers utilisés : recharge du passif (le plus fort, l'ÉVEIL étant en %), vie
+d'AKEMI, KUNAÏ et PAS DE L'OMBRE affaiblis, esquive seulement au neutre, l'IA « appâte »
+le passif avec un jab seul et garde contre les projectiles.
+
+### R6
+
+- `RigReader.rigType` reconnaît un corps R6 (Torso sans UpperTorso), `RigSpec.R6` donne les
+  joints R6 standard.
+- `src/shared/Retarget.luau` (nouveau, pur) : squelette R15 **virtuel** aux proportions du
+  corps R6 ; l'Animator l'anime sans changement (IK, timelines) ; chaque membre R6 rigide est
+  orienté de son pivot vers le poing ou la semelle virtuels, tourné comme l'avant-bras / le
+  pied ; ancrage au sol avec la géométrie R6.
+- Serveur : avatar construit en R15 ou R6 (`CreateHumanoidModelFromDescription`), type par
+  défaut lu sur le compte (`GetCharacterAppearanceInfoAsync`, `playerAvatarType`) ;
+  APPARENCE : avatar R15 → avatar R6 → modèle. Le clone d'ombre du CPU prend le même type.
+- Effets et cinématiques visent les bonnes pièces sur R6 (`RigReader.part`).
+
+### Corrections au passage
+
+- Cinématiques : la caméra ne visait jamais la pièce du corps (une expression `if` ne
+  renvoyait qu'une valeur) ; elle retombait sur la position du combattant. Corrigé.
+- Panneaux COMBOS / LABO qui recouvraient la 3e rangée de boutons : placés sous la dernière.
+- IK du pied : cheville calculée exactement (pied à plat et droit quel que soit l'écart des
+  hanches, la flexion et l'inclinaison du bassin).
+
+### Fichiers
+
+Nouveaux : `src/shared/Retarget.luau`, `tests/Kits.test.luau`, `tests/BalanceKit.luau`,
+`tests/Balance.luau`. Modifiés : `MoveData`, `CombatSimulation`, `FighterAI`,
+`CharacterData`, `PoseLibrary`, `Animator`, `Kinematics`, `RigSpec`, `RigReader`,
+`CinematicDirector`, `CombatConfig` (0.9.0), `InputConfig` (T, G), `RigBuilder`,
+`init.server`, `init.client`, `AnimationController`, `CinematicController`,
+`EffectsController`, `HUDController`, `InputController`, `SoundController`, README,
+CLAUDE.md.
+
+### Tests
+
+| Test | État |
+|---|---|
+| `luau tests/CombatSimulation.test.luau` (77) : règle du rythme, changement d'avis, parade, esquive, dash intouchable… | ✅ |
+| `luau tests/FighterAI.test.luau` (9) | ✅ |
+| `luau tests/CinematicDirector.test.luau` (124) : les 3 ultimes de chaque perso, plans par type | ✅ |
+| `luau tests/Animation.test.luau` (21) : gardes et coups de chaque perso (TARO ne frappe pas du pied), R6 (corps standard et mis à l'échelle, combat CPU complet sans enfoncement ni flottement) | ✅ |
+| `luau tests/Kits.test.luau` (26) : rôles complets avec les coups propres à chaque kit, stats, allonge de ZEPHYR, garde de fer et PARADE de TARO (et ce qui la bat), VOILE D'OMBRE et dash d'AKEMI, équilibrage 35–65 % | ✅ |
+| Compilation et analyse statique Luau de tous les scripts | ✅ |
+| Jeu dans Studio (tenues sur de vrais avatars R15/R6, HUD, sons) | ❌ non exécuté |
+
+### Problèmes ouverts
+
+- Rien vu en jeu : tenues taillées par calcul sur les pièces de l'avatar (accessoires et
+  cheveux peuvent traverser la capuche d'AKEMI), animation R6 vérifiée seulement hors ligne.
+- La taille visible d'une tête R6 classique est estimée (taille de la pièce × échelle du
+  mesh) : bandeau / masque à ajuster si besoin.
+- `Model:ScaleTo` sur un R6 non parenté, et `GetCharacterAppearanceInfoAsync`, à vérifier
+  en jeu (repli : R15).
+- Équilibrage mesuré entre CPU, pas entre humains : à recouper avec de vrais matchs.
+- Sons toujours provisoires (fichiers du moteur).
+
+### Prochaine étape proposée
+
+1. Wilhem lance la 0.9.0 dans Studio : T pour passer les 4 persos, APPARENCE en R6, une
+   route en rythme avec l'ENTRAÎNEUR, la parade de TARO et le passif d'AKEMI.
+2. Retours précis (perso, coup, frame) ; tests entre joueurs pour l'équilibrage.
+3. Ensuite : SFX du jeu, écran de sélection des persos avant le match.
+
 ## Version 0.8.0 — 1er octobre 2026
 
 Mission de Wilhem : **qualité** — graphismes, jouer **son avatar avec le kit KAI**, et une

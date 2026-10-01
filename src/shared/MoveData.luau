@@ -52,64 +52,65 @@ local function move(data)
 	return table.freeze(data)
 end
 
-MoveData.Moves = table.freeze({
+-- KAI 開's moves. They are also the role templates of every other kit (see derive below).
+local KAI = {
 	-- Left-click chain: JAB > CROSS > COUDE > KICK
-	Jab = move({
+	Jab = {
 		id = "Jab", name = "JAB", startup = 5, active = 3, recovery = 9,
 		damage = 45, guardDamage = 6, hitstun = 17, blockstun = 11, hitstop = 6,
 		push = 10, blockPush = 12, lunge = 4,
 		hitbox = { near = 0.4, far = 3.6, low = 2.6, high = 4.6 },
 		cancels = { Light = "Cross", Heavy = "BodyBlow" },
-	}),
-	Cross = move({
+	},
+	Cross = {
 		id = "Cross", name = "CROSS", startup = 6, active = 3, recovery = 11,
 		damage = 55, guardDamage = 8, hitstun = 19, blockstun = 12, hitstop = 7,
 		push = 11, blockPush = 13, lunge = 7,
 		hitbox = { near = 0.4, far = 3.9, low = 2.6, high = 4.6 },
 		cancels = { Light = "Elbow", Heavy = "Uppercut" },
-	}),
-	Elbow = move({
+	},
+	Elbow = {
 		id = "Elbow", name = "COUDE", startup = 6, active = 3, recovery = 13,
 		damage = 60, guardDamage = 9, hitstun = 21, blockstun = 13, hitstop = 8,
 		push = 9, blockPush = 12, lunge = 10,
 		hitbox = { near = 0.3, far = 3.3, low = 2.8, high = 5.0 },
 		cancels = { Light = "Kick", Heavy = "SpinKick" },
-	}),
-	Kick = move({
+	},
+	Kick = {
 		id = "Kick", name = "KICK", startup = 8, active = 4, recovery = 18,
 		damage = 80, guardDamage = 12, hitstun = 24, blockstun = 14, hitstop = 10,
 		push = 24, blockPush = 18, lunge = 8, launch = 16, knockdown = true,
 		hitbox = { near = 0.4, far = 4.4, low = 1.8, high = 4.4 },
 		heavy = true,
 		cancels = { Heavy = "CrescentMoon" },
-	}),
+	},
 	-- Right-click branches of the left-click chain
-	BodyBlow = move({ -- L > R : crumple, then restart a combo
+	BodyBlow = { -- L > R : crumple, then restart a combo
 		id = "BodyBlow", name = "COUP AU FOIE", startup = 9, active = 3, recovery = 16,
 		damage = 70, guardDamage = 14, hitstun = 22, blockstun = 14, hitstop = 10,
 		push = 4, blockPush = 14, lunge = 10, crumple = true,
 		hitbox = { near = 0.3, far = 3.4, low = 1.8, high = 3.8 },
 		heavy = true,
 		cancels = { Light = "PalmStrike" },
-	}),
-	Uppercut = move({ -- L > L > R or crouch + R : launcher, jump to follow
+	},
+	Uppercut = { -- L > L > R or crouch + R : launcher, jump to follow
 		id = "Uppercut", name = "LANCEUR", startup = 8, active = 4, recovery = 22,
 		damage = 70, guardDamage = 12, hitstun = 26, blockstun = 14, hitstop = 9,
 		push = 3, blockPush = 14, lunge = 6, launch = 46, jumpCancel = true,
 		hitbox = { near = 0.2, far = 3.4, low = 1.6, high = 6.6 },
 		heavy = true,
 		cancels = { Heavy = "DragonFist" },
-	}),
+	},
 	-- Alternating routes: L > R > L > R and friends unlock special skills.
-	PalmStrike = move({ -- L > R > L : ki palm on the crumpling target
+	PalmStrike = { -- L > R > L : ki palm on the crumpling target
 		id = "PalmStrike", name = "PAUME DE KI", startup = 8, active = 4, recovery = 18,
 		damage = 75, guardDamage = 14, hitstun = 26, blockstun = 14, hitstop = 10,
 		push = 10, blockPush = 16, lunge = 8,
 		hitbox = { near = 0.3, far = 3.8, low = 1.8, high = 4.8 },
 		heavy = true,
 		cancels = { Heavy = "DragonTornado" },
-	}),
-	DragonTornado = move({ -- L > R > L > R : skill, spinning multi-hit launcher
+	},
+	DragonTornado = { -- L > R > L > R : skill, spinning multi-hit launcher
 		id = "DragonTornado", name = "TORNADE DU DRAGON", kind = "Skill", skill = true,
 		startup = 9, active = 16, recovery = 24, hits = 4, hitInterval = 4,
 		damage = 30, guardDamage = 10, hitstun = 30, blockstun = 12, hitstop = 12,
@@ -118,8 +119,8 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0, far = 3.6, low = 0, high = 7.4 },
 		heavy = true,
 		cancels = { Light = "KiChase" },
-	}),
-	DragonFist = move({ -- L > L > R > R or R > R > L > R : skill, rising triple uppercut
+	},
+	DragonFist = { -- L > L > R > R or R > R > L > R : skill, rising triple uppercut
 		id = "DragonFist", name = "POING DU DRAGON", kind = "Skill", skill = true,
 		startup = 7, active = 12, recovery = 28, hits = 3, hitInterval = 4,
 		damage = 40, guardDamage = 12, hitstun = 30, blockstun = 14, hitstop = 14,
@@ -128,8 +129,8 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0, far = 3.6, low = 0.5, high = 11.5 },
 		heavy = true,
 		cancels = { Light = "KiChase" },
-	}),
-	CrescentMoon = move({ -- L L L L > R : skill, flipping kicks that spike the target down
+	},
+	CrescentMoon = { -- L L L L > R : skill, flipping kicks that spike the target down
 		id = "CrescentMoon", name = "CROISSANT DE LUNE", kind = "Skill", skill = true,
 		startup = 7, active = 13, recovery = 24, hits = 3, hitInterval = 5,
 		damage = 35, guardDamage = 12, hitstun = 28, blockstun = 14, hitstop = 13,
@@ -138,8 +139,8 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0, far = 4.2, low = 0, high = 7.5 },
 		heavy = true,
 		cancels = { Heavy = "Finale" },
-	}),
-	RisingWind = move({ -- R > L > R : double kick that lifts the swept target
+	},
+	RisingWind = { -- R > L > R : double kick that lifts the swept target
 		id = "RisingWind", name = "VENT ASCENDANT", startup = 6, active = 8, recovery = 20,
 		hits = 2, hitInterval = 4, damage = 40, guardDamage = 10, hitstun = 26, blockstun = 13, hitstop = 9,
 		multiHitstop = 3, holdVy = 12, multiPush = 1,
@@ -147,8 +148,8 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0.2, far = 4.2, low = -1.5, high = 6 },
 		heavy = true,
 		cancels = { Light = "KiFlurry" },
-	}),
-	KiFlurry = move({ -- R > L > R > L : skill, rush of ki punches ending in a wall bounce
+	},
+	KiFlurry = { -- R > L > R > L : skill, rush of ki punches ending in a wall bounce
 		id = "KiFlurry", name = "RAFALE DE KI", kind = "Skill", skill = true,
 		startup = 6, active = 24, recovery = 22, hits = 7, hitInterval = 3,
 		damage = 18, guardDamage = 6, hitstun = 28, blockstun = 12, hitstop = 14,
@@ -157,121 +158,121 @@ MoveData.Moves = table.freeze({
 		hitbox = { near = 0.3, far = 4.2, low = 0, high = 7.5 },
 		heavy = true,
 		cancels = { Light = "KiChase" },
-	}),
-	ThunderHeel = move({ -- R > R > L : catches the bounce, launches
+	},
+	ThunderHeel = { -- R > R > L : catches the bounce, launches
 		id = "ThunderHeel", name = "TALON FOUDRE", startup = 7, active = 4, recovery = 20,
 		damage = 70, guardDamage = 12, hitstun = 26, blockstun = 14, hitstop = 10,
 		push = 3, blockPush = 14, lunge = 8, launch = 34, jumpCancel = true,
 		hitbox = { near = 0.2, far = 3.8, low = 0, high = 7 },
 		heavy = true,
 		cancels = { Heavy = "DragonFist" },
-	}),
-	SpinKick = move({ -- L > L > L > R : wall bounce
+	},
+	SpinKick = { -- L > L > L > R : wall bounce
 		id = "SpinKick", name = "TALON TOURNOYANT", startup = 10, active = 3, recovery = 22,
 		damage = 95, guardDamage = 18, hitstun = 26, blockstun = 16, hitstop = 12,
 		push = 46, blockPush = 22, lunge = 6, launch = 14, wallBounce = true,
 		hitbox = { near = 0.4, far = 4.6, low = 2.2, high = 4.8 },
 		heavy = true,
 		cancels = { Light = "KiChase" },
-	}),
+	},
 	-- Right-click chain
-	Smash = move({
+	Smash = {
 		id = "Smash", name = "FRAPPE LOURDE", startup = 13, active = 4, recovery = 22,
 		damage = 110, guardDamage = 40, hitstun = 26, blockstun = 16, hitstop = 11,
 		push = 30, blockPush = 22, lunge = 12,
 		hitbox = { near = 0.4, far = 4.2, low = 2.4, high = 4.8 },
 		heavy = true,
 		cancels = { Heavy = "Hammer", Light = "Sweep" },
-	}),
-	Hammer = move({ -- R > R : overhead axe kick, ground bounce
+	},
+	Hammer = { -- R > R : overhead axe kick, ground bounce
 		id = "Hammer", name = "HACHE CÉLESTE", startup = 12, active = 4, recovery = 20,
 		damage = 90, guardDamage = 22, hitstun = 28, blockstun = 15, hitstop = 12,
 		push = 4, blockPush = 16, lunge = 10, launch = 26, groundBounce = true, guard = "High",
 		hitbox = { near = 0.3, far = 3.8, low = 1.0, high = 6.4 },
 		heavy = true,
 		cancels = { Light = "ThunderHeel" },
-	}),
-	Sweep = move({ -- R > L : low sweep, knockdown
+	},
+	Sweep = { -- R > L : low sweep, knockdown
 		id = "Sweep", name = "BALAYAGE", startup = 9, active = 4, recovery = 20,
 		damage = 60, guardDamage = 12, hitstun = 22, blockstun = 13, hitstop = 9,
 		push = 8, blockPush = 14, lunge = 12, launch = 20, knockdown = true, guard = "Low",
 		hitbox = { near = 0.3, far = 4.6, low = -0.2, high = 1.4 },
 		cancels = { Heavy = "RisingWind" },
-	}),
+	},
 	-- Crouching
-	LowKick = move({
+	LowKick = {
 		id = "LowKick", name = "KICK BAS", startup = 5, active = 3, recovery = 10,
 		damage = 35, guardDamage = 6, hitstun = 16, blockstun = 11, hitstop = 6,
 		push = 9, blockPush = 11, lunge = 3, guard = "Low",
 		hitbox = { near = 0.3, far = 4.0, low = -0.2, high = 1.4 },
 		cancels = { Light = "Cross", Heavy = "Uppercut" },
-	}),
+	},
 	-- Air chain: J.L > J.L > J.R
-	AirKick = move({
+	AirKick = {
 		id = "AirKick", name = "KICK AÉRIEN", startup = 6, active = 6, recovery = 10, air = true,
 		damage = 55, guardDamage = 10, hitstun = 20, blockstun = 12, hitstop = 8,
 		push = 6, blockPush = 12, guard = "High",
 		hitbox = { near = 0.3, far = 3.4, low = -0.6, high = 3.2 },
 		cancels = { Light = "AirKick2", Heavy = "AirSmash" },
-	}),
-	AirKick2 = move({
+	},
+	AirKick2 = {
 		id = "AirKick2", name = "DOUBLE KICK", startup = 6, active = 4, recovery = 12, air = true,
 		damage = 55, guardDamage = 10, hitstun = 20, blockstun = 12, hitstop = 8,
 		push = 6, blockPush = 12, guard = "High",
 		hitbox = { near = 0.3, far = 3.6, low = -0.2, high = 3.4 },
 		cancels = { Heavy = "AirSmash" },
-	}),
-	AirSmash = move({
+	},
+	AirSmash = {
 		id = "AirSmash", name = "MÉTÉORE", startup = 9, active = 5, recovery = 14, air = true,
 		damage = 80, guardDamage = 16, hitstun = 24, blockstun = 14, hitstop = 11,
 		push = 10, blockPush = 14, launch = -30, groundBounce = true, guard = "High",
 		hitbox = { near = 0.2, far = 3.6, low = -1.2, high = 3.0 },
 		heavy = true,
-	}),
+	},
 	-- Special (E): invincible rising launcher, also the anti-air reversal
-	Rising = move({
+	Rising = {
 		id = "Rising", name = "RISING STRIKE", kind = "Special", startup = 9, active = 5, recovery = 26,
 		damage = 100, guardDamage = 25, hitstun = 30, blockstun = 15, hitstop = 12,
 		push = 6, blockPush = 18, lunge = 22, launch = 40, jumpCancel = true,
 		invuln = { from = 1, to = 10 },
 		hitbox = { near = 0.2, far = 3.6, low = 1.0, high = 7.0 },
 		heavy = true,
-	}),
+	},
 	-- The two last links of every 6-press route: L (chase) then R (finisher).
-	KiChase = move({ -- 5th press: dash through the air to catch any launched / bouncing target
+	KiChase = { -- 5th press: dash through the air to catch any launched / bouncing target
 		id = "KiChase", name = "POURSUITE ÉCARLATE", startup = 6, active = 8, recovery = 22,
 		damage = 50, guardDamage = 10, hitstun = 30, blockstun = 14, hitstop = 9,
 		push = 4, blockPush = 14, lunge = 34, launch = 26, homing = true, -- ki-charged leap at the target
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
 		cancels = { Heavy = "Finale" },
-	}),
-	Finale = move({ -- 6th press: finisher. Clean route + 3 bars: ÉVEIL ÉCARLATE (right click) or PORTE DES CIEUX (R key)
+	},
+	Finale = { -- 6th press: finisher. Clean route + 3 bars: ÉVEIL ÉCARLATE (right click) or PORTE DES CIEUX (R key)
 		id = "Finale", name = "COUP DE GRÂCE", kind = "Skill", skill = true,
 		startup = 8, active = 4, recovery = 30,
 		damage = 110, guardDamage = 30, hitstun = 34, blockstun = 18, hitstop = 16,
 		push = 40, blockPush = 22, lunge = 14, launch = 30, knockdown = true,
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
-	}),
-	Kaiten = move({ -- third ultimate: clean full route ending on the R key, 3 bars
+	},
+	Kaiten = { -- third ultimate: clean full route ending on the R key, 3 bars
 		id = "Kaiten", name = "開天 · PORTE DES CIEUX", kind = "Ultimate", startup = 8, active = 6, recovery = 44,
 		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
 		push = 2, blockPush = 24, lunge = 18, meterCost = 300,
 		invuln = { from = 1, to = 14 },
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
-	}),
-	Awakening = move({ -- unique attack: 3 bars, cinematic, 95 % of the current health or FINAL FINISH
+	},
+	Awakening = { -- unique attack: 3 bars, cinematic, 95 % of the current health or FINAL FINISH
 		id = "Awakening", name = "ÉVEIL ÉCARLATE", kind = "Ultimate", startup = 8, active = 6, recovery = 40,
 		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
 		push = 2, blockPush = 24, lunge = 20, meterCost = 300,
 		invuln = { from = 1, to = 14 },
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
-	}),
+	},
 	-- Crouch + E: ki blast projectile
-	KiBlast = move({
+	KiBlast = {
 		id = "KiBlast", name = "KIKOHO", kind = "Special", startup = 12, active = 2, recovery = 26,
 		damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
 		projectile = {
@@ -279,94 +280,360 @@ MoveData.Moves = table.freeze({
 			damage = 70, guardDamage = 14, hitstun = 22, blockstun = 15, hitstop = 9,
 			push = 14, blockPush = 16, heavy = false,
 		},
-	}),
+	},
 	-- Ultimate (R): costs ki, starts a cinematic when it connects
-	KaienRush = move({
+	KaienRush = {
 		id = "KaienRush", name = "KAIEN RUSH", kind = "Ultimate", startup = 8, active = 10, recovery = 36,
 		damage = 30, guardDamage = 30, hitstun = 40, blockstun = 20, hitstop = 4,
 		push = 2, blockPush = 20, lunge = 34, meterCost = 200,
 		invuln = { from = 1, to = 12 },
 		hitbox = { near = 0.2, far = 3.8, low = 0.8, high = 8.5 },
 		heavy = true,
-	}),
+	},
+}
+
+local function deepCopy(value)
+	if type(value) ~= "table" then return value end
+	local out = {}
+	for k, v in value do out[k] = deepCopy(v) end
+	return out
+end
+
+local Moves = {}
+local KAI_ROLES = {}
+for id, raw in KAI do
+	Moves[id] = move(deepCopy(raw))
+	KAI_ROLES[id] = id
+end
+
+--[[
+	Other kits are built on KAI's combo grammar: every KAI move is a role (Jab = first left
+	click, BodyBlow = left then right, DragonTornado = skill L R L R...). A kit maps each role
+	to its own move and changes what matters: names, damage, speed, reach, properties. So the
+	same routes (L R L R...) work for everyone and are learned once, while each kit hits, moves
+	and feels differently (punches only, kicks only, shadow strikes).
+	tuning: kit-wide { damage = scale, startup = delta for ground normals, reach = scale };
+	overrides[id]: fields replaced on that move (tables are merged).
+]]
+local function derive(roles, names, tuning, overrides)
+	for role, id in roles do
+		local raw = KAI[role]
+		if raw then
+			local data = deepCopy(raw)
+			data.id, data.name = id, names[id] or data.name
+			if data.cancels then
+				local cancels = {}
+				for button, target in data.cancels do cancels[button] = roles[target] end
+				data.cancels = cancels
+			end
+			if data.kind ~= "Ultimate" then
+				data.damage = math.floor(data.damage * (tuning.damage or 1) + 0.5)
+				if data.projectile then
+					data.projectile.damage = math.floor(data.projectile.damage * (tuning.damage or 1) + 0.5)
+				end
+				if (data.kind or "Normal") == "Normal" and not data.air then
+					data.startup = math.max(3, data.startup + (tuning.startup or 0))
+				end
+			end
+			if data.hitbox then data.hitbox.far = math.floor(data.hitbox.far * (tuning.reach or 1) * 100 + 0.5) / 100 end
+			for k, v in overrides[id] or {} do
+				if type(v) == "table" and type(data[k]) == "table" then
+					for kk, vv in v do data[k][kk] = vv end
+				else
+					data[k] = v
+				end
+			end
+			Moves[id] = move(data)
+		end
+	end
+end
+
+-- ===================================================================== TARO 火 · boxer
+-- Punches only. Fast jabs, heavy hooks, short reach, the toughest body and an iron guard;
+-- crouch + E is a PARRY (counter punch) instead of a projectile.
+local TARO = {
+	Jab = "TaroJab", Cross = "TaroStraight", Elbow = "TaroHook", Kick = "TaroBolo",
+	BodyBlow = "TaroLiver", Uppercut = "TaroUppercut", PalmStrike = "TaroRam",
+	DragonTornado = "TaroGatling", DragonFist = "TaroVolcano", CrescentMoon = "TaroMeteor",
+	RisingWind = "TaroTwinUpper", KiFlurry = "TaroDempsey", ThunderHeel = "TaroRisingHook",
+	SpinKick = "TaroCorkscrew", Smash = "TaroHeavy", Hammer = "TaroOverhand", Sweep = "TaroDive",
+	LowKick = "TaroLowJab", AirKick = "TaroAirJab", AirKick2 = "TaroAirHook", AirSmash = "TaroAirHammer",
+	Rising = "TaroRisingFist", KiChase = "TaroChase", Finale = "TaroFinale",
+	KaienRush = "TaroRush", Awakening = "TaroAwakening", Kaiten = "TaroGate",
+}
+derive(TARO, {
+	TaroJab = "JAB", TaroStraight = "DIRECT", TaroHook = "CROCHET", TaroBolo = "BOLO PUNCH",
+	TaroLiver = "CROCHET AU FOIE", TaroUppercut = "UPPERCUT", TaroRam = "COUP DE BÉLIER",
+	TaroGatling = "GATLING DE FEU", TaroVolcano = "UPPERCUT VOLCAN", TaroMeteor = "MARTEAU MÉTÉORE",
+	TaroTwinUpper = "DOUBLE ASCENDANT", TaroDempsey = "DEMPSEY ROLL", TaroRisingHook = "CROCHET MONTANT",
+	TaroCorkscrew = "TIRE-BOUCHON", TaroHeavy = "DROITE LOURDE", TaroOverhand = "OVERHAND", TaroDive = "PLONGEON",
+	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
+	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
+	TaroRush = "FOURNAISE", TaroAwakening = "ÉVEIL ARDENT", TaroGate = "火山 · CŒUR DU VOLCAN",
+}, { damage = 1, reach = 0.94 }, {
+	TaroJab = { startup = 4, recovery = 8 },
+	TaroStraight = { startup = 5 },
+	TaroHeavy = { guardDamage = 46 },
+	TaroOverhand = { guardDamage = 26 },
+})
+Moves.TaroParry = move({ -- crouch + E: guard-cancelling parry, counters any standing attack
+	id = "TaroParry", name = "PARADE", kind = "Special", startup = 2, active = 14, recovery = 22,
+	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+	parry = { from = 3, to = 12, counter = "TaroCounter" },
+})
+Moves.TaroCounter = move({ -- the counter punch of a successful parry
+	id = "TaroCounter", name = "CONTRE", kind = "Special", startup = 3, active = 4, recovery = 20,
+	damage = 80, guardDamage = 20, hitstun = 30, blockstun = 16, hitstop = 14,
+	push = 26, blockPush = 18, lunge = 8, launch = 24, knockdown = true,
+	hitbox = { near = 0, far = 3.9, low = 1, high = 6.2 },
+	heavy = true,
 })
 
--- Which move a button starts from neutral.
-MoveData.Starters = table.freeze({
-	Ground = table.freeze({ Light = "Jab", Heavy = "Smash", Special = "Rising", Ultimate = "KaienRush" }),
-	Crouch = table.freeze({ Light = "LowKick", Heavy = "Uppercut", Special = "KiBlast", Ultimate = "KaienRush" }),
-	Air = table.freeze({ Light = "AirKick", Heavy = "AirSmash" }),
+-- ===================================================================== ZEPHYR 風 · kicks
+-- Feet only. The longest reach, the highest jump and the fastest walk; kicks wind up a frame
+-- longer. Crouch + E throws a blade of wind from a kick.
+local ZEPHYR = {
+	Jab = "ZephyrFront", Cross = "ZephyrSide", Elbow = "ZephyrRound", Kick = "ZephyrHigh",
+	BodyBlow = "ZephyrPlexus", Uppercut = "ZephyrRiser", PalmStrike = "ZephyrHeel",
+	DragonTornado = "ZephyrCyclone", DragonFist = "ZephyrSkyward", CrescentMoon = "ZephyrCrescent",
+	RisingWind = "ZephyrGust", KiFlurry = "ZephyrHundred", ThunderHeel = "ZephyrSkyHeel",
+	SpinKick = "ZephyrBackSpin", Smash = "ZephyrPush", Hammer = "ZephyrAxe", Sweep = "ZephyrSweep",
+	LowKick = "ZephyrLow", AirKick = "ZephyrAirKick", AirKick2 = "ZephyrAirKick2", AirSmash = "ZephyrDiveKick",
+	Rising = "ZephyrEnvol", KiChase = "ZephyrChase", Finale = "ZephyrFinale", KiBlast = "ZephyrBlade",
+	KaienRush = "ZephyrRush", Awakening = "ZephyrAwakening", Kaiten = "ZephyrGate",
+}
+derive(ZEPHYR, {
+	ZephyrFront = "PIED DE FACE", ZephyrSide = "PIED LATÉRAL", ZephyrRound = "CIRCULAIRE", ZephyrHigh = "HIGH KICK",
+	ZephyrPlexus = "PIED AU PLEXUS", ZephyrRiser = "PIED MONTANT", ZephyrHeel = "TALON PERÇANT",
+	ZephyrCyclone = "CYCLONE", ZephyrSkyward = "TRIPLE ENVOL", ZephyrCrescent = "CROISSANT D'AZUR",
+	ZephyrGust = "BOURRASQUE", ZephyrHundred = "CENT PIEDS", ZephyrSkyHeel = "TALON CÉLESTE",
+	ZephyrBackSpin = "RETOURNÉ", ZephyrPush = "PIED POUSSÉ", ZephyrAxe = "HACHE", ZephyrSweep = "FAUCHAGE",
+	ZephyrLow = "PIED BAS", ZephyrAirKick = "PIED AÉRIEN", ZephyrAirKick2 = "DOUBLE AÉRIEN", ZephyrDiveKick = "PIQUÉ DU FAUCON",
+	ZephyrEnvol = "ENVOL", ZephyrChase = "PIQUÉ DU VENT", ZephyrFinale = "LAME FINALE", ZephyrBlade = "LAME DE VENT",
+	ZephyrRush = "TEMPÊTE DE LAMES", ZephyrAwakening = "ÉVEIL CÉLESTE", ZephyrGate = "天風 · ŒIL DU CYCLONE",
+}, { damage = 1.05, startup = 0, reach = 1.12 }, {
+	ZephyrBlade = { startup = 11, projectile = { speed = 36, life = 75, damage = 58, halfHeight = 0.7 } },
+	ZephyrPush = { push = 36 },
 })
 
--- Scripted cinematics: ticks of the hits inside the cinematic and how damage is decided.
-MoveData.Cinematics = table.freeze({
-	KaienRush = table.freeze({
+-- ===================================================================== AKEMI 影 · shadow
+-- Fast and evasive but fragile: the lowest health, quicker wind-ups, a dash that slips
+-- through attacks and the passive VOILE D'OMBRE (the first hit of an attack sequence is
+-- evaded every 20 s, see Kits.AKEMI.Passive). Crouch + E throws kunai.
+local AKEMI = {
+	Jab = "AkemiEdge", Cross = "AkemiPalm", Elbow = "AkemiKnee", Kick = "AkemiFlip",
+	BodyBlow = "AkemiPierce", Uppercut = "AkemiRise", PalmStrike = "AkemiMark",
+	DragonTornado = "AkemiWhirl", DragonFist = "AkemiFangs", CrescentMoon = "AkemiMoonfall",
+	RisingWind = "AkemiTwin", KiFlurry = "AkemiThousand", ThunderHeel = "AkemiStealth",
+	SpinKick = "AkemiSpin", Smash = "AkemiThrust", Hammer = "AkemiDrop", Sweep = "AkemiReap",
+	LowKick = "AkemiLow", AirKick = "AkemiAirEdge", AirKick2 = "AkemiAirEdge2", AirSmash = "AkemiStoop",
+	Rising = "AkemiStep", KiChase = "AkemiChase", Finale = "AkemiFinale", KiBlast = "AkemiKunai",
+	KaienRush = "AkemiRush", Awakening = "AkemiAwakening", Kaiten = "AkemiGate",
+}
+derive(AKEMI, {
+	AkemiEdge = "LAME DE MAIN", AkemiPalm = "PAUME", AkemiKnee = "GENOU", AkemiFlip = "SALTO",
+	AkemiPierce = "PERCÉE", AkemiRise = "ENVOL D'OMBRE", AkemiMark = "MARQUE",
+	AkemiWhirl = "TOURBILLON D'OMBRE", AkemiFangs = "TRIPLE CROC", AkemiMoonfall = "CHUTE LUNAIRE",
+	AkemiTwin = "LAMES JUMELLES", AkemiThousand = "MILLE ENTAILLES", AkemiStealth = "TALON FURTIF",
+	AkemiSpin = "VRILLE", AkemiThrust = "ESTOC", AkemiDrop = "CHUTE", AkemiReap = "FAUCHE",
+	AkemiLow = "COUP BAS", AkemiAirEdge = "LAME AÉRIENNE", AkemiAirEdge2 = "DOUBLE LAME", AkemiStoop = "PIQUÉ",
+	AkemiStep = "PAS DE L'OMBRE", AkemiChase = "TRAQUE", AkemiFinale = "EXÉCUTION", AkemiKunai = "KUNAÏ",
+	AkemiRush = "MILLE OMBRES", AkemiAwakening = "ÉVEIL NOCTURNE", AkemiGate = "影月 · LUNE NOIRE",
+}, { damage = 0.88, startup = 0, reach = 1 }, {
+	AkemiStep = { lunge = 26, invuln = { from = 1, to = 11 }, damage = 80 },
+	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
+})
+
+MoveData.Moves = table.freeze(Moves)
+
+-- ===================================================================== kits
+
+local KAI_STARTERS = {
+	Ground = { Light = "Jab", Heavy = "Smash", Special = "Rising", Ultimate = "KaienRush" },
+	Crouch = { Light = "LowKick", Heavy = "Uppercut", Special = "KiBlast", Ultimate = "KaienRush" },
+	Air = { Light = "AirKick", Heavy = "AirSmash" },
+}
+-- Combo routes (L = clic gauche, R = clic droit): the grammar shared by every kit.
+local ROUTES = {
+	{ keys = "L L L L", moves = { "Jab", "Cross", "Elbow", "Kick" } },
+	{ keys = "L L R ↑", moves = { "Jab", "Cross", "Uppercut" } },
+	{ keys = "L R", moves = { "Jab", "BodyBlow" } },
+	{ keys = "L L L R", moves = { "Jab", "Cross", "Elbow", "SpinKick" } },
+	{ keys = "R R", moves = { "Smash", "Hammer" } },
+	{ keys = "R L", moves = { "Smash", "Sweep" } },
+	{ keys = "L R L R", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado" }, skill = true },
+	{ keys = "R L R L", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry" }, skill = true },
+	{ keys = "L L R R", moves = { "Jab", "Cross", "Uppercut", "DragonFist" }, skill = true },
+	{ keys = "R R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist" }, skill = true },
+	{ keys = "L L L L R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon" }, skill = true },
+}
+-- The six 6-press routes; `finale` is the ending staged by the ÉVEIL cinematic.
+local FULL_ROUTES = {
+	{ keys = "L R L R L R", finale = "TORNADE", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado", "KiChase", "Finale" } },
+	{ keys = "R L R L L R", finale = "RAFALE", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry", "KiChase", "Finale" } },
+	{ keys = "L L R R L R", finale = "DRAGON", moves = { "Jab", "Cross", "Uppercut", "DragonFist", "KiChase", "Finale" } },
+	{ keys = "R R L R L R", finale = "FOUDRE", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist", "KiChase", "Finale" } },
+	{ keys = "L L L R L R", finale = "MUR", moves = { "Jab", "Cross", "Elbow", "SpinKick", "KiChase", "Finale" } },
+	{ keys = "L L L L R R", finale = "LUNE", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon", "Finale" } },
+}
+
+-- Scripted cinematics of KAI (the other kits reuse the timing, see below).
+local CINEMATICS = {
+	KaienRush = {
+		Type = "Rush",
 		Length = 150,
 		FinalTick = 118,
-		Hits = table.freeze({ 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 }),
+		Hits = { 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 },
 		HitDamage = 22,
 		FinalDamage = 170,
 		MinScaling = 0.5,
-	}),
+	},
 	-- 開天 · PORTE DES CIEUX: a gate drags the target into a crimson world for one blow.
-	-- Removes MaxHealthShare of the MAXIMUM health (KO possible, then the K.O. scene).
+	-- Removes MaxHealthShare of the target's MAXIMUM health (KO possible, then the K.O. scene).
 	-- One prompt: the R key right on the climax opens the gate fully (+PerfectBonus).
-	Kaiten = table.freeze({
+	Kaiten = {
+		Type = "Gate",
 		Length = 210,
 		FinalTick = 150,
-		Hits = table.freeze({ 118, 126 }),
+		Hits = { 118, 126 },
 		HitShare = 0.05,
 		MaxHealthShare = 0.4,
 		FinishExtra = 200,
-		PromptTicks = table.freeze({ 140 }),
+		PromptTicks = { 140 },
 		PromptWindow = 4,
 		PerfectBonus = 0.1,
-	}),
+	},
 	-- ÉVEIL ÉCARLATE: removes HealthRatio of the target's current health, whatever it is.
 	-- Below FinishThreshold of the maximum health it is a FINAL FINISH (KO) with an extra
 	-- FinishExtra ticks of KO sequence.
-	Awakening = table.freeze({
+	Awakening = {
+		Type = "Awaken",
 		Length = 220,
 		FinalTick = 160,
-		Hits = table.freeze({ 70, 78, 86, 94, 102, 110, 118 }),
+		Hits = { 70, 78, 86, 94, 102, 110, 118 },
 		HitShare = 0.05,
 		HealthRatio = 0.95,
 		FinishThreshold = 0.5,
 		FinishExtra = 200, -- the K.O. scene of a FINAL FINISH
 		-- Rhythm prompts during the rush: the four first keys of the route that was played.
-		PromptTicks = table.freeze({ 66, 82, 98, 114 }),
+		PromptTicks = { 66, 82, 98, 114 },
 		PromptWindow = 7,
 		PerfectRefund = 100,
-	}),
+	},
+}
+
+local Kits = {}
+local function kit(name, data)
+	local roles = data.Roles
+	local function remap(list)
+		local out = {}
+		for i, id in list do out[i] = roles[id] or id end
+		return table.freeze(out)
+	end
+	local starters = {}
+	for stance, buttons in KAI_STARTERS do
+		local mapped = {}
+		for button, id in buttons do mapped[button] = roles[id] end
+		for button, id in (data.Starters or {})[stance] or {} do mapped[button] = id end
+		starters[stance] = table.freeze(mapped)
+	end
+	data.Starters = table.freeze(starters)
+	local routes = {}
+	for i, route in ROUTES do
+		routes[i] = table.freeze({
+			name = (if route.skill then "★ " else "") .. data.RouteNames[i], keys = route.keys, moves = remap(route.moves),
+		})
+	end
+	data.Routes = table.freeze(routes)
+	local full = {}
+	for i, route in FULL_ROUTES do
+		full[i] = table.freeze({ name = data.FullRouteNames[i], keys = route.keys, finale = route.finale, moves = remap(route.moves) })
+	end
+	data.FullRoutes = table.freeze(full)
+	data.Ultimates = table.freeze({
+		Rush = roles.KaienRush, Awaken = roles.Awakening, Gate = roles.Kaiten, Chase = roles.KiChase, Finale = roles.Finale,
+	})
+	data.Stats = table.freeze(data.Stats)
+	if data.Passive then data.Passive = table.freeze(data.Passive) end
+	data.Colors = table.freeze(data.Colors)
+	data.Roles = table.freeze(roles)
+	data.Name = name
+	Kits[name] = table.freeze(data)
+	-- The ultimates' cinematics: KAI's timing with this kit's damage.
+	for role, cin in CINEMATICS do
+		local copy = deepCopy(cin)
+		for k, v in (data.CinematicTuning or {})[cin.Type] or {} do copy[k] = v end
+		for k, v in copy do
+			if type(v) == "table" then copy[k] = table.freeze(v) end
+		end
+		MoveData.Cinematics[roles[role]] = table.freeze(copy)
+	end
+end
+MoveData.Cinematics = {}
+
+kit("KAI", {
+	Kanji = "開", Role = "POLYVALENT",
+	Description = "Tout-terrain : poings, pieds et boule de ki.",
+	Roles = KAI_ROLES,
+	Stats = { MaxHealth = 1550, WalkSpeed = 17, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 38 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "HACHE", "BALAYAGE", "TORNADE", "RAFALE", "DRAGON", "FOUDRE", "LUNE" },
+	FullRouteNames = { "TORNADE", "RAFALE", "DRAGON", "FOUDRE", "MUR", "LUNE" },
+	GateTitle = { text = "開天", sub = "PORTE DES CIEUX" },
+	Colors = { TORNADE = "FF2A3D", RAFALE = "FF7A2A", DRAGON = "FF2A3D", FOUDRE = "8FD8FF", MUR = "FF2A3D", LUNE = "FFE9B0" },
 })
--- Kept for code written against the single-cinematic version.
+kit("TARO", {
+	Kanji = "火", Role = "BOXEUR",
+	Description = "Que les poings. Le plus robuste, garde de fer, PARADE (S + E) qui contre.",
+	Roles = TARO,
+	Starters = { Crouch = { Special = "TaroParry" } },
+	Stats = { MaxHealth = 1600, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
+	FullRouteNames = { "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MUR", "MÉTÉORE" },
+	GateTitle = { text = "火山", sub = "CŒUR DU VOLCAN" },
+	Colors = { TORNADE = "FF6A1A", RAFALE = "FF3B1A", DRAGON = "FFB21A", FOUDRE = "FFD45A", MUR = "FF6A1A", LUNE = "FF8C3A" },
+})
+kit("ZEPHYR", {
+	Kanji = "風", Role = "JAMBES",
+	Description = "Que les pieds. Plus grande allonge, saut le plus haut, LAME DE VENT (S + E).",
+	Roles = ZEPHYR,
+	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "PLEXUS", "MUR", "HACHE", "FAUCHAGE", "CYCLONE", "CENT PIEDS", "ENVOL", "CIEL", "AZUR" },
+	FullRouteNames = { "CYCLONE", "CENT PIEDS", "ENVOL", "CIEL", "MUR", "AZUR" },
+	GateTitle = { text = "天風", sub = "ŒIL DU CYCLONE" },
+	Colors = { TORNADE = "5FE0D0", RAFALE = "9FF0FF", DRAGON = "5FE0D0", FOUDRE = "C8F4FF", MUR = "5FE0D0", LUNE = "E8FFFF" },
+})
+kit("AKEMI", {
+	Kanji = "影", Role = "ESQUIVE",
+	Description = "Rapide et fragile : VOILE D'OMBRE esquive un coup toutes les 20 s, dash intouchable, KUNAÏ (S + E).",
+	Roles = AKEMI,
+	Stats = { MaxHealth = 1100, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
+	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
+	-- hit is evaded: AKEMI slides back (Slide = push speed, about 2.4 studs), untouchable
+	-- for Invuln ticks, unable to act for Recovery ticks; then it recharges for Cooldown
+	-- ticks. Ultimates cannot be evaded.
+	Passive = { Type = "Evade", Name = "VOILE D'OMBRE", Cooldown = 1200, Invuln = 14, Recovery = 16, Slide = 26 },
+	RouteNames = { "CHAÎNE", "ENVOL", "PERCÉE", "MUR", "CHUTE", "FAUCHE", "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "CROISSANT" },
+	FullRouteNames = { "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "MUR", "CROISSANT" },
+	GateTitle = { text = "影月", sub = "LUNE NOIRE" },
+	Colors = { TORNADE = "B060FF", RAFALE = "8A3CFF", DRAGON = "D08CFF", FOUDRE = "6E7BFF", MUR = "B060FF", LUNE = "E0C8FF" },
+})
+MoveData.Cinematics = table.freeze(MoveData.Cinematics)
+MoveData.Kits = table.freeze(Kits)
+MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI" })
+
+-- KAI's tables, kept for code written before the kits.
+MoveData.Starters = Kits.KAI.Starters
+MoveData.Routes = Kits.KAI.Routes
+MoveData.FullRoutes = Kits.KAI.FullRoutes
 MoveData.Cinematic = MoveData.Cinematics.KaienRush
 
--- Combo routes shown in the HUD help and used by the CPU. L = clic gauche, R = clic droit.
-MoveData.Routes = table.freeze({
-	{ name = "CHAÎNE", keys = "L L L L", moves = { "Jab", "Cross", "Elbow", "Kick" } },
-	{ name = "LANCEUR", keys = "L L R ↑", moves = { "Jab", "Cross", "Uppercut" } },
-	{ name = "FOIE", keys = "L R", moves = { "Jab", "BodyBlow" } },
-	{ name = "MUR", keys = "L L L R", moves = { "Jab", "Cross", "Elbow", "SpinKick" } },
-	{ name = "HACHE", keys = "R R", moves = { "Smash", "Hammer" } },
-	{ name = "BALAYAGE", keys = "R L", moves = { "Smash", "Sweep" } },
-	{ name = "★ TORNADE", keys = "L R L R", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado" } },
-	{ name = "★ RAFALE", keys = "R L R L", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry" } },
-	{ name = "★ DRAGON", keys = "L L R R", moves = { "Jab", "Cross", "Uppercut", "DragonFist" } },
-	{ name = "★ FOUDRE", keys = "R R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist" } },
-	{ name = "★ LUNE", keys = "L L L L R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon" } },
-})
-
--- The six full 6-press routes. Their last link is COUP DE GRÂCE, which becomes
--- ÉVEIL ÉCARLATE when the ki meter is full (3 bars).
-MoveData.FullRoutes = table.freeze({
-	{ name = "TORNADE", keys = "L R L R L R", moves = { "Jab", "BodyBlow", "PalmStrike", "DragonTornado", "KiChase", "Finale" } },
-	{ name = "RAFALE", keys = "R L R L L R", moves = { "Smash", "Sweep", "RisingWind", "KiFlurry", "KiChase", "Finale" } },
-	{ name = "DRAGON", keys = "L L R R L R", moves = { "Jab", "Cross", "Uppercut", "DragonFist", "KiChase", "Finale" } },
-	{ name = "FOUDRE", keys = "R R L R L R", moves = { "Smash", "Hammer", "ThunderHeel", "DragonFist", "KiChase", "Finale" } },
-	{ name = "MUR", keys = "L L L R L R", moves = { "Jab", "Cross", "Elbow", "SpinKick", "KiChase", "Finale" } },
-	{ name = "LUNE", keys = "L L L L R R", moves = { "Jab", "Cross", "Elbow", "Kick", "CrescentMoon", "Finale" } },
-})
+-- Kit of a move id (nil for unknown ids).
+local moveKit = {}
+for name, data in Kits do
+	for _, id in data.Roles do moveKit[id] = name end
+end
+moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
+MoveData.MoveKit = table.freeze(moveKit)
 
 function MoveData.total(m)
 	return m.startup + m.active + m.recovery

@@ -6,6 +6,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
+local RigReader = require(Shared.RigReader)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -28,10 +29,13 @@ hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onAvatar = input.toggleAvatar
 hud.onSkin = input.nextSkin
+hud.onKit = input.nextKit
+hud.onFoeKit = input.nextFoeKit
 local debugRemote = remotes:WaitForChild("Debug")
-hud.onDebugCinematic = function(moveId, style, finish)
+-- kind: the cinematic type ("Rush", "Awaken", "Gate") of the local fighter's kit.
+hud.onDebugCinematic = function(kind, style, finish)
 	cinematic.labRequested = true
-	debugRemote:FireServer(moveId, style, finish == true)
+	debugRemote:FireServer(kind, style, finish == true)
 end
 hud.onPreviewKO = function()
 	cinematic:previewKO(player:GetAttribute("FighterSlot") or 0)
@@ -79,6 +83,9 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 			hud:applyLook(slot)
 		end
 	end
+	-- The local fighter's kit drives the combo list, the trainer and the lab.
+	local mine = packet.fighters[player:GetAttribute("FighterSlot") or 0]
+	hud:setKit(if mine then mine.kit else nil)
 	cinematic:snapshot()
 	if generation ~= packet.generation or epoch ~= packet.epoch then
 		-- New match or new round: snap instead of sliding fighters back to their spawns.
@@ -121,7 +128,8 @@ local function findRig(slot)
 		for _, child in model:GetDescendants() do
 			if child:IsA("Motor6D") then motorCount += 1 end
 		end
-		if motorCount < 15 then return nil end -- Wait for complete rig replication.
+		-- Wait for complete rig replication (15 joints on R15 and KAI, 6 on R6).
+		if motorCount < (if RigReader.rigType(model) == "R6" then 6 else 15) then return nil end
 		local animation = AnimationController.new(model)
 		cached = {
 			model = model, root = root, animation = animation,
@@ -194,8 +202,9 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	end
 	local localSlot = player:GetAttribute("FighterSlot") or 0
 	local mine = displayed[localSlot]
-	input.setUltimateReady(mine ~= nil and mine.meter >= MoveData.Moves.KaienRush.meterCost)
+	local kit = mine and MoveData.Kits[mine.kit]
+	input.setUltimateReady(kit ~= nil and mine.meter >= MoveData.Moves[kit.Ultimates.Rush].meterCost)
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
 end)
-print("[FightingGame] Client ready — combos (clics), garde F, spéciale E, ultime R + cinématique, CPU")
+print("[FightingGame] Client ready — 4 kits (T / G), combos (clics), garde F, spéciale E, ultime R, R15 / R6")

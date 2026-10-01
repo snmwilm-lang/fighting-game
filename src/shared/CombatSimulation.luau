@@ -13,20 +13,24 @@ local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimat
 local BUTTON_ORDER = { "light", "heavy", "special", "ultimate" }
 local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U" }
 
-local function newFighter(slot, c)
+local function newFighter(slot, c, kit)
 	local facing = if slot == 1 then 1 else -1
+	local stats = kit.Stats
 	return {
 		slot = slot,
+		kit = kit.Name, stats = stats, maxHp = stats.MaxHealth,
+		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
 		state = "Idle",
 		dashTicks = 0, dashCooldown = 0, dashDirection = facing,
-		hp = c.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
+		hp = stats.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		moveHits = 0, lastHitFrame = 0, projectileSpawned = false,
-		chainKeys = "", chainClean = false, awakenStyle = nil,
-		grace = nil, -- { move, ticks }: late presses still link after the move ended
+		chainKeys = "", chainClean = false, awakenStyle = nil, dirtyReason = nil,
+		moveSerial = 0, -- counts the moves started, so a press knows which attack it followed
+		grace = nil, -- { move, ticks, serial }: late presses still link after the move ended
 		stun = 0, stunKind = nil, launched = false, juggle = 0,
 		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
 		knockdown = 0, getUp = 0,
@@ -41,7 +45,7 @@ end
 local function resetFighters(world)
 	for slot = 1, 2 do
 		local old = world.fighters[slot]
-		world.fighters[slot] = newFighter(slot, world.config)
+		world.fighters[slot] = newFighter(slot, world.config, world.moveData.Kits[world.kits[slot]])
 		if old then
 			world.fighters[slot].wins = old.wins
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
@@ -65,10 +69,23 @@ function CombatSimulation.newWorld(config, moveData, training)
 		tick = 0,
 		projectiles = {},
 		nextProjectileId = 0,
+		kits = { "KAI", "KAI" },
 	}
 	CombatSimulation.resetMatch(world, training)
 	return world
 end
+
+-- Chooses each slot's kit (MoveData.Kits) and starts a fresh match with their stats.
+function CombatSimulation.setKits(world, kit1, kit2)
+	local kits = world.moveData.Kits
+	world.kits = { if kits[kit1] then kit1 else "KAI", if kits[kit2] then kit2 else "KAI" }
+	CombatSimulation.resetMatch(world, world.training)
+end
+
+local function kitOf(world, f)
+	return world.moveData.Kits[f.kit]
+end
+CombatSimulation.kitOf = kitOf
 
 -- Full reset: health, guard, meter, states, buffers, wins and round counter.
 function CombatSimulation.resetMatch(world, training)
@@ -96,7 +113,8 @@ local function isGrounded(f)
 end
 
 local function isInvulnerable(f, c, moves)
-	if f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits) then
+	if f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits)
+		or f.evadeInvuln > 0 or f.dashInvuln > 0 then
 		return true
 	end
 	local m = f.move and moves[f.move]
@@ -141,11 +159,18 @@ local function startMove(world, f, id, events, isLink)
 	if isLink then
 		-- A link of the current combo: remember the typed route and whether it stayed clean.
 		f.chainKeys ..= letter
-		-- (a link keeps the combo clean; spam is detected when it happens)
+		-- Rhythm: the press must come once the attack it continues is out (active frames,
+		-- hit, recovery or the late window). Typed earlier, the combo goes on but is not clean.
+		local current = if f.move then f.moveSerial elseif f.grace then f.grace.serial else nil
+		if entry and entry.after ~= current then
+			f.chainClean, f.dirtyReason = false, "TROP TÔT"
+		end
 	else
 		f.chainKeys, f.chainClean = letter, not f.dirtyStart
+		f.dirtyReason = if f.dirtyStart then "SPAM" else nil
 		f.dirtyStart = false
 	end
+	f.moveSerial += 1
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
 	if m.air then f.airAttackUsed = true end
@@ -174,7 +199,7 @@ end
 -- Name of the full route whose first five links this combo matches, if it was played cleanly.
 function CombatSimulation.awakeningStyle(world, f, currentId)
 	if not f.chainClean or #f.chainKeys ~= 5 then return nil end
-	for _, route in world.moveData.FullRoutes do
+	for _, route in kitOf(world, f).FullRoutes do
 		local keys = route.keys:gsub("%s", "")
 		if keys:sub(1, 5) == f.chainKeys and route.moves[5] == (currentId or f.move) then
 			return route.name
@@ -186,7 +211,8 @@ end
 local function chooseMove(world, f, grounded, crouching)
 	local head = f.buffer[1]
 	if not head then return nil end
-	local moves, starters, button = world.moves, world.moveData.Starters, head.button
+	local kit = kitOf(world, f)
+	local moves, starters, button, ultimates = world.moves, kit.Starters, head.button, kit.Ultimates
 	local nextId
 	local currentId = f.move or (f.grace and f.grace.move)
 	if currentId then
@@ -203,17 +229,17 @@ local function chooseMove(world, f, grounded, crouching)
 			-- Third ultimate, PORTE DES CIEUX: the five first links of a full route played
 			-- cleanly (one press per link, after each hit), then the R key with 3 bars.
 			local style = CombatSimulation.awakeningStyle(world, f, currentId)
-			if style and f.meter >= moves.Kaiten.meterCost then
-				nextId = "Kaiten"
+			if style and f.meter >= moves[ultimates.Gate].meterCost then
+				nextId = ultimates.Gate
 				f.awakenStyle = style
 			end
 		elseif current.cancels then
 			nextId = current.cancels[button]
 			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
-			if nextId == "Finale" then
+			if nextId == ultimates.Finale then
 				local style = CombatSimulation.awakeningStyle(world, f, currentId)
-				if style and f.meter >= moves.Awakening.meterCost then
-					nextId = "Awakening"
+				if style and f.meter >= moves[ultimates.Awaken].meterCost then
+					nextId = ultimates.Awaken
 					f.awakenStyle = style
 				end
 			end
@@ -222,7 +248,7 @@ local function chooseMove(world, f, grounded, crouching)
 	if not nextId and f.move and f.moveContact and not head.judged then
 		-- The cancel window is open and this button continues nothing: wrong button.
 		head.judged = true
-		f.chainClean = false
+		f.chainClean, f.dirtyReason = false, "MAUVAIS BOUTON"
 	end
 	local isLink = nextId ~= nil and currentId ~= nil
 	if not nextId and not f.move and f.dashTicks == 0 then
@@ -251,27 +277,32 @@ local function stepFighter(world, f, input, events)
 	local locked = f.state == "KO" or f.launched or f.knockdown > 0 or f.getUp > 0 or f.stun > 0
 	local remaining = if f.state == "KO" or f.launched or f.knockdown > 0 then math.huge
 		elseif f.getUp > 0 then f.getUp else f.stun
-	local recovered = f.wasLocked and not locked
-	f.wasLocked = locked
-	if recovered and input.block then
-		table.clear(f.buffer) -- holding guard while recovering: guard wins
+	-- Changing your mind wins: guard, jump or dash drops the attacks still waiting in the
+	-- queue (also when recovering from a hit while holding guard).
+	if input.block or input.jump or input.dash then
+		table.clear(f.buffer)
 	end
 	-- Spam = hitting every button: several buttons on the same tick, a press that overflows
-	-- the queue, a wrong button or a press that is never used. Typing the right route fast
-	-- (even entirely ahead of time) stays clean.
+	-- the queue, a wrong button or a press that is never used. A clean route also needs
+	-- rhythm: each press once the previous attack is out (see startMove).
 	local pressed = 0
+	local current = f.move and moves[f.move]
+	-- The attack this press may continue: the current move once its hitbox came out, or the
+	-- move that just ended (late window). Nil while the current move is still winding up.
+	local after = if current and f.moveFrame > current.startup then f.moveSerial
+		elseif not f.move and f.grace then f.grace.serial else nil
 	for _, field in BUTTON_ORDER do
 		if input[field] and (not locked or remaining <= c.ReversalBufferTicks) then
 			pressed += 1
 			if #f.buffer >= c.BufferSize then
 				table.remove(f.buffer, 1)
-				f.chainClean = false
+				f.chainClean, f.dirtyReason = false, "SPAM"
 			end
-			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks })
+			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, after = after })
 		end
 	end
 	if pressed > 1 then
-		f.chainClean = false
+		f.chainClean, f.dirtyReason = false, "SPAM"
 		f.dirtyStart = true -- also spoils a combo that these presses would start
 	end
 	if f.hitstop > 0 then
@@ -283,6 +314,10 @@ local function stepFighter(world, f, input, events)
 	f.frozen = false
 	f.holdBlock, f.holdCrouch = input.block, input.crouch
 	f.dashCooldown = math.max(0, f.dashCooldown - 1)
+	f.evadeCharge = math.max(0, f.evadeCharge - 1)
+	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
+	f.dashInvuln = math.max(0, f.dashInvuln - 1)
+	local stats = f.stats
 	if f.guardRegenDelay > 0 then
 		f.guardRegenDelay -= 1
 	elseif f.stunKind ~= "GuardBreak" then
@@ -329,6 +364,7 @@ local function stepFighter(world, f, input, events)
 		f.vx = 0
 		f.crouching = f.stunKind == "Block" and f.holdCrouch
 		f.state = if f.stunKind == "Block" then (if f.crouching then "CrouchBlockstun" else "Blockstun")
+			elseif f.stunKind == "Evade" then "Evading"
 			elseif f.stunKind == "GuardBreak" then "GuardBroken"
 			elseif f.stunKind == "Crumple" then "Crumple"
 			else "Hitstun"
@@ -352,14 +388,20 @@ local function stepFighter(world, f, input, events)
 			-- Super jump after a launcher to follow the target.
 			f.move, f.moveContact = nil, nil
 			f.vy = c.SuperJumpVelocity
-			f.vx = input.axis * c.AirSpeed
+			f.vx = input.axis * stats.AirSpeed
 			f.airAttackUsed = false
 			grounded = false
 			table.insert(events, { kind = "SuperJump", attacker = f.slot })
 		elseif f.moveFrame > world.moveData.total(m) then
 			-- A move that connected keeps its cancels for a few more ticks (network latency).
 			if f.moveContact and f.moveHits >= (m.hits or 1) then
-				f.grace = { move = f.move, ticks = c.LateCancelTicks }
+				f.grace = { move = f.move, ticks = c.LateCancelTicks, serial = f.moveSerial }
+			else
+				-- A whiffed attack: presses made during it are forgotten, except a deliberate
+				-- one in its last ticks (no surprise attack after changing your mind).
+				for i = #f.buffer, 1, -1 do
+					if c.BufferTicks - f.buffer[i].ticks >= c.ReversalBufferTicks then table.remove(f.buffer, i) end
+				end
 			end
 			f.move, f.moveContact = nil, nil
 		end
@@ -373,16 +415,19 @@ local function stepFighter(world, f, input, events)
 		f.grace = nil
 		startMove(world, f, nextId, events, isLink)
 	end
-	-- Only the press waiting its turn ages, and only once the current move is recovering:
-	-- presses typed during startup/active wait for the contact that allows the cancel.
-	local head = f.buffer[1]
-	local current = f.move and moves[f.move]
-	local waiting = current and f.moveFrame <= current.startup + current.active
-	if head and not waiting then
-		head.ticks -= 1
-		if head.ticks <= 0 then
-			table.remove(f.buffer, 1)
-			if f.move or f.grace then f.chainClean = false end -- a press that was never used
+	-- Every press ages (BufferTicks), except while a connected attack is still hitting: a
+	-- press made once the hit lands waits for the last hit. Typing a route far ahead loses
+	-- presses, so combos need rhythm; hitstop freezes the count (see above).
+	local ongoing = f.move and moves[f.move]
+	local holding = ongoing and f.moveContact and f.moveFrame <= ongoing.startup + ongoing.active
+	if not holding then
+		for i = #f.buffer, 1, -1 do
+			local entry = f.buffer[i]
+			entry.ticks -= 1
+			if entry.ticks <= 0 then
+				table.remove(f.buffer, i)
+				if f.move or f.grace then f.chainClean, f.dirtyReason = false, "APPUI PERDU" end
+			end
 		end
 	end
 
@@ -420,18 +465,19 @@ local function stepFighter(world, f, input, events)
 	local crouched = grounded and input.crouch and f.dashTicks == 0
 	local blocking = grounded and input.block and f.dashTicks == 0
 	if input.jump and grounded and not crouched and not blocking and f.dashTicks == 0 then
-		f.vy = c.JumpVelocity
+		f.vy = stats.JumpVelocity
 		grounded = false
 		f.airAttackUsed = false
 	end
 	if input.dash and grounded and not crouched and not blocking and f.dashTicks == 0 and f.dashCooldown == 0 then
 		f.dashDirection = if math.abs(input.axis) > 0.1 then math.sign(input.axis) else f.facing
 		f.dashTicks = c.DashTicks
+		f.dashInvuln = stats.DashInvuln or 0
 		f.dashCooldown = c.DashCooldownTicks
 	end
 	f.crouching, f.blocking = crouched, blocking
 	if f.dashTicks > 0 then
-		f.vx = f.dashDirection * c.DashSpeed
+		f.vx = f.dashDirection * stats.DashSpeed
 		f.dashTicks -= 1
 		f.state = "Dashing"
 	elseif blocking then
@@ -441,7 +487,7 @@ local function stepFighter(world, f, input, events)
 		f.vx = 0
 		f.state = "Crouching"
 	else
-		f.vx = input.axis * (if grounded then c.WalkSpeed else c.AirSpeed)
+		f.vx = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed)
 		f.state = if math.abs(f.vx) > 0.05 then "Walking" else "Idle"
 	end
 	physics(f, c)
@@ -524,16 +570,16 @@ local function startCinematic(world, a, d, events, moveId)
 	local c = world.config
 	local cin = world.moveData.Cinematics[moveId]
 	local plan, finish = {}, false
-	if moveId == "Kaiten" then
-		-- A fixed share of the MAXIMUM health, ignoring combo scaling; it can KO.
-		local total = math.floor(c.MaxHealth * cin.MaxHealthShare)
+	if cin.Type == "Gate" then
+		-- A fixed share of the target's MAXIMUM health, ignoring combo scaling; it can KO.
+		local total = math.floor(d.maxHp * cin.MaxHealthShare)
 		finish = total >= d.hp
 		local share = math.floor(total * cin.HitShare)
 		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
 		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
-	elseif moveId == "Awakening" then
+	elseif cin.Type == "Awaken" then
 		-- 95 % of the current health whatever it is; below half the maximum: FINAL FINISH.
-		finish = d.hp < c.MaxHealth * cin.FinishThreshold
+		finish = d.hp < d.maxHp * cin.FinishThreshold
 		local total = if finish then d.hp else math.floor(d.hp * cin.HealthRatio)
 		local share = math.floor(total * cin.HitShare)
 		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
@@ -548,13 +594,13 @@ local function startCinematic(world, a, d, events, moveId)
 	-- ÉVEIL ÉCARLATE: rhythm prompts during the rush, taken from the route that was played.
 	local prompts = {}
 	local style = a.awakenStyle
-	if moveId == "Kaiten" then
+	if cin.Type == "Gate" then
 		for _, t in cin.PromptTicks do
 			table.insert(prompts, { tick = t, button = "Ultimate", result = nil })
 		end
-	elseif moveId == "Awakening" then
+	elseif cin.Type == "Awaken" then
 		local keys = "LRLR"
-		for _, route in world.moveData.FullRoutes do
+		for _, route in kitOf(world, a).FullRoutes do
 			if route.name == style then keys = route.keys:gsub("%s", "") end
 		end
 		for i, t in cin.PromptTicks do
@@ -563,7 +609,7 @@ local function startCinematic(world, a, d, events, moveId)
 		end
 	end
 	world.cinematic = {
-		attacker = a.slot, defender = d.slot, move = moveId, tick = 0, finish = finish, style = style,
+		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
 		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
 		prompts = prompts, nextPrompt = 1, perfect = 0,
 	}
@@ -576,8 +622,53 @@ end
 
 -- Applies one hit (or blocked hit) of move m from attacker a on defender d. `source` is set
 -- for projectiles: { x, y, dir }; the attacker is then not frozen and not pushed.
+-- TARO's PARADE: a standing attack (not a low, not an ultimate) that lands during the parry
+-- window is cancelled; the counter punch starts at once and the attacker is stuck in the clash.
+local function tryParry(world, a, d, m, events, source)
+	local pm = d.move and world.moves[d.move]
+	local parry = pm and pm.parry
+	if not parry or d.moveFrame < parry.from or d.moveFrame > parry.to then return false end
+	if m.guard == "Low" or m.kind == "Ultimate" then return false end
+	table.insert(events, { kind = "Parry", attacker = a.slot, defender = d.slot, move = m.id,
+		x = d.x + d.facing * 1.1, y = d.y + 3.6 })
+	d.moveSerial += 1
+	d.move, d.moveFrame, d.moveContact, d.moveHits, d.lastHitFrame = parry.counter, 1, nil, 0, 0
+	d.hitstop = 6
+	if not source then
+		a.moveHits = m.hits or 1 -- the parried attack hits no more
+		a.hitstop = math.max(a.hitstop, 22)
+		a.pushVx = 0
+	end
+	return true
+end
+
+-- Passive VOILE D'OMBRE (AKEMI): from neutral (not attacking, not already hit, not
+-- guarding), the next hit is evaded: the fighter slips back, invulnerable for a moment, and
+-- the attack whiffs.
+local function tryEvade(world, a, d, m, events, source)
+	local passive = kitOf(world, d).Passive
+	if not passive or passive.Type ~= "Evade" or d.evadeCharge > 0 or m.kind == "Ultimate" then return false end
+	-- Only from neutral: not in the middle of an own attack, not already hit or down.
+	if d.move or d.stun > 0 or d.launched or d.knockdown > 0 or d.getUp > 0 or d.state == "KO" then return false end
+	local sourceX = if source then source.x else a.x
+	if canBlock(d, sourceX, m) then return false end -- a guarded hit stays a guarded hit
+	local dir = if sourceX >= d.x then 1 else -1
+	-- A slide back out of reach, untouchable, then a short recovery: neutral is reset, the
+	-- evade never grants a free punish (and the whiffed attack stays punishable only by
+	-- whoever was ready for it).
+	d.pushVx = -dir * passive.Slide
+	d.evadeCharge, d.evadeInvuln = passive.Cooldown, passive.Invuln
+	d.stun, d.stunKind, d.vx = passive.Recovery, "Evade", 0
+	d.grace, d.dashTicks = nil, 0
+	table.clear(d.buffer)
+	if not source then a.moveHits = m.hits or 1 end -- the attack whiffs
+	table.insert(events, { kind = "Evade", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3 })
+	return true
+end
+
 local function applyHit(world, a, d, m, events, source)
 	local c = world.config
+	if tryParry(world, a, d, m, events, source) or tryEvade(world, a, d, m, events, source) then return end
 	local event = { attacker = a.slot, defender = d.slot, move = m.id, heavy = m.heavy == true }
 	if source then
 		event.x, event.y, event.projectile = source.x, source.y, true
@@ -598,7 +689,7 @@ local function applyHit(world, a, d, m, events, source)
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
 		d.hp = math.max(math.min(d.hp, 1), d.hp - chip)
 		event.damage = chip
-		d.guard -= m.guardDamage
+		d.guard -= m.guardDamage * (d.stats.GuardDamageTaken or 1)
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
 		if m.kind ~= "Ultimate" then gainMeter(a, m.damage * c.MeterOnBlock, c) end
@@ -788,7 +879,7 @@ local function judgePrompts(world, state, input, events)
 		if all and cin.PerfectBonus then
 			-- Gate fully opened: the final blow hits harder.
 			for _, step in state.plan do
-				if step.final then step.damage += math.floor(world.config.MaxHealth * cin.PerfectBonus) end
+				if step.final then step.damage += math.floor(world.fighters[state.defender].maxHp * cin.PerfectBonus) end
 			end
 			local d = world.fighters[state.defender]
 			local total = 0
@@ -811,13 +902,13 @@ local function stepCinematic(world, events, inputs)
 	for _, step in state.plan do
 		if step.tick == state.tick then
 			local finishing = step.final and state.finish
-			-- Only KAIEN RUSH's last blow or a FINAL FINISH can KO; ÉVEIL ÉCARLATE otherwise
+			-- Only the rush's last blow or a FINAL FINISH can KO; the awakening otherwise
 			-- always leaves the target standing on its last 5 %.
-			local canKO = step.final and state.move == "KaienRush"
+			local canKO = step.final and state.type == "Rush"
 			d.hp = if finishing then 0 else math.max(if canKO then 0 else 1, d.hp - step.damage)
 			d.comboHits += 1
 			d.comboDamage += step.damage
-			if state.move == "KaienRush" then gainMeter(d, step.damage * c.MeterWhenHit, c) end
+			if state.type == "Rush" then gainMeter(d, step.damage * c.MeterWhenHit, c) end
 			table.insert(events, {
 				kind = "Hit", attacker = a.slot, defender = d.slot, move = state.move, cinematic = true,
 				heavy = step.final == true, ko = d.hp <= 0, damage = step.damage, combo = d.comboHits,
@@ -864,7 +955,7 @@ local function endRound(world, events, reason)
 	end
 	world.phase, world.phaseTicks = "KO", c.KOTicks
 	table.insert(events, { kind = "RoundEnd", winner = winner, reason = reason,
-		perfect = winner ~= 0 and world.fighters[winner].hp == c.MaxHealth })
+		perfect = winner ~= 0 and world.fighters[winner].hp == world.fighters[winner].maxHp })
 end
 
 local function advancePhase(world, events)
@@ -919,7 +1010,7 @@ local function trainingRefill(world)
 			and f.state ~= "KO" and not f.move
 		f.calmTicks = if calm then f.calmTicks + 1 else 0
 		if f.calmTicks >= c.TrainingRefillTicks then
-			f.hp = c.MaxHealth
+			f.hp = f.maxHp
 			f.meter = c.MaxMeter
 		end
 	end
@@ -977,8 +1068,10 @@ end
 -- are placed face to face; `hp` sets the target's health (low health = FINAL FINISH).
 function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
 	local events = {}
-	if not world.moveData.Cinematics[moveId] then return events end
 	local a, d = world.fighters[slot], world.fighters[3 - slot]
+	-- A cinematic type ("Rush", "Awaken", "Gate") plays the attacker's own kit version.
+	moveId = kitOf(world, a).Ultimates[moveId] or moveId
+	if not world.moveData.Cinematics[moveId] then return events end
 	world.cinematic, world.phase, world.projectiles = nil, "Fight", {}
 	for _, f in { a, d } do
 		f.y, f.vy, f.vx, f.pushVx = 0, 0, 0, 0
@@ -988,7 +1081,7 @@ function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
 	end
 	local center = math.clamp((a.x + d.x) / 2, world.config.ArenaMinX + 4, world.config.ArenaMaxX - 4)
 	a.x, d.x, a.facing, d.facing = center - 1.3, center + 1.3, 1, -1
-	d.hp = math.clamp(hp or world.config.MaxHealth, 1, world.config.MaxHealth)
+	d.hp = math.clamp(hp or d.maxHp, 1, d.maxHp)
 	a.awakenStyle = style
 	table.insert(events, { kind = "SuperFlash", attacker = slot, move = moveId })
 	startCinematic(world, a, d, events, moveId)

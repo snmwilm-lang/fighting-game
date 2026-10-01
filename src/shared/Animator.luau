@@ -115,8 +115,18 @@ local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08 }
 
 function Animator.new(deps)
 	local skel = deps.skeleton
+	-- Kits: a move without its own poses uses the poses of its role (the KAI move of the
+	-- same combo slot); stances, guards and runs come from the kit when it has its own.
+	local roleOf, moveKit = {}, {}
+	for kitName, kit in deps.kits or {} do
+		for role, id in kit.Roles do
+			roleOf[id], moveKit[id] = role, kitName
+		end
+	end
+	for id, kitName in deps.moveKit or {} do moveKit[id] = moveKit[id] or kitName end
 	local self = setmetatable({
 		poses = deps.poses, moves = deps.moves, kin = deps.kin, config = deps.config, skel = skel,
+		roleOf = roleOf, moveKit = moveKit, kit = "KAI",
 		scale = (skel.legLength or 2.3) / 2.3,
 		rootHeight = -skel.floor,
 		cache = setmetatable({}, { __mode = "k" }),
@@ -160,6 +170,17 @@ function Animator:resolve(pose)
 	return cached
 end
 
+-- A base pose (STANCE, Idle, Block, RunUpper...) of a kit, or the shared one.
+function Animator:base(name, kit)
+	local own = self.poses.Kits and self.poses.Kits[kit or self.kit]
+	return own and own[name] or self.poses[name]
+end
+
+-- Key poses of a move: its own, or its role's.
+function Animator:moveSet(id)
+	return self.poses[id] or (self.roleOf[id] and self.poses[self.roleOf[id]])
+end
+
 -- `key` pushed `amount` times as far from `base` (1 = key itself), joints clamped to LIMITS.
 function Animator:exaggerate(base, key, amount)
 	local out = lerpPose(base, key, amount)
@@ -170,6 +191,21 @@ function Animator:exaggerate(base, key, amount)
 	end
 	for _, channel in { "Ground", "Look", "Plant" } do
 		if key[channel] then out[channel] = table.clone(key[channel]) end
+	end
+	-- Feet planted by IK stay exactly where the key put them: only the body is pushed.
+	local plant = key.Plant
+	if plant then
+		for i, side in { "Left", "Right" } do
+			if (plant[i] or 0) > 0.5 then
+				for _, joint in { "Hip", "Knee", "Ankle" } do
+					local v = key[side .. joint]
+					if v then out[side .. joint] = table.clone(v) end
+				end
+			end
+		end
+		if key.Root and out.Root then
+			out.Root[4], out.Root[5] = key.Root[4], key.Root[5]
+		end
 	end
 	return out
 end
@@ -201,9 +237,9 @@ end
 local COIL_AT = 0.7 -- share of the startup spent reaching the anticipation peak (then held)
 
 function Animator:attack(id, frame, poseRate)
-	local m, set, poses = self.moves[id], self.poses[id], self.poses
+	local m, set = self.moves[id], self:moveSet(id)
 	local S, A, R = m.startup, m.active, m.recovery
-	local stance = self:resolve(poses.STANCE)
+	local stance = self:resolve(self:base("STANCE", self.moveKit[id]))
 	local startup = self:resolve(set.Startup)
 	local active = self:resolve(set.Active)
 	local recovery = self:resolve(set.Recovery)
@@ -252,12 +288,12 @@ function Animator:attack(id, frame, poseRate)
 end
 
 function Animator:gait(time)
-	local tr, poses, kin, s = self.track, self.poses, self.kin, self.scale
+	local tr, kin, s = self.track, self.kin, self.scale
 	local g = if tr.walkDir < 0 then GAITS.back else GAITS.forward
 	local travel = g.travel * s
 	local cycle = travel / g.stance -- locked feet: distance per cycle
 	local phase = (tr.walkDistance / cycle) % 1
-	local upper = poses[g.upper]
+	local upper = self:base(g.upper)
 	local pose = editable(upper, { "Root", "Waist", "LeftShoulder", "RightShoulder" })
 	local stride = math.sin(TAU * phase)
 	local arm = math.cos(TAU * phase) -- left foot in front at phase 0: left arm back
@@ -310,7 +346,7 @@ function Animator:reaction(view, poseRate)
 	local kind = REACTION[tr.hitBy or ""]
 		or (if move and move.guard == "Low" then "HitLow" elseif (view.combo or 0) % 2 == 0 then "HitHigh2" else "HitHigh")
 	local base = self:resolve(poses[kind])
-	local stance = self:resolve(poses.STANCE)
+	local stance = self:resolve(self:base("STANCE"))
 	if (view.hitstop or 0) > 0 or tr.hitAge < 0.05 then
 		return self:cachedExaggeration(kind .. "I", stance, base, 1.15), kind .. ":I", true
 	end
@@ -328,13 +364,14 @@ function Animator:evaluate(view, time, poseRate)
 	if staged and staged.Root then
 		return self:resolve(staged), "Pose:" .. view.pose, false
 	end
-	if state == "Attack" and view.move and poses[view.move] and self.moves[view.move] then
+	if state == "Attack" and view.move and self.moves[view.move] and self:moveSet(view.move) then
 		return self:attack(view.move, view.moveFrame or 0, poseRate)
 	end
 	if view.victory then
 		local u = clamp01(tr.victoryAge / 0.35)
-		local pose = lerpPose(self:resolve(poses.STANCE), self:resolve(poses.Victory), settle(u))
-		if u >= 1 then pose = self:solveStance(self:breathe(poses.Victory, 0.6, stepped)) end
+		local victory = self:base("Victory")
+		local pose = lerpPose(self:resolve(self:base("STANCE")), self:resolve(victory), settle(u))
+		if u >= 1 then pose = self:solveStance(self:breathe(victory, 0.6, stepped)) end
 		return pose, "Victory", false
 	end
 	if view.intro then
@@ -343,7 +380,7 @@ function Animator:evaluate(view, time, poseRate)
 	if state == "Walking" then
 		return self:gait(time), "Gait", false
 	elseif state == "Crouching" then
-		return self:solveStance(self:breathe(poses.Crouch, 0.6, stepped)), "Crouch", false
+		return self:solveStance(self:breathe(self:base("Crouch"), 0.6, stepped)), "Crouch", false
 	elseif state == "Jumping" or state == "Falling" then
 		return self:air(view.vy or 0), "Air", false
 	elseif state == "Dashing" then
@@ -356,13 +393,15 @@ function Animator:evaluate(view, time, poseRate)
 		end
 		return self:resolve(poses.Dash), "Dash", false
 	elseif state == "Blocking" then
-		return self:solveStance(self:breathe(poses.Block, 0.35, stepped)), "Block", false
+		return self:solveStance(self:breathe(self:base("Block"), 0.35, stepped)), "Block", false
 	elseif state == "CrouchBlocking" then
-		return self:solveStance(self:breathe(poses.CrouchBlock, 0.35, stepped)), "CrouchBlock", false
+		return self:solveStance(self:breathe(self:base("CrouchBlock"), 0.35, stepped)), "CrouchBlock", false
+	elseif state == "Evading" then
+		return self:resolve(poses.Evade), "Evade", tr.stateAge < 0.02
 	elseif state == "Blockstun" or state == "CrouchBlockstun" then
 		local crouched = state == "CrouchBlockstun"
 		local impact = self:resolve(if crouched then poses.CrouchBlockstun else poses.Blockstun)
-		local guard = self:resolve(if crouched then poses.CrouchBlock else poses.Block)
+		local guard = self:resolve(self:base(if crouched then "CrouchBlock" else "Block"))
 		if (view.hitstop or 0) > 0 or tr.stateAge < 0.06 then return impact, state .. ":I", true end
 		local u = quantize(clamp01((tr.stateAge - 0.06) / 0.25), 15, poseRate)
 		return lerpPose(impact, guard, easeOut(u)), state .. ":R" .. u, false
@@ -393,11 +432,12 @@ function Animator:evaluate(view, time, poseRate)
 			return lerpPose(self:resolve(poses.Down), self:resolve(poses.Kneel), easeInOut(t)), "GetUp:" .. t, false
 		end
 		local t = quantize((u - 0.5) / 0.5, 7, math.max(poseRate, 24))
-		return lerpPose(self:resolve(poses.Kneel), self:resolve(poses.STANCE), easeOut(t)), "GetUp:K" .. t, false
+		return lerpPose(self:resolve(poses.Kneel), self:resolve(self:base("STANCE")), easeOut(t)), "GetUp:K" .. t, false
 	end
 	-- Idle: breathing between the two idle keys.
 	local b = (1 - math.cos(TAU * 0.85 * stepped)) / 2
-	return self:solveStance(lerpPose(poses.Idle[1], poses.Idle[2], b)), "Idle", false
+	local idle = self:base("Idle")
+	return self:solveStance(lerpPose(idle[1], idle[2], b)), "Idle", false
 end
 
 -- ===================================================================== per-frame tracking
@@ -406,6 +446,7 @@ end
 -- distance (in the rig's local space, so the planted foot stays still on screen).
 function Animator:observe(view, dt, other)
 	local tr = self.track
+	self.kit = view.kit or self.kit
 	if other and other.state == "Attack" and other.move then tr.hitBy = other.move end
 	local moveRestarted = view.state == "Attack" and tr.move == view.move and (view.moveFrame or 0) < (tr.moveFrame or 0)
 	if view.state ~= tr.state or view.move ~= tr.move or moveRestarted then

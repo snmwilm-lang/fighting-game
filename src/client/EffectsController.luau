@@ -13,6 +13,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MoveData = require(Shared.MoveData)
 local Sim = require(Shared.CombatSimulation)
 local CharacterData = require(Shared.CharacterData)
+local RigReader = require(Shared.RigReader)
+local PoseLibrary = require(Shared.PoseLibrary)
 
 local EffectsController = {}
 
@@ -23,20 +25,18 @@ local BODY_PARTS = {
 	RightUpperArm = true, RightLowerArm = true, RightHand = true,
 	LeftUpperLeg = true, LeftLowerLeg = true, LeftFoot = true,
 	RightUpperLeg = true, RightLowerLeg = true, RightFoot = true,
+	Torso = true, ["Left Arm"] = true, ["Right Arm"] = true, ["Left Leg"] = true, ["Right Leg"] = true, -- R6
 }
 
--- Limbs that strike with each move: their motion trails light up during the swing.
-local STRIKE_LIMBS = {
-	Jab = { "LeftHand" }, Cross = { "RightHand" }, Elbow = { "RightHand" }, BodyBlow = { "RightHand" },
-	Uppercut = { "RightHand" }, Rising = { "RightHand" }, Smash = { "RightHand" }, KaienRush = { "RightHand" },
-	PalmStrike = { "LeftHand", "RightHand" }, KiBlast = { "LeftHand", "RightHand" }, Finale = { "LeftHand", "RightHand" },
-	Awakening = { "LeftHand", "RightHand" }, Kaiten = { "LeftHand", "RightHand" }, KiFlurry = { "LeftHand", "RightHand" },
-	DragonFist = { "LeftHand", "RightHand" }, AirSmash = { "LeftHand", "RightHand" },
-	Kick = { "RightFoot" }, SpinKick = { "RightFoot" }, Hammer = { "RightFoot" }, Sweep = { "RightFoot" },
-	LowKick = { "RightFoot" }, AirKick = { "RightFoot" }, AirKick2 = { "LeftFoot" }, ThunderHeel = { "RightFoot" },
-	KiChase = { "LeftFoot" }, DragonTornado = { "LeftFoot", "RightFoot" }, CrescentMoon = { "LeftFoot", "RightFoot" },
-	RisingWind = { "LeftFoot", "RightFoot" },
-}
+-- Limbs that strike with each move (PoseLibrary.STRIKE: the move's own entry, else its role's):
+-- their motion trails light up during the swing.
+local ROLE_OF = {}
+for _, kit in MoveData.Kits do
+	for role, id in kit.Roles do ROLE_OF[id] = role end
+end
+local function strikeLimbs(id)
+	return PoseLibrary.STRIKE[id] or PoseLibrary.STRIKE[ROLE_OF[id] or ""]
+end
 local TRAIL_LIMBS = { "LeftHand", "RightHand", "LeftFoot", "RightFoot" }
 
 local function tween(instance, duration, goal, style)
@@ -145,7 +145,8 @@ function EffectsController:slash(fighter, moveId, color)
 		tween(seg, 0.22, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 1, 1.15) })
 		Debris:AddItem(seg, 0.25)
 	end
-	if moveId == "Smash" or moveId == "KaienRush" or moveId == "Finale" or moveId == "Awakening" then -- speed streaks
+	local role = ROLE_OF[moveId] or moveId
+	if role == "Smash" or role == "KaienRush" or role == "Finale" or role == "Awakening" then -- speed streaks
 		for i = 1, if self.reduced then 3 else 6 do
 			local y = cy + (math.random() - 0.5) * 2.2
 			local start = Vector3.new(fighter.x + fighter.facing * 1.5, y, 1.2)
@@ -236,16 +237,18 @@ function EffectsController:impactFrame(color, strength)
 end
 
 function EffectsController:attachRig(slot, rig)
-	local torso = rig.model:FindFirstChild("UpperTorso")
+	local torso = RigReader.part(rig.model, "UpperTorso")
 	if not torso then return end
 	-- Motion trails on fists and feet (ki colour fading to white), lit only while striking.
 	rig.trails = {}
 	for _, limb in TRAIL_LIMBS do
-		local part = rig.model:FindFirstChild(limb)
-		if part and part:IsA("BasePart") then
+		local part = RigReader.part(rig.model, limb)
+		if part then
 			local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
 			a0.Name, a1.Name = "TrailTop", "TrailBottom"
-			a0.Position, a1.Position = Vector3.new(0, part.Size.Y * 0.4, 0), Vector3.new(0, -part.Size.Y * 0.45, 0)
+			-- On an R6 limb (a whole arm or leg), the trail follows its far end only.
+			local top = if part.Name == limb then 0.4 else -0.25
+			a0.Position, a1.Position = Vector3.new(0, part.Size.Y * top, 0), Vector3.new(0, -part.Size.Y * 0.45, 0)
 			a0.Parent, a1.Parent = part, part
 			local trail = Instance.new("Trail")
 			trail.Name = "StrikeTrail"
@@ -293,8 +296,9 @@ function EffectsController:update(slot, view, rig, previous, now)
 			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.2)
 		end
 	end
-	if rig.aura and phase == "Startup" and (view.move == "Smash" or view.move == "Rising" or view.move == "Uppercut"
-		or view.move == "Hammer" or view.move == "KaienRush") then
+	local role = ROLE_OF[view.move] or view.move
+	if rig.aura and phase == "Startup" and (role == "Smash" or role == "Rising" or role == "Uppercut"
+		or role == "Hammer" or role == "KaienRush") then
 		rig.aura:Emit(if self.reduced then 1 else 3)
 	end
 	if view.ghost and previous and previous.key ~= key and now - (self.ghostClock[slot] or 0) > 0.06 then
@@ -308,7 +312,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 	-- Strike trails from the end of the wind-up to the start of the recovery.
 	if rig.trails then
 		local m = view.state == "Attack" and MoveData.Moves[view.move]
-		local limbs = m and STRIKE_LIMBS[view.move]
+		local limbs = m and strikeLimbs(view.move)
 		local swinging = m and view.moveFrame >= m.startup * 0.6 and view.moveFrame <= m.startup + m.active + m.recovery * 0.25
 		for limb, trail in rig.trails do
 			local on = limbs ~= nil and swinging and table.find(limbs, limb) ~= nil and not (self.reduced and not m.heavy)
@@ -320,7 +324,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 		local target = 0
 		if m and (m.meterCost or m.skill) then
 			target = if MoveData.phase(m, view.moveFrame) == "Recovery" then 0.6 else 2.6
-		elseif view.meter and view.meter >= (MoveData.Moves.KaienRush.meterCost or 200) then
+		elseif view.meter and view.meter >= MoveData.Moves[(MoveData.Kits[view.kit] or MoveData.Kits.KAI).Ultimates.Rush].meterCost then
 			target = 0.5 + 0.35 * math.sin(now * 5)
 		end
 		rig.glow.Brightness += (target - rig.glow.Brightness) * math.min(1, (if target > rig.glow.Brightness then 18 else 5) / 60)
@@ -350,7 +354,25 @@ function EffectsController:onEvent(event, views, rigs)
 		end
 		return
 	end
-	if event.kind == "Clash" then
+	if event.kind == "Parry" then
+		-- TARO's PARADE: a golden flash on the glove and a short stop.
+		local position = Vector3.new(event.x, event.y, 0)
+		self:spark(position, Color3.fromHex("FFD23F"), 1.6)
+		self:spark(position, self:energy(event.defender), 1)
+		if rigs[event.defender] then self:flash(rigs[event.defender]) end
+		self.camera:punch(if self.reduced then 0.08 else 0.18, position)
+		return
+	elseif event.kind == "Evade" then
+		-- AKEMI's VOILE D'OMBRE: a shadow copy left where the hit was aimed.
+		local rig = rigs[event.defender]
+		if rig then
+			self:afterimage(rig, self:energy(event.defender))
+			if not self.reduced then task.delay(0.06, function() self:afterimage(rig, self:energy(event.defender)) end) end
+		end
+		local v = views[event.defender]
+		if v then self:dust(v.x, 0, -v.facing) end
+		return
+	elseif event.kind == "Clash" then
 		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 2)
 		self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)
 		return

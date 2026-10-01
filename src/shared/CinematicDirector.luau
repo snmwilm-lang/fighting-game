@@ -63,6 +63,19 @@ local function newFrame()
 	return { grade = { crimson = false, void = false, mono = false }, fx = {} }
 end
 
+-- The attacker's kit (MoveData.Kits): every kit stages its ultimates with its own moves
+-- (role -> move id), colours and titles.
+local function kitOf(ctx)
+	local data = ctx.moveData
+	local name = data.MoveKit and data.MoveKit[ctx.cin.move] or "KAI"
+	return data.Kits and data.Kits[name]
+end
+
+local function role(ctx, id)
+	local kit = kitOf(ctx)
+	return kit and kit.Roles[id] or id
+end
+
 local function attack(view, moves, id, active)
 	view.state, view.move = "Attack", id
 	view.moveFrame = if active then moves[id].startup + 1 else moves[id].startup
@@ -71,31 +84,31 @@ end
 -- ===================================================================== KAIEN RUSH
 
 local function rush(ctx, frame, a, d, tick, dir)
-	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics.KaienRush
 	local cin = ctx.cin
+	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local k = hitsBefore(data.Hits, tick)
 	if tick < data.FinalTick - 16 then
 		if k == 0 then
 			a.x = d.x - dir * 2.8
-			attack(a, moves, "KaienRush", true)
+			attack(a, moves, cin.move, true)
 		else
 			local behind = k % 2 == 0
 			a.x = d.x + (if behind then dir else -dir) * 2.6
 			a.y = if k % 3 == 0 then 1.6 else 0
 			a.facing = if behind then -dir else dir
-			attack(a, moves, RUSH[(k - 1) % #RUSH + 1], true)
+			attack(a, moves, role(ctx, RUSH[(k - 1) % #RUSH + 1]), true)
 		end
 		d.state = "Hitstun"
 		d.hitstop = if k > 0 and tick - data.Hits[k] < 6 then 1 else 0
 		a.ghost = true
 	elseif tick < data.FinalTick then
 		a.x, a.y, a.facing = d.x - dir * 2.8, 0, dir
-		attack(a, moves, "Smash", false)
+		attack(a, moves, role(ctx, "Smash"), false)
 		d.state, d.hitstop = "Hitstun", 0
 	else
 		a.x, a.y, a.facing = d.x - dir * 2.8, 0, dir
-		attack(a, moves, "Smash", true)
+		attack(a, moves, role(ctx, "Smash"), true)
 	end
 	if tick < data.Hits[1] then
 		frame.shot = shot("rush-closeup", P(A, "Head", v(dir * 3.4, -0.6, 5.5)), P(A, "Head"), 30)
@@ -116,11 +129,13 @@ end
 -- ===================================================================== ÉVEIL ÉCARLATE
 
 -- Finale picked by the route that was played.
-local function style(ctx, frame, a, d, tick, dir, name)
-	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics.Awakening
+-- `name` is the finale template (TORNADE, RAFALE, DRAGON, FOUDRE, MUR, LUNE) of the route.
+local function style(ctx, frame, a, d, tick, dir, name, color)
 	local cin, anchors, config = ctx.cin, ctx.anchors, ctx.config
+	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
-	local color = Director.STYLE_COLORS[name] or RED
+	local tornado, flurry, fist = role(ctx, "DragonTornado"), role(ctx, "KiFlurry"), role(ctx, "DragonFist")
+	local dive, heel, axe = role(ctx, "AirSmash"), role(ctx, "SpinKick"), role(ctx, "Hammer")
 	local start, final = data.Hits[#data.Hits] + 4, data.FinalTick
 	local p = progress(tick, start, final)
 	d.state = "Hitstun"
@@ -128,8 +143,8 @@ local function style(ctx, frame, a, d, tick, dir, name)
 		-- Rising spin: both fighters climb inside a tornado of ki.
 		d.y = lerp(0, 9, p)
 		a.x, a.y, a.facing = d.x - dir * 1.8, d.y - 0.5, dir
-		a.state, a.move = "Attack", "DragonTornado"
-		a.moveFrame = moves.DragonTornado.startup + 1 + (math.floor(tick / 4) % 2) * moves.DragonTornado.hitInterval
+		a.state, a.move = "Attack", tornado
+		a.moveFrame = moves[tornado].startup + 1 + (math.floor(tick / 4) % 2) * moves[tornado].hitInterval
 		if tick % 6 == 0 then
 			table.insert(frame.fx, { key = "ring" .. tick, kind = "tornadoRing", pos = v(d.x, d.y + 1, 0), color = color })
 		end
@@ -139,8 +154,8 @@ local function style(ctx, frame, a, d, tick, dir, name)
 	elseif name == "RAFALE" then
 		-- Barrage: a hundred fists in front of the target.
 		a.x, a.y, a.facing = d.x - dir * 2.2, 0, dir
-		a.state, a.move = "Attack", "KiFlurry"
-		a.moveFrame = moves.KiFlurry.startup + 1 + (math.floor(tick / 2) % 2) * moves.KiFlurry.hitInterval
+		a.state, a.move = "Attack", flurry
+		a.moveFrame = moves[flurry].startup + 1 + (math.floor(tick / 2) % 2) * moves[flurry].hitInterval
 		if tick % 3 == 0 then
 			table.insert(frame.fx, { key = "fist" .. tick, kind = "spark", pos = v(d.x - dir * 0.6, 3.6 + (tick % 7) * 0.2, 0.5), color = color, scale = 0.7 })
 		end
@@ -154,13 +169,13 @@ local function style(ctx, frame, a, d, tick, dir, name)
 		a.x, a.facing = d.x - dir * 1.6, dir
 		if p < 0.7 then
 			a.y = 0
-			attack(a, moves, "DragonFist", false)
+			attack(a, moves, fist, false)
 			table.insert(frame.fx, { key = "dragon-charge", kind = "spark", pos = v(a.x, 2, 0), color = color, scale = 1.6 })
 			frame.shot = shot("dragon-charge", P(A, "Head", v(dir * 2.5, -1.6, 4)), P(A, "Head"), 34, math.rad(8 * dir))
 		else
 			local q = progress(tick, start + (final - start) * 0.7, final)
 			a.y, d.y = lerp(0, 6, q), lerp(0, 11, q)
-			attack(a, moves, "DragonFist", true)
+			attack(a, moves, fist, true)
 			table.insert(frame.fx, { key = "dragon-helix", kind = "dragonHelix", pos = v(d.x, 0, 0), color = color })
 			frame.shot = shot("dragon-rise", At(v(d.x - dir * 3, 0.6, 6)), P(D, "UpperTorso"), 62, math.rad(12 * dir))
 		end
@@ -168,7 +183,7 @@ local function style(ctx, frame, a, d, tick, dir, name)
 		-- Leap into the storm, dive with lightning.
 		if p < 0.65 then
 			a.x, a.y, a.facing = d.x - dir * 1.5, lerp(1, 12, p / 0.65), dir
-			a.state, a.move, a.moveFrame = "Attack", "AirSmash", 1
+			a.state, a.move, a.moveFrame = "Attack", dive, 1
 			if tick % 5 == 0 then
 				table.insert(frame.fx, { key = "bolt" .. tick, kind = "lightning", from = v(d.x + ((tick * 37) % 9 - 4), 30, -4),
 					to = v(a.x, a.y + 3, 0), color = color })
@@ -176,7 +191,7 @@ local function style(ctx, frame, a, d, tick, dir, name)
 			frame.shot = shot("foudre-sky", P(D, "UpperTorso", v(-dir * 3, -3, 6)), P(A, "Head"), 60, math.rad(10 * dir))
 		else
 			a.x, a.y, a.facing = d.x - dir * 1.8, lerp(12, d.y + 1, (p - 0.65) / 0.35), dir
-			attack(a, moves, "AirSmash", true)
+			attack(a, moves, dive, true)
 			a.ghost = true
 			if tick % 3 == 0 then
 				table.insert(frame.fx, { key = "bolt" .. tick, kind = "lightning", from = v(a.x, a.y + 12, 0), to = v(d.x, d.y + 3, 0), color = color })
@@ -191,7 +206,7 @@ local function style(ctx, frame, a, d, tick, dir, name)
 		local wallX = anchors.wall.to
 		if p < 0.55 then
 			a.x, a.y, a.facing = d.x - dir * 2.4, 0, dir
-			attack(a, moves, "SpinKick", p >= 0.4)
+			attack(a, moves, heel, p >= 0.4)
 			frame.shot = shot("mur-kick", P(A, "UpperTorso", v(-dir * 2, -1, 7)), P(A, "UpperTorso"), 42)
 		else
 			local q = progress(tick, start + (final - start) * 0.55, final)
@@ -206,27 +221,33 @@ local function style(ctx, frame, a, d, tick, dir, name)
 		a.x, a.y, a.facing = d.x - dir * 1.6, lerp(1, 10, math.min(1, p / 0.7)), dir
 		table.insert(frame.fx, { key = "lune-crescent", kind = "crescent", pos = v(d.x, 13, -6), color = color, keep = true })
 		if p < 0.7 then
-			attack(a, moves, "Hammer", false)
+			attack(a, moves, axe, false)
 			frame.shot = shot("lune-moon", P(D, "UpperTorso", v(dir * 4, -2.4, 9)), At(v(d.x, 11, -4)), 58)
 		else
 			a.y = lerp(10, d.y + 1, (p - 0.7) / 0.3)
-			attack(a, moves, "Hammer", true)
+			attack(a, moves, axe, true)
 			a.ghost = true
 			frame.shot = shot("lune-dive", P(D, "UpperTorso", v(-dir * 5, 3, 6)), P(D, "UpperTorso"), 46)
 		end
 	else
 		a.x, a.y, a.facing = d.x - dir * 1.5, lerp(1, 11, p), dir
-		a.state, a.move, a.moveFrame = "Attack", "AirSmash", 1
+		a.state, a.move, a.moveFrame = "Attack", dive, 1
 		frame.shot = shot("style-default", P(D, "UpperTorso", v(-dir * 3, -3, 6)), P(A, "Head"), 60)
 	end
 end
 
 local function awakening(ctx, frame, a, d, tick, dir)
-	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics.Awakening
 	local cin = ctx.cin
+	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
-	local name = cin.style or "TORNADE"
-	local color = Director.STYLE_COLORS[name] or RED
+	-- The route that was played picks the finale template and its colour.
+	local kit = kitOf(ctx)
+	local name = cin.style or (kit and kit.FullRoutes[1].name) or "TORNADE"
+	local template = name
+	for _, route in (kit and kit.FullRoutes or {}) do
+		if route.name == name then template = route.finale or name end
+	end
+	local color = (kit and kit.Colors[template]) or Director.STYLE_COLORS[template] or RED
 	frame.grade.crimson = tick >= 24 and tick < data.FinalTick + 40
 	if tick < 24 then
 		-- 1. Extreme close-up on the eyes, a giant kanji painted over the frame.
@@ -253,7 +274,7 @@ local function awakening(ctx, frame, a, d, tick, dir)
 		a.x = d.x + (if behind then dir else -dir) * 2.5
 		a.y = if k % 3 == 0 then 2 else 0
 		a.facing = if behind then -dir else dir
-		attack(a, moves, RUSH[(k * 3) % #RUSH + 1], true)
+		attack(a, moves, role(ctx, RUSH[(k * 3) % #RUSH + 1]), true)
 		a.ghost = true
 		d.state = "Hitstun"
 		d.hitstop = if tick - data.Hits[k] < 6 then 1 else 0
@@ -267,7 +288,7 @@ local function awakening(ctx, frame, a, d, tick, dir)
 		local view = angles[(k - 1) % #angles + 1]
 		frame.shot = shot("eveil-strike" .. k, P(D, "UpperTorso", view[1]), P(D, "UpperTorso"), view[2], view[3])
 	elseif tick < data.FinalTick then
-		style(ctx, frame, a, d, tick, dir, name)
+		style(ctx, frame, a, d, tick, dir, template, color)
 	elseif tick < data.FinalTick + 14 then
 		-- 7. Impact: wide frame, shockwave in the colour of the style.
 		table.insert(frame.fx, { key = "eveil-impact", kind = "shockwave", pos = v(d.x, 0, 0), color = color })
@@ -275,7 +296,7 @@ local function awakening(ctx, frame, a, d, tick, dir)
 	else
 		-- 8. Aftermath: KAI lands in a kiai, the target flies away (or falls for the K.O. scene).
 		a.y, a.facing, a.pose = 0, dir, "Kiai"
-		frame.title = { text = moves.Awakening.name, color = color, sub = name }
+		frame.title = { text = moves[cin.move].name, color = color, sub = name }
 		frame.shot = shot("eveil-aftermath", P(A, "UpperTorso", v(-dir * 4, 3, 26)), P(A, "UpperTorso"), 42)
 	end
 end
@@ -283,8 +304,8 @@ end
 -- ===================================================================== PORTE DES CIEUX
 
 local function kaiten(ctx, frame, a, d, tick, dir)
-	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics.Kaiten
 	local cin, anchors = ctx.cin, ctx.anchors
+	local moves, data = ctx.moveData.Moves, ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local energy = ctx.characters[A].Energy
 	anchors.gateX = anchors.gateX or math.clamp(d.x + dir * 7, ctx.config.ArenaMinX - 2, ctx.config.ArenaMaxX + 2)
@@ -325,27 +346,28 @@ local function kaiten(ctx, frame, a, d, tick, dir)
 		d.state, d.hitstop = "Hitstun", if (tick - data.Hits[1]) % 8 < 5 then 1 else 0
 		a.x, a.y, a.facing = d.x - dir * 2.4, 1.6, dir
 		local second = tick >= data.Hits[2]
-		attack(a, moves, if second then "Cross" else "Jab", true)
+		attack(a, moves, role(ctx, if second then "Cross" else "Jab"), true)
 		frame.shot = shot("porte-setup" .. (if second then "2" else "1"),
 			P(D, "Head", v(if second then dir * 3 else -dir * 3, 0.5, 4)), P(D, "Head"), 36)
 	elseif tick < data.FinalTick then
 		-- 6. Wind-up on the fist, everything stops: press R at the climax.
 		d.x, d.y, d.state = gateX - dir * 1.5, 2.5, "Hitstun"
 		a.x, a.y, a.facing = d.x - dir * 2.6, 1.6, dir
-		attack(a, moves, "Finale", false)
+		attack(a, moves, role(ctx, "Finale"), false)
 		frame.grade.mono = tick >= data.PromptTicks[1] - 4
 		frame.shot = shot("porte-fist", P(A, "RightHand", v(dir * 1.2, 0.3, 2.2)), P(A, "RightHand"), 22, math.rad(4))
 	elseif tick < data.FinalTick + 22 then
 		-- 7. The single blow: the gate shatters behind the target.
 		a.x, a.y, a.facing = gateX - dir * 4.1, 1.6, dir
-		attack(a, moves, "Finale", true)
+		attack(a, moves, role(ctx, "Finale"), true)
 		table.insert(frame.fx, { key = "shatter", kind = "gateShatter", color = energy })
 		table.insert(frame.fx, { key = "shatter-wave", kind = "shockwave", pos = v(gateX, 3, -1), color = energy })
 		frame.shot = shot("porte-shatter", At(v(gateX + dir * 4, 5, 18)), At(v(gateX - dir * 2, 4, 0)), 60)
 	else
 		-- 8. The world comes back.
 		a.y, a.facing, a.pose = 0, dir, "Kiai"
-		frame.title = { text = "開天", color = RED, sub = "PORTE DES CIEUX" }
+		local title = kitOf(ctx) and kitOf(ctx).GateTitle or { text = "開天", sub = "PORTE DES CIEUX" }
+		frame.title = { text = title.text, color = RED, sub = title.sub }
 		frame.shot = shot("porte-after", P(A, "UpperTorso", v(-dir * 3, 2.5, 22)), P(A, "UpperTorso"), 42)
 	end
 end
@@ -433,9 +455,9 @@ function Director.cinematic(ctx)
 		return Director.ko(ctx, cin.attacker, cin.defender, a, d, math.min(ctx.tick - data.Length, Director.KO_SCENE))
 	end
 	local frame = newFrame()
-	if cin.move == "Awakening" then
+	if data.Type == "Awaken" then
 		awakening(ctx, frame, a, d, ctx.tick, dir)
-	elseif cin.move == "Kaiten" then
+	elseif data.Type == "Gate" then
 		kaiten(ctx, frame, a, d, ctx.tick, dir)
 	else
 		rush(ctx, frame, a, d, ctx.tick, dir)

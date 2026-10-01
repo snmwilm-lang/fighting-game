@@ -205,36 +205,57 @@ test("special E cancels a normal and is invincible at startup", function()
 	expect(hitMoves(e2) == "Rising", "jab beat the invincible special: " .. hitMoves(e2))
 end)
 
-local function skillTest(name, sequence, every, expectedRoute, setup)
+-- Plays a route like a player: the next button is pressed once the current move connects.
+local function playRoute(world, keys, ticks)
+	local events, step, pressedFor = {}, 1, nil
+	for _ = 1, ticks or 400 do
+		local a = world.fighters[1]
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		local ready = step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))
+		if keys[step] and ready then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			pressedFor = key
+			step += 1
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+	end
+	return events
+end
+
+local function compactRoute(events)
+	local list = {}
+	for _, e in events do
+		if e.kind == "Hit" and not e.cinematic and list[#list] ~= e.move then table.insert(list, e.move) end
+	end
+	return table.concat(list, ",")
+end
+
+local function skillTest(name, sequence, expectedRoute)
 	test(name, function()
 		local world = closeWorld(3)
-		if setup then setup(world) end
-		local events = run(world, 200, mash(sequence, every))
-		local route = hitMoves(events)
-		local compact = {}
-		for move in route:gmatch("[^,]+") do
-			if compact[#compact] ~= move then table.insert(compact, move) end
-		end
-		expect(table.concat(compact, ",") == expectedRoute, "route was " .. route)
+		local events = playRoute(world, sequence, 300)
+		expect(compactRoute(events) == expectedRoute, "route was " .. compactRoute(events))
 		local skill = find(events, "Skill")
 		expect(skill ~= nil, "no skill announced")
 	end)
 end
 
-skillTest("skill L R L R: TORNADE DU DRAGON (multi-hit launcher)", { "L", "R", "L", "R" }, 6,
+skillTest("skill L R L R: TORNADE DU DRAGON (multi-hit launcher)", { "L", "R", "L", "R" },
 	"Jab,BodyBlow,PalmStrike,DragonTornado")
-skillTest("skill R L R L: RAFALE DE KI", { "R", "L", "R", "L" }, 8,
+skillTest("skill R L R L: RAFALE DE KI", { "R", "L", "R", "L" },
 	"Smash,Sweep,RisingWind,KiFlurry")
-skillTest("skill L L R R: POING DU DRAGON", { "L", "L", "R", "R" }, 6,
+skillTest("skill L L R R: POING DU DRAGON", { "L", "L", "R", "R" },
 	"Jab,Cross,Uppercut,DragonFist")
-skillTest("skill R R L R: TALON FOUDRE into POING DU DRAGON", { "R", "R", "L", "R" }, 8,
+skillTest("skill R R L R: TALON FOUDRE into POING DU DRAGON", { "R", "R", "L", "R" },
 	"Smash,Hammer,ThunderHeel,DragonFist")
-skillTest("skill L L L L R: CROISSANT DE LUNE", { "L", "L", "L", "L", "R" }, 6,
+skillTest("skill L L L L R: CROISSANT DE LUNE", { "L", "L", "L", "L", "R" },
 	"Jab,Cross,Elbow,Kick,CrescentMoon")
 
 test("multi-hit skills hit several times, once per interval", function()
 	local world = closeWorld(3)
-	local events = run(world, 200, mash({ "L", "R", "L", "R" }, 6))
+	local events = playRoute(world, { "L", "R", "L", "R" }, 300)
 	local tornado = 0
 	for _, e in events do
 		if e.kind == "Hit" and e.move == "DragonTornado" then tornado += 1 end
@@ -268,33 +289,6 @@ test("opposing ki blasts clash", function()
 	end)
 	expect(count(events, "Clash") == 1 and count(events, "Hit") == 0, "blasts did not clash")
 end)
-
--- Plays a route like a player: the next button is pressed once the current move connects.
-local function playRoute(world, keys, ticks)
-	local events, step, pressedFor = {}, 1, nil
-	for _ = 1, ticks or 400 do
-		local a = world.fighters[1]
-		local i = input()
-		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
-		local ready = step == 1 or (a.move and a.moveContact and key ~= pressedFor
-			and a.moveHits >= (Moves[a.move].hits or 1))
-		if keys[step] and ready then
-			if keys[step] == "L" then i.light = true else i.heavy = true end
-			pressedFor = key
-			step += 1
-		end
-		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
-	end
-	return events
-end
-
-local function compactRoute(events)
-	local list = {}
-	for _, e in events do
-		if e.kind == "Hit" and not e.cinematic and list[#list] ~= e.move then table.insert(list, e.move) end
-	end
-	return table.concat(list, ",")
-end
 
 for _, route in MoveData.FullRoutes do
 	test("6-press route " .. route.keys .. " (" .. route.name .. ") ends in COUP DE GRÂCE", function()
@@ -478,7 +472,7 @@ test("late press: a link pressed just after the move ended still continues the c
 	expect(a.chainKeys == "LL", "chain keys " .. a.chainKeys)
 end)
 
-test("typing a whole route ahead, fast, stays clean and earns ÉVEIL ÉCARLATE", function()
+test("typing a whole route ahead loses presses: the route stops and earns nothing", function()
 	local world = closeWorld(3, false)
 	local a = world.fighters[1]
 	a.meter = Config.MaxMeter
@@ -488,7 +482,60 @@ test("typing a whole route ahead, fast, stays clean and earns ÉVEIL ÉCARLATE",
 		return { input({ light = k == "L", heavy = k == "R" }) }
 	end)
 	local start = find(events, "CinematicStart")
-	expect(start and start.move == "Awakening", "fast typing was not clean: " .. compactRoute(events))
+	expect(start == nil, "typing ahead earned " .. tostring(start and start.move))
+	expect(#compactRoute(events):split(",") < 6, "the whole route played from presses typed ahead")
+end)
+
+test("rhythm: a link typed before the attack is out still links, but is not clean", function()
+	local world = closeWorld(3)
+	local a = world.fighters[1]
+	-- R pressed on the 3rd startup frame of the JAB (its fist is not out yet).
+	local events = run(world, 70, function(t) return { input({ light = t == 1, heavy = t == 3 }) } end)
+	expect(compactRoute(events) == "Jab,BodyBlow", "early link dropped: " .. compactRoute(events))
+	expect(not a.chainClean and a.dirtyReason == "TROP TÔT", "early link judged clean")
+	-- The same R pressed once the jab is out: clean.
+	local good = closeWorld(3)
+	run(good, 70, function(t) return { input({ light = t == 1, heavy = t == Moves.Jab.startup + 2 }) } end)
+	expect(good.fighters[1].chainClean and good.fighters[1].chainKeys == "LR", "a link on rhythm was judged dirty")
+end)
+
+test("rhythm: a press made too long before the hit expires", function()
+	local world = closeWorld(3)
+	-- FRAPPE LOURDE has a long wind-up: R right after it starts is lost before the hit lands.
+	local events = run(world, 90, function(t) return { input({ heavy = t == 1 or t == 2 }) } end)
+	expect(compactRoute(events) == "Smash", "a press far ahead still linked: " .. compactRoute(events))
+end)
+
+test("changing your mind: a press during a whiffed attack does not fire afterwards", function()
+	local world = closeWorld(14) -- out of range: the jab whiffs
+	local a = world.fighters[1]
+	local jabs = 0
+	run(world, 60, function(t)
+		if a.move == "Jab" and a.moveFrame == 1 then jabs += 1 end
+		return { input({ light = t == 1 or t == 8 }) }
+	end)
+	expect(jabs == 1, "a press made during the whiff started another attack (" .. jabs .. " jabs)")
+end)
+
+test("changing your mind: guard, jump or dash drops the queued attacks", function()
+	-- L at the very end of a whiffed jab is a deliberate press: it fires a second jab...
+	local function jabs(field)
+		local world = closeWorld(14)
+		local a = world.fighters[1]
+		local count = 0
+		run(world, 60, function(t)
+			if a.move == "Jab" and a.moveFrame == 1 then count += 1 end
+			local i = input({ light = t == 1 or t == 15 })
+			if field and t == 16 then i[field] = true end
+			return { i }
+		end)
+		return count
+	end
+	expect(jabs(nil) == 2, "control: the late press did not fire")
+	-- ...unless guard, jump or dash comes right after it.
+	for _, field in { "block", "jump", "dash" } do
+		expect(jabs(field) == 1, field .. " did not cancel the queued jab")
+	end
 end)
 
 test("hitting every button at once is spam: earned ultimates locked", function()

@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Director = require(Shared.CinematicDirector)
+local RigReader = require(Shared.RigReader)
 
 local CinematicController = {}
 
@@ -240,7 +241,8 @@ function CinematicController:onHit(event)
 		self:flash()
 		local m = MoveData.Moves[event.move]
 		self:showStamp((if m then m.name else event.move) .. " !!", Color3.fromHex(CharacterData[event.attacker].Energy))
-		if event.move ~= "KaienRush" and not reduced then
+		local cin = MoveData.Cinematics[event.move]
+		if not (cin and cin.Type == "Rush") and not reduced then
 			self.mono.Enabled, self.monoBeat = true, true -- manga impact: one black-and-white beat
 			task.delay(0.14, function() self.monoBeat = false end)
 		end
@@ -413,8 +415,10 @@ local function resolve(point, rigs, views)
 	if point.position then return vec(point.position) end
 	local offset = vec(point.offset)
 	local rig = rigs[point.slot]
-	local part = rig and rig.model:FindFirstChild(point.part)
-	if part then return part.Position + offset end
+	if rig then
+		local _, position = RigReader.part(rig.model, point.part)
+		if position then return position + offset end
+	end
 	local v = views[point.slot]
 	return Vector3.new(v and v.x or 0, (v and v.y or 0) + 3.5, v and v.z or 0) + offset
 end

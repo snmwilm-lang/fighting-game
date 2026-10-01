@@ -1035,6 +1035,240 @@ Poses.AkemiKunai = { -- overhand throw
 }
 Poses.AkemiRush = { Startup = Poses.Kiai, Active = Poses.AkemiStep.Active, Recovery = Poses.AkemiStep.Recovery }
 
+
+-- ===================================================================== Wilhem's second sheet
+-- RYUKEN 拳 · a brawler leaning in, fists low and loaded, chin down.
+local RYUKEN = feet({
+	Root = { 0, -10, 0, -0.5, -0.05 }, Waist = { -18, 16, 0 }, Neck = { 16, -14, 0 },
+	LeftShoulder = { 58, 0, 16 }, LeftElbow = { 110, 0, 0 },
+	RightShoulder = { 40, 0, -12 }, RightElbow = { 118, 0, 0 },
+}, -0.7, 0.8, 0, -12, 10)
+local RYUKEN_CROUCH = feet(merge(RYUKEN, { Root = { 0, -10, 0, -1.05, 0 }, Waist = { -26, 14, 0 }, Neck = { 22, -12, 0 } }), -0.6, 0.75, 0, -12, 10)
+-- SHIN 流 · the blade held forward in the right hand, point up; the left hand open behind.
+local SHIN = feet({
+	Root = { 0, 12, 0, -0.42, 0 }, Waist = { -8, 22, 0 }, Neck = { 6, -20, 0 },
+	RightShoulder = { 70, 0, -6 }, RightElbow = { 40, 0, 0 }, RightWrist = { 30, 0, 0 },
+	LeftShoulder = { 30, 0, 40 }, LeftElbow = { 60, 0, 0 },
+}, -0.85, 0.85, 0, -8, 8)
+local SHIN_CROUCH = feet(merge(SHIN, { Root = { 0, 12, 0, -1.0, 0 }, Waist = { -24, 22, 0 } }), -0.7, 0.8, 0, -10, 8)
+-- DAICHA 闇 · upright and calm, the left hand out with its sphere, the right at the hip.
+local DAICHA = feet({
+	Root = { 0, 6, 0, -0.2, 0.05 }, Waist = { 4, 14, 0 }, Neck = { -4, -12, 0 },
+	LeftShoulder = { 78, 0, 6 }, LeftElbow = { 30, 0, 0 },
+	RightShoulder = { 10, 0, -20 }, RightElbow = { 70, 0, 0 },
+}, -0.55, 0.6, 0, -4, 7)
+local DAICHA_CROUCH = feet(merge(DAICHA, { Root = { 0, 6, 0, -0.95, 0 }, Waist = { -18, 14, 0 } }), -0.55, 0.7, 0, -10, 8)
+-- HIBECARES 崩 · a wide, heavy stance, hunched, the stone fists hanging forward.
+local HIBECARES = feet({
+	Root = { 0, -4, 0, -0.55, 0 }, Waist = { -16, 8, 0 }, Neck = { 12, -6, 0 },
+	LeftShoulder = { 40, 0, 30 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 34, 0, -30 }, RightElbow = { 76, 0, 0 },
+}, -0.6, 0.65, 0, -8, 14)
+local HIBECARES_CROUCH = feet(merge(HIBECARES, { Root = { 0, -4, 0, -1.05, 0 }, Waist = { -24, 8, 0 } }), -0.55, 0.7, 0, -10, 14)
+
+Poses.Kits.RYUKEN = {
+	STANCE = RYUKEN,
+	Idle = { RYUKEN, merge(RYUKEN, { Root = { 0, -10, 0, -0.6, -0.05 }, LeftShoulder = { 62, 0, 16 }, RightShoulder = { 44, 0, -12 } }) },
+	Crouch = RYUKEN_CROUCH,
+	Block = feet(merge(RYUKEN, merge(GUARD_ARMS, { Root = { 0, -6, 0, -0.55, 0 } })), -0.7, 0.8, 0, -12, 10),
+	CrouchBlock = merge(RYUKEN_CROUCH, GUARD_ARMS),
+	RunUpper = upper(RYUKEN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -24, 8, 0 }, Neck = { 22, -6, 0 } }),
+	BackUpper = upper(RYUKEN, merge(GUARD_ARMS, { Root = { 0, 0, 0, 0, 0 } })),
+	Victory = feet({
+		Root = { 0, 0, 0, -0.2, 0 }, Waist = { 6, 0, 0 }, Neck = { -10, 0, 0 },
+		RightShoulder = { 170, 0, 10 }, RightElbow = { 20, 0, 0 },
+		LeftShoulder = { 20, 0, 30 }, LeftElbow = { 90, 0, 0 },
+		Look = { 0 },
+	}, -0.4, 0.5, 0, 0, 12),
+}
+Poses.Kits.SHIN = {
+	STANCE = SHIN,
+	Idle = { SHIN, merge(SHIN, { Root = { 0, 12, 0, -0.48, 0 }, RightShoulder = { 72, 0, -6 } }) },
+	Crouch = SHIN_CROUCH,
+	Block = feet(merge(SHIN, { Root = { 0, 4, 0, -0.5, 0 }, Waist = { -10, 4, 0 },
+		RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 }, LeftShoulder = { 70, 0, 20 }, LeftElbow = { 110, 0, 0 } }), -0.8, 0.85, 0, -8, 8),
+	CrouchBlock = merge(SHIN_CROUCH, { RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 } }),
+	RunUpper = upper(SHIN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -16, 10, 0 }, RightShoulder = { -20, 0, -10 }, RightElbow = { 20, 0, 0 },
+		LeftShoulder = { -30, 0, 20 }, LeftElbow = { 20, 0, 0 } }),
+	BackUpper = upper(SHIN, { Root = { 0, 0, 0, 0, 0 } }),
+	Victory = feet({
+		Root = { 0, 30, 0, -0.1, 0 }, Waist = { 2, 0, 0 }, Neck = { -4, -30, 0 },
+		RightShoulder = { 10, 0, -30 }, RightElbow = { 10, 0, 0 },
+		LeftShoulder = { 20, 0, 20 }, LeftElbow = { 60, 0, 0 },
+	}, -0.2, 0.3, 0, 0, 8),
+}
+Poses.Kits.DAICHA = {
+	STANCE = DAICHA,
+	Idle = { DAICHA, merge(DAICHA, { Root = { 0, 6, 0, -0.25, 0.05 }, LeftShoulder = { 82, 0, 6 }, LeftElbow = { 24, 0, 0 } }) },
+	Crouch = DAICHA_CROUCH,
+	Block = feet(merge(DAICHA, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.35, 0 } })), -0.55, 0.6, 0, -6, 7),
+	CrouchBlock = merge(DAICHA_CROUCH, GUARD_ARMS),
+	RunUpper = upper(DAICHA, { Root = { -6, 0, 0, 0, 0 }, Waist = { -6, 10, 0 }, LeftShoulder = { 40, 0, 10 }, RightShoulder = { -10, 0, -20 } }),
+	BackUpper = upper(DAICHA, { Root = { 0, 0, 0, 0, 0 } }),
+	Victory = feet({
+		Root = { 0, 0, 0, -0.05, 0 }, Waist = { 6, 0, 0 }, Neck = { -6, 0, 0 },
+		LeftShoulder = { 120, 0, 10 }, LeftElbow = { 20, 0, 0 },
+		RightShoulder = { 10, 0, -20 }, RightElbow = { 60, 0, 0 },
+		Look = { 0 },
+	}, -0.2, 0.25, 0, 0, 7),
+}
+Poses.Kits.HIBECARES = {
+	STANCE = HIBECARES,
+	Idle = { HIBECARES, merge(HIBECARES, { Root = { 0, -4, 0, -0.62, 0 }, Waist = { -18, 8, 0 } }) },
+	Crouch = HIBECARES_CROUCH,
+	Block = feet(merge(HIBECARES, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.6, 0 } })), -0.6, 0.65, 0, -8, 14),
+	CrouchBlock = merge(HIBECARES_CROUCH, GUARD_ARMS),
+	RunUpper = upper(HIBECARES, { Root = { -6, 0, 0, 0, 0 }, Waist = { -20, 6, 0 } }),
+	BackUpper = upper(HIBECARES, merge(GUARD_ARMS, { Root = { 0, 0, 0, 0, 0 } })),
+	Victory = feet({
+		Root = { 0, 0, 0, -0.35, 0 }, Waist = { 8, 0, 0 }, Neck = { -14, 0, 0 },
+		LeftShoulder = { 100, 0, -70 }, LeftElbow = { 70, 0, 0 },
+		RightShoulder = { 100, 0, 70 }, RightElbow = { 70, 0, 0 },
+		Look = { 0 },
+	}, -0.4, 0.45, 0, 0, 16),
+}
+
+-- RYUKEN: the brawler's own blows; his "kick" roles are punches too (the boxer's poses).
+Poses.RyukenCharge = { -- CHARGE FRONTALE: shoulder first across the screen
+	Startup = feet(merge(RYUKEN, { Root = { 0, -30, 0, -0.85, 0.2 }, Waist = { -30, -30, 0 }, Neck = { 26, 20, 0 } }), -0.5, 0.9, 0, -14, 10),
+	Active = feet(merge(RYUKEN, {
+		Root = { 0, -50, 0, -0.75, -0.5 }, Waist = { -34, -40, 0 }, Neck = { 30, 34, 0 },
+		LeftShoulder = { 30, 0, 60 }, LeftElbow = { 120, 0, 0 }, RightShoulder = { 60, 0, -20 }, RightElbow = { 130, 0, 0 },
+	}), -1.4, 0.7, 0, -28, 12),
+	Recovery = merge(RYUKEN, { Waist = { -20, 0, 0 } }),
+}
+Poses.RyukenQuake = { -- FRAPPE SISMIQUE: the fist driven into the floor
+	Startup = feet(merge(RYUKEN, { Root = { 0, 0, 0, -0.45, 0.1 }, Waist = { 0, 20, 0 },
+		RightShoulder = { 170, 0, -20 }, RightElbow = { 40, 0, 0 } }), -0.7, 0.8, 0, -10, 12),
+	Active = feet(merge(RYUKEN, {
+		Root = { 0, 10, 0, -0.82, -0.15 }, Waist = { -56, 10, 0 }, Neck = { 40, 0, 0 },
+		RightShoulder = { 30, 0, -10 }, RightElbow = { 4, 0, 0 },
+	}), -0.6, 0.75, 0, -12, 12),
+	Recovery = RYUKEN_CROUCH,
+}
+for role, pose in { RyukenChain = "TaroBolo", RyukenSpin = "TaroCorkscrew", RyukenHammer = "TaroOverhand", RyukenSweep = "TaroDive",
+	RyukenLow = "TaroLowJab", RyukenAirPunch = "TaroAirJab", RyukenAirHook = "TaroAirHook", RyukenRage = "TaroGatling",
+	RyukenBarrage = "TaroDempsey", RyukenStorm = "TaroTwinUpper", RyukenSlam = "TaroMeteor", RyukenCrash = "TaroRisingHook",
+	RyukenChase = "TaroChase", RyukenHook = "TaroHook" } do
+	Poses[role] = Poses[pose]
+end
+
+-- SHIN: cuts of the blade (right hand), the hips turning with every stroke.
+local function cut(windup, follow, lunge)
+	return {
+		Startup = feet(merge(SHIN, merge({ Waist = { -8, 40, 0 } }, windup)), -0.8, 0.85, 0, -8, 8),
+		Active = feet(merge(SHIN, merge({ Root = { 0, -14, 0, -0.5, -(lunge or 0.4) }, Waist = { -14, -30, 0 } }, follow)),
+			-1.1 - (lunge or 0.4) * 0.5, 0.7, 0, -16, 9),
+		Recovery = merge(SHIN, { Waist = { -10, -10, 0 } }),
+	}
+end
+Poses.ShinCut1 = cut({ RightShoulder = { 90, 0, 60 }, RightElbow = { 90, 0, 0 } }, { RightShoulder = { 90, 0, -50 }, RightElbow = { 6, 0, 0 } })
+Poses.ShinCut2 = cut({ RightShoulder = { 100, 0, -60 }, RightElbow = { 30, 0, 0 } }, { RightShoulder = { 80, 0, 50 }, RightElbow = { 20, 0, 0 },
+	Waist = { -12, 30, 0 } })
+Poses.ShinThrust = cut({ RightShoulder = { 60, 0, 0 }, RightElbow = { 120, 0, 0 } },
+	{ RightShoulder = { 92, 0, 0 }, RightElbow = { 2, 0, 0 }, RightWrist = { 0, 0, 0 }, Waist = { -10, -10, 0 } }, 0.8)
+Poses.ShinCombo = cut({ RightShoulder = { 160, 0, 20 }, RightElbow = { 40, 0, 0 } }, { RightShoulder = { 40, 0, -10 }, RightElbow = { 10, 0, 0 },
+	Waist = { -30, -10, 0 } }, 0.6)
+Poses.ShinRising = cut({ RightShoulder = { 20, 0, -10 }, RightElbow = { 20, 0, 0 } }, { RightShoulder = { 170, 0, -10 }, RightElbow = { 10, 0, 0 },
+	Waist = { 6, -10, 0 } }, 0.3)
+Poses.ShinBreaker = cut({ RightShoulder = { 175, 0, 10 }, RightElbow = { 60, 0, 0 }, LeftShoulder = { 160, 0, -10 }, LeftElbow = { 60, 0, 0 } },
+	{ RightShoulder = { 60, 0, 0 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 60, 0, 10 }, LeftElbow = { 20, 0, 0 }, Waist = { -36, 0, 0 } }, 0.7)
+Poses.ShinCleave = Poses.ShinBreaker
+Poses.ShinStep = { -- PAS DU VENT: a low dash, the blade drawn across
+	Startup = feet(merge(SHIN, { Root = { 0, 20, 0, -0.95, 0.2 }, Waist = { -26, 40, 0 }, RightShoulder = { 60, 0, 60 }, RightElbow = { 80, 0, 0 } }),
+		-0.6, 0.9, 0, -16, 10),
+	Active = feet(merge(SHIN, {
+		Root = { 0, -30, 0, -0.9, -0.7 }, Waist = { -30, -40, 0 }, Neck = { 24, 30, 0 },
+		RightShoulder = { 90, 0, -70 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { -30, 0, 30 },
+	}), -1.6, 0.5, 0, -28, 12),
+	Recovery = SHIN_CROUCH,
+}
+Poses.ShinCurrent = cut({ RightShoulder = { 90, 0, 80 }, RightElbow = { 60, 0, 0 } },
+	{ RightShoulder = { 90, 0, -70 }, RightElbow = { 0, 0, 0 }, Waist = { -10, -50, 0 } }, 0.3)
+Poses.ShinCircle = { -- LAME CIRCULAIRE: a full turn, blade out
+	Startup = feet(merge(SHIN, { Waist = { -10, 60, 0 }, RightShoulder = { 90, 0, 80 }, RightElbow = { 10, 0, 0 } }), -0.8, 0.85, 0, -8, 9),
+	Active = feet(merge(SHIN, { Root = { 0, 120, 0, -0.55, -0.2 }, Waist = { -10, 40, 0 }, RightShoulder = { 90, 0, -80 }, RightElbow = { 0, 0, 0 } }),
+		-0.9, 0.8, 0, -8, 9),
+	Active2 = feet(merge(SHIN, { Root = { 0, -120, 0, -0.55, -0.2 }, Waist = { -10, -40, 0 }, RightShoulder = { 90, 0, -80 }, RightElbow = { 0, 0, 0 } }),
+		-0.9, 0.8, 0, -8, 9),
+	Recovery = merge(SHIN, { Waist = { -10, -10, 0 } }),
+}
+Poses.ShinTempest = { Startup = Poses.ShinCut1.Startup, Active = Poses.ShinCut1.Active, Active2 = Poses.ShinCut2.Active,
+	Recovery = Poses.ShinCut1.Recovery }
+
+-- DAICHA: the shadow answers the hands.
+Poses.DaichaClaw = {
+	Startup = merge(DAICHA, { Waist = { -6, 30, 0 }, RightShoulder = { 70, 0, 50 }, RightElbow = { 80, 0, 0 } }),
+	Active = feet(merge(DAICHA, { Root = { 0, -14, 0, -0.35, -0.35 }, Waist = { -10, -24, 0 },
+		RightShoulder = { 92, 0, -30 }, RightElbow = { 10, 0, 0 }, RightWrist = { -30, 0, 0 } }), -0.95, 0.6, 0, -12, 8),
+	Recovery = DAICHA,
+}
+Poses.DaichaStep = { -- PAS OBLIQUE: a sidestep strike, the body turned
+	Startup = feet(merge(DAICHA, { Root = { 0, 40, 0, -0.5, 0.1 }, Waist = { -10, 20, 0 } }), -0.4, 0.9, 0, -10, 12),
+	Active = feet(merge(DAICHA, { Root = { 0, -30, 0, -0.45, -0.4 }, Waist = { -10, -30, 0 },
+		LeftShoulder = { 92, 0, 20 }, LeftElbow = { 4, 0, 0 } }), -1.1, 0.5, 0, -16, 10),
+	Recovery = DAICHA,
+}
+Poses.DaichaThrow = { -- PROJECTION: both palms push the shadow out
+	Startup = merge(DAICHA, { Waist = { 6, 0, 0 }, LeftShoulder = { 60, 0, 30 }, LeftElbow = { 120, 0, 0 }, RightShoulder = { 60, 0, -30 }, RightElbow = { 120, 0, 0 } }),
+	Active = feet(merge(DAICHA, { Root = { 0, 0, 0, -0.4, -0.4 }, Waist = { -12, 0, 0 },
+		LeftShoulder = { 88, 0, 10 }, LeftElbow = { 4, 0, 0 }, RightShoulder = { 88, 0, -10 }, RightElbow = { 4, 0, 0 } }), -1.0, 0.65, 0, -12, 9),
+	Recovery = DAICHA,
+}
+Poses.DaichaSphere = { -- SPHÈRE INVERSÉE: the sphere grows between the hands, then is sent
+	Startup = feet(merge(DAICHA, { Root = { 0, 20, 0, -0.35, 0.1 }, Waist = { 4, 30, 0 },
+		LeftShoulder = { 70, 0, 50 }, LeftElbow = { 90, 0, 0 }, RightShoulder = { 70, 0, -50 }, RightElbow = { 90, 0, 0 } }), -0.55, 0.6, 0, -6, 9),
+	Active = Poses.DaichaThrow.Active,
+	Recovery = DAICHA,
+}
+Poses.DaichaMark = Poses.DaichaThrow
+Poses.DaichaTeleport = { -- TÉLÉPORTATION: gone in a crouch, back behind with a claw
+	Startup = DAICHA_CROUCH,
+	Active = Poses.DaichaClaw.Active,
+	Recovery = DAICHA,
+}
+
+-- HIBECARES: heavy, wide swings of the stone fists.
+Poses.HibecaresStrike = {
+	Startup = merge(HIBECARES, { Waist = { -14, 24, 0 }, LeftShoulder = { 50, 0, 20 }, LeftElbow = { 120, 0, 0 } }),
+	Active = feet(merge(HIBECARES, { Root = { 0, -10, 0, -0.6, -0.3 }, Waist = { -16, -20, 0 },
+		LeftShoulder = { 88, 0, 6 }, LeftElbow = { 6, 0, 0 } }), -1.0, 0.65, 0, -12, 14),
+	Recovery = HIBECARES,
+}
+Poses.HibecaresHeavy = { -- COUP LOURD: both fists raised, brought down
+	Startup = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.4, 0.15 }, Waist = { 10, 0, 0 },
+		LeftShoulder = { 175, 0, -10 }, LeftElbow = { 40, 0, 0 }, RightShoulder = { 175, 0, 10 }, RightElbow = { 40, 0, 0 } }), -0.6, 0.65, 0, -6, 14),
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.95, -0.3 }, Waist = { -44, 0, 0 }, Neck = { 30, 0, 0 },
+		LeftShoulder = { 70, 0, 6 }, LeftElbow = { 10, 0, 0 }, RightShoulder = { 70, 0, -6 }, RightElbow = { 10, 0, 0 } }), -0.9, 0.75, 0, -16, 14),
+	Recovery = HIBECARES_CROUCH,
+}
+Poses.HibecaresBreaker = Poses.HibecaresHeavy
+Poses.HibecaresGrab = { -- SAISIE DESTRUCTRICE: both hands reach and crush
+	Startup = merge(HIBECARES, { Waist = { -10, 0, 0 }, LeftShoulder = { 60, 0, 60 }, LeftElbow = { 40, 0, 0 }, RightShoulder = { 60, 0, -60 }, RightElbow = { 40, 0, 0 } }),
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.6, -0.4 }, Waist = { -24, 0, 0 },
+		LeftShoulder = { 88, 0, -14 }, LeftElbow = { 30, 0, 0 }, RightShoulder = { 88, 0, 14 }, RightElbow = { 30, 0, 0 } }), -1.05, 0.7, 0, -14, 14),
+	Recovery = HIBECARES,
+}
+Poses.HibecaresShock = { -- ONDE DE CHOC: a stomp that cracks the floor
+	Startup = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.3, 0 }, Waist = { 4, 0, 0 },
+		LeftShoulder = { 110, 0, -60 }, RightShoulder = { 110, 0, 60 } }), -0.6, 0.65, 0, -6, 14),
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -1.1, 0 }, Waist = { -30, 0, 0 },
+		LeftShoulder = { 30, 0, 50 }, LeftElbow = { 10, 0, 0 }, RightShoulder = { 30, 0, -50 }, RightElbow = { 10, 0, 0 } }), -0.7, 0.75, 0, -12, 16),
+	Recovery = HIBECARES_CROUCH,
+}
+Poses.HibecaresWall = { -- MUR DE PIERRE: forearms raised together, braced
+	Startup = HIBECARES_CROUCH,
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.75, 0.05 }, Waist = { -18, 0, 0 }, Neck = { 20, 0, 0 },
+		LeftShoulder = { 100, 0, 30 }, LeftElbow = { 130, 0, 0 }, RightShoulder = { 100, 0, -30 }, RightElbow = { 130, 0, 0 } }), -0.6, 0.75, 0, -10, 14),
+	Recovery = HIBECARES,
+}
+Poses.HibecaresCounter = { -- RIPOSTE DES RUINES: the wall bursts in an uppercut
+	Startup = Poses.HibecaresWall.Active,
+	Active = feet(merge(HIBECARES, { Root = { 0, 20, 0, -0.45, -0.4 }, Waist = { 0, 30, 0 }, Neck = { -10, 0, 0 },
+		RightShoulder = { 165, 0, -10 }, RightElbow = { 20, 0, 0 } }), -1.0, 0.6, 0, -14, 14),
+	Recovery = HIBECARES,
+}
+
 -- Limbs that strike with each move (its own entry, else its role's): used by the motion
 -- trails and checked by the tests (TARO strikes with fists only, ZEPHYR with feet only).
 Poses.STRIKE = {
@@ -1056,6 +1290,21 @@ Poses.STRIKE = {
 	TaroCounter = { "RightHand" }, TaroParry = {},
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },
 	TaroChampion = { "RightHand" },
+	-- Wilhem's second sheet: RYUKEN's fists (kick roles too), SHIN's blade, DAICHA's hands,
+	-- HIBECARES's stone fists.
+	RyukenChain = { "RightHand" }, RyukenSpin = { "RightHand" }, RyukenHammer = { "RightHand" }, RyukenSweep = { "RightHand" },
+	RyukenLow = { "LeftHand" }, RyukenAirPunch = { "LeftHand" }, RyukenAirHook = { "RightHand" }, RyukenRage = { "LeftHand", "RightHand" },
+	RyukenBarrage = { "LeftHand", "RightHand" }, RyukenStorm = { "LeftHand", "RightHand" }, RyukenSlam = { "LeftHand", "RightHand" },
+	RyukenCrash = { "RightHand" }, RyukenChase = { "RightHand" }, RyukenHook = { "RightHand" }, RyukenCharge = { "LeftHand" },
+	RyukenQuake = { "RightHand" },
+	ShinCut1 = { "RightHand" }, ShinCut2 = { "RightHand" }, ShinThrust = { "RightHand" }, ShinCombo = { "RightHand" },
+	ShinRising = { "RightHand" }, ShinBreaker = { "RightHand" }, ShinCleave = { "RightHand" }, ShinStep = { "RightHand" },
+	ShinCurrent = { "RightHand" }, ShinCircle = { "RightHand" }, ShinTempest = { "RightHand" },
+	DaichaClaw = { "RightHand" }, DaichaStep = { "LeftHand" }, DaichaThrow = { "LeftHand", "RightHand" },
+	DaichaSphere = { "LeftHand", "RightHand" }, DaichaMark = { "LeftHand", "RightHand" }, DaichaTeleport = { "RightHand" },
+	HibecaresStrike = { "LeftHand" }, HibecaresHeavy = { "LeftHand", "RightHand" }, HibecaresBreaker = { "LeftHand", "RightHand" },
+	HibecaresGrab = { "LeftHand", "RightHand" }, HibecaresShock = { "LeftHand", "RightHand" }, HibecaresWall = {},
+	HibecaresCounter = { "RightHand" },
 	ZephyrFront = { "LeftFoot" }, ZephyrSide = { "RightFoot" }, ZephyrRound = { "RightFoot" },
 	ZephyrHigh = { "RightFoot" }, ZephyrPlexus = { "RightFoot" }, ZephyrRiser = { "RightFoot" },
 	ZephyrHeel = { "RightFoot" }, ZephyrSkyward = { "LeftFoot", "RightFoot" }, ZephyrHundred = { "RightFoot" },

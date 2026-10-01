@@ -14,7 +14,8 @@
   `luau tests/PressQueue.test.luau`, `luau tests/Fuzz.test.luau` et
   `luau tests/Cinematography.test.luau` après chaque changement, et
   ajouter un test pour chaque règle de combat, plan de caméra ou animation nouvelle (poses :
-  pieds au sol, limites des articulations, pas de glissade ; R15 et R6).
+  pieds au sol, limites des articulations, pas de glissade ; R15 et R6). Juger le R6 avec la
+  planche `luau tests/PoseSheet.luau -a KIT` (puis `python3 tools/storyboard.py`).
 - Les 4 kits (KAI, TARO, ZEPHYR, AKEMI) partagent la grammaire des combos : un kit associe
   chaque rôle de KAI à ses propres coups (`MoveData.luau`). Après toute retouche de dégâts,
   de vie ou de vitesse, relancer `luau tests/Balance.luau -a 4 120` (CPU contre CPU) et

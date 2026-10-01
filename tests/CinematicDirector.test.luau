@@ -256,12 +256,13 @@ test("each ÉVEIL route has its own finale", function()
 	end
 end)
 
-test("match-winning K.O. scene is well placed for both winners and near the walls", function()
+test("match-winning K.O. scene is well placed for every kit, both winners and near the walls", function()
+	for _, kit in MoveData.KitOrder do
 	for _, winner in { 1, 2 } do
 		for _, x in { 0, Config.ArenaMaxX - 2, Config.ArenaMinX + 2 } do
 			local v = {
-				{ x = x - 2, y = 0, facing = 1, state = "Idle" },
-				{ x = x + 2, y = 0, facing = -1, state = "Idle" },
+				{ x = x - 2, y = 0, facing = 1, state = "Idle", kit = kit },
+				{ x = x + 2, y = 0, facing = -1, state = "Idle", kit = kit },
 			}
 			local anchors, failures = {}, {}
 			for t = 0, Director.KO_SCENE do
@@ -272,8 +273,33 @@ test("match-winning K.O. scene is well placed for both winners and near the wall
 					table.insert(failures, string.format("t %d, shot %s: %s", t, frame.shot.name, problem))
 				end
 			end
-			report(string.format("K.O. scene winner %d at x=%d", winner, x), failures)
+			report(string.format("%s K.O. scene winner %d at x=%d", kit, winner, x), failures)
 		end
+	end
+	end
+end)
+
+test("each kit has its own K.O. scene: own shots, own grade, ends on K.O.", function()
+	local owners, grades = {}, { KAI = nil, TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow" }
+	for _, kit in MoveData.KitOrder do
+		local anchors, shots, graded, ended = {}, {}, false, false
+		for t = 0, Director.KO_SCENE do
+			local staged = { { x = -2, y = 0, facing = 1, state = "Idle", kit = kit }, { x = 2, y = 0, facing = -1, state = "Idle" } }
+			local frame = Director.ko({ anchors = anchors, moveData = MoveData, config = Config, characters = CharacterData },
+				1, 2, staged[1], staged[2], t)
+			shots[frame.shot.name] = true
+			if grades[kit] and frame.grade[grades[kit]] then graded = true end
+			if frame.title and frame.title.text == "K.O." then ended = true end
+		end
+		expect(ended, kit .. ": the K.O. scene never shows K.O.")
+		expect(grades[kit] == nil or graded, kit .. ": no " .. tostring(grades[kit]) .. " grade in its K.O. scene")
+		local count = 0
+		for name in shots do
+			count += 1
+			expect(owners[name] == nil, string.format("%s reuses %s's K.O. shot %s", kit, tostring(owners[name]), name))
+			owners[name] = kit
+		end
+		expect(count >= 5, kit .. ": only " .. count .. " shots in its K.O. scene")
 	end
 end)
 

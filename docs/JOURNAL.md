@@ -1,5 +1,64 @@
 # Journal du projet — état à transmettre
 
+## Version 0.9.5 — 1er octobre 2026
+
+Retours de Wilhem : « en fin de combo l'adversaire finit en l'air, donc les ultimes ne sont
+pas dans le bon axe » ; « ralentis le jeu pour les cinématiques, qu'on ressente les coups » ;
+puis « refais les scènes de K.O. sur tous les persos, chacun la sienne avec son thème ».
+
+### Ultimes : même ligne, au sol
+
+- `CombatSimulation.startCinematic` : au départ de chaque ultime, la cible (même en l'air,
+  jonglée ou à terre) est posée au sol, l'attaquant est placé à `CinematicGap` (2,6 studs)
+  devant elle, sur la même ligne, les deux face à face et dans l'arène (contre un mur, c'est
+  l'attaquant qui se recale). Vitesses, dash, rebonds et chute en cours sont annulés.
+- Client : à l'ouverture d'une cinématique, les positions affichées sautent directement à
+  leur place (pas de glissade visible).
+
+### Ralenti des cinématiques
+
+- `CombatConfig` : `CinematicTimeScale` 0,6 (la cinématique avance à 60 % du temps réel),
+  `CinematicImpactScale` 0,3 autour du coup final (de 4 ticks avant à 16 après,
+  `CinematicImpactTicks`).
+- `stepCinematic` avance sur une horloge : les frappes, le coup final et la chute qui suit
+  tombent au ralenti ; les QTE sont lus à chaque tick réel (fenêtres un peu plus larges en
+  temps réel). Dégâts et ordre des coups inchangés : l'équilibrage ne bouge pas.
+- Le snapshot envoie `cinematic.scale` ; `CinematicController` extrapole le tick avec.
+
+### Scènes de K.O. par perso (match gagné ou FINAL FINISH)
+
+| Perso | Déroulé | Étalonnage |
+|---|---|---|
+| KAI 開 | inchangé : storyboard de Wilhem (main au sol, pieds, visage, dos au couchant) | — |
+| TARO 火 | chute N&B au bord du ring, gants frappés au-dessus du corps (étincelles), **le compte de 1 à 8** en plan retransmission, poing levé dans un pilier de feu vu du sol, plan large du champion | feu, caméra portée |
+| ZEPHYR 風 | chute vue du ciel, rafale au ras du sol (lames, lignes de vitesse), ZEPHYR **descend du ciel** et atterrit (onde), orbite lente dans l'anneau de vent, la caméra monte vers le ciel | ciel |
+| AKEMI 影 | plans fixes : chute, **scène vide**, elle apparaît derrière le corps, rengaine sa lame… et la coupure tombe **après**, elle tourne le dos, disparaît : il ne reste que le corps et son sceau 影 | ombre |
+
+La scène suit le kit du **gagnant** (`view.kit`). Plans réglés au storyboard.
+
+### Tests
+
+- CombatSimulation 80 (+2 : ultime sur cible jonglée contre chaque mur → même ligne au sol,
+  écart 2,6, dans l'arène, face à face ; ralenti → plus de ticks réels que la cinématique,
+  coup final plus lent que le reste, dégâts identiques). Budgets de ticks des anciens tests
+  de cinématique agrandis.
+- CinematicDirector 126 (+1 : chaque kit a sa scène de K.O. — plans propres, étalonnage,
+  K.O. final, au moins 5 plans ; le test de placement couvre les 4 kits, deux gagnants,
+  centre et murs).
+- Cinematography : les plans de K.O. de TARO / ZEPHYR / AKEMI sont contrôlés comme des plans
+  normaux (seuls les gros plans du storyboard de KAI restent exemptés).
+- Kits : le test d'équilibrage joue 60 matchs par duel au lieu de 30 (à 30, AKEMI tombait à
+  34 % par simple bruit ; à 120 matchs elle est à 40 %).
+- FighterAI 9, Animation 22, Kits 26, PressQueue 4, Fuzz 2, Cinematography 41 ✅.
+  Studio ❌ non exécuté.
+- Équilibrage (`luau tests/Balance.luau -a 4 120`) : KAI 42 %, TARO 53 %, ZEPHYR 45 %,
+  AKEMI 60 % (niveau 3 : 53 / 57 / 50 / 40).
+
+### Problèmes ouverts / prochaine étape
+
+- À juger en jeu : vitesse du ralenti (0,6 / 0,3), lisibilité du compte de TARO.
+- Prochaine étape : R6 (« tu peux faire beaucoup mieux »), puis le jeu en ligne et le lobby.
+
 ## Version 0.9.4 — 1er octobre 2026
 
 Retour de Wilhem : « toutes les animations cinématiques se ressemblent, chaque perso doit

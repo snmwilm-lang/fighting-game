@@ -8,9 +8,12 @@ local Kit = require("./CinematicKit")
 local T = require("./TestKit")
 local test, expect = T.test, T.expect
 
--- The K.O. scene of Wilhem's storyboard has deliberate macro shots (hand, feet, face).
+-- KAI's K.O. scene (Wilhem's storyboard) has deliberate macro shots (hand, feet, face); the
+-- other kits' K.O. scenes are composed shots, checked like any other.
+local MACRO = { ["ko-fall"] = true, ["ko-hand"] = true, ["ko-scene1"] = true, ["ko-feet"] = true, ["ko-face"] = true,
+	["ko-scene2"] = true, ["ko-back"] = true, ["ko-wide"] = true }
 local function macro(name)
-	return name:find("^ko%-") ~= nil
+	return MACRO[name] == true
 end
 
 local function check(kit, kind, style, hp, center)

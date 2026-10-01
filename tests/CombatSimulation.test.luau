@@ -397,7 +397,7 @@ test("gate: a perfect gate only KOs if the blows left can finish (every kit)", f
 			local d = world.fighters[2]
 			Sim.debugCinematic(world, 1, "Gate", nil, hp)
 			local events = {}
-			for _ = 1, cin.Length + cin.FinishExtra + 5 do
+			for _ = 1, math.ceil((cin.Length + cin.FinishExtra) / Config.CinematicTimeScale) + 40 do
 				local state = world.cinematic
 				local press = state ~= nil and state.tick + 1 == cin.PromptTicks[1]
 				for _, e in Sim.step(world, { input({ ultimate = press }), input({}) }) do table.insert(events, e) end
@@ -675,7 +675,7 @@ test("training lab: every cinematic can be played directly", function()
 		expect(start and start.move == case[1] and start.style == case[2], "debug " .. case[1] .. " did not start")
 		expect(start.finish == (case[3] ~= nil), "finish flag for " .. case[1] .. " " .. tostring(case[3]))
 		local ended = false
-		for _ = 1, 600 do
+		for _ = 1, 900 do
 			for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do
 				if e.kind == "CinematicEnd" then ended = true end
 			end
@@ -707,7 +707,7 @@ test("ultimate cinematic: scripted hits, timer paused, round ends only after it"
 	world.fighters[2].hp = 120
 	local timer = world.timerTicks
 	local events = {}
-	for t = 1, 300 do
+	for t = 1, 450 do
 		local evs = Sim.step(world, { input({ ultimate = t == 1 }), Sim.neutralInput() })
 		for _, e in evs do e.tick = t; table.insert(events, e) end
 		if world.cinematic then
@@ -724,6 +724,53 @@ test("ultimate cinematic: scripted hits, timer paused, round ends only after it"
 	expect(cinematicHits == #MoveData.Cinematics.KaienRush.Hits + 1, "cinematic hits " .. cinematicHits)
 	expect(roundEnd and roundEnd.tick >= finish.tick, "KO announced before the cinematic ended")
 	expect(world.fighters[1].wins == 1, "no win after the ultimate KO")
+end)
+
+test("ultimate on a juggled target: both fighters on the same ground line, facing each other", function()
+	for _, side in { -1, 1 } do
+		local world = closeWorld(3, false)
+		local a, d = world.fighters[1], world.fighters[2]
+		a.meter = Config.MaxMeter
+		-- Juggled target right at the wall, high in the air.
+		d.x, a.x = side * (Config.ArenaMaxX - 0.1), side * (Config.ArenaMaxX - 1.6)
+		a.facing = side
+		d.y, d.vy, d.launched, d.state, d.stun, d.stunKind = 1.5, 4, true, "Hitstun", 40, "Hit"
+		local started
+		for t = 1, 120 do
+			for _, e in Sim.step(world, { input({ ultimate = t == 1 }), Sim.neutralInput() }) do
+				if e.kind == "CinematicStart" then started = true end
+			end
+			if started then break end
+		end
+		expect(started, string.format("ultimate did not connect on the juggled target (side %d) y=%.2f x=%.2f/%.2f %s %s",
+			side, d.y, a.x, d.x, tostring(a.state), tostring(a.move)))
+		expect(a.y == 0 and d.y == 0 and not d.launched, "fighters left in the air")
+		expect(math.abs(math.abs(d.x - a.x) - Config.CinematicGap) < 1e-6, "gap " .. math.abs(d.x - a.x))
+		expect(a.x >= Config.ArenaMinX and a.x <= Config.ArenaMaxX and d.x >= Config.ArenaMinX and d.x <= Config.ArenaMaxX,
+			"cinematic placed a fighter outside the arena")
+		expect(a.facing == -d.facing and a.facing == (if d.x > a.x then 1 else -1), "fighters do not face each other")
+	end
+end)
+
+test("cinematics play in slow motion, slower still on the final blow, with unchanged damage", function()
+	local world = closeWorld(3, false)
+	Sim.debugCinematic(world, 1, "Rush")
+	local cin = MoveData.Cinematics[MoveData.Kits.KAI.Ultimates.Rush]
+	local d = world.fighters[2]
+	local planned = 0
+	for _, step in world.cinematic.plan do planned += step.damage end
+	local hp, steps, slowAtFinal, slowBefore = d.hp, 0, 0, 0
+	while world.cinematic do
+		local scale = Sim.cinematicScale(world)
+		local rel = world.cinematic.tick - world.cinematic.finalTick
+		if rel == 0 then slowAtFinal = scale elseif rel == -20 then slowBefore = scale end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+		steps += 1
+		expect(steps < 2000, "cinematic never ended")
+	end
+	expect(steps > cin.Length * 1.3, string.format("cinematic not slowed: %d steps for %d ticks", steps, cin.Length))
+	expect(slowAtFinal < slowBefore and slowBefore < 1, "final blow not slower than the rest")
+	expect(hp - d.hp == math.min(planned, hp), string.format("damage %d instead of %d", hp - d.hp, planned))
 end)
 
 test("blocked ultimate does not start the cinematic", function()

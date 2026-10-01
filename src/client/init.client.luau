@@ -72,6 +72,7 @@ end)
 local world, displayed, rigs, previous = nil, {}, {}, {}
 effects.rigs = rigs
 local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
+local lastCinematic = nil
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
@@ -94,6 +95,10 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 		displayed = {}
 		cameraController.center = nil
 	end
+	-- An ultimate re-aligns both fighters on the ground: snap rather than slide into place.
+	local cinKey = if packet.cinematic then packet.cinematic.move .. "/" .. packet.cinematic.attacker else nil
+	if cinKey and cinKey ~= lastCinematic then displayed = {} end
+	lastCinematic = cinKey
 	if packet.phase == "Intro" and lastPhase ~= "Intro" then
 		hud:announceRound(packet.round)
 	end

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.9.4",
+	Version = "0.9.5",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -59,6 +59,13 @@ return table.freeze({
 
 	-- Ki meter (3 bars of 100) and ultimate
 	MaxMeter = 300,
+	-- Ultimate cinematics play in slow motion (share of real time), slower still around the
+	-- final blow; the round timer is paused meanwhile. CinematicGap: distance the attacker
+	-- stands from the target when the cinematic starts (both put on the ground, face to face).
+	CinematicTimeScale = 0.6,
+	CinematicImpactScale = 0.3,
+	CinematicImpactTicks = { -4, 16 }, -- around the final blow
+	CinematicGap = 2.6,
 	MeterBar = 100,
 	MeterOnHit = 0.5, -- fractions of the damage dealt / received
 	MeterOnBlock = 0.25,

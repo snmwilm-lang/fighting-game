@@ -1144,7 +1144,175 @@ Director.KIT_ULTIMATES = KIT
 
 -- ===================================================================== K.O. SCENE
 
--- The K.O. scene of Wilhem's storyboard. `t` runs from 0 to KO_SCENE ticks.
+--[[
+	Every kit closes the match its own way (`t` runs from 0 to KO_SCENE ticks, the loser lies
+	face down at z = 0, head toward the camera, `side` is the winner's side of the body):
+	  KAI    Wilhem's storyboard: hand on the floor, sneakers, face, back to the sunset.
+	  TARO   a boxing K.O.: the glove, the referee's count from 1 to 8 filmed like a broadcast,
+	         the fist raised in a pillar of fire. Handheld, fire grade.
+	  ZEPHYR the wind: the body seen from the sky, a gust sweeping the deck, ZEPHYR coming down
+	         from above, a slow orbit, then the camera lifts toward the sky. Sky grade.
+	  AKEMI  the shadow: locked frames, the stage empty, AKEMI appears behind the body, sheathes
+	         her blade and the cut lands late; she is gone, only her seal remains. Shadow grade.
+]]
+local KO = {}
+
+local function koEnd(ctx, frame, W, color)
+	frame.fade = true
+	local data = ctx.characters[W]
+	frame.title = { text = "K.O.", color = color, sub = data.Name .. " " .. data.Skin .. " · VICTOIRE" }
+end
+
+function KO.TARO(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side -- from the winner toward the body
+	frame.grade.fire, frame.handheld = t >= 30, if t < 130 then 0.22 else 0.1
+	w.x, w.z = l.x + side * 2.4, -2.4
+	w.lookDir = v(-side * 0.6, 0, 0.8)
+	if t < 30 then
+		-- 0. The fall, black and white, from the ring apron.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(3, 0, t / 24), if t < 22 then "Launched" else "DownFace"
+		w.pose = "StandTall"
+		frame.shot = frameOn("ko-taro-fall", dir, { l }, { yaw = 34, pitch = 6, fill = 0.34, fov = 34, roll = -8 * side, lift = 1.6 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 60 then
+		-- 1. GANTS: the gloves pounded together over the body, embers on each tap.
+		w.pose = "GloveTap"
+		if t >= 34 and (t - 34) % 10 == 0 then
+			spark(frame, "ko-taro-tap" .. t, v(w.x - side * 0.5, 3.6, w.z + 0.6), color, 1.2)
+		end
+		frame.shot = frameOn("ko-taro-gloves", dir, { w }, { yaw = 26, pitch = 4, fill = 0.92, band = "bust", fov = 36,
+			focus = P(W, "RightHand") })
+	elseif t < 132 then
+		-- 2. LE COMPTE: 1 to 8, filmed from the side like a broadcast; the body does not move.
+		w.pose = if t < 96 then "StandTall" else "GloveTap"
+		local n = math.min(8, (t - 60) // 9 + 1)
+		frame.title = { text = tostring(n), color = color }
+		frame.shot = frameOn("ko-taro-count", dir, { w, l }, { yaw = 4, pitch = 8, fill = 0.72, fov = 40,
+			focus = P(L, "Head") })
+	elseif t < 166 then
+		-- 3. LE POING LEVÉ: seen from the floor, inside a pillar of fire.
+		frame.hideTitle = true
+		w.pose = "Victory"
+		table.insert(frame.fx, { key = "ko-taro-pillar", kind = "dragonHelix", pos = v(w.x, 0, w.z), color = color })
+		if t == 132 then impact(frame, "ko-taro-raise", v(w.x, 6, w.z), color, 1.6) end
+		frame.shot = frameOn("ko-taro-raise", dir, { w }, { yaw = 22, pitch = -12, fill = 0.58, lift = 0.8, fov = 46, roll = 6 * side,
+			focus = P(W, "Head") })
+	elseif t < 188 then
+		-- 4. CHAMPION: high and wide over the ring, the fallen fighter at his feet.
+		w.pose = "Victory"
+		frame.shot = frameOn("ko-taro-champion", dir, { w, l }, { yaw = -30, pitch = 34, fill = 0.48, fov = 40 })
+	else
+		w.pose = "Victory"
+		koEnd(ctx, frame, W, color)
+		frame.shot = frameOn("ko-taro-champion", dir, { w, l }, { yaw = -30, pitch = 34, fill = 0.48, fov = 40 })
+	end
+	return frame
+end
+
+function KO.ZEPHYR(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.sky = t >= 30
+	w.x, w.z = l.x + side * 3, -2.8
+	w.lookDir = v(-side * 0.5, 0, 0.85)
+	if t < 30 then
+		-- 0. The fall, seen from the sky, black and white.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(6, 0, t / 26), if t < 24 then "Launched" else "DownFace"
+		vanish(w)
+		frame.shot = frameOn("ko-zephyr-sky-fall", dir, { l }, { yaw = 10, pitch = 72, fill = 0.55, fov = 40 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 58 then
+		-- 1. RAFALE: a gust sweeps the deck, filmed at floor level along the body.
+		vanish(w)
+		if t == 30 then table.insert(frame.fx, { key = "ko-zephyr-dust", kind = "dust", pos = v(l.x, 0, 0), direction = dir }) end
+		arc(frame, "ko-zephyr-gust", v(l.x, 0.6, 0), 3.2, -40, 220, color, math.pi / 2, dir)
+		frame.speedLines = color
+		frame.shot = frameOn("ko-zephyr-gust", dir, { l }, { yaw = 64, pitch = 6, fill = 0.72, fov = 44,
+			focus = P(L, "Head") })
+	elseif t < 100 then
+		-- 2. DESCENTE: ZEPHYR comes down from the sky and lands beside the body.
+		local k = progress(t, 58, 82)
+		w.y = lerp(10, 0, smooth(k))
+		w.pose = if k < 1 then "Fall" elseif t < 88 then "Land" else "WindGather"
+		if t == 82 then impact(frame, "ko-zephyr-land", v(w.x, 0.4, w.z), color, 1.4) end
+		frame.shot = frameOn("ko-zephyr-descend", dir, { w, l }, { yaw = 18, pitch = -14, fill = 0.66, fov = 48,
+			focus = P(W, "Head") })
+	elseif t < 150 then
+		-- 3. LE VENT TOURNE: a slow orbit around ZEPHYR, the wind ring at his feet.
+		w.pose = "WindGather"
+		ring(frame, "ko-zephyr-ring", w.x, 2.2, 0.15, color)
+		frame.shot = frameOn("ko-zephyr-orbit", dir, { w }, { yaw = lerp(-50, 50, progress(t, 100, 150)), pitch = 8,
+			fill = 0.78, fov = 40, focus = P(W, "Head") })
+	elseif t < 188 then
+		-- 4. VERS LE CIEL: the camera lifts from the floor toward the sky.
+		w.pose = "StandTall"
+		local k = smooth(progress(t, 150, 188))
+		frame.shot = frameOn("ko-zephyr-rise", dir, { w, l }, { yaw = -12, pitch = lerp(-18, 40, k), fill = lerp(0.62, 0.4, k),
+			fov = 44, lift = lerp(1.5, 0, k) })
+	else
+		w.pose = "StandTall"
+		koEnd(ctx, frame, W, color)
+		frame.shot = frameOn("ko-zephyr-rise", dir, { w, l }, { yaw = -12, pitch = 40, fill = 0.4, fov = 44 })
+	end
+	return frame
+end
+
+function KO.AKEMI(ctx, frame, W, L, w, l, t, side)
+	local color = ctx.characters[W].Energy
+	local dir = -side
+	frame.grade.shadow = t >= 30
+	w.x, w.z = l.x + side * 1.8, -2.2
+	w.lookDir = v(-side * 0.3, 0, 0.95)
+	if t < 30 then
+		-- 0. The fall in a locked frame; AKEMI is already gone.
+		frame.grade.mono, frame.hideTitle = true, true
+		l.y, l.pose = lerp(3, 0, t / 24), if t < 22 then "Launched" else "DownFace"
+		vanish(w)
+		frame.shot = frameOn("ko-akemi-fall", dir, { l }, { yaw = 0, pitch = 16, fill = 0.3, fov = 32, lift = 1.6 })
+		return frame
+	end
+	l.y, l.pose = 0, "DownFace"
+	if t < 60 then
+		-- 1. LE VIDE: the body alone on the stage, nothing moves.
+		vanish(w)
+		frame.shot = frameOn("ko-akemi-empty", dir, { l }, { yaw = -20, pitch = 22, fill = 0.42, fov = 36 })
+	elseif t < 96 then
+		-- 2. APPARITION: she is behind the body, out of nothing.
+		w.pose = "StandTall"
+		if t == 60 then spark(frame, "ko-akemi-appear", v(w.x, 3, w.z), color, 1.8) end
+		frame.shot = frameOn("ko-akemi-appear", dir, { w, l }, { yaw = -20, pitch = 22, fill = 0.55, fov = 36,
+			focus = P(W, "Head") })
+	elseif t < 132 then
+		-- 3. LA LAME RENTRE: the blade sheathed... and only then the cut lands.
+		w.pose = "Sheathe"
+		if t == 118 then impact(frame, "ko-akemi-cut", v(l.x, 0.8, 0.4), color, 2) end
+		frame.speedLines = if t >= 118 and t < 126 then color else nil
+		frame.shot = frameOn("ko-akemi-sheathe", dir, { w }, { yaw = -36, pitch = 2, fill = 0.9, band = "bust", fov = 30,
+			focus = P(W, "Head") })
+	elseif t < 168 then
+		-- 4. DOS TOURNÉ: she turns her back on the body, low static frame.
+		w.pose = "StandTall"
+		w.lookDir = v(side * 0.4, 0, -0.9)
+		frame.shot = frameOn("ko-akemi-back", dir, { w, l }, { yaw = 24, pitch = -6, fill = 0.62, fov = 34,
+			focus = P(W, "UpperTorso") })
+	else
+		-- 5. DISPARUE: only the body and her seal remain.
+		vanish(w)
+		table.insert(frame.fx, { key = "ko-akemi-seal", kind = "kanjiSeal", pos = v(l.x, 0.06, 0), color = color, text = "影" })
+		if t >= 188 then koEnd(ctx, frame, W, color) end
+		frame.shot = frameOn("ko-akemi-gone", dir, { l }, { yaw = 0, pitch = 48, fill = 0.4, fov = 36 })
+	end
+	return frame
+end
+
+-- The K.O. scene of the winner's kit. `t` runs from 0 to KO_SCENE ticks.
 function Director.ko(ctx, winner, loser, w, l, t)
 	local frame = newFrame()
 	local anchors = ctx.anchors
@@ -1153,7 +1321,10 @@ function Director.ko(ctx, winner, loser, w, l, t)
 	local W, L = winner, loser
 	-- The loser lies face down, head toward the camera; the winner stands behind.
 	l.state, l.lookDir, l.z = "KO", v(0, 0, 1), 0
-	w.victory, w.state, w.vx = false, "Idle", 0
+	w.victory, w.state, w.vx, w.y = false, "Idle", 0, 0
+	local own = KO[w.kit or (ctx.characters[W] and ctx.characters[W].Name) or "KAI"]
+	if own then return own(ctx, frame, W, L, w, l, t, side) end
+	-- KAI: Wilhem's storyboard.
 	w.x, w.y, w.z = l.x + side * 2.8, 0, -3.4
 	w.lookDir = v(-side * 0.25, 0, 1)
 	frame.grade.mono = t < 30

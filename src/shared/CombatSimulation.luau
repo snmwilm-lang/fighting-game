@@ -616,6 +616,21 @@ local function startCinematic(world, a, d, events, moveId)
 	a.move, a.moveContact, a.state = moveId, "Hit", "Cinematic"
 	a.pushVx, d.pushVx, a.vx = 0, 0, 0
 	d.stun, d.stunKind, d.state = 999, "Hit", "Hitstun"
+	-- Same line, on the ground, face to face: a combo often ends with the target in the air
+	-- or far away, the ultimate always starts from a clean staging.
+	local dir = if d.x > a.x then 1 elseif d.x < a.x then -1 else a.facing
+	local gap, lo, hi = c.CinematicGap or 2.6, c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5
+	d.x = math.clamp(d.x, lo, hi)
+	a.x = d.x - dir * gap
+	if a.x < lo or a.x > hi then
+		a.x = math.clamp(a.x, lo, hi)
+		d.x = a.x + dir * gap
+	end
+	for _, f in { a, d } do
+		f.y, f.vy, f.vx, f.dashTicks = 0, 0, 0, 0
+	end
+	d.launched, d.knockdown, d.getUp, d.pendingBounce, d.crumpled = false, 0, 0, false, false
+	a.facing, d.facing = dir, -dir
 	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = moveId,
 		finish = finish, style = style })
 end
@@ -894,11 +909,31 @@ local function judgePrompts(world, state, input, events)
 	end
 end
 
+-- Slow motion of a cinematic at its current tick (share of real time).
+function CombatSimulation.cinematicScale(world)
+	local c, state = world.config, world.cinematic
+	if not state then return 1 end
+	local around = c.CinematicImpactTicks or { 0, 0 }
+	local fromFinal = state.tick - state.finalTick
+	if fromFinal >= around[1] and fromFinal <= around[2] then return c.CinematicImpactScale or 1 end
+	return c.CinematicTimeScale or 1
+end
+
 local function stepCinematic(world, events, inputs)
 	local c = world.config
 	local state = world.cinematic
-	state.tick += 1
 	local a, d = world.fighters[state.attacker], world.fighters[state.defender]
+	-- Slow motion: the cinematic's own clock advances by a share of a tick; rhythm prompts are
+	-- still read on every simulation tick.
+	state.clock = (state.clock or 0) + CombatSimulation.cinematicScale(world)
+	if state.clock < 1 then
+		if #state.prompts > 0 then
+			judgePrompts(world, state, inputs[state.attacker] or CombatSimulation.neutralInput(), events)
+		end
+		return
+	end
+	state.clock -= 1
+	state.tick += 1
 	if #state.prompts > 0 then
 		judgePrompts(world, state, inputs[state.attacker] or CombatSimulation.neutralInput(), events)
 	end

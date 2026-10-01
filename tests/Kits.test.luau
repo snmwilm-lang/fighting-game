@@ -275,7 +275,7 @@ end)
 test("balance: no kit wins more than 65 % or less than 35 % against the field (CPU vs CPU)", function()
 	local Balance = require("./BalanceKit")
 	for _, level in { 3, 4 } do
-		local matrix = Balance.matrix(level, 30)
+		local matrix = Balance.matrix(level, 60) -- 30 matches per duel was within noise of the bounds
 		for _, a in MoveData.KitOrder do
 			local total, n = 0, 0
 			for _, b in MoveData.KitOrder do

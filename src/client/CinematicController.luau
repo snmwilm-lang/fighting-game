@@ -433,7 +433,7 @@ function CinematicController:update(world, views, dt, stale)
 	end
 	ctx.anchors = self.anchors
 	if cin then
-		local tick = math.min(cin.tick + math.floor((os.clock() - (self.snapshotAt or os.clock())) * self.config.TickRate), cin.length)
+		local tick = math.min(cin.tick + math.floor((os.clock() - (self.snapshotAt or os.clock())) * self.config.TickRate * (cin.scale or 1)), cin.length)
 		self:updatePrompt(cin, tick)
 		self:showDebug(cin.move .. (if cin.style then "/" .. cin.style else "") .. (if cin.finish then "/FINISH" else ""),
 			tick, cin.length)

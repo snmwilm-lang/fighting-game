@@ -350,7 +350,7 @@ local function snapshot()
 			tick = world.cinematic.tick, length = world.cinematic.length,
 			move = world.cinematic.move, finish = world.cinematic.finish, style = world.cinematic.style,
 			nextPrompt = world.cinematic.nextPrompt, grade = world.cinematic.grade,
-			prompts = world.cinematic.prompts,
+			prompts = world.cinematic.prompts, scale = Sim.cinematicScale(world),
 		},
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
 		fighters = list,

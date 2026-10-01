@@ -608,6 +608,73 @@ test("R6: guard arms point at the opponent, pitched down; standing legs stay clo
 	expect((stand.Torso[2] + standLift) - (low.Torso[2] + lowLift) > 0.25, "the R6 low kick stands as tall as the guard")
 end)
 
+test("TARO's weave and DEMPSEY ROLL animate on R15 and R6: grounded, fists reaching forward", function()
+	local function playRoll(onFrame)
+		local world = Sim.newWorld(Config, MoveData, true)
+		Sim.setKits(world, "TARO", "KAI")
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -3, 3
+		for tick = 1, 110 do
+			local i = Sim.neutralInput()
+			i.dash, i.axis = tick == 1, if tick <= 3 then 1 else 0
+			i.light = tick >= 4 and tick <= 54 and (tick - 4) % 10 == 0
+			i.heavy = tick == 70
+			Sim.step(world, { i, Sim.neutralInput() })
+			local f, o = world.fighters[1], world.fighters[2]
+			onFrame(tick, f, { x = f.x, y = f.y, vx = f.vx, vy = f.vy, facing = f.facing, state = f.state, move = f.move,
+				moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit, weave = f.weaveTicks > 0 },
+				{ x = o.x, y = o.y, state = o.state, move = o.move })
+		end
+	end
+	-- R6: never sinks or floats; each hook's fist goes out in front.
+	local rt = Retarget.new(K, r6Skeleton())
+	local anim = r6Animator(rt)
+	local reached, seen = {}, {}
+	playRoll(function(tick, f, view, other)
+		local pose = anim:step(view, other, 1 / 60, tick / 60, 60, false)
+		local _, lift, parts = Retarget.solve(rt, pose, f.y)
+		local lowest = math.huge
+		for name, t in parts do
+			local size = rt.r6.sizes[name]
+			lowest = math.min(lowest, K.boxBottom(t, size[1] / 2, size[2] / 2, size[3] / 2))
+		end
+		local height = lowest + lift - rt.r6.floor + f.y
+		expect(height > -0.03 and height < 0.06, string.format("R6 %s (%s) at %.2f from the floor, tick %d", f.state, tostring(f.move), height, tick))
+		local m = f.move and MoveData.Moves[f.move]
+		if m and m.dempsey then
+			seen[f.move] = true
+			if f.moveFrame > m.startup and f.moveFrame <= m.startup + m.active then
+				local arm = if f.move == "TaroDempseyL" then "Left Arm" else "Right Arm"
+				local x, y, z = K.point(parts[arm], 0, -0.9, 0)
+				if z < -1.0 then reached[f.move] = true end
+			end
+		end
+	end)
+	for _, id in { "TaroDempseyL", "TaroDempseyR", "TaroDempseyFinish" } do
+		expect(seen[id], "the roll never played " .. id)
+		expect(reached[id], "R6: the fist of " .. id .. " never goes out in front")
+	end
+	-- R15 (KAI rig): the hooking fist goes out in front, the weave rolls the waist.
+	local r15 = newAnimator(KAI)
+	local reach15, rolls = {}, {}
+	playRoll(function(tick, f, view, other)
+		local pose, lift = r15:step(view, other, 1 / 60, tick / 60, 60, false)
+		if f.state == "Dashing" and view.weave then rolls[math.floor(pose.Waist[3] / 5)] = true end
+		local m = f.move and MoveData.Moves[f.move]
+		if m and m.dempsey and f.moveFrame > m.startup and f.moveFrame <= m.startup + m.active then
+			local solved = K.solve(KAI, pose, lift)
+			local hand = solved[if f.move == "TaroDempseyL" then "LeftHand" else "RightHand"]
+			if hand[3] < -1.2 then reach15[f.move] = true end
+		end
+	end)
+	for _, id in { "TaroDempseyL", "TaroDempseyR", "TaroDempseyFinish" } do
+		expect(reach15[id], "R15: the fist of " .. id .. " never goes out in front")
+	end
+	local distinct = 0
+	for _ in rolls do distinct += 1 end
+	expect(distinct >= 3, "the weave does not roll the waist")
+end)
+
 test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled body)", function()
 	for _, scale in { 1, 1.15 } do
 		local world = Sim.newWorld(Config, MoveData, false)

@@ -408,6 +408,11 @@ function HUD:fillCombos()
 		table.insert(lines, { "PASSIF " .. kit.Passive.Name .. " : au neutre (sans attaquer, sans être touché, sans garder), le 1er coup reçu est esquivé (recul), recharge "
 			.. math.floor(kit.Passive.Cooldown / 60) .. " s. Jamais contre les ultimes.", ORANGE })
 	end
+	if kit.Weave then
+		table.insert(lines, { "DASH VERS L'ADVERSAIRE = ESQUIVE DE BUSTE : les coups hauts passent au-dessus (+ ki). Les coups bas, projectiles et ultimes touchent.", ORANGE })
+		table.insert(lines, { "Pendant / juste après l'esquive : L = DEMPSEY ROLL (crochets en huit, L encore jusqu'à " .. kit.Weave.MaxHooks
+			.. ") · R = CROCHET FINAL (mur)", ORANGE })
+	end
 	if kit.Stats.DashInvuln then
 		table.insert(lines, { "DASH : intouchable pendant " .. kit.Stats.DashInvuln .. " images au départ", ORANGE })
 	end
@@ -634,6 +639,8 @@ function HUD:onEvent(event, world)
 	elseif event.kind == "Evade" then
 		local kit = MoveData.Kits[CharacterData[event.defender].Kit]
 		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ESQUIVE") .. " !")
+	elseif event.kind == "Slip" then
+		self:callout(event.defender, "ESQUIVE !")
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then

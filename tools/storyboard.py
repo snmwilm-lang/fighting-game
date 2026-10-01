@@ -6,10 +6,12 @@
 Needs Python 3 and Pillow. Bodies are the KAI block rig posed by the real animator; effects
 are drawn as simple shapes (rings, sparks, arcs, lightning); grading and letterbox as in game.
 """
+import os
 import sys, math
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 400, 225
+W = int(os.environ.get('STORY_W', '400'))
+H = W * 9 // 16
 def sub(a,b): return (a[0]-b[0],a[1]-b[1],a[2]-b[2])
 def dot(a,b): return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]
 def cross(a,b): return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
@@ -33,7 +35,8 @@ def parse(path):
             n = list(map(float, f[1:7])); frames[-1]['cam'] = (n[0:3], n[3:6])
         elif f[0] == 'PART' and frames:
             nums = list(map(float, f[3:18]))
-            frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False))
+            # optional 19th field: the part's own colour (hex), else the slot palette
+            frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False, hexc(f[18]) if len(f) > 18 else None))
         elif f[0] == 'FX' and frames:
             frames[-1]['fx'].append({'kind': f[1], 'age': int(f[2]), 'pos': tuple(map(float, f[3:6])),
                 'from': tuple(map(float, f[6:9])), 'to': tuple(map(float, f[9:12])), 'radius': float(f[12]),
@@ -83,7 +86,7 @@ def render_frame(fr, label):
         if len(pts) > 1: d.line(pts, fill=(110,80,70,120))
     # floor edge of the fighting deck
     faces = []
-    for slot, name, t, size, ghost in fr['parts']:
+    for slot, name, t, size, ghost, own in fr['parts']:
         px, py, pz = t[0], t[1], t[2]
         R = [[t[3],t[4],t[5]],[t[6],t[7],t[8]],[t[9],t[10],t[11]]]
         hx, hy, hz = size[0]/2, size[1]/2, size[2]/2
@@ -98,7 +101,7 @@ def render_frame(fr, label):
         quads = [[idx(-1,-1,-1),idx(-1,1,-1),idx(-1,1,1),idx(-1,-1,1)],[idx(1,-1,-1),idx(1,1,-1),idx(1,1,1),idx(1,-1,1)],
                  [idx(-1,-1,-1),idx(1,-1,-1),idx(1,-1,1),idx(-1,-1,1)],[idx(-1,1,-1),idx(1,1,-1),idx(1,1,1),idx(-1,1,1)],
                  [idx(-1,-1,-1),idx(1,-1,-1),idx(1,1,-1),idx(-1,1,-1)],[idx(-1,-1,1),idx(1,-1,1),idx(1,1,1),idx(-1,1,1)]]
-        base = partColor(slot, name)
+        base = own or partColor(slot, name)
         for q in quads:
             pts3 = [corners[k] for k in q]
             pp = [proj(p) for p in pts3]
@@ -196,4 +199,4 @@ def sheet(frames, out, cols=5, title=''):
 
 if __name__ == '__main__':
     frames = parse(sys.argv[1])
-    sheet(frames, sys.argv[2], 5, sys.argv[3] if len(sys.argv) > 3 else '')
+    sheet(frames, sys.argv[2], int(os.environ.get('STORY_COLS', '5')), sys.argv[3] if len(sys.argv) > 3 else '')

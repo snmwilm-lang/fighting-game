@@ -234,6 +234,74 @@ test("TARO: a low attack beats the parry, and a whiffed parry can be punished", 
 	expect(hit and hit.attacker == 1, "the parry recovery was not punishable")
 end)
 
+test("TARO: the forward dash weaves under high attacks (slip + ki), lows still hit", function()
+	local world = kitWorld("KAI", "TARO", 4)
+	local taro = world.fighters[2]
+	local events = run(world, 30, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(events, "Slip") ~= nil, "the jab was not slipped")
+	expect(find(events, "Hit") == nil and taro.hp == taro.maxHp, "the jab hit through the weave")
+	expect(taro.meter > 0, "slipping gave no ki")
+	local low = kitWorld("KAI", "TARO", 4)
+	local e2 = run(low, 30, function(t)
+		return { input({ crouch = t <= 3, light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(e2, "Hit") ~= nil and find(e2, "Slip") == nil, "a low attack was slipped")
+	-- Only toward the opponent: a back dash is not a weave.
+	local back = kitWorld("KAI", "TARO", 4)
+	run(back, 2, function() return { nil, input({ dash = true, axis = 1 }) } end)
+	expect(back.fighters[2].weaveTicks == 0 and back.fighters[2].dashTicks > 0, "the back dash weaves")
+	-- Not a KAI thing.
+	local kai = kitWorld("TARO", "KAI", 4)
+	run(kai, 2, function() return { nil, input({ dash = true, axis = -1 }) } end)
+	expect(kai.fighters[2].weaveTicks == 0, "KAI weaves")
+end)
+
+local function dempsey(keys, ticks)
+	local world = kitWorld("TARO", "KAI", 6)
+	run(world, 3, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	local events = play(world, keys, { reaction = 3, ticks = ticks or 400 })
+	local hooks = {}
+	for _, e in events do
+		if e.kind == "Hit" and e.attacker == 1 then table.insert(hooks, e.move) end
+	end
+	return hooks, world, events
+end
+
+test("TARO: DEMPSEY ROLL out of the weave: alternating hooks, then the finishing hook", function()
+	local hooks = dempsey({ "L", "L", "L", "L", "L", "L", "R" })
+	expect(table.concat(hooks, ",") == "TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyFinish",
+		"roll: " .. table.concat(hooks, ","))
+	-- Six hooks at most.
+	local capped = dempsey({ "L", "L", "L", "L", "L", "L", "L", "L" })
+	expect(#capped == 6, "the roll went on for " .. #capped .. " hooks")
+	-- R straight out of the weave: the finishing hook alone.
+	local finish, world = dempsey({ "R" }, 24)
+	expect(finish[1] == "TaroDempseyFinish", "R out of the weave: " .. tostring(finish[1]))
+	expect(world.fighters[2].launched, "the finishing hook did not send the target flying")
+	-- Without the weave, L is still the jab.
+	local plain = kitWorld("TARO", "KAI", 3)
+	local events = run(plain, 30, function(t) return { input({ light = t == 1 }) } end)
+	local hit = find(events, "Hit")
+	expect(hit and hit.move == "TaroJab", "a plain L is no longer the jab")
+end)
+
+test("TARO: each DEMPSEY hook ducks under a high attack at its start", function()
+	local world = kitWorld("KAI", "TARO", 3.4)
+	local taro = world.fighters[2]
+	taro.dempseyWindow = 10 -- as right after the weave
+	local events = run(world, 20, function(t)
+		-- KAI's jab is out (ticks 6-8) during the first frames of TARO's hook (pressed at 4).
+		return { input({ light = t == 1 }), input({ light = t == 4 }) }
+	end)
+	expect(taro.move == nil or Moves[taro.move].dempsey, "TARO did not roll")
+	local slipped = find(events, "Slip")
+	local kaiHit = false
+	for _, e in events do if e.kind == "Hit" and e.defender == 2 then kaiHit = true end end
+	expect(slipped ~= nil and not kaiHit, "the jab hit TARO during the hook's start")
+end)
+
 test("AKEMI: VOILE D'OMBRE evades the first hit, then recharges", function()
 	local world = kitWorld("KAI", "AKEMI", 3)
 	local d = world.fighters[2]

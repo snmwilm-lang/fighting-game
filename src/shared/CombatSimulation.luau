@@ -20,6 +20,8 @@ local function newFighter(slot, c, kit)
 		slot = slot,
 		kit = kit.Name, stats = stats, maxHp = stats.MaxHealth,
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
+		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
+		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1,
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
@@ -171,6 +173,13 @@ local function startMove(world, f, id, events, isLink)
 		f.dirtyStart = false
 	end
 	f.moveSerial += 1
+	if m.dempsey then
+		-- DEMPSEY ROLL: each hook continues the roll (counted for its limit), from the weave.
+		f.dempseyCount = if isLink and f.dempseyCount > 0 then f.dempseyCount + 1 else 1
+		f.dashTicks, f.dempseyWindow, f.weaveTicks = 0, 0, 0
+	else
+		f.dempseyCount = 0
+	end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
 	if m.air then f.airAttackUsed = true end
@@ -250,6 +259,16 @@ local function chooseMove(world, f, grounded, crouching)
 		head.judged = true
 		f.chainClean, f.dirtyReason = false, "MAUVAIS BOUTON"
 	end
+	local weave = kit.Weave
+	if weave and nextId and moves[nextId].dempsey and not moves[nextId].finisher and f.dempseyCount >= weave.MaxHooks then
+		nextId = nil -- the roll has its limit: only the finishing hook is left
+	end
+	if weave and not nextId and not f.move and f.dempseyWindow > 0 and grounded and not crouching then
+		-- Out of the weave (forward dash) or right after it: L starts the DEMPSEY ROLL, R its
+		-- finishing hook.
+		nextId = if button == "Light" then weave.Hook elseif button == "Heavy" then weave.Finish else nil
+		if nextId then currentId = nil end
+	end
 	local isLink = nextId ~= nil and currentId ~= nil
 	if not nextId and not f.move and f.dashTicks == 0 then
 		-- Neutral start (also when a late press is not a valid cancel of the finished move).
@@ -317,6 +336,8 @@ local function stepFighter(world, f, input, events)
 	f.evadeCharge = math.max(0, f.evadeCharge - 1)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
+	f.weaveTicks = math.max(0, f.weaveTicks - 1)
+	f.dempseyWindow = math.max(0, f.dempseyWindow - 1)
 	local stats = f.stats
 	if f.guardRegenDelay > 0 then
 		f.guardRegenDelay -= 1
@@ -474,6 +495,13 @@ local function stepFighter(world, f, input, events)
 		f.dashTicks = c.DashTicks
 		f.dashInvuln = stats.DashInvuln or 0
 		f.dashCooldown = c.DashCooldownTicks
+		local weave = world.moveData.Kits[f.kit] and world.moveData.Kits[f.kit].Weave
+		local foe = world.fighters[3 - f.slot]
+		if weave and foe and f.dashDirection == (if foe.x >= f.x then 1 else -1) then
+			-- The boxer's forward dash is a weave: the head ducks under high attacks.
+			f.weaveTicks = c.DashTicks
+			f.dempseyWindow = c.DashTicks + weave.Window
+		end
 	end
 	f.crouching, f.blocking = crouched, blocking
 	if f.dashTicks > 0 then
@@ -627,7 +655,7 @@ local function startCinematic(world, a, d, events, moveId)
 		d.x = a.x + dir * gap
 	end
 	for _, f in { a, d } do
-		f.y, f.vy, f.vx, f.dashTicks = 0, 0, 0, 0
+		f.y, f.vy, f.vx, f.dashTicks, f.weaveTicks, f.dempseyWindow = 0, 0, 0, 0, 0, 0
 	end
 	d.launched, d.knockdown, d.getUp, d.pendingBounce, d.crumpled = false, 0, 0, false, false
 	a.facing, d.facing = dir, -dir
@@ -674,7 +702,7 @@ local function tryEvade(world, a, d, m, events, source)
 	d.pushVx = -dir * passive.Slide
 	d.evadeCharge, d.evadeInvuln = passive.Cooldown, passive.Invuln
 	d.stun, d.stunKind, d.vx = passive.Recovery, "Evade", 0
-	d.grace, d.dashTicks = nil, 0
+	d.grace, d.dashTicks, d.weaveTicks, d.dempseyWindow = nil, 0, 0, 0
 	table.clear(d.buffer)
 	if not source then a.moveHits = m.hits or 1 end -- the attack whiffs
 	table.insert(events, { kind = "Evade", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3 })
@@ -842,6 +870,23 @@ local function stepProjectiles(world, events)
 	end
 end
 
+-- Boxer's slip (TARO): during the weave (forward dash) and the start of each DEMPSEY ROLL
+-- hook, attacks that are not low whiff over the ducking head. Lows, projectiles and
+-- ultimates still hit. The first slip of each attack gives a little ki.
+local function slips(world, a, d, m, events)
+	if m.guard == "Low" or m.kind == "Ultimate" then return false end
+	local dm = d.move and world.moves[d.move]
+	local ducking = d.weaveTicks > 0
+		or (dm ~= nil and dm.slip ~= nil and d.moveFrame >= dm.slip.from and d.moveFrame <= dm.slip.to)
+	if not ducking then return false end
+	if d.slipSerial ~= a.moveSerial then
+		d.slipSerial = a.moveSerial
+		gainMeter(d, world.config.SlipMeter or 0, world.config)
+		table.insert(events, { kind = "Slip", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3.4 })
+	end
+	return true
+end
+
 local function detectHits(world, events)
 	local a, b = world.fighters[1], world.fighters[2]
 	local c, moves = world.config, world.moves
@@ -852,7 +897,7 @@ local function detectHits(world, events)
 		if m and not isInvulnerable(defender, c, moves) then
 			local hx1, hx2, hy1, hy2 = CombatSimulation.hitbox(attacker, m)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(defender, c)
-			if hx1 <= dx2 and dx1 <= hx2 and hy1 <= dy2 and dy1 <= hy2 then
+			if hx1 <= dx2 and dx1 <= hx2 and hy1 <= dy2 and dy1 <= hy2 and not slips(world, attacker, defender, m, events) then
 				table.insert(pending, { attacker, defender, m })
 			end
 		end

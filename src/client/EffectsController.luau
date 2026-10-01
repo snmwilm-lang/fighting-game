@@ -394,6 +394,14 @@ function EffectsController:onEvent(event, views, rigs)
 		local v = views[event.defender]
 		if v then self:dust(v.x, 0, -v.facing) end
 		return
+	elseif event.kind == "Slip" then
+		-- TARO's weave: the blow whistles over his head (a white arc above the ducking body).
+		local v = views[event.defender]
+		if v then
+			local dir = if event.attacker and views[event.attacker] and views[event.attacker].x > v.x then -1 else 1
+			self:arc(Vector3.new(v.x, v.y + 4.4, self.config.PlaneZ), 1.5, -30, 120, Color3.new(1, 1, 1), 0, dir)
+		end
+		return
 	elseif event.kind == "Clash" then
 		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 2)
 		self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)

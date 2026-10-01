@@ -596,6 +596,14 @@ Poses.Kits = {
 		STANCE = TARO,
 		Idle = { TARO, merge(TARO, { Root = { 0, -6, 0, -0.56, 0 }, LeftShoulder = { 66, 0, 20 }, RightShoulder = { 60, 0, -20 } }) },
 		Crouch = TARO_CROUCH,
+		-- The weave (forward dash): head down under the guard, knees bent, gliding in; the
+		-- Animator rolls the waist from side to side (the figure eight).
+		Dash = merge(legs(62, -95, -20, -70), {
+			Root = { 0, 0, 0, -1.0, -0.25 }, Waist = { -34, 0, 0 }, Neck = { 30, 0, 0 },
+			LeftShoulder = { 70, 0, 22 }, LeftElbow = { 140, 0, 0 },
+			RightShoulder = { 64, 0, -22 }, RightElbow = { 145, 0, 0 },
+			Ground = { 0.6 },
+		}),
 		Block = feet(merge(TARO, merge(TARO_GUARD, { Root = { 0, 0, 0, -0.48, 0 } })), -0.66, 0.74, 0, -12, 9),
 		CrouchBlock = merge(TARO_CROUCH, TARO_GUARD),
 		RunUpper = upper(TARO, { Root = { -4, 0, 0, 0, 0 }, Waist = { -18, 6, 0 }, Neck = { 18, -6, 0 } }),
@@ -783,6 +791,31 @@ Poses.TaroDempsey = { -- weaving left-right hooks
 		Root = { 0, 15, 0, -0.58, -0.45 }, Waist = { -18, 34, -18 },
 	})), -1.15, 0.6, 0, -18, 9),
 	Recovery = merge(TARO, { Waist = { -14, 10, 0 } }),
+}
+-- DEMPSEY ROLL (out of the weave): the head draws a figure eight under the guard, each hook
+-- comes up from the duck on the other side.
+local function dempseyHook(side)
+	local s = if side == "Left" then 1 else -1 -- the duck goes to the opposite side
+	return {
+		Startup = feet(merge(TARO, { Root = { 0, 10 * s, 0, -1.0, -0.15 }, Waist = { -30, 18 * s, 22 * s }, Neck = { 26, -10 * s, 0 } }),
+			-0.75, 0.75, 0, -14, 9),
+		Active = feet(merge(TARO, merge(hookArm(side, 58, 92), {
+			Root = { 0, -18 * s, 0, -0.78, -0.45 }, Waist = { -20, -38 * s, -14 * s }, Neck = { 18, 18 * s, 0 },
+		})), -1.1, 0.6, 0, -18, 9),
+		Recovery = feet(merge(TARO, { Root = { 0, 0, 0, -0.9, -0.2 }, Waist = { -26, -10 * s, -16 * s }, Neck = { 24, 0, 0 } }),
+			-0.8, 0.7, 0, -14, 9),
+	}
+end
+Poses.TaroDempseyL = dempseyHook("Left")
+Poses.TaroDempseyR = dempseyHook("Right")
+Poses.TaroDempseyFinish = { -- the last hook: the whole body unwinds from a deep duck
+	Startup = feet(merge(TARO, { Root = { 0, -24, 0, -1.0, -0.1 }, Waist = { -34, -30, 24 }, Neck = { 30, 14, 0 },
+		RightShoulder = { 40, 0, -40 }, RightElbow = { 120, 0, 0 } }), -0.6, 0.8, 0, -10, 9),
+	Active = feet(merge(TARO, merge(hookArm("Right", 48, 78), {
+		Root = { 0, 30, 0, -0.6, -0.6 }, Waist = { -12, 48, -14 }, Neck = { 14, -24, 0 },
+		LeftShoulder = { 50, 0, 30 }, LeftElbow = { 130, 0, 0 },
+	})), -1.35, 0.45, 0, -24, 10),
+	Recovery = merge(TARO, { Waist = { -14, 24, 0 } }),
 }
 Poses.TaroRisingHook = {
 	Startup = merge(TARO_CROUCH, { Waist = { -26, -26, 0 }, RightShoulder = { 30, 0, 40 }, RightElbow = { 110, 0, 0 } }),
@@ -992,6 +1025,7 @@ Poses.STRIKE = {
 	TaroTwinUpper = { "LeftHand", "RightHand" }, TaroGatling = { "LeftHand", "RightHand" },
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
+	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },
 	ZephyrFront = { "LeftFoot" }, ZephyrSide = { "RightFoot" }, ZephyrRound = { "RightFoot" },
 	ZephyrHigh = { "RightFoot" }, ZephyrPlexus = { "RightFoot" }, ZephyrRiser = { "RightFoot" },
 	ZephyrHeel = { "RightFoot" }, ZephyrSkyward = { "LeftFoot", "RightFoot" }, ZephyrHundred = { "RightFoot" },

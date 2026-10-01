@@ -392,7 +392,15 @@ function Animator:evaluate(view, time, poseRate)
 			pose.Root[4] += 0.55 * self.scale * math.sin(math.pi * u)
 			return pose, "DashBack", false
 		end
-		return self:resolve(poses.Dash), "Dash", false
+		local dash = self:resolve(self:base("Dash"))
+		if view.weave then
+			-- Boxer's weave: the waist rolls left and right, a figure eight under the guard.
+			local u = clamp01(tr.stateAge / (self.config.DashTicks / 60))
+			dash = editable(dash, { "Waist" })
+			dash.Waist[3] += 24 * math.sin(2 * math.pi * u)
+			dash.Waist[2] += 14 * math.cos(2 * math.pi * u)
+		end
+		return dash, "Dash", false
 	elseif state == "Blocking" then
 		return self:solveStance(self:breathe(self:base("Block"), 0.35, stepped)), "Block", false
 	elseif state == "CrouchBlocking" then

@@ -18,6 +18,9 @@
 	  knockdown   the target falls even when hit on the ground
 	  jumpCancel  on hit, jumping during recovery cancels the move (follow the launched target)
 	  invuln      { from, to } frames during which the user cannot be hit
+	  slip        { from, to } frames during which attacks that are not low whiff over the
+	              user (boxer's ducking head; projectiles and ultimates still hit)
+	  dempsey / finisher   a DEMPSEY ROLL hook (counted against kit.Weave.MaxHooks) / its last
 	  meterCost   ki meter spent to start the move
 	  hits / hitInterval   multi-hit: up to `hits` hits, at least `hitInterval` frames apart;
 	              launch, bounces and crumple only apply on the final hit
@@ -365,7 +368,7 @@ derive(TARO, {
 	TaroJab = "JAB", TaroStraight = "DIRECT", TaroHook = "CROCHET", TaroBolo = "BOLO PUNCH",
 	TaroLiver = "CROCHET AU FOIE", TaroUppercut = "UPPERCUT", TaroRam = "COUP DE BÉLIER",
 	TaroGatling = "GATLING DE FEU", TaroVolcano = "UPPERCUT VOLCAN", TaroMeteor = "MARTEAU MÉTÉORE",
-	TaroTwinUpper = "DOUBLE ASCENDANT", TaroDempsey = "DEMPSEY ROLL", TaroRisingHook = "CROCHET MONTANT",
+	TaroTwinUpper = "DOUBLE ASCENDANT", TaroDempsey = "RAFALE EN HUIT", TaroRisingHook = "CROCHET MONTANT",
 	TaroCorkscrew = "TIRE-BOUCHON", TaroHeavy = "DROITE LOURDE", TaroOverhand = "OVERHAND", TaroDive = "PLONGEON",
 	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
 	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
@@ -387,6 +390,28 @@ Moves.TaroCounter = move({ -- the counter punch of a successful parry
 	push = 26, blockPush = 18, lunge = 8, launch = 24, knockdown = true,
 	hitbox = { near = 0, far = 3.9, low = 1, high = 6.2 },
 	heavy = true,
+})
+
+-- DEMPSEY ROLL (out of TARO's weave): figure-eight hooks, left and right, each one ducking
+-- under high attacks (slip) and stepping in; L continues, R ends on the finishing hook.
+local function dempseyHook(id, other)
+	return move({
+		id = id, name = "DEMPSEY ROLL", startup = 6, active = 3, recovery = 13,
+		damage = 40, guardDamage = 10, hitstun = 22, blockstun = 12, hitstop = 7,
+		push = 5, blockPush = 11, lunge = 12,
+		hitbox = { near = 0.2, far = 3.5, low = 2.4, high = 4.9 },
+		slip = { from = 1, to = 5 }, dempsey = true,
+		cancels = { Light = other, Heavy = "TaroDempseyFinish" },
+	})
+end
+Moves.TaroDempseyL = dempseyHook("TaroDempseyL", "TaroDempseyR")
+Moves.TaroDempseyR = dempseyHook("TaroDempseyR", "TaroDempseyL")
+Moves.TaroDempseyFinish = move({
+	id = "TaroDempseyFinish", name = "DEMPSEY · CROCHET FINAL", startup = 9, active = 4, recovery = 24,
+	damage = 105, guardDamage = 26, hitstun = 30, blockstun = 16, hitstop = 14,
+	push = 44, blockPush = 20, lunge = 10, launch = 18, wallBounce = true,
+	hitbox = { near = 0.2, far = 3.8, low = 2.0, high = 5.2 },
+	slip = { from = 1, to = 4 }, dempsey = true, finisher = true, heavy = true,
 })
 
 -- ===================================================================== ZEPHYR 風 · kicks
@@ -583,12 +608,16 @@ kit("KAI", {
 })
 kit("TARO", {
 	Kanji = "火", Role = "BOXEUR",
-	Description = "Que les poings. Le plus robuste, garde de fer, PARADE (S + E) qui contre.",
+	Description = "Que les poings. Le plus robuste, garde de fer, PARADE (S + E) qui contre, dash = esquive de buste puis DEMPSEY ROLL.",
 	Roles = TARO,
+	-- Boxer: the forward dash is a weave (high attacks whiff); during it or Window ticks
+	-- after, L starts the DEMPSEY ROLL (alternating hooks, MaxHooks at most) and R its
+	-- finishing hook.
+	Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6 },
 	Starters = { Crouch = { Special = "TaroParry" } },
 	Stats = { MaxHealth = 1600, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
-	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
-	FullRouteNames = { "GATLING", "DEMPSEY", "VOLCAN", "ÉRUPTION", "MUR", "MÉTÉORE" },
+	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "HUIT", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
+	FullRouteNames = { "GATLING", "HUIT", "VOLCAN", "ÉRUPTION", "MUR", "MÉTÉORE" },
 	GateTitle = { text = "火嵐", sub = "TEMPÊTE DE CROCHETS" },
 	Colors = { TORNADE = "FF6A1A", RAFALE = "FF3B1A", DRAGON = "FFB21A", FOUDRE = "FFD45A", MUR = "FF6A1A", LUNE = "FF8C3A" },
 })
@@ -633,6 +662,7 @@ for name, data in Kits do
 	for _, id in data.Roles do moveKit[id] = name end
 end
 moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
+moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
 MoveData.MoveKit = table.freeze(moveKit)
 
 function MoveData.total(m)

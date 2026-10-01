@@ -91,6 +91,15 @@ function FighterAI:pickPlan(meter, cost, fullRoutes, bait)
 		self.plan, self.step, self.planLength, self.pressedMove = { "L" }, 1, 1, nil
 		return
 	end
+	-- A boxer (kit.Weave) often weaves in and rolls: dash, then L... and R (DEMPSEY ROLL).
+	if self.canWeave and self:chance(0.3) then
+		local keys = { "L", "L", "L", "L", "L", "L", "R", weave = true }
+		local length = 1
+		while length < 6 and self:chance(self.level.combo) do length += 1 end
+		if self:chance(self.level.combo) then keys[length + 1], length = "R", length + 1 end
+		self.plan, self.step, self.planLength, self.pressedMove = keys, 1, length, nil
+		return
+	end
 	-- The 6-press routes (ending in COUP DE GRÂCE, or ÉVEIL ÉCARLATE with 3 bars).
 	if fullRoutes and self.level.full and self:chance(self.level.full) then
 		local route = fullRoutes[math.floor(self:random() * #fullRoutes) + 1]
@@ -167,6 +176,7 @@ function FighterAI:think(world, slot)
 	local kit = world.moveData.Kits[me.kit or "KAI"]
 	local ultimateCost = moves[kit.Ultimates.Rush].meterCost
 	local fullRoutes = kit.FullRoutes
+	self.canWeave = kit.Weave ~= nil
 	local crouchSpecial = moves[kit.Starters.Crouch.Special]
 	local canParry = crouchSpecial ~= nil and crouchSpecial.parry ~= nil
 	local canZone = crouchSpecial ~= nil and crouchSpecial.projectile ~= nil
@@ -299,6 +309,8 @@ function FighterAI:think(world, slot)
 			self.guardLow = self.level.lowBlock > 0.5 and self:chance(0.5)
 			if dist > 8 and canZone and self:chance(self.level.zoning) then
 				self.intent = "blast"
+			elseif kit.Weave and dist > 2.8 and dist < 8.5 and self:chance(self.level.aggression * 0.3) then
+				self.intent = "dempsey" -- the boxer weaves in and rolls
 			elseif dist > 6 then
 				self.intent = if roll < self.level.aggression * 0.6 then "approach"
 					elseif roll < self.level.aggression * 0.8 then "dash"
@@ -320,6 +332,11 @@ function FighterAI:think(world, slot)
 		elseif intent == "jumpin" then
 			input.axis, input.jump = toward, true
 			self.intent = "wait"
+		elseif intent == "dempsey" then
+			-- Weave in (forward dash), then the DEMPSEY ROLL (see pickPlan).
+			self.canWeave = true
+			repeat self:pickPlan(0, math.huge, nil, false) until self.plan.weave
+			self.intent = "wait"
 		elseif intent == "blast" then
 			input.crouch, input.special = true, true
 			self.intent = "wait"
@@ -337,7 +354,11 @@ function FighterAI:think(world, slot)
 		end
 	end
 	if self.plan and self.step == 1 then
-		if dist > 4.4 then
+		if self.plan.weave and grounded and me.dashTicks == 0 and me.dashCooldown == 0 and dist > 2.2 then
+			-- The weave first (forward dash): the roll starts on the way in.
+			input.axis, input.dash = toward, true
+			self.plan.weave = false
+		elseif dist > 4.4 then
 			input.axis = toward
 		else
 			input.crouch = self.plan.crouch == true

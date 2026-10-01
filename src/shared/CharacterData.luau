@@ -65,21 +65,22 @@ local Skins = table.freeze({
 		Energy = "B060FF",
 		Shield = "FF4FD8",
 	}),
-	-- TARO 火: red gloves and gold trim (BRASIER), white and gold champion (CHAMPION).
+	-- TARO 火: orange gloves, gold trunks and black boots (BRASIER), white and gold champion
+	-- (CHAMPION). Shirt = his towel. Never KAI's black / red / white.
 	BRASIER = style("TARO", "BRASIER", {
-		Hair = "1A1210", HairTip = "FF6A1A", SkinTone = "D9A07F", Eyes = "B8420E",
-		Vest = "1B1B21", VestTrim = "FFB21A", Shirt = "2A1A16",
-		Sash = "D8261A", Wraps = "FFB21A",
-		Pants = "B8261A", PantsShade = "7A1610",
-		Shoes = "1B1B21", ShoeAccent = "FFB21A", Sole = "F2F2F5",
+		Hair = "2B1A12", HairTip = "FF7A1A", SkinTone = "C98A62", Eyes = "B8420E",
+		Vest = "2B1A12", VestTrim = "FFC22E", Shirt = "F2EEE6",
+		Sash = "F0601A", Wraps = "FFC22E",
+		Pants = "F2A91A", PantsShade = "B8780E",
+		Shoes = "1E1A18", ShoeAccent = "FFC22E", Sole = "1E1A18",
 		Energy = "FF6A1A", Shield = "FFD45A",
 	}),
 	CHAMPION = style("TARO", "CHAMPION", {
-		Hair = "2A1A12", HairTip = "FFD45A", SkinTone = "C98F6E", Eyes = "8E5A10",
-		Vest = "F2F2F5", VestTrim = "FFD45A", Shirt = "F2F2F5",
+		Hair = "3A2418", HairTip = "FFD45A", SkinTone = "B97A55", Eyes = "8E5A10",
+		Vest = "F2F2F5", VestTrim = "FFD45A", Shirt = "FFD45A",
 		Sash = "F2F2F5", Wraps = "FFD45A",
 		Pants = "F2F2F5", PantsShade = "D6CDBA",
-		Shoes = "F2F2F5", ShoeAccent = "FFD45A", Sole = "1B1B21",
+		Shoes = "F2F2F5", ShoeAccent = "FFD45A", Sole = "C9A040",
 		Energy = "FFB21A", Shield = "FF6A1A",
 	}),
 	-- ZEPHYR 風: teal scarf (AZUR), storm grey and white (TEMPÊTE).

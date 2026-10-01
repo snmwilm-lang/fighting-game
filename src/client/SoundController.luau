@@ -73,6 +73,8 @@ function SoundController:onEvent(event)
 		self:play("thud", 0.5, 1.3)
 	elseif event.kind == "Evade" then
 		self:play("lunge", 0.55, 1.6)
+	elseif event.kind == "Slip" then
+		self:play("lunge", 0.4, 2.0)
 	elseif event.kind == "SuperFlash" then
 		self:play("ring", 0.8, 0.65)
 		self:play("lunge", 0.6, 0.6)

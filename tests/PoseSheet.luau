@@ -75,6 +75,13 @@ for _, id in { "Jab", "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Hammer"
 	local f, show = attack(id)
 	if f then add(role(id), show, f) end
 end
+if kit.Weave then -- the boxer: weave (forward dash) and DEMPSEY ROLL
+	add("Weave", 4, still("Dashing", { vx = kit.Stats.DashSpeed, weave = true }))
+	for _, id in { kit.Weave.Hook, "TaroDempseyR", kit.Weave.Finish } do
+		local f, show = attack(id)
+		if f then add(id, show, f) end
+	end
+end
 
 local function fmt(n) return string.format("%.3f", n) end
 local tick = 0

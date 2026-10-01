@@ -392,6 +392,16 @@ Moves.TaroCounter = move({ -- the counter punch of a successful parry
 	heavy = true,
 })
 
+-- DROITE DU CHAMPION (crouch + E in the CLASSIQUE stance): a slow, wound-up straight that
+-- crushes the guard and knocks down.
+Moves.TaroChampion = move({
+	id = "TaroChampion", name = "DROITE DU CHAMPION", kind = "Special", startup = 14, active = 4, recovery = 22,
+	damage = 95, guardDamage = 60, hitstun = 28, blockstun = 20, hitstop = 14,
+	push = 30, blockPush = 24, lunge = 14, launch = 20, knockdown = true,
+	hitbox = { near = 0.2, far = 4.0, low = 2.2, high = 5.0 },
+	heavy = true,
+})
+
 -- DEMPSEY ROLL (out of TARO's weave): figure-eight hooks, left and right, each one ducking
 -- under high attacks (slip) and stepping in; L continues, R ends on the finishing hook.
 local function dempseyHook(id, other)
@@ -578,6 +588,26 @@ local function kit(name, data)
 	data.Ultimates = table.freeze({
 		Rush = roles.KaienRush, Awaken = roles.Awakening, Gate = roles.Kaiten, Chase = roles.KiChase, Finale = roles.Finale,
 	})
+	if data.Stances then
+		-- Each stance: the kit's stats with its own on top, the starters with its crouch special.
+		for _, key in data.Stances.Order do
+			local stance = data.Stances[key]
+			local stats = table.clone(data.Stats)
+			for k, v in stance.Stats or {} do stats[k] = v end
+			stance.Stats = table.freeze(stats)
+			local own = {}
+			for kind, buttons in data.Starters do own[kind] = buttons end
+			local crouch = table.clone(data.Starters.Crouch)
+			crouch.Special = stance.CrouchSpecial or crouch.Special
+			own.Crouch = table.freeze(crouch)
+			stance.Starters = table.freeze(own)
+			if stance.Weave then stance.Weave = table.freeze(stance.Weave) end
+			stance.Id = key
+			data.Stances[key] = table.freeze(stance)
+		end
+		data.Stances.Order = table.freeze(data.Stances.Order)
+		data.Stances = table.freeze(data.Stances)
+	end
 	data.Stats = table.freeze(data.Stats)
 	if data.Passive then data.Passive = table.freeze(data.Passive) end
 	data.Colors = table.freeze(data.Colors)
@@ -608,12 +638,27 @@ kit("KAI", {
 })
 kit("TARO", {
 	Kanji = "火", Role = "BOXEUR",
-	Description = "Que les poings. Le plus robuste, garde de fer, PARADE (S + E) qui contre, dash = esquive de buste puis DEMPSEY ROLL.",
+	Description = "Que les poings, deux styles : CLASSIQUE (touche & / 1 : garde de fer, frappe lourde, DROITE DU CHAMPION) "
+		.. "ou ESQUIVE (touche é / 2 : esquive de buste, DEMPSEY ROLL, PARADE qui contre).",
 	Roles = TARO,
-	-- Boxer: the forward dash is a weave (high attacks whiff); during it or Window ticks
-	-- after, L starts the DEMPSEY ROLL (alternating hooks, MaxHooks at most) and R its
-	-- finishing hook.
-	Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6 },
+	-- Two boxing styles, switched in neutral with keys 1 / & (CLASSIQUE) and 2 / é (ESQUIVE).
+	-- Each one overrides the kit's stats and its crouch special. ESQUIVE has the weave: the
+	-- forward dash ducks under high attacks; during it or Window ticks after, L starts the
+	-- DEMPSEY ROLL (alternating hooks, MaxHooks at most) and R its finishing hook.
+	Stances = {
+		Order = { "CLASSIQUE", "ESQUIVE" },
+		CLASSIQUE = {
+			Name = "BOXEUR CLASSIQUE", Key = "&",
+			Stats = { WalkSpeed = 15, DashSpeed = 34, GuardDamageTaken = 0.6, DamageDealt = 1.08 },
+			CrouchSpecial = "TaroChampion",
+		},
+		ESQUIVE = {
+			Name = "BOXEUR ESQUIVE", Key = "é",
+			Stats = { WalkSpeed = 17, DashSpeed = 40, GuardDamageTaken = 1, DamageDealt = 0.95 },
+			CrouchSpecial = "TaroParry",
+			Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6 },
+		},
+	},
 	Starters = { Crouch = { Special = "TaroParry" } },
 	Stats = { MaxHealth = 1600, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
 	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "HUIT", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
@@ -663,6 +708,7 @@ for name, data in Kits do
 end
 moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
+moveKit.TaroChampion = "TARO"
 MoveData.MoveKit = table.freeze(moveKit)
 
 function MoveData.total(m)

@@ -172,8 +172,15 @@ end
 
 -- A base pose (STANCE, Idle, Block, RunUpper...) of a kit, or the shared one.
 function Animator:base(name, kit)
-	local own = self.poses.Kits and self.poses.Kits[kit or self.kit]
-	return own and own[name] or self.poses[name]
+	local kits = self.poses.Kits
+	if kits then
+		-- The kit's stance variant first (TARO_CLASSIQUE), then the kit, then the default.
+		local variant = not kit and self.stance and self.kit and kits[self.kit .. "_" .. self.stance]
+		if variant and variant[name] then return variant[name] end
+		local own = kits[kit or self.kit]
+		if own and own[name] then return own[name] end
+	end
+	return self.poses[name]
 end
 
 -- Key poses of a move: its own, or its role's.
@@ -456,6 +463,7 @@ end
 function Animator:observe(view, dt, other)
 	local tr = self.track
 	self.kit = view.kit or self.kit
+	self.stance = view.stance
 	if other and other.state == "Attack" and other.move then tr.hitBy = other.move end
 	local moveRestarted = view.state == "Attack" and tr.move == view.move and (view.moveFrame or 0) < (tr.moveFrame or 0)
 	if view.state ~= tr.state or view.move ~= tr.move or moveRestarted then

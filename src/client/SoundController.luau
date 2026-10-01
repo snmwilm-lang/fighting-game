@@ -75,6 +75,8 @@ function SoundController:onEvent(event)
 		self:play("lunge", 0.55, 1.6)
 	elseif event.kind == "Slip" then
 		self:play("lunge", 0.4, 2.0)
+	elseif event.kind == "Stance" then
+		self:play("thud", 0.45, 1.6) -- gloves knocked together: a new style
 	elseif event.kind == "SuperFlash" then
 		self:play("ring", 0.8, 0.65)
 		self:play("lunge", 0.6, 0.6)

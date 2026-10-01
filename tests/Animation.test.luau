@@ -614,6 +614,8 @@ test("TARO's weave and DEMPSEY ROLL animate on R15 and R6: grounded, fists reach
 		Sim.setKits(world, "TARO", "KAI")
 		world.phase = "Fight"
 		world.fighters[1].x, world.fighters[2].x = -3, 3
+		local esquive = MoveData.Kits.TARO.Stances.ESQUIVE -- the weave and the roll belong to it
+		world.fighters[1].stance, world.fighters[1].stats = esquive.Id, esquive.Stats
 		for tick = 1, 110 do
 			local i = Sim.neutralInput()
 			i.dash, i.axis = tick == 1, if tick <= 3 then 1 else 0
@@ -622,7 +624,8 @@ test("TARO's weave and DEMPSEY ROLL animate on R15 and R6: grounded, fists reach
 			Sim.step(world, { i, Sim.neutralInput() })
 			local f, o = world.fighters[1], world.fighters[2]
 			onFrame(tick, f, { x = f.x, y = f.y, vx = f.vx, vy = f.vy, facing = f.facing, state = f.state, move = f.move,
-				moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit, weave = f.weaveTicks > 0 },
+				moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit, weave = f.weaveTicks > 0,
+				stance = f.stance },
 				{ x = o.x, y = o.y, state = o.state, move = o.move })
 		end
 	end
@@ -673,6 +676,36 @@ test("TARO's weave and DEMPSEY ROLL animate on R15 and R6: grounded, fists reach
 	local distinct = 0
 	for _ in rolls do distinct += 1 end
 	expect(distinct >= 3, "the weave does not roll the waist")
+end)
+
+test("TARO's two stances look different and stay grounded (R15 and R6)", function()
+	local function settled(animator, stance, state)
+		local view = { x = 0, y = 0, vx = 0, vy = 0, facing = 1, state = state or "Idle", hitstop = 0, combo = 0, kit = "TARO",
+			stance = stance, moveFrame = 0 }
+		local pose, lift
+		for i = 1, 40 do pose, lift = animator:step(view, { x = 3, y = 0, state = "Idle" }, 1 / 60, i / 60, 60, false) end
+		return pose, lift
+	end
+	local r15 = newAnimator(KAI)
+	local classic = settled(r15, "CLASSIQUE")
+	local esquive = settled(r15, "ESQUIVE")
+	expect(classic.Root[4] > esquive.Root[4] + 0.1, "the classic guard is not more upright than the peek-a-boo")
+	expect(classic.LeftElbow[1] < esquive.LeftElbow[1] - 30, "the classic lead arm is not out")
+	for _, stance in { "CLASSIQUE", "ESQUIVE" } do
+		for _, state in { "Idle", "Blocking", "Walking" } do
+			-- R6: on the floor, never sinking.
+			local rt = Retarget.new(K, r6Skeleton())
+			local pose = settled(r6Animator(rt), stance, state)
+			local _, lift, parts = Retarget.solve(rt, pose, 0)
+			local lowest = math.huge
+			for name, t in parts do
+				local size = rt.r6.sizes[name]
+				lowest = math.min(lowest, K.boxBottom(t, size[1] / 2, size[2] / 2, size[3] / 2))
+			end
+			local height = lowest + lift - rt.r6.floor
+			expect(math.abs(height) < 0.06, string.format("R6 %s %s at %.2f from the floor", stance, state, height))
+		end
+	end
 end)
 
 test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled body)", function()

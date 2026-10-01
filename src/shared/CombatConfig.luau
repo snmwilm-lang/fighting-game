@@ -60,6 +60,7 @@ return table.freeze({
 	-- Ki meter (3 bars of 100) and ultimate
 	MaxMeter = 300,
 	SlipMeter = 12, -- ki for slipping an attack (boxer weave, see CombatSimulation slips)
+	StanceCooldownTicks = 30, -- between two stance switches (TARO: CLASSIQUE / ESQUIVE)
 	-- Ultimate cinematics play in slow motion (share of real time), slower still around the
 	-- final blow; the round timer is paused meanwhile. CinematicGap: distance the attacker
 	-- stands from the target when the cinematic starts (both put on the ground, face to face).

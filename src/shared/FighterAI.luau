@@ -46,7 +46,7 @@ FighterAI.Levels = table.freeze({
 local function neutral()
 	return {
 		axis = 0, crouch = false, jump = false, dash = false, block = false,
-		light = false, heavy = false, special = false, ultimate = false,
+		light = false, heavy = false, special = false, ultimate = false, stance = 0,
 	}
 end
 
@@ -176,8 +176,11 @@ function FighterAI:think(world, slot)
 	local kit = world.moveData.Kits[me.kit or "KAI"]
 	local ultimateCost = moves[kit.Ultimates.Rush].meterCost
 	local fullRoutes = kit.FullRoutes
-	self.canWeave = kit.Weave ~= nil
-	local crouchSpecial = moves[kit.Starters.Crouch.Special]
+	-- Kits with stances (TARO: CLASSIQUE / ESQUIVE): the current one's special and weave.
+	local stance = kit.Stances and kit.Stances[me.stance]
+	local starters = if stance then stance.Starters else kit.Starters
+	self.canWeave = (if stance then stance.Weave else kit.Weave) ~= nil
+	local crouchSpecial = moves[starters.Crouch.Special]
 	local canParry = crouchSpecial ~= nil and crouchSpecial.parry ~= nil
 	local canZone = crouchSpecial ~= nil and crouchSpecial.projectile ~= nil
 	local foePassive = world.moveData.Kits[foe.kit or "KAI"].Passive
@@ -301,6 +304,14 @@ function FighterAI:think(world, slot)
 	end
 
 	-- 4. Neutral game: walk, dash, jump in, poke, start combos.
+	if not self.plan and kit.Stances and grounded and not me.move then
+		-- A boxer changes style now and then (seeded, so a seed replays the same fight).
+		self.stanceTicks = (self.stanceTicks or math.floor(self:random() * 300)) - 1
+		if self.stanceTicks <= 0 then
+			self.stanceTicks = 420 + math.floor(self:random() * 480)
+			input.stance = if self:chance(0.5) then 1 else 2
+		end
+	end
 	if not self.plan then
 		self.intentTicks -= 1
 		if self.intentTicks <= 0 then
@@ -309,7 +320,7 @@ function FighterAI:think(world, slot)
 			self.guardLow = self.level.lowBlock > 0.5 and self:chance(0.5)
 			if dist > 8 and canZone and self:chance(self.level.zoning) then
 				self.intent = "blast"
-			elseif kit.Weave and dist > 2.8 and dist < 8.5 and self:chance(self.level.aggression * 0.3) then
+			elseif self.canWeave and dist > 2.8 and dist < 8.5 and self:chance(self.level.aggression * 0.3) then
 				self.intent = "dempsey" -- the boxer weaves in and rolls
 			elseif dist > 6 then
 				self.intent = if roll < self.level.aggression * 0.6 then "approach"

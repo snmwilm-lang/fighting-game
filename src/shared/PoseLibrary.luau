@@ -655,6 +655,23 @@ Poses.Kits = {
 	},
 }
 
+-- TARO 火 · CLASSIQUE stance: an upright orthodox guard (lead fist out at eye level, rear fist
+-- at the chin, chin tucked, weight centred). The peek-a-boo crouch above is the ESQUIVE one.
+-- The Animator takes Kits[kit .. "_" .. stance] first, then the kit's own poses.
+local TARO_CLASSIC = feet({
+	Root = { 0, -14, 0, -0.26, 0 }, Waist = { -6, 20, 0 }, Neck = { 6, -18, 0 },
+	LeftShoulder = { 84, 0, 12 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 58, 0, -26 }, RightElbow = { 140, 0, 0 },
+}, -0.7, 0.75, 0, -10, 8)
+Poses.Kits.TARO_CLASSIQUE = {
+	STANCE = TARO_CLASSIC,
+	Idle = { TARO_CLASSIC, merge(TARO_CLASSIC, { Root = { 0, -14, 0, -0.36, 0 }, LeftShoulder = { 80, 0, 14 } }) },
+	Block = feet(merge(TARO_CLASSIC, merge(TARO_GUARD, { Root = { 0, -8, 0, -0.3, 0 }, Waist = { -10, 8, 0 } })), -0.7, 0.75, 0, -10, 8),
+	RunUpper = upper(TARO_CLASSIC, { Root = { -4, 0, 0, 0, 0 }, Waist = { -10, 12, 0 }, Neck = { 10, -10, 0 } }),
+	BackUpper = upper(TARO_CLASSIC, merge(TARO_GUARD, { Root = { 0, 0, 0, 0, 0 } })),
+	Dash = Poses.Dash, -- a plain dash: the weave belongs to the ESQUIVE stance
+}
+
 -- ----------------------------------------------------------------- TARO · punches only
 local function hookArm(side, rz, elbow)
 	local s = if side == "Left" then -1 else 1
@@ -792,6 +809,18 @@ Poses.TaroDempsey = { -- weaving left-right hooks
 	})), -1.15, 0.6, 0, -18, 9),
 	Recovery = merge(TARO, { Waist = { -14, 10, 0 } }),
 }
+-- DROITE DU CHAMPION (CLASSIQUE, crouch + E): wound up far back, thrown with the whole body.
+Poses.TaroChampion = {
+	Startup = feet(merge(TARO, { Root = { 0, -30, 0, -0.55, 0.15 }, Waist = { -4, -40, 0 }, Neck = { 10, 30, 0 },
+		RightShoulder = { 40, 0, -30 }, RightElbow = { 145, 0, 0 } }), -0.6, 0.85, 0, -10, 9),
+	Active = feet(merge(TARO, {
+		Root = { 0, 22, 0, -0.5, -0.7 }, Waist = { -18, 42, 0 }, Neck = { 16, -30, 0 },
+		RightShoulder = { 92, 0, -4 }, RightElbow = { 2, 0, 0 },
+		LeftShoulder = { 50, 0, 30 }, LeftElbow = { 140, 0, 0 },
+	}), -1.4, 0.4, 0, -26, 10),
+	Recovery = merge(TARO, { Waist = { -12, 24, 0 }, RightShoulder = { 70, 0, -6 }, RightElbow = { 60, 0, 0 } }),
+}
+
 -- DEMPSEY ROLL (out of the weave): the head draws a figure eight under the guard, each hook
 -- comes up from the duck on the other side.
 local function dempseyHook(side)
@@ -1026,6 +1055,7 @@ Poses.STRIKE = {
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },
+	TaroChampion = { "RightHand" },
 	ZephyrFront = { "LeftFoot" }, ZephyrSide = { "RightFoot" }, ZephyrRound = { "RightFoot" },
 	ZephyrHigh = { "RightFoot" }, ZephyrPlexus = { "RightFoot" }, ZephyrRiser = { "RightFoot" },
 	ZephyrHeel = { "RightFoot" }, ZephyrSkyward = { "LeftFoot", "RightFoot" }, ZephyrHundred = { "RightFoot" },

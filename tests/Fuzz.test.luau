@@ -39,6 +39,7 @@ local function randomPlayer(seed)
 		elseif r < 0.15 then input.jump = true
 		elseif r < 0.16 then input.dash = true
 		elseif r < 0.17 then input.light, input.heavy = true, true -- mashing two at once
+		elseif r < 0.18 then input.stance = 1 + math.floor(rand() * 2) -- TARO's style keys (others ignore them)
 		end
 		return input
 	end, rng

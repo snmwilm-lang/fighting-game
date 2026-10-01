@@ -12,7 +12,9 @@ local Animator = require("../src/shared/Animator")
 local Retarget = require("../src/shared/Retarget")
 
 local args = { ... }
-local kitName = args[1] or "KAI"
+-- KIT or KIT:STANCE (TARO:CLASSIQUE, TARO:ESQUIVE)
+local kitName, stanceName = string.match(args[1] or "KAI", "^([^:]+):?(.*)$")
+stanceName = if stanceName ~= "" then stanceName else nil
 local yaw = math.rad(tonumber(args[2]) or 20)
 local kit = MoveData.Kits[kitName]
 
@@ -75,9 +77,14 @@ for _, id in { "Jab", "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Hammer"
 	local f, show = attack(id)
 	if f then add(role(id), show, f) end
 end
-if kit.Weave then -- the boxer: weave (forward dash) and DEMPSEY ROLL
+if stanceName == "CLASSIQUE" then
+	local f, show = attack("TaroChampion")
+	if f then add("TaroChampion", show, f) end
+end
+local weave = kit.Stances and kit.Stances.ESQUIVE and kit.Stances.ESQUIVE.Weave
+if weave and stanceName ~= "CLASSIQUE" then -- the boxer: weave (forward dash) and DEMPSEY ROLL
 	add("Weave", 4, still("Dashing", { vx = kit.Stats.DashSpeed, weave = true }))
-	for _, id in { kit.Weave.Hook, "TaroDempseyR", kit.Weave.Finish } do
+	for _, id in { weave.Hook, "TaroDempseyR", weave.Finish } do
 		local f, show = attack(id)
 		if f then add(id, show, f) end
 	end
@@ -93,7 +100,7 @@ for _, case in cases do
 	local parts = { {}, {} }
 	for t = 0, case.show do
 		local view = case.view(t)
-		view.kit = kitName
+		view.kit, view.stance = kitName, stanceName
 		local r6View, r15View = table.clone(view), table.clone(view)
 		r6View.x, r15View.x = view.x - 3.2, view.x + 3.2
 		local otherA, otherB = table.clone(other), table.clone(other)

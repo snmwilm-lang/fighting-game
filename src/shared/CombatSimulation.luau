@@ -13,12 +13,15 @@ local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimat
 local BUTTON_ORDER = { "light", "heavy", "special", "ultimate" }
 local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U" }
 
-local function newFighter(slot, c, kit)
+local function newFighter(slot, c, kit, stanceId)
 	local facing = if slot == 1 then 1 else -1
-	local stats = kit.Stats
+	-- Kits with stances (TARO: CLASSIQUE / ESQUIVE) take the stance's stats.
+	local stance = kit.Stances and (kit.Stances[stanceId] or kit.Stances[kit.Stances.Order[1]])
+	local stats = if stance then stance.Stats else kit.Stats
 	return {
 		slot = slot,
 		kit = kit.Name, stats = stats, maxHp = stats.MaxHealth,
+		stance = stance and stance.Id, stanceCooldown = 0,
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1,
@@ -47,7 +50,9 @@ end
 local function resetFighters(world)
 	for slot = 1, 2 do
 		local old = world.fighters[slot]
-		world.fighters[slot] = newFighter(slot, world.config, world.moveData.Kits[world.kits[slot]])
+		-- The chosen stance stays from one round to the next (same kit).
+		local stance = old and old.kit == world.kits[slot] and old.stance or nil
+		world.fighters[slot] = newFighter(slot, world.config, world.moveData.Kits[world.kits[slot]], stance)
 		if old then
 			world.fighters[slot].wins = old.wins
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
@@ -89,6 +94,23 @@ local function kitOf(world, f)
 end
 CombatSimulation.kitOf = kitOf
 
+-- The fighter's stance (TARO: CLASSIQUE / ESQUIVE), nil for a kit without stances; its
+-- starters (crouch special) and its weave (ESQUIVE only).
+local function stanceOf(world, f)
+	local kit = kitOf(world, f)
+	return kit.Stances and kit.Stances[f.stance]
+end
+CombatSimulation.stanceOf = stanceOf
+local function startersOf(world, f)
+	local stance = stanceOf(world, f)
+	return if stance then stance.Starters else kitOf(world, f).Starters
+end
+local function weaveOf(world, f)
+	local stance = stanceOf(world, f)
+	if stance then return stance.Weave end
+	return kitOf(world, f).Weave
+end
+
 -- Full reset: health, guard, meter, states, buffers, wins and round counter.
 function CombatSimulation.resetMatch(world, training)
 	world.training = training
@@ -107,6 +129,7 @@ function CombatSimulation.neutralInput()
 	return {
 		axis = 0, crouch = false, jump = false, dash = false, block = false,
 		light = false, heavy = false, special = false, ultimate = false,
+		stance = 0, -- 1, 2...: switch to the kit's stance of that rank (TARO only)
 	}
 end
 
@@ -221,7 +244,7 @@ local function chooseMove(world, f, grounded, crouching)
 	local head = f.buffer[1]
 	if not head then return nil end
 	local kit = kitOf(world, f)
-	local moves, starters, button, ultimates = world.moves, kit.Starters, head.button, kit.Ultimates
+	local moves, starters, button, ultimates = world.moves, startersOf(world, f), head.button, kit.Ultimates
 	local nextId
 	local currentId = f.move or (f.grace and f.grace.move)
 	if currentId then
@@ -259,7 +282,7 @@ local function chooseMove(world, f, grounded, crouching)
 		head.judged = true
 		f.chainClean, f.dirtyReason = false, "MAUVAIS BOUTON"
 	end
-	local weave = kit.Weave
+	local weave = weaveOf(world, f)
 	if weave and nextId and moves[nextId].dempsey and not moves[nextId].finisher and f.dempseyCount >= weave.MaxHooks then
 		nextId = nil -- the roll has its limit: only the finishing hook is left
 	end
@@ -337,6 +360,7 @@ local function stepFighter(world, f, input, events)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
 	f.weaveTicks = math.max(0, f.weaveTicks - 1)
+	f.stanceCooldown = math.max(0, f.stanceCooldown - 1)
 	f.dempseyWindow = math.max(0, f.dempseyWindow - 1)
 	local stats = f.stats
 	if f.guardRegenDelay > 0 then
@@ -400,6 +424,19 @@ local function stepFighter(world, f, input, events)
 	-- Actionable from here: the defender has truly recovered, so any combo on it is over.
 	f.comboHits, f.comboDamage = 0, 0
 	f.bounced, f.wallBounced, f.crumpled = false, false, false
+
+	-- Stance switch (TARO: 1 / & = CLASSIQUE, 2 / é = ESQUIVE): in neutral, on the ground,
+	-- not during an attack, then a short cooldown.
+	local stances = kitOf(world, f).Stances
+	local wanted = stances and (input.stance or 0) > 0 and stances.Order[input.stance]
+	if wanted and wanted ~= f.stance and not f.move and f.stanceCooldown == 0 and grounded then
+		f.stance = wanted
+		f.stats = stances[wanted].Stats
+		f.stanceCooldown = c.StanceCooldownTicks or 30
+		f.dempseyWindow, f.weaveTicks, f.dempseyCount = 0, 0, 0
+		stats = f.stats
+		table.insert(events, { kind = "Stance", slot = f.slot, stance = wanted, name = stances[wanted].Name })
+	end
 
 	if f.move then
 		local m = moves[f.move]
@@ -495,7 +532,7 @@ local function stepFighter(world, f, input, events)
 		f.dashTicks = c.DashTicks
 		f.dashInvuln = stats.DashInvuln or 0
 		f.dashCooldown = c.DashCooldownTicks
-		local weave = world.moveData.Kits[f.kit] and world.moveData.Kits[f.kit].Weave
+		local weave = weaveOf(world, f)
 		local foe = world.fighters[3 - f.slot]
 		if weave and foe and f.dashDirection == (if foe.x >= f.x then 1 else -1) then
 			-- The boxer's forward dash is a weave: the head ducks under high attacks.
@@ -755,7 +792,7 @@ local function applyHit(world, a, d, m, events, source)
 	end
 
 	if not source then a.moveContact = "Hit" end
-	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) + 0.5))
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) + 0.5))
 	d.hp = math.max(0, d.hp - damage)
 	d.comboHits += 1
 	d.comboDamage += damage

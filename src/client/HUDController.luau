@@ -245,6 +245,15 @@ function HUD.new(config)
 	self.resetButton = button("Reset", "REPLACER", 84, function()
 		if self.onReset then self.onReset() end
 	end)
+	-- TARO only: his two boxing styles (keys 1 / & and 2 / é).
+	self.stanceButtons = {
+		button("Stance1", "1 · CLASSIQUE (&)", 136, function()
+			if self.onStance then self.onStance(1) end
+		end),
+		button("Stance2", "2 · ESQUIVE (é)", 124, function()
+			if self.onStance then self.onStance(2) end
+		end),
+	}
 	self.combosButton = button("Combos", "COMBOS", 76, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
 	end)
@@ -397,21 +406,34 @@ function HUD:fillCombos()
 	table.insert(lines, { "↓ + L : " .. moveName(kit, "LowKick") .. " (garde basse)  ·  ↓ + R : " .. moveName(kit, "Uppercut") .. " (lanceur)", WHITE })
 	table.insert(lines, { "Après le lanceur : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : " .. moveName(kit, "Rising") .. " (invincible au départ)", ORANGE })
-	local crouchSpecial = kit.Starters.Crouch.Special
-	local special = MoveData.Moves[crouchSpecial]
-	if special and special.parry then
-		table.insert(lines, { "↓ + E : " .. special.name .. " (contre les coups debout et les projectiles ; perd contre les coups bas et les ultimes)", ORANGE })
+	if kit.Stances then
+		-- TARO: two styles, switched in neutral (keys 1 / & and 2 / é, or the HUD buttons).
+		for rank, id in kit.Stances.Order do
+			local stance = kit.Stances[id]
+			local special = MoveData.Moves[stance.CrouchSpecial]
+			local guard = math.floor((1 - (stance.Stats.GuardDamageTaken or 1)) * 100 + 0.5)
+			local power = math.floor(((stance.Stats.DamageDealt or 1) - 1) * 100 + 0.5)
+			table.insert(lines, { string.format("%d / %s : %s · dégâts %+d %% · garde %s%s · ↓ + E : %s", rank, stance.Key, stance.Name,
+				power, if guard > 0 then "-" .. guard .. " % d'usure" else "normale", "", special and special.name or "?"), ORANGE })
+			if stance.Weave then
+				table.insert(lines, { "   DASH VERS L'ADVERSAIRE = ESQUIVE DE BUSTE (coups hauts esquivés, + ki) · pendant / juste après : L = DEMPSEY ROLL (L encore jusqu'à "
+					.. stance.Weave.MaxHooks .. ") · R = CROCHET FINAL · ↓ + E = PARADE qui contre", ORANGE })
+			else
+				table.insert(lines, { "   garde de fer, frappe plus lourde · ↓ + E = DROITE DU CHAMPION (lente, écrase la garde, met au sol)", ORANGE })
+			end
+		end
 	else
-		table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (projectile, 1 à la fois)", ORANGE })
+		local crouchSpecial = kit.Starters.Crouch.Special
+		local special = MoveData.Moves[crouchSpecial]
+		if special and special.parry then
+			table.insert(lines, { "↓ + E : " .. special.name .. " (contre les coups debout et les projectiles ; perd contre les coups bas et les ultimes)", ORANGE })
+		else
+			table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (projectile, 1 à la fois)", ORANGE })
+		end
 	end
 	if kit.Passive and kit.Passive.Type == "Evade" then
 		table.insert(lines, { "PASSIF " .. kit.Passive.Name .. " : au neutre (sans attaquer, sans être touché, sans garder), le 1er coup reçu est esquivé (recul), recharge "
 			.. math.floor(kit.Passive.Cooldown / 60) .. " s. Jamais contre les ultimes.", ORANGE })
-	end
-	if kit.Weave then
-		table.insert(lines, { "DASH VERS L'ADVERSAIRE = ESQUIVE DE BUSTE : les coups hauts passent au-dessus (+ ki). Les coups bas, projectiles et ultimes touchent.", ORANGE })
-		table.insert(lines, { "Pendant / juste après l'esquive : L = DEMPSEY ROLL (crochets en huit, L encore jusqu'à " .. kit.Weave.MaxHooks
-			.. ") · R = CROCHET FINAL (mur)", ORANGE })
 	end
 	if kit.Stats.DashInvuln then
 		table.insert(lines, { "DASH : intouchable pendant " .. kit.Stats.DashInvuln .. " images au départ", ORANGE })
@@ -641,6 +663,8 @@ function HUD:onEvent(event, world)
 		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ESQUIVE") .. " !")
 	elseif event.kind == "Slip" then
 		self:callout(event.defender, "ESQUIVE !")
+	elseif event.kind == "Stance" then
+		self:callout(event.slot, (event.name or event.stance) .. " !")
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then
@@ -716,6 +740,13 @@ function HUD:update(world, views, fps, dt)
 	self.skinButton.Visible = localSlot > 0
 	self.kitButton.Visible = localSlot > 0
 	self.foeKitButton.Visible = solo and localSlot > 0
+	local stances = mine and MoveData.Kits[mine.kit] and MoveData.Kits[mine.kit].Stances
+	for rank, b in self.stanceButtons do
+		b.Visible = stances ~= nil and localSlot > 0
+		local active = stances and mine.stance == stances.Order[rank]
+		b.BackgroundColor3 = if active then Color3.fromHex("5A1A10") else INK
+		b.TextColor3 = if active then Color3.fromHex("FFD23F") else WHITE
+	end
 	if localSlot > 0 then
 		self.skinButton.Text = "STYLE : " .. CharacterData[localSlot].Skin
 		self.kitButton.Text = "PERSO : " .. CharacterData[localSlot].Kit .. " (T)"

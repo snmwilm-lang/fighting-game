@@ -14,12 +14,14 @@ local InputController = {}
 local PULSES = {
 	Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy",
 	Special = "special", Ultimate = "ultimate", Dummy = "dummy", Kit = "kit", FoeKit = "foeKit",
+	Stance1 = "stance1", Stance2 = "stance2",
 }
 
 function InputController.start(remote)
 	local keys = {}
 	local pulses = {
 		jump = false, dash = false, reset = false, dummy = false, avatar = false, skin = false, kit = false, foeKit = false,
+		stance1 = false, stance2 = false,
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
@@ -183,7 +185,8 @@ function InputController.start(remote)
 			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
 				jump = pulses.jump, dash = pulses.dash, presses = table.clone(presses),
 				reset = pulses.reset, dummy = pulses.dummy,
-				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit })
+				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
+				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0 })
 			table.clear(presses)
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
@@ -196,6 +199,7 @@ function InputController.start(remote)
 		nextSkin = function() pulses.skin = true end,
 		nextKit = function() pulses.kit = true end,
 		nextFoeKit = function() pulses.foeKit = true end,
+		setStance = function(rank) pulses["stance" .. rank] = true end, -- TARO: 1 CLASSIQUE, 2 ESQUIVE
 		clear = clear,
 		-- The touch ULTI button glows when the ki meter can pay for the ultimate.
 		setUltimateReady = function(ready)

@@ -325,6 +325,8 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		if typeof(packet[field]) ~= "boolean" then return end
 	end
 	if not PressQueue.valid(packet.presses) then return end
+	local stance = packet.stance
+	if stance ~= nil and (not finite(stance) or stance % 1 ~= 0 or stance < 0 or stance > 2) then return end
 	client.lastSeq = packet.seq
 	local slot = slots[client.slot]
 	if slot.owner ~= player then return end
@@ -381,6 +383,7 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	-- Pulses stay set until the next simulation tick consumes them.
 	input.jump = input.jump or packet.jump
 	input.dash = input.dash or packet.dash
+	if stance and stance > 0 then input.stance = stance end -- TARO's style keys (1 / 2)
 	-- Attack presses keep their count and order (see PressQueue): one per tick.
 	PressQueue.push(slot.presses, packet.presses)
 	slot.lastInput = now
@@ -396,6 +399,7 @@ local function snapshot()
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching, maxHp = f.maxHp, evadeCharge = f.evadeCharge, weave = f.weaveTicks > 0,
+			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",
 			owner = if slot.owner then slot.owner.UserId else 0,
@@ -476,6 +480,7 @@ RunService.Heartbeat:Connect(function(dt)
 		for _, slot in slots do
 			local input = slot.input
 			input.jump, input.dash, input.light, input.heavy, input.special, input.ultimate = false, false, false, false, false, false
+			input.stance = 0
 		end
 	end
 	-- Rigs are drawn by each client from snapshots; the server only keeps them near the action.

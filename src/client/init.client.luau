@@ -33,6 +33,7 @@ hud.onAvatar = input.toggleAvatar
 hud.onSkin = input.nextSkin
 hud.onKit = input.nextKit
 hud.onFoeKit = input.nextFoeKit
+hud.onStance = input.setStance
 local debugRemote = remotes:WaitForChild("Debug")
 -- kind: the cinematic type ("Rush", "Awaken", "Gate") of the local fighter's kit.
 hud.onDebugCinematic = function(kind, style, finish)

@@ -87,6 +87,14 @@ local function play(world, keys, options)
 	return events
 end
 
+-- Puts TARO (slot) in a stance, as the 1 / 2 keys do.
+local function stance(world, slot, id)
+	local f = world.fighters[slot]
+	f.stance, f.stats = id, Kits[f.kit].Stances[id].Stats
+	return world
+end
+local function esquive(world, slot) return stance(world, slot, "ESQUIVE") end
+
 print("Kits")
 
 test("the four kits exist, with their own moves for every role", function()
@@ -209,7 +217,7 @@ test("TARO: the guard takes less damage (garde de fer)", function()
 end)
 
 test("TARO: PARADE (crouch + E) counters a standing attack", function()
-	local world = kitWorld("KAI", "TARO", 3)
+	local world = esquive(kitWorld("KAI", "TARO", 3), 2)
 	local events = run(world, 60, function(t)
 		-- FRAPPE LOURDE winds up 13 ticks: the parry, pressed at tick 6, catches it.
 		return { input({ heavy = t == 1 }), input({ crouch = t <= 7, special = t == 6 }) }
@@ -221,12 +229,12 @@ test("TARO: PARADE (crouch + E) counters a standing attack", function()
 end)
 
 test("TARO: a low attack beats the parry, and a whiffed parry can be punished", function()
-	local low = kitWorld("KAI", "TARO", 3)
+	local low = esquive(kitWorld("KAI", "TARO", 3), 2)
 	local e1 = run(low, 40, function(t)
 		return { input({ crouch = t <= 2, light = t == 2 }), input({ crouch = t <= 3, special = t == 1 }) }
 	end)
 	expect(find(e1, "Parry") == nil and find(e1, "Hit") ~= nil, "the low kick was parried")
-	local whiff = kitWorld("KAI", "TARO", 3)
+	local whiff = esquive(kitWorld("KAI", "TARO", 3), 2)
 	local e2 = run(whiff, 60, function(t)
 		return { input({ light = t == 24 }), input({ crouch = t <= 3, special = t == 1 }) }
 	end)
@@ -235,7 +243,7 @@ test("TARO: a low attack beats the parry, and a whiffed parry can be punished", 
 end)
 
 test("TARO: the forward dash weaves under high attacks (slip + ki), lows still hit", function()
-	local world = kitWorld("KAI", "TARO", 4)
+	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
 	local taro = world.fighters[2]
 	local events = run(world, 30, function(t)
 		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
@@ -243,13 +251,13 @@ test("TARO: the forward dash weaves under high attacks (slip + ki), lows still h
 	expect(find(events, "Slip") ~= nil, "the jab was not slipped")
 	expect(find(events, "Hit") == nil and taro.hp == taro.maxHp, "the jab hit through the weave")
 	expect(taro.meter > 0, "slipping gave no ki")
-	local low = kitWorld("KAI", "TARO", 4)
+	local low = esquive(kitWorld("KAI", "TARO", 4), 2)
 	local e2 = run(low, 30, function(t)
 		return { input({ crouch = t <= 3, light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
 	end)
 	expect(find(e2, "Hit") ~= nil and find(e2, "Slip") == nil, "a low attack was slipped")
 	-- Only toward the opponent: a back dash is not a weave.
-	local back = kitWorld("KAI", "TARO", 4)
+	local back = esquive(kitWorld("KAI", "TARO", 4), 2)
 	run(back, 2, function() return { nil, input({ dash = true, axis = 1 }) } end)
 	expect(back.fighters[2].weaveTicks == 0 and back.fighters[2].dashTicks > 0, "the back dash weaves")
 	-- Not a KAI thing.
@@ -259,7 +267,7 @@ test("TARO: the forward dash weaves under high attacks (slip + ki), lows still h
 end)
 
 local function dempsey(keys, ticks)
-	local world = kitWorld("TARO", "KAI", 6)
+	local world = esquive(kitWorld("TARO", "KAI", 6), 1)
 	run(world, 3, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
 	local events = play(world, keys, { reaction = 3, ticks = ticks or 400 })
 	local hooks = {}
@@ -288,7 +296,7 @@ test("TARO: DEMPSEY ROLL out of the weave: alternating hooks, then the finishing
 end)
 
 test("TARO: each DEMPSEY hook ducks under a high attack at its start", function()
-	local world = kitWorld("KAI", "TARO", 3.4)
+	local world = esquive(kitWorld("KAI", "TARO", 3.4), 2)
 	local taro = world.fighters[2]
 	taro.dempseyWindow = 10 -- as right after the weave
 	local events = run(world, 20, function(t)
@@ -300,6 +308,63 @@ test("TARO: each DEMPSEY hook ducks under a high attack at its start", function(
 	local kaiHit = false
 	for _, e in events do if e.kind == "Hit" and e.defender == 2 then kaiHit = true end end
 	expect(slipped ~= nil and not kaiHit, "the jab hit TARO during the hook's start")
+end)
+
+test("TARO: two stances, CLASSIQUE (1 / &) and ESQUIVE (2 / é), switched in neutral", function()
+	local world = kitWorld("TARO", "KAI", 6)
+	local taro = world.fighters[1]
+	expect(taro.stance == "CLASSIQUE" and taro.stats.GuardDamageTaken == Kits.TARO.Stances.CLASSIQUE.Stats.GuardDamageTaken,
+		"TARO does not start as CLASSIQUE")
+	local events = run(world, 2, function(t) return { input({ stance = if t == 1 then 2 else 0 }) } end)
+	local e = find(events, "Stance")
+	expect(e and e.stance == "ESQUIVE" and taro.stance == "ESQUIVE", "key 2 did not switch to ESQUIVE")
+	expect(taro.stats.WalkSpeed == Kits.TARO.Stances.ESQUIVE.Stats.WalkSpeed, "the ESQUIVE stats are not used")
+	-- Cooldown, then back; never during an attack.
+	run(world, 2, function() return { input({ stance = 1 }) } end)
+	expect(taro.stance == "ESQUIVE", "switched again during the cooldown")
+	run(world, Config.StanceCooldownTicks + 2, function(t) return { input({ stance = if t == Config.StanceCooldownTicks + 1 then 1 else 0 }) } end)
+	expect(taro.stance == "CLASSIQUE", "key 1 did not switch back to CLASSIQUE")
+	run(world, Config.StanceCooldownTicks + 2)
+	run(world, 4, function(t) return { input({ light = t == 1, stance = if t == 3 then 2 else 0 }) } end)
+	expect(taro.stance == "CLASSIQUE", "switched in the middle of a jab")
+	-- The stance stays for the next round; other kits ignore the keys.
+	local versus = stance(kitWorld("TARO", "KAI", 3, false), 1, "ESQUIVE")
+	versus.fighters[2].hp = 1
+	run(versus, 60, function(t) return { input({ light = t == 1 }) } end)
+	run(versus, Config.KOTicks + Config.IntroTicks + 10)
+	expect(versus.fighters[2].hp == versus.fighters[2].maxHp, "no new round started")
+	expect(versus.fighters[1].stance == "ESQUIVE", "the stance was lost at the next round")
+	local kai = kitWorld("KAI", "TARO", 6)
+	local none = run(kai, 2, function() return { input({ stance = 2 }) } end)
+	expect(kai.fighters[1].stance == nil and find(none, "Stance") == nil, "KAI changed stance")
+end)
+
+test("TARO CLASSIQUE: iron guard, heavier punches, DROITE DU CHAMPION; no weave", function()
+	local function jab(id)
+		local world = stance(kitWorld("TARO", "KAI", 3), 1, id)
+		local events = run(world, 30, function(t) return { input({ light = t == 1 }) } end)
+		local hit = find(events, "Hit")
+		return hit and hit.damage or 0
+	end
+	expect(jab("CLASSIQUE") > jab("ESQUIVE"), "the classic boxer does not hit harder")
+	local function guardAfter(id)
+		local world = stance(kitWorld("KAI", "TARO", 3), 2, id)
+		run(world, 40, function(t) return { input({ heavy = t == 1 }), input({ block = true }) } end)
+		return world.fighters[2].guard
+	end
+	expect(guardAfter("CLASSIQUE") > guardAfter("ESQUIVE"), "the classic guard is not tougher")
+	local world = kitWorld("TARO", "KAI", 3)
+	local events = run(world, 40, function(t) return { input({ crouch = t <= 2, special = t == 1 }), input({ block = true }) } end)
+	local blocked = find(events, "Block")
+	expect(blocked and blocked.move == "TaroChampion", "crouch + E is not the DROITE DU CHAMPION")
+	expect(world.fighters[2].guard < Config.MaxGuard - 40, "the champion's right does not crush the guard")
+	local dash = kitWorld("TARO", "KAI", 6)
+	run(dash, 2, function() return { input({ dash = true, axis = 1 }) } end)
+	expect(dash.fighters[1].weaveTicks == 0, "the classic boxer weaves")
+	-- ESQUIVE keeps the parry on crouch + E.
+	local esq = esquive(kitWorld("TARO", "KAI", 3), 1)
+	run(esq, 2, function() return { input({ crouch = true, special = true }) } end)
+	expect(esq.fighters[1].move == "TaroParry", "crouch + E in ESQUIVE is not the parry")
 end)
 
 test("AKEMI: VOILE D'OMBRE evades the first hit, then recharges", function()

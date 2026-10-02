@@ -16,7 +16,15 @@ local seen = {}
 Kit.play(kit, kind, style, hp, 0, function(info)
 	local frame = info.frame
 	for _, fx in frame.fx do
-		if not seen[fx.key] then seen[fx.key] = { tick = info.tick, fx = fx } end
+		if not seen[fx.key] then
+			seen[fx.key] = { tick = info.tick, fx = fx }
+			if fx.kind == "afterimage" then
+				-- AKEMI's shadow: a copy of the body as it is now.
+				local copy = {}
+				for name, part in info.parts[fx.slot] do copy[name] = { cframe = table.clone(part.cframe), size = part.size } end
+				seen[fx.key].parts = copy
+			end
+		end
 	end
 	if info.tick % step ~= 0 then return end
 	local s, g = frame.shot, frame.grade
@@ -45,7 +53,14 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 	for _, entry in seen do
 		local fx, age = entry.fx, info.tick - entry.tick
 		local shown = if fx.life then age <= fx.life * 60 else age <= 14 or fx.keep or fx.kind == "gate"
-		if shown then
+		if shown and entry.parts then
+			for name, part in entry.parts do
+				local out = {}
+				for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
+				print(string.format("PART 1 %s %s %s %s %s 2A1838", name, table.concat(out, " "),
+					fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
+			end
+		elseif shown then
 			local function p(q)
 				if type(q) == "number" then return fmt(q) .. " 0 0" end
 				return if q then string.format("%s %s %s", fmt(q.x), fmt(q.y), fmt(q.z or 0)) else "0 0 0"

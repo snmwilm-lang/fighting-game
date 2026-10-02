@@ -1,5 +1,40 @@
 # Journal du projet — état à transmettre
 
+## Version 0.10.4 — 2 octobre 2026
+
+Retour de Wilhem : « les R de KAI, TARO, ZEPHYR et AKEMI, change-les aussi ».
+
+- `CinematicDirector` : les 4 ruées refaites, chacune avec sa structure et son effet à elle :
+  - KAI · KAIEN RUSH : lancer, poursuite dans le ciel (téléportations autour de la cible,
+    anneau de ki à chaque choc, filmée d'en dessous puis d'au-dessus), smash au sol, charge en
+    lévitation et **rayon de ki** vers le bas (`kiBeam`) ;
+  - TARO · RUSH DÉVASTATEUR : poussée dans le coin, **cordes de feu** (`ropes`), DEMPSEY ROLL
+    (balancement gauche / droite, crochets alternés) filmé comme une retransmission avec les
+    flashs, coups au corps, crochet de K.O. à travers les cordes ;
+  - ZEPHYR · VENT TRANCHEUR : reste à distance, **lames de vent** (`windBlade`) à chaque coup
+    de pied, vortex de lames qui soulève la cible, traversée d'un coup de pied volant ;
+  - AKEMI · OMBRES MULTIPLES : frappe depuis un cercle autour de la cible en laissant **son
+    ombre** (`afterimage`, copie sombre du corps) à chaque place ; rengainée en noir et blanc ;
+    toutes les ombres frappent ensemble.
+- Client (`EffectsController`) : `kiBeam`, `windBlade`, `ropes`, `shadowCopy` ;
+  `CinematicController` les joue. Storyboard : les nouveaux effets, et l'ombre d'AKEMI dessinée
+  comme un corps sombre.
+- Test « chaque ruée a sa manière » étendu aux 8 persos (effet propre à chacun, KAI monte la
+  cible à plus de 10 studs, ZEPHYR reste à plus de 3 studs jusqu'au coup final).
+- **Nerf du E de DAICHA** (TÉLÉPORTATION, « on peut se TP à chaque clic ») : seulement si
+  l'adversaire est à 9 studs ou moins (`teleportRange`), 2 s avant la suivante
+  (`teleportCooldown`, règle de `CombatSimulation`), invulnérabilité 1-8 (au lieu de 1-12),
+  dégâts 70 (au lieu de 76), récupération 32. Un coût en ki a été essayé : le CPU DAICHA
+  tombait à 27 %, abandonné. Test Kits : trop loin ou dans les 2 s, pas de téléportation.
+- Équilibrage (`Balance.luau -a 4 120`, niveau LÉGENDE, moyennes) : KAI 47 %, TARO 53 %,
+  ZEPHYR 48 %, AKEMI 60 %, RYUKEN 57 %, SHIN 45 %, DAICHA 40 %, HIBECARES 51 % ✅.
+- Tests : CombatSimulation 82, FighterAI 10, CinematicDirector 247, Animation 28, Kits 54,
+  PressQueue 4, Fuzz 2, Cinematography 81, Lobby 5 ✅. Studio ❌ non exécuté.
+
+### Problèmes ouverts / prochaine étape
+
+- Voir en jeu les 8 ruées ; ajuster tailles / durées des effets.
+
 ## Version 0.10.3 — 2 octobre 2026
 
 Retours de Wilhem : « l'orbe doit vraiment voler autour de DAICHA, pas coller à sa main » ;

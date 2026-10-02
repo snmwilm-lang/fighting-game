@@ -470,6 +470,16 @@ test("DAICHA: OMBRE INVERSÉE blinks through, TÉLÉPORTATION reappears behind",
 	expect(hit and hit.move == "DaichaTeleport", "the teleport strike did not land")
 end)
 
+test("DAICHA: TÉLÉPORTATION is not spammable: too far, or again within 2 s, no teleport", function()
+	local far = kitWorld("DAICHA", "KAI", 12)
+	expect(find(run(far, 6, function(t) return { input({ special = t == 1 }) } end), "Blink") == nil, "teleported from 12 studs")
+	local world = kitWorld("DAICHA", "KAI", 6)
+	local events = run(world, 100, function(t) return { input({ special = t == 1 or t == 60 }) } end)
+	local blinks = 0
+	for _, e in events do if e.kind == "Blink" then blinks += 1 end end
+	expect(blinks == 1, string.format("%d teleports in 100 ticks", blinks))
+end)
+
 test("HIBECARES: ROI DES RUINES hits harder when hurt; MUR DE PIERRE takes half and hits back", function()
 	local fresh = kitWorld("HIBECARES", "KAI", 3)
 	local a = firstHit(fresh, function(t) return { input({ light = t == 1 }) } end)

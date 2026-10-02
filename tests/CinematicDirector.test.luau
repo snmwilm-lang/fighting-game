@@ -343,8 +343,8 @@ end
 
 test("every rush (R) is staged its own way: own effects, own way of fighting", function()
 	-- Each kit's rush asks for effects only it uses.
-	local SIGNATURE = { RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "orbs", "orbDart" },
-		HIBECARES = { "rockLine" } }
+	local SIGNATURE = { KAI = { "kiBeam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },
+		RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "orbs", "orbDart" }, HIBECARES = { "rockLine" } }
 	local staging = {}
 	for _, kit in MoveData.KitOrder do staging[kit] = rushStaging(kit) end
 	for kit, kinds in SIGNATURE do
@@ -362,6 +362,9 @@ test("every rush (R) is staged its own way: own effects, own way of fighting", f
 		expect(s.closest >= 1.2, string.format("%s's rush walks through the target (%.1f studs)", kit, s.closest))
 	end
 	expect(staging.RYUKEN.highest >= 6, string.format("RYUKEN only lifts the target %.1f studs", staging.RYUKEN.highest))
+	-- KAI chases it high into the sky; ZEPHYR stays away until his last kick.
+	expect(staging.KAI.highest >= 10, string.format("KAI only takes the target %.1f studs up", staging.KAI.highest))
+	expect(staging.ZEPHYR.closest >= 3, string.format("ZEPHYR comes %.1f studs from the target", staging.ZEPHYR.closest))
 	expect(staging.HIBECARES.shaken >= 8, string.format("the deck shakes on only %d of HIBECARES' blows", staging.HIBECARES.shaken))
 end)
 

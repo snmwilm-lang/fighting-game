@@ -240,6 +240,22 @@ def render_frame(fr, label):
                     r = max(2, abs(edge[1] - p[1]))
                     d.ellipse([p[0]-r*1.4, p[1]-r*1.4, p[0]+r*1.4, p[1]+r*1.4], fill=col + (120,))
                     d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=(11,7,18,255))
+        elif k == 'kiBeam':
+            if age <= 24:
+                poly3([fx['from'], fx['to']], max(4, int(14 * fx['scale'])))
+                rgba = (255,255,255,a)
+                poly3([fx['from'], fx['to']], max(2, int(5 * fx['scale'])))
+        elif k == 'windBlade':
+            if age <= 10:
+                t = min(1, age / 5)
+                c = tuple(fx['from'][i] + (fx['to'][i]-fx['from'][i])*t for i in range(3))
+                s_ = fx['scale']
+                poly3([(c[0] + math.sin(an/6*1.1)*0.9*s_ * (1 if fx['to'][0] >= fx['from'][0] else -1) - (1-math.cos(an/6*1.1))*0.5*s_ * (1 if fx['to'][0] >= fx['from'][0] else -1),
+                        c[1] + math.sin(an/6*1.1)*1.6*s_*math.cos(fx['tilt']), c[2]) for an in range(-6, 7)], 4)
+        elif k == 'ropes':
+            for i in range(1, 4):
+                lift = 1.2 + i * 1.1
+                poly3([(fx['from'][0], lift, fx['from'][2]), (fx['to'][0], lift, fx['to'][2])], 3)
         elif k == 'orbDart':
             if age <= 6:
                 t = min(1, age / 5)

@@ -129,6 +129,19 @@ avec ses ombres, arrête le temps (noir et blanc) pour frapper au ralenti, puis 
 esquives et coups instantanés. KAI garde les siennes (finale de l'éveil selon la route).
 
 Les ruées (**R** seul) ne se ressemblent plus, chacune a sa propre structure :
+- **KAI · KAIEN RUSH** : il lance la cible en l'air et la poursuit dans le ciel en se
+  téléportant autour d'elle (anneaux de ki à chaque choc), la renvoie au sol, puis, en
+  lévitation, l'écrase sous un **rayon de ki** tiré vers le bas.
+- **TARO · RUSH DÉVASTATEUR** : il la pousse dans le coin, contre des **cordes de feu**, puis
+  DEMPSEY ROLL (il se balance à gauche et à droite, un crochet de chaque côté), filmé comme une
+  retransmission de boxe avec les flashs des photographes ; coups au corps, crochet armé, K.O.
+  à travers les cordes, le gant levé.
+- **ZEPHYR · VENT TRANCHEUR** : il reste loin et lance à chaque coup de pied une **lame de vent**
+  en croissant ; les lames se croisent en un vortex qui soulève la cible ; il fonce et la
+  traverse d'un seul coup de pied volant.
+- **AKEMI · OMBRES MULTIPLES** : elle frappe à chaque fois depuis un nouveau point d'un cercle
+  et y laisse **son ombre debout** ; elle rengaine en noir et blanc, et toutes les ombres
+  frappent en même temps.
 - **RYUKEN · FUREUR DU POING** : il ne lâche pas sa cible. Tenue par le col et pilonnée à bout
   portant (caméra dans le visage de la cible), écrasée au sol, cueillie au rebond, jonglée
   vers le ciel des deux côtés, smashée au sol, puis un **poing géant de ki** la projette à

@@ -1191,6 +1191,92 @@ function EffectsController:orbs(center, radius, count, color, life, spin, phase,
 	return model
 end
 
+-- KAI: a beam of ki from `from` down to `to` (a white core in a coloured sheath that swells
+-- then thins out).
+function EffectsController:kiBeam(from, to, color, scale)
+	local length = (to - from).Magnitude
+	if length < 1e-3 then return end
+	local placed = CFrame.lookAt((from + to) / 2, to)
+	local sheath = self:part(Vector3.new(1.6 * scale, 1.6 * scale, length), placed, color)
+	sheath.Transparency = 0.2
+	local core = self:part(Vector3.new(0.6 * scale, 0.6 * scale, length), placed, WHITE)
+	for _, p in { sheath, core } do
+		tween(p, 0.12, { Size = Vector3.new(p.Size.X * 1.6, p.Size.Y * 1.6, length) })
+		task.delay(0.35, function()
+			if p.Parent then tween(p, 0.3, { Size = Vector3.new(0.05, 0.05, length), Transparency = 1 }) end
+		end)
+		Debris:AddItem(p, 0.7)
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = color, 30, 6
+	light.Parent = core
+end
+
+-- ZEPHYR: a crescent blade of wind flying from `from` to `to` (tilted by `tilt` radians).
+function EffectsController:windBlade(from, to, color, tilt, scale)
+	local travel = to - from
+	if travel.Magnitude < 1e-3 then return end
+	local look = CFrame.lookAt(from, to) * CFrame.Angles(0, 0, tilt)
+	local pieces = {}
+	for i = -3, 3 do
+		local angle = i / 3 * 1.1
+		local spot = look * CFrame.new(math.sin(angle) * 1.6 * scale, 0, -math.cos(angle) * 0.9 * scale + 0.9 * scale)
+		local piece = self:part(Vector3.new(0.9 * scale, 0.12, 0.3), spot * CFrame.Angles(0, -angle, 0), if i == 0 then WHITE else color)
+		piece.Transparency = 0.15
+		table.insert(pieces, piece)
+	end
+	local time = math.clamp(travel.Magnitude / 60, 0.08, 0.25)
+	for _, piece in pieces do
+		tween(piece, time, { CFrame = piece.CFrame + travel }, Enum.EasingStyle.Linear)
+		task.delay(time, function()
+			if piece.Parent then tween(piece, 0.2, { Transparency = 1, Size = piece.Size * 1.4 }) end
+		end)
+		Debris:AddItem(piece, time + 0.25)
+	end
+end
+
+-- TARO: the ropes of the ring, three lines of fire from `from` to `to` (on the floor), for
+-- `life` seconds. Returns them for cleanup.
+function EffectsController:ropes(from, to, color, life)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Ropes", self.folder
+	local length = (to - from).Magnitude
+	if length < 1e-3 then return model end
+	for i = 1, 3 do
+		local lift = Vector3.new(0, 1.2 + i * 1.1, 0)
+		local rope = self:part(Vector3.new(0.18, 0.18, length), CFrame.lookAt((from + to) / 2 + lift, to + lift), color)
+		rope.Transparency, rope.Parent = 1, model
+		tween(rope, 0.3, { Transparency = 0.1 })
+	end
+	Debris:AddItem(model, life)
+	return model
+end
+
+-- AKEMI: her shadow left standing where she struck: a dark copy of the rig of `slot`, kept
+-- `life` seconds. Returns it for cleanup.
+function EffectsController:shadowCopy(slot, color, life)
+	local rig = self.rigs[slot]
+	if not rig or not rig.model then return nil end
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "ShadowCopy", self.folder
+	for _, p in rig.model:GetChildren() do
+		if p:IsA("BasePart") and BODY_PARTS[p.Name] then
+			local ghost = self:part(p.Size, p.CFrame, Color3.fromHex("140A1E"))
+			ghost.Material, ghost.Transparency, ghost.Parent = Enum.Material.SmoothPlastic, 0.25, model
+		end
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = color, 8, 1.5
+	light.Parent = model:FindFirstChildWhichIsA("BasePart")
+	task.delay(math.max(0, life - 0.2), function()
+		for _, p in model:GetChildren() do
+			if p:IsA("BasePart") then tween(p, 0.2, { Transparency = 1 }) end
+		end
+	end)
+	Debris:AddItem(model, life)
+	return model
+end
+
 -- DAICHA: one orb of shadow darting from `from` into `to`, a violet streak behind it.
 function EffectsController:orbDart(from, to, color)
 	local length = (to - from).Magnitude

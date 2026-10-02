@@ -24,7 +24,7 @@ local function newFighter(slot, c, kit, stanceId)
 		stance = stance and stance.Id, stanceCooldown = 0,
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
-		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1,
+		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1, teleportReady = 0,
 		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
 		rage = 0, -- RYUKEN's RAGE stacks (passive "Rage")
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
@@ -208,6 +208,7 @@ local function startMove(world, f, id, events, isLink)
 		if f.x == foe.x then f.x = foe.x - side * m.teleport end
 		f.facing = if foe.x >= f.x then 1 else -1
 		f.vx, f.dashTicks, f.crossed = 0, 0, true
+		f.teleportReady = world.tick + (m.teleportCooldown or 0)
 		table.insert(events, { kind = "Blink", slot = f.slot, x = f.x, move = id })
 	end
 	if m.dempsey then
@@ -317,6 +318,12 @@ local function chooseMove(world, f, grounded, crouching)
 	end
 	local m = nextId and moves[nextId]
 	if m and m.meterCost and f.meter < m.meterCost then return nil end
+	if m and m.teleportRange then
+		-- (DAICHA's TÉLÉPORTATION only reaches an opponent that close)
+		local foe = world.fighters[3 - f.slot]
+		if foe and math.abs(foe.x - f.x) > m.teleportRange then return nil end
+		if world.tick < (f.teleportReady or 0) then return nil end -- still recovering from the last one
+	end
 	if m and m.projectile then
 		for _, p in world.projectiles do
 			if p.owner == f.slot then return nil end -- one ki blast on screen at a time

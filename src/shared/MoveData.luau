@@ -561,7 +561,9 @@ derive(DAICHA, {
 	DaichaTeleport = "TÉLÉPORTATION", DaichaChase = "POURSUITE", DaichaFinale = "RETOUR AU NÉANT", DaichaSphere = "SPHÈRE INVERSÉE",
 	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE",
 }, { damage = 1.0, startup = 0, reach = 1.05 }, {
-	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 12 }, teleport = 1.7, damage = 76, launch = 26 },
+	-- (limited range, 2 s before the next one, shorter invulnerability: no more teleport on every click)
+	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 8 }, teleport = 1.7, teleportRange = 9, teleportCooldown = 120,
+		damage = 70, launch = 26, recovery = 32 },
 	DaichaSphere = { startup = 14, projectile = { speed = 16, life = 140, damage = 72, height = 3.4, halfHeight = 1.3, halfWidth = 1.3 } },
 })
 

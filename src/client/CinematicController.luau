@@ -355,6 +355,10 @@ function CinematicController:applyFx(frame)
 			elseif kind == "orbs" then
 				prop = fx:orbs(vec(request.pos), request.radius, request.count, color, request.life, request.spin or 0.5, request.phase or 0,
 					request.tilt or 0)
+			elseif kind == "kiBeam" then fx:kiBeam(vec(request.from), vec(request.to), color, request.scale or 1)
+			elseif kind == "windBlade" then fx:windBlade(vec(request.from), vec(request.to), color, request.tilt or 0, request.scale or 1)
+			elseif kind == "ropes" then prop = fx:ropes(vec(request.from), vec(request.to), color, request.life or 2)
+			elseif kind == "afterimage" then prop = fx:shadowCopy(request.slot, color, request.life or 1)
 			elseif kind == "orbDart" then fx:orbDart(vec(request.from), vec(request.to), color)
 			elseif kind == "wake" then fx:wake(vec(request.from), vec(request.to), color, request.life or 1.6)
 			elseif kind == "waterspout" then prop = fx:waterspout(vec(request.pos), request.radius, request.scale, color, request.life)

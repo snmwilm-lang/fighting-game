@@ -13,7 +13,7 @@ local InputController = {}
 
 local PULSES = {
 	Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy",
-	Special = "special", Ultimate = "ultimate", Dummy = "dummy", Kit = "kit", FoeKit = "foeKit",
+	Special = "special", Ultimate = "ultimate", Fatal = "fatal", Dummy = "dummy", Kit = "kit", FoeKit = "foeKit",
 	Stance1 = "stance1", Stance2 = "stance2",
 }
 
@@ -134,8 +134,9 @@ function InputController.start(remote)
 		Crouch = { -262, -138, 54, "BAS" },
 		Special = { -250, -222, 58, "SPÉ", Color3.fromHex("FFB938") },
 		Ultimate = { -152, -254, 62, "ULTI", Color3.fromHex("FF2A3D") },
+		Fatal = { -60, -282, 54, "FATAL", Color3.fromHex("FFFFFF") },
 	}
-	local ultimateButton
+	local ultimateButton, fatalButton
 	for action, info in layout do
 		local button = circle(action, info[3], UDim2.new(1, info[1], 1, info[2]), info[4], info[5])
 		button.InputBegan:Connect(function(input)
@@ -146,6 +147,7 @@ function InputController.start(remote)
 			end
 		end)
 		if action == "Ultimate" then ultimateButton = button end
+		if action == "Fatal" then fatalButton, button.Visible = button, false end
 	end
 	UIS.InputChanged:Connect(function(input)
 		if input == activeTouch then moveTouch(input.Position) end
@@ -212,6 +214,10 @@ function InputController.start(remote)
 			if not ultimateButton then return end
 			ultimateButton.BackgroundColor3 = if ready then Color3.fromHex("8C0A1C") else Color3.fromHex("101014")
 			ultimateButton.TextTransparency = if ready then 0 else 0.5
+		end,
+		-- The touch FATAL button only shows while the COUP FATAL can be thrown.
+		setFatalReady = function(ready)
+			if fatalButton then fatalButton.Visible = ready end
 		end,
 	}
 end

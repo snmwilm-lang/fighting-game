@@ -217,6 +217,9 @@ function CinematicController:finish()
 		effect.Enabled = false
 	end
 	self.handheld = 0
+	self.blackActive = false
+	self.kanjiBack.ZIndex = 1
+	self.fade.BackgroundColor3 = Color3.new(0, 0, 0)
 	self.stamp.Visible, self.title.Visible, self.subtitle.Visible, self.kanjiBack.Visible = false, false, false, false
 	self.prompt.Visible, self.promptResult.Visible = false, false
 	self.speedLines.Visible, self.speedColor, self.fovKick = false, nil, 0
@@ -408,9 +411,24 @@ function CinematicController:applyFrame(frame)
 	-- Speed lines while the frame asks for them (off in reduced mode).
 	self.speedColor = if frame.speedLines and not reduced then Color3.fromHex(frame.speedLines) else nil
 	-- Impact frame and a zoom punch, once per key.
+	-- The screen gone black (KAI's COUP FATAL): only the kanji and the flashes of the blows.
+	if frame.black ~= nil then
+		self.fade.BackgroundTransparency = 1 - frame.black
+		self.kanjiBack.ZIndex = 6
+		self.blackActive = true
+	elseif self.blackActive then
+		self.blackActive = false
+		self.kanjiBack.ZIndex = 1
+		if not self.memo.fade then self.fade.BackgroundTransparency = 1 end
+	end
 	if frame.impact and not self.memo["impact:" .. frame.impact.key] then
 		self.memo["impact:" .. frame.impact.key] = true
 		local color = Color3.fromHex(frame.impact.color)
+		if (frame.black or 0) > 0.5 and not reduced then
+			-- In the black, a blow is a flash of the whole screen.
+			self.fade.BackgroundColor3 = color
+			tween(self.fade, 0.14, { BackgroundColor3 = Color3.new(0, 0, 0) })
+		end
 		self.fovKick = if reduced then 3 else 9
 		self.shake = math.max(self.shake, if reduced then 0.3 else 0.9)
 		self.effects:impactFrame(color, if reduced then 0.6 else 1.4)

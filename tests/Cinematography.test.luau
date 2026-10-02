@@ -52,7 +52,8 @@ end
 
 for _, kit in MoveData.KitOrder do
 	local route = MoveData.Kits[kit].FullRoutes[1].name
-	for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 300 }, { "Awaken", route, 300 } } do
+	for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 300 }, { "Awaken", route, 300 }, { "Fatal" },
+		{ "Fatal", nil, 300 } } do
 		for _, center in { 0, Config.ArenaMaxX - 3 } do
 			local name = string.format("%s %s%s at x=%d", kit, case[1], if case[3] then " (K.O.)" else "", center)
 			test(name .. ": camera clear of the bodies, subject on screen", function()
@@ -103,7 +104,7 @@ end
 test("both hands read in every shot: no angle hides one fist behind the other", function()
 	for _, kit in MoveData.KitOrder do
 		local route = MoveData.Kits[kit].FullRoutes[1].name
-		for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 1 }, { "Awaken", route, 1 } } do
+		for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 1 }, { "Awaken", route, 1 }, { "Fatal" }, { "Fatal", nil, 1 } } do
 			local bad = overlappedHands(kit, case[1], case[2], case[3])
 			expect(#bad == 0, string.format("%s %s%s: %s", kit, case[1], if case[3] then " (K.O.)" else "", table.concat(bad, ", ")))
 		end

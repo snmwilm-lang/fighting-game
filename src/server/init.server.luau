@@ -455,6 +455,7 @@ local function snapshot()
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching, maxHp = f.maxHp, passive = Sim.passiveGauge(world, f), weave = f.weaveTicks > 0,
 			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
+			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",
 			kit = f.kit, ping = slot.ping and math.floor(slot.ping * 1000 + 0.5) or nil,
@@ -484,7 +485,7 @@ end
 
 -- Training lab (solo only): play one of the player's kit's cinematics directly to check its
 -- staging. `kind` is the cinematic type, `style` (ÉVEIL only) a full route of the kit.
-local DEBUG_TYPES = { Rush = true, Awaken = true, Gate = true }
+local DEBUG_TYPES = { Rush = true, Awaken = true, Gate = true, Fatal = true }
 local pendingDebugEvents = {}
 debugRemote.OnServerEvent:Connect(function(player, kind, style, finish)
 	local client = clients[player]
@@ -494,11 +495,12 @@ debugRemote.OnServerEvent:Connect(function(player, kind, style, finish)
 	local kit = Sim.kitOf(world, world.fighters[client.slot])
 	local known = false
 	for _, route in kit.FullRoutes do known = known or route.name == style end
+	if kind == "Fatal" and style == "raw" then known = true end -- (the COUP FATAL thrown raw)
 	if style ~= nil and (typeof(style) ~= "string" or not known) then return end
 	local now = os.clock()
 	if now - (client.lastDebug or -math.huge) < 1 or world.cinematic then return end
 	client.lastDebug = now
-	if kind == "Awaken" then style = style or kit.FullRoutes[1].name else style = nil end
+	if kind == "Awaken" then style = style or kit.FullRoutes[1].name elseif kind ~= "Fatal" then style = nil end
 	local events = Sim.debugCinematic(world, client.slot, kind, style, if finish then 300 else nil)
 	for _, event in events do table.insert(pendingDebugEvents, event) end
 end)
@@ -533,6 +535,7 @@ RunService.Heartbeat:Connect(function(dt)
 		for _, slot in slots do
 			local input = slot.input
 			input.jump, input.dash, input.light, input.heavy, input.special, input.ultimate = false, false, false, false, false, false
+			input.fatal = false
 			input.stance = 0
 		end
 	end

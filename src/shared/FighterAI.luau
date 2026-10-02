@@ -46,7 +46,7 @@ FighterAI.Levels = table.freeze({
 local function neutral()
 	return {
 		axis = 0, crouch = false, jump = false, dash = false, block = false,
-		light = false, heavy = false, special = false, ultimate = false, stance = 0,
+		light = false, heavy = false, special = false, ultimate = false, fatal = false, stance = 0,
 	}
 end
 
@@ -158,7 +158,8 @@ function FighterAI:think(world, slot)
 			end
 			if cinematic.tick + 1 == prompt.tick + offset then
 				if prompt.button == "Light" then input.light = true
-				elseif prompt.button == "Heavy" then input.heavy = true else input.ultimate = true end
+				elseif prompt.button == "Heavy" then input.heavy = true
+				elseif prompt.button == "Fatal" then input.fatal = true else input.ultimate = true end
 			end
 		end
 		return input
@@ -199,6 +200,15 @@ function FighterAI:think(world, slot)
 			local m = moves[me.move]
 			-- One clean press per link: wait until every hit of the current move is out.
 			if moveKey ~= self.pressedMove and me.moveHits >= (m.hits or 1) then
+				-- COUP FATAL (last breath): cancelled from a hit that landed, at full power.
+				local fatal = kit.Ultimates.Fatal and moves[kit.Ultimates.Fatal]
+				local fatalReady = fatal ~= nil and not me.fatalUsed and me.meter >= fatal.meterCost
+					and me.hp <= me.maxHp * (world.config.FatalHealth or 0.3) and m.kind ~= "Ultimate" and not m.air
+				if me.moveContact == "Hit" and fatalReady and self:chance(self.level.ultimate) then
+					input.fatal = true
+					self.plan, self.pressedMove = nil, moveKey
+					return input
+				end
 				if me.moveContact == "Block" and self.step > 2 then
 					self.plan = nil -- stay safe on block
 				elseif nextButton == "J" then

@@ -3,14 +3,14 @@
 	Roblox API, no require).
 
 	The client sends every attack press of a packet as an ordered list ("light", "heavy",
-	"special", "ultimate"); the server appends it to the slot's queue and hands the
+	"special", "ultimate", "fatal"); the server appends it to the slot's queue and hands the
 	simulation ONE press per tick. Two presses between two ticks used to merge into one
 	(booleans), and a heavy then a light came out light first (fixed button order): count
 	and order are now kept.
 ]]
 local PressQueue = {}
 
-PressQueue.BUTTONS = table.freeze({ light = true, heavy = true, special = true, ultimate = true })
+PressQueue.BUTTONS = table.freeze({ light = true, heavy = true, special = true, ultimate = true, fatal = true })
 PressQueue.MAX_PACKET = 8 -- presses accepted in one packet
 PressQueue.CAPACITY = 6 -- presses waiting on the server (the oldest goes on overflow)
 

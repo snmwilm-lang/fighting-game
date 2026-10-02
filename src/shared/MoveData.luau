@@ -266,12 +266,25 @@ local KAI = {
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
 	},
-	Awakening = { -- unique attack: 3 bars, cinematic, 95 % of the current health or FINAL FINISH
+	Awakening = { -- unique attack: 3 bars, cinematic, up to 35 % of the maximum health (rhythm prompts)
 		id = "Awakening", name = "ÉVEIL ÉCARLATE", kind = "Ultimate", startup = 8, active = 6, recovery = 40,
 		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
 		push = 2, blockPush = 24, lunge = 20, meterCost = 300,
 		invuln = { from = 1, to = 14 },
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		heavy = true,
+	},
+	-- COUP FATAL (C): the last-breath move. 3 bars, the user under Config.FatalHealth of its
+	-- health, once per match. Cancelled from a hit of a combo it takes the cinematic's
+	-- ComboShare of the target's maximum health, thrown raw only RawShare; slow to come out,
+	-- blocked or dodged it is simply lost (the whole ki gauge with it). Its cinematic is the
+	-- K.O. screen when it kills.
+	Fatal = {
+		id = "Fatal", name = "滅 · CIEL ÉTEINT", kind = "Ultimate", fatal = true, startup = 14, active = 6, recovery = 52,
+		damage = 20, guardDamage = 60, hitstun = 40, blockstun = 30, hitstop = 4,
+		push = 2, blockPush = 30, lunge = 24, meterCost = 300,
+		invuln = { from = 1, to = 8 },
+		hitbox = { near = 0, far = 4.8, low = -1, high = 9 },
 		heavy = true,
 	},
 	-- Crouch + E: ki blast projectile
@@ -362,7 +375,7 @@ local TARO = {
 	SpinKick = "TaroCorkscrew", Smash = "TaroHeavy", Hammer = "TaroOverhand", Sweep = "TaroDive",
 	LowKick = "TaroLowJab", AirKick = "TaroAirJab", AirKick2 = "TaroAirHook", AirSmash = "TaroAirHammer",
 	Rising = "TaroRisingFist", KiChase = "TaroChase", Finale = "TaroFinale",
-	KaienRush = "TaroRush", Awakening = "TaroAwakening", Kaiten = "TaroGate",
+	KaienRush = "TaroRush", Awakening = "TaroAwakening", Kaiten = "TaroGate", Fatal = "TaroFatal",
 }
 derive(TARO, {
 	TaroJab = "JAB", TaroStraight = "DIRECT", TaroHook = "CROCHET", TaroBolo = "BOLO PUNCH",
@@ -372,7 +385,7 @@ derive(TARO, {
 	TaroCorkscrew = "TIRE-BOUCHON", TaroHeavy = "DROITE LOURDE", TaroOverhand = "OVERHAND", TaroDive = "PLONGEON",
 	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
 	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
-	TaroRush = "RUSH DÉVASTATEUR", TaroAwakening = "UPPERCUT CÉLESTE", TaroGate = "火嵐 · TEMPÊTE DE CROCHETS",
+	TaroRush = "RUSH DÉVASTATEUR", TaroAwakening = "UPPERCUT CÉLESTE", TaroGate = "火嵐 · TEMPÊTE DE CROCHETS", TaroFatal = "終 · DERNIÈRE CLOCHE",
 }, { damage = 1, reach = 0.94 }, {
 	TaroJab = { startup = 4, recovery = 8 },
 	TaroStraight = { startup = 5 },
@@ -435,7 +448,7 @@ local ZEPHYR = {
 	SpinKick = "ZephyrBackSpin", Smash = "ZephyrPush", Hammer = "ZephyrAxe", Sweep = "ZephyrSweep",
 	LowKick = "ZephyrLow", AirKick = "ZephyrAirKick", AirKick2 = "ZephyrAirKick2", AirSmash = "ZephyrDiveKick",
 	Rising = "ZephyrEnvol", KiChase = "ZephyrChase", Finale = "ZephyrFinale", KiBlast = "ZephyrBlade",
-	KaienRush = "ZephyrRush", Awakening = "ZephyrAwakening", Kaiten = "ZephyrGate",
+	KaienRush = "ZephyrRush", Awakening = "ZephyrAwakening", Kaiten = "ZephyrGate", Fatal = "ZephyrFatal",
 }
 derive(ZEPHYR, {
 	ZephyrFront = "PIED DE FACE", ZephyrSide = "PIED LATÉRAL", ZephyrRound = "CIRCULAIRE", ZephyrHigh = "HIGH KICK",
@@ -445,7 +458,7 @@ derive(ZEPHYR, {
 	ZephyrBackSpin = "RETOURNÉ", ZephyrPush = "PIED POUSSÉ", ZephyrAxe = "HACHE", ZephyrSweep = "FAUCHAGE",
 	ZephyrLow = "PIED BAS", ZephyrAirKick = "PIED AÉRIEN", ZephyrAirKick2 = "DOUBLE AÉRIEN", ZephyrDiveKick = "PIQUÉ DU FAUCON",
 	ZephyrEnvol = "ENVOL", ZephyrChase = "PIQUÉ DU VENT", ZephyrFinale = "LAME FINALE", ZephyrBlade = "LAME DE VENT",
-	ZephyrRush = "VENT TRANCHEUR", ZephyrAwakening = "DRAGON ASCENDANT", ZephyrGate = "旋風 · CYCLONE FURIEUX",
+	ZephyrRush = "VENT TRANCHEUR", ZephyrAwakening = "DRAGON ASCENDANT", ZephyrGate = "旋風 · CYCLONE FURIEUX", ZephyrFatal = "嵐 · CHUTE DE LA LUNE",
 }, { damage = 1.05, startup = 0, reach = 1.12 }, {
 	ZephyrBlade = { startup = 11, projectile = { speed = 36, life = 75, damage = 58, halfHeight = 0.7 } },
 	ZephyrPush = { push = 36 },
@@ -463,7 +476,7 @@ local AKEMI = {
 	SpinKick = "AkemiSpin", Smash = "AkemiThrust", Hammer = "AkemiDrop", Sweep = "AkemiReap",
 	LowKick = "AkemiLow", AirKick = "AkemiAirEdge", AirKick2 = "AkemiAirEdge2", AirSmash = "AkemiStoop",
 	Rising = "AkemiStep", KiChase = "AkemiChase", Finale = "AkemiFinale", KiBlast = "AkemiKunai",
-	KaienRush = "AkemiRush", Awakening = "AkemiAwakening", Kaiten = "AkemiGate",
+	KaienRush = "AkemiRush", Awakening = "AkemiAwakening", Kaiten = "AkemiGate", Fatal = "AkemiFatal",
 }
 derive(AKEMI, {
 	AkemiEdge = "LAME DE MAIN", AkemiPalm = "PAUME", AkemiKnee = "GENOU", AkemiFlip = "SALTO",
@@ -473,7 +486,7 @@ derive(AKEMI, {
 	AkemiSpin = "VRILLE", AkemiThrust = "ESTOC", AkemiDrop = "CHUTE", AkemiReap = "FAUCHE",
 	AkemiLow = "COUP BAS", AkemiAirEdge = "LAME AÉRIENNE", AkemiAirEdge2 = "DOUBLE LAME", AkemiStoop = "PIQUÉ",
 	AkemiStep = "PAS DE L'OMBRE", AkemiChase = "TRAQUE", AkemiFinale = "EXÉCUTION", AkemiKunai = "KUNAÏ",
-	AkemiRush = "OMBRES MULTIPLES", AkemiAwakening = "TEMPS SUSPENDU", AkemiGate = "幻舞 · DANSE FANTÔME",
+	AkemiRush = "OMBRES MULTIPLES", AkemiAwakening = "TEMPS SUSPENDU", AkemiGate = "幻舞 · DANSE FANTÔME", AkemiFatal = "刻 · L'INSTANT VOLÉ",
 }, { damage = 0.88, startup = 0, reach = 1 }, {
 	AkemiStep = { lunge = 26, invuln = { from = 1, to = 11 }, damage = 80 },
 	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
@@ -491,7 +504,7 @@ local RYUKEN = {
 	SpinKick = "RyukenSpin", Smash = "RyukenHeavy", Hammer = "RyukenHammer", Sweep = "RyukenSweep",
 	LowKick = "RyukenLow", AirKick = "RyukenAirPunch", AirKick2 = "RyukenAirHook", AirSmash = "RyukenAirSlam",
 	Rising = "RyukenCharge", KiChase = "RyukenChase", Finale = "RyukenFinale", KiBlast = "RyukenQuake",
-	KaienRush = "RyukenRush", Awakening = "RyukenAwakening", Kaiten = "RyukenGate",
+	KaienRush = "RyukenRush", Awakening = "RyukenAwakening", Kaiten = "RyukenGate", Fatal = "RyukenFatal",
 }
 derive(RYUKEN, {
 	RyukenJab = "JAB", RyukenHook = "CROCHET", RyukenBreaker = "COUDE BRISÉ", RyukenChain = "ENCHAÎNEMENT",
@@ -501,7 +514,7 @@ derive(RYUKEN, {
 	RyukenSpin = "REVERS TOURNANT", RyukenHeavy = "POING LOURD", RyukenHammer = "MASSE", RyukenSweep = "FAUCHAGE",
 	RyukenLow = "COUP BAS", RyukenAirPunch = "POING AÉRIEN", RyukenAirHook = "CROCHET AÉRIEN", RyukenAirSlam = "SLAM AÉRIEN",
 	RyukenCharge = "CHARGE FRONTALE", RyukenChase = "POURSUITE", RyukenFinale = "COUP DE GRÂCE", RyukenQuake = "FRAPPE SISMIQUE",
-	RyukenRush = "FUREUR DU POING", RyukenAwakening = "EFFONDREMENT", RyukenGate = "拳 · DERNIER ROUND",
+	RyukenRush = "FUREUR DU POING", RyukenAwakening = "EFFONDREMENT", RyukenGate = "拳 · DERNIER ROUND", RyukenFatal = "砕 · POING DU MONDE",
 }, { damage = 1.04, startup = 0, reach = 0.95 }, {
 	RyukenCharge = { lunge = 30, invuln = { from = 1, to = 8 }, damage = 96, launch = 20, wallBounce = true },
 	RyukenQuake = { startup = 12, projectile = { speed = 34, life = 26, damage = 60, height = 0.6, halfHeight = 0.6,
@@ -520,7 +533,7 @@ local SHIN = {
 	SpinKick = "ShinSpin", Smash = "ShinBreaker", Hammer = "ShinCleave", Sweep = "ShinReap",
 	LowKick = "ShinLow", AirKick = "ShinAirCut", AirKick2 = "ShinAirCut2", AirSmash = "ShinDive",
 	Rising = "ShinStep", KiChase = "ShinChase", Finale = "ShinFinale", KiBlast = "ShinCurrent",
-	KaienRush = "ShinRush", Awakening = "ShinAwakening", Kaiten = "ShinGate",
+	KaienRush = "ShinRush", Awakening = "ShinAwakening", Kaiten = "ShinGate", Fatal = "ShinFatal",
 }
 derive(SHIN, {
 	ShinCut1 = "TRANCHE 1", ShinCut2 = "TRANCHE 2", ShinThrust = "ESTOC", ShinCombo = "COMBO LAME",
@@ -530,7 +543,7 @@ derive(SHIN, {
 	ShinSpin = "TOURBILLON", ShinBreaker = "BRISE-GARDE", ShinCleave = "FENDOIR", ShinReap = "FAUCHE",
 	ShinLow = "TRANCHE BASSE", ShinAirCut = "TRANCHE AÉRIENNE", ShinAirCut2 = "DOUBLE TRANCHE", ShinDive = "PIQUÉ DE LAME",
 	ShinStep = "PAS DU VENT", ShinChase = "POURSUITE", ShinFinale = "COUPE FINALE", ShinCurrent = "COURANT TRANCHANT",
-	ShinRush = "DANSE DES COURANTS", ShinAwakening = "TEMPÊTE CONTINUE", ShinGate = "零 · ZÉRO HORIZON",
+	ShinRush = "DANSE DES COURANTS", ShinAwakening = "TEMPÊTE CONTINUE", ShinGate = "零 · ZÉRO HORIZON", ShinFatal = "一閃 · ISSEN",
 }, { damage = 0.98, startup = 0, reach = 1.22 }, {
 	ShinStep = { lunge = 34, invuln = { from = 1, to = 9 }, damage = 82, launch = 30 },
 	ShinBreaker = { guardDamage = 46 },
@@ -549,7 +562,7 @@ local DAICHA = {
 	SpinKick = "DaichaSpin", Smash = "DaichaPush", Hammer = "DaichaDrop", Sweep = "DaichaReap",
 	LowKick = "DaichaLow", AirKick = "DaichaAirClaw", AirKick2 = "DaichaAirClaw2", AirSmash = "DaichaDive",
 	Rising = "DaichaTeleport", KiChase = "DaichaChase", Finale = "DaichaFinale", KiBlast = "DaichaSphere",
-	KaienRush = "DaichaRush", Awakening = "DaichaAwakening", Kaiten = "DaichaGate",
+	KaienRush = "DaichaRush", Awakening = "DaichaAwakening", Kaiten = "DaichaGate", Fatal = "DaichaFatal",
 }
 derive(DAICHA, {
 	DaichaClaw = "GRIFFURE D'OMBRE", DaichaStep = "PAS OBLIQUE", DaichaThrow = "PROJECTION", DaichaCombo = "COMBO OMBRE",
@@ -559,7 +572,7 @@ derive(DAICHA, {
 	DaichaSpin = "VRILLE", DaichaPush = "POUSSÉE", DaichaDrop = "CHUTE", DaichaReap = "FAUCHE",
 	DaichaLow = "GRIFFE BASSE", DaichaAirClaw = "GRIFFE AÉRIENNE", DaichaAirClaw2 = "DOUBLE GRIFFE", DaichaDive = "PIQUÉ D'OMBRE",
 	DaichaTeleport = "TÉLÉPORTATION", DaichaChase = "POURSUITE", DaichaFinale = "RETOUR AU NÉANT", DaichaSphere = "SPHÈRE INVERSÉE",
-	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE",
+	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE", DaichaFatal = "虚 · NÉANT",
 }, { damage = 1.0, startup = 0, reach = 1.05 }, {
 	-- (limited range, 2 s before the next one, shorter invulnerability: no more teleport on every click)
 	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 8 }, teleport = 1.7, teleportRange = 9, teleportCooldown = 120,
@@ -579,7 +592,7 @@ local HIBECARES = {
 	SpinKick = "HibecaresSwing", Smash = "HibecaresHeavy", Hammer = "HibecaresBreaker", Sweep = "HibecaresSweep",
 	LowKick = "HibecaresLow", AirKick = "HibecaresAirFist", AirKick2 = "HibecaresAirSwing", AirSmash = "HibecaresMeteor",
 	Rising = "HibecaresShock", KiChase = "HibecaresChase", Finale = "HibecaresFinale",
-	KaienRush = "HibecaresRush", Awakening = "HibecaresAwakening", Kaiten = "HibecaresGate",
+	KaienRush = "HibecaresRush", Awakening = "HibecaresAwakening", Kaiten = "HibecaresGate", Fatal = "HibecaresFatal",
 }
 derive(HIBECARES, {
 	HibecaresStrike = "FRAPPE", HibecaresBash = "COUP DE MASSE", HibecaresElbow = "COUDE DE PIERRE", HibecaresChain = "ENCHAÎNEMENT",
@@ -589,7 +602,7 @@ derive(HIBECARES, {
 	HibecaresSwing = "REVERS DE CHAÎNE", HibecaresHeavy = "COUP LOURD", HibecaresBreaker = "BRISE-GARDE", HibecaresSweep = "BALAYAGE",
 	HibecaresLow = "COUP BAS", HibecaresAirFist = "POING AÉRIEN", HibecaresAirSwing = "CHAÎNE AÉRIENNE", HibecaresMeteor = "CHUTE DE ROC",
 	HibecaresShock = "ONDE DE CHOC", HibecaresChase = "POURSUITE", HibecaresFinale = "EFFONDREMENT DU ROI",
-	HibecaresRush = "COLOSSE ÉVEILLÉ", HibecaresAwakening = "CHÂTIMENT", HibecaresGate = "崩 · RUINES DU MONDE",
+	HibecaresRush = "COLOSSE ÉVEILLÉ", HibecaresAwakening = "CHÂTIMENT", HibecaresGate = "崩 · RUINES DU MONDE", HibecaresFatal = "墓 · TOMBEAU DES ROIS",
 }, { damage = 1.05, startup = 1, reach = 1 }, {
 	HibecaresBreaker = { guardDamage = 40 },
 	HibecaresGrab = { guardDamage = 30 },
@@ -654,7 +667,8 @@ local CINEMATICS = {
 	},
 	-- 開天 · PORTE DES CIEUX: a gate drags the target into a crimson world for one blow.
 	-- Removes MaxHealthShare of the target's MAXIMUM health (KO possible, then the K.O. scene).
-	-- One prompt: the R key right on the climax opens the gate fully (+PerfectBonus).
+	-- One prompt: the R key right on the climax opens the gate fully (+PerfectBonus); missed,
+	-- the gate only half opens (-MissShare).
 	Kaiten = {
 		Type = "Gate",
 		Length = 210,
@@ -666,18 +680,37 @@ local CINEMATICS = {
 		PromptTicks = { 140 },
 		PromptWindow = 4,
 		PerfectBonus = 0.1,
+		MissShare = 0.15,
 	},
-	-- ÉVEIL ÉCARLATE: removes HealthRatio of the target's current health, whatever it is.
-	-- Below FinishThreshold of the maximum health it is a FINAL FINISH (KO) with an extra
-	-- FinishExtra ticks of KO sequence.
+	-- COUP FATAL: one decisive blow at FinalTick, ComboShare (cancelled from a combo) or
+	-- RawShare of the target's MAXIMUM health; one tight prompt (the C key) on the climax,
+	-- missed: MissRatio of it is lost. Each kit stages its own scene, which is also its K.O.
+	-- screen when the blow kills (no K.O. scene after it: FinishExtra 0).
+	Fatal = {
+		Type = "Fatal",
+		Length = 240,
+		FinalTick = 150,
+		Hits = {},
+		ComboShare = 0.95,
+		RawShare = 0.6,
+		MissRatio = 0.4,
+		FinishExtra = 0,
+		PromptTicks = { 138 },
+		PromptWindow = 4,
+		PromptButton = "Fatal",
+	},
+	-- ÉVEIL ÉCARLATE: MaxHealthShare of the target's MAXIMUM health when every rhythm prompt is
+	-- hit; each missed prompt takes MissShare of it off the final blow (all missed: 12 %). It
+	-- only KOs when the blows left can take the health that is left (FINAL FINISH, then the
+	-- FinishExtra ticks of the K.O. scene).
 	Awakening = {
 		Type = "Awaken",
 		Length = 220,
 		FinalTick = 160,
 		Hits = { 70, 78, 86, 94, 102, 110, 118 },
-		HitShare = 0.05,
-		HealthRatio = 0.95,
-		FinishThreshold = 0.5,
+		HitShare = 0.03,
+		MaxHealthShare = 0.35,
+		MissShare = 0.0575,
 		FinishExtra = 200, -- the K.O. scene of a FINAL FINISH
 		-- Rhythm prompts during the rush: the four first keys of the route that was played.
 		PromptTicks = { 66, 82, 98, 114 },
@@ -716,6 +749,7 @@ local function kit(name, data)
 	data.FullRoutes = table.freeze(full)
 	data.Ultimates = table.freeze({
 		Rush = roles.KaienRush, Awaken = roles.Awakening, Gate = roles.Kaiten, Chase = roles.KiChase, Finale = roles.Finale,
+		Fatal = roles.Fatal,
 	})
 	if data.Stances then
 		-- Each stance: the kit's stats with its own on top, the starters with its crouch special.

@@ -571,6 +571,8 @@ Poses.Kaiten = {
 }
 Poses.KaienRush = { Startup = Poses.Kiai, Active = Poses.Smash.Active, Recovery = Poses.Smash.Recovery }
 Poses.Awakening = { Startup = Poses.Kiai, Active = Poses.Finale.Active, Recovery = Poses.Finale.Recovery }
+-- COUP FATAL: the kiai, then one ki fist (each kit with a weapon or its own finisher has its own).
+Poses.Fatal = { Startup = Poses.Kiai, Active = Poses.Finale.Active, Recovery = Poses.Finale.Recovery }
 
 -- AKEMI's VOILE D'OMBRE: a low slide back out of reach, arms trailing.
 Poses.Evade = blind(feet({
@@ -1035,6 +1037,7 @@ Poses.ZephyrBlade = { -- outside crescent kick that throws a blade of wind
 }
 Poses.ZephyrRush = { Startup = Poses.Kiai, Active = Poses.ZephyrPush.Active, Recovery = Poses.ZephyrPush.Recovery }
 Poses.ZephyrAwakening = { Startup = Poses.Kiai, Active = Poses.ZephyrHigh.Active, Recovery = Poses.ZephyrHigh.Recovery }
+Poses.ZephyrFatal = Poses.ZephyrAwakening
 Poses.ZephyrGate = { Startup = Poses.Kiai, Active = Poses.ZephyrRiser.Active, Recovery = Poses.ZephyrRiser.Recovery }
 
 -- ----------------------------------------------------------------- AKEMI · shadow assassin
@@ -1518,6 +1521,7 @@ Poses.Kits.SHIN.DownFace = merge(Poses.DownFace, { RightShoulder = deg(-16, 0, 2
 Poses.Kits.SHIN.Kneel = merge(Poses.Kneel, { RightShoulder = deg(30, 0, 10), RightElbow = deg(70), RightWrist = deg(-60) })
 Poses.ShinRush = ultimate(Poses.Iai, Poses.ShinStep)
 Poses.ShinAwakening = ultimate(Poses.Iai, Poses.ShinFinale)
+Poses.ShinFatal = ultimate(Poses.Iai, Poses.ShinFinale)
 Poses.ShinGate = ultimate(Poses.Iai, Poses.ShinBreaker)
 
 -- ---------------------------------------------------------------- DAICHA 闇 · the shadow orb (left hand)
@@ -1609,6 +1613,7 @@ Poses.Kits.DAICHA.CrouchBlock = merge(DAICHA_CROUCH, orb(deg(65, 0, 20), 40, -60
 	RightWrist = deg(-50) }))
 Poses.DaichaRush = ultimate(Poses.Levitate, Poses.DaichaPush)
 Poses.DaichaAwakening = ultimate(Poses.Levitate, Poses.DaichaFinale)
+Poses.DaichaFatal = ultimate(Poses.Levitate, Poses.DaichaFinale)
 Poses.DaichaGate = ultimate(Poses.Levitate, Poses.DaichaSphere)
 
 -- ---------------------------------------------------------------- AKEMI 影 · the knife hand
@@ -1650,6 +1655,7 @@ Poses.AkemiStoop = dive(AKEMI, { LeftShoulder = deg(170, 0, -10), LeftElbow = de
 Poses.AkemiFinale = finisher(AKEMI, { RightShoulder = deg(20, 0, -40), RightElbow = deg(100) },
 	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(20) })
 Poses.AkemiAwakening = ultimate(Poses.Sheathe, Poses.AkemiFinale)
+Poses.AkemiFatal = ultimate(Poses.Sheathe, Poses.AkemiFinale)
 Poses.AkemiGate = ultimate(Poses.Sheathe, Poses.AkemiThrust)
 
 -- ---------------------------------------------------------------- HIBECARES 崩 · stone fists, stomps, chains
@@ -1713,6 +1719,7 @@ Poses.HibecaresFinale = finisher(HIBECARES,
 	{ LeftShoulder = deg(80, 0, 10), LeftElbow = deg(6), RightShoulder = deg(80, 0, -10), RightElbow = deg(6), Waist = deg(-40) })
 Poses.HibecaresRush = ultimate(Poses.Colossus, Poses.HibecaresHeavy)
 Poses.HibecaresAwakening = ultimate(Poses.Colossus, Poses.HibecaresFinale)
+Poses.HibecaresFatal = ultimate(Poses.Colossus, Poses.HibecaresFinale)
 Poses.HibecaresGate = ultimate(Poses.Colossus, Poses.HibecaresHeavy)
 
 -- Limbs that strike (the client's trails) for every move above.
@@ -1720,14 +1727,14 @@ local WEAPON_STRIKE = {
 	RightHand = { "ShinAirCut", "ShinAirCut2", "ShinDive", "ShinPierce", "ShinCrescent", "ShinSkyCut", "ShinFinale", "ShinChase",
 		"ShinLow", "ShinFlow", "ShinGale", "ShinSpin", "ShinReap", "ShinFalling", "ShinRush", "ShinAwakening", "ShinGate",
 		"DaichaCombo", "DaichaRise", "DaichaSpin", "DaichaReap", "DaichaLow", "DaichaAirClaw", "DaichaChase",
-		"AkemiPierce", "AkemiRise", "AkemiThrust", "AkemiAirEdge", "AkemiFinale", "AkemiAwakening", "AkemiGate",
+		"AkemiPierce", "AkemiRise", "AkemiThrust", "AkemiAirEdge", "AkemiFinale", "AkemiAwakening", "AkemiGate", "ShinFatal", "AkemiFatal",
 		"HibecaresBash", "HibecaresElbow", "HibecaresUpper", "HibecaresSwing", "HibecaresSweep", "HibecaresAirFist" },
-	LeftHand = { "DaichaAirClaw2", "DaichaPush", "DaichaFinale", "DaichaRush", "DaichaAwakening", "DaichaGate", "AkemiPalm", "AkemiAirEdge2", "HibecaresChain", "HibecaresLow", "HibecaresAirSwing" },
+	LeftHand = { "DaichaAirClaw2", "DaichaPush", "DaichaFinale", "DaichaRush", "DaichaAwakening", "DaichaGate", "DaichaFatal", "AkemiPalm", "AkemiAirEdge2", "HibecaresChain", "HibecaresLow", "HibecaresAirSwing" },
 	Both = { "DaichaGrip", "DaichaDistortion", "DaichaSpire", "DaichaEclipse", "DaichaVeil", "DaichaRiver", "DaichaFall",
 		"DaichaDrop", "DaichaDive",
 		"AkemiThousand", "AkemiFangs", "AkemiTwin", "AkemiWhirl", "AkemiStoop",
 		"HibecaresPress", "HibecaresMeteor", "HibecaresQuake", "HibecaresRupture", "HibecaresPillar", "HibecaresAvalanche",
-		"HibecaresChase", "HibecaresRubble", "HibecaresFinale", "HibecaresRush", "HibecaresAwakening", "HibecaresGate" },
+		"HibecaresChase", "HibecaresRubble", "HibecaresFinale", "HibecaresRush", "HibecaresAwakening", "HibecaresGate", "HibecaresFatal" },
 	RightFoot = { "HibecaresStomp", "AkemiKnee" },
 }
 
@@ -1740,7 +1747,7 @@ Poses.STRIKE = {
 	Smash = { "RightHand" }, Hammer = { "RightFoot" }, Sweep = { "RightFoot" }, LowKick = { "RightFoot" },
 	AirKick = { "RightFoot" }, AirKick2 = { "LeftFoot" }, AirSmash = { "LeftHand", "RightHand" },
 	Rising = { "RightHand" }, KiChase = { "LeftFoot" }, Finale = { "RightHand" },
-	KiBlast = { "LeftHand", "RightHand" }, KaienRush = { "RightHand" }, Awakening = { "RightHand" },
+	KiBlast = { "LeftHand", "RightHand" }, KaienRush = { "RightHand" }, Awakening = { "RightHand" }, Fatal = { "RightHand" },
 	Kaiten = { "LeftHand", "RightHand" },
 	TaroHook = { "RightHand" }, TaroBolo = { "RightHand" }, TaroCorkscrew = { "RightHand" },
 	TaroOverhand = { "RightHand" }, TaroDive = { "RightHand" }, TaroLowJab = { "LeftHand" },
@@ -1770,7 +1777,7 @@ Poses.STRIKE = {
 	ZephyrHeel = { "RightFoot" }, ZephyrSkyward = { "LeftFoot", "RightFoot" }, ZephyrHundred = { "RightFoot" },
 	ZephyrPush = { "RightFoot" }, ZephyrDiveKick = { "RightFoot" }, ZephyrEnvol = { "RightFoot" },
 	ZephyrChase = { "RightFoot" }, ZephyrFinale = { "RightFoot" }, ZephyrBlade = { "RightFoot" },
-	ZephyrRush = { "RightFoot" }, ZephyrAwakening = { "RightFoot" }, ZephyrGate = { "RightFoot" },
+	ZephyrRush = { "RightFoot" }, ZephyrAwakening = { "RightFoot" }, ZephyrGate = { "RightFoot" }, ZephyrFatal = { "RightFoot" },
 	AkemiEdge = { "RightHand" }, AkemiStep = { "RightHand" }, AkemiKunai = { "RightHand" }, AkemiRush = { "RightHand" },
 }
 

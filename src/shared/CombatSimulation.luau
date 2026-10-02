@@ -9,9 +9,9 @@
 
 local CombatSimulation = {}
 
-local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimate = "Ultimate" }
-local BUTTON_ORDER = { "light", "heavy", "special", "ultimate" }
-local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U" }
+local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimate = "Ultimate", fatal = "Fatal" }
+local BUTTON_ORDER = { "light", "heavy", "special", "ultimate", "fatal" }
+local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U", Fatal = "C" }
 
 local function newFighter(slot, c, kit, stanceId)
 	local facing = if slot == 1 then 1 else -1
@@ -59,6 +59,7 @@ local function resetFighters(world)
 			world.fighters[slot].wins = old.wins
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
 			world.fighters[slot].latencyTicks = old.latencyTicks
+			world.fighters[slot].fatalUsed = old.fatalUsed -- the COUP FATAL is once per match
 		end
 	end
 	world.epoch += 1
@@ -131,7 +132,7 @@ end
 function CombatSimulation.neutralInput()
 	return {
 		axis = 0, crouch = false, jump = false, dash = false, block = false,
-		light = false, heavy = false, special = false, ultimate = false,
+		light = false, heavy = false, special = false, ultimate = false, fatal = false,
 		stance = 0, -- 1, 2...: switch to the kit's stance of that rank (TARO only)
 	}
 end
@@ -231,6 +232,7 @@ local function startMove(world, f, id, events, isLink)
 	if m.skill then
 		table.insert(events, { kind = "Skill", attacker = f.slot, move = id })
 	end
+	if m.fatal then f.fatalUsed = true end -- (spent even if it misses: once per match)
 	if m.meterCost then
 		f.meter -= m.meterCost
 		-- Super flash: everyone freezes while the ultimate is announced.
@@ -241,6 +243,15 @@ local function startMove(world, f, id, events, isLink)
 		f.hitstop = flash
 		table.insert(events, { kind = "SuperFlash", attacker = f.slot, move = id })
 	end
+end
+
+-- COUP FATAL: 3 bars (the whole gauge), one's own health under FatalHealth, not used yet this
+-- match.
+function CombatSimulation.fatalReady(world, f)
+	local id = kitOf(world, f).Ultimates.Fatal
+	local m = id and world.moves[id]
+	return m ~= nil and not f.fatalUsed and f.meter >= m.meterCost
+		and f.hp <= f.maxHp * (world.config.FatalHealth or 0.3) and f.hp > 0
 end
 
 -- Name of the full route whose first five links this combo matches, if it was played cleanly.
@@ -262,6 +273,20 @@ local function chooseMove(world, f, grounded, crouching)
 	local moves, starters, button, ultimates = world.moves, startersOf(world, f), head.button, kit.Ultimates
 	local nextId
 	local currentId = f.move or (f.grace and f.grace.move)
+	if button == "Fatal" then
+		-- COUP FATAL: from a combo (the target reeling from a hit: full power) or raw.
+		local id = ultimates.Fatal
+		if not CombatSimulation.fatalReady(world, f) or not grounded then return nil end
+		local current = f.move and moves[f.move]
+		if current then
+			if current.kind == "Ultimate" or current.air or not f.moveContact or f.moveFrame <= current.startup then return nil end
+		elseif f.dashTicks > 0 then
+			return nil
+		end
+		local foe = world.fighters[3 - f.slot]
+		f.fatalCombo = foe ~= nil and ((foe.stun > 0 and (foe.stunKind == "Hit" or foe.stunKind == "Crumple")) or foe.launched)
+		return id, current ~= nil
+	end
 	if currentId then
 		local current = moves[currentId]
 		if f.move then
@@ -671,17 +696,17 @@ local function startCinematic(world, a, d, events, moveId)
 	local c = world.config
 	local cin = world.moveData.Cinematics[moveId]
 	local plan, finish = {}, false
-	if cin.Type == "Gate" then
-		-- A fixed share of the target's MAXIMUM health, ignoring combo scaling; it can KO.
+	if cin.Type == "Fatal" then
+		-- COUP FATAL: one blow, a share of the target's MAXIMUM health (much more from a combo).
+		local total = math.floor(d.maxHp * (if a.fatalCombo then cin.ComboShare else cin.RawShare))
+		finish = total >= d.hp
+		table.insert(plan, { tick = cin.FinalTick, damage = total, final = true })
+	elseif cin.MaxHealthShare then
+		-- A share of the target's MAXIMUM health, ignoring combo scaling (Gate, Awaken); the
+		-- rhythm prompts can still take some off (MissShare), so it only KOs if what is left
+		-- of it can take the remaining health (decided again once the prompts are judged).
 		local total = math.floor(d.maxHp * cin.MaxHealthShare)
 		finish = total >= d.hp
-		local share = math.floor(total * cin.HitShare)
-		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
-		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
-	elseif cin.Type == "Awaken" then
-		-- 95 % of the current health whatever it is; below half the maximum: FINAL FINISH.
-		finish = d.hp < d.maxHp * cin.FinishThreshold
-		local total = if finish then d.hp else math.floor(d.hp * cin.HealthRatio)
 		local share = math.floor(total * cin.HitShare)
 		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
 		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
@@ -695,9 +720,9 @@ local function startCinematic(world, a, d, events, moveId)
 	-- ÉVEIL ÉCARLATE: rhythm prompts during the rush, taken from the route that was played.
 	local prompts = {}
 	local style = a.awakenStyle
-	if cin.Type == "Gate" then
+	if cin.Type == "Gate" or cin.Type == "Fatal" then
 		for _, t in cin.PromptTicks do
-			table.insert(prompts, { tick = t, button = "Ultimate", result = nil })
+			table.insert(prompts, { tick = t, button = cin.PromptButton or "Ultimate", result = nil })
 		end
 	elseif cin.Type == "Awaken" then
 		local keys = "LRLR"
@@ -712,7 +737,7 @@ local function startCinematic(world, a, d, events, moveId)
 	world.cinematic = {
 		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
 		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
-		prompts = prompts, nextPrompt = 1, perfect = 0,
+		prompts = prompts, nextPrompt = 1, perfect = 0, combo = if cin.Type == "Fatal" then a.fatalCombo == true else nil,
 	}
 	a.move, a.moveContact, a.state = moveId, "Hit", "Cinematic"
 	a.pushVx, d.pushVx, a.vx = 0, 0, 0
@@ -1018,7 +1043,7 @@ local function judgePrompts(world, state, input, events)
 	local prompt = state.prompts[state.nextPrompt]
 	if not prompt then return end
 	local pressed = if input.light then "Light" elseif input.heavy then "Heavy"
-		elseif input.ultimate then "Ultimate" else nil
+		elseif input.ultimate then "Ultimate" elseif input.fatal then "Fatal" else nil
 	-- Lag compensation (a far player): the press is judged at the cinematic tick the player
 	-- saw when pressing (input.cinTick), never later than now and never further back than
 	-- their round trip allows; a prompt is only "missed" once that much time has passed.
@@ -1041,7 +1066,21 @@ local function judgePrompts(world, state, input, events)
 	end
 	if result == nil then return end
 	prompt.result = result
-	if result then state.perfect += 1 end
+	if result then
+		state.perfect += 1
+	elseif cin.MissShare or cin.MissRatio then
+		-- A missed prompt weakens the final blow (a share of the maximum health, or of the blow).
+		local cut = 0
+		for _, step in state.plan do
+			if step.final then
+				cut = if cin.MissShare then math.floor(world.fighters[state.defender].maxHp * cin.MissShare)
+					else math.floor(step.damage * cin.MissRatio)
+			end
+		end
+		for _, step in state.plan do
+			if step.final then step.damage = math.max(1, step.damage - cut) end
+		end
+	end
 	table.insert(events, { kind = "Prompt", attacker = state.attacker, index = state.nextPrompt, success = result })
 	state.nextPrompt += 1
 	if state.nextPrompt > #state.prompts then
@@ -1053,6 +1092,8 @@ local function judgePrompts(world, state, input, events)
 			for _, step in state.plan do
 				if step.final then step.damage += math.floor(world.fighters[state.defender].maxHp * cin.PerfectBonus) end
 			end
+		end
+		if cin.MaxHealthShare or cin.Type == "Fatal" then
 			-- KO only if the blows still to land can take the health that is left (the ones
 			-- already dealt are in d.hp, they must not count twice).
 			local d = world.fighters[state.defender]
@@ -1060,7 +1101,8 @@ local function judgePrompts(world, state, input, events)
 			for _, step in state.plan do
 				if step.tick > state.tick then remaining += step.damage end
 			end
-			if remaining >= d.hp then state.finish, state.length = true, cin.Length + cin.FinishExtra end
+			state.finish = remaining >= d.hp
+			state.length = cin.Length + (if state.finish then cin.FinishExtra else 0)
 		end
 		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
 	end
@@ -1129,7 +1171,7 @@ local function stepCinematic(world, events, inputs)
 	if state.tick >= state.length then
 		world.cinematic = nil
 		a.move, a.moveContact, a.state = nil, nil, "Idle"
-		a.awakenStyle = nil
+		a.awakenStyle, a.fatalCombo = nil, nil
 		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot, finish = state.finish })
 	end
 end
@@ -1296,6 +1338,7 @@ function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
 	a.x, d.x, a.facing, d.facing = center - 1.3, center + 1.3, 1, -1
 	d.hp = math.clamp(hp or d.maxHp, 1, d.maxHp)
 	a.awakenStyle = style
+	a.fatalCombo = style ~= "raw" -- (the COUP FATAL: from a combo unless asked raw)
 	table.insert(events, { kind = "SuperFlash", attacker = slot, move = moveId })
 	startCinematic(world, a, d, events, moveId)
 	return events

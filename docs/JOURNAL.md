@@ -1,5 +1,38 @@
 # Journal du projet — état à transmettre
 
+## Version 0.12.0 — 2 octobre 2026
+
+Demande de Wilhem : « barre de vie équilibrée, les QTE doivent servir (rater = moins de
+dégâts), enlever le combo à 95 % et en créer un qui mérite ses 95 %, gardé comme un autre
+skill ; pour SHIN une scène de film japonais en noir et blanc où il traverse l'écran d'un
+slash ; c'est aussi l'écran de K.O. ultime, une scène unique pour chaque perso ; inspire-toi
+des jeux de combat ». Choix validés : coup du dernier souffle (vie < 30 %), 35 % max pour
+l'éveil. La touche F étant la garde, le coup fatal est sur C (manette LB).
+
+- **QTE qui comptent** : ÉVEIL = 35 % de la vie MAX si les 4 QTE sont réussis, chaque raté
+  retire 5,75 % (tout raté : 12 %), K.O. seulement s'il achève (plus de K.O. automatique sous
+  50 %) ; PORTE : R au sommet +10 %, raté −15 %. `MissShare` / `MissRatio` dans les cinématiques.
+- **COUP FATAL** (rôle `Fatal`, un par kit) : 3 barres, sa vie sous `Config.FatalHealth`
+  (30 %), une fois par match (gardé d'un round à l'autre) ; en plein combo (cible en hitstun ou
+  lancée) −95 % de la vie max, à froid −60 % ; lent (14 frames), paré ou esquivé il est perdu
+  avec la jauge ; un QTE C très serré (±4), raté : −40 % du coup. `Sim.fatalReady`, champ
+  `fatal` du snapshot, HUD « COUP FATAL PRÊT · C », bouton tactile FATAL, labo (combo, K.O., à
+  froid), CPU (le place en plein combo, QTE selon son niveau).
+- **8 scènes uniques** (`CinematicDirector`, table `FATAL`), qui sont l'écran de K.O. quand
+  le coup tue (pas de scène de K.O. générique) : KAI 滅 CIEL ÉTEINT (écran noir et éclairs,
+  façon raging demon), TARO 終 DERNIÈRE CLOCHE (dernier round), ZEPHYR 嵐 CHUTE DE LA LUNE,
+  AKEMI 刻 L'INSTANT VOLÉ (temps arrêté), RYUKEN 砕 POING DU MONDE, SHIN 一閃 ISSEN (film de
+  sabre en noir et blanc, une ligne rouge), DAICHA 虚 NÉANT (soleil noir), HIBECARES 墓 TOMBEAU
+  DES ROIS. Client : `frame.black` (écran noir, chaque coup = un flash).
+- Tests : CombatSimulation 85 (+3 coup fatal, éveil réécrit), CinematicDirector 323 (scènes
+  fatales placées, uniques, K.O. / nom), Cinematography (cadrage + mains lisibles des coups
+  fatals), Animation 35, FighterAI 10 ; RESULTS.
+
+### Problèmes ouverts / prochaine étape
+
+- Vérifier en jeu l'écran noir de KAI (flashs au-dessus) et le rythme des scènes.
+- Confirmer en jeu que l'orbe de DAICHA vole.
+
 ## Version 0.11.3 — 2 octobre 2026
 
 Retour de Wilhem : « les poings sont encore là ». Ce n'était pas que l'angle : plusieurs poses

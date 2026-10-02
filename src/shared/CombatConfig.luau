@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.11.3",
+	Version = "0.12.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -60,6 +60,8 @@ return table.freeze({
 
 	-- Ki meter (3 bars of 100) and ultimate
 	MaxMeter = 300,
+	-- COUP FATAL (C): only below this share of one's own health, once per match (MoveData.Fatal).
+	FatalHealth = 0.3,
 	SlipMeter = 12, -- ki for slipping an attack (boxer weave, see CombatSimulation slips)
 	StanceCooldownTicks = 30, -- between two stance switches (TARO: CLASSIQUE / ESQUIVE)
 	-- Ultimate cinematics play in slow motion (share of real time), slower still around the

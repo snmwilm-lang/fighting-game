@@ -20,6 +20,7 @@ return {
 	Heavy = { Enum.KeyCode.K, Enum.KeyCode.L, Enum.KeyCode.ButtonB },
 	Special = { Enum.KeyCode.E, Enum.KeyCode.U, Enum.KeyCode.ButtonY },
 	Ultimate = { Enum.KeyCode.R, Enum.KeyCode.O, Enum.KeyCode.ButtonL2 },
+	Fatal = { Enum.KeyCode.C, Enum.KeyCode.ButtonL1 }, -- COUP FATAL (last breath, once per match)
 	Reset = { Enum.KeyCode.Backspace, Enum.KeyCode.ButtonSelect },
 	Dummy = { Enum.KeyCode.M },
 	Kit = { Enum.KeyCode.T }, -- next fighter (kit)

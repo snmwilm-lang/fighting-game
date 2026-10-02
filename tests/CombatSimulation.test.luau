@@ -343,6 +343,17 @@ local function routeKeys(route, last)
 	return keys
 end
 
+-- What an awakening deals with `missed` rhythm prompts missed (MaxHealthShare of the maximum
+-- health, MissShare off the final blow per miss).
+local function awakeningDamage(maxHp, missed)
+	local cin = MoveData.Cinematics.Awakening
+	local total = math.floor(maxHp * cin.MaxHealthShare)
+	local share = math.floor(total * cin.HitShare)
+	local final = total - share * #cin.Hits
+	for _ = 1, missed do final = math.max(1, final - math.floor(maxHp * cin.MissShare)) end
+	return share * #cin.Hits + final
+end
+
 for _, route in MoveData.FullRoutes do
 	test("ÉVEIL ÉCARLATE earned on " .. route.name .. ": clean route ending on the right click, 3 bars", function()
 		local world = closeWorld(3, false)
@@ -350,7 +361,8 @@ for _, route in MoveData.FullRoutes do
 		local start = find(events, "CinematicStart")
 		expect(start and start.move == "Awakening", "no awakening (" .. compactRoute(events) .. ")")
 		expect(start.style == route.name, "style " .. tostring(start.style))
-		local expected = hpAtStart - math.floor(hpAtStart * MoveData.Cinematics.Awakening.HealthRatio)
+		-- (no prompt pressed: the four are missed, the awakening only takes its floor)
+		local expected = hpAtStart - awakeningDamage(Config.MaxHealth, 4)
 		expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
 		expect(find(events, "RoundEnd") == nil, "awakening killed a healthy target")
 	end)
@@ -362,7 +374,9 @@ for _, route in MoveData.FullRoutes do
 		local events, hpAtStart = playEarned(world, routeKeys(route, "U"))
 		local start = find(events, "CinematicStart")
 		expect(start and start.move == "Kaiten", "no gate (" .. compactRoute(events) .. ")")
-		local expected = hpAtStart - math.floor(Config.MaxHealth * MoveData.Cinematics.Kaiten.MaxHealthShare)
+		-- (the climax prompt is not pressed: the gate only half opens)
+		local cin = MoveData.Cinematics.Kaiten
+		local expected = hpAtStart - math.floor(Config.MaxHealth * cin.MaxHealthShare) + math.floor(Config.MaxHealth * cin.MissShare)
 		expect(world.fighters[2].hp == expected, string.format("hp %d, expected %d", world.fighters[2].hp, expected))
 	end)
 end
@@ -381,7 +395,7 @@ test("PORTE DES CIEUX: the R key on the climax adds the bonus, and can KO", func
 	end
 	expect(dealt == expected, string.format("dealt %d, expected %d (hp at start %d)", dealt, expected, hpAtStart))
 	local low = closeWorld(3, false)
-	low.fighters[2].hp = 700
+	low.fighters[2].hp = 300
 	local lowEvents = playEarned(low, routeKeys(MoveData.FullRoutes[3], "U"), { ticks = 1200 })
 	local start = find(lowEvents, "CinematicStart")
 	expect(start and start.finish and find(lowEvents, "RoundEnd"), "gate did not KO a weakened target")
@@ -433,14 +447,27 @@ test("spamming during the route locks ÉVEIL ÉCARLATE (KAIEN RUSH instead)", fu
 	end
 end)
 
-test("below 50 %: ÉVEIL ÉCARLATE is a FINAL FINISH (KO after the cinematic)", function()
+test("ÉVEIL ÉCARLATE: the rhythm prompts decide the damage (35 % perfect, 12 % all missed), KO only if it finishes", function()
+	local maxHp = Config.MaxHealth
+	local perfect, none = awakeningDamage(maxHp, 0), awakeningDamage(maxHp, 4)
+	expect(math.abs(perfect / maxHp - 0.35) < 0.01, string.format("perfect awakening %.1f %%", perfect / maxHp * 100))
+	expect(math.abs(none / maxHp - 0.12) < 0.01, string.format("awakening with every prompt missed %.1f %%", none / maxHp * 100))
+	-- Perfect on a target with less health than that: FINAL FINISH.
 	local world = closeWorld(3, false)
-	world.fighters[2].hp = 480
-	local events = playEarned(world, routeKeys(MoveData.FullRoutes[1], "R"), { ticks = 1100 })
+	world.fighters[2].hp = perfect + 150 -- (the route itself takes some of it before the cinematic)
+	local events = playEarned(world, routeKeys(MoveData.FullRoutes[1], "R"), { prompts = true, ticks = 1100 })
 	local start, finish, roundEnd = find(events, "CinematicStart"), find(events, "CinematicEnd"), find(events, "RoundEnd")
-	expect(start and start.finish, "no FINAL FINISH")
-	expect(roundEnd and roundEnd.winner == 1, "no KO")
+	expect(start, "no awakening")
+	expect(roundEnd and roundEnd.winner == 1, "a perfect awakening did not KO a target it out-damages")
 	expect(finish and finish.finish, "cinematic end not flagged as finish")
+	-- Every prompt missed on the same target: it survives.
+	local missed = closeWorld(3, false)
+	missed.fighters[2].hp = perfect + 150
+	local missedEvents, hpAtStart = playEarned(missed, routeKeys(MoveData.FullRoutes[1], "R"), { ticks = 1100 })
+	expect(find(missedEvents, "CinematicStart"), "no awakening (prompts missed)")
+	expect(not find(missedEvents, "RoundEnd"), "missing every prompt still KOed")
+	expect(missed.fighters[2].hp == hpAtStart - none, string.format("hp %d after a missed awakening from %d", missed.fighters[2].hp,
+		hpAtStart or -1))
 end)
 
 test("rhythm prompts: all on time is PARFAIT and gives a ki bar back", function()
@@ -944,6 +971,100 @@ test("fighters never cross on the ground and stay in the arena", function()
 		expect(b.x - a.x >= Config.PushWidth - 1e-6, "pushboxes overlapped")
 		expect(a.x >= Config.ArenaMinX and b.x <= Config.ArenaMaxX, "left the arena")
 	end
+end)
+
+-- COUP FATAL (C): 3 bars, own health under FatalHealth, once per match.
+local function fatalWorld(gap, foeHp)
+	local world = closeWorld(gap, false)
+	local f = world.fighters[1]
+	f.meter, f.hp = Config.MaxMeter, math.floor(f.maxHp * Config.FatalHealth) - 10
+	if foeHp then world.fighters[2].hp = foeHp end
+	return world
+end
+
+-- Plays the fatal: `combo` = after a jab that hit; `prompt` = the C key on the climax.
+local function playFatal(world, combo, prompt)
+	local events, started = {}, false
+	for t = 1, 1400 do
+		local state = world.cinematic
+		local i = input({})
+		if combo then
+			i.light = t == 1
+			i.fatal = not started and t > 1 and t < 30
+		else
+			i.fatal = t == 1
+		end
+		if state and prompt and state.type == "Fatal" then
+			local p = state.prompts[1]
+			if p and state.nextPrompt == 1 and state.tick + 1 == p.tick then i.fatal = true end
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
+			e.tick = t
+			table.insert(events, e)
+			if e.kind == "CinematicStart" then started = true end
+		end
+		if started and not world.cinematic and t > 60 then break end
+	end
+	local dealt = 0
+	for _, e in events do
+		if e.kind == "Hit" and e.cinematic then dealt += e.damage end
+	end
+	return events, dealt
+end
+
+test("COUP FATAL: only with the whole ki gauge, under 30 % of one's own health, once per match", function()
+	local world = closeWorld(3, false)
+	local f = world.fighters[1]
+	f.meter = Config.MaxMeter
+	local events = run(world, 20, function(t) return { input({ fatal = t == 1 }) } end)
+	expect(count(events, "SuperFlash") == 0, "the COUP FATAL came out at full health")
+	f.hp, f.meter = math.floor(f.maxHp * 0.25), 200
+	events = run(world, 20, function(t) return { input({ fatal = t == 1 }) } end)
+	expect(count(events, "SuperFlash") == 0, "the COUP FATAL came out with 2 bars")
+	f.meter = Config.MaxMeter
+	expect(Sim.fatalReady(world, f), "not ready with 3 bars at 25 % health")
+	events = run(world, 20, function(t) return { input({ fatal = t == 1 }) } end)
+	expect(count(events, "SuperFlash") == 1, "the COUP FATAL did not come out")
+	expect(f.fatalUsed and f.meter == 0, "the COUP FATAL did not spend the gauge / its use")
+	f.meter = Config.MaxMeter
+	expect(not Sim.fatalReady(world, f), "a second COUP FATAL in the same match")
+	for _, kit in MoveData.KitOrder do
+		local id = MoveData.Kits[kit].Ultimates.Fatal
+		expect(id and Moves[id] and Moves[id].fatal and MoveData.Cinematics[id] and MoveData.Cinematics[id].Type == "Fatal",
+			kit .. " has no COUP FATAL")
+	end
+end)
+
+test("COUP FATAL: 95 % from a combo, 60 % raw; the missed C prompt costs 40 % of it", function()
+	local maxHp = Config.MaxHealth
+	local cin = MoveData.Cinematics.Fatal
+	local combo = math.floor(maxHp * cin.ComboShare)
+	local raw = math.floor(maxHp * cin.RawShare)
+	local _, dealt = playFatal(fatalWorld(3), false, true)
+	expect(dealt == raw, string.format("raw, prompt hit: dealt %d, expected %d", dealt, raw))
+	_, dealt = playFatal(fatalWorld(3), false, false)
+	expect(dealt == raw - math.floor(raw * cin.MissRatio), string.format("raw, prompt missed: dealt %d", dealt))
+	local world = fatalWorld(3, maxHp)
+	local events
+	events, dealt = playFatal(world, true, true)
+	local start = find(events, "CinematicStart")
+	expect(start and world.fighters[1].fatalCombo == nil, "no COUP FATAL from the combo")
+	expect(dealt == combo, string.format("combo, prompt hit: dealt %d, expected %d", dealt, combo))
+	expect(world.fighters[2].hp > 0 and not find(events, "RoundEnd"), "a full-health target did not survive it")
+end)
+
+test("COUP FATAL: kills a target it out-damages (its scene is the K.O. screen), lost if dodged", function()
+	local world = fatalWorld(3, 900)
+	local events = playFatal(world, true, true)
+	local start = find(events, "CinematicStart")
+	expect(start and start.finish, "a killing COUP FATAL is not a finish")
+	local roundEnd = find(events, "RoundEnd")
+	expect(roundEnd and roundEnd.winner == 1, "the COUP FATAL did not KO")
+	-- Thrown from too far: it misses, and the gauge and the match's COUP FATAL are gone.
+	local far = fatalWorld(14)
+	local missed = playFatal(far, false, false)
+	expect(not find(missed, "CinematicStart"), "a COUP FATAL from afar connected")
+	expect(far.fighters[1].meter == 0 and far.fighters[1].fatalUsed, "a missed COUP FATAL kept the gauge")
 end)
 
 T.finish()

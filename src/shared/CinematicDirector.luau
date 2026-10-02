@@ -20,6 +20,7 @@
 		kanjiBack = text?, title = { text, color, sub }?, hideTitle = bool?,
 		fx = { { key, kind, ... } },                  -- effect requests, played once per key
 		aura = slot?, fade = bool?,
+		black = 0..1?,                                -- the screen goes black (KAI's COUP FATAL)
 		speedLines = color?,                          -- anime speed lines over the frame
 		impact = { key, color }?,                     -- impact frame + zoom punch, once per key
 	}
@@ -2475,6 +2476,496 @@ Director.KIT_ULTIMATES = KIT
 	  DAICHA a pool of shadow swallows the body; his eyes in the dark. Inverse grade.
 	  HIBECARES stone erupting around the body, the dust settling, the king. Ruin grade.
 ]]
+-- ===================================================================== COUP FATAL
+
+--[[
+	The last-breath blow (key C). Each kit has its own scene, and when the blow kills it IS the
+	K.O. screen (no K.O. scene after it). One tight prompt (the C key) on the climax; the blow
+	lands at FinalTick; the title comes FATAL_TITLE ticks later. Inspirations: Samurai
+	Shodown's issen (SHIN), Street Fighter's raging demon (KAI), Mortal Kombat's fatal blows
+	(slow, heavy, final), JoJo's stopped time (AKEMI).
+	All in one table (the module is close to Luau's limit of local names).
+]]
+local FATAL = {}
+local FATAL_TITLE = 40
+
+-- A staged x kept inside the arena (scenes stand far apart).
+function FATAL.inside(ctx, x)
+	return math.clamp(x, ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1)
+end
+
+-- The target after the blow: it falls (finish: it stays down) or ends on one knee.
+function FATAL.fall(cin, d, tick, F, fromY)
+	local p = progress(tick, F, F + 20)
+	if p < 1 then
+		d.y, d.pose = lerp(fromY or 0, 0, p * p), "Launched"
+	elseif cin.finish then
+		d.y, d.pose = 0, "DownFace"
+	else
+		d.y, d.pose = 0, "Kneel"
+	end
+end
+
+-- The closing title: K.O. when the blow killed, the blow's name otherwise.
+function FATAL.title(ctx, frame, tick, F, color)
+	if tick < F + FATAL_TITLE then return end
+	local name = ctx.moveData.Moves[ctx.cin.move].name
+	if ctx.cin.finish then
+		frame.title = { text = "K.O.", color = color, sub = name }
+	else
+		frame.title = { text = name, color = color, sub = "COUP FATAL" }
+	end
+end
+
+-- KAI 滅 CIEL ÉTEINT: he walks on, glides into the target and the world goes black; only the
+-- flashes of the blows are seen. The light comes back on his back, a kanji burning on it.
+function FATAL.KAI(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	frame.grade.void = tick < F
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	if tick < 36 then
+		local p = progress(tick, 0, 36)
+		a.x, a.facing, a.state, a.vx = FATAL.inside(ctx, lerp(cx - dir * 9, cx - dir * 5, p)), dir, "Walking", dir * 2
+		table.insert(frame.fx, { key = "ciel-seal", kind = "kanjiSeal", pos = v(cx - dir * 7, 0.06, 0), color = color, text = "滅", keep = true })
+		frame.shot = frameOn("kai-ciel-walk", dir, { a, d }, { yaw = 10, pitch = -12, fill = 0.7, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < 64 then
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "StandTall"
+		frame.grade.crimson = true
+		frame.shot = frameOn("kai-ciel-eyes", dir, { a }, { yaw = 24, pitch = -4, fill = 0.85, fov = 26, band = "bust", focus = P(A, "Head") })
+	elseif tick < 84 then
+		a.x, a.facing, a.pose = lerp(cx - dir * 5, cx - dir * 2.8, smooth(progress(tick, 64, 80))), dir, "Dash"
+		a.ghost = true
+		frame.speedLines = color
+		frame.shot = frameOn("kai-ciel-glide", dir, { a, d }, { yaw = 10, pitch = 2, fill = 0.8, fov = 36, focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		-- The black: only the flashes of a storm of blows.
+		a.x, a.facing = cx - dir * 2.8, dir
+		local k = (tick - 84) // 9
+		attack(a, moves, role(ctx, RUSH[k % #RUSH + 1]), true)
+		frame.black = 1
+		if (tick - 84) % 9 == 0 then
+			impact(frame, "ciel-flash" .. k, v(cx, 3 + (k % 3) * 0.5, 0.6), if k % 2 == 0 then "FFFFFF" else color, 1.2)
+		end
+		if tick >= 110 then frame.kanjiBack = "滅" end
+		frame.shot = frameOn("kai-ciel-dark", dir, { a, d }, { yaw = -30, pitch = 4, fill = 0.7, fov = 40, focus = P(D, "UpperTorso") })
+	else
+		-- The light comes back: KAI's back, the kanji, the target at his feet.
+		a.x, a.facing, a.pose = cx - dir * 2.8, dir, "StandTall"
+		a.lookDir = v(dir * 0.15, 0, -1)
+		d.x = cx + dir * 0.6
+		FATAL.fall(cin, d, tick, F, 0.6)
+		frame.black = 1 - smooth(progress(tick, F, F + 30))
+		frame.kanjiBack = "滅"
+		if tick < F + 30 then
+			frame.shot = frameOn("kai-ciel-back", dir, { a }, { yaw = 8, pitch = -6, fill = 0.8, fov = 34, focus = P(A, "UpperTorso") })
+		else
+			frame.shot = frameOn("kai-ciel-wide", dir, { a, d }, { yaw = -14, pitch = 4, fill = 0.5, fov = 38, focus = P(A, "UpperTorso") })
+		end
+		FATAL.title(ctx, frame, tick, F, RED)
+	end
+end
+
+-- TARO 終 DERNIÈRE CLOCHE: the last round. The bell, the weave, the hooks, the fist cocked in
+-- black and white, then the punch that ends it under the camera flashes.
+function FATAL.TARO(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F, Pr = data.FinalTick, data.PromptTicks[1]
+	local cx = center(ctx, d)
+	frame.grade.fire, frame.handheld = true, 0.2
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 3.2, dir, "GloveTap"
+		d.state = "Idle"
+		frame.shot = frameOn("taro-cloche-bell", dir, { a, d }, { yaw = 0, pitch = -6, fill = 0.55, fov = 36, focus = P(A, "UpperTorso") })
+	elseif tick < 70 then
+		-- The weave: the body rolls in a figure eight, a hook at each end.
+		local k = (tick - 30) // 10
+		a.x, a.facing = cx - dir * (3 - 0.2 * math.sin((tick - 30) / 10 * math.pi)), dir
+		if (tick - 30) % 10 < 6 then
+			a.state, a.move, a.weave, a.vx = "Dashing", nil, true, dir * 2
+		else
+			attack(a, moves, role(ctx, if k % 2 == 0 then "Elbow" else "Cross"), true)
+			spark(frame, "cloche-weave" .. k, v(cx, 3.6, 0.6), color, 0.8)
+		end
+		frame.shot = frameOn("taro-cloche-weave", dir, { a, d }, { yaw = 25, pitch = -4, fill = 0.85, fov = 36, focus = P(D, "UpperTorso") })
+	elseif tick < 110 then
+		local k = (tick - 70) // 6
+		a.x, a.facing = cx - dir * 2.9, dir
+		attack(a, moves, role(ctx, if k % 2 == 0 then "Cross" else "Elbow"), true)
+		d.hitstop = if (tick - 70) % 6 < 2 then 1 else 0
+		if (tick - 70) % 6 == 0 then spark(frame, "cloche-hook" .. k, v(cx, 3.4 + (k % 2) * 0.4, 0.6), color, 1) end
+		frame.shot = frameOn("taro-cloche-hooks", dir, { a, d }, { yaw = lerp(-40, 40, progress(tick, 70, 110)), pitch = -2, fill = 0.9,
+			fov = 34, focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		a.x, a.facing = cx - dir * 3, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.grade.mono = tick >= Pr - 4
+		frame.shot = frameOn("taro-cloche-cock", dir, { a }, { yaw = 36, pitch = -10, fill = lerp(0.75, 0.9, progress(tick, 110, F)), fov = 32,
+			band = "bust", focus = P(A, "Head") })
+	elseif tick < F + 26 then
+		local p = progress(tick, F, F + 26)
+		a.x, a.facing = cx - dir * 3, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		d.x, d.y, d.pose = FATAL.inside(ctx, lerp(cx, cx + dir * 7, smooth(p))), 4 * math.sin(p * math.pi), "Launched"
+		impact(frame, "cloche-ko", v(cx, 3.6, 0.6), color, 3)
+		for i = 1, 6 do -- the photographers' flashes round the ring
+			if (tick - F) == i * 3 then spark(frame, "cloche-flash" .. i, v(cx + dir * (i % 3 - 1) * 6, 4 + (i % 2) * 2, -8), "FFFFFF", 0.6) end
+		end
+		frame.shot = frameOn("taro-cloche-ko", dir, { a, d }, { yaw = 20, pitch = -4, fill = 0.6, fov = 40, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 3, dir, "Victory"
+		d.x = FATAL.inside(ctx, cx + dir * 7)
+		FATAL.fall(cin, d, tick, F + 26, 0)
+		frame.shot = frameOn("taro-cloche-after", dir, { a, d }, { yaw = -24, pitch = -8, fill = 0.55, fov = 38, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+
+-- ZEPHYR 嵐 CHUTE DE LA LUNE: kicked into the night sky, the target meets him in front of a
+-- full moon; he comes down with it, heel first, into the deck.
+function FATAL.ZEPHYR(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	frame.grade.sky = true
+	local moon = { point = true, x = cx, y = 26, z = -14 }
+	if tick >= 30 then
+		table.insert(frame.fx, { key = "lune-moon", kind = "crescent", pos = v(moon.x, moon.y, moon.z), color = "FFF3D6", keep = true })
+	end
+	if tick < 30 then
+		a.x, a.facing = cx - dir * 2.8, dir
+		attack(a, moves, role(ctx, "Uppercut"), tick >= 10)
+		d.x, d.y, d.state = cx, lerp(0, 6, smooth(progress(tick, 12, 30))), "Hitstun"
+		d.pose = if tick >= 12 then "Launched" else nil
+		frame.shot = frameOn("zephyr-lune-launch", dir, { a, d }, { yaw = 30, pitch = -10, fill = 0.8, fov = 40, focus = P(D, "UpperTorso") })
+	elseif tick < 70 then
+		local p = smooth(progress(tick, 30, 70))
+		d.x, d.y, d.pose, d.state = cx, lerp(6, 16, p), "Launched", "Hitstun"
+		a.x, a.y, a.facing, a.pose = cx - dir * 1.6, lerp(0, 19, p), dir, "Dash"
+		frame.speedLines = color
+		frame.shot = frameOn("zephyr-lune-rise", dir, { a, d }, { yaw = -20, pitch = -24, fill = 0.7, fov = 44, focus = P(A, "UpperTorso") })
+	elseif tick < 128 then
+		-- Above it, in front of the moon: the wind gathers round his leg.
+		d.x, d.y, d.pose, d.state = cx, 16, "Launched", "Hitstun"
+		a.x, a.y, a.facing, a.pose = cx - dir * 0.8, 20, dir, "WindGather"
+		local k = (tick - 70) // 12
+		if (tick - 70) % 12 == 0 then
+			table.insert(frame.fx, { key = "lune-wind" .. k, kind = "windBlade", from = v(a.x - dir * 2, 21 + (k % 2), 0.4),
+				to = v(a.x + dir * 2, 23 - (k % 2), 0.4), color = color, tilt = k * 0.7, scale = 0.8 })
+		end
+		frame.shot = frameOn("zephyr-lune-moon", dir, { a, moon }, { yaw = 10, pitch = -20, fill = 0.6, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < F then
+		d.x, d.y, d.pose, d.state = cx, 16, "Launched", "Hitstun"
+		a.x, a.y, a.facing = cx - dir * 0.8, 20, dir
+		attack(a, moves, role(ctx, "Hammer"), false)
+		frame.shot = frameOn("zephyr-lune-axe", dir, { a }, { yaw = 25, pitch = -6, fill = 0.9, fov = 30, focus = P(A, "UpperTorso") })
+	elseif tick < F + 22 then
+		local p = progress(tick, F, F + 14)
+		a.x, a.y, a.facing = cx - dir * 0.8, lerp(20, 3.5, p * p), dir
+		attack(a, moves, role(ctx, "Hammer"), true)
+		d.x, d.y, d.pose = cx + dir * 0.6, lerp(16, 0, p * p), "Launched"
+		a.ghost = p < 1
+		frame.speedLines = color
+		if p >= 1 then
+			impact(frame, "lune-crater", v(cx, 0.6, 0.6), color, 3)
+			for i = 1, 3 do ring(frame, "lune-ring" .. i, cx, i * 1.6, 0.1, color) end
+			table.insert(frame.fx, { key = "lune-dust", kind = "dust", pos = v(cx, 0, 0), direction = dir })
+		end
+		frame.shot = frameOn("zephyr-lune-fall", dir, { a, d }, { yaw = 20, pitch = 6, fill = 0.6, fov = 44, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.y, a.facing, a.pose = cx - dir * 3, 0, dir, "StandTall"
+		d.x = cx + dir * 0.6
+		FATAL.fall(cin, d, tick, F + 14, 0)
+		frame.shot = frameOn("zephyr-lune-after", dir, { a, d }, { yaw = -39, pitch = 4, fill = 0.6, fov = 38, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+
+-- AKEMI 刻 L'INSTANT VOLÉ: she stops time. The world goes grey and still, she walks round the
+-- frozen target cutting it from every side, sheathes her blade behind it... and time comes
+-- back with every cut at once.
+function FATAL.AKEMI(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	local stopped = tick >= 30 and tick < F
+	frame.grade.mono = stopped
+	if tick < F then
+		d.x, d.state, d.pose = cx, "Hitstun", if stopped then "Dash" else nil
+		d.hitstop = if stopped then 1 else 0
+	end
+	if tick < 30 then
+		a.x, a.facing, a.pose = cx - dir * 3.2, dir, "Sheathe"
+		frame.shot = frameOn("akemi-instant-tick", dir, { a, d }, { yaw = 30, pitch = 0, fill = 0.7, fov = 32, focus = P(A, "Head") })
+	elseif tick < 110 then
+		-- Round the still body, a cut at every step (her afterimages stay: time is stopped).
+		local p = progress(tick, 30, 110)
+		local k = (tick - 30) // 10
+		around(a, cx, dir, lerp(0.08, 0.92, p) * math.pi, 3, 0)
+		if (tick - 30) % 10 < 5 then
+			attack(a, moves, role(ctx, AKEMI_STRIKES[k % #AKEMI_STRIKES + 1]), true)
+		else
+			a.state, a.move, a.vx = "Walking", nil, 2
+		end
+		if (tick - 30) % 20 == 0 then
+			table.insert(frame.fx, { key = "instant-copy" .. k, kind = "afterimage", slot = A, color = color, life = 2.2 })
+		end
+		frame.shot = frameOn("akemi-instant-orbit", dir, { a, d }, { yaw = lerp(-20, 60, p), pitch = 10, fill = 0.7, fov = 40,
+			focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		a.x, a.z, a.lookDir, a.facing, a.pose = cx + dir * 3.4, nil, nil, dir, "Sheathe"
+		frame.shot = frameOn("akemi-instant-back", dir, { a, d }, { yaw = -50, pitch = 2, fill = 0.6, fov = 34, focus = P(A, "Head") })
+	elseif tick < F + 24 then
+		-- Time comes back: every cut at once.
+		a.x, a.facing, a.pose = cx + dir * 3.4, dir, "Sheathe"
+		if tick == F then
+			for i = 1, 5 do
+				local angle = i * 0.63
+				slash(frame, "instant-cut" .. i, v(cx - math.cos(angle) * 3, 3.4 - math.sin(angle) * 2.4, 0.5),
+					v(cx + math.cos(angle) * 3, 3.4 + math.sin(angle) * 2.4, 0.5), color)
+			end
+		end
+		impact(frame, "instant-resume", v(cx, 3.4, 0.6), color, 2.6)
+		d.x = cx
+		FATAL.fall(cin, d, tick, F + 6, 0.4)
+		frame.shot = frameOn("akemi-instant-resume", dir, { a, d }, { yaw = 15, pitch = 2, fill = 0.65, fov = 36, focus = P(D, "UpperTorso") })
+	else
+		local p = progress(tick, F + 24, data.Length)
+		a.x, a.facing, a.state, a.vx = cx + dir * lerp(3.4, 7, p), dir, "Walking", dir * 2
+		d.x = cx
+		FATAL.fall(cin, d, tick, F + 6, 0.4)
+		frame.shot = frameOn("akemi-instant-leave", dir, { a, d }, { yaw = 25, pitch = 2, fill = 0.55, fov = 34, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+
+-- RYUKEN 砕 POING DU MONDE: the roar, the fist charging until it smokes, then one punch that
+-- goes through the target, the deck and the arena wall.
+function FATAL.RYUKEN(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F, Pr = data.FinalTick, data.PromptTicks[1]
+	local cx = center(ctx, d)
+	local wall = FATAL.inside(ctx, cx + dir * math.min(12, roomAhead(ctx, cx, dir)))
+	frame.grade.rage = true
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	if tick < 36 then
+		a.x, a.facing, a.pose = cx - dir * 3.2, dir, "Roar"
+		frame.quake = if tick < 4 then 0.4 else nil
+		frame.shot = frameOn("ryuken-monde-roar", dir, { a }, { yaw = 20, pitch = -14, fill = 0.85, fov = 34, focus = P(A, "Head") })
+	elseif tick < 90 then
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.aura = A
+		if tick % 6 == 0 then table.insert(frame.fx, { key = "monde-heat" .. tick, kind = "smoke", pos = v(a.x - dir * 0.6, 3, 0.5) }) end
+		frame.shot = frameOn("ryuken-monde-charge", dir, { a, d }, { yaw = -34, pitch = -8, fill = 0.8, fov = 38, focus = P(A, "UpperTorso") })
+	elseif tick < F then
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.grade.mono = tick >= Pr - 4
+		frame.shot = frameOn("ryuken-monde-fist", dir, { a }, { yaw = 40, pitch = -4, fill = lerp(0.72, 0.85, progress(tick, 90, F)), fov = 32,
+			band = "bust", focus = P(A, "Head") })
+	elseif tick < F + 26 then
+		local p = smooth(progress(tick, F, F + 18))
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		d.x, d.y, d.pose = lerp(cx, wall, p), 2 * math.sin(p * math.pi), "Launched"
+		d.ghost = p < 1
+		if tick == F then
+			rageFist(frame, "monde-fist", v(a.x + dir * 1, 3.4, 0.4), v(wall + dir * 6, 3.4, 0.4), color, 2.4)
+			crack(frame, "monde-crack", v(cx - dir * 1, 0.05, 0), v(wall, 0.05, 0), color)
+		end
+		impact(frame, "monde-blow", v(cx, 3.4, 0.6), color, 3)
+		frame.quake = if tick < F + 6 then 1 else nil
+		frame.shot = frameOn("ryuken-monde-blow", dir, { a, d }, { yaw = 10, pitch = 2, fill = 0.5, fov = 46, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		if tick % 8 == 0 then table.insert(frame.fx, { key = "monde-steam" .. tick, kind = "smoke", pos = v(a.x + dir * 0.9, 3.2, 0.4) }) end
+		d.x = wall
+		FATAL.fall(cin, d, tick, F + 26, 0.5)
+		frame.shot = frameOn("ryuken-monde-after", dir, { a, d }, { yaw = -20, pitch = 2, fill = 0.5, fov = 40, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+
+-- SHIN 一閃 ISSEN (Wilhem's idea): an old samurai film. Black and white, the two of them far
+-- apart, the eyes, the hand on the hilt... nothing moves. Then he is across the screen, one red
+-- line through the frame, the blade back in its sheath, and only then does the target fall.
+function FATAL.SHIN(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	local blood = "C8102E"
+	local far, beyond = FATAL.inside(ctx, cx - dir * 12), FATAL.inside(ctx, cx + dir * 10)
+	frame.grade.mono = true
+	if tick < F + 56 then d.x, d.y, d.state = cx, 0, "Idle" end -- (still standing until the sheath clicks)
+	if tick < 40 then
+		a.x, a.facing, a.pose = far, dir, "StandTall"
+		frame.shot = frameOn("shin-issen-duel", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.32, fov = 30, focus = P(A, "UpperTorso") })
+	elseif tick < 66 then
+		a.x, a.facing, a.pose = far, dir, "Iai"
+		frame.shot = frameOn("shin-issen-eyes", dir, { a }, { yaw = 20, pitch = 0, fill = 0.8, fov = 24, band = "bust", lift = IAI_DROP,
+			focus = P(A, "Head") })
+	elseif tick < 88 then
+		a.x, a.facing, a.pose = far, dir, "Iai"
+		frame.shot = frameOn("shin-issen-foe", dir, { d }, { yaw = -24, pitch = 0, fill = 0.8, fov = 24, band = "bust", focus = P(D, "Head") })
+	elseif tick < 128 then
+		a.x, a.facing, a.pose = far, dir, "Iai"
+		frame.shot = frameOn("shin-issen-hilt", dir, { a }, { yaw = 34, pitch = -6, fill = lerp(0.85, 1.05, progress(tick, 88, 128)), fov = 24,
+			band = "bust", lift = IAI_DROP, focus = P(A, "Head") })
+	elseif tick < F then
+		-- The still before the cut (the C key comes here).
+		a.x, a.facing, a.pose = far, dir, "Iai"
+		frame.shot = frameOn("shin-issen-still", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.32, fov = 30, focus = P(A, "UpperTorso") })
+	elseif tick < F + 24 then
+		-- He is already across: one red line through the whole frame.
+		a.x, a.facing = beyond, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		a.ghost = tick < F + 3
+		d.hitstop = 1
+		slash(frame, "issen-line", v(cx - dir * 40, 3.6, 0.4), v(cx + dir * 40, 3.6, 0.4), blood)
+		impact(frame, "issen-flash", v(cx, 3.6, 0.6), "FFFFFF", 2)
+		frame.shot = frameOn("shin-issen-cut", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.32, fov = 30, focus = P(D, "UpperTorso") })
+	elseif tick < F + 56 then
+		a.x, a.facing, a.pose = beyond, dir, if tick < F + 36 then "Iai" else "Sheathe"
+		d.hitstop = 1
+		frame.shot = frameOn("shin-issen-sheathe", dir, { a }, { yaw = -30, pitch = -4, fill = 0.9, fov = 26, band = "bust",
+			focus = P(A, "Head") })
+	else
+		-- The click of the sheath: the target falls.
+		a.x, a.facing, a.pose = beyond, dir, "StandTall"
+		d.x = cx
+		FATAL.fall(cin, d, tick, F + 56, 0)
+		frame.shot = frameOn("shin-issen-fall", dir, { a, d }, { yaw = -30, pitch = 1, fill = 0.32, fov = 30, focus = P(D, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F + 30, blood)
+	end
+end
+
+-- DAICHA 虚 NÉANT: a black sun opens behind the target and pulls it in, the orbs spinning
+-- round it; he closes his hand and the void collapses on it.
+function FATAL.DAICHA(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	local hole = { point = true, x = cx + dir * 3, y = 9, z = -10 }
+	frame.grade.inverse = tick < F + 24
+	-- (the black sun lasts until the void collapses: life in seconds of slowed-down play)
+	eclipse(frame, "neant-sun", v(hole.x, hole.y, hole.z), color, 0.9, (F + 24) / 60 / (ctx.config.CinematicTimeScale or 1))
+	if tick < 36 then
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
+		d.x, d.state = cx, "Hitstun"
+		frame.shot = frameOn("daicha-neant-summon", dir, { a, hole }, { yaw = -20, pitch = -10, fill = 0.7, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < 100 then
+		local p = smooth(progress(tick, 36, 100))
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
+		d.x, d.y, d.state, d.pose = lerp(cx, cx + dir * 1.5, p), lerp(0, 5, p), "Hitstun", "Launched"
+		if tick == 40 then orbs(frame, "neant-crown", v(d.x, 5.5, 0), 2.4, 6, color, 3, 0.6, 0, 0.5) end
+		if (tick - 36) % 8 == 0 then
+			table.insert(frame.fx, { key = "neant-dart" .. tick, kind = "orbDart", from = v(a.x + dir, 4, 0.4), to = v(d.x, d.y + 3, 0.4),
+				color = color })
+		end
+		frame.shot = frameOn("daicha-neant-pull", dir, { a, d }, { yaw = 30, pitch = 2, fill = 0.55, fov = 40, focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		a.x, a.facing = cx - dir * 5, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		d.x, d.y, d.state, d.pose = cx + dir * 1.5, 5, "Hitstun", "Launched"
+		frame.grade.void = true
+		frame.shot = frameOn("daicha-neant-grip", dir, { a }, { yaw = 24, pitch = -4, fill = 0.75, fov = 30, band = "bust", focus = P(A, "Head") })
+	elseif tick < F + 24 then
+		-- The void closes on it.
+		a.x, a.facing = cx - dir * 5, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		d.x, d.y, d.pose = cx + dir * 1.5, 5, "Launched"
+		impact(frame, "neant-collapse", v(hole.x, hole.y, 0.6), "0B0712", 3)
+		frame.shot = frameOn("daicha-neant-collapse", dir, { a, d }, { yaw = 0, pitch = 0, fill = 0.6, fov = 40, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
+		d.x = cx + dir * 1.5
+		FATAL.fall(cin, d, tick, F + 24, 5)
+		frame.shot = frameOn("daicha-neant-after", dir, { a, d }, { yaw = -16, pitch = 4, fill = 0.55, fov = 38, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+
+-- HIBECARES 墓 TOMBEAU DES ROIS: the ruins rise round the arena, three steps shake the deck
+-- and cage the target in stone, both fists come down and the stones close over it: a tomb.
+function FATAL.HIBECARES(ctx, frame, a, d, tick, dir)
+	local cin, moves = ctx.cin, ctx.moveData.Moves
+	local data = ctx.moveData.Cinematics[cin.move]
+	local A, D = cin.attacker, cin.defender
+	local color = ctx.characters[A].Energy
+	local F = data.FinalTick
+	local cx = center(ctx, d)
+	frame.grade.ruin = true
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	if tick < 36 then
+		a.x, a.facing, a.pose = cx - dir * 4.5, dir, "Colossus"
+		if tick == 0 then rocks(frame, "tombeau-ruins", cx, 10, 10, color) end
+		frame.quake = if tick < 6 then 0.4 else nil
+		frame.shot = frameOn("hibecares-tombeau-rise", dir, { a }, { yaw = 24, pitch = -26, fill = 0.85, fov = 40, focus = P(A, "Head") })
+	elseif tick < 96 then
+		-- Three steps: each one shakes the deck and a line of stone runs to the target.
+		local p = progress(tick, 36, 96)
+		a.x, a.facing, a.pose = lerp(cx - dir * 4.5, cx - dir * 3.2, p), dir, "Colossus"
+		for i, at in { 46, 62, 78 } do
+			if tick == at then
+				table.insert(frame.fx, { key = "tombeau-line" .. i, kind = "rockLine", from = v(a.x, 0, 0), to = v(cx, 0, 0), count = 4,
+					color = color, life = 1.6 })
+				frame.quake = 0.6
+			end
+		end
+		if tick == 82 then rocks(frame, "tombeau-cage", cx, 1.8, 6, color) end
+		frame.shot = frameOn("hibecares-tombeau-steps", dir, { a, d }, { yaw = -30, pitch = -8, fill = 0.75, fov = 40, focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		frame.shot = frameOn("hibecares-tombeau-raise", dir, { a }, { yaw = 30, pitch = -30, fill = 0.8, fov = 36, focus = P(A, "Head") })
+	elseif tick < F + 24 then
+		a.x, a.facing = cx - dir * 3.2, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		if tick == F then
+			debris(frame, "tombeau-debris", v(cx, 3, 0.4), color, 2.2)
+			crack(frame, "tombeau-crack", v(cx - dir * 4, 0.05, 0), v(cx + dir * 4, 0.05, 0), color)
+			rocks(frame, "tombeau-lid", cx, 2.6, 8, color)
+		end
+		impact(frame, "tombeau-smash", v(cx, 2.4, 0.6), color, 3)
+		frame.quake = if tick < F + 8 then 1 else nil
+		d.x = cx
+		FATAL.fall(cin, d, tick, F, 0)
+		frame.shot = frameOn("hibecares-tombeau-smash", dir, { a, d }, { yaw = 20, pitch = 6, fill = 0.6, fov = 42, focus = P(D, "UpperTorso") })
+	else
+		a.x, a.facing, a.pose = cx - dir * 3.2, dir, "Colossus"
+		d.x = cx
+		FATAL.fall(cin, d, tick, F, 0)
+		if tick % 10 == 0 then table.insert(frame.fx, { key = "tombeau-dust" .. tick, kind = "dust", pos = v(cx, 0, 0), direction = -dir }) end
+		frame.shot = frameOn("hibecares-tombeau-after", dir, { a, d }, { yaw = -20, pitch = 10, fill = 0.5, fov = 40, focus = P(A, "UpperTorso") })
+		FATAL.title(ctx, frame, tick, F, color)
+	end
+end
+Director.FATAL = FATAL
+
 local KO = {}
 
 local function koEnd(ctx, frame, W, color)
@@ -2978,7 +3469,10 @@ function Director.cinematic(ctx)
 	local frame = newFrame()
 	local kit = kitOf(ctx)
 	local own = kit and KIT[kit.Name]
-	if data.Type == "Awaken" then
+	if data.Type == "Fatal" then
+		local scene = kit and FATAL[kit.Name] or FATAL.KAI
+		scene(ctx, frame, a, d, ctx.tick, dir)
+	elseif data.Type == "Awaken" then
 		awakening(ctx, frame, a, d, ctx.tick, dir)
 	elseif own and own[data.Type] then
 		own[data.Type](ctx, frame, a, d, ctx.tick, dir)

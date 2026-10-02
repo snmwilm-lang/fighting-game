@@ -404,8 +404,10 @@ function HUD:fillCombos()
 	table.insert(lines, { "3 ULTIMES (route PROPRE seulement)", GOLD })
 	table.insert(lines, { "1. R seul (2 barres) : " .. moveName(kit, u.Rush), ULTIMATE })
 	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : " .. moveName(kit, u.Awaken) .. ", finale selon la route", ULTIMATE })
-	table.insert(lines, { "   −95 % de la vie ; sous 50 % : FINAL FINISH ; QTE en rythme pendant la rafale", ULTIMATE })
-	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R au sommet : bonus)", ULTIMATE })
+	table.insert(lines, { "   jusqu'à −35 % de la vie max : chaque QTE raté pendant la rafale en retire ; FINAL FINISH s'il achève", ULTIMATE })
+	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R au sommet : +10 % ; raté : −15 %)", ULTIMATE })
+	table.insert(lines, { "COUP FATAL · touche C (manette L1) : " .. moveName(kit, "Fatal") .. " — 3 barres, ta vie sous 30 %, une fois par match", ULTIMATE })
+	table.insert(lines, { "   en plein combo : −95 % de la vie max ; à froid : −60 % ; QTE raté : −40 % du coup ; paré ou esquivé : perdu", ULTIMATE })
 	table.insert(lines, { "↓ + L : " .. moveName(kit, "LowKick") .. " (garde basse)  ·  ↓ + R : " .. moveName(kit, "Uppercut") .. " (lanceur)", WHITE })
 	table.insert(lines, { "Après le lanceur : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : " .. moveName(kit, "Rising") .. " (invincible au départ)", ORANGE })
@@ -528,6 +530,9 @@ function HUD:fillLab()
 	add("2 · ÉVEIL · FINAL FINISH (cible < 50 %)", play("Awaken", kit.FullRoutes[1].name, true))
 	add("3 · " .. kit.GateTitle.sub, play("Gate", nil, false))
 	add("3 · " .. kit.GateTitle.sub .. " · K.O. (cible faible)", play("Gate", nil, true))
+	add("4 · COUP FATAL · " .. moveName(kit, "Fatal") .. " (en combo)", play("Fatal", nil, false))
+	add("4 · COUP FATAL · K.O. (son écran de K.O.)", play("Fatal", nil, true))
+	add("4 · COUP FATAL · à froid", play("Fatal", "raw", false))
 	add("SCÈNE DE K.O. (aperçu seul)", function()
 		if self.onPreviewKO then self.onPreviewKO() end
 	end)
@@ -770,7 +775,12 @@ function HUD:update(world, views, fps, dt)
 		bar.ready.Visible = ready
 		bar.ready.Text = if view.meter >= MoveData.Moves[u.Awaken].meterCost then "3 BARRES · ÉVEIL / " .. kit.GateTitle.text
 			else "ULTIME PRÊT · R"
-		if ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
+		-- COUP FATAL (last breath, once per match): announced above everything else.
+		if view.fatal == "ready" then
+			bar.ready.Visible = true
+			bar.ready.Text = "COUP FATAL PRÊT · C — " .. moveName(kit, "Fatal")
+			bar.ready.TextTransparency = 0.1 * (1 + math.sin(os.clock() * 12))
+		elseif ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
 	for _, c in self.combo do
 		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end

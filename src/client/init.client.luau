@@ -269,6 +269,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	local mine = displayed[localSlot]
 	local kit = mine and MoveData.Kits[mine.kit]
 	input.setUltimateReady(kit ~= nil and mine.meter >= MoveData.Moves[kit.Ultimates.Rush].meterCost)
+	input.setFatalReady(mine ~= nil and mine.fatal == "ready")
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
 end)

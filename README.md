@@ -16,6 +16,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Attaque lourde | **Clic droit** (ou K) | B | LOURD |
 | Spéciale (invincible au départ) | **E** | Y | SPÉ |
 | Ultime (2 barres de ki, cinématique) | **R** | LT | ULTI |
+| **Coup fatal** (3 barres, ta vie sous 30 %, une fois par match) | **C** | LB | FATAL |
 | Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
 | Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
 | **Changer de perso** | **T** ou bouton PERSO | — | bouton |
@@ -158,9 +159,32 @@ Les ruées (**R** seul) ne se ressemblent plus, chacune a sa propre structure :
   sans se presser, le 2e l'enfonce dans le sol, ses piétinements la font décoller de plus en
   plus haut, le 3e fait le cratère.
 
-L'éveil retire **95 % de la vie actuelle** ; sous **50 %** c'est un **FINAL FINISH** (K.O.) ;
-la finale change selon la route ; QTE en rythme pendant la rafale. La porte retire 40 % de la
-vie max (peut tuer) ; R pile au sommet : +10 %. Les ultimes ne sont ni esquivés ni parés.
+Les QTE comptent : l'éveil retire **jusqu'à 35 % de la vie max** (les 4 QTE en rythme réussis),
+chaque QTE raté en retire une part (tout raté : 12 %) ; il ne tue que s'il achève (FINAL FINISH).
+La finale change selon la route. La porte retire 40 % de la vie max (peut tuer) ; R pile au
+sommet : +10 %, raté : −15 %. Les ultimes ne sont ni esquivés ni parés.
+
+### Le coup fatal (touche C)
+
+Le coup du dernier souffle, inspiré des Fatal Blow (Mortal Kombat 11), Rage Art (Tekken) et
+de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois par match**.
+
+- **En plein combo** (sur un coup qui touche) : **−95 % de la vie max** de l'adversaire.
+- **À froid** (hors combo) : −60 % seulement. Lent à sortir : paré ou esquivé, il est perdu
+  (et la jauge avec).
+- Un seul QTE, très serré : **C** au sommet de la scène. Raté : le coup perd 40 %.
+- Chaque perso a **sa scène unique**, qui est **son écran de K.O.** quand le coup tue :
+
+| Perso | Coup fatal | La scène |
+|---|---|---|
+| KAI | 滅 CIEL ÉTEINT | il marche vers sa cible, glisse sur elle, tout devient noir : seuls les éclairs des coups ; la lumière revient sur son dos et un kanji géant |
+| TARO | 終 DERNIÈRE CLOCHE | la cloche du dernier round, l'esquive en huit, les crochets, le poing armé en noir et blanc, puis le direct sous les flashs des photographes |
+| ZEPHYR | 嵐 CHUTE DE LA LUNE | la cible part dans le ciel, il la rejoint devant une pleine lune et redescend avec elle, talon en avant, dans un cratère |
+| AKEMI | 刻 L'INSTANT VOLÉ | le temps s'arrête (gris et immobile), elle tourne autour de la cible en la coupant de partout, rengaine derrière elle… et tout reprend d'un coup |
+| RYUKEN | 砕 POING DU MONDE | le cri, le poing qui fume, puis un coup qui traverse la cible, le sol et l'arène jusqu'au mur |
+| SHIN | 一閃 ISSEN | un vieux film de sabre en noir et blanc : le duel de loin, la main sur la poignée, rien ne bouge… il est déjà de l'autre côté, une seule ligne rouge traverse l'écran, il rengaine, la cible tombe |
+| DAICHA | 虚 NÉANT | un soleil noir s'ouvre et aspire la cible, les orbes tournent autour, il ferme la main et le vide se referme |
+| HIBECARES | 墓 TOMBEAU DES ROIS | les ruines surgissent, trois pas font trembler l'arène et enferment la cible dans la pierre, ses poings s'abattent : un tombeau |
 
 ### TARO : deux styles (touches & / 1 et é / 2)
 

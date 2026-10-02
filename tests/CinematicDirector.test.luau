@@ -150,7 +150,7 @@ print("CinematicDirector")
 
 for _, kit in MoveData.KitOrder do
 	local routes = MoveData.Kits[kit].FullRoutes
-	local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 } }
+	local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 }, { "Fatal" }, { "Fatal", nil, 300 }, { "Fatal", "raw" } }
 	for _, route in routes do
 		table.insert(cases, { "Awaken", route.name })
 	end
@@ -167,8 +167,52 @@ for _, kit in MoveData.KitOrder do
 	end
 end
 
+-- What a COUP FATAL shows: its shots, the title of its last tick, whether a K.O. scene followed.
+local function fatalScene(kit, hp)
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit, "KAI")
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = -1.3, 1.3
+	Sim.debugCinematic(world, 1, "Fatal", nil, hp)
+	local anchors, shots, order, last, grades = {}, {}, {}, nil, {}
+	while world.cinematic do
+		local cin = world.cinematic
+		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views(world), anchors = anchors,
+			moveData = MoveData, config = Config, characters = CharacterData })
+		if frame then
+			if not shots[frame.shot.name] then table.insert(order, frame.shot.name) end
+			shots[frame.shot.name] = true
+			for grade, on in frame.grade do if on then grades[grade] = true end end
+			last = frame
+		end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	end
+	return shots, order, last, grades, world
+end
+
+test("COUP FATAL: every kit has its own scene, which is its K.O. screen when it kills", function()
+	local seen = {}
+	for _, kit in MoveData.KitOrder do
+		local shots, order, last, _, world = fatalScene(kit, 200)
+		expect(#order >= 5, kit .. "'s COUP FATAL has only " .. #order .. " shots")
+		for name in shots do
+			expect(not name:find("^ko%-"), kit .. "'s COUP FATAL plays the generic K.O. scene (" .. name .. ")")
+			expect(not seen[name], kit .. " borrows the shot " .. name .. " of " .. tostring(seen[name]))
+			seen[name] = kit
+		end
+		expect(last and last.title and last.title.text == "K.O.", kit .. ": a killing COUP FATAL does not end on K.O.")
+		expect(world.fighters[2].hp == 0, kit .. ": the target survived a COUP FATAL it should kill")
+		local _, _, alive = fatalScene(kit, nil)
+		local name = MoveData.Moves[MoveData.Kits[kit].Ultimates.Fatal].name
+		expect(alive and alive.title and alive.title.text == name, kit .. ": a COUP FATAL that does not kill should end on its name")
+	end
+	-- SHIN's ISSEN is an old samurai film: black and white from the first frame to the last.
+	local _, _, _, grades = fatalScene("SHIN", 200)
+	expect(grades.mono, "SHIN's ISSEN is not in black and white")
+end)
+
 test("FINAL FINISH plays every shot of the K.O. storyboard", function()
-	local _, shots = playCinematic("Awaken", "DRAGON", 300, 0)
+	local _, shots = playCinematic("Awaken", "DRAGON", 150, 0) -- (no prompt pressed: 12 %, enough for 150 hp)
 	for _, name in { "ko-fall", "ko-hand", "ko-scene1", "ko-feet", "ko-face", "ko-scene2", "ko-back", "ko-wide" } do
 		expect(shots[name], "missing shot " .. name)
 	end

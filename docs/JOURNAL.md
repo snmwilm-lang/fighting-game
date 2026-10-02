@@ -26,7 +26,11 @@ l'éveil. La touche F étant la garde, le coup fatal est sur C (manette LB).
   DES ROIS. Client : `frame.black` (écran noir, chaque coup = un flash).
 - Tests : CombatSimulation 85 (+3 coup fatal, éveil réécrit), CinematicDirector 323 (scènes
   fatales placées, uniques, K.O. / nom), Cinematography (cadrage + mains lisibles des coups
-  fatals), Animation 35, FighterAI 10 ; RESULTS.
+  fatals), Animation 35, FighterAI 10 ; Kits 54, PressQueue 4, Fuzz 2, Cinematography 114,
+  Lobby 5 : tout passe.
+- Équilibre (`Balance.luau -a 4 120`, LÉGENDE) : KAI 49, TARO 59, ZEPHYR 48, AKEMI 51,
+  RYUKEN 57, SHIN 44, DAICHA 36, HIBECARES 55 (tous entre 35 et 65 %). DAICHA est au plus bas
+  de la fourchette : à surveiller.
 
 ### Problèmes ouverts / prochaine étape
 

@@ -108,10 +108,39 @@ local GAITS = {
 }
 Animator.GAITS = GAITS
 
+-- Each kit's guard has its own rhythm between its two idle keys (rate, Hz) and a slow weight
+-- shift from one foot to the other (shift, degrees): the boxer bounces, the swordsman barely
+-- breathes, the colossus heaves.
+local IDLE_RHYTHM = {
+	KAI = { rate = 1.15, shift = 3 }, TARO = { rate = 1.9, shift = 4 }, TARO_CLASSIQUE = { rate = 1.4, shift = 3 },
+	ZEPHYR = { rate = 1.35, shift = 5 }, AKEMI = { rate = 0.8, shift = 3 }, RYUKEN = { rate = 1.0, shift = 2 },
+	SHIN = { rate = 0.55, shift = 1.5 }, DAICHA = { rate = 0.7, shift = 4 }, HIBECARES = { rate = 0.5, shift = 2.5 },
+}
+Animator.IDLE_RHYTHM = IDLE_RHYTHM
+
 local SHAKE_STATES = { Hitstun = true, Launched = true, Blockstun = true, CrouchBlockstun = true, KO = true,
 	Crumple = true, GuardBroken = true }
 local LYING = { Knockdown = true, KO = true }
 local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08 }
+
+-- Overlap and follow-through: the upper body follows its key poses through springs, the arms
+-- a little behind the torso and the hands and head behind the arms, so a motion drags,
+-- overshoots and settles instead of stopping dead. { frequency (Hz), damping }.
+local DRAG = {
+	Waist = { 15, 0.8 }, LeftShoulder = { 12, 0.66 }, RightShoulder = { 12, 0.66 },
+	LeftElbow = { 10, 0.6 }, RightElbow = { 10, 0.6 }, LeftWrist = { 9, 0.55 }, RightWrist = { 9, 0.55 },
+	Neck = { 8, 0.62 },
+}
+local DRAG_NAMES = {}
+for name in DRAG do table.insert(DRAG_NAMES, name) end
+table.sort(DRAG_NAMES)
+-- A leg that is not planted (a kick, a jump, a fall) follows through too; a planted one stays
+-- exactly where the leg IK put it.
+local LEG_DRAG = { 11, 0.65 }
+local LEGS = { Left = { "LeftHip", "LeftKnee", "LeftAnkle" }, Right = { "RightHip", "RightKnee", "RightAnkle" } }
+local WHIP = 7 -- a snap (impact, hit) lands at once and carries on past it: per second of the jump
+local CUT_DISTANCE = 2.5 -- the body moved further than this in one frame: a cut (blink, new round, shot)
+Animator.DRAG = DRAG
 
 function Animator.new(deps)
 	local skel = deps.skeleton
@@ -134,6 +163,7 @@ function Animator.new(deps)
 		track = { stateAge = 0, hitAge = 10, landAge = 10, landSpeed = 0, walkDistance = 0, walkDir = 1,
 			velocity = 0, accel = 0, victoryAge = 0 },
 		springs = { lean = { x = 0, v = 0 }, recoil = { x = 0, v = 0 }, lookP = { x = 0, v = 0 }, lookY = { x = 0, v = 0 } },
+		drag = {},
 	}, Animator)
 	return self
 end
@@ -241,7 +271,31 @@ end
 
 -- ===================================================================== timelines
 
-local COIL_AT = 0.7 -- share of the startup spent reaching the anticipation peak (then held)
+local COIL_AT = 0.45 -- share of the startup spent reaching the anticipation (then a moving hold)
+local TENSION = 0.22 -- how much further the hold winds up, away from the strike, before the release
+local UPPER = { "Waist", "Neck", "LeftShoulder", "RightShoulder", "LeftElbow", "RightElbow", "LeftWrist", "RightWrist" }
+
+-- The anticipation pushed further away from the strike, upper body only (the legs and the
+-- planted feet stay where the coil put them): the coil keeps tightening until the release.
+function Animator:tension(id, coil, active)
+	local key = id .. "T"
+	local hit = self.exaggerated[key]
+	if hit then return hit end
+	hit = table.clone(coil)
+	local limits = self.poses.LIMITS
+	for _, name in UPPER do
+		local c, a = coil[name], active[name]
+		if c and a then
+			local v = {}
+			for i = 1, 3 do v[i] = (c[i] or 0) + ((c[i] or 0) - (a[i] or 0)) * TENSION end
+			local range = limits[name]
+			if range then v[1] = math.clamp(v[1], range[1], range[2]) end
+			hit[name] = v
+		end
+	end
+	self.exaggerated[key] = hit
+	return hit
+end
 
 function Animator:attack(id, frame, poseRate)
 	local m, set = self.moves[id], self:moveSet(id)
@@ -255,10 +309,12 @@ function Animator:attack(id, frame, poseRate)
 		local coil = if set.Coil then self:resolve(set.Coil) else self:cachedExaggeration(id .. "C", stance, startup, 1.15)
 		local u = math.max(frame, 0) / S
 		if u < COIL_AT then
-			local t = quantize(u / COIL_AT, S * COIL_AT, poseRate)
+			local t = quantize(u / COIL_AT, math.max(S * COIL_AT, 2), poseRate)
 			return lerpPose(stance, coil, easeOut(t)), id .. ":S" .. t, false
 		end
-		return coil, id .. ":C", false
+		-- Moving hold: the wind-up tightens (slow in) until the strike leaves.
+		local h = quantize((u - COIL_AT) / (1 - COIL_AT), math.max(S * (1 - COIL_AT), 2), poseRate)
+		return lerpPose(coil, self:tension(id, coil, active), easeInOut(h)), id .. ":C" .. h, false
 	end
 	local a = frame - S
 	local active2 = set.Active2 and m.hits and m.hits > 1 and self:resolve(set.Active2)
@@ -337,14 +393,21 @@ function Animator:gait(time)
 	return pose
 end
 
+local TAKEOFF = 0.1 -- seconds of the push-off: the legs straighten out of the crouch
+
 function Animator:air(vy)
-	local poses = self.poses
 	local up = self.config.JumpVelocity
 	if vy > 0 then
 		local t = 1 - clamp01(vy / up)
-		return lerpPose(self:resolve(poses.JumpRise), self:resolve(poses.JumpApex), easeInOut(t))
+		local rise = lerpPose(self:resolve(self:base("JumpRise")), self:resolve(self:base("JumpApex")), easeInOut(t))
+		local age = self.track.stateAge
+		if self.track.state == "Jumping" and age < TAKEOFF then
+			-- Push-off: out of the landing crouch, the legs straighten as the body leaves.
+			return lerpPose(self:resolve(self:base("Land")), rise, easeOut(age / TAKEOFF))
+		end
+		return rise
 	end
-	return lerpPose(self:resolve(poses.JumpApex), self:resolve(poses.Fall), easeInOut(clamp01(-vy / up)))
+	return lerpPose(self:resolve(self:base("JumpApex")), self:resolve(self:base("Fall")), easeInOut(clamp01(-vy / up)))
 end
 
 function Animator:reaction(view, poseRate)
@@ -352,7 +415,7 @@ function Animator:reaction(view, poseRate)
 	local move = tr.hitBy and self.moves[tr.hitBy]
 	local kind = REACTION[tr.hitBy or ""]
 		or (if move and move.guard == "Low" then "HitLow" elseif (view.combo or 0) % 2 == 0 then "HitHigh2" else "HitHigh")
-	local base = self:resolve(poses[kind])
+	local base = self:resolve(self:base(kind))
 	local stance = self:resolve(self:base("STANCE"))
 	if (view.hitstop or 0) > 0 or tr.hitAge < 0.05 then
 		return self:cachedExaggeration(kind .. "I", stance, base, 1.15), kind .. ":I", true
@@ -370,6 +433,10 @@ function Animator:evaluate(view, time, poseRate)
 	-- A staged pose (cinematics): the kit's own version first (its victory, guard...).
 	local staged = view.pose and self:base(view.pose)
 	if staged and staged.Root then
+		if staged.Stance and not view.ghost then
+			-- A held stance of a scene (victory, roar, iai...) breathes: never a statue.
+			return self:solveStance(self:breathe(staged, 0.7, stepped)), "Pose:" .. view.pose, false
+		end
 		return self:resolve(staged), "Pose:" .. view.pose, false
 	end
 	if state == "Attack" and view.move and self.moves[view.move] and self:moveSet(view.move) then
@@ -395,11 +462,21 @@ function Animator:evaluate(view, time, poseRate)
 		local back = (view.vx or 0) * (view.facing or 1) < 0
 		if back then
 			local u = clamp01(tr.stateAge / (self.config.DashTicks / 60))
-			local pose = editable(self:resolve(poses.DashBack), { "Root" })
+			local pose = editable(self:resolve(self:base("DashBack")), { "Root" })
 			pose.Root[4] += 0.55 * self.scale * math.sin(math.pi * u)
 			return pose, "DashBack", false
 		end
 		local dash = self:resolve(self:base("Dash"))
+		if not view.weave then
+			-- Lean into it, hold, and brake into a crouch at the end (the weight carries on).
+			local u = clamp01(tr.stateAge / (self.config.DashTicks / 60))
+			local stance = self:resolve(self:base("STANCE"))
+			if u < 0.25 then
+				return lerpPose(stance, dash, easeOut(u / 0.25)), "Dash", false
+			elseif u > 0.7 then
+				return lerpPose(dash, self:resolve(self:base("Land")), easeInOut((u - 0.7) / 0.3) * 0.75), "Dash", false
+			end
+		end
 		if view.weave then
 			-- Boxer's weave: the waist rolls left and right, a figure eight under the guard.
 			local u = clamp01(tr.stateAge / (self.config.DashTicks / 60))
@@ -413,10 +490,10 @@ function Animator:evaluate(view, time, poseRate)
 	elseif state == "CrouchBlocking" then
 		return self:solveStance(self:breathe(self:base("CrouchBlock"), 0.35, stepped)), "CrouchBlock", false
 	elseif state == "Evading" then
-		return self:resolve(poses.Evade), "Evade", tr.stateAge < 0.02
+		return self:resolve(self:base("Evade")), "Evade", tr.stateAge < 0.02
 	elseif state == "Blockstun" or state == "CrouchBlockstun" then
 		local crouched = state == "CrouchBlockstun"
-		local impact = self:resolve(if crouched then poses.CrouchBlockstun else poses.Blockstun)
+		local impact = self:resolve(self:base(if crouched then "CrouchBlockstun" else "Blockstun"))
 		local guard = self:resolve(self:base(if crouched then "CrouchBlock" else "Block"))
 		if (view.hitstop or 0) > 0 or tr.stateAge < 0.06 then return impact, state .. ":I", true end
 		local u = quantize(clamp01((tr.stateAge - 0.06) / 0.25), 15, poseRate)
@@ -425,35 +502,40 @@ function Animator:evaluate(view, time, poseRate)
 		return self:reaction(view, poseRate)
 	elseif state == "Crumple" then
 		local age = tr.stateAge
-		if age < 0.15 then return self:resolve(poses.CrumpleStart), "Crumple:I", true end
+		if age < 0.15 then return self:resolve(self:base("CrumpleStart")), "Crumple:I", true end
 		local u = quantize(clamp01((age - 0.15) / 0.35), 21, poseRate)
-		return lerpPose(self:resolve(poses.CrumpleStart), self:resolve(poses.Crumple), easeInOut(u)), "Crumple:" .. u, false
+		return lerpPose(self:resolve(self:base("CrumpleStart")), self:resolve(self:base("Crumple")), easeInOut(u)), "Crumple:" .. u, false
 	elseif state == "GuardBroken" then
-		local pose = editable(self:resolve(poses.GuardBroken), { "Root", "Waist" })
+		local pose = editable(self:resolve(self:base("GuardBroken")), { "Root", "Waist" })
 		pose.Root[2] += 9 * math.sin(TAU * 1.4 * stepped)
 		pose.Waist[3] += 7 * math.sin(TAU * 1.4 * stepped + 1)
 		return pose, "GuardBroken", tr.stateAge < 0.02
 	elseif state == "Launched" or (state == "KO" and (view.y or 0) > 0.3) then
 		local fall = clamp01(-(view.vy or 0) / 30)
-		return lerpPose(self:resolve(poses.Launched), self:resolve(poses.LaunchedFall), easeInOut(fall)), "Launched", false
+		return lerpPose(self:resolve(self:base("Launched")), self:resolve(self:base("LaunchedFall")), easeInOut(fall)), "Launched", false
 	elseif LYING[state] then
 		local age = math.min(tr.stateAge, tr.landAge)
-		if age < 0.1 then return self:resolve(poses.DownImpact), "Down:I", true end
+		if age < 0.1 then return self:resolve(self:base("DownImpact")), "Down:I", true end
 		local u = quantize(clamp01((age - 0.1) / 0.3), 18, poseRate)
-		return lerpPose(self:resolve(poses.DownImpact), self:resolve(poses.Down), easeOut(u)), "Down:" .. u, false
+		return lerpPose(self:resolve(self:base("DownImpact")), self:resolve(self:base("Down")), easeOut(u)), "Down:" .. u, false
 	elseif state == "GetUp" then
 		local u = clamp01(tr.stateAge / (self.config.GetUpTicks / 60))
 		if u < 0.5 then
 			local t = quantize(u / 0.5, 7, math.max(poseRate, 24))
-			return lerpPose(self:resolve(poses.Down), self:resolve(poses.Kneel), easeInOut(t)), "GetUp:" .. t, false
+			return lerpPose(self:resolve(self:base("Down")), self:resolve(self:base("Kneel")), easeInOut(t)), "GetUp:" .. t, false
 		end
 		local t = quantize((u - 0.5) / 0.5, 7, math.max(poseRate, 24))
-		return lerpPose(self:resolve(poses.Kneel), self:resolve(self:base("STANCE")), easeOut(t)), "GetUp:K" .. t, false
+		return lerpPose(self:resolve(self:base("Kneel")), self:resolve(self:base("STANCE")), easeOut(t)), "GetUp:K" .. t, false
 	end
-	-- Idle: breathing between the two idle keys.
-	local b = (1 - math.cos(TAU * 0.85 * stepped)) / 2
+	-- Idle: the kit's rhythm between its two idle keys, and the weight shifting.
+	local rhythm = (self.stance and IDLE_RHYTHM[self.kit .. "_" .. self.stance]) or IDLE_RHYTHM[self.kit] or IDLE_RHYTHM.KAI
+	local phase = TAU * rhythm.rate * stepped
+	local b = (1 - math.cos(phase)) / 2
 	local idle = self:base("Idle")
-	return self:solveStance(lerpPose(idle[1], idle[2], b)), "Idle", false
+	local pose = editable(lerpPose(idle[1], idle[2], b), { "Root", "Waist" })
+	pose.Waist[3] += rhythm.shift * math.sin(phase * 0.5)
+	pose.Root[2] += rhythm.shift * 0.6 * math.sin(phase * 0.5 + 1)
+	return self:solveStance(pose), "Idle", false
 end
 
 -- ===================================================================== per-frame tracking
@@ -486,7 +568,10 @@ function Animator:observe(view, dt, other)
 	end
 	local facing = view.facing or 1
 	local dx = if tr.x then (view.x or 0) - tr.x else 0
-	if math.abs(dx) > 3 then dx = 0 end -- new round or cinematic blink: a cut, not a motion
+	local dy = if tr.y then (view.y or 0) - tr.y else 0
+	-- New round, blink, cinematic shot: a cut, not a motion.
+	tr.cut = not tr.x or math.abs(dx) > CUT_DISTANCE or math.abs(dy) > CUT_DISTANCE
+	if math.abs(dx) > 3 then dx = 0 end
 	local yaw = math.rad(self.config.ModelYaw or 0)
 	if view.state == "Walking" then
 		local step = dx * facing / math.cos(yaw)
@@ -500,6 +585,69 @@ function Animator:observe(view, dt, other)
 	tr.victoryAge = if view.victory then tr.victoryAge + dt else 0
 	tr.state, tr.move, tr.moveFrame, tr.combo = view.state, view.move, view.moveFrame, view.combo
 	tr.x, tr.y, tr.vy = view.x, y, view.vy
+end
+
+-- ===================================================================== spacing
+
+--[[
+	Presentation spacing: at point-blank range the guard arms and the strikes of two bodies
+	sink into each other (the pushboxes of the simulation are narrower than the bodies). Each
+	body is drawn up to SPACING studs further from the other, fading out with the distance
+	(and at a crossing, where the sides swap), so the separation shown always grows with the
+	real one: no jump. Drawing only: positions, hitboxes and the camera keep the real ones.
+	Returns how far each body is pushed away from the other.
+]]
+local SPACING, SPACING_NEAR, SPACING_FAR = 0.42, 2.4, 4.4
+function Animator.spacing(ax, ay, bx, by)
+	local d = math.abs(bx - ax)
+	local fade = 1 - smoothstep(SPACING_NEAR, SPACING_FAR, d)
+	local crossing = smoothstep(0.6, 1.6, d)
+	local height = 1 - smoothstep(2.5, 4.5, math.abs(by - ay))
+	return SPACING * fade * crossing * height
+end
+
+-- ===================================================================== overlap
+
+-- Runs the upper-body joints of `pose` through their springs (see DRAG). `snap`: the key
+-- changed this frame to an impact or a hit: the joints land on it at once and whip past it.
+function Animator:overlap(pose, dt, snap, cut)
+	local out = editable(pose, DRAG_NAMES)
+	local limits, kin = self.poses.LIMITS, self.kin
+	local function follow(name, tune, hold)
+		local v = out[name]
+		local axes = self.drag[name]
+		if not axes then
+			axes = {}
+			for i = 1, 3 do axes[i] = { x = v[i] or 0, v = 0 } end
+			self.drag[name] = axes
+		end
+		for i = 1, 3 do
+			local target, s = v[i] or 0, axes[i]
+			local jump = target - s.x
+			if hold or cut or dt <= 0 then
+				s.x, s.v = target, 0
+			elseif snap then
+				s.x, s.v = target, jump * WHIP
+			else
+				kin.spring(s, target, dt, tune[1], tune[2])
+			end
+			v[i] = s.x
+		end
+		local range = limits[name]
+		if range then v[1] = math.clamp(v[1], range[1], range[2]) end
+	end
+	for _, name in DRAG_NAMES do follow(name, DRAG[name], false) end
+	local plant = pose.Plant
+	for i, side in { "Left", "Right" } do
+		local planted = plant and (plant[i] or 0) >= 0.5
+		for _, name in LEGS[side] do
+			if pose[name] then
+				out[name] = table.clone(pose[name])
+				follow(name, LEG_DRAG, planted)
+			end
+		end
+	end
+	return out
 end
 
 -- ===================================================================== step
@@ -528,11 +676,13 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 	if tr.landAge < 0.2 and (view.state == "Idle" or view.state == "Walking" or view.state == "Crouching"
 		or view.state == "Blocking" or view.state == "CrouchBlocking") then
 		local w = (1 - easeOut(tr.landAge / 0.2)) * math.clamp(tr.landSpeed / 45, 0.35, 1)
-		target = lerpPose(target, self:resolve(self.poses.Land), w * 0.85)
+		target = lerpPose(target, self:resolve(self:base("Land")), w * 0.85)
 	end
 
 	-- Blend between families; steps inside a family are held (anime timing).
+	local snapped = false
 	if key ~= self.lastKey then
+		snapped = snap
 		local family = key:match("^[^:]+")
 		local last = self.lastKey and self.lastKey:match("^[^:]+")
 		local instant = snap or family == last or not self.current or tr.landAge == 0
@@ -544,6 +694,8 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 	local t = if self.blendTime and self.blendTime > 0 then clamp01((time - self.blendStart) / self.blendTime) else 1
 	local pose = if t < 1 and self.from then lerpPose(self.from, target, easeOut(t)) else target
 	self.current = pose
+	self.snapped = snapped
+	pose = self:overlap(pose, dt, snapped, tr.cut)
 
 	-- Secondary motion (additive springs).
 	if tr.newHit then springs.recoil.v += 320 end

@@ -50,6 +50,24 @@ function WeaponKit.pieces(kit, parts, energy, flight)
 	if not grip then return out end
 	if spec.flies and flight then
 		local at = WeaponKit.flight(flight.view, flight.time)
+		if flight.view.state == "Attack" then
+			-- The chain of shadow from his hand to the orb while he strikes with it.
+			local hx, hy, hz = K.point(grip, 0, 0, 0)
+			local dx, dy, dz = at[1] - hx, at[2] - hy, at[3] - hz
+			local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+			if length > 0.05 then
+				local zx, zy, zz = -dx / length, -dy / length, -dz / length -- the part's -Z toward the orb
+				local ux, uy, uz = 0, 1, 0
+				if math.abs(zy) > 0.95 then ux, uy, uz = 1, 0, 0 end
+				local xx, xy, xz = uy * zz - uz * zy, uz * zx - ux * zz, ux * zy - uy * zx
+				local xl = math.sqrt(xx * xx + xy * xy + xz * xz)
+				xx, xy, xz = xx / xl, xy / xl, xz / xl
+				local yx, yy, yz = zy * xz - zz * xy, zz * xx - zx * xz, zx * xy - zy * xx
+				table.insert(out, { name = "WeaponChain", size = { 0.1, 0.1, length },
+					cframe = { (hx + at[1]) / 2, (hy + at[2]) / 2, (hz + at[3]) / 2, xx, yx, zx, xy, yy, zy, xz, yz, zz },
+					color = energy or "8FD8FF" })
+			end
+		end
 		grip = K.translation(at[1], at[2], at[3])
 	end
 	for _, p in spec.pieces do

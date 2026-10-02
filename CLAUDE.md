@@ -20,6 +20,9 @@
   chaque rôle de KAI à ses propres coups (`MoveData.luau`). Après toute retouche de dégâts,
   de vie ou de vitesse, relancer `luau tests/Balance.luau -a 4 120` (CPU contre CPU) et
   noter les chiffres dans le journal : aucun kit sous 35 % ni au-dessus de 65 % en moyenne.
+- Mouvement : juger les animations en mouvement avec `luau tests/AnimClip.luau -a KIT SCRIPT 60 2 1.8`
+  (puis `python3 tools/storyboard.py clip.txt clip.gif`) et `luau tests/AnimQuality.luau -a all`
+  (à-coups, tremblements, interpénétration) avant et après une retouche d'animation.
 - Cinématiques : composer les plans avec `frameOn` (angle, plongée, part de l'écran), jamais
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).

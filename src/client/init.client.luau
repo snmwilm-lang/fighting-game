@@ -7,6 +7,7 @@ local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
+local Animator = require(Shared.Animator)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -226,11 +227,20 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	end
 	-- The ultimate cinematic stages poses/positions and owns the camera while it plays.
 	local cinematicActive = cinematic:update(world, displayed, dt, now - receivedAt > 1)
+	-- Presentation spacing (Animator.spacing): at point-blank range the two bodies are drawn a
+	-- little apart so they never sink into each other. Drawing only, never in cinematics.
+	local spread = { 0, 0 }
+	local one, two = displayed[1], displayed[2]
+	if one and two and not cinematicActive then
+		local push = Animator.spacing(one.x, one.y, two.x, two.y)
+		local side = if two.x >= one.x then 1 else -1
+		spread = { -side * push, side * push }
+	end
 	for i in world.fighters do
 		local current = displayed[i]
 		local rig = findRig(i)
 		if rig then
-			local pos = Vector3.new(current.x, current.y + rig.rootHeight, current.z or Config.PlaneZ)
+			local pos = Vector3.new(current.x + (spread[i] or 0), current.y + rig.rootHeight, current.z or Config.PlaneZ)
 			if current.lookDir then
 				local look = current.lookDir
 				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(look.x, look.y, look.z)) -- free orientation (K.O. scene)

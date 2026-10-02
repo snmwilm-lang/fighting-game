@@ -1503,6 +1503,12 @@ Poses.ShinFinale = {
 Poses.Kits.SHIN.Block = feet(merge(SHIN, blade(deg(70, 0, -30), 80, -20, { Root = { 0, 4, 0, -0.5, 0 }, Waist = deg(-10, 4),
 	LeftShoulder = deg(80, 0, 30), LeftElbow = deg(100) })), -0.8, 0.85, 0, -8, 8)
 Poses.Kits.SHIN.CrouchBlock = merge(SHIN_CROUCH, blade(deg(50, 0, -30), 40, -30, { LeftShoulder = deg(50, 0, 25), LeftElbow = deg(80) }))
+-- Down and getting up, the katana never stands up out of the floor like a stake: lying, it
+-- lies along the arm on the deck; kneeling, it is held level before him.
+Poses.Kits.SHIN.DownImpact = merge(Poses.DownImpact, { RightShoulder = deg(30, 0, 72), RightElbow = deg(10), RightWrist = deg(-70) })
+Poses.Kits.SHIN.Down = merge(Poses.Down, { RightShoulder = deg(14, 0, 64), RightElbow = deg(8), RightWrist = deg(-70) })
+Poses.Kits.SHIN.DownFace = merge(Poses.DownFace, { RightShoulder = deg(-16, 0, 26), RightElbow = deg(6), RightWrist = deg(-70) })
+Poses.Kits.SHIN.Kneel = merge(Poses.Kneel, { RightShoulder = deg(30, 0, 10), RightElbow = deg(70), RightWrist = deg(-60) })
 Poses.ShinRush = ultimate(Poses.Iai, Poses.ShinStep)
 Poses.ShinAwakening = ultimate(Poses.Iai, Poses.ShinFinale)
 Poses.ShinGate = ultimate(Poses.Iai, Poses.ShinBreaker)

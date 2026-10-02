@@ -268,11 +268,14 @@ function HUD.new(config)
 		self.labPanel.Visible = not self.labPanel.Visible
 	end)
 	local poseButton
-	poseButton = button("PoseRate", "POSES : 15/s", 108, function()
+	local function poseLabel(rate)
+		return if rate >= 60 then "POSES : FLUIDE" else "POSES : " .. rate .. "/s"
+	end
+	poseButton = button("PoseRate", poseLabel(self.poseRate), 108, function()
 		local rates = { 12, 15, 24, 60 }
 		local current = table.find(rates, self.poseRate) or 1
 		self.poseRate = rates[current % #rates + 1]
-		poseButton.Text = if self.poseRate >= 60 then "POSES : FLUIDE" else "POSES : " .. self.poseRate .. "/s"
+		poseButton.Text = poseLabel(self.poseRate)
 	end)
 	self.effectsButton = button("Effects", "EFFETS : FORTS", 118, function()
 		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFETS : RÉDUITS" else "EFFETS : FORTS" end

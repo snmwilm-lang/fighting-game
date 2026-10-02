@@ -313,6 +313,20 @@ def sheet(frames, out, cols=5, title=''):
         img.paste(im, (4 + (i%cols)*(W+4), 22 + (i//cols)*(H+4)))
     img.save(out)
 
+def gif(frames, out, step_ms):
+    # An animated clip (tests/AnimClip.luau): one image per frame, at the clip's own rate.
+    images = [render_frame(fr, fr['shot']).convert('P', palette=Image.ADAPTIVE, colors=128) for fr in frames]
+    images[0].save(out, save_all=True, append_images=images[1:], duration=step_ms, loop=0, optimize=False)
+
 if __name__ == '__main__':
     frames = parse(sys.argv[1])
-    sheet(frames, sys.argv[2], int(os.environ.get('STORY_COLS', '5')), sys.argv[3] if len(sys.argv) > 3 else '')
+    if sys.argv[2].endswith('.gif'):
+        ticks = [fr['tick'] for fr in frames]
+        step = (ticks[1] - ticks[0]) if len(ticks) > 1 else 2
+        gif(frames, sys.argv[2], int(round(step * 1000 / 60 * float(os.environ.get('STORY_SLOW', '1')))))
+    else:
+        # (STORY_FROM / STORY_TO / STORY_EVERY: a slice of the frames, e.g. one move of a clip)
+        lo, hi = int(os.environ.get('STORY_FROM', '0')), int(os.environ.get('STORY_TO', '100000'))
+        every = int(os.environ.get('STORY_EVERY', '1'))
+        frames = [fr for fr in frames if lo <= fr['tick'] <= hi][::every]
+        sheet(frames, sys.argv[2], int(os.environ.get('STORY_COLS', '5')), sys.argv[3] if len(sys.argv) > 3 else '')

@@ -341,6 +341,66 @@ local function rushStaging(kit)
 	return { kinds = kinds, closest = closest, highest = highest, shaken = shaken }
 end
 
+test("the editing never strobes: no shot under 5 ticks, at most two under 9 ticks per cinematic", function()
+	for _, kit in MoveData.KitOrder do
+		local routes = if kit == "KAI" then MoveData.Kits.KAI.FullRoutes else { MoveData.Kits[kit].FullRoutes[1] }
+		local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 } }
+		for _, route in routes do
+			table.insert(cases, { "Awaken", route.name })
+			table.insert(cases, { "Awaken", route.name, 300 })
+		end
+		for _, case in cases do
+			local world = Sim.newWorld(Config, MoveData, true)
+			Sim.setKits(world, kit, "KAI")
+			world.phase = "Fight"
+			Sim.debugCinematic(world, 1, case[1], case[2], case[3])
+			local anchors, last, since, short, shots = {}, nil, 0, 0, {}
+			local name = string.format("%s %s%s%s", kit, case[1], if case[2] then "/" .. case[2] else "", if case[3] then "/FINISH" else "")
+			while world.cinematic do
+				local cin = world.cinematic
+				local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views(world), anchors = anchors,
+					moveData = MoveData, config = Config, characters = CharacterData })
+				if frame and frame.shot.name ~= last then
+					if last then table.insert(shots, { last, cin.tick - since }) end
+					last, since = frame.shot.name, cin.tick
+				end
+				Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+			end
+			for _, s in shots do
+				expect(s[2] >= 5, string.format("%s: the shot %s lasts %d ticks", name, s[1], s[2]))
+				if s[2] < 9 then short += 1 end
+			end
+			expect(short <= 2, string.format("%s: %d shots under 9 ticks", name, short))
+		end
+	end
+end)
+
+test("no shot is a still: the camera drifts and pushes in for as long as a shot lasts", function()
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, "RYUKEN", "KAI")
+	world.phase = "Fight"
+	Sim.debugCinematic(world, 1, "Gate", nil, 300)
+	local anchors, first, moved = {}, {}, 0
+	while world.cinematic do
+		local cin = world.cinematic
+		local v = views(world)
+		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = v, anchors = anchors,
+			moveData = MoveData, config = Config, characters = CharacterData })
+		local s = frame and frame.shot
+		if s and s.from.position then
+			local seen = first[s.name]
+			if not seen then
+				first[s.name] = { tick = cin.tick, at = s.from.position }
+			elseif cin.tick - seen.tick == 20 then
+				local p, q = seen.at, s.from.position
+				if math.abs(p.x - q.x) + math.abs(p.y - q.y) + math.abs((p.z or 0) - (q.z or 0)) > 0.05 then moved += 1 end
+			end
+		end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	end
+	expect(moved >= 4, string.format("only %d shots move", moved))
+end)
+
 test("every rush (R) is staged its own way: own effects, own way of fighting", function()
 	-- Each kit's rush asks for effects only it uses.
 	local SIGNATURE = { KAI = { "kiBeam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },

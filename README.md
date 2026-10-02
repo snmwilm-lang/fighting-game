@@ -217,7 +217,24 @@ Moteur d'animation pur (`src/shared/Animator.luau`), testé hors Studio avec la 
 vrai rig : coups en 4 temps (anticipation, impact, contact, retour), pieds plantés par IK,
 course sans glissade, corps posé au sol quelle que soit la taille de l'avatar, réactions selon
 le coup reçu, regard vers l'adversaire, ressorts, tissus qui ondulent. Chaque perso a sa
-garde, sa course et ses coups. Bouton **POSES** : 12 / 15 / 24 poses par seconde ou FLUIDE.
+garde, sa course et ses coups.
+
+Qualité du mouvement (0.11) :
+- **anticipation qui se tend** : le coup arme, puis l'armé continue de se tendre jusqu'au départ
+  (jamais une pose figée) ;
+- **inertie des membres** : le buste mène, les bras, les poignets, la tête et la jambe qui
+  frappe suivent avec un léger retard, dépassent un peu et se posent ; un impact tombe
+  instantanément et fouette ; les pieds plantés ne bougent jamais ;
+- **espacement d'affichage** : de très près, les deux corps sont dessinés un peu écartés pour ne
+  jamais rentrer l'un dans l'autre (affichage seulement : le combat ne change pas) ;
+- **garde vivante** : chaque perso a son rythme (TARO sautille, ZEPHYR est léger, SHIN respire
+  à peine, HIBECARES souffle lourdement) et transfère son poids d'un pied à l'autre ;
+- saut avec poussée des jambes, dash avec élan et freinage, lame de SHIN couchée au sol quand
+  il tombe ;
+- cinématiques et scènes de K.O. : aucun plan stroboscopique, la caméra glisse lentement dans
+  chaque plan, les poses tenues respirent.
+
+Bouton **POSES** : FLUIDE par défaut, ou 12 / 15 / 24 poses par seconde (style anime).
 
 ## Armes : l'épée de SHIN, l'orbe de DAICHA
 
@@ -231,9 +248,10 @@ arc de lumière devant la lame ou des anneaux d'ombre autour de l'orbe, qui flas
 bloqué. Sur un corps R6 (sans poignet), la lame prolonge le bras.
 
 L'orbe de DAICHA **vole autour de lui** (`src/shared/OrbFlight.luau`, pur) : elle tourne
-autour de ses épaules au repos, se place devant lui en garde, se rassemble près de sa main à
-l'armé, file jusqu'au bout de la portée à l'impact (un sursaut par coup des rafales), tourbillonne
-pour les coups tournoyants et revient en orbite ; elle s'écarte derrière lui quand il est touché.
+autour de ses épaules au repos, se place devant lui en garde, et s'écarte derrière lui quand il
+est touché. En attaque elle se manie **comme un nunchaku**, au bout d'une chaîne d'ombre : elle
+tourne autour de sa main à l'armé, fouette en arc jusqu'au bout de la portée à l'impact, continue
+son élan vers le bas et revient en orbite ; elle tourbillonne pour les coups tournoyants.
 
 ### Chaque perso frappe à sa façon
 
@@ -319,6 +337,17 @@ d'animation, effets simplifiés) — Python 3 et Pillow :
 ```bash
 luau tests/Storyboard.luau -a TARO Gate - 0 8 > story.txt
 python3 tools/storyboard.py story.txt story.png
+```
+
+### Clips d'animation (GIF) et mesure du mouvement
+
+Un combat scénarisé joué par la vraie simulation et le vrai moteur d'animation, filmé par la
+caméra du jeu, en GIF (`STORY_W` pour la taille ; `ZOOM` 2 = deux fois plus près) :
+
+```bash
+luau tests/AnimClip.luau -a SHIN showcase 60 2 1.8 > clip.txt   # KIT SCRIPT POSES/s PAS ZOOM
+python3 tools/storyboard.py clip.txt clip.gif
+luau tests/AnimQuality.luau -a all    # à-coups, tremblements, corps qui se rentrent dedans
 ```
 
 ## Documents

@@ -1,5 +1,65 @@
 # Journal du projet — état à transmettre
 
+## Version 0.11.0 — 2 octobre 2026
+
+Demande de Wilhem : « concentre-toi purement sur les animations, parfois c'est très brouillon,
+rends ça plus qualitatif » ; « ensuite la même chose avec les cinématiques et les scènes de
+K.O. / victoire » ; « l'orbe noire doit bouger pendant les attaques comme un nunchaku ».
+
+- **Outils pour juger le mouvement** (avant, on ne jugeait que des images fixes) :
+  `tests/ClipKit.luau` joue un combat scénarisé (vraie simulation + vrai Animator, caméra du
+  jeu), `tests/AnimClip.luau` en fait un GIF (`tools/storyboard.py clip.txt clip.gif`, zoom
+  possible), `tests/AnimQuality.luau` mesure les à-coups (articulation qui saute de plus de 28°
+  en une image hors impact), les tremblements et l'interpénétration des deux corps.
+- **Animator** (pur) :
+  - anticipation : l'armé est atteint plus tôt (45 % du démarrage) puis continue de se tendre
+    à l'opposé du coup jusqu'au départ (moving hold) au lieu d'une pose figée ;
+  - **inertie / follow-through** : ressorts par articulation après le mélange — buste, épaules,
+    coudes, poignets, tête, et la jambe libre (coups de pied, sauts, chutes) ; un impact (snap)
+    tombe instantanément sur sa pose et fouette au-delà ; les jambes plantées par l'IK ne
+    traînent jamais ; une coupure (blink, nouveau round, plan) remet tout à zéro (déplacement
+    > 2,5 studs en une image) ;
+  - **espacement d'affichage** `Animator.spacing` : à bout portant, chaque corps est dessiné
+    jusqu'à 0,42 stud plus loin de l'autre, sans jamais de saut (la séparation affichée croît
+    toujours avec la vraie), rien à distance ni au croisement (DAICHA) ; dessin seulement, les
+    positions, hitbox et caméra restent celles du serveur ; jamais en cinématique ;
+  - garde : un rythme par perso (`IDLE_RHYTHM` : TARO 1,9 Hz, SHIN 0,55 Hz, HIBECARES 0,5 Hz...)
+    et un transfert de poids d'un pied à l'autre ;
+  - saut : poussée des jambes au décollage ; dash avant : élan, puis freinage accroupi ;
+  - les poses de chute, de relevé, de réaction et de saut peuvent être propres à un kit ;
+    SHIN : la lame se couche le long du bras au sol, horizontale à genou (avant : plantée à la
+    verticale comme un piquet) ;
+  - les poses tenues des scènes (victoire, rugissement, iai...) respirent.
+- **POSES : FLUIDE par défaut** (`CombatConfig.PoseRate = 60`) : les paliers 12/15/24 ne font
+  qu'interpoler entre 3 poses clés, ce qui saccade sur ces corps ; le rythme anime vient des
+  maintiens, smears et impacts. Le bouton POSES garde 12/15/24.
+- **Orbe de DAICHA en nunchaku** (`OrbFlight`) : à l'armé elle tourne autour de sa main (un
+  tour complet s'il a le temps, un demi sinon), fouette en arc jusqu'au point d'impact (la
+  chaîne s'allonge), continue son élan vers le bas et revient en orbite ; jamais dans son corps
+  ni sous le sol. Chaîne d'ombre (Beam) main-orbe pendant les attaques (client et planches).
+- **Cinématiques et K.O.** : plus de montage stroboscopique (champs/contrechamps toutes les
+  4-8 images → tous les deux coups ; le dernier coup reste dans le plan d'avant ; HIBECARES
+  CHÂTIMENT en un seul plan avec un vrai mouvement continu : soulevée en arc, abattue de
+  l'autre côté en accélérant, au lieu de téléporter la cible) ; **caméra vivante**
+  (`Director.drift`) : chaque plan composé glisse lentement autour du sujet et avance un peu
+  (6°/s, 5 %/s, 1,6 s au plus) ; poses tenues qui respirent.
+- Mesures (`AnimQuality`, 8 persos × 3 scénarios) : tremblements 236 → 156, interpénétration
+  moyenne 1,6 % → 0,6 % (pire cas 14,8 % → 10,4 %, sur 2 images d'impact), à-coups 839 → 786
+  (ceux qui restent sont des démarrages de coups en 2-3 images, voulus). Plus aucun plan de
+  moins de 5 images, au plus deux de moins de 9 par cinématique.
+- Tests : Animation 33 (+4 : armé qui se tend, inertie qui traîne/dépasse/se pose et impact
+  instantané, espacement sans saut, rythme de garde par perso ; + lame de SHIN au sol, orbe
+  nunchaku), CinematicDirector 249 (+2 : montage sans stroboscope, caméra jamais figée),
+  CombatSimulation 82, FighterAI 10, Kits 54, PressQueue 4, Fuzz 2, Cinematography 81, Lobby 5 ✅.
+  Studio ❌ non exécuté. Combat inchangé (rien dans la simulation).
+
+### Problèmes ouverts / prochaine étape
+
+- Juger en jeu le rendu FLUIDE contre 15/s, et l'espacement à bout portant (les étincelles
+  d'impact restent à la position serveur, jusqu'à 0,4 stud de la main dessinée).
+- Prochaine étape possible : ajustement IK des contacts (le poing s'arrête à la surface de
+  l'adversaire), poses retouchées une à une avec les GIF.
+
 ## Version 0.10.4 — 2 octobre 2026
 
 Retour de Wilhem : « les R de KAI, TARO, ZEPHYR et AKEMI, change-les aussi ».

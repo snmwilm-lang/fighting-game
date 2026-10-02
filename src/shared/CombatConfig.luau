@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.10.4",
+	Version = "0.11.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -91,5 +91,8 @@ return table.freeze({
 	CameraMinDistance = 26,
 	CameraMargin = 8,
 	ModelYaw = 22, -- degrees the rig turns toward the camera, like 2D fighters drawn in 3/4 view
-	PoseRate = 15,
+	-- Poses per second: 60 = FLUIDE (the default since 0.11.0: the steps of 12/15/24 only
+	-- interpolate between a few key poses, which looks jerky on these bodies; the anime timing
+	-- comes from the holds, smears and impact frames instead). The HUD button POSES cycles.
+	PoseRate = 60,
 })

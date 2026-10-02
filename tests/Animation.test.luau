@@ -330,6 +330,101 @@ test("anticipation pushes past the startup key, impacts overshoot the contact ke
 	expect(held.Waist[2] == active.Waist[2], "the contact pose is not reached after the smear frames")
 end)
 
+test("the wind-up tightens until the release: the held coil keeps moving away from the strike", function()
+	local anim = newAnimator()
+	for _, id in { "Cross", "Smash", "Kick", "ShinBreaker", "RyukenHeavy" } do
+		local m = MoveData.Moves[id]
+		local early = anim:attack(id, math.ceil(m.startup * 0.5), 60)
+		local late = anim:attack(id, m.startup, 60)
+		local active = anim:resolve((Poses[id] or Poses[anim.roleOf[id]]).Active)
+		local function distance(pose)
+			local sum = 0
+			for _, name in { "Waist", "LeftShoulder", "RightShoulder", "LeftElbow", "RightElbow" } do
+				for i = 1, 3 do sum += math.abs((pose[name][i] or 0) - (active[name][i] or 0)) end
+			end
+			return sum
+		end
+		expect(distance(late) > distance(early) + 3, id .. ": the hold of the wind-up is a frozen pose")
+		checkPose(late, id .. " (wind-up)", 1)
+	end
+end)
+
+test("overlap: the arms drag behind a change of pose and overshoot it a little; an impact lands at once and whips past", function()
+	local anim = newAnimator()
+	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = "KAI" }
+	local other = { state = "Idle", x = 3.5, y = 0, facing = -1 }
+	local t = 0
+	for _ = 1, 30 do t += 1 / 60; anim:step(view, other, 1 / 60, t, 60, false) end
+	-- A key change (stance to a punch's contact): the elbow follows behind its target, then
+	-- passes it a little and settles.
+	local from, to = anim:resolve(Poses.STANCE), anim:resolve(Poses.Jab.Active)
+	anim:overlap(from, 1 / 60, false, true)
+	local before, target = from.LeftElbow[1], to.LeftElbow[1]
+	local values = {}
+	for i = 1, 40 do values[i] = anim:overlap(to, 1 / 60, false, false).LeftElbow[1] end
+	local sign = if target > before then 1 else -1
+	expect((values[1] - before) * sign < (target - before) * sign * 0.8, "the elbow does not drag behind")
+	local peak = -math.huge
+	for _, x in values do peak = math.max(peak, (x - target) * sign) end
+	expect(peak > 0.3 and peak < math.abs(target - before) * 0.35 + 1, string.format("the overshoot is %.1f°", peak))
+	expect(math.abs(values[40] - target) < 1.5, "the elbow does not settle on its target")
+	-- An impact frame: exactly on its key at once.
+	local m = MoveData.Moves.Jab
+	view.state, view.move = "Attack", "Jab"
+	for f = 1, m.startup + 1 do
+		view.moveFrame = f
+		t += 1 / 60
+		local pose = anim:step(view, other, 1 / 60, t, 60, false)
+		if f == m.startup + 1 then
+			local key = anim:attack("Jab", f, 60)
+			expect(math.abs(pose.LeftElbow[1] - key.LeftElbow[1]) < 0.01, "the impact frame lags behind its key")
+		end
+	end
+	-- Feet planted by IK never drag.
+	view.state, view.move = "Idle", nil
+	for _ = 1, 10 do t += 1 / 60; anim:step(view, other, 1 / 60, t, 60, false) end
+	local idle = anim:evaluate(view, t + 1 / 60, 60)
+	local pose = anim:step(view, other, 1 / 60, t + 1 / 60, 60, false)
+	expect(math.abs(pose.LeftKnee[1] - idle.LeftKnee[1]) < 1e-6, "a planted leg is dragged by the springs")
+end)
+
+test("presentation spacing: bodies drawn apart at point-blank range, never a jump, nothing at a distance or a crossing", function()
+	local previous = nil
+	for i = 0, 600 do
+		local d = i / 100
+		local push = Animator.spacing(0, 0, d, 0)
+		local shown = d + 2 * push
+		if previous then expect(shown >= previous - 1e-9, string.format("the drawn separation shrinks at %.2f", d)) end
+		previous = shown
+		if d >= 4.4 or d <= 0.6 then expect(push == 0, string.format("bodies pushed apart at %.2f", d)) end
+	end
+	expect(Animator.spacing(0, 0, 3, 0) > 0.3, "no spacing at point-blank range")
+	expect(Animator.spacing(0, 0, 3, 5) == 0, "a body high above is pushed")
+end)
+
+test("each kit's guard has its own rhythm: the boxer bounces, the swordsman barely breathes", function()
+	local function bounce(kit)
+		local anim = newAnimator()
+		local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = kit }
+		local lo, hi, changes, last = math.huge, -math.huge, 0, nil
+		for i = 1, 120 do
+			local pose = anim:evaluate(view, i / 60, 60)
+			local y = pose.Root[4]
+			lo, hi = math.min(lo, y), math.max(hi, y)
+			if last and math.sign(y - last) ~= 0 then changes += 1 end
+			last = y
+		end
+		return Animator.IDLE_RHYTHM[kit].rate, hi - lo
+	end
+	local taro, shin = bounce("TARO"), bounce("SHIN")
+	expect(taro > shin * 2, "the boxer's guard is not livelier than the swordsman's")
+	for _, kit in MoveData.KitOrder do
+		expect(Animator.IDLE_RHYTHM[kit], kit .. " has no guard rhythm")
+		local _, range = bounce(kit)
+		expect(range > 0.01, kit .. "'s guard never moves")
+	end
+end)
+
 test("stepped timing: fewer distinct keys at 12 poses/s than at 60", function()
 	local function keys(rate)
 		local anim, seen, n = newAnimator(), {}, 0
@@ -801,6 +896,19 @@ test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15
 	end
 end)
 
+test("SHIN's katana never stands up out of the floor when he is down or getting up (R15, avatar, R6)", function()
+	local kit = Poses.Kits.SHIN
+	for label, body in BODIES do
+		for _, name in { "DownImpact", "Down", "DownFace", "Kneel" } do
+			local b, t = weaponLine("SHIN", kit[name], body[1], body[2])
+			local dx, dy, dz = t[1] - b[1], t[2] - b[2], t[3] - b[3]
+			local up = dy / math.sqrt(dx * dx + dy * dy + dz * dz)
+			local limit = if name == "Kneel" then 0.3 else 0.45
+			expect(up < limit, string.format("%s %s: the blade points to the sky (%.2f)", label, name, up))
+		end
+	end
+end)
+
 test("DAICHA's orb flies round him: circles when idle, out of his body, strikes at the end of the reach and comes back", function()
 	local OrbFlight = require("../src/shared/OrbFlight")
 	-- Idle: over one period it goes all the way round (in front, behind, both sides), never inside him.
@@ -827,6 +935,24 @@ test("DAICHA's orb flies round him: circles when idle, out of his body, strikes 
 			expect(math.abs(back.fwd - orbit.fwd) + math.abs(back.side - orbit.side) < 0.01, id .. ": the orb never returns to its orbit")
 		end
 	end
+	-- Like a nunchaku: during a strike it never goes through him nor under the deck, and with
+	-- the time to wind up it spins round behind his hand before whipping out.
+	local spun = 0
+	for role, id in MoveData.Kits.DAICHA.Roles do
+		local m = MoveData.Moves[id]
+		if m.hitbox and role ~= "DragonTornado" and role ~= "RisingWind" then
+			local behind = false
+			for frame = 0, m.startup + m.active + m.recovery do
+				local o = OrbFlight.offset({ state = "Attack", move = id, moveFrame = frame }, m, role, 1)
+				expect(o.up >= 0.6, string.format("%s frame %d: the orb is under the deck", id, frame))
+				expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) >= 0.9 or o.up > 6.2,
+					string.format("%s frame %d: the orb goes through his body", id, frame))
+				if frame <= m.startup and o.fwd < OrbFlight.NUNCHAKU.pivotFwd - 0.6 then behind = true end
+			end
+			if behind then spun += 1 end
+		end
+	end
+	expect(spun >= 6, string.format("the orb only spins round his hand on %d strikes", spun))
 	-- Guard: a shield before him.
 	local guard = OrbFlight.offset({ state = "Blocking" }, nil, nil, 0)
 	expect(guard.fwd > 1, "the orb does not shield him")

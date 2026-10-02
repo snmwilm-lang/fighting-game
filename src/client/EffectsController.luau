@@ -254,7 +254,9 @@ end
 function EffectsController:flyOrb(rig, view, now)
 	local id = view.state == "Attack" and view.move or nil
 	local o = OrbFlight.offset(view, id and MoveData.Moves[id], id and ROLE_OF[id], now)
-	local target = Vector3.new(view.x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
+	-- (from where the body is drawn: the presentation spacing may set it a little apart)
+	local x = if rig.root then rig.root.Position.X else view.x
+	local target = Vector3.new(x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
 	local dt = math.clamp(now - (rig.orbClock or now), 0, 0.1)
 	rig.orbClock = now
 	rig.orbPosition = (rig.orbPosition or target):Lerp(target, 1 - math.exp(-dt * 22))
@@ -262,6 +264,7 @@ function EffectsController:flyOrb(rig, view, now)
 	for _, p in rig.orbParts do
 		if p.Parent then p.CFrame = spin end
 	end
+	if rig.orbChain then rig.orbChain.Enabled = view.state == "Attack" end
 end
 
 -- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
@@ -664,6 +667,25 @@ function EffectsController:attachRig(slot, rig)
 				end
 			end
 			rig.orbPosition = orb.Position
+			-- The chain of shadow between his hand and the orb, shown while he strikes with it
+			-- (the orb swings like a nunchaku, see OrbFlight).
+			local holder = rig.model:FindFirstChild("LeftHand") or rig.model:FindFirstChild("Left Arm")
+			if holder and holder:IsA("BasePart") then
+				local c0, c1 = Instance.new("Attachment"), Instance.new("Attachment")
+				c0.Name, c1.Name = "OrbChainHand", "OrbChainOrb"
+				c0.Position = Vector3.new(0, -holder.Size.Y * 0.3, 0)
+				c0.Parent, c1.Parent = holder, orb
+				local chain = Instance.new("Beam")
+				chain.Name = "OrbChain"
+				chain.Attachment0, chain.Attachment1 = c0, c1
+				chain.Width0, chain.Width1 = 0.18, 0.09
+				chain.Color = ColorSequence.new(Color3.fromHex("140A20"), self:energy(slot))
+				chain.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 0.35) })
+				chain.LightEmission, chain.FaceCamera, chain.Segments = 0.6, true, 1
+				chain.Enabled = false
+				chain.Parent = holder
+				rig.orbChain = chain
+			end
 		end
 	end
 	-- Ki glow: lights the body in its ki colour when charging, skills and ultimates.

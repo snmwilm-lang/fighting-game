@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.12.1 — 2 octobre 2026
+
+Demande de Wilhem : « dans l'entraîneur mets tous les combos spé ».
+
+- **Entraîneur** (`HUDController:trainerRoutes`) : le bouton ENTRAÎNEUR fait défiler 19 combos
+  par perso au lieu des 6 routes complètes : les 5 routes à skill ★, les 6 routes complètes,
+  les routes courtes, puis SPÉCIALE (L L E), ULTIME (L L R) et COUP FATAL (L L C). Les routes
+  avec saut (↑) restent hors de l'entraîneur (il suit les appuis, pas les sauts). Touche C
+  affichée ; la 6e case CLIC D / R et le « pas d'ultime » restent propres aux routes complètes.
+- Tests : CombatSimulation 85, FighterAI 10, CinematicDirector 323, Animation 35, Kits 54, PressQueue 4,
+  Fuzz 2, Cinematography 114, Lobby 5 : tout passe (l'entraîneur est du client, non testé hors Studio).
+
 ## Version 0.12.0 — 2 octobre 2026
 
 Demande de Wilhem : « barre de vie équilibrée, les QTE doivent servir (rater = moins de

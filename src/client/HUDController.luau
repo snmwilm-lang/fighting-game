@@ -260,7 +260,7 @@ function HUD.new(config)
 	-- Combo trainer: pick a full route, the bar at the bottom shows what to press and when.
 	self.trainerRoute = 0
 	self.routeButton = button("Route", "ENTRAÎNEUR : OFF", 196, function()
-		self.trainerRoute = (self.trainerRoute + 1) % (#self:kitData().FullRoutes + 1)
+		self.trainerRoute = (self.trainerRoute + 1) % (#self:trainerRoutes() + 1)
 		self:refreshRouteButton()
 		self:buildTrainer()
 	end)
@@ -330,7 +330,7 @@ function HUD.new(config)
 	return self
 end
 
-local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "R", E = "E" }
+local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "R", E = "E", C = "C" }
 local GREY = Color3.fromHex("B9B9C2")
 local GOLD = Color3.fromHex("FFD23F")
 local ORANGE = Color3.fromHex("FFB938")
@@ -358,7 +358,7 @@ function HUD:setKit(kitName)
 	if not kitName or not MoveData.Kits[kitName] or kitName == self.kit then return end
 	local first = self.kit == nil
 	self.kit = kitName
-	self.trainerRoute = math.min(self.trainerRoute, #self:kitData().FullRoutes)
+	self.trainerRoute = math.min(self.trainerRoute, #self:trainerRoutes())
 	self:refreshRouteButton()
 	self:buildTrainer()
 	self:fillCombos()
@@ -369,8 +369,34 @@ function HUD:setKit(kitName)
 	end
 end
 
+-- Every combo the trainer can follow: the skill routes (★), the full routes, the short
+-- routes, then the special, the ultimate and the COUP FATAL cancelled from two hits. Routes
+-- with a jump (↑) are left out: the trainer follows presses, not jumps.
+function HUD:trainerRoutes()
+	local kit = self:kitData()
+	if self.trainerCache and self.trainerCache.kit == kit then return self.trainerCache.list end
+	local list = {}
+	for _, route in kit.Routes do
+		if route.name:find("★") and not route.keys:find("↑") then table.insert(list, route) end
+	end
+	for _, route in kit.FullRoutes do
+		table.insert(list, { name = route.name, keys = route.keys, moves = route.moves, full = true })
+	end
+	for _, route in kit.Routes do
+		if not route.name:find("★") and not route.keys:find("↑") then table.insert(list, route) end
+	end
+	local starters = kit.Starters.Ground
+	local jab = kit.Roles.Jab or "Jab"
+	local cross = MoveData.Moves[jab].cancels and MoveData.Moves[jab].cancels.Light or kit.Roles.Cross
+	table.insert(list, { name = "SPÉCIALE", keys = "L L E", moves = { jab, cross, kit.Roles.Rising or starters.Special } })
+	table.insert(list, { name = "ULTIME", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } })
+	table.insert(list, { name = "COUP FATAL (vie < 30 %, 3 barres)", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } })
+	self.trainerCache = { kit = kit, list = list }
+	return list
+end
+
 function HUD:refreshRouteButton()
-	local route = self:kitData().FullRoutes[self.trainerRoute]
+	local route = self:trainerRoutes()[self.trainerRoute]
 	self.routeButton.Text = if route then "ENTRAÎNEUR : " .. route.name .. " (" .. route.keys .. ")" else "ENTRAÎNEUR : OFF"
 end
 
@@ -476,7 +502,7 @@ end
 function HUD:buildTrainer()
 	for _, box in self.trainerBoxes do box.frame:Destroy() end
 	self.trainerBoxes = {}
-	local route = self:kitData().FullRoutes[self.trainerRoute]
+	local route = self:trainerRoutes()[self.trainerRoute]
 	self.trainer.Visible = route ~= nil
 	if not route then return end
 	local keys = {}
@@ -542,19 +568,20 @@ end
 -- selected route, lights the next box and says why a combo broke.
 function HUD:updateTrainer(view, meterFull)
 	local kit = self:kitData()
-	local route = kit.FullRoutes[self.trainerRoute]
+	local route = self:trainerRoutes()[self.trainerRoute]
 	if not route or not view then
 		self.trainer.Visible = false
 		return
 	end
 	self.trainer.Visible = true
 	local keys = route.keys:gsub("%s", "")
+	local n = #keys
 	local typed = view.chainKeys or ""
 	local progress, failed = 0, false
 	if typed ~= "" then
 		if keys:sub(1, #typed) == typed then
 			progress = #typed
-		elseif #typed == 6 and keys:sub(1, 5) == typed:sub(1, 5) and typed:sub(6, 6) == "U" then
+		elseif route.full and #typed == 6 and keys:sub(1, 5) == typed:sub(1, 5) and typed:sub(6, 6) == "U" then
 			progress = 6 -- ended on the R key: the gate ultimate
 		else
 			failed = true
@@ -574,19 +601,20 @@ function HUD:updateTrainer(view, meterFull)
 			color = if view.cancelReady then GOLD else WHITE
 		end
 		box.outline.Color = color
-		if i == 6 then
+		if route.full and i == 6 then
 			box.keyLabel.Text = if meterFull then "CLIC D / R" else "CLIC D"
 			box.moveLabel.Text = if meterFull then "ÉVEIL (clic D) · " .. kit.GateTitle.text .. " (R)" else moveName(kit, "Finale")
 		end
 	end
-	self.trainerNow.Visible = view.cancelReady == true and progress >= 1 and progress < 6 and not failed
+	self.trainerNow.Visible = view.cancelReady == true and progress >= 1 and progress < n and not failed
 	local reason = DIRTY[view.dirtyReason or ""] or "pas PROPRE : mauvais bouton, appui trop tôt ou en trop"
 	if failed then
 		self.trainerStatus.Text = "RATÉ : il fallait " .. (KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?")
 			.. " — recommence au 1er coup"
 		self.trainerStatus.TextColor3 = RED
-	elseif progress >= 6 then
-		self.trainerStatus.Text = if view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · " .. reason .. " : pas d'ultime"
+	elseif progress >= n then
+		self.trainerStatus.Text = if not route.full then "COMBO RÉUSSI ✓"
+			elseif view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · " .. reason .. " : pas d'ultime"
 		self.trainerStatus.TextColor3 = Color3.fromHex("3DDC84")
 	elseif progress >= 1 then
 		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓ · appuie quand le coup sort (case jaune)" else reason)

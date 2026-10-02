@@ -21,7 +21,7 @@ l'orbe est collée à sa main ».
   cinématique) ; `CinematicKit` donne aussi les poses. Téléportations visibles : 79 → 0 ;
   interpénétration moyenne TARO Ruée 5,5 % → 2,5 %, RYUKEN Éveil 3,3 % → 1,5 %, Porte 2,2 % → 1,1 %.
 - Tests : CinematicDirector 250 (+1 : ni téléportation sans images rémanentes ni attaquant
-  collé) ; CombatSimulation 82, FighterAI 10, Animation 33 (Kits, PressQueue, Fuzz, Cinematography, Lobby : voir l’entrée suivante).
+  collé) ; CombatSimulation 82, FighterAI 10, Animation 33, Kits 54, PressQueue 4, Fuzz 2, Cinematography 81, Lobby 5 : tout passe.
 
 ### Problèmes ouverts / prochaine étape
 

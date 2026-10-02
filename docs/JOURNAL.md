@@ -14,7 +14,7 @@ mettaient vraiment les deux poings ensemble devant le corps.
   être aux hanches, étaient devant la poitrine ; coudes ramenés en arrière, poings aux hanches.
   Les plans de fin de KAI (Ruée, Éveil, Porte) le montrent debout, poings relâchés (StandTall).
 - Tests : Animation 35 (+1 : finishers et ultimes frappent d'un seul poing, R15 et avatar) ;
-  CombatSimulation 82, FighterAI 10, CinematicDirector 250 (suites longues : commit suivant).
+  CombatSimulation 82, FighterAI 10, CinematicDirector 250, Kits 54, PressQueue 4, Fuzz 2, Cinematography 82, Lobby 5 : tout passe. AnimQuality KAI et DAICHA sans hausse d’interpénétration (moyenne ≤ 2,1 %).
 
 ## Version 0.11.2 — 2 octobre 2026
 

@@ -602,6 +602,83 @@ function EffectsController:impactFrame(color, strength)
 	end)
 end
 
+-- The kit's weapon (SHIN's katana, DAICHA's orb, freed from his hand to fly): its parts
+-- replicate after the body, so update tries again until they are there. True when done.
+function EffectsController:attachWeapon(slot, rig)
+	-- The kit's weapon: a ribbon along SHIN's blade (the arc of every cut), a smear behind
+	-- DAICHA's orb; lit with the hand that holds it.
+	local blade, orb = rig.model:FindFirstChild("KitBlade"), rig.model:FindFirstChild("KitShadowOrb")
+	local weapon = blade or orb
+	if not (weapon and weapon:IsA("BasePart")) then return false end
+	rig.trails = rig.trails or {}
+	-- (the orb's two parts both: kit pieces replicate one by one, after the body)
+	rig.weaponSince = rig.weaponSince or os.clock()
+	if orb and not rig.model:FindFirstChild("KitOrbCore") and os.clock() - rig.weaponSince < 3 then return false end
+	do
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Name, a1.Name = "WeaponTrailBase", "WeaponTrailTip"
+		if blade then
+			a0.Position, a1.Position = Vector3.new(0, 0, blade.Size.Z * 0.45), Vector3.new(0, 0, -blade.Size.Z * 0.5)
+		else
+			a0.Position, a1.Position = Vector3.new(0, weapon.Size.Y * 0.45, 0), Vector3.new(0, -weapon.Size.Y * 0.45, 0)
+		end
+		a0.Parent, a1.Parent = weapon, weapon
+		local trail = Instance.new("Trail")
+		trail.Name = "WeaponTrail"
+		trail.Attachment0, trail.Attachment1 = a0, a1
+		trail.Color = ColorSequence.new(WHITE, self:energy(slot))
+		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.45),
+			NumberSequenceKeypoint.new(1, 1) })
+		trail.Lifetime, trail.MinLength, trail.LightEmission, trail.FaceCamera = if blade then 0.2 else 0.16, 0.02, 1, false
+		trail.Enabled = false
+		trail.Parent = weapon
+		rig.trails.Weapon = trail
+		rig.weaponHand = if blade then "RightHand" else "LeftHand"
+		rig.weaponKind = if blade then "Sword" else "Orb"
+		if orb then
+			-- DAICHA's orb is set free: it flies round him (OrbFlight), moved every frame.
+			rig.orbParts = {}
+			local free = {}
+			for _, name in { "KitShadowOrb", "KitOrbCore" } do
+				local p = rig.model:FindFirstChild(name)
+				if p and p:IsA("BasePart") then
+					free[p] = true
+					table.insert(rig.orbParts, p)
+				end
+			end
+			-- Every joint holding it to the hand goes, wherever it is parented.
+			for _, joint in rig.model:GetDescendants() do
+				if (joint:IsA("WeldConstraint") or joint:IsA("Weld") or joint:IsA("Motor6D"))
+					and (free[joint.Part0] or free[joint.Part1]) then
+					joint:Destroy()
+				end
+			end
+			for p in free do p.Anchored, p.Massless = true, true end
+			rig.orbPosition = orb.Position
+			-- The chain of shadow between his hand and the orb, shown while he strikes with it
+			-- (the orb swings like a nunchaku, see OrbFlight).
+			local holder = rig.model:FindFirstChild("LeftHand") or rig.model:FindFirstChild("Left Arm")
+			if holder and holder:IsA("BasePart") then
+				local c0, c1 = Instance.new("Attachment"), Instance.new("Attachment")
+				c0.Name, c1.Name = "OrbChainHand", "OrbChainOrb"
+				c0.Position = Vector3.new(0, -holder.Size.Y * 0.3, 0)
+				c0.Parent, c1.Parent = holder, orb
+				local chain = Instance.new("Beam")
+				chain.Name = "OrbChain"
+				chain.Attachment0, chain.Attachment1 = c0, c1
+				chain.Width0, chain.Width1 = 0.18, 0.09
+				chain.Color = ColorSequence.new(Color3.fromHex("140A20"), self:energy(slot))
+				chain.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 0.35) })
+				chain.LightEmission, chain.FaceCamera, chain.Segments = 0.6, true, 1
+				chain.Enabled = false
+				chain.Parent = holder
+				rig.orbChain = chain
+			end
+		end
+	end
+	return true
+end
+
 function EffectsController:attachRig(slot, rig)
 	local torso = RigReader.part(rig.model, "UpperTorso")
 	if not torso then return end
@@ -628,66 +705,7 @@ function EffectsController:attachRig(slot, rig)
 			rig.trails[limb] = trail
 		end
 	end
-	-- The kit's weapon: a ribbon along SHIN's blade (the arc of every cut), a smear behind
-	-- DAICHA's orb; lit with the hand that holds it.
-	local blade, orb = rig.model:FindFirstChild("KitBlade"), rig.model:FindFirstChild("KitShadowOrb")
-	local weapon = blade or orb
-	if weapon and weapon:IsA("BasePart") then
-		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
-		a0.Name, a1.Name = "WeaponTrailBase", "WeaponTrailTip"
-		if blade then
-			a0.Position, a1.Position = Vector3.new(0, 0, blade.Size.Z * 0.45), Vector3.new(0, 0, -blade.Size.Z * 0.5)
-		else
-			a0.Position, a1.Position = Vector3.new(0, weapon.Size.Y * 0.45, 0), Vector3.new(0, -weapon.Size.Y * 0.45, 0)
-		end
-		a0.Parent, a1.Parent = weapon, weapon
-		local trail = Instance.new("Trail")
-		trail.Name = "WeaponTrail"
-		trail.Attachment0, trail.Attachment1 = a0, a1
-		trail.Color = ColorSequence.new(WHITE, self:energy(slot))
-		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.45),
-			NumberSequenceKeypoint.new(1, 1) })
-		trail.Lifetime, trail.MinLength, trail.LightEmission, trail.FaceCamera = if blade then 0.2 else 0.16, 0.02, 1, false
-		trail.Enabled = false
-		trail.Parent = weapon
-		rig.trails.Weapon = trail
-		rig.weaponHand = if blade then "RightHand" else "LeftHand"
-		rig.weaponKind = if blade then "Sword" else "Orb"
-		if orb then
-			-- DAICHA's orb is set free: it flies round him (OrbFlight), moved every frame.
-			rig.orbParts = {}
-			for _, name in { "KitShadowOrb", "KitOrbCore" } do
-				local p = rig.model:FindFirstChild(name)
-				if p and p:IsA("BasePart") then
-					for _, joint in p:GetChildren() do
-						if joint:IsA("WeldConstraint") or joint:IsA("Weld") then joint:Destroy() end
-					end
-					p.Anchored = true
-					table.insert(rig.orbParts, p)
-				end
-			end
-			rig.orbPosition = orb.Position
-			-- The chain of shadow between his hand and the orb, shown while he strikes with it
-			-- (the orb swings like a nunchaku, see OrbFlight).
-			local holder = rig.model:FindFirstChild("LeftHand") or rig.model:FindFirstChild("Left Arm")
-			if holder and holder:IsA("BasePart") then
-				local c0, c1 = Instance.new("Attachment"), Instance.new("Attachment")
-				c0.Name, c1.Name = "OrbChainHand", "OrbChainOrb"
-				c0.Position = Vector3.new(0, -holder.Size.Y * 0.3, 0)
-				c0.Parent, c1.Parent = holder, orb
-				local chain = Instance.new("Beam")
-				chain.Name = "OrbChain"
-				chain.Attachment0, chain.Attachment1 = c0, c1
-				chain.Width0, chain.Width1 = 0.18, 0.09
-				chain.Color = ColorSequence.new(Color3.fromHex("140A20"), self:energy(slot))
-				chain.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 0.35) })
-				chain.LightEmission, chain.FaceCamera, chain.Segments = 0.6, true, 1
-				chain.Enabled = false
-				chain.Parent = holder
-				rig.orbChain = chain
-			end
-		end
-	end
+	rig.weaponDone = self:attachWeapon(slot, rig)
 	-- Ki glow: lights the body in its ki colour when charging, skills and ultimates.
 	local glow = Instance.new("PointLight")
 	glow.Name = "KiGlow"
@@ -754,6 +772,14 @@ function EffectsController:update(slot, view, rig, previous, now)
 				and not (self.reduced and not m.heavy and not isWeapon)
 			if trail.Enabled ~= on then trail.Enabled = on end
 		end
+	end
+	if not rig.weaponDone and now - (rig.weaponTry or 0) > 0.2 then
+		-- (the weapon arrived after the body, or the outfit was rebuilt: attach it now)
+		rig.weaponTry = now
+		rig.weaponDone = self:attachWeapon(slot, rig)
+	end
+	if rig.orbParts and rig.orbParts[1] and not rig.orbParts[1].Parent then
+		rig.orbParts, rig.weaponDone, rig.weaponKind, rig.weaponSince = nil, false, nil, nil
 	end
 	if rig.orbParts then self:flyOrb(rig, view, now) end
 	if rig.weaponKind then

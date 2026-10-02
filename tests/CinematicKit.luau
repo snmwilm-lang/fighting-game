@@ -64,12 +64,13 @@ function Kit.play(kit, kind, style, hp, center, onFrame)
 		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views, anchors = anchors, moveData = MoveData,
 			config = Config, characters = CharacterData })
 		if frame then
-			local parts = {}
+			local parts, poses = {}, {}
 			for i = 1, 2 do
 				local v = views[i]
 				local goal = if v.facing > 0 then 0 else math.pi
 				headings[i] = if headings[i] then headings[i] + (goal - headings[i]) * 0.4 else goal
 				local pose, lift = anims[i]:step(v, views[3 - i], 1 / 60, tick / 60, 60, true)
+				poses[i] = pose
 				local solved = K.solve(SKELETON, pose, lift)
 				local root = rootFrame(v, headings[i])
 				parts[i] = {}
@@ -82,7 +83,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame)
 			local cx, cy, cz = resolve(s.from, parts)
 			local tx, ty, tz = resolve(s.to, parts)
 			local fx, fy, fz = resolve(s.focus, parts)
-			onFrame({ tick = cin.tick, frame = frame, views = views, parts = parts, cin = cin,
+			onFrame({ tick = cin.tick, frame = frame, views = views, parts = parts, poses = poses, cin = cin,
 				cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz } })
 		end
 		tick += 1

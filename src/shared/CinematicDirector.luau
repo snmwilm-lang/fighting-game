@@ -2917,6 +2917,41 @@ local function drift(ctx, frame, tick)
 end
 Director.drift = drift
 
+--[[
+	Clean staging, after every frame of a cinematic:
+	  speed   a body that moves faster than SPEED studs a tick inside a shot is drawn with its
+	          afterimages (ghost): a blink, a throw, a dive read as speed, never as a jump;
+	  room    standing on the deck, the attacker never stands closer than ROOM studs to the
+	          target (block bodies sink into each other below that): it steps back along the
+	          line between them.
+]]
+local SPEED, ROOM = 0.9, 2.8
+local function standing(view)
+	return (view.y or 0) < 0.8 and not lying(view) and view.pose ~= "Launched"
+end
+local function clean(ctx, frame, a, d, tick)
+	local anchors = ctx.anchors
+	local dx, dz = a.x - d.x, (a.z or 0) - (d.z or 0)
+	local gap = math.sqrt(dx * dx + dz * dz)
+	if standing(a) and standing(d) and gap > 0.05 and gap < ROOM and not a.ghost then
+		local k = ROOM / gap
+		a.x = d.x + dx * k
+		if a.z then a.z = (d.z or 0) + dz * k end
+	end
+	anchors.moved = anchors.moved or {}
+	local shot = frame.shot and frame.shot.name
+	for slot, view in { a, d } do
+		local last = anchors.moved[slot]
+		if last and last.shot == shot and tick > last.tick and tick - last.tick <= 3 and (view.y or 0) < 50 and last.y < 50 then
+			local step = math.sqrt((view.x - last.x) ^ 2 + ((view.y or 0) - last.y) ^ 2 + ((view.z or 0) - last.z) ^ 2) / (tick - last.tick)
+			if step > SPEED then view.ghost = true end
+		end
+		if not last or tick ~= last.tick then
+			anchors.moved[slot] = { x = view.x, y = view.y or 0, z = view.z or 0, tick = tick, shot = shot }
+		end
+	end
+end
+
 function Director.ko(ctx, winner, loser, w, l, t)
 	local frame = koScene(ctx, winner, loser, w, l, t)
 	drift(ctx, frame, t)
@@ -2950,6 +2985,7 @@ function Director.cinematic(ctx)
 	else
 		rush(ctx, frame, a, d, ctx.tick, dir)
 	end
+	clean(ctx, frame, a, d, ctx.tick)
 	drift(ctx, frame, ctx.tick)
 	return frame
 end

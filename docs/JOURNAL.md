@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.11.1 — 2 octobre 2026
+
+Retour de Wilhem : « refais le même focus animation / cinématiques ; DAICHA, c'est encore buggé,
+l'orbe est collée à sa main ».
+
+- **Orbe collée à la main (bug client)** : `EffectsController` ne libérait l'orbe qu'une fois,
+  quand le corps arrivait ; les pièces de tenue (KitShadowOrb, KitOrbCore) répliquent souvent
+  après le corps, l'orbe restait donc soudée. Nouveau `attachWeapon`, réessayé toutes les 0,2 s
+  tant que l'arme n'est pas là (et de nouveau si la tenue est reconstruite) ; toutes les
+  soudures qui la tiennent sont détruites, où qu'elles soient rangées (WeldConstraint, Weld,
+  Motor6D). Non vérifiable hors Studio : à confirmer en jeu.
+- **Mise en scène propre** (`CinematicDirector`, après chaque image d'une cinématique) :
+  - vitesse : un corps qui va plus vite que 0,9 stud par image dans un même plan est dessiné
+    avec ses images rémanentes (ghost) : plus aucune téléportation visible (TARO qui tournait
+    autour de sa cible par sauts, ZEPHYR, AKEMI et RYUKEN qui changeaient de côté, la cible
+    de HIBECARES, les chutes) ;
+  - place : au sol, un attaquant ne se colle jamais à moins de 2,8 studs de sa cible.
+- Outil `tests/CinematicQuality.luau` (interpénétration, téléportations, à-coups par
+  cinématique) ; `CinematicKit` donne aussi les poses. Téléportations visibles : 79 → 0 ;
+  interpénétration moyenne TARO Ruée 5,5 % → 2,5 %, RYUKEN Éveil 3,3 % → 1,5 %, Porte 2,2 % → 1,1 %.
+- Tests : CinematicDirector 250 (+1 : ni téléportation sans images rémanentes ni attaquant
+  collé) ; CombatSimulation 82, FighterAI 10, Animation 33 (Kits, PressQueue, Fuzz, Cinematography, Lobby : voir l’entrée suivante).
+
+### Problèmes ouverts / prochaine étape
+
+- Confirmer en jeu que l'orbe vole (et sa chaîne en attaque).
+- Ajustement IK des contacts (poing arrêté à la surface de l'adversaire).
+
 ## Version 0.11.0 — 2 octobre 2026
 
 Demande de Wilhem : « concentre-toi purement sur les animations, parfois c'est très brouillon,

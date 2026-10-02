@@ -375,6 +375,47 @@ test("the editing never strobes: no shot under 5 ticks, at most two under 9 tick
 	end
 end)
 
+test("clean staging: no body teleports inside a shot without its afterimages, no attacker glued to a standing target", function()
+	for _, kit in MoveData.KitOrder do
+		for _, kind in { "Rush", "Awaken", "Gate" } do
+			local world = Sim.newWorld(Config, MoveData, true)
+			Sim.setKits(world, kit, "KAI")
+			world.phase = "Fight"
+			Sim.debugCinematic(world, 1, kind, MoveData.Kits[kit].FullRoutes[1].name, nil)
+			local anchors, last = {}, {}
+			while world.cinematic do
+				local cin = world.cinematic
+				local v = views(world)
+				local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = v, anchors = anchors,
+					moveData = MoveData, config = Config, characters = CharacterData })
+				if frame then
+					for slot = 1, 2 do
+						local p = last[slot]
+						local view = v[slot]
+						if p and p.shot == frame.shot.name and view.y < 50 and p.y < 50 then
+							local step = math.sqrt((view.x - p.x) ^ 2 + (view.y - p.y) ^ 2 + ((view.z or 0) - p.z) ^ 2)
+							expect(step <= 0.9 or view.ghost, string.format("%s %s tick %d: fighter %d jumps %.1f studs in %s",
+								kit, kind, cin.tick, slot, step, frame.shot.name))
+						end
+						last[slot] = { x = view.x, y = view.y, z = view.z or 0, shot = frame.shot.name }
+					end
+					local a, d = v[cin.attacker], v[cin.defender]
+					local function standing(x)
+						return x.y < 0.8 and x.pose ~= "Launched" and x.pose ~= "DownFace" and x.state ~= "Knockdown" and x.state ~= "KO"
+							and x.state ~= "Launched"
+					end
+					if standing(a) and standing(d) and not a.ghost then
+						local gap = math.sqrt((a.x - d.x) ^ 2 + ((a.z or 0) - (d.z or 0)) ^ 2)
+						expect(gap >= 2.79 or gap < 0.06, string.format("%s %s tick %d: the attacker is %.2f studs from the target", kit, kind,
+							cin.tick, gap))
+					end
+				end
+				Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+			end
+		end
+	end
+end)
+
 test("no shot is a still: the camera drifts and pushes in for as long as a shot lasts", function()
 	local world = Sim.newWorld(Config, MoveData, true)
 	Sim.setKits(world, "RYUKEN", "KAI")

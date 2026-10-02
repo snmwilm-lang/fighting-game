@@ -801,15 +801,35 @@ test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15
 	end
 end)
 
-test("DAICHA strikes with the orb: at contact it leads, in front of the chest (R15, avatar, R6)", function()
-	for label, body in BODIES do
-		for _, role in { "Jab", "Cross", "Elbow", "Kick", "Smash", "Hammer", "KiBlast", "PalmStrike" } do
-			local id = MoveData.Kits.DAICHA.Roles[role]
-			local _, orb, chest = weaponLine("DAICHA", Poses[id].Active, body[1], body[2])
-			local ahead = -(orb[3] - chest[3]) -- the body faces -Z
-			expect(ahead > 1.2, string.format("%s %s: the orb is only %.2f studs ahead of the chest", label, id, ahead))
+test("DAICHA's orb flies round him: circles when idle, out of his body, strikes at the end of the reach and comes back", function()
+	local OrbFlight = require("../src/shared/OrbFlight")
+	-- Idle: over one period it goes all the way round (in front, behind, both sides), never inside him.
+	local front, back, near, far = false, false, false, false
+	for i = 0, 40 do
+		local o = OrbFlight.offset({ state = "Idle" }, nil, nil, i / 40 * OrbFlight.ORBIT.period)
+		front, back = front or o.fwd > 1.2, back or o.fwd < -1.2
+		near, far = near or o.side > 1.2, far or o.side < -1.2
+		expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) > 1.4, "the idle orb goes through his body")
+	end
+	expect(front and back and near and far, "the idle orb does not circle him")
+	-- Every strike: close during the wind-up, at the end of the reach on contact, back on the orbit after.
+	for role, id in MoveData.Kits.DAICHA.Roles do
+		local m = MoveData.Moves[id]
+		if m.hitbox and role ~= "DragonTornado" and role ~= "RisingWind" then
+			local function at(frame)
+				return OrbFlight.offset({ state = "Attack", move = id, moveFrame = frame }, m, role, 1)
+			end
+			local hit = at(m.startup + 1)
+			expect(math.abs(hit.fwd - math.max(1.4, m.hitbox.far - 0.2)) < 0.01 and hit.up >= 0.8,
+				string.format("%s: the orb is not at the point of impact on contact (%.2f)", id, hit.fwd))
+			local back = at(m.startup + m.active + m.recovery)
+			local orbit = OrbFlight.orbit(1, false)
+			expect(math.abs(back.fwd - orbit.fwd) + math.abs(back.side - orbit.side) < 0.01, id .. ": the orb never returns to its orbit")
 		end
 	end
+	-- Guard: a shield before him.
+	local guard = OrbFlight.offset({ state = "Blocking" }, nil, nil, 0)
+	expect(guard.fwd > 1, "the orb does not shield him")
 end)
 
 T.finish()

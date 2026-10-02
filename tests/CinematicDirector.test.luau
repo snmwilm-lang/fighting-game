@@ -18,6 +18,11 @@ local function dot(a, b) return a.x * b.x + a.y * b.y + (a.z or 0) * (b.z or 0) 
 local function len(a) return math.sqrt(dot(a, a)) end
 local function unit(a) local l = len(a) return if l > 0 then scale(a, 1 / l) else { x = 1, y = 0, z = 0 } end
 local function finite(n) return n == n and math.abs(n) < 1e6 end
+local function hitsBefore(hits, tick)
+	local n = 0
+	for _, t in hits do if t <= tick then n += 1 end end
+	return n
+end
 
 local function lying(view)
 	return view.pose == "DownFace" or view.state == "KO" and view.pose ~= "StandTall" or view.state == "Knockdown"
@@ -303,6 +308,61 @@ test("each kit has its own K.O. scene: own shots, own grade, ends on K.O.", func
 		end
 		expect(count >= 5, kit .. ": only " .. count .. " shots in its K.O. scene")
 	end
+end)
+
+-- Plays one kit's rush (R) and sums up its staging: the effect kinds it asks for, how close
+-- the attacker comes to the target before the final blow, how high the target goes, and on
+-- how many blows the deck shakes.
+local function rushStaging(kit)
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit, "KAI")
+	world.phase = "Fight"
+	Sim.debugCinematic(world, 1, "Rush", nil, nil)
+	local data = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Rush]
+	local anchors, kinds, closest, highest, quakes = {}, {}, math.huge, 0, {}
+	while world.cinematic do
+		local cin = world.cinematic
+		local v = views(world)
+		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = v, anchors = anchors,
+			moveData = MoveData, config = Config, characters = CharacterData })
+		if frame then
+			for _, fx in frame.fx do kinds[fx.kind] = true end
+			if cin.tick < data.FinalTick then
+				local a, d = v[1], v[2]
+				closest = math.min(closest, math.sqrt((a.x - d.x) ^ 2 + ((a.z or 0) - (d.z or 0)) ^ 2))
+				highest = math.max(highest, d.y)
+			end
+			if frame.quake then quakes[hitsBefore(data.Hits, cin.tick)] = true end
+		end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	end
+	local shaken = 0
+	for k in quakes do if k > 0 then shaken += 1 end end
+	return { kinds = kinds, closest = closest, highest = highest, shaken = shaken }
+end
+
+test("every rush (R) is staged its own way: own effects, own way of fighting", function()
+	-- Each kit's rush asks for effects only it uses.
+	local SIGNATURE = { RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "orbs", "orbDart" },
+		HIBECARES = { "rockLine" } }
+	local staging = {}
+	for _, kit in MoveData.KitOrder do staging[kit] = rushStaging(kit) end
+	for kit, kinds in SIGNATURE do
+		for _, kind in kinds do
+			expect(staging[kit].kinds[kind], kit .. "'s rush never shows its " .. kind)
+			for other in staging do
+				if other ~= kit then expect(not staging[other].kinds[kind], other .. "'s rush borrows " .. kit .. "'s " .. kind) end
+			end
+		end
+	end
+	-- DAICHA never touches the target: his orbs do; RYUKEN juggles it up high; every step
+	-- of HIBECARES shakes the deck.
+	expect(staging.DAICHA.closest >= 4, string.format("DAICHA comes %.1f studs from the target", staging.DAICHA.closest))
+	for kit, s in staging do
+		expect(s.closest >= 1.2, string.format("%s's rush walks through the target (%.1f studs)", kit, s.closest))
+	end
+	expect(staging.RYUKEN.highest >= 6, string.format("RYUKEN only lifts the target %.1f studs", staging.RYUKEN.highest))
+	expect(staging.HIBECARES.shaken >= 8, string.format("the deck shakes on only %d of HIBECARES' blows", staging.HIBECARES.shaken))
 end)
 
 T.finish()

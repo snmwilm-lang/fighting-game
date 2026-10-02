@@ -98,7 +98,7 @@ for _, case in cases do
 	local rt = Retarget.new(K, r6)
 	local anims = { newAnimator(rt.virtual), newAnimator(R15) }
 	local other = { state = "Idle", x = 3, y = 0, vx = 0, vy = 0, facing = -1, hitstop = 0, combo = 0 }
-	local parts = { {}, {} }
+	local parts, shown = { {}, {} }, {}
 	for t = 0, case.show do
 		local view = case.view(t)
 		view.kit, view.stance = kitName, stanceName
@@ -109,6 +109,7 @@ for _, case in cases do
 		local pose = anims[1]:step(r6View, otherA, 1 / 60, t / 60, 60, false)
 		local poseB, liftB = anims[2]:step(r15View, otherB, 1 / 60, t / 60, 60, false)
 		if t == case.show then
+			shown = { r6View, r15View }
 			local _, lift, solved = Retarget.solve(rt, pose, view.y)
 			local root = rootFrame(r6View.x, view.y, -r6.floor + lift)
 			for name, f in solved do
@@ -135,7 +136,7 @@ for _, case in cases do
 				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
 		end
 		-- The kit's weapon in the hand (SHIN's katana, DAICHA's orb), in its own colours.
-		for _, piece in WeaponKit.pieces(kitName, parts[slot]) do
+		for _, piece in WeaponKit.pieces(kitName, parts[slot], nil, { view = shown[slot], time = case.show / 60 }) do
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),

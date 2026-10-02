@@ -40,7 +40,9 @@ def parse(path):
         elif f[0] == 'FX' and frames:
             frames[-1]['fx'].append({'kind': f[1], 'age': int(f[2]), 'pos': tuple(map(float, f[3:6])),
                 'from': tuple(map(float, f[6:9])), 'to': tuple(map(float, f[9:12])), 'radius': float(f[12]),
-                'color': hexc(f[13]), 'tilt': float(f[14]), 'scale': float(f[15])})
+                'color': hexc(f[13]), 'tilt': float(f[14]), 'scale': float(f[15]),
+                'life': float(f[16]) if len(f) > 16 else 0, 'spin': float(f[17]) if len(f) > 17 else 0,
+                'phase': float(f[18]) if len(f) > 18 else 0})
     return frames
 
 PALETTE = {
@@ -127,13 +129,26 @@ def render_frame(fr, label):
             pp = [proj(p) for p in pts3]
             if all(pp):
                 faces.append((dot(sub((bx, h/2, bz), cam), fwd), [q[:2] for q in pp], (110,98,88), False))
+    for fx in fr['fx']:
+        if fx['kind'] != 'rockLine': continue
+        n, fr0, to = max(1, int(fx['scale'])), fx['from'], fx['to']
+        for i in range(n):
+            if fx['age'] < i * 3: continue
+            t = (i + 0.5) / n
+            bx, bz = fr0[0] + (to[0]-fr0[0])*t, fr0[2] + (to[2]-fr0[2])*t
+            h = 2 + 3.2 * (i + 1) / n
+            pts3 = [(bx-0.6, 0, bz), (bx+0.6, 0, bz), (bx+0.45, h, bz), (bx-0.45, h, bz)]
+            pp = [proj(p) for p in pts3]
+            if all(pp):
+                faces.append((dot(sub((bx, h/2, bz), cam), fwd), [q[:2] for q in pp], (110,98,88), False))
     faces.sort(key=lambda x: -x[0])
     for depth, pts, col, ghost in faces:
         d.polygon(pts, fill=col + (255,), outline=(11,11,14,255))
     # effects
     for fx in fr['fx']:
         age, col, k = fx['age'], fx['color'], fx['kind']
-        a = max(40, 255 - age*14) if k not in ('gate','crescent','kanjiSeal','rocks','eclipse') else 220
+        a = max(40, 255 - age*14) if k not in ('gate','crescent','kanjiSeal','rocks','eclipse','orbs','waterspout') else 220
+        if k == 'wake': a = int(max(30, 230 * (1 - age / max(1, fx['life'] * 60))))
         rgba = col + (a,)
         pos = fx['pos']
         def poly3(pts3, width=3, close=False):
@@ -201,6 +216,47 @@ def render_frame(fr, label):
             poly3([fx['from'], fx['to']], 5)
             rgba = (255,255,255,a)
             poly3([fx['from'], fx['to']], 2)
+        elif k == 'rageFist':
+            # the giant fist of ki flies from `from` to `to` in a few ticks
+            fr0, to = fx['from'], fx['to']
+            t = min(1, age / 8)
+            tip = tuple(fr0[i] + (to[i]-fr0[i])*t for i in range(3))
+            ln = math.sqrt(sum((to[i]-fr0[i])**2 for i in range(3))) or 1
+            back = tuple(tip[i] - (to[i]-fr0[i]) / ln * 3.2 * fx['scale'] for i in range(3))
+            pb, pt = proj(back), proj(tip)
+            if pb and pt:
+                edge = proj((tip[0], tip[1] + 1.1*fx['scale'], tip[2]))
+                r = abs(edge[1] - pt[1]) if edge else 10
+                d.line([pb[:2], pt[:2]], fill=col + (150,), width=max(3, int(r)))
+                d.rectangle([pt[0]-r, pt[1]-r, pt[0]+r, pt[1]+r], fill=col + (170,), outline=(255,255,255,200))
+        elif k == 'orbs':
+            n = max(1, int(fx['scale']))
+            for i in range(n):
+                an = (fx['phase'] + fx['spin'] * age / 60 + i / n) * 2 * math.pi
+                q = (pos[0] + math.cos(an)*fx['radius'], pos[1] + math.sin(an)*fx['radius']*math.sin(fx['tilt']),
+                     pos[2] + math.sin(an)*fx['radius']*math.cos(fx['tilt']))
+                p, edge = proj(q), proj((q[0], q[1] + 0.55, q[2]))
+                if p and edge:
+                    r = max(2, abs(edge[1] - p[1]))
+                    d.ellipse([p[0]-r*1.4, p[1]-r*1.4, p[0]+r*1.4, p[1]+r*1.4], fill=col + (120,))
+                    d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=(11,7,18,255))
+        elif k == 'orbDart':
+            if age <= 6:
+                t = min(1, age / 5)
+                head = tuple(fx['from'][i] + (fx['to'][i]-fx['from'][i])*t for i in range(3))
+                poly3([fx['from'], head], 3)
+                p = proj(head)
+                if p: d.ellipse([p[0]-5, p[1]-5, p[0]+5, p[1]+5], fill=(11,7,18,255), outline=col + (255,))
+        elif k == 'wake':
+            poly3([fx['from'], fx['to']], 6)
+        elif k == 'waterspout':
+            hgt = fx['scale'] * min(1, age / 30)
+            rr = fx['radius']
+            y = 0.0
+            while y <= hgt:
+                poly3([(pos[0]+math.cos(t/16*2*math.pi + y)*rr, y, pos[2]+math.sin(t/16*2*math.pi + y)*rr) for t in range(17)], 2)
+                y += 1.3
+            for sx in (-rr, rr): poly3([(pos[0]+sx, 0, pos[2]), (pos[0]+sx*0.8, hgt, pos[2])], 2)
         elif k == 'eclipse':
             p, edge = proj(pos), proj((pos[0] + 4.5*fx['scale'], pos[1], pos[2]))
             if p and edge:

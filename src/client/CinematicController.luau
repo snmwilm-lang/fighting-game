@@ -349,7 +349,15 @@ function CinematicController:applyFx(frame)
 				self.gate = prop
 			elseif kind == "gateOpen" then fx:gateOpen(self.gate)
 			elseif kind == "gateShatter" then fx:gateShatter(self.gate, color)
-			elseif kind == "rocks" then prop = fx:rocks(vec(request.pos), request.radius, request.count or 8, color)
+			elseif kind == "rocks" then prop = fx:rocks(vec(request.pos), request.radius, request.count or 8, color, request.life)
+			elseif kind == "rockLine" then prop = fx:rockLine(vec(request.from), vec(request.to), request.count or 4, color, request.life)
+			elseif kind == "rageFist" then fx:rageFist(vec(request.from), vec(request.to), color, request.scale or 1)
+			elseif kind == "orbs" then
+				prop = fx:orbs(vec(request.pos), request.radius, request.count, color, request.life, request.spin or 0.5, request.phase or 0,
+					request.tilt or 0)
+			elseif kind == "orbDart" then fx:orbDart(vec(request.from), vec(request.to), color)
+			elseif kind == "wake" then fx:wake(vec(request.from), vec(request.to), color, request.life or 1.6)
+			elseif kind == "waterspout" then prop = fx:waterspout(vec(request.pos), request.radius, request.scale, color, request.life)
 			elseif kind == "debris" then fx:debris(vec(request.pos), color, request.scale or 1)
 			elseif kind == "crack" then fx:crack(vec(request.from), vec(request.to), color)
 			elseif kind == "cut" then fx:cut(vec(request.from), vec(request.to), color)

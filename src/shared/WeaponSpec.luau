@@ -27,6 +27,9 @@ WeaponSpec.SHIN = {
 
 WeaponSpec.DAICHA = {
 	hand = "LeftHand",
+	-- The orb is built in the hand, but it flies on its own (src/shared/OrbFlight.luau): the
+	-- client sets it free and moves it every frame.
+	flies = true,
 	grip = { y = -0.2, z = -0.95, tilt = 0 },
 	r6Grip = { y = -0.9, z = -0.35, tilt = 0 }, -- (R6) just past the end of the arm
 	pieces = {

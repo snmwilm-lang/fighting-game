@@ -35,7 +35,7 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
 		end
 		-- The fighter's weapon in its hand (SHIN's katana, DAICHA's orb).
-		for _, piece in WeaponKit.pieces(info.views[slot].kit, info.parts[slot]) do
+		for _, piece in WeaponKit.pieces(info.views[slot].kit, info.parts[slot], nil, { view = info.views[slot], time = info.tick / 60 }) do
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),
@@ -44,14 +44,17 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 	end
 	for _, entry in seen do
 		local fx, age = entry.fx, info.tick - entry.tick
-		if age <= 14 or fx.keep or fx.kind == "gate" then
+		local shown = if fx.life then age <= fx.life * 60 else age <= 14 or fx.keep or fx.kind == "gate"
+		if shown then
 			local function p(q)
 				if type(q) == "number" then return fmt(q) .. " 0 0" end
 				return if q then string.format("%s %s %s", fmt(q.x), fmt(q.y), fmt(q.z or 0)) else "0 0 0"
 			end
-			print(string.format("FX %s %d %s %s %s %s %s %s %s", fx.kind, age, p(fx.pos), p(fx.from), p(fx.to),
+			-- (then the life in seconds, the spin in turns per second and the starting turn)
+			print(string.format("FX %s %d %s %s %s %s %s %s %s %s %s %s", fx.kind, age, p(fx.pos), p(fx.from), p(fx.to),
 				fmt(fx.radius or 0), fx.color or "FFFFFF", fmt(fx.tilt or 0),
-				fmt(if fx.kind == "arc" then (fx.dir or 1) else (fx.count or fx.scale or 1))))
+				fmt(if fx.kind == "arc" then (fx.dir or 1) else (fx.count or fx.scale or 1)),
+				fmt(fx.life or 0), fmt(fx.spin or 0), fmt(fx.phase or 0)))
 		end
 	end
 end)

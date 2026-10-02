@@ -128,6 +128,23 @@ sa cible dans un dragon de vent, puis l'enferme dans un cyclone ; AKEMI frappe d
 avec ses ombres, arrête le temps (noir et blanc) pour frapper au ralenti, puis danse entre
 esquives et coups instantanés. KAI garde les siennes (finale de l'éveil selon la route).
 
+Les ruées (**R** seul) ne se ressemblent plus, chacune a sa propre structure :
+- **RYUKEN · FUREUR DU POING** : il ne lâche pas sa cible. Tenue par le col et pilonnée à bout
+  portant (caméra dans le visage de la cible), écrasée au sol, cueillie au rebond, jonglée
+  vers le ciel des deux côtés, smashée au sol, puis un **poing géant de ki** la projette à
+  travers le pont.
+- **SHIN · DANSE DES COURANTS** : un seul plan vu d'en haut pendant qu'il dessine un **huit**
+  autour de la cible (une coupe à chaque croisement, un sillage d'eau reste au sol), puis le
+  huit se lève en **trombe d'eau** qui avale la cible ; il saute par-dessus et la fend du ciel.
+- **DAICHA · DOMAINE OBSCUR** : il ne touche jamais la cible. Son orbe se divise (2, puis 4),
+  couronne la cible et plonge dedans orbe par orbe ; 8 orbes sur deux anneaux croisés (vue du
+  dessus qui tourne), un vortex d'orbes la soulève, puis toutes fusionnent en **sphère noire**
+  qui s'abat sur elle.
+- **HIBECARES · COLOSSE ÉVEILLÉ** : peu de coups, tous colossaux. Chaque pas est un séisme
+  (une ligne de rochers jaillit jusqu'à la cible), le 1er coup l'envoie rouler, il la suit
+  sans se presser, le 2e l'enfonce dans le sol, ses piétinements la font décoller de plus en
+  plus haut, le 3e fait le cratère.
+
 L'éveil retire **95 % de la vie actuelle** ; sous **50 %** c'est un **FINAL FINISH** (K.O.) ;
 la finale change selon la route ; QTE en rythme pendant la rafale. La porte retire 40 % de la
 vie max (peut tuer) ; R pile au sommet : +10 %. Les ultimes ne sont ni esquivés ni parés.
@@ -153,10 +170,13 @@ vie max (peut tuer) ; R pile au sommet : +10 %. Les ultimes ne sont ni esquivés
 
 ## Jouer en 1 contre 1 avec un ami (HUB)
 
-Bouton **HUB** en haut à droite : les joueurs du serveur, **DÉFIER** (le défi dure 30 s),
+Bouton doré **HUB MULTI (H)** en haut à droite, ou la touche **H** : le panneau du hub s'ouvre
+aussi tout seul à l'arrivée. On y voit les joueurs du serveur, **DÉFIER** (le défi dure 30 s),
 **ACCEPTER / REFUSER** (bandeau quand on te défie), **QUITTER LE COMBAT**, **JOUER** (quand
 personne ne combat) et **INVITER UN AMI** (l'invitation Roblox : ton ami arrive sur ton
 serveur). Le premier arrivé combat le CPU ; les suivants attendent au hub et regardent.
+**Seul sur le serveur, il n'y a personne à défier** : ton ami doit être sur le MÊME serveur
+(invitation, ou rejoindre depuis ton profil Roblox).
 
 Le ping des deux joueurs s'affiche sur la ligne d'état. Pour un ami loin (autre région), le
 serveur compense un peu sa latence (enchaînements, QTE des cinématiques) et son propre perso
@@ -196,6 +216,20 @@ cercle complet), estocs en trait de lumière, coups lourds qui frappent le sol ;
 d'orbe, faisceau pour le coup lourd, vortex d'orbes pour les coups tournoyants ; en garde, un
 arc de lumière devant la lame ou des anneaux d'ombre autour de l'orbe, qui flashent au coup
 bloqué. Sur un corps R6 (sans poignet), la lame prolonge le bras.
+
+L'orbe de DAICHA **vole autour de lui** (`src/shared/OrbFlight.luau`, pur) : elle tourne
+autour de ses épaules au repos, se place devant lui en garde, se rassemble près de sa main à
+l'armé, file jusqu'au bout de la portée à l'impact (un sursaut par coup des rafales), tourbillonne
+pour les coups tournoyants et revient en orbite ; elle s'écarte derrière lui quand il est touché.
+
+### Chaque perso frappe à sa façon
+
+Chaque coup laisse la marque de son perso : KAI une traînée et un éclat de ki ; TARO une
+traînée de feu et un anneau de flammes à l'impact ; ZEPHYR un croissant de vent et une
+bourrasque ; AKEMI une fine entaille d'ombre et une croix ; RYUKEN des traînées de chaleur et
+une fissure de rage (les coups lourds fendent le sol) ; SHIN l'arc de la lame et une coupe nette ;
+DAICHA l'explosion de l'orbe ; HIBECARES la poussière, des débris de pierre et le sol qui
+tremble sur les coups lourds.
 
 ## Sons
 

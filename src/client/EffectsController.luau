@@ -6,6 +6,7 @@
 local Debris = game:GetService("Debris")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +16,7 @@ local Sim = require(Shared.CombatSimulation)
 local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
 local PoseLibrary = require(Shared.PoseLibrary)
+local OrbFlight = require(Shared.OrbFlight)
 
 local EffectsController = {}
 
@@ -172,8 +174,9 @@ function EffectsController:weaponStrike(view, moveId, color, rig)
 	elseif kit == "DAICHA" then
 		local s = ORB[role]
 		if not s then return false end
-		local orb = rig and rig.model:FindFirstChild("KitShadowOrb")
-		local at = if orb and orb:IsA("BasePart") then orb.Position else Vector3.new(view.x + f * 2.6, view.y + 3.4, z)
+		-- Where the flying orb strikes (OrbFlight): the end of the move's reach.
+		local hit = OrbFlight.strike(MoveData.Moves[moveId])
+		local at = Vector3.new(view.x + f * hit.fwd, view.y + hit.up, z + hit.side)
 		if s.arc then
 			local a = s.arc
 			self:arc(Vector3.new(view.x + f * 0.4, view.y + a[4], z), a[3], a[1], a[2], color, a[5], f)
@@ -247,6 +250,20 @@ function EffectsController:orbVortex(center, color)
 	self:tornadoRing(center, color)
 end
 
+-- DAICHA's orb, free of his hand: where OrbFlight puts it, eased (it never teleports).
+function EffectsController:flyOrb(rig, view, now)
+	local id = view.state == "Attack" and view.move or nil
+	local o = OrbFlight.offset(view, id and MoveData.Moves[id], id and ROLE_OF[id], now)
+	local target = Vector3.new(view.x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
+	local dt = math.clamp(now - (rig.orbClock or now), 0, 0.1)
+	rig.orbClock = now
+	rig.orbPosition = (rig.orbPosition or target):Lerp(target, 1 - math.exp(-dt * 22))
+	local spin = CFrame.new(rig.orbPosition) * CFrame.Angles(0, now * 2.2, now * 0.7)
+	for _, p in rig.orbParts do
+		if p.Parent then p.CFrame = spin end
+	end
+end
+
 -- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
 -- arc of light raised before SHIN's blade, two rings of shadow round DAICHA's orb.
 function EffectsController:weaponGuard(slot, rig, view, guarding, color)
@@ -290,12 +307,144 @@ function EffectsController:weaponGuard(slot, rig, view, guarding, color)
 	guard.flash = math.max(0, guard.flash - 0.08)
 	local low = view.state == "CrouchBlocking" or view.state == "CrouchBlockstun"
 	local f = view.facing
-	local at = Vector3.new(view.x + f * 1.3, view.y + (if low then 2.1 else 3.5), self.config.PlaneZ + 0.2)
+	local at = if rig.orbPosition and rig.weaponKind == "Orb" then rig.orbPosition
+		else Vector3.new(view.x + f * 1.3, view.y + (if low then 2.1 else 3.5), self.config.PlaneZ + 0.2)
 	-- Turned a little toward the camera so it reads from the side view.
 	guard.model:PivotTo(CFrame.new(at) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(35), 0))
 	local alpha = 1 - math.clamp(guard.shown + guard.flash, 0, 1)
 	for _, p in guard.parts do
 		if p.Transparency ~= alpha then p.Transparency = alpha end
+	end
+end
+
+-- ===================================================================== every kit's own strikes
+-- The combos of the eight fighters never look alike: each kit has its own flourish when a
+-- blow goes out (`kitSwing`, on the first contact frame of the move, hit or not) and when it
+-- lands (`kitHit`, on the Hit event): ki for KAI, fire round TARO's gloves, wind for ZEPHYR,
+-- shadow cuts for AKEMI, cracks of rage for RYUKEN, the blade for SHIN, the orb for DAICHA,
+-- stone for HIBECARES.
+local FIRE, EMBER = Color3.fromHex("FF7A1A"), Color3.fromHex("FFD45A")
+local STONE = Color3.fromHex("7A6D62")
+
+-- A ki flash: a white core in a ring of the fighter's colour.
+function EffectsController:kiPop(position, color, scale)
+	local core = self:part(Vector3.one * 0.5 * scale, CFrame.new(position), WHITE, Enum.PartType.Ball)
+	tween(core, 0.14, { Size = Vector3.one * 1.8 * scale, Transparency = 1 })
+	Debris:AddItem(core, 0.18)
+	local ring = self:part(Vector3.new(0.06, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
+	tween(ring, 0.2, { Size = Vector3.new(0.06, 3.4, 3.4) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.24)
+end
+
+-- TARO's glove: a ring of fire round the fist and embers thrown off it.
+function EffectsController:fireRing(position, scale)
+	local ring = self:part(Vector3.new(0.18, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), FIRE, Enum.PartType.Cylinder)
+	ring.Transparency = 0.05
+	tween(ring, 0.22, { Size = Vector3.new(0.05, 3.2, 3.2) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.26)
+	local core = self:part(Vector3.one * 0.7 * scale, CFrame.new(position), EMBER, Enum.PartType.Ball)
+	tween(core, 0.16, { Size = Vector3.one * 1.6 * scale, Transparency = 1 })
+	Debris:AddItem(core, 0.2)
+	for i = 1, if self.reduced then 3 else 7 do
+		local ember = self:part(Vector3.one * 0.16, CFrame.new(position), if i % 2 == 0 then FIRE else EMBER, Enum.PartType.Ball)
+		local away = Vector3.new((math.random() - 0.3) * 2.6, math.random() * 2.2, (math.random() - 0.5) * 1.6) * scale
+		tween(ember, 0.35, { Position = position + away, Transparency = 1, Size = Vector3.one * 0.05 })
+		Debris:AddItem(ember, 0.4)
+	end
+end
+
+-- ZEPHYR's wind: a fast ring of air and two thin gusts.
+function EffectsController:airBurst(position, facing, scale)
+	local ring = self:part(Vector3.new(0.05, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), WHITE, Enum.PartType.Cylinder)
+	ring.Material, ring.Transparency = Enum.Material.ForceField, 0
+	tween(ring, 0.18, { Size = Vector3.new(0.05, 4.2, 4.2) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.22)
+	for i = -1, 1, 2 do
+		local start = position + Vector3.new(-facing * 0.6, i * 0.5 * scale, 0.3)
+		local gust = self:part(Vector3.new(2.2 * scale, 0.06, 0.06), CFrame.new(start + Vector3.new(facing * 1.1 * scale, 0, 0)), WHITE)
+		gust.Transparency = 0.2
+		tween(gust, 0.16, { CFrame = gust.CFrame + Vector3.new(facing * 2, 0, 0), Transparency = 1 })
+		Debris:AddItem(gust, 0.2)
+	end
+end
+
+-- RYUKEN's rage: cracks of red light through the air round the blow, and a shock ring.
+function EffectsController:rageCrack(position, color, scale)
+	for i = 1, if self.reduced then 3 else 5 do
+		local angle = i / 5 * math.pi * 2 + math.random() * 0.6
+		local reach = (1.2 + math.random() * 1.2) * scale
+		self:lightning(position, position + Vector3.new(math.cos(angle) * reach, math.sin(angle) * reach, 0.4), color)
+	end
+	local ring = self:part(Vector3.new(0.1, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
+	tween(ring, 0.18, { Size = Vector3.new(0.05, 3.8, 3.8) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.22)
+end
+
+-- A blow goes out (first contact frame): the kit's flourish along the strike.
+function EffectsController:kitSwing(view, moveId, color, heavy)
+	local kit = MoveData.MoveKit[moveId] or "KAI"
+	local role = ROLE_OF[moveId] or moveId
+	local f, z = view.facing, self.config.PlaneZ
+	local limbs = strikeLimbs(moveId)
+	local footwork = limbs and (table.find(limbs, "RightFoot") or table.find(limbs, "LeftFoot")) ~= nil
+	local at = Vector3.new(view.x + f * 2.2, view.y + (if role == "Sweep" or role == "LowKick" then 1 else 3.4), z)
+	if kit == "TARO" then
+		-- the punch drags a streak of fire
+		self:cut(at - Vector3.new(f * 1.8, 0, 0), at + Vector3.new(f * 0.6, 0, 0), FIRE)
+		if heavy then self:fireRing(at, 1.3) end
+	elseif kit == "ZEPHYR" then
+		-- every kick cuts a crescent of wind
+		self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), if heavy then 3.6 else 3, if footwork then -70 else -40,
+			if footwork then 80 else 40, WHITE, 0.3, f)
+	elseif kit == "AKEMI" then
+		-- a thin shadow slash
+		self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), 2.6, 70, -50, color, 0.5, f)
+		if heavy then self:cut(at + Vector3.new(-f, 1, 0), at + Vector3.new(f, -1, 0), color) end
+	elseif kit == "RYUKEN" then
+		-- heat streaks behind the fist
+		for i = -1, 1 do
+			local y = at.Y + i * 0.35
+			self:cut(Vector3.new(at.X - f * 2.4, y, z), Vector3.new(at.X, y, z), color)
+		end
+		if heavy then
+			self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4.5, 0.05, z + 0.5), color)
+		end
+	elseif kit == "HIBECARES" then
+		-- the weight of the blow raises dust at his feet
+		self:dust(view.x, 0, f)
+		if heavy then
+			self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4, 0.05, z - 0.5), color)
+			self:debris(Vector3.new(view.x + f * 2.5, 0.3, z), color, 0.8)
+			self.camera:shake(if self.reduced then 0.15 else 0.4, 0.2)
+		end
+	else
+		-- KAI: a short ki streak along the blow
+		self:cut(at - Vector3.new(f * 1.4, 0, 0), at + Vector3.new(f * 0.4, 0, 0), color)
+	end
+end
+
+-- A blow lands: the kit's mark on the target.
+function EffectsController:kitHit(moveId, position, color, heavy, facing)
+	local kit = MoveData.MoveKit[moveId] or "KAI"
+	local s = if heavy then 1.5 else 1
+	if kit == "TARO" then
+		self:fireRing(position, s)
+	elseif kit == "ZEPHYR" then
+		self:airBurst(position, facing, s)
+	elseif kit == "AKEMI" then
+		self:cut(position + Vector3.new(-1.1, 0.9, 0.3) * s, position + Vector3.new(1.1, -0.9, 0.3) * s, color)
+		self:cut(position + Vector3.new(-1.1, -0.9, 0.3) * s, position + Vector3.new(1.1, 0.9, 0.3) * s, color)
+	elseif kit == "RYUKEN" then
+		self:rageCrack(position, color, s)
+	elseif kit == "HIBECARES" then
+		self:debris(position, STONE, 0.5 * s)
+		self:dust(position.X, 0, facing)
+	elseif kit == "SHIN" then
+		self:cut(position + Vector3.new(-facing * 1.3, 0.6, 0.3), position + Vector3.new(facing * 1.3, -0.6, 0.3), color)
+	elseif kit == "DAICHA" then
+		self:orbBurst(position, color, 0.7 * s)
+	else
+		self:kiPop(position, color, s)
 	end
 end
 
@@ -501,6 +650,21 @@ function EffectsController:attachRig(slot, rig)
 		rig.trails.Weapon = trail
 		rig.weaponHand = if blade then "RightHand" else "LeftHand"
 		rig.weaponKind = if blade then "Sword" else "Orb"
+		if orb then
+			-- DAICHA's orb is set free: it flies round him (OrbFlight), moved every frame.
+			rig.orbParts = {}
+			for _, name in { "KitShadowOrb", "KitOrbCore" } do
+				local p = rig.model:FindFirstChild(name)
+				if p and p:IsA("BasePart") then
+					for _, joint in p:GetChildren() do
+						if joint:IsA("WeldConstraint") or joint:IsA("Weld") then joint:Destroy() end
+					end
+					p.Anchored = true
+					table.insert(rig.orbParts, p)
+				end
+			end
+			rig.orbPosition = orb.Position
+		end
 	end
 	-- Ki glow: lights the body in its ki colour when charging, skills and ultimates.
 	local glow = Instance.new("PointLight")
@@ -528,8 +692,12 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if previous and previous.key ~= key then
 		if phase == "Active" and not view.ghost then -- staged cinematic poses bring their own effects
 			local m = MoveData.Moves[view.move]
-			-- The weapon kits draw every stroke; the others their strong attacks.
-			if not self:weaponStrike(view, view.move, color, rig) and m.heavy then self:slash(view, view.move, color) end
+			-- The weapon kits draw every stroke; the others their own flourish, and a smear on
+			-- their strong attacks.
+			if not self:weaponStrike(view, view.move, color, rig) then
+				self:kitSwing(view, view.move, color, m.heavy)
+				if m.heavy then self:slash(view, view.move, color) end
+			end
 		elseif view.state == "Dashing" then
 			self:dust(view.x, view.y, view.facing)
 		elseif view.state == "Knockdown" and previous.key ~= "KO" then
@@ -565,6 +733,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 			if trail.Enabled ~= on then trail.Enabled = on end
 		end
 	end
+	if rig.orbParts then self:flyOrb(rig, view, now) end
 	if rig.weaponKind then
 		local guarding = view.state == "Blocking" or view.state == "CrouchBlocking" or view.state == "Blockstun"
 			or view.state == "CrouchBlockstun"
@@ -674,6 +843,8 @@ function EffectsController:onEvent(event, views, rigs)
 		if event.kind == "Hit" then
 			local heavy = event.heavy or event.ko
 			self:spark(position, attackerColor, if heavy then 1.5 else 1)
+			local attackerView = views[event.attacker]
+			self:kitHit(event.move, position, attackerColor, heavy, if attackerView then attackerView.facing else 1)
 			if event.tip then
 				-- SHIN's PRÉCISION: the tip of the blade, one clean line through the hit.
 				self:cut(position - Vector3.new(1.4, 0.5, 0), position + Vector3.new(1.4, 0.5, 0), attackerColor)
@@ -897,7 +1068,7 @@ end
 
 -- HIBECARES: stone pillars bursting out of the floor on the far half of a ring around
 -- `center` (the near half would hide the fighters). Returns the model for cleanup.
-function EffectsController:rocks(center, radius, count, color)
+function EffectsController:rocks(center, radius, count, color, life)
 	local model = Instance.new("Model")
 	model.Name, model.Parent = "Rocks", self.folder
 	local stone = Color3.fromHex("6E6258")
@@ -918,6 +1089,156 @@ function EffectsController:rocks(center, radius, count, color)
 	end
 	self:dust(center.X, 0, 1)
 	self:dust(center.X, 0, -1)
+	if life then self:sink(model, life) end
+	return model
+end
+
+-- Pillars of a model sinking back into the floor after `life` seconds, then gone.
+function EffectsController:sink(model, life)
+	task.delay(life, function()
+		for _, part in model:GetChildren() do
+			if part:IsA("BasePart") then
+				tween(part, 0.35, { CFrame = part.CFrame - Vector3.new(0, part.Size.Y, 0), Transparency = 1 }, Enum.EasingStyle.Quad)
+			end
+		end
+		Debris:AddItem(model, 0.4)
+	end)
+end
+
+-- HIBECARES: stone pillars erupting one after the other along a line of the floor (a quake
+-- running to the target), sinking back after `life` seconds.
+function EffectsController:rockLine(from, to, count, color, life)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "RockLine", self.folder
+	local stone = Color3.fromHex("6E6258")
+	for i = 1, count do
+		task.delay((i - 1) * 0.05, function()
+			if not model.Parent then return end
+			local base = from:Lerp(to, (i - 0.5) / count)
+			local height = 2 + 3.2 * i / count
+			local width = 1.1 + (i % 3) * 0.25
+			local final = CFrame.new(base + Vector3.new(0, height / 2 - 0.3, 0)) * CFrame.Angles(math.rad((i * 23) % 17 - 8), math.rad(i * 61),
+				math.rad((i * 31) % 15 - 7))
+			local rock = self:part(Vector3.new(width, height, width * 0.9), final - Vector3.new(0, height, 0), stone)
+			rock.Material, rock.Parent = Enum.Material.Slate, model
+			tween(rock, 0.16, { CFrame = final }, Enum.EasingStyle.Back)
+			local glow = self:part(Vector3.new(width * 1.6, 0.08, width * 1.6), CFrame.new(base + Vector3.new(0, 0.06, 0)), color)
+			glow.Transparency, glow.Parent = 0.3, model
+			tween(glow, 0.6, { Transparency = 1 })
+		end)
+	end
+	self:sink(model, (life or 1) + count * 0.05)
+	return model
+end
+
+-- RYUKEN: a giant fist of ki (forearm, fist, four knuckles) thrown from `from` to `to`, then
+-- fading out where it struck.
+function EffectsController:rageFist(from, to, color, scale)
+	local travel = to - from
+	if travel.Magnitude < 1e-3 then return end
+	local look = CFrame.lookAt(from, to)
+	local pieces = {
+		self:part(Vector3.new(1.5, 1.5, 3.4) * scale, look * CFrame.new(0, 0, 2.6 * scale), color), -- forearm
+		self:part(Vector3.new(2.2, 2, 1.8) * scale, look, color), -- fist
+	}
+	for i = 1, 4 do
+		table.insert(pieces, self:part(Vector3.new(0.5, 0.42, 0.5) * scale,
+			look * CFrame.new((i - 2.5) * 0.52 * scale, 0.55 * scale, -1 * scale), WHITE))
+	end
+	for _, piece in pieces do
+		piece.Transparency = 0.25
+		tween(piece, 0.18, { CFrame = piece.CFrame + travel }, Enum.EasingStyle.Quart)
+		task.delay(0.22, function()
+			if piece.Parent then tween(piece, 0.45, { Transparency = 1, Size = piece.Size * 1.3 }) end
+		end)
+		Debris:AddItem(piece, 0.75)
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = color, 26, 5
+	light.Parent = pieces[2]
+end
+
+-- DAICHA: `count` orbs of shadow circling `center` on a ring of `radius` tilted by `tilt`
+-- radians, `spin` turns per second from the turn `phase`, for `life` seconds (the director's
+-- crownAt gives the same places). Returns them for cleanup.
+function EffectsController:orbs(center, radius, count, color, life, spin, phase, tilt)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Orbs", self.folder
+	local balls = {}
+	for i = 1, count do
+		local core = self:part(Vector3.one * 0.9, CFrame.new(center), Color3.fromHex("0B0712"), Enum.PartType.Ball)
+		core.Material, core.Parent = Enum.Material.SmoothPlastic, model
+		local halo = self:part(Vector3.one * 1.35, CFrame.new(center), color, Enum.PartType.Ball)
+		halo.Material, halo.Transparency, halo.Parent = Enum.Material.ForceField, 0, model
+		balls[i] = { core, halo }
+	end
+	local start = os.clock()
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - start
+		if t > life or not model.Parent then
+			connection:Disconnect()
+			model:Destroy()
+			return
+		end
+		for i, ball in balls do
+			local angle = (phase + spin * t + (i - 1) / count) * math.pi * 2
+			local spot = center + Vector3.new(math.cos(angle) * radius, math.sin(angle) * radius * math.sin(tilt),
+				math.sin(angle) * radius * math.cos(tilt))
+			ball[1].CFrame, ball[2].CFrame = CFrame.new(spot), CFrame.new(spot)
+		end
+	end)
+	return model
+end
+
+-- DAICHA: one orb of shadow darting from `from` into `to`, a violet streak behind it.
+function EffectsController:orbDart(from, to, color)
+	local length = (to - from).Magnitude
+	if length < 1e-3 then return end
+	local orb = self:part(Vector3.one, CFrame.new(from), Color3.fromHex("0B0712"), Enum.PartType.Ball)
+	orb.Material = Enum.Material.SmoothPlastic
+	tween(orb, 0.09, { CFrame = CFrame.new(to) }, Enum.EasingStyle.Linear)
+	Debris:AddItem(orb, 0.1)
+	local streak = self:part(Vector3.new(0.4, 0.4, length), CFrame.lookAt((from + to) / 2, to), color)
+	streak.Transparency = 0.3
+	tween(streak, 0.25, { Size = Vector3.new(0.05, 0.05, length), Transparency = 1 })
+	Debris:AddItem(streak, 0.3)
+	task.delay(0.09, function() self:spark(to, color, 0.6) end)
+end
+
+-- SHIN: the water his steps leave on the deck, a smooth glowing stroke fading in `life` s.
+function EffectsController:wake(from, to, color, life)
+	local length = (to - from).Magnitude
+	if length < 1e-3 then return end
+	local stroke = self:part(Vector3.new(0.7, 0.06, length + 0.3), CFrame.lookAt((from + to) / 2, to), color)
+	stroke.Transparency = 0.25
+	tween(stroke, life, { Size = Vector3.new(0.15, 0.06, length + 0.3), Transparency = 1 })
+	Debris:AddItem(stroke, life + 0.05)
+end
+
+-- SHIN: a column of water rising and spinning from the floor for `life` seconds (a clear core,
+-- rings climbing it). Returns it for cleanup.
+function EffectsController:waterspout(base, radius, height, color, life)
+	local model = Instance.new("Model")
+	model.Name, model.Parent = "Waterspout", self.folder
+	local upright = CFrame.Angles(0, 0, math.pi / 2)
+	local core = self:part(Vector3.new(0.4, radius * 2, radius * 2), CFrame.new(base) * upright, color, Enum.PartType.Cylinder)
+	core.Material, core.Transparency, core.Parent = Enum.Material.ForceField, 0, model
+	tween(core, 0.4, { Size = Vector3.new(height, radius * 2, radius * 2), CFrame = CFrame.new(base + Vector3.new(0, height / 2, 0)) * upright })
+	local waves = math.max(1, math.floor(life / 0.12))
+	for w = 0, waves - 1 do
+		task.delay(w * 0.12, function()
+			if not model.Parent then return end
+			local y = (w % 8) / 8 * height
+			local ring = self:part(Vector3.new(0.2, radius * 2.2, radius * 2.2), CFrame.new(base + Vector3.new(0, y, 0)) * upright,
+				if w % 3 == 0 then WHITE else color, Enum.PartType.Cylinder)
+			ring.Material, ring.Transparency, ring.Parent = Enum.Material.ForceField, 0, model
+			tween(ring, 0.5, { CFrame = ring.CFrame + Vector3.new(0, height / 4, 0), Size = Vector3.new(0.2, radius * 2.8, radius * 2.8),
+				Transparency = 1 })
+			Debris:AddItem(ring, 0.55)
+		end)
+	end
+	Debris:AddItem(model, life)
 	return model
 end
 

@@ -1,5 +1,62 @@
 # Journal du projet — état à transmettre
 
+## Version 0.10.3 — 2 octobre 2026
+
+Retours de Wilhem : « l'orbe doit vraiment voler autour de DAICHA, pas coller à sa main » ;
+« toutes les cinématiques du R se ressemblent, pousse le travail » ; « je n'ai toujours pas
+accès au hub multi » ; « les ultimes et les combos doivent vraiment être différents visuellement ».
+
+- **Orbe de DAICHA qui vole** : `src/shared/OrbFlight.luau` (pur) calcule où est l'orbe à
+  chaque instant à partir de la vue du combattant : orbite autour des épaules au repos (plus
+  basse accroupi), devant lui en garde, rassemblée près de la main à l'armé, au bout de la
+  portée du coup à l'impact (un sursaut par coup des rafales), tourbillon pour les coups
+  tournoyants, retour en orbite pendant la récupération, en retrait quand il est touché ou
+  qu'il dashe. Le client détache l'orbe de la main (pièces ancrées, traînée conservée) ;
+  `WeaponKit`, `PoseSheet` et `Storyboard` la dessinent au même endroit.
+- **Les ruées (R) refaites**, une structure par perso (`CinematicDirector`) :
+  - RYUKEN · FUREUR DU POING : cible tenue par le col et pilonnée (caméra dans son visage, le
+    cadre « cogne » à chaque coup), écrasée au sol (vue du dessus), uppercut au rebond,
+    jonglée des deux côtés (vue du sol), smashée, puis la rage se concentre dans le poing
+    (zoom) et part en **poing géant de ki** (nouvel effet `rageFist`) ;
+  - SHIN · DANSE DES COURANTS : un seul plan vu d'en haut qui tourne lentement pendant qu'il
+    dessine un **huit** autour de la cible (coupe à chaque quart, sillage d'eau au sol :
+    `wake`), puis une **trombe d'eau** (`waterspout`) avale la cible, il saute par-dessus et
+    la fend du ciel en diagonale ; ronds dans l'eau à la fin ;
+  - DAICHA · DOMAINE OBSCUR : il ne touche jamais la cible ; son orbe se divise dans sa main,
+    couronne la cible et plonge dedans orbe par orbe (`orbs`, `orbDart`), 8 orbes sur deux
+    anneaux croisés vus du dessus, vortex qui la soulève (monde à l'envers), fusion en
+    sphère noire qui s'abat ;
+  - HIBECARES · COLOSSE ÉVEILLÉ : trois coups colossaux seulement ; chaque pas est un séisme
+    (ligne de rochers `rockLine` jusqu'à la cible), le 1er coup l'envoie rouler, il la suit
+    sans se presser (par-dessus son épaule), le 2e l'enfonce (cratère), les piétinements la
+    font décoller de plus en plus haut, le 3e fait le cratère. Les rochers retombent après
+    chaque séisme (paramètre `life` de `rocks`) pour ne jamais boucher le cadre.
+- **Combos visuellement différents** (`EffectsController.kitSwing / kitHit`) : chaque coup
+  laisse la marque de son perso (traînée de ki / feu / vent / ombre / chaleur, anneau de
+  flammes, bourrasque, croix d'ombre, fissure de rage, coupe nette, explosion d'orbe, débris
+  de pierre et secousse), en plus des arcs d'épée et d'orbe de la 0.10.2.
+- **Hub** : bouton doré « HUB MULTI (H) » plus grand, touche **H**, panneau central qui s'ouvre
+  tout seul à l'arrivée, avec l'état (seul / en combat / en attente), les joueurs, DÉFIER,
+  INVITER, JOUER CONTRE LE CPU et une explication quand on est seul : l'ami doit être sur le
+  **même serveur** (invitation Roblox, ou « Test > Clients et serveurs » à 2 dans Studio).
+- Outils : `Storyboard` sort la durée de vie / la rotation des effets ; `tools/storyboard.py`
+  dessine les nouveaux effets (poing géant, orbes, sillage, trombe, ligne de rochers).
+- Tests : CinematicDirector 247 (+1 : chaque ruée a ses effets à elle et sa manière — DAICHA
+  reste à plus de 4 studs, RYUKEN jongle à plus de 6 studs, le sol tremble sur au moins 8
+  pas / coups de HIBECARES, personne ne traverse sa cible) ; CombatSimulation 82, FighterAI 10,
+  Animation 28 (dont l'orbe qui vole : orbite au repos, hors du corps, au bout de la portée à
+  l'impact, retour), Kits 53, PressQueue 4, Fuzz 2, Cinematography 81, Lobby 5 ✅. Planches des 4 ruées
+  regardées avant / après. Studio ❌ non exécuté : les nouveaux effets (poing géant, orbes en
+  vol, trombe, lignes de rochers) et le hub restent à voir en jeu. Équilibrage inchangé
+  (aucune donnée de combat touchée).
+
+### Problèmes ouverts / prochaine étape
+
+- Voir en jeu les 4 ruées refaites et l'orbe qui vole ; ajuster tailles et durées des effets.
+- Hub : à deux, les joueurs doivent être sur le même serveur (pas de matchmaking entre serveurs).
+- Prochaine étape possible : le même travail de différenciation sur les éveils / portes si
+  Wilhem les trouve encore trop proches.
+
 ## Version 0.10.2 — 2 octobre 2026
 
 Retour de Wilhem (avec sa planche « attaques à l'épée / attaques à l'orbe ») : « t'as rien

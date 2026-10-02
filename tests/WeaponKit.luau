@@ -4,6 +4,13 @@
 -- or an R6 body whose hand is the end of its arm, as RigBuilder places it).
 local K = require("../src/shared/Kinematics")
 local WeaponSpec = require("../src/shared/WeaponSpec")
+local OrbFlight = require("../src/shared/OrbFlight")
+local MoveData = require("../src/shared/MoveData")
+
+local ROLE_OF = {}
+for _, kit in MoveData.Kits do
+	for role, id in kit.Roles do ROLE_OF[id] = role end
+end
 
 local WeaponKit = {}
 
@@ -27,11 +34,24 @@ function WeaponKit.grip(kit, parts)
 	return K.mul(K.mul(frame, K.translation(0, size[2] * g.y, g.z)), K.angles(math.rad(g.tilt), 0, 0)), spec
 end
 
--- The weapon's pieces: { name, cframe, size, color (hex) }.
-function WeaponKit.pieces(kit, parts, energy)
+-- Where a flying weapon is (DAICHA's orb, OrbFlight) for a fighter's view at `time`: a world
+-- position { x, y, z } (the view's x, y are its feet; it faces `facing` along X).
+function WeaponKit.flight(view, time)
+	local id = view.state == "Attack" and view.move or nil
+	local o = OrbFlight.offset(view, id and MoveData.Moves[id], id and ROLE_OF[id], time)
+	return { view.x + (view.facing or 1) * o.fwd, view.y + o.up, (view.z or 0) + o.side }, o
+end
+
+-- The weapon's pieces: { name, cframe, size, color (hex) }. A flying weapon needs the view
+-- and the time (`flight` = { view, time }); without them it is drawn in the hand.
+function WeaponKit.pieces(kit, parts, energy, flight)
 	local grip, spec = WeaponKit.grip(kit, parts)
 	local out = {}
 	if not grip then return out end
+	if spec.flies and flight then
+		local at = WeaponKit.flight(flight.view, flight.time)
+		grip = K.translation(at[1], at[2], at[3])
+	end
 	for _, p in spec.pieces do
 		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(0, p.y or 0, p.z or 0)), size = p.size,
 			color = if p.color == "energy" then energy or "8FD8FF" elseif p.color == "trim" then "C9A227" else p.color })

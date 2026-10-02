@@ -226,11 +226,11 @@ Poses.ArmsCrossed = blind(feet({
 	LeftShoulder = { 62, 0, 38 }, LeftElbow = { 118, 0, 0 },
 	RightShoulder = { 58, 0, -38 }, RightElbow = { 122, 0, 0 },
 }, -0.2, 0.25, 0, 0, 10))
--- Super flash: kiai, fists at the hips, chest out.
+-- Super flash: kiai, fists pulled back to the hips (elbows behind), chest out.
 Poses.Kiai = blind(feet({
 	Root = { 0, 0, 0, -0.6, 0 }, Waist = { 14, 0, 0 }, Neck = { -18, 0, 0 },
-	LeftShoulder = { 18, 0, -42 }, LeftElbow = { 105, 0, 0 },
-	RightShoulder = { 18, 0, 42 }, RightElbow = { 105, 0, 0 },
+	LeftShoulder = { -45, 0, -18 }, LeftElbow = { 90, 0, 0 },
+	RightShoulder = { -45, 0, 18 }, RightElbow = { 90, 0, 0 },
 }, -0.15, 0.25, 0, 0, 20))
 -- Signature poses of the kits' cinematics.
 -- TARO: gloves pounded together in front of the chest, head down, shoulders rolled in.
@@ -510,16 +510,16 @@ Poses.KiChase = { -- leaping flying knee wrapped in ki
 	})),
 	Recovery = merge(STANCE, legs(50, -80, 30, -60)),
 }
-Poses.Finale = { -- double ki fist driven through the target
+Poses.Finale = { -- one ki fist driven through the target, the other pulled back to the hip
 	Startup = feet(merge(STANCE, {
 		Root = { 0, -20, 0, -0.6, 0.5 }, Waist = { 0, -40, 0 }, Neck = { 10, 40, 0 },
 		LeftShoulder = { 20, 0, 40 }, LeftElbow = { 120, 0, 0 },
 		RightShoulder = { -40, 0, 30 }, RightElbow = { 110, 0, 0 },
 	}), -0.5, 1.15, 0, -6, 12),
 	Active = feet({
-		Root = { 0, 10, 0, -0.7, -1.0 }, Waist = { -30, 24, 0 }, Neck = { 22, -25, 0 },
-		LeftShoulder = { 92, 0, 18 }, LeftElbow = { 5, 0, 0 },
-		RightShoulder = { 92, 0, -10 }, RightElbow = { 2, 0, 0 },
+		Root = { 0, 16, 0, -0.7, -1.0 }, Waist = { -30, 36, 0 }, Neck = { 22, -30, 0 },
+		RightShoulder = { 94, 0, -6 }, RightElbow = { 2, 0, 0 },
+		LeftShoulder = { -30, 0, -28 }, LeftElbow = { 100, 0, 0 },
 	}, -1.75, 0.35, 0, -26, 10),
 	Recovery = feet(merge(STANCE, { Root = { 0, 0, 0, -0.5, -0.4 }, Waist = { -20, 20, 0 } }), -1.2, 0.5, 0, -14, 8),
 }
@@ -1532,7 +1532,7 @@ local function orb(shoulder, elbow, wrist, extra)
 	return t
 end
 
--- Light combo: the orb jab, the orb swept back across (sidestep), both palms pushing it out,
+-- Light combo: the orb jab, the orb swept back across (sidestep), the orb hand pushing it out (the other pulled back),
 -- the orb raised overhead and smashed down.
 Poses.DaichaClaw = stroke(DAICHA, orb(deg(40, 0, 20), 110, -40, { Waist = deg(-6, 30), RightShoulder = deg(30, 0, -20), RightElbow = deg(90) }),
 	orb(deg(90, 0, 6), 4, nil, { Waist = deg(-12, -30), RightShoulder = deg(30, 0, -20), RightElbow = deg(90) }), 0.5)
@@ -1543,7 +1543,7 @@ Poses.DaichaStep = {
 }
 Poses.DaichaThrow = stroke(DAICHA,
 	orb(deg(50, 0, 25), 120, -40, { RightShoulder = deg(50, 0, -25), RightElbow = deg(120), Waist = deg(6, 0) }),
-	orb(deg(88, 0, 10), 4, nil, { RightShoulder = deg(88, 0, -10), RightElbow = deg(4), RightWrist = deg(-75), Waist = deg(-12, 0) }), 0.6, 0)
+	orb(deg(88, 0, 10), 4, nil, { RightShoulder = deg(-20, 0, -30), RightElbow = deg(80), Waist = deg(-12, 0) }), 0.6, 0)
 Poses.DaichaCombo = stroke(DAICHA,
 	orb(deg(170, 0, -10), 40, 20, { Waist = deg(10, 20), RightShoulder = deg(40, 0, -30), RightElbow = deg(70) }),
 	orb(deg(65, 0, 10), 0, nil, { Waist = deg(-32, -20), RightShoulder = deg(-20, 0, -30), RightElbow = deg(40) }), 0.6)
@@ -1551,7 +1551,7 @@ Poses.DaichaCombo = stroke(DAICHA,
 -- overhead with both hands (CHUTE).
 Poses.DaichaPush = stroke(DAICHA,
 	orb(deg(50, 0, 30), 110, -40, { Root = { 0, 0, 0, -0.35, 0.3 }, RightShoulder = deg(50, 0, -30), RightElbow = deg(110), RightWrist = deg(-40) }),
-	orb(deg(90, 0, 8), 2, nil, { RightShoulder = deg(90, 0, -8), RightElbow = deg(2), RightWrist = deg(-75) }), 0.9, 0)
+	orb(deg(90, 0, 8), 2, nil, { RightShoulder = deg(-20, 0, -30), RightElbow = deg(80) }), 0.9, 0)
 Poses.DaichaDrop = stroke(DAICHA,
 	orb(deg(170, 0, -10), 30, 20, { RightShoulder = deg(170, 0, 10), RightElbow = deg(30) }),
 	orb(deg(62, 0, 0), 6, nil, { RightShoulder = deg(62, 0, 0), RightElbow = deg(10), RightWrist = deg(-60), Waist = deg(-34) }), 0.5, 0)
@@ -1601,7 +1601,7 @@ Poses.DaichaDive = dive(DAICHA, orb(deg(170, 0, -10), 30, 20, { RightShoulder = 
 Poses.DaichaChase = chase(DAICHA, DAICHA_CROUCH, orb(deg(95, 0, 10), 4, nil, { RightShoulder = deg(-40, 0, 30), RightElbow = deg(30) }))
 Poses.DaichaFinale = finisher(DAICHA,
 	orb(deg(20, 0, 40), 110, -30, { RightShoulder = deg(20, 0, -10), RightElbow = deg(110) }),
-	orb(deg(92, 0, 10), 2, nil, { RightShoulder = deg(92, 0, -10), RightElbow = deg(2), RightWrist = deg(-70) }))
+	orb(deg(92, 0, 10), 2, nil, { RightShoulder = deg(-20, 0, -30), RightElbow = deg(80) }))
 -- Guards: the orb held out in both hands, a shield of shadow (standing, crouching).
 Poses.Kits.DAICHA.Block = feet(merge(DAICHA, orb(deg(62, 0, 20), 40, -60, { Root = { 0, 0, 0, -0.35, 0 }, Waist = deg(-10, -10),
 	RightShoulder = deg(62, 0, -25), RightElbow = deg(50), RightWrist = deg(-50) })), -0.55, 0.6, 0, -6, 7)
@@ -1722,9 +1722,9 @@ local WEAPON_STRIKE = {
 		"DaichaCombo", "DaichaRise", "DaichaSpin", "DaichaReap", "DaichaLow", "DaichaAirClaw", "DaichaChase",
 		"AkemiPierce", "AkemiRise", "AkemiThrust", "AkemiAirEdge", "AkemiFinale", "AkemiAwakening", "AkemiGate",
 		"HibecaresBash", "HibecaresElbow", "HibecaresUpper", "HibecaresSwing", "HibecaresSweep", "HibecaresAirFist" },
-	LeftHand = { "DaichaAirClaw2", "AkemiPalm", "AkemiAirEdge2", "HibecaresChain", "HibecaresLow", "HibecaresAirSwing" },
-	Both = { "DaichaGrip", "DaichaDistortion", "DaichaSpire", "DaichaEclipse", "DaichaVeil", "DaichaRiver", "DaichaFall", "DaichaPush",
-		"DaichaDrop", "DaichaDive", "DaichaFinale", "DaichaRush", "DaichaAwakening", "DaichaGate",
+	LeftHand = { "DaichaAirClaw2", "DaichaPush", "DaichaFinale", "DaichaRush", "DaichaAwakening", "DaichaGate", "AkemiPalm", "AkemiAirEdge2", "HibecaresChain", "HibecaresLow", "HibecaresAirSwing" },
+	Both = { "DaichaGrip", "DaichaDistortion", "DaichaSpire", "DaichaEclipse", "DaichaVeil", "DaichaRiver", "DaichaFall",
+		"DaichaDrop", "DaichaDive",
 		"AkemiThousand", "AkemiFangs", "AkemiTwin", "AkemiWhirl", "AkemiStoop",
 		"HibecaresPress", "HibecaresMeteor", "HibecaresQuake", "HibecaresRupture", "HibecaresPillar", "HibecaresAvalanche",
 		"HibecaresChase", "HibecaresRubble", "HibecaresFinale", "HibecaresRush", "HibecaresAwakening", "HibecaresGate" },
@@ -1739,8 +1739,8 @@ Poses.STRIKE = {
 	KiFlurry = { "LeftHand", "RightHand" }, ThunderHeel = { "RightFoot" }, SpinKick = { "RightFoot" },
 	Smash = { "RightHand" }, Hammer = { "RightFoot" }, Sweep = { "RightFoot" }, LowKick = { "RightFoot" },
 	AirKick = { "RightFoot" }, AirKick2 = { "LeftFoot" }, AirSmash = { "LeftHand", "RightHand" },
-	Rising = { "RightHand" }, KiChase = { "LeftFoot" }, Finale = { "LeftHand", "RightHand" },
-	KiBlast = { "LeftHand", "RightHand" }, KaienRush = { "RightHand" }, Awakening = { "LeftHand", "RightHand" },
+	Rising = { "RightHand" }, KiChase = { "LeftFoot" }, Finale = { "RightHand" },
+	KiBlast = { "LeftHand", "RightHand" }, KaienRush = { "RightHand" }, Awakening = { "RightHand" },
 	Kaiten = { "LeftHand", "RightHand" },
 	TaroHook = { "RightHand" }, TaroBolo = { "RightHand" }, TaroCorkscrew = { "RightHand" },
 	TaroOverhand = { "RightHand" }, TaroDive = { "RightHand" }, TaroLowJab = { "LeftHand" },

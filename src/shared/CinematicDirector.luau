@@ -324,7 +324,7 @@ local function rush(ctx, frame, a, d, tick, dir)
 		frame.shot = frameOn("rush-beam", dir, { a, d }, { yaw = 14, pitch = 0, fill = 0.6, fov = 50, focus = P(D, "UpperTorso") })
 	else
 		a.x, a.facing, a.y = cx - dir * 2.6, dir, lerp(10, 0, smooth(progress(tick, data.FinalTick + 16, data.Length - 6)))
-		a.pose = "Kiai"
+		a.pose = "StandTall"
 		frame.shot = frameOn("rush-follow", dir, { a, d }, { yaw = 12, pitch = 12, fill = 0.55, fov = 42, focus = P(A, "UpperTorso") })
 	end
 end
@@ -524,7 +524,7 @@ local function awakening(ctx, frame, a, d, tick, dir)
 		frame.shot = frameOn("eveil-impact", dir, { a, d }, { yaw = 14, pitch = 22, fill = 0.55, fov = 46, focus = P(D, "UpperTorso") })
 	else
 		-- 8. Aftermath: the fighter lands in a kiai, the target flies away (or falls).
-		a.y, a.facing, a.pose = 0, dir, "Kiai"
+		a.y, a.facing, a.pose = 0, dir, "StandTall"
 		frame.title = { text = moves[cin.move].name, color = color, sub = name }
 		frame.shot = frameOn("eveil-aftermath", dir, { a }, { yaw = 30, pitch = -6, fill = lerp(0.7, 0.82, progress(tick, data.FinalTick + 14,
 			data.Length)), fov = 40, focus = P(A, "UpperTorso") })
@@ -601,7 +601,7 @@ local function kaiten(ctx, frame, a, d, tick, dir)
 		frame.shot = frameOn("porte-shatter", dir, { a, d, gateTop }, { yaw = 60, pitch = 6, fill = 0.8, fov = 54, focus = P(D, "UpperTorso") })
 	else
 		-- 8. The world comes back.
-		a.y, a.facing, a.pose = 0, dir, "Kiai"
+		a.y, a.facing, a.pose = 0, dir, "StandTall"
 		local title = kitOf(ctx) and kitOf(ctx).GateTitle or { text = "開天", sub = "PORTE DES CIEUX" }
 		frame.title = { text = title.text, color = RED, sub = title.sub }
 		frame.shot = frameOn("porte-after", dir, { a }, { yaw = -44, pitch = -6, fill = 0.75, fov = 40, focus = P(A, "UpperTorso") })

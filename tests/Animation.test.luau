@@ -916,6 +916,32 @@ test("KAI's ki beam from the sky: bent over, both arms driven down at the target
 	end
 end)
 
+test("finishers and ultimates strike with one fist, the other pulled back: never two fists glued together (R15, avatar)", function()
+	local ids = { "Finale", "Awakening", "TaroAwakening", "RyukenAwakening", "DaichaRush", "DaichaAwakening", "DaichaGate",
+		"DaichaPush", "DaichaThrow", "DaichaFinale" }
+	for label, skel in { R15 = KAI, avatar = AVATAR } do
+		for _, id in ids do
+			local m = MoveData.Moves[id]
+			if m then
+				local anim = newAnimator(skel)
+				local kit = MoveData.MoveKit and MoveData.MoveKit[id] or "KAI"
+				local closest = math.huge
+				for f = 0, m.startup + m.active do
+					local view = { x = 0, y = 0, vx = 0, vy = 0, facing = 1, state = "Attack", move = id, moveFrame = f,
+						hitstop = 0, combo = 0, kit = kit }
+					local pose, lift = anim:step(view, nil, 1 / 60, f / 60, 60, false)
+					if f > m.startup then
+						local s = K.solve(skel, pose, lift)
+						local l, r = s.LeftHand, s.RightHand
+						closest = math.min(closest, math.sqrt((l[1] - r[1]) ^ 2 + (l[2] - r[2]) ^ 2 + (l[3] - r[3]) ^ 2))
+					end
+				end
+				expect(closest > 1.5, string.format("%s %s: both fists %.2f studs apart on the blow", label, id, closest))
+			end
+		end
+	end
+end)
+
 test("SHIN's katana never stands up out of the floor when he is down or getting up (R15, avatar, R6)", function()
 	local kit = Poses.Kits.SHIN
 	for label, body in BODIES do

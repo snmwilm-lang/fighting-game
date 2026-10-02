@@ -1,5 +1,21 @@
 # Journal du projet — état à transmettre
 
+## Version 0.11.3 — 2 octobre 2026
+
+Retour de Wilhem : « les poings sont encore là ». Ce n'était pas que l'angle : plusieurs poses
+mettaient vraiment les deux poings ensemble devant le corps.
+
+- **Coup final « double poing »** de KAI (`Finale`, repris par l'ÉVEIL de KAI, TARO et RYUKEN) :
+  les deux poings partaient collés (0,7 stud). C'est maintenant un seul poing de ki tendu dans
+  la cible, l'autre ramené à la hanche (hikite).
+- **DAICHA** (Poussée, Lancer, Finale, et ses trois ultimes) : les deux paumes poussaient
+  ensemble ; la main de l'orbe frappe seule, l'autre se retire. Traînées : main gauche.
+- **Kiai de KAI** (pose du titre de la PORTE DES CIEUX, capture de Wilhem) : les poings, censés
+  être aux hanches, étaient devant la poitrine ; coudes ramenés en arrière, poings aux hanches.
+  Les plans de fin de KAI (Ruée, Éveil, Porte) le montrent debout, poings relâchés (StandTall).
+- Tests : Animation 35 (+1 : finishers et ultimes frappent d'un seul poing, R15 et avatar) ;
+  CombatSimulation 82, FighterAI 10, CinematicDirector 250 (suites longues : commit suivant).
+
 ## Version 0.11.2 — 2 octobre 2026
 
 Retour de Wilhem : « en fin de cinématique avec un coup de poing, beaucoup de persos ont les

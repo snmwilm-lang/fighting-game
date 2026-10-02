@@ -21,7 +21,7 @@ qui porte à confusion » ; « la position de KAI pendant le kamehameha ».
   l'horizontale. Nouvelle pose `KiBeamDown` : penché sur la cible, les deux bras tendus vers le
   bas, paumes jointes, jambes repliées ; le rayon part de ses paumes.
 - Tests : Cinematography + 1 (aucun plan où un poing cache l'autre, 8 kits, R / Éveil / Porte /
-  K.O.), Animation 34 (+1 : bras du rayon vers le bas, paumes jointes, R15 et avatar) ; CombatSimulation 82, FighterAI 10, CinematicDirector 250 (suites longues : voir le commit suivant).
+  K.O.), Animation 34 (+1 : bras du rayon vers le bas, paumes jointes, R15 et avatar) ; CombatSimulation 82, FighterAI 10, CinematicDirector 250, Kits 54, PressQueue 4, Fuzz 2, Cinematography 82, Lobby 5 : tout passe.
 
 ### Problèmes ouverts / prochaine étape
 

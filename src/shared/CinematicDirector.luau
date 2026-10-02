@@ -1855,7 +1855,7 @@ function KIT.SHIN.Awaken(ctx, frame, a, d, tick, dir, color)
 	else
 		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "StandTall"
 		title(ctx, frame, color, "流 · SHIN")
-		frame.shot = frameOn("shin-tempete-still", dir, { a }, { yaw = lerp(50, 20, progress(tick, data.FinalTick + 16, data.Length)), pitch = -2,
+		frame.shot = frameOn("shin-tempete-still", dir, { a }, { yaw = lerp(45, 25, progress(tick, data.FinalTick + 16, data.Length)), pitch = -2,
 			fill = 0.8, fov = 30, focus = P(A, "Head") })
 	end
 end

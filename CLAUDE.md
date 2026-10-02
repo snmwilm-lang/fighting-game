@@ -7,7 +7,7 @@
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
-  `PressQueue.luau` et `SoundPalette.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `PressQueue.luau`, `SoundPalette.luau` et `WeaponSpec.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,
@@ -27,7 +27,9 @@
   `RigBuilder.luau` (corps, tenues), lancer `python3 tools/rigcheck.py check` (et
   `python3 tools/rigcheck.py render rigs.png` pour voir les persos).
 - La géométrie du rig KAI vit dans `RigSpec.luau` (utilisée par le RigBuilder et les tests) :
-  ne pas la dupliquer.
+  ne pas la dupliquer. Celle des armes (katana de SHIN, orbe de DAICHA) vit dans
+  `WeaponSpec.luau` : un coup d'arme doit vraiment balayer la lame / mener avec l'orbe (tests
+  « weapons » d'Animation, planche `PoseSheet` qui dessine l'arme).
 - Le client ne décide jamais d'un coup, de la vie ni du KO ; les effets sont cosmétiques.
 - Ne jamais affirmer avoir testé dans Roblox Studio. Pas d'ID d'asset (son, animation,
   texture) inventé. Les sons ne viennent que de `SoundPalette.CLIENT_SOUNDS` (les fichiers

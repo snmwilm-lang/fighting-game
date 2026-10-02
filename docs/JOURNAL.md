@@ -1,5 +1,43 @@
 # Journal du projet — état à transmettre
 
+## Version 0.10.2 — 2 octobre 2026
+
+Retour de Wilhem (avec sa planche « attaques à l'épée / attaques à l'orbe ») : « t'as rien
+compris, le clic gauche donne encore des coups de poing, il n'y a pas vraiment d'animation ».
+
+- Cause réelle : le katana sort du poing perpendiculairement à l'avant-bras ; sans poignet
+  orienté, bras tendu, **la lame pointait vers le ciel** à chaque impact : on voyait un jab
+  tenant un bâton levé. Et le client ne dessinait d'arc que pour les coups lourds, aucune
+  traînée sur la lame. Mesuré, pas deviné : nouvel outil `tests/WeaponKit.luau` qui place
+  l'arme sur un corps posé, et `PoseSheet` / `Storyboard` dessinent maintenant l'arme.
+- `src/shared/WeaponSpec.luau` (pur) : géométrie du katana et de l'orbe, utilisée par le
+  RigBuilder et par les tests. Prise du katana inclinée de 20° vers l'avant : poignet à −70°,
+  la lame prolonge le bras. Sur un corps R6 (sans poignet), prise alignée sur le bras.
+- **SHIN** : tous ses coups réécrits en vraies coupes en trois temps — armé (lame en arrière),
+  impact (lame dans le prolongement du bras, à travers la cible), accompagnement (la lame
+  continue son arc, joué entre l'impact et le retour en garde) : TRANCHE 1 (plate, de droite à
+  gauche), TRANCHE 2 (revers montant), ESTOC, COMBO LAME (grand croissant à deux mains),
+  BRISE-GARDE (vertical à deux mains, lame au sol), FENDOIR, montante, percée, fil du courant,
+  courant tranchant, PAS DU VENT et COUPE FINALE (iai depuis la hanche), cercles, coupes
+  basses, coupes aériennes, piqué. Garde « seigan » (pointe vers les yeux), blocage lame
+  dressée, garde basse lame en travers.
+- **DAICHA** : frappe avec l'orbe (main gauche, poignet fléchi : l'orbe mène le poing) — jab
+  d'orbe, balayage en pas oblique, poussée à deux mains, orbe levé puis abattu, coup lourd
+  orbe au centre puis poussé, vortex bras ouverts ; garde : l'orbe tenu en bouclier.
+- **Client** (`EffectsController`) : traînée (Trail) le long de la lame / derrière l'orbe,
+  allumée de l'armé à l'accompagnement ; pour chaque coup d'épée un arc à sa forme (plat,
+  diagonal, vertical, cercle complet) avec un liseré blanc, estocs en trait de lumière,
+  coups lourds qui fendent le sol (fissure, étincelles, poussière) ; pour chaque coup d'orbe
+  une explosion d'orbe, un faisceau pour le coup lourd et les finales, un vortex d'orbes en
+  orbite pour les coups tournoyants ; gardes : arc de lumière devant la lame, anneaux
+  d'ombre autour de l'orbe, qui flashent au coup bloqué.
+- Tests : Animation 28 (+2 : les coupes de SHIN font voyager la pointe et ne dressent jamais
+  la lame à l'impact ; DAICHA mène avec l'orbe — R15, avatar et R6) ; CombatSimulation 82,
+  FighterAI 10, CinematicDirector 246, Kits 53, PressQueue 4, Fuzz 2, Cinematography 81,
+  Lobby 5 ✅ ; `rigcheck` ✅. Planches armé / impact / suite de SHIN et DAICHA regardées.
+  Studio ❌ non exécuté : les effets du client (traînées, arcs, faisceau, gardes) restent à
+  voir en jeu. Équilibrage inchangé (aucune donnée de combat touchée).
+
 ## Version 0.10.1 — 2 octobre 2026
 
 Retour de Wilhem : « corrige les animations à l'épée et celle à l'orbe d'ombre, pourquoi ils

@@ -760,4 +760,56 @@ test("R6: a full CPU fight never sinks, floats or breaks (standard and scaled bo
 	end
 end)
 
+-- ===================================================================== weapons
+local WeaponKit = require("./WeaponKit")
+
+-- Base and tip of a kit's weapon (the orb: its centre twice) in a key pose, and the chest
+-- frame: on an R15 skeleton, or on an R6 body through the retarget.
+local function weaponLine(kit, pose, skel, r6)
+	local parts = {}
+	if r6 then
+		local rt = Retarget.new(K, r6)
+		local _, _, solved = Retarget.solve(rt, r6Animator(rt):resolve(pose), 0)
+		for name, f in solved do
+			if r6.sizes[name] then parts[name] = { cframe = f, size = r6.sizes[name] } end
+		end
+	else
+		for name, f in K.solve(skel, newAnimator(skel):resolve(pose), 0) do
+			if skel.sizes[name] then parts[name] = { cframe = f, size = skel.sizes[name] } end
+		end
+	end
+	local base, tip = WeaponKit.line(kit, parts)
+	return base, tip, (parts.UpperTorso or parts.Torso).cframe
+end
+local BODIES = { KAI = { KAI }, AVATAR = { AVATAR }, R6 = { nil, r6Skeleton() } }
+
+test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15, avatar, R6)", function()
+	local RISING = { ShinRising = true, ShinSkyCut = true } -- rising cuts end with the blade high
+	for label, body in BODIES do
+		for _, id in MoveData.Kits.SHIN.Roles do
+			local set = Poses[id]
+			if set and set.Active and set.Startup then
+				local _, t0 = weaponLine("SHIN", set.Startup, body[1], body[2])
+				local b, t = weaponLine("SHIN", set.Active, body[1], body[2])
+				local dx, dy, dz = t[1] - b[1], t[2] - b[2], t[3] - b[3]
+				local up = dy / math.sqrt(dx * dx + dy * dy + dz * dz)
+				local travel = math.sqrt((t[1] - t0[1]) ^ 2 + (t[2] - t0[2]) ^ 2 + (t[3] - t0[3]) ^ 2)
+				expect(travel > 1.5, string.format("%s %s: the blade's tip only travels %.1f studs from wind-up to contact", label, id, travel))
+				expect(RISING[id] or up < 0.8, string.format("%s %s: the blade stands up (%.2f) at contact", label, id, up))
+			end
+		end
+	end
+end)
+
+test("DAICHA strikes with the orb: at contact it leads, in front of the chest (R15, avatar, R6)", function()
+	for label, body in BODIES do
+		for _, role in { "Jab", "Cross", "Elbow", "Kick", "Smash", "Hammer", "KiBlast", "PalmStrike" } do
+			local id = MoveData.Kits.DAICHA.Roles[role]
+			local _, orb, chest = weaponLine("DAICHA", Poses[id].Active, body[1], body[2])
+			local ahead = -(orb[3] - chest[3]) -- the body faces -Z
+			expect(ahead > 1.2, string.format("%s %s: the orb is only %.2f studs ahead of the chest", label, id, ahead))
+		end
+	end
+end)
+
 T.finish()

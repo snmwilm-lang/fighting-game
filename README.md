@@ -186,6 +186,17 @@ course sans glissade, corps posé au sol quelle que soit la taille de l'avatar, 
 le coup reçu, regard vers l'adversaire, ressorts, tissus qui ondulent. Chaque perso a sa
 garde, sa course et ses coups. Bouton **POSES** : 12 / 15 / 24 poses par seconde ou FLUIDE.
 
+## Armes : l'épée de SHIN, l'orbe de DAICHA
+
+Le katana et l'orbe sont tenus en main (`src/shared/WeaponSpec.luau`). Chaque coup de SHIN est
+une vraie coupe en trois temps (armé lame en arrière, impact lame dans le prolongement du bras,
+accompagnement) ; chaque coup de DAICHA frappe avec l'orbe devant le poing. En jeu : traînée le
+long de la lame / derrière l'orbe, arc propre à chaque coup d'épée (plat, diagonal, vertical,
+cercle complet), estocs en trait de lumière, coups lourds qui frappent le sol ; explosion
+d'orbe, faisceau pour le coup lourd, vortex d'orbes pour les coups tournoyants ; en garde, un
+arc de lumière devant la lame ou des anneaux d'ombre autour de l'orbe, qui flashent au coup
+bloqué. Sur un corps R6 (sans poignet), la lame prolonge le bras.
+
 ## Sons
 
 Uniquement les sons fournis avec le client Roblox (`rbxasset://sounds/…`, la liste exacte est

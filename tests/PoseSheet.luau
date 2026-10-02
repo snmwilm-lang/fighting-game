@@ -10,6 +10,7 @@ local K = require("../src/shared/Kinematics")
 local Poses = require("../src/shared/PoseLibrary")
 local Animator = require("../src/shared/Animator")
 local Retarget = require("../src/shared/Retarget")
+local WeaponKit = require("./WeaponKit")
 
 local args = { ... }
 -- KIT or KIT:STANCE (TARO:CLASSIQUE, TARO:ESQUIVE)
@@ -132,6 +133,13 @@ for _, case in cases do
 			for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s", slot, (name:gsub(" ", "_")), table.concat(out, " "),
 				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
+		end
+		-- The kit's weapon in the hand (SHIN's katana, DAICHA's orb), in its own colours.
+		for _, piece in WeaponKit.pieces(kitName, parts[slot]) do
+			local out = {}
+			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
+			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),
+				fmt(piece.size[1]), fmt(piece.size[2]), fmt(piece.size[3]), piece.color))
 		end
 	end
 end

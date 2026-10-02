@@ -4,6 +4,7 @@
 --   python3 tools/storyboard.py story.txt story.png
 -- KIND: Rush, Awaken or Gate. Bodies are the KAI block rig posed by the real animator.
 local Kit = require("./CinematicKit")
+local WeaponKit = require("./WeaponKit")
 local args = { ... }
 local kit, kind = args[1] or "KAI", args[2] or "Rush"
 local style = if args[3] and args[3] ~= "-" then args[3] else nil
@@ -32,6 +33,13 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 			for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s", slot, name, table.concat(out, " "),
 				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
+		end
+		-- The fighter's weapon in its hand (SHIN's katana, DAICHA's orb).
+		for _, piece in WeaponKit.pieces(info.views[slot].kit, info.parts[slot]) do
+			local out = {}
+			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
+			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),
+				fmt(piece.size[1]), fmt(piece.size[2]), fmt(piece.size[3]), piece.color))
 		end
 	end
 	for _, entry in seen do

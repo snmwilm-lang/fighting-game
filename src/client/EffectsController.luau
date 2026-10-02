@@ -107,6 +107,198 @@ function EffectsController:shield(fighter, color)
 	self:spark(center, color, 0.7)
 end
 
+-- ===================================================================== weapons
+-- SHIN's katana and DAICHA's shadow orb (src/shared/WeaponSpec.luau). Every sword stroke
+-- draws its own arc (flat, diagonal, vertical, a full ring for the spins; arc = { from, to,
+-- radius, height, tilt } in the fighting plane), a straight cut for the thrusts (`line`: its
+-- height, -1 = plunged down) and a strike on the floor for the heavy cuts; every orb strike
+-- its burst, the heavy a beam, the spins a vortex of orbs. By role (the combo slot).
+local SWORD = {
+	Jab = { arc = { 100, -40, 3.4, 3.6, 1.25 } }, Cross = { arc = { -70, 60, 3.2, 3.0, 0.5 } }, Elbow = { line = 3.4 },
+	Kick = { arc = { 130, -70, 4.0, 3.4, 0.25 } }, KiFlurry = { arc = { 100, -40, 3.4, 3.6, 1.25 } },
+	Smash = { arc = { 110, -70, 3.8, 3.2, 0 }, ground = true }, Hammer = { arc = { 130, -50, 3.8, 3.4, 0.45 }, ground = true },
+	Uppercut = { arc = { -80, 110, 3.2, 2.8, 0 } }, BodyBlow = { line = 2.4 }, PalmStrike = { line = 3.2 },
+	KiBlast = { arc = { 110, -40, 4.2, 3.4, 1.3 } }, Rising = { arc = { 120, -30, 3.8, 2.6, 1.3 }, line = 2.6 },
+	DragonTornado = { arc = { 0, 360, 3.6, 3.2, 1.45 } }, SpinKick = { arc = { 200, -40, 3.6, 3.2, 1.3 } },
+	LowKick = { arc = { 100, -40, 3.2, 1.0, 1.4 } }, Sweep = { arc = { -60, 120, 3.6, 0.9, 1.4 } },
+	AirKick = { arc = { 110, -60, 3.0, 2.6, 0 } }, AirKick2 = { arc = { 100, -40, 3.0, 2.8, 1.25 } },
+	AirSmash = { line = -1, ground = true }, CrescentMoon = { arc = { 90, -270, 3.2, 2.6, 0 } },
+	DragonFist = { arc = { -80, 110, 3.0, 3.0, 0.2 } }, RisingWind = { arc = { 0, 360, 3.2, 3.0, 1.45 } },
+	ThunderHeel = { arc = { 120, -60, 3.4, 3.0, 0 }, ground = true }, KiChase = { line = 3 },
+	Finale = { arc = { 120, -40, 4.4, 3.2, 1.3 }, line = 3.4 }, KaienRush = { arc = { 120, -40, 4.4, 3.2, 1.3 } },
+	Awakening = { arc = { 120, -40, 4.4, 3.2, 1.3 }, line = 3.4 }, Kaiten = { arc = { 110, -70, 3.8, 3.2, 0 }, ground = true },
+}
+local ORB = {
+	Jab = { burst = 0.8 }, Cross = { burst = 0.8, arc = { 60, -80, 3.0, 3.4, 0.6 } }, Elbow = { burst = 1.1 },
+	Kick = { burst = 1.8, ground = true }, Smash = { beam = 9 }, Hammer = { burst = 1.5, ground = true },
+	KiBlast = { burst = 0.9 }, PalmStrike = { burst = 1 }, BodyBlow = { burst = 1 },
+	Uppercut = { burst = 1, arc = { -80, 100, 2.8, 3, 0 } }, DragonTornado = { vortex = true }, DragonFist = { burst = 1.2 },
+	CrescentMoon = { arc = { 90, -270, 3, 2.6, 0 }, burst = 1 }, RisingWind = { vortex = true }, KiFlurry = { burst = 0.7 },
+	ThunderHeel = { burst = 1.4, ground = true }, SpinKick = { arc = { 200, -40, 3.4, 3.2, 1.3 }, burst = 0.8 },
+	Sweep = { arc = { -60, 120, 3.4, 1, 1.4 }, burst = 0.8 }, LowKick = { burst = 0.8 },
+	AirKick = { arc = { 110, -60, 2.8, 2.6, 0.3 }, burst = 0.8 }, AirKick2 = { burst = 0.8 }, AirSmash = { burst = 1.8, ground = true },
+	KiChase = { burst = 1 }, Rising = { burst = 1.2 }, Finale = { beam = 10 }, KaienRush = { beam = 9 }, Awakening = { beam = 10 },
+	Kaiten = { vortex = true, burst = 2 },
+}
+local VOID = Color3.fromHex("140A20")
+
+-- The stroke of a weapon kit's move (false for the other kits: they keep `slash`).
+function EffectsController:weaponStrike(view, moveId, color, rig)
+	local kit = MoveData.MoveKit[moveId]
+	local role = ROLE_OF[moveId] or moveId
+	local f, z = view.facing, self.config.PlaneZ
+	if kit == "SHIN" then
+		local s = SWORD[role]
+		if not s then return false end
+		if s.arc then
+			local a = s.arc
+			local center = Vector3.new(view.x + f * 0.6, view.y + a[4], z)
+			self:arc(center, a[3], a[1], a[2], color, a[5], f)
+			self:arc(center, a[3] * 0.86, a[1], a[2], WHITE, a[5], f) -- the edge's gleam
+		end
+		if s.line and s.line < 0 then
+			self:cut(Vector3.new(view.x + f * 1.4, view.y + 4, z), Vector3.new(view.x + f * 1.8, math.max(0, view.y - 1), z), color)
+		elseif s.line then
+			self:cut(Vector3.new(view.x + f * 0.4, view.y + s.line, z), Vector3.new(view.x + f * 5.6, view.y + s.line, z), color)
+		end
+		if s.ground then
+			local x = view.x + f * 3
+			self:crack(Vector3.new(x - f, 0.05, z), Vector3.new(x + f * 2.5, 0.05, z + 0.6), color)
+			self:spark(Vector3.new(x, 0.6, z + 0.4), color, 1.6)
+			self:dust(x, 0, f)
+			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)
+		end
+		return true
+	elseif kit == "DAICHA" then
+		local s = ORB[role]
+		if not s then return false end
+		local orb = rig and rig.model:FindFirstChild("KitShadowOrb")
+		local at = if orb and orb:IsA("BasePart") then orb.Position else Vector3.new(view.x + f * 2.6, view.y + 3.4, z)
+		if s.arc then
+			local a = s.arc
+			self:arc(Vector3.new(view.x + f * 0.4, view.y + a[4], z), a[3], a[1], a[2], color, a[5], f)
+		end
+		if s.burst then self:orbBurst(at, color, s.burst) end
+		if s.beam then self:orbBeam(at, f, s.beam, color) end
+		if s.vortex then self:orbVortex(Vector3.new(view.x, view.y + 3, z), color) end
+		if s.ground then
+			local x = view.x + f * 2.6
+			self:orbBurst(Vector3.new(x, 0.6, z), color, 1.4)
+			self:dust(x, 0, f)
+			self:dust(x, 0, -f)
+			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)
+		end
+		return true
+	end
+	return false
+end
+
+-- A burst of the shadow orb: a dark core swelling in a glow and a ring of its colour.
+function EffectsController:orbBurst(position, color, scale)
+	local core = self:part(Vector3.one * 0.6 * scale, CFrame.new(position), VOID, Enum.PartType.Ball)
+	core.Material = Enum.Material.SmoothPlastic
+	tween(core, 0.25, { Size = Vector3.one * 2.2 * scale, Transparency = 1 })
+	Debris:AddItem(core, 0.3)
+	local glow = self:part(Vector3.one * 0.9 * scale, CFrame.new(position), color, Enum.PartType.Ball)
+	glow.Transparency = 0.25
+	tween(glow, 0.3, { Size = Vector3.one * 3.2 * scale, Transparency = 1 })
+	Debris:AddItem(glow, 0.35)
+	local ring = self:part(Vector3.new(0.08, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
+	ring.Material = Enum.Material.ForceField
+	tween(ring, 0.3, { Size = Vector3.new(0.08, 5, 5) * scale, Transparency = 1 })
+	Debris:AddItem(ring, 0.35)
+	self:spark(position, color, 0.8 * scale)
+end
+
+-- DAICHA's heavy: the orb's shadow fired straight ahead as a beam, bursting at its end.
+function EffectsController:orbBeam(from, facing, length, color)
+	local to = from + Vector3.new(facing * length, 0, 0)
+	local mid = (from + to) / 2
+	local beam = self:part(Vector3.new(length, 0.5, 0.5), CFrame.new(mid), color, Enum.PartType.Cylinder)
+	beam.Transparency = 0.1
+	tween(beam, 0.35, { Size = Vector3.new(length, 1.6, 1.6), Transparency = 1 })
+	Debris:AddItem(beam, 0.4)
+	local core = self:part(Vector3.new(length, 0.2, 0.2), CFrame.new(mid), WHITE, Enum.PartType.Cylinder)
+	tween(core, 0.25, { Transparency = 1 })
+	Debris:AddItem(core, 0.3)
+	self:orbBurst(to, color, 1.6)
+end
+
+-- A vortex: small orbs whirling outward round the body, a ring climbing.
+function EffectsController:orbVortex(center, color)
+	local balls = {}
+	for i = 1, if self.reduced then 3 else 6 do
+		balls[i] = self:part(Vector3.one * 0.6, CFrame.new(center), if i % 2 == 0 then VOID else color, Enum.PartType.Ball)
+	end
+	local start = os.clock()
+	task.spawn(function()
+		while os.clock() - start < 0.7 do
+			local t = os.clock() - start
+			for i, ball in balls do
+				local angle = t * 14 + i / #balls * math.pi * 2
+				local r = 1.6 + t * 2.4
+				ball.CFrame = CFrame.new(center + Vector3.new(math.cos(angle) * r, math.sin(t * 6 + i) * 0.6, math.sin(angle) * r))
+				ball.Transparency = t / 0.7
+			end
+			task.wait()
+		end
+		for _, ball in balls do ball:Destroy() end
+	end)
+	self:tornadoRing(center, color)
+end
+
+-- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
+-- arc of light raised before SHIN's blade, two rings of shadow round DAICHA's orb.
+function EffectsController:weaponGuard(slot, rig, view, guarding, color)
+	self.guards = self.guards or {}
+	local guard = self.guards[slot]
+	if not guard or guard.rig ~= rig then
+		if guard then guard.model:Destroy() end
+		local model = Instance.new("Model")
+		model.Name = "WeaponGuard" .. slot
+		local parts = {}
+		if rig.weaponKind == "Sword" then
+			-- ")" : segments of an arc standing in front of the body.
+			local segments, radius = 9, 2.2
+			for i = 0, segments - 1 do
+				local a0 = math.rad(-75 + 150 * i / segments)
+				local a1 = math.rad(-75 + 150 * (i + 1) / segments)
+				local p0 = Vector3.new(math.cos(a0) * 0.6, math.sin(a0) * radius, math.cos(a0) * 0.2)
+				local p1 = Vector3.new(math.cos(a1) * 0.6, math.sin(a1) * radius, math.cos(a1) * 0.2)
+				local width = 0.12 + 0.3 * math.sin(math.pi * (i + 0.5) / segments)
+				local seg = self:part(Vector3.new(width, 0.1, (p1 - p0).Magnitude + 0.05), CFrame.lookAt((p0 + p1) / 2, p1), if i % 3 == 1 then WHITE else color)
+				seg.Parent = model
+				table.insert(parts, seg)
+			end
+		else
+			for i, d in { 3.2, 2.2 } do
+				local ring = self:part(Vector3.new(0.06, d, d), CFrame.new(i * 0.15, 0, 0), color, Enum.PartType.Cylinder)
+				ring.Material, ring.Parent = Enum.Material.ForceField, model
+				table.insert(parts, ring)
+			end
+			local core = self:part(Vector3.new(0.05, 1.2, 1.2), CFrame.identity, VOID, Enum.PartType.Cylinder)
+			core.Parent = model
+			table.insert(parts, core)
+		end
+		model.WorldPivot = CFrame.identity -- built round the origin
+		model.Parent = self.folder
+		guard = { model = model, parts = parts, rig = rig, shown = 0, flash = 0 }
+		self.guards[slot] = guard
+	end
+	local target = if guarding then 0.55 else 0
+	guard.shown += (target - guard.shown) * 0.3
+	guard.flash = math.max(0, guard.flash - 0.08)
+	local low = view.state == "CrouchBlocking" or view.state == "CrouchBlockstun"
+	local f = view.facing
+	local at = Vector3.new(view.x + f * 1.3, view.y + (if low then 2.1 else 3.5), self.config.PlaneZ + 0.2)
+	-- Turned a little toward the camera so it reads from the side view.
+	guard.model:PivotTo(CFrame.new(at) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(35), 0))
+	local alpha = 1 - math.clamp(guard.shown + guard.flash, 0, 1)
+	for _, p in guard.parts do
+		if p.Transparency ~= alpha then p.Transparency = alpha end
+	end
+end
+
 -- Smear arc for strong attacks, drawn in the fighting plane in front of the attacker.
 function EffectsController:slash(fighter, moveId, color)
 	local arcs = {
@@ -284,6 +476,32 @@ function EffectsController:attachRig(slot, rig)
 			rig.trails[limb] = trail
 		end
 	end
+	-- The kit's weapon: a ribbon along SHIN's blade (the arc of every cut), a smear behind
+	-- DAICHA's orb; lit with the hand that holds it.
+	local blade, orb = rig.model:FindFirstChild("KitBlade"), rig.model:FindFirstChild("KitShadowOrb")
+	local weapon = blade or orb
+	if weapon and weapon:IsA("BasePart") then
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		a0.Name, a1.Name = "WeaponTrailBase", "WeaponTrailTip"
+		if blade then
+			a0.Position, a1.Position = Vector3.new(0, 0, blade.Size.Z * 0.45), Vector3.new(0, 0, -blade.Size.Z * 0.5)
+		else
+			a0.Position, a1.Position = Vector3.new(0, weapon.Size.Y * 0.45, 0), Vector3.new(0, -weapon.Size.Y * 0.45, 0)
+		end
+		a0.Parent, a1.Parent = weapon, weapon
+		local trail = Instance.new("Trail")
+		trail.Name = "WeaponTrail"
+		trail.Attachment0, trail.Attachment1 = a0, a1
+		trail.Color = ColorSequence.new(WHITE, self:energy(slot))
+		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.45),
+			NumberSequenceKeypoint.new(1, 1) })
+		trail.Lifetime, trail.MinLength, trail.LightEmission, trail.FaceCamera = if blade then 0.2 else 0.16, 0.02, 1, false
+		trail.Enabled = false
+		trail.Parent = weapon
+		rig.trails.Weapon = trail
+		rig.weaponHand = if blade then "RightHand" else "LeftHand"
+		rig.weaponKind = if blade then "Sword" else "Orb"
+	end
 	-- Ki glow: lights the body in its ki colour when charging, skills and ultimates.
 	local glow = Instance.new("PointLight")
 	glow.Name = "KiGlow"
@@ -310,7 +528,8 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if previous and previous.key ~= key then
 		if phase == "Active" and not view.ghost then -- staged cinematic poses bring their own effects
 			local m = MoveData.Moves[view.move]
-			if m.heavy then self:slash(view, view.move, color) end
+			-- The weapon kits draw every stroke; the others their strong attacks.
+			if not self:weaponStrike(view, view.move, color, rig) and m.heavy then self:slash(view, view.move, color) end
 		elseif view.state == "Dashing" then
 			self:dust(view.x, view.y, view.facing)
 		elseif view.state == "Knockdown" and previous.key ~= "KO" then
@@ -336,10 +555,20 @@ function EffectsController:update(slot, view, rig, previous, now)
 		local m = view.state == "Attack" and MoveData.Moves[view.move]
 		local limbs = m and strikeLimbs(view.move)
 		local swinging = m and view.moveFrame >= m.startup * 0.6 and view.moveFrame <= m.startup + m.active + m.recovery * 0.25
+		-- (a weapon's ribbon also draws the wind-up and the follow-through)
+		local weaponSwinging = m and view.moveFrame >= m.startup * 0.4 and view.moveFrame <= m.startup + m.active + m.recovery * 0.45
 		for limb, trail in rig.trails do
-			local on = limbs ~= nil and swinging and table.find(limbs, limb) ~= nil and not (self.reduced and not m.heavy)
+			local isWeapon = limb == "Weapon"
+			local hand = if isWeapon then rig.weaponHand else limb
+			local on = limbs ~= nil and (if isWeapon then weaponSwinging else swinging) and table.find(limbs, hand) ~= nil
+				and not (self.reduced and not m.heavy and not isWeapon)
 			if trail.Enabled ~= on then trail.Enabled = on end
 		end
+	end
+	if rig.weaponKind then
+		local guarding = view.state == "Blocking" or view.state == "CrouchBlocking" or view.state == "Blockstun"
+			or view.state == "CrouchBlockstun"
+		self:weaponGuard(slot, rig, view, guarding, color)
 	end
 	if rig.glow then
 		local m = view.state == "Attack" and MoveData.Moves[view.move]
@@ -458,7 +687,14 @@ function EffectsController:onEvent(event, views, rigs)
 		else
 			local defender = views[event.defender]
 			local shieldColor = Color3.fromHex(CharacterData[event.defender].Shield)
-			if defender then self:shield(defender, shieldColor) end
+			local guard = self.guards and self.guards[event.defender]
+			if guard and guard.shown > 0.2 then
+				-- SHIN's blade / DAICHA's orb takes the blow: the guard flashes.
+				guard.flash = 1
+				self:spark(guard.model:GetPivot().Position, self:energy(event.defender), 1.1)
+			elseif defender then
+				self:shield(defender, shieldColor)
+			end
 			if event.kind == "GuardBreak" then
 				self:spark(position, Color3.fromHex("FFD23F"), 1.8)
 				self:impactFrame(shieldColor, 1)

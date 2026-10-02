@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterData = require(Shared.CharacterData)
 local RigSpec = require(Shared.RigSpec)
+local WeaponSpec = require(Shared.WeaponSpec)
 local RigReader = require(Shared.RigReader)
 local RigBuilder = {}
 local INK = Color3.fromHex("0B0B0E")
@@ -843,14 +844,7 @@ end
 -- SHIN 流: a katana in the right hand (its edge glowing), the sheath at the left hip, and on
 -- avatars a high collar.
 function OUTFITS.SHIN(o)
-	local hand = o.size("RightHand")
-	local h = hand.Y
-	local grip = CFrame.new(0, -h * 0.1, -0.1) * CFrame.Angles(math.rad(25), 0, 0)
-	local steel, edge = Color3.fromHex("D6DCE8"), o.energy
-	o.piece("RightHand", "Handle", Vector3.new(0.18, 0.18, 0.9), grip * CFrame.new(0, 0, 0.05), INK)
-	o.piece("RightHand", "Guard", Vector3.new(0.5, 0.5, 0.08), grip * CFrame.new(0, 0, -0.42), o.color("VestTrim"), Enum.PartType.Cylinder)
-	o.piece("RightHand", "Blade", Vector3.new(0.08, 0.22, 3.4), grip * CFrame.new(0, 0, -2.16), steel).Material = Enum.Material.Metal
-	o.piece("RightHand", "Edge", Vector3.new(0.09, 0.05, 3.3), grip * CFrame.new(0, -0.12, -2.12), edge).Material = Enum.Material.Neon
+	o.weapon(WeaponSpec.SHIN)
 	local waist = o.size("LowerTorso")
 	o.piece("LowerTorso", "Sheath", Vector3.new(0.2, 0.24, 3.0), CFrame.new(-waist.X * 0.52, 0, waist.Z * 0.2)
 		* CFrame.Angles(math.rad(-20), math.rad(10), 0), INK)
@@ -863,9 +857,7 @@ end
 -- DAICHA 闇: a sphere of shadow floating by the left hand (its glowing core), and on avatars
 -- the violet obi.
 function OUTFITS.DAICHA(o)
-	local hand = o.size("LeftHand")
-	o.piece("LeftHand", "ShadowOrb", Vector3.one * 0.9, CFrame.new(0, -hand.Y * 0.2, -0.95), Color3.fromHex("140A20"), Enum.PartType.Ball)
-	o.piece("LeftHand", "OrbCore", Vector3.one * 0.42, CFrame.new(0, -hand.Y * 0.2, -0.95), o.energy, Enum.PartType.Ball).Material = Enum.Material.Neon
+	o.weapon(WeaponSpec.DAICHA)
 	if not o.block then
 		local waist = o.size("LowerTorso")
 		o.piece("LowerTorso", "Obi", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.4), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.12, 0), o.main)
@@ -928,6 +920,19 @@ function RigBuilder.applyKit(model, slot, noEmblem, block)
 		weld.Part0, weld.Part1, weld.Parent = base, p, p
 		p.Parent = model
 		return p
+	end
+	-- A held weapon (WeaponSpec): its pieces placed at the grip, in the hand.
+	function o.weapon(spec)
+		local hand = o.size(spec.hand)
+		local g = if model:FindFirstChild(spec.hand) then spec.grip else spec.r6Grip or spec.grip
+		local grip = CFrame.new(0, hand.Y * g.y, g.z) * CFrame.Angles(math.rad(g.tilt), 0, 0)
+		for _, piece in spec.pieces do
+			local partColor = if piece.color == "energy" then o.energy elseif piece.color == "trim" then color("VestTrim")
+				else Color3.fromHex(piece.color)
+			local p = o.piece(spec.hand, piece.name, Vector3.new(piece.size[1], piece.size[2], piece.size[3]),
+				grip * CFrame.new(0, piece.y or 0, piece.z or 0), partColor, piece.shape and Enum.PartType[piece.shape])
+			if piece.material then p.Material = Enum.Material[piece.material] end
+		end
 	end
 	function o.tail(regionName, name, size, pivot, partColor)
 		local base, frame = region(model, regionName)

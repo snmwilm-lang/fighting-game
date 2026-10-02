@@ -1068,10 +1068,11 @@ local RYUKEN = feet({
 	RightShoulder = { 40, 0, -12 }, RightElbow = { 118, 0, 0 },
 }, -0.7, 0.8, 0, -12, 10)
 local RYUKEN_CROUCH = feet(merge(RYUKEN, { Root = { 0, -10, 0, -1.05, 0 }, Waist = { -26, 14, 0 }, Neck = { 22, -12, 0 } }), -0.6, 0.75, 0, -12, 10)
--- SHIN 流 · the blade held forward in the right hand, point up; the left hand open behind.
+-- SHIN 流 · seigan: the katana held out in the right hand, its point raised at the opponent's
+-- eyes; the left hand open behind.
 local SHIN = feet({
 	Root = { 0, 12, 0, -0.42, 0 }, Waist = { -8, 22, 0 }, Neck = { 6, -20, 0 },
-	RightShoulder = { 70, 0, -6 }, RightElbow = { 40, 0, 0 }, RightWrist = { 30, 0, 0 },
+	RightShoulder = { 50, 0, -8 }, RightElbow = { 45, 0, 0 }, RightWrist = { -35, 0, 0 },
 	LeftShoulder = { 30, 0, 40 }, LeftElbow = { 60, 0, 0 },
 }, -0.85, 0.85, 0, -8, 8)
 local SHIN_CROUCH = feet(merge(SHIN, { Root = { 0, 12, 0, -1.0, 0 }, Waist = { -24, 22, 0 } }), -0.7, 0.8, 0, -10, 8)
@@ -1107,7 +1108,7 @@ Poses.Kits.RYUKEN = {
 }
 Poses.Kits.SHIN = {
 	STANCE = SHIN,
-	Idle = { SHIN, merge(SHIN, { Root = { 0, 12, 0, -0.48, 0 }, RightShoulder = { 72, 0, -6 } }) },
+	Idle = { SHIN, merge(SHIN, { Root = { 0, 12, 0, -0.48, 0 }, RightShoulder = { 54, 0, -6 } }) },
 	Crouch = SHIN_CROUCH,
 	Block = feet(merge(SHIN, { Root = { 0, 4, 0, -0.5, 0 }, Waist = { -10, 4, 0 },
 		RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 }, LeftShoulder = { 70, 0, 20 }, LeftElbow = { 110, 0, 0 } }), -0.8, 0.85, 0, -8, 8),
@@ -1176,81 +1177,6 @@ for role, pose in { RyukenChain = "TaroBolo", RyukenSpin = "TaroCorkscrew", Ryuk
 	RyukenChase = "TaroChase", RyukenHook = "TaroHook" } do
 	Poses[role] = Poses[pose]
 end
-
--- SHIN: cuts of the blade (right hand), the hips turning with every stroke.
-local function cut(windup, follow, lunge)
-	return {
-		Startup = feet(merge(SHIN, merge({ Waist = { -8, 40, 0 } }, windup)), -0.8, 0.85, 0, -8, 8),
-		Active = feet(merge(SHIN, merge({ Root = { 0, -14, 0, -0.5, -(lunge or 0.4) }, Waist = { -14, -30, 0 } }, follow)),
-			-1.1 - (lunge or 0.4) * 0.5, 0.7, 0, -16, 9),
-		Recovery = merge(SHIN, { Waist = { -10, -10, 0 } }),
-	}
-end
-Poses.ShinCut1 = cut({ RightShoulder = { 90, 0, 60 }, RightElbow = { 90, 0, 0 } }, { RightShoulder = { 90, 0, -50 }, RightElbow = { 6, 0, 0 } })
-Poses.ShinCut2 = cut({ RightShoulder = { 100, 0, -60 }, RightElbow = { 30, 0, 0 } }, { RightShoulder = { 80, 0, 50 }, RightElbow = { 20, 0, 0 },
-	Waist = { -12, 30, 0 } })
-Poses.ShinThrust = cut({ RightShoulder = { 60, 0, 0 }, RightElbow = { 120, 0, 0 } },
-	{ RightShoulder = { 92, 0, 0 }, RightElbow = { 2, 0, 0 }, RightWrist = { 0, 0, 0 }, Waist = { -10, -10, 0 } }, 0.8)
-Poses.ShinCombo = cut({ RightShoulder = { 160, 0, 20 }, RightElbow = { 40, 0, 0 } }, { RightShoulder = { 40, 0, -10 }, RightElbow = { 10, 0, 0 },
-	Waist = { -30, -10, 0 } }, 0.6)
-Poses.ShinRising = cut({ RightShoulder = { 20, 0, -10 }, RightElbow = { 20, 0, 0 } }, { RightShoulder = { 170, 0, -10 }, RightElbow = { 10, 0, 0 },
-	Waist = { 6, -10, 0 } }, 0.3)
-Poses.ShinBreaker = cut({ RightShoulder = { 175, 0, 10 }, RightElbow = { 60, 0, 0 }, LeftShoulder = { 160, 0, -10 }, LeftElbow = { 60, 0, 0 } },
-	{ RightShoulder = { 60, 0, 0 }, RightElbow = { 6, 0, 0 }, LeftShoulder = { 60, 0, 10 }, LeftElbow = { 20, 0, 0 }, Waist = { -36, 0, 0 } }, 0.7)
-Poses.ShinCleave = Poses.ShinBreaker
-Poses.ShinStep = { -- PAS DU VENT: a low dash, the blade drawn across
-	Startup = feet(merge(SHIN, { Root = { 0, 20, 0, -0.95, 0.2 }, Waist = { -26, 40, 0 }, RightShoulder = { 60, 0, 60 }, RightElbow = { 80, 0, 0 } }),
-		-0.6, 0.9, 0, -16, 10),
-	Active = feet(merge(SHIN, {
-		Root = { 0, -30, 0, -0.9, -0.7 }, Waist = { -30, -40, 0 }, Neck = { 24, 30, 0 },
-		RightShoulder = { 90, 0, -70 }, RightElbow = { 4, 0, 0 }, LeftShoulder = { -30, 0, 30 },
-	}), -1.6, 0.5, 0, -28, 12),
-	Recovery = SHIN_CROUCH,
-}
-Poses.ShinCurrent = cut({ RightShoulder = { 90, 0, 80 }, RightElbow = { 60, 0, 0 } },
-	{ RightShoulder = { 90, 0, -70 }, RightElbow = { 0, 0, 0 }, Waist = { -10, -50, 0 } }, 0.3)
-Poses.ShinCircle = { -- LAME CIRCULAIRE: a full turn, blade out
-	Startup = feet(merge(SHIN, { Waist = { -10, 60, 0 }, RightShoulder = { 90, 0, 80 }, RightElbow = { 10, 0, 0 } }), -0.8, 0.85, 0, -8, 9),
-	Active = feet(merge(SHIN, { Root = { 0, 120, 0, -0.55, -0.2 }, Waist = { -10, 40, 0 }, RightShoulder = { 90, 0, -80 }, RightElbow = { 0, 0, 0 } }),
-		-0.9, 0.8, 0, -8, 9),
-	Active2 = feet(merge(SHIN, { Root = { 0, -120, 0, -0.55, -0.2 }, Waist = { -10, -40, 0 }, RightShoulder = { 90, 0, -80 }, RightElbow = { 0, 0, 0 } }),
-		-0.9, 0.8, 0, -8, 9),
-	Recovery = merge(SHIN, { Waist = { -10, -10, 0 } }),
-}
-Poses.ShinTempest = { Startup = Poses.ShinCut1.Startup, Active = Poses.ShinCut1.Active, Active2 = Poses.ShinCut2.Active,
-	Recovery = Poses.ShinCut1.Recovery }
-
--- DAICHA: the shadow answers the hands.
-Poses.DaichaClaw = {
-	Startup = merge(DAICHA, { Waist = { -6, 30, 0 }, RightShoulder = { 70, 0, 50 }, RightElbow = { 80, 0, 0 } }),
-	Active = feet(merge(DAICHA, { Root = { 0, -14, 0, -0.35, -0.35 }, Waist = { -10, -24, 0 },
-		RightShoulder = { 92, 0, -30 }, RightElbow = { 10, 0, 0 }, RightWrist = { -30, 0, 0 } }), -0.95, 0.6, 0, -12, 8),
-	Recovery = DAICHA,
-}
-Poses.DaichaStep = { -- PAS OBLIQUE: a sidestep strike, the body turned
-	Startup = feet(merge(DAICHA, { Root = { 0, 40, 0, -0.5, 0.1 }, Waist = { -10, 20, 0 } }), -0.4, 0.9, 0, -10, 12),
-	Active = feet(merge(DAICHA, { Root = { 0, -30, 0, -0.45, -0.4 }, Waist = { -10, -30, 0 },
-		LeftShoulder = { 92, 0, 20 }, LeftElbow = { 4, 0, 0 } }), -1.1, 0.5, 0, -16, 10),
-	Recovery = DAICHA,
-}
-Poses.DaichaThrow = { -- PROJECTION: both palms push the shadow out
-	Startup = merge(DAICHA, { Waist = { 6, 0, 0 }, LeftShoulder = { 60, 0, 30 }, LeftElbow = { 120, 0, 0 }, RightShoulder = { 60, 0, -30 }, RightElbow = { 120, 0, 0 } }),
-	Active = feet(merge(DAICHA, { Root = { 0, 0, 0, -0.4, -0.4 }, Waist = { -12, 0, 0 },
-		LeftShoulder = { 88, 0, 10 }, LeftElbow = { 4, 0, 0 }, RightShoulder = { 88, 0, -10 }, RightElbow = { 4, 0, 0 } }), -1.0, 0.65, 0, -12, 9),
-	Recovery = DAICHA,
-}
-Poses.DaichaSphere = { -- SPHÈRE INVERSÉE: the sphere grows between the hands, then is sent
-	Startup = feet(merge(DAICHA, { Root = { 0, 20, 0, -0.35, 0.1 }, Waist = { 4, 30, 0 },
-		LeftShoulder = { 70, 0, 50 }, LeftElbow = { 90, 0, 0 }, RightShoulder = { 70, 0, -50 }, RightElbow = { 90, 0, 0 } }), -0.55, 0.6, 0, -6, 9),
-	Active = Poses.DaichaThrow.Active,
-	Recovery = DAICHA,
-}
-Poses.DaichaMark = Poses.DaichaThrow
-Poses.DaichaTeleport = { -- TÉLÉPORTATION: gone in a crouch, back behind with a claw
-	Startup = DAICHA_CROUCH,
-	Active = Poses.DaichaClaw.Active,
-	Recovery = DAICHA,
-}
 
 -- HIBECARES: heavy, wide swings of the stone fists.
 Poses.HibecaresStrike = {
@@ -1430,88 +1356,244 @@ local function ultimate(staging, finale)
 	return { Startup = staging, Active = finale.Active, Recovery = finale.Recovery }
 end
 
--- ---------------------------------------------------------------- SHIN 流 · the blade (right hand)
-Poses.ShinAirCut = airStroke(SHIN, { RightShoulder = deg(90, 0, 70), RightElbow = deg(80) },
-	{ RightShoulder = deg(90, 0, -60), RightElbow = deg(6), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) })
-Poses.ShinAirCut2 = airStroke(SHIN, { RightShoulder = deg(120, 0, -60), RightElbow = deg(30) },
-	{ RightShoulder = deg(70, 0, 60), RightElbow = deg(10), Waist = deg(-10, 20), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) }, -18)
-Poses.ShinDive = dive(SHIN, { RightShoulder = deg(175), RightElbow = deg(30), LeftShoulder = deg(170), LeftElbow = deg(40) },
-	{ RightShoulder = deg(60), RightElbow = deg(0), RightWrist = deg(-20), LeftShoulder = deg(60, 0, 10), LeftElbow = deg(20) })
-Poses.ShinPierce = cut({ RightShoulder = deg(50, 0, 10), RightElbow = deg(120), Waist = deg(-12, 40) },
-	{ RightShoulder = deg(78), RightElbow = deg(2), RightWrist = deg(0), Waist = deg(-26, -10) }, 0.8)
-Poses.ShinCrescent = flipStroke(SHIN, { RightShoulder = deg(160, 0, 10), RightElbow = deg(10), LeftShoulder = deg(30, 0, -40) },
-	{ RightShoulder = deg(40, 0, -10), RightElbow = deg(0), LeftShoulder = deg(30, 0, -40) })
-Poses.ShinSkyCut = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(20, 0, 40), RightElbow = deg(20), Waist = deg(-28, -25) },
-	{ RightShoulder = deg(175, 0, -6), RightElbow = deg(6), LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) },
-	{ RightShoulder = deg(150, 0, 40), RightElbow = deg(10), LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) })
-Poses.ShinFinale = finisher(SHIN, { RightShoulder = deg(30, 0, -40), RightElbow = deg(100), LeftShoulder = deg(30, 0, 30), LeftElbow = deg(90) },
-	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(20) })
-Poses.ShinChase = chase(SHIN, SHIN_CROUCH, { RightShoulder = deg(95), RightElbow = deg(0), RightWrist = deg(0), LeftShoulder = deg(-40, 0, -30) })
-Poses.ShinLow = lowStroke(SHIN_CROUCH, { RightShoulder = deg(40, 0, 60), RightElbow = deg(40) },
-	{ RightShoulder = deg(58, 0, -60), RightElbow = deg(4) })
-Poses.ShinFlow = cut({ RightShoulder = deg(60, 0, 20), RightElbow = deg(110), LeftShoulder = deg(60, 0, 30), LeftElbow = deg(110) },
-	{ RightShoulder = deg(88), RightElbow = deg(4), LeftShoulder = deg(80, 0, 30), LeftElbow = deg(40) }, 0.7)
-Poses.ShinGale = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(60, 0, 80), RightElbow = deg(30), Waist = deg(-20, 40) },
-	{ RightShoulder = deg(90, 0, -80), RightElbow = deg(0), Waist = deg(14, -40), LeftShoulder = deg(20, 0, -50) },
-	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), Waist = deg(14, 40), LeftShoulder = deg(20, 0, -50) })
-Poses.ShinSpin = stroke(SHIN, { RightShoulder = deg(90, 0, -70), RightElbow = deg(20), Waist = deg(-8, -30) },
-	{ Root = { 0, 150, 0, -0.5, -0.3 }, Waist = deg(-12, 30), RightShoulder = deg(90, 0, 90), RightElbow = deg(0), LeftShoulder = deg(20, 0, -40) }, 0.3)
-Poses.ShinReap = lowStroke(SHIN_CROUCH, { RightShoulder = deg(60, 0, -60), RightElbow = deg(30) },
-	{ Root = { 0, 40, 0, -1.02, -0.2 }, RightShoulder = deg(56, 0, 80), RightElbow = deg(0), LeftShoulder = deg(10, 0, -40) })
-Poses.ShinFalling = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(10, 0, 30), RightElbow = deg(40) },
-	{ RightShoulder = deg(170), RightElbow = deg(20), LeftShoulder = deg(160), LeftElbow = deg(30), Waist = deg(14) })
+-- ---------------------------------------------------------------- SHIN 流 · the katana (right hand)
+--[[
+	The katana leaves the fist leaning forward (WeaponSpec.SHIN.grip): with the wrist at
+	BLADE_LINE the blade carries on the line of the forearm, so the arm's swing is the blade's
+	arc. Every cut has three keys: the wind-up (blade back), the contact (blade through the
+	target, arm and blade in one line) and the follow-through (the blade carries on past),
+	which the Animator plays between contact and recovery.
+]]
+local BLADE_LINE = -70
+local function blade(shoulder, elbow, wrist, extra)
+	local t = { RightShoulder = shoulder, RightElbow = deg(elbow or 0), RightWrist = deg(wrist or BLADE_LINE) }
+	for k, v in extra or {} do t[k] = v end
+	return t
+end
+-- Both hands on the hilt: the left one under the right.
+local function twoHands(shoulder, elbow, extra)
+	local t = { LeftShoulder = shoulder, LeftElbow = deg(elbow or 20) }
+	for k, v in extra or {} do t[k] = v end
+	return t
+end
+local function swordCut(base, windup, contact, follow, lunge)
+	lunge = lunge or 0.45
+	local h = base.Root[4]
+	return {
+		Startup = feet(merge(base, windup), -0.8, 0.85, 0, -8, 9),
+		Active = feet(merge(base, merge({ Root = { 0, -10, 0, h - 0.08, -lunge } }, contact)), -1.1 - lunge * 0.5, 0.7, 0, -16, 10),
+		Recovery = feet(merge(base, merge({ Root = { 0, -14, 0, h - 0.04, -lunge * 0.5 } }, follow)), -1.0 - lunge * 0.4, 0.75, 0, -12, 10),
+	}
+end
+local function lowCut(windup, contact, follow, turn)
+	return {
+		Startup = merge(SHIN_CROUCH, merge({ Waist = deg(-24, -(turn or 30)) }, windup)),
+		Active = feet(merge(SHIN_CROUCH, merge({ Root = { 0, -16, 0, -1.04, -0.3 }, Waist = deg(-28, turn or 30), Neck = deg(26, 10) }, contact)),
+			-1.0, 0.8, 0, -22, 12),
+		Recovery = merge(SHIN_CROUCH, follow),
+	}
+end
+
+-- Light combo: TRANCHE 1 (flat, right to left), TRANCHE 2 (rising backhand), ESTOC (thrust),
+-- COMBO LAME (the big diagonal crescent, both hands).
+Poses.ShinCut1 = swordCut(SHIN,
+	blade(deg(85, 0, 95), 30, nil, { Waist = deg(-6, -35), LeftShoulder = deg(40, 0, -30), LeftElbow = deg(50) }),
+	blade(deg(88, 0, -35), 4, nil, { Waist = deg(-14, 35), LeftShoulder = deg(20, 0, -50), LeftElbow = deg(40) }),
+	blade(deg(80, 0, -75), 20, nil, { Waist = deg(-12, 45), LeftShoulder = deg(10, 0, -40), LeftElbow = deg(40) }), 0.45)
+Poses.ShinCut2 = swordCut(SHIN,
+	blade(deg(30, 0, -55), 20, nil, { Waist = deg(-16, 40), LeftShoulder = deg(30, 0, -30), LeftElbow = deg(60) }),
+	blade(deg(105, 0, 30), 4, nil, { Waist = deg(-4, -25), LeftShoulder = deg(30, 0, -40), LeftElbow = deg(40) }),
+	blade(deg(150, 0, 70), 10, nil, { Waist = deg(0, -35), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) }), 0.35)
+Poses.ShinThrust = swordCut(SHIN,
+	blade(deg(20, 0, 15), 70, nil, { Root = { 0, -8, 0, -0.5, 0.3 }, Waist = deg(-10, -25), LeftShoulder = deg(60, 0, 40), LeftElbow = deg(30) }),
+	blade(deg(90, 0, -4), 0, nil, { Waist = deg(-12, 20), LeftShoulder = deg(-30, 0, -40), LeftElbow = deg(20) }),
+	blade(deg(85, 0, -4), 10, nil, { Waist = deg(-12, 15), LeftShoulder = deg(-20, 0, -40), LeftElbow = deg(30) }), 0.95)
+Poses.ShinCombo = swordCut(SHIN,
+	blade(deg(170, 0, 20), 60, 20, twoHands(deg(165, 0, -15), 70, { Waist = deg(8, -20) })),
+	blade(deg(70, 0, -15), 0, nil, twoHands(deg(66, 0, 8), 20, { Waist = deg(-28, 30) })),
+	blade(deg(25, 0, -55), 10, nil, twoHands(deg(25, 0, -30), 20, { Waist = deg(-24, 40) })), 0.65)
+Poses.ShinTempest = { Startup = Poses.ShinCut1.Startup, Active = Poses.ShinCut1.Active, Active2 = Poses.ShinCut2.Active,
+	Recovery = Poses.ShinCut2.Recovery }
+
+-- Heavy: BRISE-GARDE (both hands, straight down, the blade into the floor), FENDOIR (diagonal).
+Poses.ShinBreaker = swordCut(SHIN,
+	blade(deg(175, 0, 6), 70, 30, twoHands(deg(172, 0, -8), 80, { Waist = deg(12, 0), Neck = deg(-6) })),
+	blade(deg(78, 0, -4), 0, nil, twoHands(deg(76, 0, 8), 14, { Waist = deg(-30, 4), Neck = deg(26) })),
+	blade(deg(45, 0, -4), 0, nil, twoHands(deg(44, 0, 8), 14, { Waist = deg(-38, 4), Neck = deg(28) })), 0.75)
+Poses.ShinCleave = swordCut(SHIN,
+	blade(deg(160, 0, 60), 60, 10, twoHands(deg(150, 0, 30), 70, { Waist = deg(6, -30) })),
+	blade(deg(72, 0, -30), 0, nil, twoHands(deg(68, 0, -8), 20, { Waist = deg(-30, 30) })),
+	blade(deg(25, 0, -70), 10, nil, twoHands(deg(22, 0, -40), 20, { Waist = deg(-26, 40) })), 0.6)
+
+-- Rising cut, thrusts, the current.
+Poses.ShinRising = swordCut(SHIN,
+	blade(deg(25, 0, 10), 0, nil, { Root = { 0, 10, 0, -0.85, 0.1 }, Waist = deg(-26, -10) }),
+	blade(deg(160, 0, -5), 6, -45, { Waist = deg(8, 20), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(30) }),
+	blade(deg(175, 0, -5), 10, -20, { Waist = deg(10, 24), LeftShoulder = deg(-20, 0, -30), LeftElbow = deg(30) }), 0.25)
+Poses.ShinPierce = swordCut(SHIN,
+	blade(deg(10, 0, 10), 60, nil, { Root = { 0, -6, 0, -0.6, 0.2 }, Waist = deg(-14, -20) }),
+	blade(deg(70, 0, 0), 0, nil, { Waist = deg(-26, 10), LeftShoulder = deg(-30, 0, -40), LeftElbow = deg(20) }),
+	blade(deg(65, 0, 0), 6, nil, { Waist = deg(-22, 10), LeftShoulder = deg(-20, 0, -40), LeftElbow = deg(30) }), 0.9)
+Poses.ShinFlow = swordCut(SHIN,
+	blade(deg(-20, 0, 10), 70, nil, twoHands(deg(-15, 0, 20), 80, { Root = { 0, -10, 0, -0.5, 0.35 }, Waist = deg(-6, -30) })),
+	blade(deg(88, 0, -6), 0, nil, twoHands(deg(84, 0, 22), 20, { Waist = deg(-14, 0) })),
+	blade(deg(84, 0, -6), 6, nil, twoHands(deg(80, 0, 22), 24)), 0.8)
+Poses.ShinCurrent = swordCut(SHIN,
+	blade(deg(80, 0, 100), 20, nil, { Waist = deg(-6, -45), LeftShoulder = deg(40, 0, -30), LeftElbow = deg(50) }),
+	blade(deg(88, 0, -25), 0, nil, { Waist = deg(-12, 45), LeftShoulder = deg(10, 0, -50), LeftElbow = deg(40) }),
+	blade(deg(80, 0, -85), 10, nil, { Waist = deg(-10, 50), LeftShoulder = deg(10, 0, -40), LeftElbow = deg(40) }), 0.3)
+
+-- PAS DU VENT: drawn from the left hip in a low dash, the blade swept out behind.
+Poses.ShinStep = {
+	Startup = feet(merge(SHIN, blade(deg(25, 0, -55), 100, 35, { Root = { 0, 20, 0, -0.95, 0.2 }, Waist = deg(-26, 40) })),
+		-0.6, 0.9, 0, -16, 10),
+	Active = feet(merge(SHIN, blade(deg(90, 0, 15), 0, nil, {
+		Root = { 0, -30, 0, -0.9, -0.7 }, Waist = deg(-30, -40), Neck = deg(24, 30), LeftShoulder = deg(-30, 0, 30),
+	})), -1.6, 0.5, 0, -28, 12),
+	Recovery = merge(SHIN_CROUCH, blade(deg(75, 0, 100), 10)),
+}
+-- Spins: LAME CIRCULAIRE (the blade out flat, all the way round), TOURBILLON (back-turn cut).
+Poses.ShinCircle = {
+	Startup = feet(merge(SHIN, blade(deg(88, 0, 90), 0, nil, { Waist = deg(-10, 60) })), -0.8, 0.85, 0, -8, 9),
+	Active = feet(merge(SHIN, blade(deg(90, 0, 92), 0, nil, { Root = { 0, 120, 0, -0.55, -0.2 }, Waist = deg(-10, 40) })), -0.9, 0.8, 0, -8, 9),
+	Active2 = feet(merge(SHIN, blade(deg(90, 0, 92), 0, nil, { Root = { 0, -120, 0, -0.55, -0.2 }, Waist = deg(-10, -40) })),
+		-0.9, 0.8, 0, -8, 9),
+	Recovery = merge(SHIN, blade(deg(70, 0, 60), 20, nil, { Waist = deg(-10, -10) })),
+}
+Poses.ShinSpin = swordCut(SHIN,
+	blade(deg(88, 0, -60), 20, nil, { Waist = deg(-8, -30) }),
+	blade(deg(90, 0, 95), 0, nil, { Root = { 0, 150, 0, -0.5, -0.3 }, Waist = deg(-12, 30) }),
+	blade(deg(85, 0, 70), 10, nil, { Root = { 0, 170, 0, -0.48, -0.2 }, Waist = deg(-10, 30) }), 0.3)
+-- Low cuts at the ankles, the blade flat (the wrist eased so it stays level).
+Poses.ShinLow = lowCut(blade(deg(40, 0, 70), 10, -20), blade(deg(36, 0, -50), 0, -20), blade(deg(34, 0, -70), 6, -20))
+Poses.ShinReap = lowCut(blade(deg(36, 0, -60), 10, -20), blade(deg(40, 0, 40), 0, -20, { Root = { 0, 40, 0, -1.02, -0.2 } }),
+	blade(deg(38, 0, 95), 6, -20), -30)
+
+-- In the air.
+Poses.ShinAirCut = airStroke(SHIN, blade(deg(170, 0, 10), 60, 0),
+	blade(deg(60, 0, -10), 0, nil, { LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) }))
+Poses.ShinAirCut2 = airStroke(SHIN, blade(deg(88, 0, 95), 20),
+	blade(deg(88, 0, -55), 0, nil, { Waist = deg(-10, 25), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) }), -18)
+Poses.ShinDive = dive(SHIN, blade(deg(170, 0, 6), 60, 30, twoHands(deg(165, 0, -8), 70)),
+	blade(deg(75, 0, -4), 0, -75, twoHands(deg(72, 0, 8), 14)))
+Poses.ShinCrescent = flipStroke(SHIN, blade(deg(100, 0, 0), 0), blade(deg(80, 0, 0), 0))
+Poses.ShinSkyCut = leapStroke(SHIN, SHIN_CROUCH, blade(deg(25, 0, 10), 0, nil, { Waist = deg(-28, -25) }),
+	blade(deg(170, 0, -6), 6, -40, { LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) }),
+	blade(deg(150, 0, 40), 6, nil, { LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) }))
+Poses.ShinGale = leapStroke(SHIN, SHIN_CROUCH, blade(deg(70, 0, 85), 20, nil, { Waist = deg(-20, 40) }),
+	blade(deg(90, 0, -80), 0, nil, { Waist = deg(14, -40), LeftShoulder = deg(20, 0, -50) }),
+	blade(deg(90, 0, 85), 0, nil, { Waist = deg(14, 40), LeftShoulder = deg(20, 0, -50) }))
+Poses.ShinFalling = leapStroke(SHIN, SHIN_CROUCH, blade(deg(170, 0, 10), 60, 20, twoHands(deg(165, 0, -8), 70)),
+	blade(deg(80, 0, -4), 0, nil, twoHands(deg(78, 0, 8), 14)))
+Poses.ShinChase = chase(SHIN, SHIN_CROUCH, blade(deg(92, 0, -4), 0, nil, { LeftShoulder = deg(-40, 0, -30), LeftElbow = deg(30) }))
+Poses.ShinChase.Startup = merge(SHIN_CROUCH, blade(deg(-35, 0, 20), 50, 20, { Waist = deg(-30), Neck = deg(26) })) -- drawn back
+
+-- COUPE FINALE: the iai: crouched, the hand at the left hip, then the draw right through.
+Poses.ShinFinale = {
+	Startup = feet(merge(SHIN, blade(deg(25, 0, -55), 100, 35, { Root = { 0, 30, 0, -0.95, 0.4 }, Waist = deg(-20, 45), Neck = deg(12, -40) })),
+		-0.5, 1.15, 0, -10, 12),
+	Active = feet(merge(SHIN, blade(deg(90, 0, 15), 0, nil, {
+		Root = { 0, -20, 0, -0.85, -1.0 }, Waist = deg(-28, -40), Neck = deg(22, 35), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(20),
+	})), -1.75, 0.35, 0, -26, 10),
+	Recovery = feet(merge(SHIN, blade(deg(80, 0, 105), 10, nil, { Root = { 0, -10, 0, -0.6, -0.4 }, Waist = deg(-20, -20) })),
+		-1.2, 0.5, 0, -14, 8),
+}
+-- Guards: the blade raised before the body, the left hand on its back (standing), held low
+-- across the knees (crouching).
+Poses.Kits.SHIN.Block = feet(merge(SHIN, blade(deg(70, 0, -30), 80, -20, { Root = { 0, 4, 0, -0.5, 0 }, Waist = deg(-10, 4),
+	LeftShoulder = deg(80, 0, 30), LeftElbow = deg(100) })), -0.8, 0.85, 0, -8, 8)
+Poses.Kits.SHIN.CrouchBlock = merge(SHIN_CROUCH, blade(deg(50, 0, -30), 40, -30, { LeftShoulder = deg(50, 0, 25), LeftElbow = deg(80) }))
 Poses.ShinRush = ultimate(Poses.Iai, Poses.ShinStep)
 Poses.ShinAwakening = ultimate(Poses.Iai, Poses.ShinFinale)
 Poses.ShinGate = ultimate(Poses.Iai, Poses.ShinBreaker)
 
--- ---------------------------------------------------------------- DAICHA 闇 · shadow hands, the orb in the left
-Poses.DaichaCombo = stroke(DAICHA, { RightShoulder = deg(60, 0, 60), RightElbow = deg(90) },
-	{ RightShoulder = deg(92, 0, -40), RightElbow = deg(8), RightWrist = deg(-40), LeftShoulder = deg(70, 0, 20), LeftElbow = deg(60) }, 0.4)
-Poses.DaichaGrip = stroke(DAICHA, { LeftShoulder = deg(60, 0, 40), LeftElbow = deg(100), RightShoulder = deg(60, 0, -40), RightElbow = deg(100) },
-	{ LeftShoulder = deg(88, 0, -20), LeftElbow = deg(30), LeftWrist = deg(-50), RightShoulder = deg(88, 0, 20), RightElbow = deg(30),
-		RightWrist = deg(-50) }, 0.5, 0)
-Poses.DaichaRise = stroke(DAICHA, { RightShoulder = deg(20, 0, 20), RightElbow = deg(30), Waist = deg(-20, -20) },
-	{ RightShoulder = deg(165, 0, -10), RightElbow = deg(10), RightWrist = deg(60), LeftShoulder = deg(40), LeftElbow = deg(40), Waist = deg(6, 20) }, 0.2)
-Poses.DaichaDistortion = spinStroke(DAICHA, DAICHA_CROUCH,
-	{ LeftShoulder = deg(80, 0, -70), LeftElbow = deg(10), LeftWrist = deg(-60), RightShoulder = deg(80, 0, 70), RightElbow = deg(10), RightWrist = deg(-60) })
-Poses.DaichaSpire = leapStroke(DAICHA, DAICHA_CROUCH, { RightShoulder = deg(20, 0, 30), RightElbow = deg(110) },
-	{ RightShoulder = deg(170, 0, -10), RightElbow = deg(6), RightWrist = deg(60), LeftShoulder = deg(150, 0, 10), LeftElbow = deg(20) },
-	{ LeftShoulder = deg(170, 0, 10), LeftElbow = deg(6), LeftWrist = deg(60), RightShoulder = deg(150, 0, -10), RightElbow = deg(20) })
-Poses.DaichaEclipse = flipStroke(DAICHA,
-	{ LeftShoulder = deg(140, 0, -40), LeftElbow = deg(10), RightShoulder = deg(140, 0, 40), RightElbow = deg(10) },
-	{ LeftShoulder = deg(60, 0, -60), LeftElbow = deg(10), RightShoulder = deg(60, 0, 60), RightElbow = deg(10) })
-Poses.DaichaVeil = leapStroke(DAICHA, DAICHA_CROUCH, { LeftShoulder = deg(20, 0, 40), RightShoulder = deg(20, 0, -40) },
-	{ LeftShoulder = deg(90, 0, -80), LeftElbow = deg(10), RightShoulder = deg(90, 0, 80), RightElbow = deg(10) },
-	{ LeftShoulder = deg(120, 0, 20), LeftElbow = deg(10), RightShoulder = deg(120, 0, -20), RightElbow = deg(10) })
-Poses.DaichaRiver = flurry(DAICHA,
-	{ RightShoulder = deg(90, 0, -20), RightElbow = deg(4), RightWrist = deg(-60), LeftShoulder = deg(60, 0, 20), LeftElbow = deg(90) },
-	{ LeftShoulder = deg(90, 0, 20), LeftElbow = deg(4), LeftWrist = deg(-60), RightShoulder = deg(60, 0, -20), RightElbow = deg(90) })
-Poses.DaichaFall = leapStroke(DAICHA, DAICHA_CROUCH, { LeftShoulder = deg(10, 0, -30), RightShoulder = deg(10, 0, 30) },
-	{ LeftShoulder = deg(160, 0, -20), LeftElbow = deg(20), RightShoulder = deg(160, 0, 20), RightElbow = deg(20), Waist = deg(10) })
-Poses.DaichaSpin = stroke(DAICHA, { RightShoulder = deg(70, 0, -60), RightElbow = deg(80), Waist = deg(-8, -30) },
-	{ Root = { 0, 150, 0, -0.3, -0.3 }, Waist = deg(-12, 30), RightShoulder = deg(90, 0, 80), RightElbow = deg(6), RightWrist = deg(-40) }, 0.3)
+-- ---------------------------------------------------------------- DAICHA 闇 · the shadow orb (left hand)
+--[[
+	The orb sits in front of the left palm (WeaponSpec.DAICHA): with the wrist at ORB_AHEAD it
+	leads the fist, so DAICHA strikes with the orb itself, the right hand a claw of shadow.
+]]
+local ORB_AHEAD = -70
+local function orb(shoulder, elbow, wrist, extra)
+	local t = { LeftShoulder = shoulder, LeftElbow = deg(elbow or 0), LeftWrist = deg(wrist or ORB_AHEAD) }
+	for k, v in extra or {} do t[k] = v end
+	return t
+end
+
+-- Light combo: the orb jab, the orb swept back across (sidestep), both palms pushing it out,
+-- the orb raised overhead and smashed down.
+Poses.DaichaClaw = stroke(DAICHA, orb(deg(40, 0, 20), 110, -40, { Waist = deg(-6, 30), RightShoulder = deg(30, 0, -20), RightElbow = deg(90) }),
+	orb(deg(90, 0, 6), 4, nil, { Waist = deg(-12, -30), RightShoulder = deg(30, 0, -20), RightElbow = deg(90) }), 0.5)
+Poses.DaichaStep = {
+	Startup = feet(merge(DAICHA, orb(deg(80, 0, 40), 30, nil, { Root = { 0, 40, 0, -0.5, 0.1 }, Waist = deg(-10, 20) })), -0.4, 0.9, 0, -10, 12),
+	Active = feet(merge(DAICHA, orb(deg(88, 0, -70), 0, nil, { Root = { 0, -30, 0, -0.45, -0.4 }, Waist = deg(-10, -30) })), -1.1, 0.5, 0, -16, 10),
+	Recovery = merge(DAICHA, orb(deg(80, 0, -85), 10)),
+}
+Poses.DaichaThrow = stroke(DAICHA,
+	orb(deg(50, 0, 25), 120, -40, { RightShoulder = deg(50, 0, -25), RightElbow = deg(120), Waist = deg(6, 0) }),
+	orb(deg(88, 0, 10), 4, nil, { RightShoulder = deg(88, 0, -10), RightElbow = deg(4), RightWrist = deg(-75), Waist = deg(-12, 0) }), 0.6, 0)
+Poses.DaichaCombo = stroke(DAICHA,
+	orb(deg(170, 0, -10), 40, 20, { Waist = deg(10, 20), RightShoulder = deg(40, 0, -30), RightElbow = deg(70) }),
+	orb(deg(65, 0, 10), 0, nil, { Waist = deg(-32, -20), RightShoulder = deg(-20, 0, -30), RightElbow = deg(40) }), 0.6)
+-- Heavy: the orb gathered at the chest, then pushed out in a beam (POUSSÉE); slammed from
+-- overhead with both hands (CHUTE).
 Poses.DaichaPush = stroke(DAICHA,
-	{ Root = { 0, 0, 0, -0.35, 0.3 }, LeftShoulder = deg(50, 0, 30), LeftElbow = deg(130), RightShoulder = deg(50, 0, -30), RightElbow = deg(130) },
-	{ LeftShoulder = deg(90, 0, 8), LeftElbow = deg(2), LeftWrist = deg(-75), RightShoulder = deg(90, 0, -8), RightElbow = deg(2), RightWrist = deg(-75) },
-	0.9, 0)
-Poses.DaichaDrop = stroke(DAICHA, { LeftShoulder = deg(170, 0, -10), LeftElbow = deg(30), RightShoulder = deg(170, 0, 10), RightElbow = deg(30) },
-	{ LeftShoulder = deg(80), LeftElbow = deg(10), LeftWrist = deg(-60), RightShoulder = deg(80), RightElbow = deg(10), RightWrist = deg(-60),
-		Waist = deg(-34) }, 0.5, 0)
-Poses.DaichaReap = lowStroke(DAICHA_CROUCH, { RightShoulder = deg(50, 0, 70), RightElbow = deg(30) },
-	{ RightShoulder = deg(40, 0, -70), RightElbow = deg(4), RightWrist = deg(-50) })
-Poses.DaichaLow = lowStroke(DAICHA_CROUCH, { RightShoulder = deg(30, 0, 20), RightElbow = deg(90) },
-	{ RightShoulder = deg(55, 0, -10), RightElbow = deg(6), RightWrist = deg(-40) }, 0.4)
-Poses.DaichaAirClaw = airStroke(DAICHA, { RightShoulder = deg(100, 0, 60), RightElbow = deg(80) },
-	{ RightShoulder = deg(70, 0, -40), RightElbow = deg(6), RightWrist = deg(-40), LeftShoulder = deg(40, 0, -30), LeftElbow = deg(60) })
-Poses.DaichaAirClaw2 = airStroke(DAICHA, { LeftShoulder = deg(100, 0, -60), LeftElbow = deg(80) },
-	{ LeftShoulder = deg(70, 0, 40), LeftElbow = deg(6), LeftWrist = deg(-40), RightShoulder = deg(40, 0, 30), RightElbow = deg(60), Waist = deg(-10, 20) }, -18)
-Poses.DaichaDive = dive(DAICHA, { LeftShoulder = deg(170, 0, -10), LeftElbow = deg(30), RightShoulder = deg(170, 0, 10), RightElbow = deg(30) },
-	{ LeftShoulder = deg(60), LeftElbow = deg(4), LeftWrist = deg(-70), RightShoulder = deg(60), RightElbow = deg(4), RightWrist = deg(-70) })
-Poses.DaichaChase = chase(DAICHA, DAICHA_CROUCH,
-	{ RightShoulder = deg(95, 0, -10), RightElbow = deg(4), RightWrist = deg(-60), LeftShoulder = deg(-40, 0, -30), LeftElbow = deg(30) })
+	orb(deg(50, 0, 30), 110, -40, { Root = { 0, 0, 0, -0.35, 0.3 }, RightShoulder = deg(50, 0, -30), RightElbow = deg(110), RightWrist = deg(-40) }),
+	orb(deg(90, 0, 8), 2, nil, { RightShoulder = deg(90, 0, -8), RightElbow = deg(2), RightWrist = deg(-75) }), 0.9, 0)
+Poses.DaichaDrop = stroke(DAICHA,
+	orb(deg(170, 0, -10), 30, 20, { RightShoulder = deg(170, 0, 10), RightElbow = deg(30) }),
+	orb(deg(62, 0, 0), 6, nil, { RightShoulder = deg(62, 0, 0), RightElbow = deg(10), RightWrist = deg(-60), Waist = deg(-34) }), 0.5, 0)
+-- SPHÈRE INVERSÉE: the orb swells at the side, then is sent; MARQUE: the push; TÉLÉPORTATION.
+Poses.DaichaSphere = {
+	Startup = feet(merge(DAICHA, orb(deg(70, 0, 50), 90, -30, { Root = { 0, 20, 0, -0.35, 0.1 }, Waist = deg(4, 30),
+		RightShoulder = deg(70, 0, -50), RightElbow = deg(90) })), -0.55, 0.6, 0, -6, 9),
+	Active = Poses.DaichaThrow.Active,
+	Recovery = DAICHA,
+}
+Poses.DaichaMark = Poses.DaichaThrow
+Poses.DaichaTeleport = { Startup = DAICHA_CROUCH, Active = Poses.DaichaClaw.Active, Recovery = DAICHA }
+-- Rising, grasping, low.
+Poses.DaichaRise = stroke(DAICHA, orb(deg(15, 0, -10), 0, -20, { Root = { 0, 10, 0, -0.75, 0.1 }, Waist = deg(-20, 20) }),
+	orb(deg(165, 0, 10), 6, -40, { Waist = deg(6, -20), RightShoulder = deg(40), RightElbow = deg(40) }), 0.2)
+Poses.DaichaGrip = stroke(DAICHA, orb(deg(60, 0, -40), 100, -30, { RightShoulder = deg(60, 0, -40), RightElbow = deg(100) }),
+	orb(deg(88, 0, -20), 30, nil, { RightShoulder = deg(88, 0, 20), RightElbow = deg(30), RightWrist = deg(-50) }), 0.5, 0)
+Poses.DaichaReap = lowStroke(DAICHA_CROUCH, orb(deg(45, 0, 40), 20, -20), orb(deg(45, 0, -80), 4, -20))
+Poses.DaichaLow = lowStroke(DAICHA_CROUCH, orb(deg(30, 0, -20), 90, -30), orb(deg(58, 0, 10), 6, -50), 0.4)
+Poses.DaichaSpin = stroke(DAICHA, orb(deg(70, 0, 60), 60, nil, { Waist = deg(-8, 30) }),
+	orb(deg(90, 0, -85), 6, nil, { Root = { 0, -150, 0, -0.3, -0.3 }, Waist = deg(-12, -30) }), 0.3)
+-- The vortex: arms out, the orb at full stretch, spinning off the floor.
+Poses.DaichaDistortion = spinStroke(DAICHA, DAICHA_CROUCH,
+	orb(deg(85, 0, -80), 6, nil, { RightShoulder = deg(85, 0, 80), RightElbow = deg(10), RightWrist = deg(-60) }))
+Poses.DaichaSpire = leapStroke(DAICHA, DAICHA_CROUCH, orb(deg(20, 0, -30), 110),
+	orb(deg(170, 0, 10), 6, -40, { RightShoulder = deg(150, 0, -10), RightElbow = deg(20) }),
+	orb(deg(150, 0, -10), 20, nil, { RightShoulder = deg(170, 0, -10), RightElbow = deg(6), RightWrist = deg(60) }))
+Poses.DaichaEclipse = flipStroke(DAICHA, orb(deg(120, 0, -20), 6, nil, { RightShoulder = deg(140, 0, 40), RightElbow = deg(10) }),
+	orb(deg(60, 0, -40), 6, nil, { RightShoulder = deg(60, 0, 60), RightElbow = deg(10) }))
+Poses.DaichaVeil = leapStroke(DAICHA, DAICHA_CROUCH, orb(deg(20, 0, 40), 20, nil, { RightShoulder = deg(20, 0, -40) }),
+	orb(deg(90, 0, -80), 6, nil, { RightShoulder = deg(90, 0, 80), RightElbow = deg(10) }),
+	orb(deg(120, 0, 20), 6, nil, { RightShoulder = deg(120, 0, -20), RightElbow = deg(10) }))
+Poses.DaichaRiver = flurry(DAICHA,
+	orb(deg(90, 0, 10), 4, nil, { RightShoulder = deg(50, 0, -20), RightElbow = deg(90) }),
+	{ RightShoulder = deg(90, 0, -20), RightElbow = deg(4), RightWrist = deg(-60), LeftShoulder = deg(55, 0, 20), LeftElbow = deg(90),
+		LeftWrist = deg(-40) })
+Poses.DaichaFall = leapStroke(DAICHA, DAICHA_CROUCH, orb(deg(10, 0, -30), 20, 0, { RightShoulder = deg(10, 0, 30) }),
+	orb(deg(160, 0, -20), 20, -20, { RightShoulder = deg(160, 0, 20), RightElbow = deg(20), Waist = deg(10) }))
+-- In the air.
+Poses.DaichaAirClaw = airStroke(DAICHA, orb(deg(100, 0, 40), 60, -30),
+	orb(deg(70, 0, -40), 6, nil, { RightShoulder = deg(40, 0, -30), RightElbow = deg(60) }))
+Poses.DaichaAirClaw2 = airStroke(DAICHA, { RightShoulder = deg(100, 0, 60), RightElbow = deg(80) },
+	{ RightShoulder = deg(70, 0, -40), RightElbow = deg(6), RightWrist = deg(-40), LeftShoulder = deg(40, 0, 30), LeftElbow = deg(60),
+		Waist = deg(-10, 20) }, -18)
+Poses.DaichaDive = dive(DAICHA, orb(deg(170, 0, -10), 30, 20, { RightShoulder = deg(170, 0, 10), RightElbow = deg(30) }),
+	orb(deg(60, 0, 0), 4, nil, { RightShoulder = deg(60), RightElbow = deg(4), RightWrist = deg(-70) }))
+Poses.DaichaChase = chase(DAICHA, DAICHA_CROUCH, orb(deg(95, 0, 10), 4, nil, { RightShoulder = deg(-40, 0, 30), RightElbow = deg(30) }))
 Poses.DaichaFinale = finisher(DAICHA,
-	{ LeftShoulder = deg(20, 0, 40), LeftElbow = deg(110), RightShoulder = deg(20, 0, -10), RightElbow = deg(110) },
-	{ LeftShoulder = deg(92, 0, 10), LeftElbow = deg(2), LeftWrist = deg(-70), RightShoulder = deg(92, 0, -10), RightElbow = deg(2), RightWrist = deg(-70) })
+	orb(deg(20, 0, 40), 110, -30, { RightShoulder = deg(20, 0, -10), RightElbow = deg(110) }),
+	orb(deg(92, 0, 10), 2, nil, { RightShoulder = deg(92, 0, -10), RightElbow = deg(2), RightWrist = deg(-70) }))
+-- Guards: the orb held out in both hands, a shield of shadow (standing, crouching).
+Poses.Kits.DAICHA.Block = feet(merge(DAICHA, orb(deg(62, 0, 20), 40, -60, { Root = { 0, 0, 0, -0.35, 0 }, Waist = deg(-10, -10),
+	RightShoulder = deg(62, 0, -25), RightElbow = deg(50), RightWrist = deg(-50) })), -0.55, 0.6, 0, -6, 7)
+Poses.Kits.DAICHA.CrouchBlock = merge(DAICHA_CROUCH, orb(deg(65, 0, 20), 40, -60, { RightShoulder = deg(65, 0, -25), RightElbow = deg(50),
+	RightWrist = deg(-50) }))
 Poses.DaichaRush = ultimate(Poses.Levitate, Poses.DaichaPush)
 Poses.DaichaAwakening = ultimate(Poses.Levitate, Poses.DaichaFinale)
 Poses.DaichaGate = ultimate(Poses.Levitate, Poses.DaichaSphere)

@@ -896,6 +896,26 @@ test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15
 	end
 end)
 
+test("KAI's ki beam from the sky: bent over, both arms driven down at the target, palms joined (R15, avatar)", function()
+	for label, skel in { R15 = KAI, avatar = AVATAR } do
+		local anim = newAnimator(skel)
+		local view = { x = 0, y = 10, vx = 0, vy = 0, facing = 1, state = "Attack", move = "KiBlast", moveFrame = 12,
+			hitstop = 0, combo = 0, kit = "KAI", pose = "KiBeamDown" }
+		local pose, lift
+		for t = 0, 30 do pose, lift = anim:step(view, nil, 1 / 60, t / 60, 60, true) end
+		local solved = K.solve(skel, pose, lift)
+		local hand, arm, other = solved.RightHand, solved.RightUpperArm, solved.LeftHand
+		-- (the rig faces -Z: forward is -z)
+		local down, forward = arm[2] - hand[2], arm[3] - hand[3]
+		local angle = math.deg(math.atan2(forward, down))
+		expect(down > 0.8 and angle > -8 and angle < 25,
+			string.format("%s: the arms point %.0f degrees off straight down (%.1f down)", label, angle, down))
+		local apart = math.sqrt((hand[1] - other[1]) ^ 2 + (hand[2] - other[2]) ^ 2 + (hand[3] - other[3]) ^ 2)
+		expect(apart < 1.3, string.format("%s: the palms are %.2f studs apart", label, apart))
+		expect(solved.Head[3] < solved.LowerTorso[3] - 0.5, label .. ": he does not lean over the target")
+	end
+end)
+
 test("SHIN's katana never stands up out of the floor when he is down or getting up (R15, avatar, R6)", function()
 	local kit = Poses.Kits.SHIN
 	for label, body in BODIES do

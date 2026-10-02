@@ -70,4 +70,44 @@ test("every finale of KAI's ÉVEIL is well framed", function()
 	end
 end)
 
+-- Both hands read: a shot never looks along the arms so that one fist hides the other (two
+-- hands far apart drawn on top of each other read as hands joined). SHIN's iai is the one
+-- pose where both hands meet at the hilt on purpose.
+local function overlappedHands(kit, kind, style, hp)
+	local shots = {}
+	Kit.play(kit, kind, style, hp, 0, function(info)
+		local s = info.frame.shot
+		local project = Kit.projector(info.cam, info.target, s.fov, s.roll or 0)
+		for slot = 1, 2 do
+			local l, r = info.parts[slot].LeftHand, info.parts[slot].RightHand
+			local lx, ly, ld = project(l.cframe[1], l.cframe[2], l.cframe[3])
+			local rx, ry, rd = project(r.cframe[1], r.cframe[2], r.cframe[3])
+			if lx and rx and math.abs(lx) < 1 and math.abs(ly) < 1 and info.views[slot].pose ~= "Iai" then
+				local apart = math.sqrt((l.cframe[1] - r.cframe[1]) ^ 2 + (l.cframe[2] - r.cframe[2]) ^ 2 + (l.cframe[3] - r.cframe[3]) ^ 2)
+				local hand = l.size[2] / ((ld + rd) / 2) / math.tan(math.rad(s.fov) / 2)
+				local onScreen = math.sqrt(((lx - rx) * 16 / 9) ^ 2 + (ly - ry) ^ 2)
+				if hand > 0.03 and apart > 2 and onScreen < hand * 1.3 then
+					local key = s.name .. " (slot " .. slot .. ")"
+					shots[key] = (shots[key] or 0) + 1
+				end
+			end
+		end
+	end)
+	local bad = {}
+	for key, n in shots do
+		if n > 6 then table.insert(bad, key .. " x" .. n) end
+	end
+	return bad
+end
+
+test("both hands read in every shot: no angle hides one fist behind the other", function()
+	for _, kit in MoveData.KitOrder do
+		local route = MoveData.Kits[kit].FullRoutes[1].name
+		for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 1 }, { "Awaken", route, 1 } } do
+			local bad = overlappedHands(kit, case[1], case[2], case[3])
+			expect(#bad == 0, string.format("%s %s%s: %s", kit, case[1], if case[3] then " (K.O.)" else "", table.concat(bad, ", ")))
+		end
+	end
+end)
+
 T.finish()

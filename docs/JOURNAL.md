@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.11.2 — 2 octobre 2026
+
+Retour de Wilhem : « en fin de cinématique avec un coup de poing, beaucoup de persos ont les
+mains jointes » (capture : le titre de la PORTE DES CIEUX de KAI) ; « c'est peut-être l'angle
+qui porte à confusion » ; « la position de KAI pendant le kamehameha ».
+
+- **Diagnostic** : en 3D, les mains ne se touchent jamais (mesuré sur R15 et R6, tous les styles,
+  FINAL FINISH, scènes de K.O.). C'était l'angle : des plans regardaient le perso dans l'axe des
+  bras, un poing cachait l'autre et l'on croyait voir des mains jointes (titre de la Porte de
+  KAI : 48 images sur 48).
+- **Angles recomposés** (`CinematicDirector`, toujours par `frameOn`) : 23 plans, dont
+  porte-after, porte-shatter, eveil-strike1 (CUTS[1]), taro-tempete-liver, zephyr-vent-drift,
+  zephyr-cyclone-gust, akemi-temps-tableau3, ryuken-effondrement-body, ryuken-round-guard / cock,
+  shin-tempete-still / rise, shin-zero-cuts, daicha-riviere-strike, daicha-eclipse-mirror,
+  daicha-eclipse-flash, daicha-domaine-crown, hibecares-colosse-march, hibecares-ruines-fist,
+  ko-shin-horizon, ko-shin-leave, ko-zephyr-orbit. Seul reste l'iai de SHIN (ses deux mains sont
+  vraiment sur la poignée).
+- **Kamehameha de KAI** (fin de la Ruée) : il tirait le rayon vers le sol avec les bras à
+  l'horizontale. Nouvelle pose `KiBeamDown` : penché sur la cible, les deux bras tendus vers le
+  bas, paumes jointes, jambes repliées ; le rayon part de ses paumes.
+- Tests : Cinematography + 1 (aucun plan où un poing cache l'autre, 8 kits, R / Éveil / Porte /
+  K.O.), Animation 34 (+1 : bras du rayon vers le bas, paumes jointes, R15 et avatar) ; CombatSimulation 82, FighterAI 10, CinematicDirector 250 (suites longues : voir le commit suivant).
+
+### Problèmes ouverts / prochaine étape
+
+- Confirmer en jeu que l'orbe de DAICHA vole (v0.11.1).
+- Ajustement IK des contacts (poing arrêté à la surface de l'adversaire).
+
 ## Version 0.11.1 — 2 octobre 2026
 
 Retour de Wilhem : « refais le même focus animation / cinématiques ; DAICHA, c'est encore buggé,

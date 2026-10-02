@@ -264,6 +264,13 @@ Poses.Iai = blind(feet({
 	RightShoulder = { 34, 0, -30 }, RightElbow = { 95, 0, 0 },
 }, -0.85, 0.95, 0, -18, 10))
 -- DAICHA: arms open, palms down, perfectly still while the shadows rise around him.
+-- KAI: the ki beam fired straight down from the sky (end of KAIEN RUSH): bent over the
+-- target, both arms driven down, palms joined toward it, legs tucked.
+Poses.KiBeamDown = blind(airborne(merge(legs(70, -100, 20, -50), {
+	Root = { -30, 0, 0, 0, 0 }, Waist = { -15, 0, 0 }, Neck = { 20, 0, 0 },
+	LeftShoulder = { 58, 0, 27 }, LeftElbow = { 5, 0, 0 }, LeftWrist = { -70, 0, 0 },
+	RightShoulder = { 58, 0, -27 }, RightElbow = { 5, 0, 0 }, RightWrist = { -70, 0, 0 },
+})))
 Poses.Levitate = blind(feet({
 	Root = { 0, 0, 0, -0.05, 0 }, Waist = { 6, 0, 0 }, Neck = { 8, 0, 0 },
 	LeftShoulder = { 30, 0, -62 }, LeftElbow = { 20, 0, 0 },

@@ -216,7 +216,7 @@ end
 
 -- A rotating set of strong angles for hard cuts on each hit of a barrage.
 local CUTS = {
-	{ yaw = 28, pitch = 8, fill = 0.78, fov = 42, roll = 0 },          -- three-quarter two-shot
+	{ yaw = 58, pitch = 8, fill = 0.78, fov = 42, roll = 0 },          -- three-quarter two-shot
 	{ yaw = -30, pitch = 4, fill = 0.86, fov = 38, roll = -6 },        -- medium on the blows
 	{ yaw = 8, pitch = 62, fill = 0.7, fov = 46, roll = 0 },           -- top-down
 	{ yaw = 52, pitch = -10, fill = 0.85, fov = 48, roll = 10 },       -- low dutch angle
@@ -315,7 +315,9 @@ local function rush(ctx, frame, a, d, tick, dir)
 		-- The beam of ki straight down on the target.
 		a.x, a.facing, a.y = cx - dir * 2.6, dir, 10
 		attack(a, moves, role(ctx, "KiBlast"), true)
-		table.insert(frame.fx, { key = "rush-beam", kind = "kiBeam", from = v(a.x + dir * 0.8, 13, 0.6), to = v(cx, 0.4, 0.4),
+		a.pose = "KiBeamDown" -- (bent over the target: the beam leaves his joined palms, straight down)
+		table.insert(frame.fx, { key = "rush-beam", kind = "kiBeam", from = v(a.x + dir * 1.2, a.y + ctx.config.RootHeight - 0.9, 0.6),
+			to = v(cx, 0.4, 0.4),
 			color = color, scale = 1.6 })
 		impact(frame, "rush-final", v(cx, 1, 0.6), color, 3)
 		for i = 1, 3 do table.insert(frame.fx, { key = "rush-blast" .. i, kind = "tornadoRing", pos = v(cx, i * 1.2, 0), color = color }) end
@@ -596,13 +598,13 @@ local function kaiten(ctx, frame, a, d, tick, dir)
 		table.insert(frame.fx, { key = "shatter", kind = "gateShatter", color = energy })
 		table.insert(frame.fx, { key = "shatter-wave", kind = "shockwave", pos = v(gateX, 3, -1), color = energy })
 		frame.impact = { key = "porte-shatter", color = energy }
-		frame.shot = frameOn("porte-shatter", dir, { a, d, gateTop }, { yaw = 30, pitch = 6, fill = 0.8, fov = 54, focus = P(D, "UpperTorso") })
+		frame.shot = frameOn("porte-shatter", dir, { a, d, gateTop }, { yaw = 60, pitch = 6, fill = 0.8, fov = 54, focus = P(D, "UpperTorso") })
 	else
 		-- 8. The world comes back.
 		a.y, a.facing, a.pose = 0, dir, "Kiai"
 		local title = kitOf(ctx) and kitOf(ctx).GateTitle or { text = "開天", sub = "PORTE DES CIEUX" }
 		frame.title = { text = title.text, color = RED, sub = title.sub }
-		frame.shot = frameOn("porte-after", dir, { a }, { yaw = -24, pitch = -6, fill = 0.75, fov = 40, focus = P(A, "UpperTorso") })
+		frame.shot = frameOn("porte-after", dir, { a }, { yaw = -44, pitch = -6, fill = 0.75, fov = 40, focus = P(A, "UpperTorso") })
 	end
 end
 
@@ -839,7 +841,7 @@ function KIT.TARO.Gate(ctx, frame, a, d, tick, dir)
 		local second = tick >= data.Hits[2]
 		attack(a, moves, role(ctx, if second then "Elbow" else "BodyBlow"), tick >= data.Hits[1])
 		if tick >= data.Hits[1] then spark(frame, "tempete-liver" .. (if second then 2 else 1), v(cx - dir * 0.4, 2.8, 0.6), color, 1.4) end
-		frame.shot = frameOn("taro-tempete-liver", dir, { a, d }, { yaw = 48, pitch = -6, fill = 0.78, fov = 38, focus = P(D, "UpperTorso") })
+		frame.shot = frameOn("taro-tempete-liver", dir, { a, d }, { yaw = 68, pitch = -6, fill = 0.78, fov = 38, focus = P(D, "UpperTorso") })
 	elseif tick < data.FinalTick then
 		a.x, a.facing = cx - dir * 2.6, dir
 		attack(a, moves, role(ctx, "Finale"), false)
@@ -941,7 +943,7 @@ function KIT.ZEPHYR.Rush(ctx, frame, a, d, tick, dir)
 	else
 		a.x, a.y, a.facing, a.pose = cx + dir * 4.4, 0, -dir, "StandTall"
 		a.lookDir = v(dir, 0, -0.4)
-		frame.shot = frameOn("zephyr-vent-drift", dir, { a, d }, { yaw = lerp(-24, 24, progress(tick, data.FinalTick + 14, data.Length)),
+		frame.shot = frameOn("zephyr-vent-drift", dir, { a, d }, { yaw = lerp(-54, -6, progress(tick, data.FinalTick + 14, data.Length)),
 			pitch = 12, fill = 0.48, fov = 50, focus = P(A, "UpperTorso") })
 	end
 end
@@ -1051,7 +1053,7 @@ function KIT.ZEPHYR.Gate(ctx, frame, a, d, tick, dir)
 		a.x, a.y, a.z, a.lookDir, a.facing = cx - dir * 2.9, 2.6, nil, nil, dir
 		local second = tick >= data.Hits[2]
 		attack(a, moves, role(ctx, if second then "AirKick2" else "AirKick"), tick >= data.Hits[1])
-		frame.shot = frameOn("zephyr-cyclone-gust", dir, { a, d }, { yaw = 46, pitch = 2, fill = 0.78, fov = 46, focus = P(D, "UpperTorso") })
+		frame.shot = frameOn("zephyr-cyclone-gust", dir, { a, d }, { yaw = 76, pitch = 2, fill = 0.78, fov = 46, focus = P(D, "UpperTorso") })
 	elseif tick < data.FinalTick then
 		d.y = 3
 		a.x, a.y, a.facing = cx - dir * 0.8, 8, dir
@@ -1187,7 +1189,7 @@ function KIT.AKEMI.Awaken(ctx, frame, a, d, tick, dir, color)
 		around(a, d.x, dir, ((k * 0.43) % 1) * math.pi, 3, if k == 4 then 1.2 else 0)
 		attack(a, moves, role(ctx, AKEMI_STRIKES[(k - 1) % #AKEMI_STRIKES + 1]), true)
 		spark(frame, "temps-hit" .. k, v(d.x, 3.2 + (k % 3) * 0.3, 0.6), color, 0.9)
-		local views = { { yaw = 34, pitch = 6 }, { yaw = -24, pitch = 30 }, { yaw = 70, pitch = -6 }, { yaw = -64, pitch = 10 } }
+		local views = { { yaw = 34, pitch = 6 }, { yaw = -24, pitch = 30 }, { yaw = 55, pitch = -6 }, { yaw = -64, pitch = 10 } }
 		local g = ((math.min(k, #data.Hits - 1) - 1) // 2) % #views + 1 -- (the last blow keeps the shot before)
 		local view = views[g]
 		frame.shot = frameOn("akemi-temps-tableau" .. g, dir, { a, d }, { yaw = view.yaw, pitch = view.pitch,
@@ -1542,7 +1544,7 @@ function KIT.RYUKEN.Awaken(ctx, frame, a, d, tick, dir, color)
 		if tick - data.Hits[k] < 2 then frame.impact = { key = "effondrement-hit" .. k, color = color } end
 		spark(frame, "effondrement-hit" .. k, v(cx - dir * 0.5, if k >= 5 then 2.2 else 3, 0.6), color, 1.6)
 		if ((math.min(k, #data.Hits - 1) - 1) // 2) % 2 == 0 then -- (the last blow keeps the shot before)
-			frame.shot = frameOn("ryuken-effondrement-body", dir, { a, d }, { yaw = 40, pitch = -2, fill = 0.98, fov = 36, band = "waist",
+			frame.shot = frameOn("ryuken-effondrement-body", dir, { a, d }, { yaw = 65, pitch = -2, fill = 0.98, fov = 36, band = "waist",
 				focus = P(D, "UpperTorso") })
 		else
 			frame.shot = frameOn("ryuken-effondrement-low", dir, { a, d }, { yaw = -30, pitch = -24, fill = 0.8, fov = 44, roll = -8,
@@ -1613,7 +1615,7 @@ function KIT.RYUKEN.Gate(ctx, frame, a, d, tick, dir)
 		a.moveFrame = moves[flurry].startup + 1 + (tick // 2 % 2) * (moves[flurry].hitInterval or 2)
 		d.state = "Blockstun"
 		if tick % 3 == 0 then spark(frame, "round-guard" .. tick, v(cx - dir * 0.6, 3.6 + (tick % 5) * 0.15, 0.5), color, 0.8) end
-		frame.shot = frameOn("ryuken-round-guard", dir, { a, d }, { yaw = 34, pitch = 2, fill = 0.9, fov = 36, band = "bust",
+		frame.shot = frameOn("ryuken-round-guard", dir, { a, d }, { yaw = 64, pitch = 2, fill = 0.9, fov = 36, band = "bust",
 			focus = P(D, "UpperTorso") })
 	elseif tick < data.PromptTicks[1] - 14 then
 		-- The guard breaks: the liver, then the uppercut.
@@ -1632,7 +1634,7 @@ function KIT.RYUKEN.Gate(ctx, frame, a, d, tick, dir)
 		attack(a, moves, role(ctx, "Finale"), false)
 		frame.grade.mono = tick >= data.PromptTicks[1] - 4
 		spark(frame, "round-cock", v(a.x - dir * 0.8, 3.4, 0.6), color, 2.2)
-		frame.shot = frameOn("ryuken-round-cock", dir, { a, d }, { yaw = 46, pitch = -10, fill = lerp(0.9, 1.12, progress(tick,
+		frame.shot = frameOn("ryuken-round-cock", dir, { a, d }, { yaw = 61, pitch = -10, fill = lerp(0.9, 1.12, progress(tick,
 			data.PromptTicks[1] - 14, data.FinalTick)), fov = 34, band = "bust", focus = P(A, "Head") })
 	elseif tick < data.FinalTick + 22 then
 		a.x, a.facing = cx - dir * 2.6, dir
@@ -1808,7 +1810,7 @@ function KIT.SHIN.Awaken(ctx, frame, a, d, tick, dir, color)
 		if tick % 4 == 0 then
 			arc(frame, "tempete-current" .. tick, v(a.x, 0.4 + (tick - 30) * 0.18, 0), 1.6 + (tick % 8) * 0.1, 0, 300, color, math.pi / 2, 1)
 		end
-		frame.shot = frameOn("shin-tempete-rise", dir, { a }, { yaw = lerp(-30, 30, p), pitch = lerp(-12, 18, p), fill = 0.8, fov = 34,
+		frame.shot = frameOn("shin-tempete-rise", dir, { a }, { yaw = lerp(-55, 5, p), pitch = lerp(-12, 18, p), fill = 0.8, fov = 34,
 			focus = P(A, "UpperTorso") })
 	elseif tick < data.Hits[1] then
 		a.x, a.facing = lerp(cx - dir * 7, cx - dir * 3, smooth(progress(tick, 56, data.Hits[1]))), dir
@@ -1853,7 +1855,7 @@ function KIT.SHIN.Awaken(ctx, frame, a, d, tick, dir, color)
 	else
 		a.x, a.y, a.facing, a.pose = cx - dir * 2.6, 0, dir, "StandTall"
 		title(ctx, frame, color, "流 · SHIN")
-		frame.shot = frameOn("shin-tempete-still", dir, { a }, { yaw = lerp(20, -10, progress(tick, data.FinalTick + 16, data.Length)), pitch = -2,
+		frame.shot = frameOn("shin-tempete-still", dir, { a }, { yaw = lerp(50, 20, progress(tick, data.FinalTick + 16, data.Length)), pitch = -2,
 			fill = 0.8, fov = 30, focus = P(A, "Head") })
 	end
 end
@@ -1888,7 +1890,7 @@ function KIT.SHIN.Gate(ctx, frame, a, d, tick, dir)
 		attack(a, moves, role(ctx, if second then "Cross" else "Jab"), true)
 		arc(frame, "zero-cut" .. (if second then 2 else 1), v(cx, 3.6, 0.4), 3.2, if second then 200 else -20, if second then 20 else 160,
 			color, 0.3, dir)
-		frame.shot = frameOn("shin-zero-cuts", dir, { a, d }, { yaw = 38, pitch = 4, fill = 0.82, fov = 32, focus = P(D, "UpperTorso") })
+		frame.shot = frameOn("shin-zero-cuts", dir, { a, d }, { yaw = 53, pitch = 4, fill = 0.82, fov = 32, focus = P(D, "UpperTorso") })
 	elseif tick < data.FinalTick then
 		a.x, a.facing, a.pose = cx - dir * 3.4, dir, "Iai"
 		frame.grade.mono = tick >= data.PromptTicks[1] - 4
@@ -1980,7 +1982,7 @@ function KIT.DAICHA.Rush(ctx, frame, a, d, tick, dir)
 		d.hitstop = if beat < 4 then 1 else 0
 		if beat < 2 then spark(frame, "domaine-hit" .. k, torso, color, 1) end
 		if k <= 2 then
-			frame.shot = frameOn("daicha-domaine-crown", dir, { a, d }, { yaw = 12, pitch = 12, fill = 0.68, fov = 44, roll = -8,
+			frame.shot = frameOn("daicha-domaine-crown", dir, { a, d }, { yaw = -3, pitch = 12, fill = 0.68, fov = 44, roll = -8,
 				focus = P(D, "UpperTorso") })
 		else
 			frame.shot = frameOn("daicha-domaine-ring", dir, { d, { point = true, x = cx - crown.r, y = 3.6, z = 0 },
@@ -2090,7 +2092,7 @@ function KIT.DAICHA.Awaken(ctx, frame, a, d, tick, dir, color)
 			frame.shot = frameOn("daicha-riviere-under", dir, { a, d }, { yaw = 6, pitch = -22, fill = 0.7, fov = 46, roll = 180,
 				focus = P(D, "UpperTorso") })
 		else
-			frame.shot = frameOn("daicha-riviere-strike", dir, { a, d }, { yaw = if mirror then 34 else -34, pitch = 6, fill = 0.74, fov = 40,
+			frame.shot = frameOn("daicha-riviere-strike", dir, { a, d }, { yaw = if mirror then 54 else -14, pitch = 6, fill = 0.74, fov = 40,
 				roll = if mirror then 12 else -12, focus = P(D, "UpperTorso") })
 		end
 	elseif tick < data.FinalTick then
@@ -2144,7 +2146,7 @@ function KIT.DAICHA.Gate(ctx, frame, a, d, tick, dir)
 		pool(frame, "eclipse-pool" .. step, a, color)
 		local view = (step // 2) % 2 == 1 -- (the camera changes side every two blinks)
 		frame.shot = frameOn(if view then "daicha-eclipse-mirror-r" else "daicha-eclipse-mirror-l", dir, { a, d },
-			{ yaw = if view then 52 else -52, pitch = 4, fill = 0.72, fov = 40, roll = if view then -14 else 14, focus = P(D, "UpperTorso") })
+			{ yaw = if view then 64 else -40, pitch = 4, fill = 0.72, fov = 40, roll = if view then -14 else 14, focus = P(D, "UpperTorso") })
 	elseif tick < data.PromptTicks[1] - 14 then
 		d.y, d.pose = 2.6, "Launched"
 		a.x, a.z, a.lookDir, a.y, a.facing = cx - dir * 2.6, nil, nil, 1.2, dir
@@ -2170,7 +2172,7 @@ function KIT.DAICHA.Gate(ctx, frame, a, d, tick, dir)
 		for i = 1, 3 do
 			table.insert(frame.fx, { key = "eclipse-bolt" .. i, kind = "lightning", from = v(cx + (i - 2) * 3, 17, -8), to = v(cx, 3, 0.4), color = color })
 		end
-		frame.shot = frameOn("daicha-eclipse-flash", dir, { a, d, { point = true, x = cx, y = 12, z = -6 } }, { yaw = 16, pitch = -10, fill = 0.6,
+		frame.shot = frameOn("daicha-eclipse-flash", dir, { a, d, { point = true, x = cx, y = 12, z = -6 } }, { yaw = 46, pitch = -10, fill = 0.6,
 			fov = 54, focus = P(D, "UpperTorso") })
 	else
 		a.x, a.y, a.facing, a.pose = cx - dir * 3.4, 0, dir, "Levitate"
@@ -2229,7 +2231,7 @@ function KIT.HIBECARES.Rush(ctx, frame, a, d, tick, dir)
 		if k == 2 or k == 3 then
 			frame.shot = frameOn("hibecares-colosse-wave", dir, { a, d }, { yaw = 10, pitch = 48, fill = 0.66, fov = 46, focus = P(D, "UpperTorso") })
 		else
-			frame.shot = frameOn("hibecares-colosse-march", dir, { a, d }, { yaw = 54, pitch = -14, fill = 0.8, fov = 44, focus = P(A, "UpperTorso") })
+			frame.shot = frameOn("hibecares-colosse-march", dir, { a, d }, { yaw = 69, pitch = -14, fill = 0.8, fov = 44, focus = P(A, "UpperTorso") })
 		end
 	elseif k == 4 then
 		-- The first blow: the target tumbles across the deck.
@@ -2433,7 +2435,7 @@ function KIT.HIBECARES.Gate(ctx, frame, a, d, tick, dir)
 		a.x, a.facing = cx - dir * 2.6, dir
 		attack(a, moves, role(ctx, "Smash"), false)
 		frame.grade.mono = tick >= data.PromptTicks[1] - 4
-		frame.shot = frameOn("hibecares-ruines-fist", dir, { a, d }, { yaw = 40, pitch = -30, fill = lerp(0.82, 1.0, progress(tick,
+		frame.shot = frameOn("hibecares-ruines-fist", dir, { a, d }, { yaw = 20, pitch = -30, fill = lerp(0.82, 1.0, progress(tick,
 			data.PromptTicks[1] - 14, data.FinalTick)), fov = 42, focus = P(A, "UpperTorso") })
 	elseif tick < data.FinalTick + 22 then
 		a.x, a.facing = cx - dir * 2.6, dir
@@ -2566,7 +2568,7 @@ function KO.ZEPHYR(ctx, frame, W, L, w, l, t, side)
 		-- 3. LE VENT TOURNE: a slow orbit around ZEPHYR, the wind ring at his feet.
 		w.pose = "WindGather"
 		ring(frame, "ko-zephyr-ring", w.x, 2.2, 0.15, color)
-		frame.shot = frameOn("ko-zephyr-orbit", dir, { w }, { yaw = lerp(-50, 50, progress(t, 100, 150)), pitch = 8,
+		frame.shot = frameOn("ko-zephyr-orbit", dir, { w }, { yaw = lerp(-20, 80, progress(t, 100, 150)), pitch = 8,
 			fill = 0.78, fov = 40, focus = P(W, "Head") })
 	elseif t < 188 then
 		-- 4. VERS LE CIEL: the camera lifts from the floor toward the sky.
@@ -2717,7 +2719,7 @@ function KO.SHIN(ctx, frame, W, L, w, l, t, side)
 	elseif t < 150 then
 		-- 3. L'HORIZON: both, very small, far away along the floor.
 		w.pose = "StandTall"
-		frame.shot = frameOn("ko-shin-horizon", dir, { w, l }, { yaw = 4, pitch = 2, fill = 0.3, fov = 26 })
+		frame.shot = frameOn("ko-shin-horizon", dir, { w, l }, { yaw = 24, pitch = 2, fill = 0.3, fov = 26 })
 	else
 		-- 4. IL S'EN VA: he walks away into the background, tracked sideways.
 		local k = progress(t, 150, 188)
@@ -2729,7 +2731,7 @@ function KO.SHIN(ctx, frame, W, L, w, l, t, side)
 			w.pose = "StandTall"
 			koEnd(ctx, frame, W, color)
 		end
-		frame.shot = frameOn("ko-shin-leave", dir, { w }, { yaw = -70, pitch = 0, fill = 0.72, fov = 30, focus = P(W, "UpperTorso") })
+		frame.shot = frameOn("ko-shin-leave", dir, { w }, { yaw = -80, pitch = 0, fill = 0.72, fov = 30, focus = P(W, "UpperTorso") })
 	end
 	return frame
 end

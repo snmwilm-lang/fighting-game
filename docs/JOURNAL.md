@@ -1,5 +1,44 @@
 # Journal du projet — état à transmettre
 
+## Version 0.10.1 — 2 octobre 2026
+
+Retour de Wilhem : « corrige les animations à l'épée et celle à l'orbe d'ombre, pourquoi ils
+mettent des coups de poing ? Crées-en de nouvelles, et si le problème est sur d'autres persos,
+fais-le partout. »
+
+- Cause : un coup sans pose propre prend celle de son rôle chez KAI. SHIN n'avait que 11 coups
+  à lui (17 reprenaient les poings, pieds et ki de KAI), DAICHA 6 (22 repris), HIBECARES 7
+  (22 repris, dont les coups de pied retournés et le salto) et AKEMI 4 (ses coups de main
+  étaient des poings fermés).
+- **74 nouveaux jeux de poses** (`PoseLibrary`, section « weapon kits ») bâtis sur des gabarits
+  communs (coup debout, coup bas, coup aérien, saut, salto, tourbillon, rafale, coup final,
+  plongeon, poursuite, ultime) où seuls les bras, la rotation des hanches et la fente changent :
+  - SHIN : tous ses coups sont des coupes et estocs de la main droite (lame aérienne, piqué,
+    percée, croissant en salto, tranche céleste, fil du courant à deux mains, tourbillon,
+    fauche, tranche basse, coupe finale en iai) ; ultimes : iai puis la coupe.
+  - DAICHA : griffes, paumes et gestes d'ombre, l'orbe dans la main gauche (combo, étreinte,
+    ombre montante, distorsion bras ouverts, flèche d'ombre, demi-éclipse, voile, courant
+    d'ombres, poussée à deux paumes, chute, griffe basse, piqué, retour au néant) ; ultimes :
+    lévitation puis la poussée / la sphère.
+  - HIBECARES : poings de pierre, piétinement et chaînes (coup de masse, coude de pierre,
+    soulèvement, écrasement, revers de chaîne, balayage du bras, séisme poings au sol, pilier
+    de pierre, avalanche, pluie de gravats, charge à l'épaule, effondrement du roi).
+  - AKEMI : main-lame pour ses coups de main (paume, genou, percée, envol, estoc, mille
+    entailles, triple croc, lames jumelles, tourbillon, lame aérienne, piqué, exécution) ; ses
+    coups de pied (salto, talon, fauche, coup bas, genou volant, hache) restent des coups de
+    pied.
+  - TARO, RYUKEN (poings) et ZEPHYR (pieds) empruntaient à KAI des coups du même type :
+    inchangés.
+- Traînées (`STRIKE`) de chaque nouveau coup sur la bonne main / le bon pied.
+- Tests : Animation 26 (+1 : SHIN, DAICHA, HIBECARES et les coups de main d'AKEMI n'empruntent
+  jamais une pose de KAI ; toutes les nouvelles poses passent pieds au sol, limites des
+  articulations, R15 et avatar) ; CombatSimulation 82, FighterAI 10, CinematicDirector 246,
+  Kits 53, PressQueue 4, Fuzz 2, Cinematography 81, Lobby 5 ✅. Planches R6 / R15 de SHIN,
+  DAICHA, AKEMI, HIBECARES regardées. Studio ❌ non exécuté. Équilibrage inchangé (aucune
+  donnée de combat touchée).
+- Problème ouvert : le storyboard dessine le rig en blocs sans le katana ni l'orbe ; en jeu ils
+  sont portés à la main (`RigBuilder`), à confirmer à l'œil.
+
 ## Version 0.10.0 — 1er octobre 2026
 
 Demandes de Wilhem : la planche des 4 nouveaux persos (« tiens les nouveaux perso » :

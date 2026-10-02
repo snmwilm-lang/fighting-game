@@ -382,6 +382,20 @@ test("each kit fights in its style: TARO only punches, ZEPHYR only kicks", funct
 	end
 end)
 
+test("weapon kits never borrow KAI's punches or kicks (SHIN's blade, DAICHA's shadow, HIBECARES's stone; AKEMI's hands)", function()
+	-- AKEMI keeps KAI's kicks for her kicks (salto, heel, sweep, low kick, flying knee, axe, palms).
+	local AKEMI_KICKS = { Kick = true, SpinKick = true, Sweep = true, LowKick = true, ThunderHeel = true, CrescentMoon = true,
+		KiChase = true, Hammer = true, PalmStrike = true }
+	for _, kit in { "SHIN", "DAICHA", "HIBECARES", "AKEMI" } do
+		for role, id in MoveData.Kits[kit].Roles do
+			if not (kit == "AKEMI" and AKEMI_KICKS[role]) then
+				expect(Poses[id] ~= nil, kit .. " " .. id .. " (" .. role .. ") uses KAI's poses")
+				expect(Poses.STRIKE[id] ~= nil, kit .. " " .. id .. " has no strike limbs")
+			end
+		end
+	end
+end)
+
 test("each kit has its own stance, guard and run", function()
 	local anim = newAnimator()
 	local base = anim:resolve(Poses.STANCE)

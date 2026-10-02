@@ -1295,6 +1295,347 @@ Poses.HibecaresCounter = { -- RIPOSTE DES RUINES: the wall bursts in an uppercut
 
 -- Limbs that strike with each move (its own entry, else its role's): used by the motion
 -- trails and checked by the tests (TARO strikes with fists only, ZEPHYR with feet only).
+-- ===================================================================== weapon kits
+--[[
+	SHIN's blade, AKEMI's knife hand, DAICHA's shadow hands and orb, HIBECARES's stone fists:
+	every move of theirs has its own poses, so none of them borrows KAI's punches or kicks
+	(Wilhem: "why do the sword and the shadow orb throw punches?"). AKEMI keeps KAI's kicks
+	for her kicks (salto, heel, sweep, low kick, flying knee): she fights with her feet too.
+	The builders below give the shared shapes; each move only sets its arms, the turn of its
+	hips and its lunge. Arm angles: shoulder rx 90 = arm forward, 180 = overhead; for the
+	right arm rz > 0 swings it out to the right, rz < 0 across the body (mirrored on the left).
+]]
+local function deg(x, y, z) return { x, y or 0, z or 0 } end
+
+-- A standing stroke: wind-up, contact with a lunge and the hips turning, back to guard.
+local function stroke(base, windup, follow, lunge, turn)
+	lunge, turn = lunge or 0.4, turn or 36
+	local h = base.Root[4]
+	return {
+		Startup = feet(merge(base, merge({ Waist = deg(-8, turn) }, windup)), -0.8, 0.85, 0, -8, 9),
+		Active = feet(merge(base, merge({ Root = { 0, -12, 0, h - 0.08, -lunge }, Waist = deg(-14, -turn * 0.8) }, follow)),
+			-1.1 - lunge * 0.5, 0.7, 0, -16, 10),
+		Recovery = merge(base, { Waist = deg(-10, -8) }),
+	}
+end
+
+-- A low stroke from the crouch (at the ankles).
+local function lowStroke(crouch, windup, follow, lunge)
+	lunge = lunge or 0.3
+	local h = crouch.Root[4]
+	return {
+		Startup = merge(crouch, merge({ Waist = deg(-24, 30) }, windup)),
+		Active = feet(merge(crouch, merge({ Root = { 0, -16, 0, h - 0.04, -lunge }, Waist = deg(-28, -26), Neck = deg(26, 10) }, follow)),
+			-0.85 - lunge * 0.5, 0.8, 0, -22, 12),
+		Recovery = crouch,
+	}
+end
+
+-- An aerial stroke: legs tucked under, the body leaning into the blow.
+local function airStroke(base, windup, follow, pitch)
+	return {
+		Startup = merge(base, merge(legs(85, -115, 70, -105), windup)),
+		Active = merge(upper(base, {}), merge(legs(70, -105, 45, -70),
+			merge({ Root = { pitch or -24, 0, 0, 0, 0 }, Waist = deg(-10, -20), Neck = deg(26) }, follow))),
+		Recovery = merge(base, legs(50, -80, 30, -60)),
+	}
+end
+
+-- From the crouch into the air (rising strikes); follow2 is the second beat of a multi-hit.
+local function leapStroke(base, crouch, windup, follow, follow2)
+	local set = {
+		Startup = merge(crouch, windup),
+		Active = airborne(merge(upper(base, {}), merge(legs(25, -20, -25, -40),
+			merge({ Root = { 0, 0, 0, 0.6, -0.2 }, Waist = deg(14, 24), Neck = deg(-6) }, follow)))),
+		Recovery = merge(base, legs(30, -40, -10, -30)),
+	}
+	if follow2 then
+		set.Active2 = airborne(merge(upper(base, {}), merge(legs(-25, -40, 25, -20),
+			merge({ Root = { 0, 0, 0, 0.9, -0.2 }, Waist = deg(14, -24), Neck = deg(-6) }, follow2))))
+	end
+	return set
+end
+
+-- A forward flip (CrescentMoon's roles), knees tucked: the weapon draws the crescent.
+local function flipStroke(base, follow, follow2)
+	return {
+		Startup = merge(base, legs(80, -110, 70, -100)),
+		Active = blind(airborne(merge(upper(base, {}), merge(legs(80, -120, 70, -110),
+			merge({ Root = { -60, 0, 0, 0.5, 0 }, Waist = deg(-10) }, follow))))),
+		Active2 = blind(airborne(merge(upper(base, {}), merge(legs(80, -120, 70, -110),
+			merge({ Root = { -200, 0, 0, 0.7, 0 }, Waist = deg(-10) }, follow2 or follow))))),
+		Recovery = merge(base, legs(50, -80, 30, -60)),
+	}
+end
+
+-- A spin off the floor (DragonTornado's roles), knees tucked, the arms out.
+local function spinStroke(base, crouch, arms1, arms2)
+	return {
+		Startup = blind(merge(crouch, { Root = { 0, -60, 0, crouch.Root[4], 0 }, Waist = deg(-20, -30) })),
+		Active = blind(airborne(merge(upper(base, {}), merge(legs(60, -90, 50, -80),
+			merge({ Root = { 0, 0, 0, 0.6, 0 }, Waist = deg(5), Neck = deg(-10) }, arms1))))),
+		Active2 = blind(airborne(merge(upper(base, {}), merge(legs(50, -80, 60, -90),
+			merge({ Root = { 0, 180, 0, 0.9, 0 }, Waist = deg(5), Neck = deg(-10) }, arms2 or arms1))))),
+		Recovery = merge(base, legs(40, -70, 20, -50)),
+	}
+end
+
+-- A barrage alternating two strokes (KiFlurry's roles), feet planted.
+local function flurry(base, arms1, arms2, lunge)
+	lunge = lunge or 0.4
+	local h = base.Root[4]
+	return {
+		Startup = merge(base, { Waist = deg(-10, -20) }),
+		Active = feet(merge(base, merge({ Root = { 0, 10, 0, h - 0.05, -lunge }, Waist = deg(-14, 28) }, arms1)), -1.1, 0.6, 0, -18, 9),
+		Active2 = feet(merge(base, merge({ Root = { 0, -10, 0, h - 0.05, -lunge - 0.05 }, Waist = deg(-14, -26) }, arms2)),
+			-1.15, 0.6, 0, -18, 9),
+		Recovery = merge(base, { Waist = deg(-10, 12) }),
+	}
+end
+
+-- The finisher (Finale's roles): coiled far back, then driven through the target.
+local function finisher(base, windup, follow)
+	local h = base.Root[4]
+	return {
+		Startup = feet(merge(base, merge({ Root = { 0, -20, 0, h - 0.2, 0.5 }, Waist = deg(0, -40), Neck = deg(10, 40) }, windup)),
+			-0.5, 1.15, 0, -6, 12),
+		Active = feet(merge(base, merge({ Root = { 0, 10, 0, h - 0.3, -1.0 }, Waist = deg(-30, 24), Neck = deg(22, -25) }, follow)),
+			-1.75, 0.35, 0, -26, 10),
+		Recovery = feet(merge(base, { Root = { 0, 0, 0, h - 0.1, -0.4 }, Waist = deg(-20, 20) }), -1.2, 0.5, 0, -14, 8),
+	}
+end
+
+-- A dive from the air (AirSmash's roles): the weapon raised, then brought down.
+local function dive(base, windup, follow)
+	return {
+		Startup = merge(base, merge(legs(70, -110, 60, -100), merge({ Waist = deg(15) }, windup))),
+		Active = merge(upper(base, {}), merge(legs(40, -60, 20, -40),
+			merge({ Root = { -40, 0, 0, 0, 0 }, Waist = deg(-25), Neck = deg(30) }, follow))),
+		Recovery = merge(base, legs(50, -80, 30, -60)),
+	}
+end
+
+-- A leaping chase (KiChase's roles): one knee up, the weapon reaching ahead.
+local function chase(base, crouch, follow)
+	return {
+		Startup = merge(crouch, { Waist = deg(-30), Neck = deg(26) }),
+		Active = airborne(merge(upper(base, {}), merge(legs(60, -90, -10, -30),
+			merge({ Root = { -25, 0, 0, 0.3, 0 }, Waist = deg(-15, 10), Neck = deg(30) }, follow)))),
+		Recovery = merge(base, legs(50, -80, 30, -60)),
+	}
+end
+
+-- An ultimate's own key poses: the kit's staging pose, then its finisher.
+local function ultimate(staging, finale)
+	return { Startup = staging, Active = finale.Active, Recovery = finale.Recovery }
+end
+
+-- ---------------------------------------------------------------- SHIN 流 · the blade (right hand)
+Poses.ShinAirCut = airStroke(SHIN, { RightShoulder = deg(90, 0, 70), RightElbow = deg(80) },
+	{ RightShoulder = deg(90, 0, -60), RightElbow = deg(6), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) })
+Poses.ShinAirCut2 = airStroke(SHIN, { RightShoulder = deg(120, 0, -60), RightElbow = deg(30) },
+	{ RightShoulder = deg(70, 0, 60), RightElbow = deg(10), Waist = deg(-10, 20), LeftShoulder = deg(20, 0, -40), LeftElbow = deg(40) }, -18)
+Poses.ShinDive = dive(SHIN, { RightShoulder = deg(175), RightElbow = deg(30), LeftShoulder = deg(170), LeftElbow = deg(40) },
+	{ RightShoulder = deg(60), RightElbow = deg(0), RightWrist = deg(-20), LeftShoulder = deg(60, 0, 10), LeftElbow = deg(20) })
+Poses.ShinPierce = cut({ RightShoulder = deg(50, 0, 10), RightElbow = deg(120), Waist = deg(-12, 40) },
+	{ RightShoulder = deg(78), RightElbow = deg(2), RightWrist = deg(0), Waist = deg(-26, -10) }, 0.8)
+Poses.ShinCrescent = flipStroke(SHIN, { RightShoulder = deg(160, 0, 10), RightElbow = deg(10), LeftShoulder = deg(30, 0, -40) },
+	{ RightShoulder = deg(40, 0, -10), RightElbow = deg(0), LeftShoulder = deg(30, 0, -40) })
+Poses.ShinSkyCut = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(20, 0, 40), RightElbow = deg(20), Waist = deg(-28, -25) },
+	{ RightShoulder = deg(175, 0, -6), RightElbow = deg(6), LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) },
+	{ RightShoulder = deg(150, 0, 40), RightElbow = deg(10), LeftShoulder = deg(40, 0, -32), LeftElbow = deg(90) })
+Poses.ShinFinale = finisher(SHIN, { RightShoulder = deg(30, 0, -40), RightElbow = deg(100), LeftShoulder = deg(30, 0, 30), LeftElbow = deg(90) },
+	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(20) })
+Poses.ShinChase = chase(SHIN, SHIN_CROUCH, { RightShoulder = deg(95), RightElbow = deg(0), RightWrist = deg(0), LeftShoulder = deg(-40, 0, -30) })
+Poses.ShinLow = lowStroke(SHIN_CROUCH, { RightShoulder = deg(40, 0, 60), RightElbow = deg(40) },
+	{ RightShoulder = deg(58, 0, -60), RightElbow = deg(4) })
+Poses.ShinFlow = cut({ RightShoulder = deg(60, 0, 20), RightElbow = deg(110), LeftShoulder = deg(60, 0, 30), LeftElbow = deg(110) },
+	{ RightShoulder = deg(88), RightElbow = deg(4), LeftShoulder = deg(80, 0, 30), LeftElbow = deg(40) }, 0.7)
+Poses.ShinGale = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(60, 0, 80), RightElbow = deg(30), Waist = deg(-20, 40) },
+	{ RightShoulder = deg(90, 0, -80), RightElbow = deg(0), Waist = deg(14, -40), LeftShoulder = deg(20, 0, -50) },
+	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), Waist = deg(14, 40), LeftShoulder = deg(20, 0, -50) })
+Poses.ShinSpin = stroke(SHIN, { RightShoulder = deg(90, 0, -70), RightElbow = deg(20), Waist = deg(-8, -30) },
+	{ Root = { 0, 150, 0, -0.5, -0.3 }, Waist = deg(-12, 30), RightShoulder = deg(90, 0, 90), RightElbow = deg(0), LeftShoulder = deg(20, 0, -40) }, 0.3)
+Poses.ShinReap = lowStroke(SHIN_CROUCH, { RightShoulder = deg(60, 0, -60), RightElbow = deg(30) },
+	{ Root = { 0, 40, 0, -1.02, -0.2 }, RightShoulder = deg(56, 0, 80), RightElbow = deg(0), LeftShoulder = deg(10, 0, -40) })
+Poses.ShinFalling = leapStroke(SHIN, SHIN_CROUCH, { RightShoulder = deg(10, 0, 30), RightElbow = deg(40) },
+	{ RightShoulder = deg(170), RightElbow = deg(20), LeftShoulder = deg(160), LeftElbow = deg(30), Waist = deg(14) })
+Poses.ShinRush = ultimate(Poses.Iai, Poses.ShinStep)
+Poses.ShinAwakening = ultimate(Poses.Iai, Poses.ShinFinale)
+Poses.ShinGate = ultimate(Poses.Iai, Poses.ShinBreaker)
+
+-- ---------------------------------------------------------------- DAICHA 闇 · shadow hands, the orb in the left
+Poses.DaichaCombo = stroke(DAICHA, { RightShoulder = deg(60, 0, 60), RightElbow = deg(90) },
+	{ RightShoulder = deg(92, 0, -40), RightElbow = deg(8), RightWrist = deg(-40), LeftShoulder = deg(70, 0, 20), LeftElbow = deg(60) }, 0.4)
+Poses.DaichaGrip = stroke(DAICHA, { LeftShoulder = deg(60, 0, 40), LeftElbow = deg(100), RightShoulder = deg(60, 0, -40), RightElbow = deg(100) },
+	{ LeftShoulder = deg(88, 0, -20), LeftElbow = deg(30), LeftWrist = deg(-50), RightShoulder = deg(88, 0, 20), RightElbow = deg(30),
+		RightWrist = deg(-50) }, 0.5, 0)
+Poses.DaichaRise = stroke(DAICHA, { RightShoulder = deg(20, 0, 20), RightElbow = deg(30), Waist = deg(-20, -20) },
+	{ RightShoulder = deg(165, 0, -10), RightElbow = deg(10), RightWrist = deg(60), LeftShoulder = deg(40), LeftElbow = deg(40), Waist = deg(6, 20) }, 0.2)
+Poses.DaichaDistortion = spinStroke(DAICHA, DAICHA_CROUCH,
+	{ LeftShoulder = deg(80, 0, -70), LeftElbow = deg(10), LeftWrist = deg(-60), RightShoulder = deg(80, 0, 70), RightElbow = deg(10), RightWrist = deg(-60) })
+Poses.DaichaSpire = leapStroke(DAICHA, DAICHA_CROUCH, { RightShoulder = deg(20, 0, 30), RightElbow = deg(110) },
+	{ RightShoulder = deg(170, 0, -10), RightElbow = deg(6), RightWrist = deg(60), LeftShoulder = deg(150, 0, 10), LeftElbow = deg(20) },
+	{ LeftShoulder = deg(170, 0, 10), LeftElbow = deg(6), LeftWrist = deg(60), RightShoulder = deg(150, 0, -10), RightElbow = deg(20) })
+Poses.DaichaEclipse = flipStroke(DAICHA,
+	{ LeftShoulder = deg(140, 0, -40), LeftElbow = deg(10), RightShoulder = deg(140, 0, 40), RightElbow = deg(10) },
+	{ LeftShoulder = deg(60, 0, -60), LeftElbow = deg(10), RightShoulder = deg(60, 0, 60), RightElbow = deg(10) })
+Poses.DaichaVeil = leapStroke(DAICHA, DAICHA_CROUCH, { LeftShoulder = deg(20, 0, 40), RightShoulder = deg(20, 0, -40) },
+	{ LeftShoulder = deg(90, 0, -80), LeftElbow = deg(10), RightShoulder = deg(90, 0, 80), RightElbow = deg(10) },
+	{ LeftShoulder = deg(120, 0, 20), LeftElbow = deg(10), RightShoulder = deg(120, 0, -20), RightElbow = deg(10) })
+Poses.DaichaRiver = flurry(DAICHA,
+	{ RightShoulder = deg(90, 0, -20), RightElbow = deg(4), RightWrist = deg(-60), LeftShoulder = deg(60, 0, 20), LeftElbow = deg(90) },
+	{ LeftShoulder = deg(90, 0, 20), LeftElbow = deg(4), LeftWrist = deg(-60), RightShoulder = deg(60, 0, -20), RightElbow = deg(90) })
+Poses.DaichaFall = leapStroke(DAICHA, DAICHA_CROUCH, { LeftShoulder = deg(10, 0, -30), RightShoulder = deg(10, 0, 30) },
+	{ LeftShoulder = deg(160, 0, -20), LeftElbow = deg(20), RightShoulder = deg(160, 0, 20), RightElbow = deg(20), Waist = deg(10) })
+Poses.DaichaSpin = stroke(DAICHA, { RightShoulder = deg(70, 0, -60), RightElbow = deg(80), Waist = deg(-8, -30) },
+	{ Root = { 0, 150, 0, -0.3, -0.3 }, Waist = deg(-12, 30), RightShoulder = deg(90, 0, 80), RightElbow = deg(6), RightWrist = deg(-40) }, 0.3)
+Poses.DaichaPush = stroke(DAICHA,
+	{ Root = { 0, 0, 0, -0.35, 0.3 }, LeftShoulder = deg(50, 0, 30), LeftElbow = deg(130), RightShoulder = deg(50, 0, -30), RightElbow = deg(130) },
+	{ LeftShoulder = deg(90, 0, 8), LeftElbow = deg(2), LeftWrist = deg(-75), RightShoulder = deg(90, 0, -8), RightElbow = deg(2), RightWrist = deg(-75) },
+	0.9, 0)
+Poses.DaichaDrop = stroke(DAICHA, { LeftShoulder = deg(170, 0, -10), LeftElbow = deg(30), RightShoulder = deg(170, 0, 10), RightElbow = deg(30) },
+	{ LeftShoulder = deg(80), LeftElbow = deg(10), LeftWrist = deg(-60), RightShoulder = deg(80), RightElbow = deg(10), RightWrist = deg(-60),
+		Waist = deg(-34) }, 0.5, 0)
+Poses.DaichaReap = lowStroke(DAICHA_CROUCH, { RightShoulder = deg(50, 0, 70), RightElbow = deg(30) },
+	{ RightShoulder = deg(40, 0, -70), RightElbow = deg(4), RightWrist = deg(-50) })
+Poses.DaichaLow = lowStroke(DAICHA_CROUCH, { RightShoulder = deg(30, 0, 20), RightElbow = deg(90) },
+	{ RightShoulder = deg(55, 0, -10), RightElbow = deg(6), RightWrist = deg(-40) }, 0.4)
+Poses.DaichaAirClaw = airStroke(DAICHA, { RightShoulder = deg(100, 0, 60), RightElbow = deg(80) },
+	{ RightShoulder = deg(70, 0, -40), RightElbow = deg(6), RightWrist = deg(-40), LeftShoulder = deg(40, 0, -30), LeftElbow = deg(60) })
+Poses.DaichaAirClaw2 = airStroke(DAICHA, { LeftShoulder = deg(100, 0, -60), LeftElbow = deg(80) },
+	{ LeftShoulder = deg(70, 0, 40), LeftElbow = deg(6), LeftWrist = deg(-40), RightShoulder = deg(40, 0, 30), RightElbow = deg(60), Waist = deg(-10, 20) }, -18)
+Poses.DaichaDive = dive(DAICHA, { LeftShoulder = deg(170, 0, -10), LeftElbow = deg(30), RightShoulder = deg(170, 0, 10), RightElbow = deg(30) },
+	{ LeftShoulder = deg(60), LeftElbow = deg(4), LeftWrist = deg(-70), RightShoulder = deg(60), RightElbow = deg(4), RightWrist = deg(-70) })
+Poses.DaichaChase = chase(DAICHA, DAICHA_CROUCH,
+	{ RightShoulder = deg(95, 0, -10), RightElbow = deg(4), RightWrist = deg(-60), LeftShoulder = deg(-40, 0, -30), LeftElbow = deg(30) })
+Poses.DaichaFinale = finisher(DAICHA,
+	{ LeftShoulder = deg(20, 0, 40), LeftElbow = deg(110), RightShoulder = deg(20, 0, -10), RightElbow = deg(110) },
+	{ LeftShoulder = deg(92, 0, 10), LeftElbow = deg(2), LeftWrist = deg(-70), RightShoulder = deg(92, 0, -10), RightElbow = deg(2), RightWrist = deg(-70) })
+Poses.DaichaRush = ultimate(Poses.Levitate, Poses.DaichaPush)
+Poses.DaichaAwakening = ultimate(Poses.Levitate, Poses.DaichaFinale)
+Poses.DaichaGate = ultimate(Poses.Levitate, Poses.DaichaSphere)
+
+-- ---------------------------------------------------------------- AKEMI 影 · the knife hand
+Poses.AkemiPalm = stroke(AKEMI, { LeftShoulder = deg(40, 0, 30), LeftElbow = deg(120) },
+	{ LeftShoulder = deg(90, 0, 10), LeftElbow = deg(4), LeftWrist = deg(-70), RightShoulder = deg(30, 0, 30), RightElbow = deg(60) }, 0.5)
+Poses.AkemiKnee = { -- GENOU: the knee driven up, both hands pulling the head down
+	Startup = merge(AKEMI, { Root = { 0, 14, 0, -0.45, 0 }, Waist = deg(-10, 20), RightHip = deg(70, 0, 5), RightKnee = deg(-110),
+		RightAnkle = deg(20) }),
+	Active = merge(AKEMI, {
+		Root = { 0, -10, 0, -0.35, -0.3 }, Waist = deg(-20, -10), Neck = deg(20),
+		RightHip = deg(110, 0, 5), RightKnee = deg(-120), RightAnkle = deg(10),
+		LeftShoulder = deg(80, 0, -10), LeftElbow = deg(70), RightShoulder = deg(80, 0, 10), RightElbow = deg(70),
+	}),
+	Recovery = AKEMI,
+}
+Poses.AkemiPierce = stroke(AKEMI, { RightShoulder = deg(40, 0, 10), RightElbow = deg(110) },
+	{ RightShoulder = deg(85), RightElbow = deg(2), RightWrist = deg(0), Waist = deg(-24, -10) }, 0.8)
+Poses.AkemiRise = stroke(AKEMI, { Root = { 0, 14, 0, -0.85, 0.1 }, RightShoulder = deg(10, 0, 20), RightElbow = deg(30), Waist = deg(-24, -20) },
+	{ RightShoulder = deg(170, 0, -10), RightElbow = deg(6), Waist = deg(8, 20), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(30) }, 0.2)
+Poses.AkemiThrust = stroke(AKEMI, { Root = { 0, -20, 0, -0.65, 0.4 }, RightShoulder = deg(30, 0, 20), RightElbow = deg(120) },
+	{ RightShoulder = deg(92, 0, -4), RightElbow = deg(0), RightWrist = deg(0), LeftShoulder = deg(-40, 0, -40), LeftElbow = deg(20) }, 1.0)
+Poses.AkemiThousand = flurry(AKEMI,
+	{ RightShoulder = deg(90, 0, -50), RightElbow = deg(6), LeftShoulder = deg(60, 0, 30), LeftElbow = deg(90) },
+	{ LeftShoulder = deg(90, 0, 50), LeftElbow = deg(6), RightShoulder = deg(60, 0, -30), RightElbow = deg(90) })
+Poses.AkemiFangs = leapStroke(AKEMI, AKEMI_CROUCH, { RightShoulder = deg(10, 0, 30), RightElbow = deg(40) },
+	{ RightShoulder = deg(165, 0, 30), RightElbow = deg(6), LeftShoulder = deg(40, 0, -40), LeftElbow = deg(40) },
+	{ LeftShoulder = deg(165, 0, -30), LeftElbow = deg(6), RightShoulder = deg(40, 0, 40), RightElbow = deg(40) })
+Poses.AkemiTwin = leapStroke(AKEMI, AKEMI_CROUCH, { LeftShoulder = deg(30, 0, 40), RightShoulder = deg(30, 0, -40) },
+	{ LeftShoulder = deg(90, 0, -80), LeftElbow = deg(4), RightShoulder = deg(90, 0, 80), RightElbow = deg(4) },
+	{ LeftShoulder = deg(90, 0, 60), LeftElbow = deg(4), RightShoulder = deg(90, 0, -60), RightElbow = deg(4) })
+Poses.AkemiWhirl = spinStroke(AKEMI, AKEMI_CROUCH,
+	{ LeftShoulder = deg(85, 0, -80), LeftElbow = deg(4), RightShoulder = deg(85, 0, 80), RightElbow = deg(4) })
+Poses.AkemiAirEdge = airStroke(AKEMI, { RightShoulder = deg(100, 0, 70), RightElbow = deg(70) },
+	{ RightShoulder = deg(80, 0, -50), RightElbow = deg(4), LeftShoulder = deg(-30, 0, -40), LeftElbow = deg(30) })
+Poses.AkemiAirEdge2 = airStroke(AKEMI, { LeftShoulder = deg(100, 0, -70), LeftElbow = deg(70) },
+	{ LeftShoulder = deg(80, 0, 50), LeftElbow = deg(4), RightShoulder = deg(-30, 0, 40), RightElbow = deg(30), Waist = deg(-10, 20) }, -18)
+Poses.AkemiStoop = dive(AKEMI, { LeftShoulder = deg(170, 0, -10), LeftElbow = deg(20), RightShoulder = deg(170, 0, 10), RightElbow = deg(20) },
+	{ LeftShoulder = deg(50, 0, 10), LeftElbow = deg(0), RightShoulder = deg(50, 0, -10), RightElbow = deg(0) })
+Poses.AkemiFinale = finisher(AKEMI, { RightShoulder = deg(20, 0, -40), RightElbow = deg(100) },
+	{ RightShoulder = deg(90, 0, 80), RightElbow = deg(0), LeftShoulder = deg(-30, 0, -30), LeftElbow = deg(20) })
+Poses.AkemiAwakening = ultimate(Poses.Sheathe, Poses.AkemiFinale)
+Poses.AkemiGate = ultimate(Poses.Sheathe, Poses.AkemiThrust)
+
+-- ---------------------------------------------------------------- HIBECARES 崩 · stone fists, stomps, chains
+Poses.HibecaresBash = stroke(HIBECARES, { RightShoulder = deg(60, 0, 60), RightElbow = deg(100) },
+	{ RightShoulder = deg(88, 0, -30), RightElbow = deg(20), Waist = deg(-18, -34) }, 0.4)
+Poses.HibecaresElbow = stroke(HIBECARES, { RightShoulder = deg(40, 0, 40), RightElbow = deg(140) },
+	{ RightShoulder = deg(90, 0, -40), RightElbow = deg(150), Waist = deg(-14, -40) }, 0.35)
+Poses.HibecaresChain = stroke(HIBECARES, { LeftShoulder = deg(70, 0, -50), LeftElbow = deg(100), Waist = deg(-8, -36) },
+	{ LeftShoulder = deg(88, 0, 30), LeftElbow = deg(20), Waist = deg(-16, 34) }, 0.45)
+Poses.HibecaresUpper = stroke(HIBECARES, { Root = { 0, 10, 0, -1.0, 0.1 }, RightShoulder = deg(10, 0, 10), RightElbow = deg(60), Waist = deg(-26, -20) },
+	{ RightShoulder = deg(160, 0, -10), RightElbow = deg(40), Waist = deg(4, 20) }, 0.2)
+Poses.HibecaresPress = stroke(HIBECARES, { LeftShoulder = deg(130, 0, -20), LeftElbow = deg(60), RightShoulder = deg(130, 0, 20), RightElbow = deg(60) },
+	{ LeftShoulder = deg(70, 0, 10), LeftElbow = deg(10), LeftWrist = deg(-70), RightShoulder = deg(70, 0, -10), RightElbow = deg(10), RightWrist = deg(-70),
+		Waist = deg(-36) }, 0.5, 0)
+Poses.HibecaresSwing = stroke(HIBECARES, { RightShoulder = deg(80, 0, -60), RightElbow = deg(60), Waist = deg(-10, -30) },
+	{ Root = { 0, 140, 0, -0.62, -0.3 }, Waist = deg(-14, 30), RightShoulder = deg(88, 0, 85), RightElbow = deg(8) }, 0.3)
+Poses.HibecaresSweep = lowStroke(HIBECARES_CROUCH, { RightShoulder = deg(60, 0, 80), RightElbow = deg(30) },
+	{ Root = { 0, -16, 0, -1.0, -0.3 }, RightShoulder = deg(60, 0, -70), RightElbow = deg(20) })
+Poses.HibecaresLow = lowStroke(HIBECARES_CROUCH, { LeftShoulder = deg(40, 0, -10), LeftElbow = deg(110) },
+	{ Root = { 0, -16, 0, -1.0, -0.35 }, LeftShoulder = deg(64, 0, 10), LeftElbow = deg(14) }, 0.35)
+Poses.HibecaresAirFist = airStroke(HIBECARES, { RightShoulder = deg(60, 0, 40), RightElbow = deg(110) },
+	{ RightShoulder = deg(60, 0, -10), RightElbow = deg(6), LeftShoulder = deg(40, 0, 30), LeftElbow = deg(70) }, -30)
+Poses.HibecaresAirSwing = airStroke(HIBECARES, { LeftShoulder = deg(120, 0, -60), LeftElbow = deg(40) },
+	{ LeftShoulder = deg(60, 0, 40), LeftElbow = deg(10), RightShoulder = deg(34, 0, -30), RightElbow = deg(76), Waist = deg(-10, 20) }, -20)
+Poses.HibecaresMeteor = dive(HIBECARES, { LeftShoulder = deg(175, 0, -10), LeftElbow = deg(40), RightShoulder = deg(175, 0, 10), RightElbow = deg(40) },
+	{ LeftShoulder = deg(70, 0, 12), LeftElbow = deg(2), RightShoulder = deg(70, 0, -12), RightElbow = deg(2) })
+Poses.HibecaresQuake = { -- SÉISME: both fists into the floor
+	Startup = merge(HIBECARES_CROUCH, { Waist = deg(10), LeftShoulder = deg(170, 0, -10), LeftElbow = deg(40), RightShoulder = deg(170, 0, 10), RightElbow = deg(40) }),
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -1.0, -0.3 }, Waist = deg(-40), Neck = deg(30),
+		LeftShoulder = deg(54, 0, 10), LeftElbow = deg(16), RightShoulder = deg(54, 0, -10), RightElbow = deg(16) }), -0.75, 0.8, 0, -18, 16),
+	Recovery = HIBECARES_CROUCH,
+}
+Poses.HibecaresRupture = flurry(HIBECARES, { RightShoulder = deg(60, 0, -10), RightElbow = deg(20), Waist = deg(-40, 10) },
+	{ LeftShoulder = deg(60, 0, 10), LeftElbow = deg(20), Waist = deg(-40, -10) }, 0.2)
+Poses.HibecaresPillar = { -- PILIER DE PIERRE: a double upper from the floor, the stone rising with it
+	Startup = merge(HIBECARES_CROUCH, { Waist = deg(-30), LeftShoulder = deg(10, 0, 20), LeftElbow = deg(60), RightShoulder = deg(10, 0, -20), RightElbow = deg(60) }),
+	Active = feet(merge(HIBECARES, { Root = { 0, 10, 0, -0.45, -0.2 }, Waist = deg(10, 20),
+		RightShoulder = deg(165, 0, -10), RightElbow = deg(30), LeftShoulder = deg(60, 0, 20), LeftElbow = deg(80) }), -0.9, 0.7, 0, -10, 14),
+	Active2 = feet(merge(HIBECARES, { Root = { 0, -10, 0, -0.45, -0.25 }, Waist = deg(10, -20),
+		LeftShoulder = deg(165, 0, 10), LeftElbow = deg(30), RightShoulder = deg(60, 0, -20), RightElbow = deg(80) }), -0.95, 0.7, 0, -10, 14),
+	Recovery = HIBECARES,
+}
+Poses.HibecaresAvalanche = flurry(HIBECARES,
+	{ RightShoulder = deg(150, 0, -10), RightElbow = deg(40), LeftShoulder = deg(60, 0, 20), LeftElbow = deg(80) },
+	{ LeftShoulder = deg(150, 0, 10), LeftElbow = deg(40), RightShoulder = deg(60, 0, -20), RightElbow = deg(80) }, 0.3)
+Poses.HibecaresStomp = { -- PIÉTINEMENT: the knee raised high, the foot driven into the floor
+	Startup = merge(HIBECARES, { Waist = deg(6), RightHip = deg(80, 0, 5), RightKnee = deg(-90), RightAnkle = deg(10),
+		LeftShoulder = deg(60, 0, -40), RightShoulder = deg(60, 0, 40) }),
+	Active = feet(merge(HIBECARES, { Root = { 0, 0, 0, -0.95, -0.2 }, Waist = deg(-30), Neck = deg(20),
+		LeftShoulder = deg(20, 0, -50), LeftElbow = deg(30), RightShoulder = deg(20, 0, 50), RightElbow = deg(30) }), -0.5, 0.9, 0, -8, 18),
+	Recovery = HIBECARES,
+}
+Poses.HibecaresChase = stroke(HIBECARES, { Root = { 0, -30, 0, -0.85, 0.2 }, Waist = deg(-26, -30) },
+	{ Root = { 0, -40, 0, -0.95, -0.9 }, Waist = deg(-30, -30), LeftShoulder = deg(20, 0, 40), LeftElbow = deg(120),
+		RightShoulder = deg(30, 0, -40), RightElbow = deg(90) }, 0.9, 0)
+Poses.HibecaresRubble = flurry(HIBECARES,
+	{ RightShoulder = deg(110, 0, -10), RightElbow = deg(30), LeftShoulder = deg(50, 0, 30), LeftElbow = deg(80), Waist = deg(-30, 20) },
+	{ LeftShoulder = deg(110, 0, 10), LeftElbow = deg(30), RightShoulder = deg(50, 0, -30), RightElbow = deg(80), Waist = deg(-30, -20) }, 0.3)
+Poses.HibecaresFinale = finisher(HIBECARES,
+	{ LeftShoulder = deg(170, 0, -10), LeftElbow = deg(50), RightShoulder = deg(170, 0, 10), RightElbow = deg(50) },
+	{ LeftShoulder = deg(80, 0, 10), LeftElbow = deg(6), RightShoulder = deg(80, 0, -10), RightElbow = deg(6), Waist = deg(-40) })
+Poses.HibecaresRush = ultimate(Poses.Colossus, Poses.HibecaresHeavy)
+Poses.HibecaresAwakening = ultimate(Poses.Colossus, Poses.HibecaresFinale)
+Poses.HibecaresGate = ultimate(Poses.Colossus, Poses.HibecaresHeavy)
+
+-- Limbs that strike (the client's trails) for every move above.
+local WEAPON_STRIKE = {
+	RightHand = { "ShinAirCut", "ShinAirCut2", "ShinDive", "ShinPierce", "ShinCrescent", "ShinSkyCut", "ShinFinale", "ShinChase",
+		"ShinLow", "ShinFlow", "ShinGale", "ShinSpin", "ShinReap", "ShinFalling", "ShinRush", "ShinAwakening", "ShinGate",
+		"DaichaCombo", "DaichaRise", "DaichaSpin", "DaichaReap", "DaichaLow", "DaichaAirClaw", "DaichaChase",
+		"AkemiPierce", "AkemiRise", "AkemiThrust", "AkemiAirEdge", "AkemiFinale", "AkemiAwakening", "AkemiGate",
+		"HibecaresBash", "HibecaresElbow", "HibecaresUpper", "HibecaresSwing", "HibecaresSweep", "HibecaresAirFist" },
+	LeftHand = { "DaichaAirClaw2", "AkemiPalm", "AkemiAirEdge2", "HibecaresChain", "HibecaresLow", "HibecaresAirSwing" },
+	Both = { "DaichaGrip", "DaichaDistortion", "DaichaSpire", "DaichaEclipse", "DaichaVeil", "DaichaRiver", "DaichaFall", "DaichaPush",
+		"DaichaDrop", "DaichaDive", "DaichaFinale", "DaichaRush", "DaichaAwakening", "DaichaGate",
+		"AkemiThousand", "AkemiFangs", "AkemiTwin", "AkemiWhirl", "AkemiStoop",
+		"HibecaresPress", "HibecaresMeteor", "HibecaresQuake", "HibecaresRupture", "HibecaresPillar", "HibecaresAvalanche",
+		"HibecaresChase", "HibecaresRubble", "HibecaresFinale", "HibecaresRush", "HibecaresAwakening", "HibecaresGate" },
+	RightFoot = { "HibecaresStomp", "AkemiKnee" },
+}
+
 Poses.STRIKE = {
 	Jab = { "LeftHand" }, Cross = { "RightHand" }, Elbow = { "RightHand" }, Kick = { "RightFoot" },
 	BodyBlow = { "RightHand" }, Uppercut = { "RightHand" }, PalmStrike = { "LeftHand", "RightHand" },
@@ -1337,6 +1678,12 @@ Poses.STRIKE = {
 	ZephyrRush = { "RightFoot" }, ZephyrAwakening = { "RightFoot" }, ZephyrGate = { "RightFoot" },
 	AkemiEdge = { "RightHand" }, AkemiStep = { "RightHand" }, AkemiKunai = { "RightHand" }, AkemiRush = { "RightHand" },
 }
+
+for limb, ids in WEAPON_STRIKE do
+	for _, id in ids do
+		Poses.STRIKE[id] = if limb == "Both" then { "LeftHand", "RightHand" } else { limb }
+	end
+end
 
 -- Joint ranges (degrees) the Animator clamps exaggerated keys to; the tests check them too.
 Poses.LIMITS = table.freeze({

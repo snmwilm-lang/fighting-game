@@ -21,7 +21,8 @@ et règle tous les bugs ».
   - HUD : couleur du titre de l'entraîneur lue avant d'être définie (aurait cassé le HUD),
     trouvé par `luau-analyze` (passé sur tout le code : plus aucune variable inconnue).
   - Fuzz : joue aussi le coup fatal, un combattant à 25 % de vie et un joueur lointain.
-- Tests : CombatSimulation 86 (+1 : QTE d'un joueur lointain jugé avant le coup final) ; RESULTS.
+- Tests : CombatSimulation 86 (+1 : QTE d'un joueur lointain jugé avant le coup final), FighterAI 10,
+  CinematicDirector 323, Animation 35, Kits 54, PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
 
 ## Version 0.12.1 — 2 octobre 2026
 

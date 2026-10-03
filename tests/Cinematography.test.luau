@@ -7,6 +7,10 @@ local MoveData = require("../src/shared/MoveData")
 local Kit = require("./CinematicKit")
 local T = require("./TestKit")
 local test, expect = T.test, T.expect
+local KITS = table.clone(MoveData.KitOrder) -- (and the bosses)
+for name, data in MoveData.Kits do
+	if data.Boss then table.insert(KITS, name) end
+end
 
 -- KAI's K.O. scene (Wilhem's storyboard) has deliberate macro shots (hand, feet, face); the
 -- other kits' K.O. scenes are composed shots, checked like any other.
@@ -50,7 +54,7 @@ local function check(kit, kind, style, hp, center)
 	return failures
 end
 
-for _, kit in MoveData.KitOrder do
+for _, kit in KITS do
 	local route = MoveData.Kits[kit].FullRoutes[1].name
 	for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 300 }, { "Awaken", route, 300 }, { "Fatal" },
 		{ "Fatal", nil, 300 } } do
@@ -102,7 +106,7 @@ local function overlappedHands(kit, kind, style, hp)
 end
 
 test("both hands read in every shot: no angle hides one fist behind the other", function()
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 		local route = MoveData.Kits[kit].FullRoutes[1].name
 		for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 1 }, { "Awaken", route, 1 }, { "Fatal" }, { "Fatal", nil, 1 } } do
 			local bad = overlappedHands(kit, case[1], case[2], case[3])

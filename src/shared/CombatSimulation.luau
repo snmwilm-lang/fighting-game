@@ -124,6 +124,17 @@ function CombatSimulation.setTeams(world, team1, team2)
 	CombatSimulation.resetMatch(world, world.training)
 end
 
+-- A versus match: one fighter each is a classic best of three (RoundsToWin rounds, both
+-- fighters fresh every round); two or three each is a relay (3v3: three K.O. to win, up to
+-- five rounds).
+function CombatSimulation.setLineup(world, team1, team2)
+	if #team1 <= 1 and #team2 <= 1 then
+		CombatSimulation.setKits(world, team1[1], team2[1])
+	else
+		CombatSimulation.setTeams(world, team1, team2)
+	end
+end
+
 -- The fighters still standing in a team (the current one included); nil without teams.
 function CombatSimulation.teamLeft(world, slot)
 	local team = world.teams and world.teams[slot]
@@ -848,6 +859,7 @@ local function startCinematic(world, a, d, events, moveId)
 	end
 	world.cinematic = {
 		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
+		kit = a.kit, -- (ASURA plays KAI's moves with his own cinematics)
 		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
 		prompts = prompts, nextPrompt = 1, perfect = 0, combo = if cin.Type == "Fatal" then a.fatalCombo == true else nil,
 		startHp = d.hp, -- (a finish threshold looks at the health the target had when it began)

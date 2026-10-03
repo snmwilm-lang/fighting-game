@@ -258,7 +258,7 @@ function MenuController:buildNav()
 	local nav = new("Frame", { Position = UDim2.fromOffset(40, 96), Size = UDim2.fromOffset(380, 460), BackgroundTransparency = 1 }, self.root)
 	self.nav = nav
 	slanted(nav, 0, "JOUER", "COMBATTRE EN LIGNE OU CONTRE LE CPU", "戦", true).Activated:Connect(function() self:open("home") end)
-	slanted(nav, 108, "PERSONNAGES", "LES 8 COMBATTANTS · TON FAVORI", "人").Activated:Connect(function() self:open("characters") end)
+	slanted(nav, 108, "PERSONNAGES", "LES " .. #MoveData.KitOrder .. " COMBATTANTS · TON FAVORI", "人").Activated:Connect(function() self:open("characters") end)
 	slanted(nav, 194, "CLASSEMENT", "MONTER DANS LES RANGS", "位").Activated:Connect(function() self:open("ranking") end)
 	slanted(nav, 280, "JOUEURS", "DÉFIER · INVITER UN AMI (H)", "友").Activated:Connect(function()
 		if self.hub then self.hub.panel.Visible = not self.hub.panel.Visible end

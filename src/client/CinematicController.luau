@@ -32,6 +32,27 @@ local WHITE = Color3.fromHex("F5F5F7")
 local INK = Color3.fromHex("0B0B0E")
 local RED = Color3.fromHex("E0102B")
 local GOLD = Color3.fromHex("FFD23F")
+
+local function vec(t)
+	return Vector3.new(t.x, t.y, t.z or 0)
+end
+
+-- The grade of each themed kit (CinematicDirector THEMES).
+local THEME_GRADES = {
+	asura = { TintColor = Color3.fromRGB(255, 215, 140), Contrast = 0.55, Saturation = -0.35, Brightness = -0.12 }, -- black and gold
+	storm = { TintColor = Color3.fromRGB(225, 225, 255), Contrast = 0.5, Saturation = -0.3, Brightness = -0.06 }, -- RAIJIN
+	frost = { TintColor = Color3.fromRGB(200, 235, 255), Contrast = 0.2, Saturation = -0.5, Brightness = 0.08 }, -- YUKINA
+	toxic = { TintColor = Color3.fromRGB(190, 255, 170), Contrast = 0.4, Saturation = -0.1, Brightness = -0.12 }, -- VENOM
+	titan = { TintColor = Color3.fromRGB(255, 190, 170), Contrast = 0.45, Saturation = -0.2, Brightness = -0.06 }, -- GORAN
+	cosmos = { TintColor = Color3.fromRGB(190, 180, 255), Contrast = 0.5, Saturation = 0.1, Brightness = -0.16 }, -- ASTER
+	sonic = { TintColor = Color3.fromRGB(255, 190, 235), Contrast = 0.35, Saturation = 0.3, Brightness = 0.02 }, -- HIBIKI
+	puppet = { TintColor = Color3.fromRGB(235, 200, 205), Contrast = 0.5, Saturation = -0.6, Brightness = -0.1 }, -- MARION
+	iron = { TintColor = Color3.fromRGB(225, 215, 195), Contrast = 0.45, Saturation = -0.7, Brightness = -0.08 }, -- KAZAN
+	blood = { TintColor = Color3.fromRGB(255, 150, 160), Contrast = 0.55, Saturation = -0.2, Brightness = -0.14 }, -- KUREN
+	wild = { TintColor = Color3.fromRGB(205, 245, 185), Contrast = 0.25, Saturation = 0.2, Brightness = 0 }, -- SYLVA
+	holy = { TintColor = Color3.fromRGB(255, 245, 215), Contrast = 0.15, Saturation = -0.2, Brightness = 0.12 }, -- ELIAN
+	tech = { TintColor = Color3.fromRGB(255, 205, 160), Contrast = 0.4, Saturation = -0.25, Brightness = -0.04 }, -- NOVA
+}
 local PROMPT_LABEL = { Light = "CLIC G", Heavy = "CLIC D", Ultimate = "R" }
 
 local function tween(instance, duration, goal, style, direction)
@@ -169,8 +190,73 @@ function CinematicController.new(config, hud, effects)
 	self.current = grade("Current", { Name = "KitCurrent", Enabled = false, TintColor = Color3.fromRGB(165, 210, 245), Contrast = 0.32, Saturation = -0.45, Brightness = 0.02 })
 	self.inverse = grade("Inverse", { Name = "KitInverse", Enabled = false, TintColor = Color3.fromRGB(215, 135, 255), Contrast = 0.6, Saturation = 0.05, Brightness = -0.2 })
 	self.ruin = grade("Ruin", { Name = "KitRuin", Enabled = false, TintColor = Color3.fromRGB(235, 205, 160), Contrast = 0.3, Saturation = -0.45, Brightness = -0.02 })
+	-- The grades of the themed kits (CinematicDirector THEMES), one per kit.
+	self.themeGrades = {}
+	for name, props in THEME_GRADES do
+		local cc = grade(name, props)
+		cc.Name, cc.Enabled = "Kit_" .. name, false
+		self.themeGrades[name] = cc
+	end
 	self.dof = new("DepthOfFieldEffect", { Name = "CinematicDoF", Enabled = false, FarIntensity = 0.65, NearIntensity = 0.35, InFocusRadius = 4 }, Lighting)
 	return self
+end
+
+-- The effects of the themed kits (CinematicDirector THEMES): each kind is drawn by one of the
+-- engine's props in the kit's colour. A request carries from/to (lines) or pos/radius.
+local THEME_FX = {
+	asuraFist = "rageFist", asuraHalo = "dragonHelix", asuraSeal = "seal",
+	spearBolt = "lightning", thunderBurst = "lightningCrown", stormRing = "ring",
+	iceShard = "windBlade", frostBloom = "crescentSmall", iceGarden = "rocks",
+	venomClaw = "cut", venomCloud = "smoke", toxicPool = "orbs",
+	titanGrip = "crack", slamQuake = "quake", titanRing = "rocks",
+	gravityPull = "kiBeam", starCollapse = "eclipse", gravityWell = "orbs",
+	soundWave = "waves", soundRing = "tornadoRing", beatRing = "shockwave",
+	threads = "ropes", puppetBurst = "sparkBig", stageRing = "ring",
+	chainLine = "ropes", ironBurst = "debris", prisonRing = "rocks",
+	bloodSpear = "kiBeam", bloodBloom = "crescentSmall", bloodPool = "waterspout",
+	vines = "wake", thornBurst = "debris", roots = "rocks",
+	lightRay = "lightning", lightPillar = "waterspout", haloRing = "ring",
+	droneShot = "orbDart", dronePulse = "shockwave", droneRing = "orbs",
+}
+
+function CinematicController:themed(kind, r, color)
+	local fx, renderer = self.effects, THEME_FX[kind]
+	if not renderer then return nil end
+	local from, to = r.from and vec(r.from), r.to and vec(r.to)
+	local pos = r.pos and vec(r.pos) or to
+	if renderer == "lightning" then fx:lightning(from or pos + Vector3.new(0, 12, 0), to or pos, color)
+	elseif renderer == "lightningCrown" then
+		for i = 1, 4 do fx:lightning(pos + Vector3.new(math.cos(i * 1.6) * 3, 12, -math.abs(math.sin(i * 1.6)) * 3), pos, color) end
+	elseif renderer == "rageFist" then fx:rageFist(from or pos, to or pos, color, r.scale or 1)
+	elseif renderer == "dragonHelix" then fx:dragonHelix(Vector3.new(pos.X, 0, pos.Z), color)
+	elseif renderer == "seal" or renderer == "ring" then
+		fx:arc(pos + Vector3.new(0, 0.1, 0), r.radius or 2.4, 0, 360, color, math.pi / 2, 1)
+		fx:shockwave(Vector3.new(pos.X, 0, pos.Z), color)
+	elseif renderer == "windBlade" then fx:windBlade(from or pos, to or pos, color, 0, r.scale or 1)
+	elseif renderer == "crescentSmall" then fx:arc(pos, 2.2 * (r.scale or 1), -60, 240, color, 0, 1) fx:spark(pos, color, 1.6)
+	elseif renderer == "rocks" then return fx:rocks(Vector3.new(pos.X, 0, pos.Z), r.radius or 2.4, r.count or 6, color, r.life)
+	elseif renderer == "cut" then fx:cut(from or pos, to or pos, color)
+	elseif renderer == "smoke" then fx:smoke(pos) fx:spark(pos, color, 1.4)
+	elseif renderer == "orbs" then
+		return fx:orbs(pos + Vector3.new(0, 1.5, 0), r.radius or 2.4, r.count or 6, color, r.life or 1.2, 0.6, 0, 0.3)
+	elseif renderer == "crack" then fx:crack(from or pos, to or pos, color)
+	elseif renderer == "quake" then fx:shockwave(Vector3.new(pos.X, 0, pos.Z), color) fx:debris(pos, color, r.scale or 1)
+	elseif renderer == "kiBeam" then fx:kiBeam(from or pos, to or pos, color, r.scale or 1)
+	elseif renderer == "eclipse" then return fx:eclipse(pos + Vector3.new(0, 2, -2), color, r.scale or 1, 1.2)
+	elseif renderer == "waves" then
+		for i = 1, 3 do
+			fx:arc((from or pos):Lerp(to or pos, i / 4), 1 + i * 0.5, 0, 360, color, 0, 1)
+		end
+	elseif renderer == "tornadoRing" then fx:tornadoRing(pos, color)
+	elseif renderer == "shockwave" then fx:shockwave(Vector3.new(pos.X, 0, pos.Z), color)
+	elseif renderer == "ropes" then return fx:ropes(from or pos, to or pos, color, r.life or 1)
+	elseif renderer == "sparkBig" then fx:spark(pos, color, 2.4 * (r.scale or 1))
+	elseif renderer == "debris" then fx:debris(pos, color, r.scale or 1)
+	elseif renderer == "waterspout" then return fx:waterspout(Vector3.new(pos.X, 0, pos.Z), r.radius or 1.6, 7 * (r.scale or 1), color, r.life or 1.2)
+	elseif renderer == "wake" then fx:wake(from or pos, to or pos, color, r.life or 1.2)
+	elseif renderer == "orbDart" then fx:orbDart(from or pos, to or pos, color)
+	end
+	return nil
 end
 
 -- Super flash: dim the world and slide the cut-in across the screen.
@@ -180,7 +266,11 @@ function CinematicController:superFlash(slot, moveId)
 	local m = MoveData.Moves[moveId or "KaienRush"]
 	self.kanji.Text, self.kanji.TextColor3 = data.Kanji, energy
 	self.charName.Text = data.Name .. " · " .. data.Skin
-	self.moveName.Text, self.moveName.TextColor3 = m.name, energy
+	-- (a boss borrowing another kit's moves names its ultimates itself: ASURA)
+	local theme = Director.THEMES[data.Kit]
+	local cin = MoveData.Cinematics[moveId or "KaienRush"]
+	local name = theme and theme.names and cin and theme.names[cin.Type] or m.name
+	self.moveName.Text, self.moveName.TextColor3 = name, energy
 	self.bannerStripe.BackgroundColor3, self.bannerStripeTop.BackgroundColor3 = energy, energy
 	self.banner.Visible, self.banner.Position = true, UDim2.fromScale(-0.8, 0.5)
 	self.darken.Enabled = not self.effects.reduced
@@ -216,6 +306,7 @@ function CinematicController:finish()
 		self.rage, self.current, self.inverse, self.ruin } do
 		effect.Enabled = false
 	end
+	for _, cc in self.themeGrades do cc.Enabled = false end
 	self.handheld = 0
 	self.blackActive = false
 	self.kanjiBack.ZIndex = 1
@@ -326,9 +417,6 @@ end
 
 -- ===================================================================== FRAME
 
-local function vec(t)
-	return Vector3.new(t.x, t.y, t.z or 0)
-end
 
 -- Plays the effect requests of a director frame (each key once per cinematic).
 function CinematicController:applyFx(frame)
@@ -370,6 +458,7 @@ function CinematicController:applyFx(frame)
 			elseif kind == "cut" then fx:cut(vec(request.from), vec(request.to), color)
 			elseif kind == "eclipse" then prop = fx:eclipse(vec(request.pos), color, request.scale or 1, request.life)
 			elseif kind == "smoke" then fx:smoke(vec(request.pos))
+			else prop = self:themed(kind, request, color or Color3.new(1, 1, 1))
 			end
 			if prop then table.insert(self.props, prop) end
 		end
@@ -392,6 +481,7 @@ function CinematicController:applyFrame(frame)
 	self.current.Enabled = frame.grade.current == true and not reduced
 	self.inverse.Enabled = frame.grade.inverse == true and not reduced
 	self.ruin.Enabled = frame.grade.ruin == true and not reduced
+	for name, cc in self.themeGrades do cc.Enabled = frame.grade[name] == true and not reduced end
 	-- TARO's handheld camera: a slow constant sway (smaller in reduced mode).
 	self.handheld = (frame.handheld or 0) * (if reduced then 0.3 else 1)
 	-- A jolt of the camera (HIBECARES' blows shaking the deck).

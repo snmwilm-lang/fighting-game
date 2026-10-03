@@ -622,6 +622,17 @@ Moves.HibecaresCounter = move({ -- the wall bursts toward the attacker
 	heavy = true,
 })
 
+-- ASURA's ground special (E): GATLING DES QUATRE BRAS, a storm of straights from four arms
+-- that pins the target in place and ends by knocking it down.
+Moves.AsuraGatling = move({
+	id = "AsuraGatling", name = "GATLING DES QUATRE BRAS", kind = "Special", startup = 10, active = 26, recovery = 24,
+	hits = 12, hitInterval = 2, damage = 9, guardDamage = 4, hitstun = 26, blockstun = 10, hitstop = 10,
+	multiHitstop = 1, holdVy = 0, multiPush = 0.5,
+	push = 34, blockPush = 18, lunge = 8, knockdown = true,
+	hitbox = { near = 0.2, far = 4.2, low = 0.6, high = 7 },
+	heavy = true,
+})
+
 MoveData.Moves = table.freeze(Moves)
 
 -- ===================================================================== kits
@@ -930,8 +941,9 @@ kit("HIBECARES", {
 kit("ASURA", {
 	Kanji = "阿", Role = "BOSS", Boss = true,
 	Difficulty = 3,
-	Description = "Un KAI à quatre bras, sorti de la Porte des Cieux. Il frappe plus fort, encaisse deux fois plus et ne lâche rien.",
+	Description = "Un KAI à quatre bras, sorti de la Porte des Cieux. Il frappe plus fort, encaisse deux fois plus et ne lâche rien. E : GATLING DES QUATRE BRAS.",
 	Roles = table.clone(KAI_ROLES),
+	Starters = { Ground = { Special = "AsuraGatling" } },
 	Stats = { MaxHealth = 2700, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40, DamageDealt = 1.2,
 		GuardDamageTaken = 0.7 },
 	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "HACHE", "BALAYAGE", "TORNADE", "RAFALE", "DRAGON", "FOUDRE", "LUNE" },

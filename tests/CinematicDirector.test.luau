@@ -10,6 +10,15 @@ local Sim = require("../src/shared/CombatSimulation")
 local Director = require("../src/shared/CinematicDirector")
 local T = require("./TestKit")
 local test, expect = T.test, T.expect
+-- Every kit with cinematics: the selectable ones and the bosses (ASURA).
+local KITS = table.clone(MoveData.KitOrder)
+for name, data in MoveData.Kits do
+	if data.Boss then table.insert(KITS, name) end
+end
+table.sort(KITS, function(x, y)
+	local i, j = table.find(MoveData.KitOrder, x) or 99, table.find(MoveData.KitOrder, y) or 99
+	return if i ~= j then i < j else x < y
+end)
 
 local function add(a, b) return { x = a.x + b.x, y = a.y + b.y, z = (a.z or 0) + (b.z or 0) } end
 local function sub(a, b) return { x = a.x - b.x, y = a.y - b.y, z = (a.z or 0) - (b.z or 0) } end
@@ -148,7 +157,7 @@ end
 
 print("CinematicDirector")
 
-for _, kit in MoveData.KitOrder do
+for _, kit in KITS do
 	local routes = MoveData.Kits[kit].FullRoutes
 	local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 }, { "Fatal" }, { "Fatal", nil, 300 }, { "Fatal", "raw" } }
 	for _, route in routes do
@@ -192,7 +201,7 @@ end
 
 test("COUP FATAL: every kit has its own scene, which is its K.O. screen when it kills", function()
 	local seen = {}
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 		local shots, order, last, _, world = fatalScene(kit, 200)
 		expect(#order >= 5, kit .. "'s COUP FATAL has only " .. #order .. " shots")
 		for name in shots do
@@ -203,7 +212,8 @@ test("COUP FATAL: every kit has its own scene, which is its K.O. screen when it 
 		expect(last and last.title and last.title.text == "K.O.", kit .. ": a killing COUP FATAL does not end on K.O.")
 		expect(world.fighters[2].hp == 0, kit .. ": the target survived a COUP FATAL it should kill")
 		local _, _, alive = fatalScene(kit, nil)
-		local name = MoveData.Moves[MoveData.Kits[kit].Ultimates.Fatal].name
+		local theme = Director.THEMES[kit]
+		local name = theme and theme.names and theme.names.Fatal or MoveData.Moves[MoveData.Kits[kit].Ultimates.Fatal].name
 		expect(alive and alive.title and alive.title.text == name, kit .. ": a COUP FATAL that does not kill should end on its name")
 	end
 	-- SHIN's ISSEN is an old samurai film: black and white from the first frame to the last.
@@ -265,7 +275,8 @@ test("every character's cinematics are its own: no shot shared between kits or u
 	local owner = {}
 	local SIGNATURE = { TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow", RYUKEN = "rage", SHIN = "current", DAICHA = "inverse",
 		HIBECARES = "ruin" }
-	for _, kit in MoveData.KitOrder do
+	for name, theme in Director.THEMES do SIGNATURE[name] = theme.grade end
+	for _, kit in KITS do
 		for _, kind in { "Rush", "Awaken", "Gate" } do
 			local shots, frames, grades = survey(kind, kit, MoveData.Kits[kit].FullRoutes[1].name)
 			local own = 0
@@ -307,7 +318,7 @@ test("each ÉVEIL route has its own finale", function()
 end)
 
 test("match-winning K.O. scene is well placed for every kit, both winners and near the walls", function()
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 	for _, winner in { 1, 2 } do
 		for _, x in { 0, Config.ArenaMaxX - 2, Config.ArenaMinX + 2 } do
 			local v = {
@@ -332,7 +343,7 @@ end)
 test("each kit has its own K.O. scene: own shots, own grade, ends on K.O.", function()
 	local owners, grades = {}, { KAI = nil, TARO = "fire", ZEPHYR = "sky", AKEMI = "shadow", RYUKEN = "rage", SHIN = "current",
 		DAICHA = "inverse", HIBECARES = "ruin" }
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 		local anchors, shots, graded, ended = {}, {}, false, false
 		for t = 0, Director.KO_SCENE do
 			local staged = { { x = -2, y = 0, facing = 1, state = "Idle", kit = kit }, { x = 2, y = 0, facing = -1, state = "Idle" } }
@@ -386,7 +397,7 @@ local function rushStaging(kit)
 end
 
 test("the editing never strobes: no shot under 5 ticks, at most two under 9 ticks per cinematic", function()
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 		local routes = if kit == "KAI" then MoveData.Kits.KAI.FullRoutes else { MoveData.Kits[kit].FullRoutes[1] }
 		local cases = { { "Rush" }, { "Gate" }, { "Gate", nil, 300 } }
 		for _, route in routes do
@@ -420,7 +431,7 @@ test("the editing never strobes: no shot under 5 ticks, at most two under 9 tick
 end)
 
 test("clean staging: no body teleports inside a shot without its afterimages, no attacker glued to a standing target", function()
-	for _, kit in MoveData.KitOrder do
+	for _, kit in KITS do
 		for _, kind in { "Rush", "Awaken", "Gate" } do
 			local world = Sim.newWorld(Config, MoveData, true)
 			Sim.setKits(world, kit, "KAI")
@@ -490,8 +501,9 @@ test("every rush (R) is staged its own way: own effects, own way of fighting", f
 	-- Each kit's rush asks for effects only it uses.
 	local SIGNATURE = { KAI = { "kiBeam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },
 		RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "orbs", "orbDart" }, HIBECARES = { "rockLine" } }
+	for name, theme in Director.THEMES do SIGNATURE[name] = { theme.fx.line, theme.fx.burst, theme.fx.ground } end
 	local staging = {}
-	for _, kit in MoveData.KitOrder do staging[kit] = rushStaging(kit) end
+	for _, kit in KITS do staging[kit] = rushStaging(kit) end
 	for kit, kinds in SIGNATURE do
 		for _, kind in kinds do
 			expect(staging[kit].kinds[kind], kit .. "'s rush never shows its " .. kind)

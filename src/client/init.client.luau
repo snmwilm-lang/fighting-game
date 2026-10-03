@@ -19,6 +19,8 @@ local SoundController = require(script.SoundController)
 local HubController = require(script.HubController)
 local MenuController = require(script.MenuController)
 local player = Players.LocalPlayer
+-- Roblox's own player list (top right) covers the lobby's cards: our hub (H) lists the players.
+pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end)
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
 local hud = HUDController.new(Config)
@@ -147,6 +149,11 @@ local function onMatchChanged()
 	table.clear(rigs)
 	generation, epoch, latestTick = -1, -1, -1
 	input.clear()
+	-- (no more snapshots of the old match: close its K.O. scene, titles and grades now, or
+	-- they stay drawn over the lobby)
+	cinematic.preview = nil
+	if cinematic.active then cinematic:finish() end
+	cinematic:hideTitle()
 	refreshVisibility()
 	hud:setInMatch(id ~= 0)
 	menu:setInMatch(id ~= 0)

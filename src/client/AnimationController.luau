@@ -62,7 +62,7 @@ end
 -- facing, hitstop, combo, victory, intro, pose }); other: the opponent's view.
 -- ASURA's second pair of arms (RigBuilder.addFourArms): they copy the real shoulders' swing
 -- a few frames late and a little wider, so every blow seems to come twice.
-function AnimationController:swingFourArms(pose, dt)
+function AnimationController:swingFourArms(pose, dt, view, now)
 	local model = self.model
 	if not model then return end
 	if self.fourArms == nil then
@@ -76,11 +76,19 @@ function AnimationController:swingFourArms(pose, dt)
 		end
 	end
 	if not self.fourArms then return end
-	local follow = 1 - math.exp(-14 * dt)
+	-- GATLING DES QUATRE BRAS: the extra arms piston straight ahead, out of phase with each
+	-- other, as fast as the eye can follow.
+	local gatling = view and view.move == "AsuraGatling"
+	local follow = 1 - math.exp(-(if gatling then 40 else 14) * dt)
 	for name, info in self.fourArms do
 		local shoulder = pose[name .. "Shoulder"]
 		local tx, tz = 0, 0
-		if shoulder then tx, tz = (shoulder[1] or 0) * 0.85, (shoulder[3] or 0) * 0.6 end
+		if gatling then
+			local phase = if name == "Left" then 0 else math.pi
+			tx, tz = 70 + 25 * math.sin((now or 0) * 38 + phase), 0
+		elseif shoulder then
+			tx, tz = (shoulder[1] or 0) * 0.85, (shoulder[3] or 0) * 0.6
+		end
 		info.x += (tx - info.x) * follow
 		info.z += (tz - info.z) * follow
 		info.joint.C0 = info.base * CFrame.Angles(rad(info.x), 0, rad(info.z))
@@ -89,7 +97,7 @@ end
 
 function AnimationController:update(view, other, dt, now, poseRate, cinematic)
 	local pose, lift = self.animator:step(view, other, dt, now, poseRate, cinematic)
-	self:swingFourArms(pose, dt)
+	self:swingFourArms(pose, dt, view, now)
 	if self.retarget then
 		local c0 = Retarget.solve(self.retarget, pose, view.y or 0)
 		for name, info in self.joints do

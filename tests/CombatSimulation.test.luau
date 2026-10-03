@@ -1241,4 +1241,38 @@ test("teams (relay): the side whose team runs out loses, even with one fighter l
 	expect(ended and ended.winner == 2, "team 1 should lose once ZEPHYR and RYUKEN are out")
 end)
 
+test("versus line-ups: 1v1 is a best of three, 3v3 a relay won with three K.O. (up to five rounds)", function()
+	local Director = require("../src/shared/CinematicDirector")
+	local function knockOut(world, loser)
+		world.phase = "Fight"
+		world.fighters[3 - loser].hp = 900
+		world.fighters[loser].hp = 0
+		local events = {}
+		for _ = 1, Config.KOTicks + 5 do
+			for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do table.insert(events, e) end
+		end
+		return events
+	end
+	local duel = Sim.newWorld(Config, MoveData, false)
+	Sim.setLineup(duel, { "KAI" }, { "TARO" })
+	expect(duel.teams == nil, "a 1v1 should not be a relay")
+	expect(find(knockOut(duel, 2), "MatchEnd") == nil, "a 1v1 ended after one round")
+	expect(find(knockOut(duel, 2), "MatchEnd") ~= nil, "a 1v1 did not end on the second round won")
+	local relay = Sim.newWorld(Config, MoveData, false)
+	Sim.setLineup(relay, { "KAI", "SHIN", "ZEPHYR" }, { "TARO", "AKEMI", "DAICHA" })
+	expect(relay.teams ~= nil, "a 3v3 should be a relay")
+	-- 2 K.O. each (four rounds), then the fifth decides; the victory scene waits for it.
+	knockOut(relay, 2)
+	knockOut(relay, 1)
+	knockOut(relay, 2)
+	relay.phase = "Fight"
+	relay.fighters[2].hp, relay.fighters[1].hp = 900, 0
+	Sim.step(relay, { Sim.neutralInput(), Sim.neutralInput() })
+	expect(relay.phase == "KO" and Director.victoryScene(relay, Config) == nil, "the K.O. scene played with fighters left")
+	for _ = 1, Config.KOTicks + 5 do Sim.step(relay, { Sim.neutralInput(), Sim.neutralInput() }) end
+	local last = knockOut(relay, 2)
+	local finish = find(last, "MatchEnd")
+	expect(finish and finish.winner == 1 and relay.fighters[1].wins == 3, "the fifth round did not end the 3v3 with three K.O.")
+end)
+
 T.finish()

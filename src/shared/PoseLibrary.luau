@@ -1187,6 +1187,9 @@ for role, pose in { RyukenChain = "TaroBolo", RyukenSpin = "TaroCorkscrew", Ryuk
 	RyukenChase = "TaroChase", RyukenHook = "TaroHook" } do
 	Poses[role] = Poses[pose]
 end
+-- ASURA's GATLING DES QUATRE BRAS: the boxer's machine-gun straights (the extra pair of arms
+-- pistons on the client, AnimationController:swingFourArms).
+Poses.AsuraGatling = Poses.TaroGatling
 
 -- HIBECARES: heavy, wide swings of the stone fists.
 Poses.HibecaresStrike = {
@@ -1752,7 +1755,7 @@ Poses.STRIKE = {
 	TaroHook = { "RightHand" }, TaroBolo = { "RightHand" }, TaroCorkscrew = { "RightHand" },
 	TaroOverhand = { "RightHand" }, TaroDive = { "RightHand" }, TaroLowJab = { "LeftHand" },
 	TaroAirJab = { "LeftHand" }, TaroAirHook = { "RightHand" }, TaroMeteor = { "LeftHand", "RightHand" },
-	TaroTwinUpper = { "LeftHand", "RightHand" }, TaroGatling = { "LeftHand", "RightHand" },
+	TaroTwinUpper = { "LeftHand", "RightHand" }, TaroGatling = { "LeftHand", "RightHand" }, AsuraGatling = { "LeftHand", "RightHand" },
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },

@@ -115,7 +115,7 @@ function HUD.new(config)
 			TextTruncate = Enum.TextTruncate.AtEnd,
 		}), "Energy")
 		local pips = {}
-		for i = 1, config.RoundsToWin do
+		for i = 1, math.max(config.RoundsToWin, 3) do -- (3 for a 3v3 relay: a pip per fighter knocked out)
 			local pip = new("Frame", {
 				Size = UDim2.fromOffset(12, 12), Rotation = 45, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = INK, BorderSizePixel = 0,
 				Position = if left then UDim2.new(1, -12 - (i - 1) * 20, 0, 92) else UDim2.new(0, 12 + (i - 1) * 20, 0, 92),
@@ -999,7 +999,12 @@ function HUD:update(world, views, fps, dt)
 			bar.passive.Text = label
 			bar.passive.TextTransparency = if ready then 0 else 0.45
 		end
+		-- One pip per round to win (best of 3), or per opposing fighter in a relay team (3v3:
+		-- three, the match can go to five rounds).
+		local other = views[3 - slot]
+		local need = if other.team then #other.team else self.config.RoundsToWin
 		for i, pip in bar.pips do
+			pip.Visible = i <= need
 			pip.BackgroundColor3 = if view.wins >= i then bar.energy else INK
 		end
 		local bars = self.config.MeterBar

@@ -90,6 +90,8 @@ end
 -- (role -> move id), colours and titles.
 local function kitOf(ctx)
 	local data = ctx.moveData
+	local own = ctx.cin.kit and data.Kits and data.Kits[ctx.cin.kit]
+	if own and own.Boss then return own end -- (a boss borrows another kit's moves)
 	local name = data.MoveKit and data.MoveKit[ctx.cin.move] or "KAI"
 	return data.Kits and data.Kits[name]
 end
@@ -3315,6 +3317,482 @@ function KO.HIBECARES(ctx, frame, W, L, w, l, t, side)
 	return frame
 end
 
+-- ===================================================================== THEMED KITS
+
+--[[
+	ASURA and the kits of Wilhem's third sheet are staged by one director written in the spirit
+	of the hand-made ones: a theme gives each kit its own grade, its own effects, its own way of
+	fighting in each ultimate (an archetype), its own camera angles and poses, and every shot
+	its own name. Archetypes:
+	  lunge    blows from changing sides, a blur between them (a spear, blood lances)
+	  orbit    circles the target and strikes on the way (fans of ice, a predator's claws)
+	  zone     stays far away, everything flies to the target (sound waves, drones, threads)
+	  grapple  seizes the target and slams it from one side to the other (a wrestler, four arms)
+	  gatling  a storm of fists pinning the target in place (ASURA's four arms)
+	  juggle   lifts the target higher and higher and follows it up (gravity)
+	  pull     drags the target in on every blow (chains, vines, light)
+	A theme: id (shot prefix), grade, kanji, pose / rest (signature poses), seed / step (its walk
+	through the camera presets), rush / awaken / gate / fatal (archetypes), blows (roles cycled
+	by the barrages), fx = { line, burst, ground } (its own effect kinds), quake (heavy steps).
+	All in one table (the module is close to Luau's limit of local names).
+]]
+local GEN = { THEMES = {} }
+
+-- Two-shot presets { yaw, pitch, fill, fov }: a theme starts at `seed` and walks by `step`.
+GEN.ANGLES = {
+	{ 40, 6, 0.74, 42 }, { -32, 10, 0.8, 40 }, { 12, 52, 0.62, 46 }, { 48, -14, 0.8, 46 }, { -40, 18, 0.62, 42 },
+	{ 24, -24, 0.8, 44 }, { -18, -8, 0.84, 38 }, { 54, 22, 0.66, 44 }, { 6, 30, 0.7, 40 }, { -46, -4, 0.7, 46 },
+	{ 30, 60, 0.56, 48 }, { -8, -26, 0.78, 50 },
+}
+-- Hero shots of one fighter { yaw, pitch, fill, fov, band }.
+GEN.SOLO = {
+	{ 24, -26, 0.85, 40, "full" }, { -20, -10, 0.95, 30, "bust" }, { 10, -34, 0.8, 44, "full" },
+	{ -30, 4, 1.0, 28, "bust" }, { 28, -6, 0.9, 32, "bust" }, { -12, -20, 0.85, 40, "full" },
+}
+
+function GEN.name(T, ult, name)
+	return T.id .. "-" .. ult .. "-" .. name
+end
+
+-- A two-shot of the attacker and the target, preset `i` of the theme's walk. The camera
+-- looks at the fighter on its side of the pair (never through the other one).
+function GEN.two(ctx, T, ult, name, dir, a, d, i, o)
+	local p = GEN.ANGLES[(T.seed + i * T.step) % #GEN.ANGLES + 1]
+	local yaw = p[1]
+	local subject = if yaw >= 0 then ctx.cin.defender else ctx.cin.attacker
+	o = o or {}
+	return frameOn(GEN.name(T, ult, name), dir, { a, d }, { yaw = yaw, pitch = p[2], fill = o.fill or p[3], fov = p[4],
+		roll = o.roll, focus = P(subject, "UpperTorso") })
+end
+
+-- A hero shot of one fighter (`slot`), preset `i`.
+function GEN.solo(T, name, dir, view, slot, i, o)
+	local p = GEN.SOLO[(T.seed + i) % #GEN.SOLO + 1]
+	o = o or {}
+	return frameOn(name, dir, { view }, { yaw = p[1], pitch = p[2], fill = o.fill or p[3], fov = p[4], band = p[5],
+		focus = P(slot, if p[5] == "bust" then "Head" else "UpperTorso") })
+end
+
+-- One of the theme's own effects: `which` is line (from -> to), burst (at `to`) or ground
+-- (a ring on the floor around `to`).
+function GEN.fx(frame, T, which, key, from, to, color, extra)
+	local request = { key = T.id .. "-" .. key, kind = T.fx[which], from = from, to = to, pos = to, color = color,
+		radius = 2.4, count = 6, life = 1.2, scale = 1 }
+	for k, value in extra or {} do request[k] = value end
+	table.insert(frame.fx, request)
+end
+
+-- The ultimate's name: the theme's own (ASURA borrows KAI's moves) or the move's.
+function GEN.moveName(ctx, T, kind)
+	return T.names and T.names[kind] or ctx.moveData.Moves[ctx.cin.move].name
+end
+
+function GEN.place(ctx, x)
+	return math.clamp(x, ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1)
+end
+
+-- Where the attacker waits for an archetype: far for those who fight at range.
+function GEN.reach(style)
+	if style == "zone" then return 6.5 elseif style == "pull" then return 5.5 end
+	return 2.9
+end
+
+-- Blow k of a barrage in the archetype `style` (beat: ticks since it landed, tick: the scene
+-- tick). Sets both views and asks for the theme's effects.
+function GEN.strike(ctx, frame, T, style, a, d, k, beat, tick, cx, dir, color, key)
+	local moves = ctx.moveData.Moves
+	local id = role(ctx, T.blows[(k - 1) % #T.blows + 1])
+	local live = beat < 4
+	d.x, d.y, d.state, d.pose = cx, 0, "Hitstun", nil
+	if style == "lunge" then
+		-- A blow from a new side each time; the attacker blurs between them.
+		local angles = { 0.35, 2.7, 1.1, 2.25, 0.7, 2.95, 1.6 }
+		around(a, cx, dir, angles[(k - 1) % #angles + 1], 2.9)
+		attack(a, moves, id, live)
+		if beat < 3 then frame.speedLines = color end
+		GEN.fx(frame, T, "line", key .. "-line" .. k, v(a.x, 3, a.z), v(cx, 3, 0), color)
+		if beat < 2 then spark(frame, T.id .. key .. "-spark" .. k, v(cx, 3, 0.4), color, 1.2) end
+	elseif style == "orbit" then
+		-- Always moving round the target, striking on the way.
+		around(a, cx, dir, math.pi / 2 + 1.3 * math.sin(tick * 0.09), 3.1)
+		attack(a, moves, id, live)
+		GEN.fx(frame, T, "line", key .. "-trail" .. k, v(a.x, 2.6, a.z), v(cx, 3, 0), color, { life = 0.8 })
+		if beat < 6 then d.y = 0.4 * math.sin(beat / 6 * math.pi) end
+	elseif style == "zone" then
+		-- From afar: everything flies to the target, which recoils.
+		a.x, a.facing, a.z = GEN.place(ctx, cx - dir * 6.5), dir, 0
+		attack(a, moves, role(ctx, if k % 2 == 1 then "KiBlast" else "PalmStrike"), live)
+		GEN.fx(frame, T, "line", key .. "-shot" .. k, v(a.x + dir, 3, 0), v(cx, 3, 0), color)
+		d.x = cx + dir * 0.5 * math.max(0, 1 - beat / 6)
+		if beat < 2 then spark(frame, T.id .. key .. "-hit" .. k, v(cx, 3, 0.5), color, 1) end
+	elseif style == "grapple" then
+		-- Seized and slammed down on one side, lifted behind, slammed on the other side.
+		a.x, a.facing, a.z = cx - dir * 2.9, dir, 0
+		local span = 8
+		local u = math.min(1, beat / span)
+		local side = if k % 2 == 1 then 1 else -1
+		local floorX, nextX = a.x + side * dir * 2.8, a.x - side * dir * 2.8
+		if u < 0.3 then
+			d.x, d.y, d.z, d.pose = floorX, 0, 0, "DownFace"
+			attack(a, moves, role(ctx, "Hammer"), true)
+			if beat < 2 then
+				frame.impact = { key = T.id .. key .. "-slam" .. k, color = color }
+				frame.quake = if T.quake then 0.9 else 0.4
+			end
+			GEN.fx(frame, T, "ground", key .. "-slam" .. k, nil, v(floorX, 0, 0), color, { radius = 1.8 })
+			GEN.fx(frame, T, "line", key .. "-grip" .. k, v(a.x, 3.4, 0), v(floorX, 0.6, 0), color, { life = 0.5 })
+		else
+			local q = (u - 0.3) / 0.7
+			d.x, d.y, d.z, d.pose = lerp(floorX, nextX, smooth(q)), 5.4 * math.sin(q * math.pi), -2.4 * math.sin(q * math.pi), "Launched"
+			attack(a, moves, role(ctx, "BodyBlow"), false)
+		end
+	elseif style == "juggle" then
+		-- Higher at every blow; the attacker rises with it.
+		local level = math.min(k, 9)
+		d.y, d.pose = lerp((level - 1) * 0.9, level * 0.9, smooth(math.min(1, beat / 6))), "Launched"
+		a.x, a.facing, a.z = cx - dir * 2.5, dir, 0
+		a.y = math.max(0, d.y - 1.4)
+		attack(a, moves, role(ctx, if k % 2 == 1 then "AirKick" else "AirKick2"), live)
+		GEN.fx(frame, T, "ground", key .. "-well" .. k, nil, v(cx, d.y, 0), color, { radius = 1.6 })
+		GEN.fx(frame, T, "line", key .. "-lift" .. k, v(cx, 0, 0), v(cx, d.y + 2, 0), color, { life = 0.6 })
+	elseif style == "gatling" then
+		-- A storm of fists from four arms: the target pinned in place, shaking under them.
+		a.x, a.facing, a.z = cx - dir * 2.9, dir, 0
+		attack(a, moves, role(ctx, if (tick // 3) % 2 == 0 then "Jab" else "Cross"), true)
+		d.x = cx + dir * 0.15 * math.sin(tick * 1.7)
+		for j = 0, 2 do
+			GEN.fx(frame, T, "line", key .. "-fist" .. k .. "-" .. j, v(a.x + dir * 0.6, 2.2 + j * 0.8, (j - 1) * 0.9),
+				v(cx, 2.4 + j * 0.7, 0.3), color, { life = 0.3, scale = 0.6 })
+		end
+		if beat < 2 then spark(frame, T.id .. key .. "-hit" .. k, v(cx, 3, 0.5), color, 1.4) end
+		frame.speedLines = color
+	else -- pull
+		-- Dragged in on every blow, then thrown back.
+		a.x, a.facing, a.z = GEN.place(ctx, cx - dir * 5.5), dir, 0
+		attack(a, moves, role(ctx, if k % 2 == 1 then "PalmStrike" else "Cross"), live)
+		d.x = cx - dir * 1.4 * math.sin(math.min(1, beat / 8) * math.pi)
+		GEN.fx(frame, T, "line", key .. "-pull" .. k, v(a.x + dir * 0.8, 3, 0), v(cx, 3, 0), color, { life = 0.6 })
+	end
+end
+
+-- The attacker squared up before the final blow of an archetype.
+function GEN.square(ctx, a, cx, dir, style)
+	a.x, a.y, a.z, a.facing, a.lookDir = GEN.place(ctx, cx - dir * GEN.reach(style)), 0, 0, dir, nil
+end
+
+-- ---------------------------------------------------------------- R
+
+function GEN.Rush(T)
+	return function(ctx, frame, a, d, tick, dir)
+		local cin = ctx.cin
+		local data = ctx.moveData.Cinematics[cin.move]
+		local A, D = cin.attacker, cin.defender
+		local color = ctx.characters[A].Energy
+		local cx = center(ctx, d)
+		local H, F = data.Hits, data.FinalTick
+		local style = T.rush
+		frame.grade[T.grade] = true
+		local k = hitsBefore(H, tick)
+		local beat = if k > 0 then tick - H[k] else 0
+		if tick < H[1] then
+			-- The signature pose, at a distance; its ground mark under the feet.
+			GEN.square(ctx, a, cx, dir, style)
+			a.x, a.pose = GEN.place(ctx, cx - dir * (GEN.reach(style) + 1.5)), T.pose
+			d.x, d.state = cx, "Hitstun"
+			GEN.fx(frame, T, "ground", "rush-mark", nil, v(a.x, 0, 0), color, { radius = 2.2, life = 1.4 })
+			if T.quake and tick < 4 then frame.quake = 0.8 end
+			frame.shot = GEN.solo(T, GEN.name(T, "rush", "open"), dir, a, A, 0)
+		elseif tick < H[#H] + 4 then
+			GEN.strike(ctx, frame, T, style, a, d, k, beat, tick, cx, dir, color, "rush")
+			local part = if k <= 4 then "a" elseif k <= 8 then "b" else "c"
+			local i = if k <= 4 then 1 elseif k <= 8 then 2 else 3
+			frame.shot = GEN.two(ctx, T, "rush", "blows-" .. part, dir, a, d, i)
+		elseif tick < F then
+			-- The last breath before the final blow.
+			local p = progress(tick, H[#H] + 4, F)
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), false)
+			d.x, d.state, d.y = cx, "Hitstun", 0
+			GEN.fx(frame, T, "ground", "rush-charge", nil, v(a.x, 0, 0), color, { radius = 1.6 })
+			frame.shot = GEN.two(ctx, T, "rush", "charge", dir, a, d, 4, { fill = lerp(0.72, 0.86, p) })
+		elseif tick < F + 16 then
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
+			local p = progress(tick, F, F + 16)
+			d.x, d.y, d.pose = cx + dir * 1.2 * p, math.sin(p * math.pi) * 2.2, "Launched"
+			impact(frame, T.id .. "-rush-final", v(cx, 3, 0.6), color, 3)
+			GEN.fx(frame, T, "burst", "rush-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2 })
+			if tick < F + 5 then frame.quake = if T.quake then 1.4 else 0.6 end
+			frame.shot = GEN.two(ctx, T, "rush", "final", dir, a, d, 5)
+		else
+			GEN.square(ctx, a, cx, dir, style)
+			a.pose = T.rest
+			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.2, 0, "DownFace", v(0, 0, -1)
+			frame.shot = GEN.solo(T, GEN.name(T, "rush", "after"), dir, a, A, 1)
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- ÉVEIL
+
+function GEN.Awaken(T)
+	return function(ctx, frame, a, d, tick, dir, color)
+		local cin = ctx.cin
+		local data = ctx.moveData.Cinematics[cin.move]
+		local A = cin.attacker
+		local cx = center(ctx, d)
+		local H, F = data.Hits, data.FinalTick
+		local style = T.awaken
+		frame.grade.crimson, frame.grade[T.grade] = false, true
+		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
+		local k = hitsBefore(H, tick)
+		if tick < 24 then
+			frame.kanjiBack = T.kanji
+			GEN.square(ctx, a, cx, dir, style)
+			a.x, a.pose = GEN.place(ctx, cx - dir * 6.5), T.pose
+			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "crown"), dir, a, A, 1, { fill = 1.0 })
+		elseif tick < 48 then
+			-- The power rises: its ring on the floor, its burst around the attacker.
+			GEN.square(ctx, a, cx, dir, style)
+			a.x, a.pose = GEN.place(ctx, cx - dir * 6.5), T.rest
+			GEN.fx(frame, T, "ground", "eveil-ring", nil, v(a.x, 0, 0), color, { radius = 3, life = 1.6 })
+			if tick >= 36 then GEN.fx(frame, T, "burst", "eveil-aura", v(a.x, 0, 0), v(a.x, 3, 0), color) end
+			frame.aura = A
+			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "rise"), dir, a, A, 2)
+		elseif tick < H[1] then
+			local p = progress(tick, 48, H[1])
+			a.x, a.facing, a.z, a.state, a.vx = lerp(GEN.place(ctx, cx - dir * 6.5), GEN.place(ctx, cx - dir * GEN.reach(style)), smooth(p)),
+				dir, 0, "Walking", dir * 3
+			GEN.fx(frame, T, "line", "eveil-reach", v(a.x, 3, 0), v(cx, 3, 0), color)
+			frame.shot = GEN.two(ctx, T, "eveil", "approach", dir, a, d, 6)
+		elseif tick < H[4] then
+			GEN.strike(ctx, frame, T, style, a, d, k, tick - H[k], tick, cx, dir, color, "eveil")
+			frame.shot = GEN.two(ctx, T, "eveil", "blows-a", dir, a, d, 7)
+		elseif tick < H[#H] + 4 then
+			GEN.strike(ctx, frame, T, style, a, d, k, tick - H[k], tick, cx, dir, color, "eveil")
+			frame.shot = GEN.two(ctx, T, "eveil", "blows-b", dir, a, d, 8)
+		elseif tick < F then
+			-- Held in the air, the final blow drawn back.
+			local p = progress(tick, H[#H] + 4, F)
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), false)
+			d.y, d.pose = 1.6 + math.sin(p * math.pi) * 1.2, "Launched"
+			GEN.fx(frame, T, "ground", "eveil-hold", nil, v(cx, 0, 0), color, { radius = 2.6 })
+			frame.shot = GEN.two(ctx, T, "eveil", "hold", dir, a, d, 9, { fill = lerp(0.66, 0.82, p) })
+		elseif tick < F + 16 then
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
+			local p = progress(tick, F, F + 16)
+			d.x, d.y, d.pose = cx + dir * 1.6 * p, 2 * (1 - p), "Launched"
+			impact(frame, T.id .. "-eveil-final", v(cx, 3, 0.6), color, 3.4)
+			GEN.fx(frame, T, "burst", "eveil-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.4 })
+			GEN.fx(frame, T, "ground", "eveil-world", nil, v(cx, 0, 0), color, { radius = 4.5, count = 10 })
+			if tick < F + 5 then frame.quake = if T.quake then 1.6 else 0.8 end
+			frame.shot = GEN.two(ctx, T, "eveil", "final", dir, a, d, 10)
+		else
+			GEN.square(ctx, a, cx, dir, style)
+			a.pose = T.pose
+			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.6, 0, "DownFace", v(0, 0, -1)
+			frame.title = { text = GEN.moveName(ctx, T, "Awaken"), color = color, sub = T.kanji .. " · " .. kitOf(ctx).Name }
+			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "end"), dir, a, A, 3)
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- PORTE (the third ultimate)
+
+function GEN.Gate(T)
+	return function(ctx, frame, a, d, tick, dir)
+		local cin = ctx.cin
+		local data = ctx.moveData.Cinematics[cin.move]
+		local A = cin.attacker
+		local color = ctx.characters[A].Energy
+		local cx = center(ctx, d)
+		local F = data.FinalTick
+		local style = T.gate
+		frame.grade[T.grade] = true
+		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
+		local far = GEN.place(ctx, cx - dir * 4.4)
+		if tick < 30 then
+			-- Far away: the theme takes the whole arena.
+			a.x, a.facing, a.pose = far, dir, T.pose
+			d.state = "Idle"
+			GEN.fx(frame, T, "ground", "gate-world", nil, v((far + cx) / 2, 0, 0), color, { radius = 9, count = 14, life = 3 })
+			if T.quake and tick < 6 then frame.quake = 1 end
+			frame.shot = frameOn(GEN.name(T, "gate", "far"), dir, { a, d, { point = true, x = (far + cx) / 2, y = 6, z = -9 } },
+				{ yaw = 8 - T.seed, pitch = 6, fill = 0.42, fov = 40, focus = P(A, "UpperTorso") })
+		elseif tick < 70 then
+			local p = progress(tick, 30, 70)
+			a.x, a.facing, a.pose = far, dir, T.rest
+			if tick >= 44 then GEN.fx(frame, T, "burst", "gate-aura", v(a.x, 0, 0), v(a.x, 3, 0), color) end
+			frame.shot = frameOn(GEN.name(T, "gate", "arena"), dir, { a, d }, { yaw = lerp(-44, 20, p), pitch = -16, fill = 0.66, fov = 48,
+				focus = P(A, "Head") })
+		elseif tick < data.Hits[1] - 6 then
+			local p = progress(tick, 70, data.Hits[1] - 6)
+			a.x, a.facing, a.state, a.vx = lerp(far, GEN.place(ctx, cx - dir * GEN.reach(style)), p), dir, "Walking", dir * 2
+			if tick % 6 == 0 then
+				local n = (tick * 7) % 11
+				GEN.fx(frame, T, "line", "gate-rain" .. tick, v(cx + (n - 5) * 0.7, 9, n % 3 - 1), v(cx + (n - 5) * 0.4, 0, 0), color,
+					{ life = 0.7 })
+			end
+			frame.shot = GEN.two(ctx, T, "gate", "advance", dir, a, d, 2)
+		elseif tick < data.PromptTicks[1] - 6 then
+			local k = hitsBefore(data.Hits, tick)
+			if k == 0 then
+				GEN.square(ctx, a, cx, dir, style)
+				attack(a, ctx.moveData.Moves, role(ctx, T.blows[1]), false)
+			else
+				GEN.strike(ctx, frame, T, style, a, d, k, tick - data.Hits[k], tick, cx, dir, color, "gate")
+			end
+			frame.shot = GEN.two(ctx, T, "gate", "blows", dir, a, d, 3)
+		elseif tick < F then
+			GEN.square(ctx, a, cx, dir, style)
+			d.x, d.y, d.pose = cx, 0, nil
+			attack(a, ctx.moveData.Moves, role(ctx, "Smash"), false)
+			frame.grade.mono = tick >= data.PromptTicks[1] - 4
+			frame.shot = GEN.two(ctx, T, "gate", "draw", dir, a, d, 4, { fill = lerp(0.78, 0.94,
+				progress(tick, data.PromptTicks[1] - 6, F)) })
+		elseif tick < F + 22 then
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Smash"), true)
+			local p = progress(tick, F, F + 22)
+			d.x, d.y, d.pose = cx + dir * 1.4 * smooth(p), math.sin(p * math.pi) * 2.6, "Launched"
+			impact(frame, T.id .. "-gate-break", v(cx, 3, 0.6), color, 3.8)
+			GEN.fx(frame, T, "burst", "gate-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.6 })
+			GEN.fx(frame, T, "ground", "gate-break", nil, v(cx, 0, 0), color, { radius = 6, count = 12 })
+			if tick < F + 6 then frame.quake = if T.quake then 2 else 1 end
+			frame.shot = GEN.two(ctx, T, "gate", "break", dir, a, d, 5)
+		else
+			GEN.square(ctx, a, cx, dir, style)
+			a.pose = T.pose
+			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.4, 0, "DownFace", v(0, 0, -1)
+			local t = kitOf(ctx).GateTitle
+			frame.title = { text = t.text, color = color, sub = t.sub }
+			frame.shot = GEN.solo(T, GEN.name(T, "gate", "throne"), dir, a, A, 4)
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- COUP FATAL
+
+function GEN.Fatal(T)
+	return function(ctx, frame, a, d, tick, dir)
+		local cin = ctx.cin
+		local data = ctx.moveData.Cinematics[cin.move]
+		local A = cin.attacker
+		local color = ctx.characters[A].Energy
+		local cx = center(ctx, d)
+		local F = data.FinalTick
+		local style = T.fatal
+		frame.grade[T.grade] = true
+		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
+		if tick < 36 then
+			local p = progress(tick, 0, 36)
+			a.x, a.facing, a.z, a.state, a.vx = GEN.place(ctx, lerp(cx - dir * 8, cx - dir * 5.5, p)), dir, 0, "Walking", dir * 2
+			table.insert(frame.fx, { key = T.id .. "-fatal-seal", kind = "kanjiSeal", pos = v(cx - dir * 6.5, 0.06, 0), color = color,
+				text = T.kanji, keep = true })
+			frame.shot = GEN.two(ctx, T, "fatal", "walk", dir, a, d, 6)
+		elseif tick < 70 then
+			a.x, a.facing, a.pose = GEN.place(ctx, cx - dir * 5.5), dir, T.pose
+			frame.grade.crimson = true
+			frame.shot = GEN.solo(T, GEN.name(T, "fatal", "eyes"), dir, a, A, 3, { fill = 1.0 })
+		elseif tick < 104 then
+			-- Three blows of its own way of fighting: the target is taken.
+			local hits = { 74, 84, 94 }
+			local k = hitsBefore(hits, tick)
+			if k == 0 then
+				GEN.square(ctx, a, cx, dir, style)
+				a.state, a.vx = "Walking", dir * 2
+			else
+				GEN.strike(ctx, frame, T, style, a, d, k, tick - hits[k], tick, cx, dir, color, "fatal")
+			end
+			frame.shot = GEN.two(ctx, T, "fatal", "take", dir, a, d, 7)
+		elseif tick < F then
+			GEN.square(ctx, a, cx, dir, style)
+			d.x, d.y, d.pose = cx, 0, nil
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), false)
+			GEN.fx(frame, T, "ground", "fatal-draw", nil, v(a.x, 0, 0), color, { radius = 2 })
+			frame.speedLines = if tick >= 130 then color else nil
+			frame.shot = GEN.two(ctx, T, "fatal", "draw", dir, a, d, 8, { fill = lerp(0.74, 0.92, progress(tick, 104, F)) })
+		elseif tick < F + 24 then
+			GEN.square(ctx, a, cx, dir, style)
+			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
+			impact(frame, T.id .. "-fatal-blow", v(cx, 3, 0.6), color, 3.4)
+			GEN.fx(frame, T, "burst", "fatal-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.6 })
+			if tick < F + 6 then frame.quake = if T.quake then 1.6 else 0.8 end
+			d.x = cx + dir * 0.6
+			FATAL.fall(cin, d, tick, F, 1.8)
+			frame.shot = GEN.two(ctx, T, "fatal", "blow", dir, a, d, 9)
+		else
+			GEN.square(ctx, a, cx, dir, style)
+			a.pose = T.rest
+			d.x = cx + dir * 0.6
+			FATAL.fall(cin, d, tick, F, 1.8)
+			GEN.fx(frame, T, "ground", "fatal-after", nil, v(d.x, 0, 0), color, { radius = 2.6, life = 3 })
+			frame.shot = GEN.two(ctx, T, "fatal", "after", dir, a, d, 10, { fill = 0.5 })
+			if tick >= F + FATAL_TITLE then
+				local name = GEN.moveName(ctx, T, "Fatal")
+				frame.title = if cin.finish then { text = "K.O.", color = color, sub = name } else { text = name, color = color, sub = "COUP FATAL" }
+			end
+		end
+	end
+end
+
+-- ---------------------------------------------------------------- K.O.
+
+function GEN.KO(T)
+	return function(ctx, frame, W, L, w, l, t, side)
+		local color = ctx.characters[W].Energy
+		local dir = -side
+		frame.grade[T.grade] = t >= 30
+		w.x, w.z = l.x + side * 3.4, -2.8
+		w.lookDir = v(-side * 0.5, 0, 0.85)
+		w.pose = T.rest
+		if t < 30 then
+			frame.grade.mono, frame.hideTitle = true, true
+			l.y, l.pose = lerp(4, 0, t / 22), if t < 22 then "Launched" else "DownFace"
+			frame.shot = frameOn("ko-" .. T.id .. "-fall", dir, { l }, { yaw = -24 - T.seed, pitch = -2, fill = 0.36, fov = 40, lift = 1.2 })
+			return frame
+		end
+		l.y, l.pose = 0, "DownFace"
+		if t < 70 then
+			GEN.fx(frame, T, "ground", "ko-mark", nil, v(l.x, 0, 0), color, { radius = 2.3, life = 4 })
+			if t < 40 then GEN.fx(frame, T, "burst", "ko-burst", v(w.x, 3, w.z), v(l.x, 1, 0), color) end
+			frame.shot = frameOn("ko-" .. T.id .. "-mark", dir, { l, w }, { yaw = 30, pitch = 24 + T.seed, fill = 0.5, fov = 44 })
+		elseif t < 112 then
+			frame.shot = frameOn("ko-" .. T.id .. "-floor", dir, { l }, { yaw = 24, pitch = 6, fill = 0.66, fov = 40, focus = P(L, "Head") })
+		elseif t < 150 then
+			w.pose = T.pose
+			frame.shot = frameOn("ko-" .. T.id .. "-stand", dir, { w }, { yaw = -34, pitch = -28, fill = 0.85, fov = 46, focus = P(W, "Head") })
+		else
+			w.pose = T.pose
+			if t >= 188 then koEnd(ctx, frame, W, color) end
+			frame.shot = frameOn("ko-" .. T.id .. "-wide", dir, { w, l }, { yaw = -20, pitch = 12, fill = 0.36, fov = 40 })
+		end
+		return frame
+	end
+end
+
+-- Registers a themed kit: its three ultimates, its COUP FATAL and its K.O. scene.
+function GEN.add(name, T)
+	GEN.THEMES[name] = T
+	KIT[name] = { Rush = GEN.Rush(T), Awaken = GEN.Awaken(T), Gate = GEN.Gate(T) }
+	FATAL[name] = GEN.Fatal(T)
+	KO[name] = GEN.KO(T)
+end
+Director.THEMES = GEN.THEMES
+
+-- ASURA 阿: KAI out of the Gate of Heaven with four arms. A gatling of four fists (R), comes from
+-- every side at once (ÉVEIL), lifts the target to the sky (PORTE), seizes and crushes it (FATAL).
+-- Black and gold grade; golden fists of ki, a halo of four arms, a burning seal.
+GEN.add("ASURA", {
+	id = "asura", grade = "asura", kanji = "阿", pose = "Roar", rest = "StandTall", seed = 2, step = 5, quake = true,
+	rush = "gatling", awaken = "lunge", gate = "juggle", fatal = "grapple",
+	blows = { "Cross", "Uppercut", "Hammer", "Smash", "BodyBlow", "SpinKick", "Elbow" },
+	fx = { line = "asuraFist", burst = "asuraHalo", ground = "asuraSeal" },
+	names = { Rush = "GATLING DES QUATRE BRAS", Awaken = "MILLE BRAS", Fatal = "阿修羅 · COLÈRE FINALE" },
+})
+
 -- The K.O. scene of the winner's kit. `t` runs from 0 to KO_SCENE ticks.
 local function koScene(ctx, winner, loser, w, l, t)
 	local frame = newFrame()
@@ -3492,7 +3970,18 @@ function Director.victoryScene(world, config)
 	local winner = world.winner
 	if not winner or winner <= 0 then return nil end
 	local w = world.fighters[winner]
-	if not w or w.wins < config.RoundsToWin then return nil end
+	if not w then return nil end
+	-- A relay (simulation: world.teams; snapshot: each fighter's team and teamIndex): only
+	-- when the loser's team has nobody left; else the last round to win.
+	local l = world.fighters[3 - winner]
+	local team = world.teams and world.teams[3 - winner]
+	local size = if team then #team.kits elseif l and l.team then #l.team else nil
+	local index = if team then team.index elseif l then l.teamIndex else nil
+	if size then
+		if (index or 1) <= size then return nil end
+	elseif w.wins < config.RoundsToWin then
+		return nil
+	end
 	local t
 	if world.phase == "KO" then
 		t = config.KOTicks - world.phaseTicks - 40 -- let the body land first

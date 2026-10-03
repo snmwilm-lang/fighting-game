@@ -376,7 +376,7 @@ local function startSolo(player, request)
 		Sim.setKits(world, request.team[1], request.team[1])
 		match.dummyMode = 1
 	elseif mode == "VERSUS_CPU" then
-		Sim.setTeams(world, request.team, GameModes.cpuTeam(#request.team, MoveData.KitOrder, randomStart()))
+		Sim.setLineup(world, request.team, GameModes.cpuTeam(#request.team, MoveData.KitOrder, randomStart()))
 	elseif mode == "CHALLENGE" then
 		-- ASURA, the four-armed boss, against a team of 1 to 3.
 		match.level = "ASURA"
@@ -399,7 +399,7 @@ local function startVersus(playerA, playerB, queue)
 	local teamB = clients[playerB].team or { "KAI" }
 	-- Same team size on both sides (the smaller one).
 	local size = math.min(#teamA, #teamB)
-	Sim.setTeams(match.world, table.move(teamA, 1, size, 1, {}), table.move(teamB, 1, size, 1, {}))
+	Sim.setLineup(match.world, table.move(teamA, 1, size, 1, {}), table.move(teamB, 1, size, 1, {}))
 	launch(match)
 end
 
@@ -887,7 +887,7 @@ local function snapshot(match)
 		cinematic = world.cinematic and {
 			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
 			tick = world.cinematic.tick, length = world.cinematic.length,
-			move = world.cinematic.move, finish = world.cinematic.finish, style = world.cinematic.style,
+			move = world.cinematic.move, finish = world.cinematic.finish, style = world.cinematic.style, kit = world.cinematic.kit,
 			nextPrompt = world.cinematic.nextPrompt, grade = world.cinematic.grade,
 			prompts = world.cinematic.prompts, scale = Sim.cinematicScale(world),
 		},

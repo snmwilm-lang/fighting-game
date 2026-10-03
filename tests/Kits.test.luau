@@ -641,6 +641,39 @@ test("ultimates (R and the coup fatal) aim at a jumping opponent instead of runn
 	end
 end)
 
+test("a coup fatal cancelled from a combo connects, even after a hit that launches or pushes away", function()
+	for _, name in MoveData.KitOrder do
+		for _, route in { { "light", "light", "light", "heavy" }, { "light", "heavy" }, { "heavy", "heavy" } } do
+			local world = kitWorld(name, "KAI", 2.8)
+			local a = world.fighters[1]
+			a.meter = 300
+			local step, hitAt, guarding, landed, blocked = 1, nil, false, false, false
+			for t = 1, 260 do
+				local press = {}
+				if step <= #route and (t == 1 and step == 1 or (hitAt and t == hitAt + 1)) then
+					press[route[step]] = true
+					step, hitAt = step + 1, nil
+				elseif step > #route and hitAt and t == hitAt + 2 then
+					press.fatal = true
+				end
+				-- The defender guards as soon as it can (from the first hit on).
+				for _, e in Sim.step(world, { input(press), input({ block = guarding }) }) do
+					if e.kind == "Hit" and e.attacker == 1 then
+						guarding = true
+						local m = Moves[e.move]
+						if m.fatal then landed = true
+						elseif a.move and a.moveHits >= (Moves[a.move].hits or 1) then hitAt = t end
+					end
+					if e.kind == "CinematicStart" then landed = true end
+					if e.kind == "Block" and Moves[e.move].fatal then blocked = true end
+				end
+				if landed or blocked then break end
+			end
+			expect(landed and not blocked, string.format("%s: the coup fatal after %s did not connect", name, table.concat(route, " ")))
+		end
+	end
+end)
+
 test("balance: no kit wins more than 65 % or less than 35 % against the field (CPU vs CPU)", function()
 	local Balance = require("./BalanceKit")
 	for _, level in { 3, 4 } do

@@ -1,5 +1,29 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.6 — 3 octobre 2026
+
+Retour de Wilhem : « le fatal de SHIN, ce n'est pas le QTE, c'est l'animation en combo : elle
+est bloquable ».
+
+- Cause (sonde sur toutes les routes des 8 persos) : après un coup qui projette ou repousse
+  (L L L R, R R…), la cible s'envolait pendant le démarrage du coup fatal (14 images après le
+  flash), le fatal frappait dans le vide, la cible retombait et punissait la longue récupération.
+- Correctif : un ultime lancé **en plein combo** sur une cible encore touchée (étourdie, chiffonnée
+  ou projetée) la fige aussi pendant son démarrage (`hitstop` = flash + démarrage) : il touche à
+  coup sûr. Lancé à froid, il reste gardable et esquivable. (Les fatals tentés en l'air, après la
+  poursuite aérienne, ne partent toujours pas : le coup fatal est au sol.)
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 50, TARO 60, ZEPHYR 49, AKEMI 42,
+  RYUKEN 49, SHIN 45, DAICHA 51, HIBECARES 55 ; DIFFICILE : KAI 50, TARO 56, ZEPHYR 55,
+  AKEMI 45, RYUKEN 51, SHIN 48, DAICHA 48, HIBECARES 47.
+- Tests : Kits 60 (+1 : coup fatal après L L L R, L R et R R contre une garde, 8 persos),
+  CombatSimulation 92, FighterAI 11, CinematicDirector 323, Animation 35, PressQueue 4, Fuzz 2,
+  Cinematography 114, Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- TARO à 60 % en LÉGENDE : à surveiller.
+- Menu façon Street Fighter et modes de jeu (en cours).
+
 ## Version 0.13.5 — 3 octobre 2026
 
 Retours de Wilhem : « TARO dash en mode ESQUIVE, ça dit qu'il esquive mais il n'esquive pas ;

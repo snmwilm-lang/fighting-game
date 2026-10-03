@@ -253,6 +253,14 @@ local function startMove(world, f, id, events, isLink)
 			other.hitstop = math.max(other.hitstop, flash)
 		end
 		f.hitstop = flash
+		-- Cancelled from a combo on a reeling target: the target stays frozen through the
+		-- wind-up too, so a launched or pushed-away target cannot fly out of reach and the
+		-- ultimate connects (raw, it can still be guarded or avoided).
+		local foe = world.fighters[3 - f.slot]
+		if isLink and foe and foe.state ~= "KO"
+			and ((foe.stun > 0 and (foe.stunKind == "Hit" or foe.stunKind == "Crumple")) or foe.launched) then
+			foe.hitstop = math.max(foe.hitstop, flash + m.startup + 1)
+		end
 		table.insert(events, { kind = "SuperFlash", attacker = f.slot, move = id })
 	end
 end

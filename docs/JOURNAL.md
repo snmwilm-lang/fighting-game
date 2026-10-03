@@ -1,5 +1,20 @@
 # Journal du projet — état à transmettre
 
+## Version 0.12.4 — 3 octobre 2026
+
+Retours de Wilhem : « ça explique très mal comment faire l'ultime, je fais les trois touches et
+il ne se passe rien » ; « non, juste pouvoir activer les conditions des ultimes, la vie tout
+ça » ; « affiche le combo en entier comme avant ».
+
+- **Bouton ULTIMES : ON / OFF** (solo seulement, coupé dès qu'un ami rejoint) : le ki du joueur
+  reste plein et sa vie est tenue à 25 % (sous la ligne du dernier souffle) : toutes les
+  conditions des ultimes et du coup fatal sont réunies ; l'adversaire n'est pas touché.
+  `world.ultimateConditions` = le slot du joueur, champ `ultimateConditions` du snapshot,
+  impulsion `ultiConditions`. En entraînement, le coup fatal est en plus toujours prêt.
+- **Combo en entier, compact** : `L L [R]` (L / R = clics, [R] [E] [C] = touches du clavier),
+  au lieu d'un « R » qu'on confondait avec le clic droit ; cases : CLIC G, CLIC D, TOUCHE R.
+- Tests : CombatSimulation 88 (+2 : ULTIMES ON, coup fatal en entraînement) ; CombatSimulation 88, FighterAI 10, CinematicDirector 323, Animation 35, Kits 54, PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
+
 ## Version 0.12.3 — 3 octobre 2026
 
 Retour de Wilhem : « on ne voit pas toutes les attaques de l'entraîneur ».

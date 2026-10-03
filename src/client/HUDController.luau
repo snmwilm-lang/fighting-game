@@ -263,6 +263,10 @@ function HUD.new(config)
 	self.routeButton = button("Route", "ENTRAÎNEUR ▾", 130, function()
 		self.trainerPanel.Visible = not self.trainerPanel.Visible
 	end)
+	-- Training: switch the ultimates' conditions on (ki always full, COUP FATAL ready).
+	self.ultiButton = button("UltiConditions", "ULTIMES : OFF", 230, function()
+		if self.onUltiConditions then self.onUltiConditions() end
+	end)
 	self.labButton = button("Lab", "LABO CINÉ", 86, function()
 		self.labPanel.Visible = not self.labPanel.Visible
 	end)
@@ -340,7 +344,21 @@ function HUD.new(config)
 	return self
 end
 
-local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "R", E = "E", C = "C" }
+local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "TOUCHE R", E = "TOUCHE E", C = "TOUCHE C" }
+-- A route's keys, compact: mouse buttons as L / R, keyboard keys in brackets ("L L [R]").
+local SHORT_KEY = { L = "L", R = "R", U = "[R]", E = "[E]", C = "[C]" }
+local function keysShort(keys)
+	local out = {}
+	for k in keys:gmatch("%S") do table.insert(out, SHORT_KEY[k] or k) end
+	return table.concat(out, " ")
+end
+-- A route's keys in words: "CLIC G, CLIC G, puis TOUCHE R".
+local function keysInWords(keys)
+	local words = {}
+	for k in keys:gmatch("%S") do table.insert(words, KEY_LABEL[k] or k) end
+	if #words < 2 then return words[1] or "" end
+	return table.concat(words, ", ", 1, #words - 1) .. ", puis " .. words[#words]
+end
 local GREY = Color3.fromHex("B9B9C2")
 local GOLD = Color3.fromHex("FFD23F")
 local ORANGE = Color3.fromHex("FFB938")
@@ -410,7 +428,10 @@ function HUD:trainerRoutes()
 	-- 2. ULTIMES: the full routes (ÉVEIL / PORTE), the ultimate and the COUP FATAL.
 	for _, route in kit.FullRoutes do add(route, 2, true) end
 	add({ name = "ULTIME", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } }, 2)
-	add({ name = "COUP FATAL (vie < 30 %, 3 barres)", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } }, 2)
+	add({ name = "COUP FATAL", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } }, 2)
+	list[#list - 1].cost = MoveData.Moves[kit.Ultimates.Rush].meterCost
+	list[#list].cost = MoveData.Moves[kit.Ultimates.Fatal].meterCost
+	list[#list].fatal = true
 	self.trainerCache = { kit = kit, list = list }
 	return list
 end
@@ -419,7 +440,7 @@ function HUD:refreshRouteButton()
 	local route = self:trainerRoutes()[self.trainerRoute]
 	self.routeButton.Text = if route then "ENTRAÎNEUR ✓" else "ENTRAÎNEUR ▾"
 	if self.trainerTitle then
-		self.trainerTitle.Text = if route then route.name .. "  ·  " .. route.keys:gsub("U", "R(ulti)") else ""
+		self.trainerTitle.Text = if route then route.name .. "  ·  " .. keysShort(route.keys) else ""
 	end
 end
 
@@ -446,7 +467,8 @@ function HUD:fillTrainer()
 	}, panel)
 	off.Activated:Connect(function() choose(0) end)
 	local routes = self:trainerRoutes()
-	local titles = { "COMBOS ★ ET COUPS  ·  L = clic G, R = clic D, E = spéciale", "ROUTES COMPLÈTES ET ULTIMES  ·  R = ultime, C = coup fatal" }
+	local titles = { "COMBOS ★ ET COUPS  ·  L = clic gauche, R = clic droit, [E] = touche E",
+		"ROUTES COMPLÈTES ET ULTIMES  ·  [R] = touche R, [C] = touche C (bouton ULTIMES : ON = ki plein)" }
 	for category, title in titles do
 		local x = if category == 1 then 0 else 0.5
 		text(panel, { Text = title, TextSize = 12, Font = UI_FONT, TextColor3 = GOLD, TextWrapped = true,
@@ -469,7 +491,7 @@ function HUD:fillTrainer()
 					Text = "", Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = if selected then Color3.fromHex("3A2A10") else Color3.fromHex("1C1C24"),
 					AutoButtonColor = true, LayoutOrder = index,
 				}, column)
-				text(b, { Text = (if selected then "▶ " else "") .. route.name .. "   " .. (route.keys:gsub("U", "R")), TextSize = 13,
+				text(b, { Text = (if selected then "▶ " else "") .. route.name .. "   " .. keysShort(route.keys), TextSize = 13,
 					Font = UI_FONT, Size = UDim2.new(1, -10, 0, 18), Position = UDim2.fromOffset(6, 3),
 					TextColor3 = if selected then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left })
 				text(b, { Text = table.concat(names, " > "), TextSize = 10, Font = UI_FONT, TextWrapped = true,
@@ -504,7 +526,7 @@ function HUD:fillCombos()
 	end
 	table.insert(lines, { "RYTHME : chaque appui APRÈS la sortie du coup d'avant. Tapé trop tôt, le combo continue mais n'est plus PROPRE (pas d'ultime). Garde, saut ou dash annulent les coups en attente.", GOLD })
 	table.insert(lines, { "3 ULTIMES (route PROPRE seulement)", GOLD })
-	table.insert(lines, { "1. R seul (2 barres) : " .. moveName(kit, u.Rush), ULTIMATE })
+	table.insert(lines, { "1. TOUCHE R du clavier (2 barres), seule ou après un coup qui touche (ex. CLIC G, CLIC G, puis TOUCHE R) : " .. moveName(kit, u.Rush), ULTIMATE })
 	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : " .. moveName(kit, u.Awaken) .. ", finale selon la route", ULTIMATE })
 	table.insert(lines, { "   jusqu'à −35 % de la vie max : chaque QTE raté pendant la rafale en retire ; FINAL FINISH s'il achève", ULTIMATE })
 	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R au sommet : +10 % ; raté : −15 %)", ULTIMATE })
@@ -590,7 +612,9 @@ function HUD:buildTrainer()
 		}, self.trainer)
 		local outline = stroke(frame, 3, Color3.fromHex("55555F"))
 		outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		local keyLabel = text(frame, { Text = KEY_LABEL[key] or key, TextSize = 24, Size = UDim2.new(1, 0, 0, 36) })
+		local keyLabel = text(frame, { Text = KEY_LABEL[key] or key, TextSize = 24, Size = UDim2.new(1, -6, 0, 36),
+			Position = UDim2.fromOffset(3, 0), TextScaled = true })
+		new("UITextSizeConstraint", { MaxTextSize = 24, MinTextSize = 10 }, keyLabel)
 		local m = MoveData.Moves[route.moves[i]]
 		local moveLabel = text(frame, { Text = if m then m.name else route.moves[i], TextSize = 10, Font = UI_FONT,
 			Size = UDim2.new(1, -4, 0, 30), Position = UDim2.fromOffset(2, 36), TextWrapped = true, TextScaled = true,
@@ -681,8 +705,8 @@ function HUD:updateTrainer(view, meterFull)
 		end
 		box.outline.Color = color
 		if route.full and i == 6 then
-			box.keyLabel.Text = if meterFull then "CLIC D / R" else "CLIC D"
-			box.moveLabel.Text = if meterFull then "ÉVEIL (clic D) · " .. kit.GateTitle.text .. " (R)" else moveName(kit, "Finale")
+			box.keyLabel.Text = if meterFull then "CLIC D ou R" else "CLIC D"
+			box.moveLabel.Text = if meterFull then "CLIC D = ÉVEIL · TOUCHE R = " .. kit.GateTitle.text else moveName(kit, "Finale")
 		end
 	end
 	self.trainerNow.Visible = view.cancelReady == true and progress >= 1 and progress < n and not failed
@@ -695,12 +719,20 @@ function HUD:updateTrainer(view, meterFull)
 		self.trainerStatus.Text = if not route.full then "COMBO RÉUSSI ✓"
 			elseif view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · " .. reason .. " : pas d'ultime"
 		self.trainerStatus.TextColor3 = Color3.fromHex("3DDC84")
+	elseif route.cost and (view.meter or 0) < route.cost then
+		-- An ultimate needs its ki first: say it plainly (in training the gauge refills when calm).
+		self.trainerStatus.Text = string.format("Il faut %d barres de ki (tu en as %d) : active ULTIMES : ON en haut",
+			route.cost // 100, (view.meter or 0) // 100)
+		self.trainerStatus.TextColor3 = ORANGE
 	elseif progress >= 1 then
-		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓ · appuie quand le coup sort (case jaune)" else reason)
-			.. "  ·  ki " .. (if meterFull then "3 barres ✓" else "< 3 barres")
+		local nextKey = KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?"
+		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓ · maintenant " .. nextKey .. " quand le coup touche (case jaune)" else reason)
+			.. (if route.full then "  ·  ki " .. (if meterFull then "3 barres ✓" else "< 3 barres") else "")
 		self.trainerStatus.TextColor3 = if view.chainClean then WHITE else ORANGE
 	else
-		self.trainerStatus.Text = "Colle-toi au mannequin (mode IMMOBILE) et appuie sur " .. KEY_LABEL[keys:sub(1, 1)]
+		self.trainerStatus.Text = "Colle-toi au mannequin (mode IMMOBILE) et fais : " .. keysInWords(route.keys)
+			.. (if route.fatal then " (en entraînement, pas besoin d'avoir peu de vie)" else "")
+			.. "  ·  combo : " .. keysShort(route.keys)
 		self.trainerStatus.TextColor3 = GREY
 	end
 end
@@ -896,6 +928,9 @@ function HUD:update(world, views, fps, dt)
 	self.round.Text = if world.training then "ENTRAÎNEMENT" else "ROUND " .. world.round
 	local solo = world.solo
 	self.labButton.Visible = solo and localSlot > 0
+	self.ultiButton.Visible = solo and localSlot > 0
+	self.ultiButton.Text = if world.ultimateConditions then "ULTIMES : ON (ki plein, vie 25 %)" else "ULTIMES : OFF"
+	self.ultiButton.TextColor3 = if world.ultimateConditions then Color3.fromHex("FFD23F") else WHITE
 	if not self.labButton.Visible then self.labPanel.Visible = false end
 	local mine = views[localSlot]
 	local myKit = self:kitData()

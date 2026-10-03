@@ -250,8 +250,10 @@ end
 function CombatSimulation.fatalReady(world, f)
 	local id = kitOf(world, f).Ultimates.Fatal
 	local m = id and world.moves[id]
-	return m ~= nil and not f.fatalUsed and f.meter >= m.meterCost
-		and f.hp <= f.maxHp * (world.config.FatalHealth or 0.3) and f.hp > 0
+	if m == nil or f.meter < m.meterCost or f.hp <= 0 then return false end
+	-- (in training or with ULTIMES ON it is always there to practise)
+	if world.training or world.ultimateConditions == f.slot then return true end
+	return not f.fatalUsed and f.hp <= f.maxHp * (world.config.FatalHealth or 0.3)
 end
 
 -- Name of the full route whose first five links this combo matches, if it was played cleanly.
@@ -1303,6 +1305,14 @@ function CombatSimulation.step(world, inputs)
 		detectHits(world, events)
 		stepProjectiles(world, events)
 		if world.training then trainingRefill(world) end
+		-- ULTIMES ON (solo button, `ultimateConditions` = the player's slot): every condition of
+		-- the ultimates met for that fighter, ki always full and health held at 25 % (the COUP
+		-- FATAL's last breath).
+		local f = world.ultimateConditions and world.fighters[world.ultimateConditions]
+		if f and f.state ~= "KO" then
+			f.meter = world.config.MaxMeter
+			f.hp = math.min(f.hp, math.max(1, math.floor(f.maxHp * (world.config.FatalHealth or 0.3)) - math.floor(f.maxHp * 0.05)))
+		end
 	end
 	collectBounceEvents(world, events)
 	advancePhase(world, events)

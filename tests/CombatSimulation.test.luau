@@ -1098,4 +1098,29 @@ test("a far player's missed QTE is judged before the final blow: the K.O. is dec
 	end
 end)
 
+test("training: the COUP FATAL can always be practised (full health, any number of times)", function()
+	local world = closeWorld(3, true)
+	local f = world.fighters[1]
+	f.meter = Config.MaxMeter
+	expect(f.hp == f.maxHp and Sim.fatalReady(world, f), "no COUP FATAL to practise in training at full health")
+	f.fatalUsed = true
+	expect(Sim.fatalReady(world, f), "training locks the COUP FATAL after one use")
+	f.meter = 100
+	expect(not Sim.fatalReady(world, f), "a COUP FATAL without its 3 bars, even in training")
+end)
+
+test("ULTIMES ON: the player's ki stays full and its health at 25 % (COUP FATAL ready), the opponent untouched", function()
+	local world = closeWorld(3, false)
+	world.ultimateConditions = 1
+	local f, foe = world.fighters[1], world.fighters[2]
+	f.meter = 0
+	run(world, 2)
+	expect(f.meter == Config.MaxMeter, "ULTIMES ON did not fill the gauge")
+	expect(f.hp <= f.maxHp * Config.FatalHealth, "ULTIMES ON did not bring the health under the last-breath line")
+	expect(foe.hp == foe.maxHp, "ULTIMES ON touched the opponent")
+	expect(Sim.fatalReady(world, f), "ULTIMES ON: no COUP FATAL")
+	local events = run(world, 30, function(t) return { input({ fatal = t == 1 }) } end)
+	expect(count(events, "SuperFlash") == 1, "the COUP FATAL did not come out with ULTIMES ON")
+end)
+
 T.finish()

@@ -21,6 +21,7 @@ function InputController.start(remote)
 	local keys = {}
 	local pulses = {
 		jump = false, dash = false, reset = false, dummy = false, avatar = false, skin = false, kit = false, foeKit = false,
+		ultiConditions = false,
 		stance1 = false, stance2 = false,
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
@@ -187,7 +188,7 @@ function InputController.start(remote)
 			sequence += 1
 			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
 				jump = pulses.jump, dash = pulses.dash, presses = table.clone(presses),
-				reset = pulses.reset, dummy = pulses.dummy,
+				reset = pulses.reset, dummy = pulses.dummy, ultiConditions = pulses.ultiConditions,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
 				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0,
 				cinTick = cinematicTick and cinematicTick() or nil })
@@ -199,6 +200,7 @@ function InputController.start(remote)
 	return {
 		reset = function() pulses.reset = true end,
 		toggleDummy = function() pulses.dummy = true end,
+		toggleUltiConditions = function() pulses.ultiConditions = true end, -- training: ki always full
 		toggleAvatar = function() pulses.avatar = true end,
 		nextSkin = function() pulses.skin = true end,
 		nextKit = function() pulses.kit = true end,

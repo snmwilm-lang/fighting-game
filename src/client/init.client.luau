@@ -30,6 +30,7 @@ local sounds = SoundController.new()
 HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
+hud.onUltiConditions = input.toggleUltiConditions
 hud.onAvatar = input.toggleAvatar
 hud.onSkin = input.nextSkin
 hud.onKit = input.nextKit

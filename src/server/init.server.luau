@@ -310,7 +310,7 @@ local function finite(n)
 	return typeof(n) == "number" and n == n and math.abs(n) < math.huge
 end
 local BOOLEAN_FIELDS = {
-	"crouch", "block", "jump", "dash", "reset", "dummy", "avatar", "skin", "kit", "foeKit",
+	"crouch", "block", "jump", "dash", "reset", "dummy", "avatar", "skin", "kit", "foeKit", "ultiConditions",
 }
 
 -- Kits (MoveData.Kits): a pick gives the slot the kit's first style that differs from the
@@ -361,6 +361,11 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	if packet.reset and solo and now - client.lastReset > 1 then
 		client.lastReset = now
 		resetAll()
+	end
+	-- Training: the ultimates' conditions switched on (ki always full, COUP FATAL ready).
+	if packet.ultiConditions and solo and now - (client.lastUlti or -math.huge) > 0.3 then
+		client.lastUlti = now
+		world.ultimateConditions = if world.ultimateConditions then nil else client.slot
 	end
 	if packet.dummy and solo and now - client.lastDummy > 0.3 then
 		client.lastDummy = now
@@ -471,6 +476,7 @@ local function snapshot()
 		phase = world.phase, phaseTicks = world.phaseTicks, round = world.round,
 		timer = Sim.timerSeconds(world), training = world.training, solo = isSolo(),
 		dummyMode = DUMMY_MODES[dummyMode].name,
+		ultimateConditions = world.ultimateConditions ~= nil,
 		cinematic = world.cinematic and {
 			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
 			tick = world.cinematic.tick, length = world.cinematic.length,
@@ -528,6 +534,7 @@ RunService.Heartbeat:Connect(function(dt)
 				inputs[i].block = DUMMY_MODES[dummyMode].block == true
 			end
 		end
+		if world.ultimateConditions and not isSolo() then world.ultimateConditions = nil end -- (solo only: never in a 1v1)
 		for _, event in Sim.step(world, inputs) do
 			event.tick = world.tick
 			table.insert(batch, event)

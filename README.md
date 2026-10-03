@@ -173,6 +173,7 @@ de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois p
 - **À froid** (hors combo) : −60 % seulement. Lent à sortir : paré ou esquivé, il est perdu
   (et la jauge avec).
 - Un seul QTE, très serré : **C** au sommet de la scène. Raté : le coup perd 40 %.
+- En **entraînement**, il est toujours disponible (avec 3 barres) pour s'exercer, sans condition de vie.
 - Chaque perso a **sa scène unique**, qui est **son écran de K.O.** quand le coup tue :
 
 | Perso | Coup fatal | La scène |

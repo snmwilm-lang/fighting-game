@@ -1,11 +1,16 @@
 --[[
-	Main menu, Street Fighter style: MODE SELECT (GameModes.List), then the fighter select
-	(1 to 3 fighters for the relay modes, the CPU level, NORMAL / CLASSÉ / AMI for the 1v1
-	between players), then the opponent search. The server checks and runs everything (see
-	the server script); this only draws the menu and sends the request.
+	Main menu (lobby), in the style of Wilhem's mock-up: top bar (logo, tabs, profile), big
+	slanted buttons on the left, the favourite fighter in 3D in the middle (drawn by the
+	client script: workspace.Fighters.Lobby_<id>), the mode cards on the right, NOUVEAUTÉS and
+	MES PERSONNAGES at the bottom. No image asset: shapes, gradients, kanji and the 3D stage.
 
-	Keyboard: Z/S or arrows to move, Q/D or arrows to change, ENTRÉE / ESPACE to confirm,
-	RETOUR ARRIÈRE to go back. Mouse, touch and gamepad (D-pad, A, B) work too.
+	Pages: ACCUEIL (cards), MODE SOLO and MODE EN LIGNE (sub-cards), the fighter select
+	(1 to 3 fighters, CPU level, NORMAL / CLASSÉ / AMI), the opponent search, PERSONNAGES
+	(gallery, favourite), CLASSEMENT (top 10 + own rank), PARAMÈTRES. The server checks and runs
+	everything (see the server script); this only draws and sends requests.
+
+	Keyboard: ÉCHAP-free on purpose (Roblox menu): RETOUR ARRIÈRE goes back; in the select,
+	arrows choose, ENTRÉE takes a fighter, ESPACE starts. Mouse, touch and gamepad work too.
 ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,11 +23,15 @@ local GameModes = require(Shared.GameModes)
 local FighterAI = require(Shared.FighterAI)
 
 local WHITE = Color3.fromHex("F5F5F7")
-local INK = Color3.fromHex("0B0B0E")
-local PANEL = Color3.fromHex("15151B")
+local INK = Color3.fromHex("08080B")
+local PANEL = Color3.fromHex("121218")
+local PANEL2 = Color3.fromHex("1B1B23")
 local RED = Color3.fromHex("E0102B")
+local DARKRED = Color3.fromHex("5A0712")
 local GOLD = Color3.fromHex("FFD23F")
-local GREY = Color3.fromHex("8A8A94")
+local GREY = Color3.fromHex("9A9AA6")
+local BLUE = Color3.fromHex("2F6BFF")
+local VIOLET = Color3.fromHex("8B3DFF")
 local DISPLAY = Enum.Font.Bangers
 local UI_FONT = Enum.Font.GothamBlack
 local BODY_FONT = Enum.Font.GothamBold
@@ -36,17 +45,22 @@ local function new(className, props, parent)
 	i.Parent = parent
 	return i
 end
-
-local function stroke(gui, thickness, color)
-	local s = new("UIStroke", { Thickness = thickness, Color = color or INK }, gui)
+local function stroke(gui, thickness, color, transparency)
+	local s = new("UIStroke", { Thickness = thickness, Color = color or INK, Transparency = transparency or 0 }, gui)
 	s.ApplyStrokeMode = if gui:IsA("TextLabel") then Enum.ApplyStrokeMode.Contextual else Enum.ApplyStrokeMode.Border
 	return s
 end
-
 local function corner(gui, radius)
 	new("UICorner", { CornerRadius = UDim.new(0, radius or 6) }, gui)
 end
-
+local function gradient(gui, from, to, rotation)
+	return new("UIGradient", { Rotation = rotation or 0, Color = ColorSequence.new(from, to) }, gui)
+end
+local function label(parent, props)
+	props.BackgroundTransparency = 1
+	props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
+	return new("TextLabel", props, parent)
+end
 local function kitColor(kit)
 	local style = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
 	return Color3.fromHex(style and style.Energy or "E0102B")
@@ -54,63 +68,79 @@ end
 
 local LEVEL_NAMES = {}
 for i, level in FighterAI.Levels do LEVEL_NAMES[i] = level.name end
-local QUEUES = { { id = "NORMAL", name = "NORMAL", sub = "sans points" }, { id = "RANKED", name = "CLASSÉ", sub = "points et rang" },
-	{ id = "FRIEND", name = "AMI", sub = "défie un joueur du serveur" } }
+local QUEUES = { NORMAL = "NORMAL · sans points", RANKED = "CLASSÉ · points et rang", FRIEND = "AMI · défie un joueur du serveur" }
+local NEWS = {
+	{ tag = "NOUVEAU MODE", title = "SURVIE", color = RED, kanji = "生" },
+	{ tag = "ÉQUIPES", title = "1, 2 OU 3 PERSOS", color = VIOLET, kanji = "隊" },
+	{ tag = "EN LIGNE", title = "PARTIES CLASSÉES", color = GOLD, kanji = "位" },
+	{ tag = "BIENTÔT", title = "CHALLENGE ASURA", color = BLUE, kanji = "阿" },
+}
 
-function MenuController.new(remote, hub)
+function MenuController.new(remote, hub, settings)
 	local self = setmetatable({
-		remote = remote, hub = hub, status = {}, screen = "modes", modeIndex = 1, kitIndex = 1,
-		team = {}, teamSize = 1, level = 3, queueIndex = 1, inMatch = false, searchStart = 0,
+		remote = remote, hub = hub, settings = settings or {}, status = {}, page = "home", kitIndex = 1,
+		team = {}, teamSize = 1, level = 3, queue = "NORMAL", inMatch = false, searchStart = 0, ranking = nil,
 	}, MenuController)
-	local gui = new("ScreenGui", { Name = "MainMenu", ResetOnSpawn = false, DisplayOrder = 20, IgnoreGuiInset = true },
-		Players.LocalPlayer:WaitForChild("PlayerGui"))
+	local gui = new("ScreenGui", { Name = "MainMenu", ResetOnSpawn = false, DisplayOrder = 20, IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, Players.LocalPlayer:WaitForChild("PlayerGui"))
 	self.gui = gui
-	-- Background: dark, a red slash, big kanji.
-	local back = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0 }, gui)
+	-- Vignette over the 3D stage: dark edges, red haze, the hero stays bright in the middle.
+	local vignette = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BorderSizePixel = 0 }, gui)
+	new("UIGradient", { Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.5, 0.92),
+		NumberSequenceKeypoint.new(0.68, 0.55), NumberSequenceKeypoint.new(1, 0.05) }) }, vignette)
+	local haze = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = DARKRED, BorderSizePixel = 0 }, gui)
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 0.45) }) }, back)
-	local slash = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.62, 0.5), Size = UDim2.new(0.22, 0, 2, 0),
-		Rotation = 18, BackgroundColor3 = RED, BackgroundTransparency = 0.82, BorderSizePixel = 0 }, back)
-	self.slash = slash
-	self.bigKanji = new("TextLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, 20),
-		Size = UDim2.fromScale(0.45, 0.75), Font = Enum.Font.GothamBlack, TextScaled = true, Text = "戦", TextColor3 = RED,
-		TextTransparency = 0.82 }, back)
-	-- Title.
-	local title = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 26), Size = UDim2.new(0.6, 0, 0, 70),
-		Font = DISPLAY, TextScaled = true, Text = "JEUX COMBAT", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left }, gui)
-	stroke(title, 3, RED)
-	self.subtitle = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.new(0, 44, 0, 94), Size = UDim2.new(0.6, 0, 0, 22),
-		Font = UI_FONT, TextSize = 16, Text = "CHOISIS TON MODE", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left }, gui)
-	-- Profile card, top right.
-	local card = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 26), Size = UDim2.fromOffset(300, 92),
-		BackgroundColor3 = PANEL, BorderSizePixel = 0 }, gui)
-	corner(card, 8)
-	stroke(card, 2, GOLD)
-	self.profileName = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 8), Size = UDim2.new(1, -24, 0, 24),
-		Font = DISPLAY, TextSize = 26, Text = Players.LocalPlayer.DisplayName, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd }, card)
-	self.profileRank = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 34), Size = UDim2.new(1, -24, 0, 20),
-		Font = UI_FONT, TextSize = 15, Text = "", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left }, card)
-	self.profileStats = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 58), Size = UDim2.new(1, -24, 0, 28),
-		Font = BODY_FONT, TextSize = 12, Text = "", TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true }, card)
-	-- The three screens.
-	self.modesScreen = new("Frame", { BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 140), Size = UDim2.new(1, -80, 1, -200) }, gui)
-	self.selectScreen = new("Frame", { BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 140), Size = UDim2.new(1, -80, 1, -200), Visible = false }, gui)
-	self.searchScreen = new("Frame", { BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 140), Size = UDim2.new(1, -80, 1, -200), Visible = false }, gui)
-	-- Bottom help line.
-	self.help = new("TextLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 40, 1, -16),
-		Size = UDim2.new(1, -80, 0, 20), Font = BODY_FONT, TextSize = 13, TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "" }, gui)
-	-- Result banner (end of a ranked match, SURVIE record...).
-	self.result = new("TextLabel", { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 130),
-		Size = UDim2.fromOffset(620, 54), BackgroundColor3 = PANEL, Font = DISPLAY, TextSize = 30, TextColor3 = GOLD, ZIndex = 20,
-		Text = "" }, gui)
-	corner(self.result, 8)
-	stroke(self.result, 3, GOLD)
-	self:buildModes()
-	self:buildSelect()
-	self:buildSearch()
-	self:show("modes")
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.6, 0.85), NumberSequenceKeypoint.new(1, 0.55) }) }, haze)
+	-- Everything else lives in a 1600 x 900 frame scaled to the screen (same layout everywhere).
+	-- (The top bar's black strip spans the whole width, even on wide screens.)
+	local strip = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = INK, BackgroundTransparency = 0.15, BorderSizePixel = 0,
+		ZIndex = 1 }, gui)
+	local root = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900),
+		BackgroundTransparency = 1, ZIndex = 3 }, gui)
+	local scale = new("UIScale", {}, root)
+	local function fit()
+		local camera = workspace.CurrentCamera
+		local size = camera and camera.ViewportSize or Vector2.new(1600, 900)
+		scale.Scale = math.min(size.X / 1600, size.Y / 900)
+		-- The root is centred: its top edge sits (height - 900 * scale) / 2 below the screen's.
+		strip.Position = UDim2.fromOffset(0, (size.Y - 900 * scale.Scale) / 2)
+		strip.Size = UDim2.new(1, 0, 0, 64 * scale.Scale)
+	end
+	fit()
+	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
+	self.root = root
+	self.bigKanji = label(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.3, 0.55),
+		Font = Enum.Font.GothamBlack, TextScaled = true, Text = "開", TextColor3 = RED, TextTransparency = 0.88,
+		TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+	self:buildTopBar()
+	self:buildNav()
+	-- Pages (right / middle area).
+	self.pages = {}
+	self.pages.home = self:buildHome()
+	self.pages.solo = self:buildSubCards("MODE SOLO", {
+		{ id = "VERSUS_CPU", title = "1 CONTRE 1 · IA", lines = { "Toi contre le CPU", "1, 2 ou 3 persos (relais)", "FACILE → LÉGENDE" }, color = RED, kanji = "戦" },
+		{ id = "SURVIVAL", title = "SURVIE", lines = { "Adversaires à la chaîne", "De plus en plus forts", "Bats ton record" }, color = DARKRED, kanji = "生" },
+		{ id = "CHALLENGE", title = "CHALLENGE", lines = { "ASURA, KAI à quatre bras", "Bientôt" }, color = BLUE, kanji = "阿" },
+	})
+	self.pages.online = self:buildSubCards("MODE EN LIGNE", {
+		{ id = "VERSUS", queue = "RANKED", title = "COMBAT CLASSÉ", lines = { "Points Elo et rang", "Adversaire de ton niveau" }, color = GOLD, kanji = "位" },
+		{ id = "VERSUS", queue = "NORMAL", title = "COMBAT NORMAL", lines = { "Sans points", "Le premier joueur libre" }, color = RED, kanji = "対" },
+		{ id = "VERSUS", queue = "FRIEND", title = "DÉFIER UN AMI", lines = { "Les joueurs du serveur", "DÉFIER · ACCEPTER · INVITER" }, color = VIOLET, kanji = "友" },
+	})
+	self.pages.select = self:buildSelect()
+	self.pages.search = self:buildSearch()
+	self.pages.characters = self:buildCharacters()
+	self.pages.ranking = self:buildRanking()
+	self.pages.settings = self:buildSettings()
+	self:buildBottom()
+	-- Toast (errors, results).
+	self.toast = label(root, { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84),
+		Size = UDim2.fromOffset(640, 52), BackgroundTransparency = 0, BackgroundColor3 = PANEL, Font = DISPLAY, TextSize = 30,
+		TextColor3 = GOLD, Text = "", TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 30 })
+	corner(self.toast, 8)
+	stroke(self.toast, 3, GOLD)
+	self:open("home")
 
 	remote.OnClientEvent:Connect(function(packet)
 		if typeof(packet) ~= "table" then return end
@@ -118,19 +148,22 @@ function MenuController.new(remote, hub)
 			self:flash("IMPOSSIBLE : " .. tostring(packet.error), RED)
 		elseif packet.result then
 			self:showResult(packet)
+		elseif packet.ranking then
+			self.ranking = packet.ranking
+			self:refreshRanking()
 		else
 			self.status = packet
 			self:refreshProfile()
 			if packet.state == "queue" then
-				if self.screen ~= "search" then self.searchStart = os.clock() end
-				self:show("search")
-			elseif packet.state == "menu" and self.screen == "search" then
-				self:show("modes")
+				if self.page ~= "search" then self.searchStart = os.clock() end
+				self:open("search")
+			elseif packet.state == "menu" and self.page == "search" then
+				self:open("home")
 			end
 		end
 	end)
-	-- (The fight controls sink most keys through ContextActionService, so `processed` is
-	-- true for them: only a focused text box is skipped.)
+	-- (The fight controls sink most keys through ContextActionService: `processed` is true
+	-- for them, so only a focused text box is skipped.)
 	UserInputService.InputBegan:Connect(function(input)
 		if not self.gui.Enabled or UserInputService:GetFocusedTextBox() then return end
 		self:onKey(input.KeyCode)
@@ -140,94 +173,205 @@ function MenuController.new(remote, hub)
 	return self
 end
 
--- ===================================================================== screen 1: modes
-function MenuController:buildModes()
-	local list = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0.5, 0, 1, 0) }, self.modesScreen)
-	new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-	self.modeButtons = {}
-	for i, mode in GameModes.List do
-		local b = new("TextButton", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = PANEL, AutoButtonColor = false,
-			Text = "", BorderSizePixel = 0 }, list)
-		corner(b, 6)
-		local edge = stroke(b, 2, Color3.fromHex("2A2A33"))
-		local kanji = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 4), Size = UDim2.fromOffset(50, 50),
-			Font = Enum.Font.GothamBlack, TextScaled = true, Text = mode.kanji, TextColor3 = RED }, b)
-		local name = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(70, 6), Size = UDim2.new(1, -80, 0, 46),
-			Font = DISPLAY, TextScaled = true, Text = mode.name .. (if mode.locked then "  · BIENTÔT" else ""),
-			TextColor3 = if mode.locked then GREY else WHITE, TextXAlignment = Enum.TextXAlignment.Left }, b)
-		b.MouseEnter:Connect(function() self.modeIndex = i; self:refreshModes() end)
+-- ===================================================================== top bar and nav
+function MenuController:buildTopBar()
+	local bar = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = INK, BackgroundTransparency = 0.15, BorderSizePixel = 0 }, self.root)
+	gradient(bar, Color3.fromHex("000000"), Color3.fromHex("1A0508"), 0)
+	-- Logo: a slanted red brush stroke with the title.
+	local logo = new("Frame", { Position = UDim2.fromOffset(28, 6), Size = UDim2.fromOffset(230, 56), BackgroundTransparency = 1 }, bar)
+	local brush = new("Frame", { Position = UDim2.fromOffset(0, 10), Size = UDim2.fromOffset(150, 34), Rotation = -6,
+		BackgroundColor3 = RED, BorderSizePixel = 0 }, logo)
+	gradient(brush, RED, DARKRED, 0)
+	local title = label(logo, { Position = UDim2.fromOffset(6, 0), Size = UDim2.fromOffset(200, 50), Font = DISPLAY, TextSize = 46,
+		Text = "K.O. 開", TextColor3 = WHITE, Rotation = -6 })
+	stroke(title, 2, INK)
+	label(logo, { Position = UDim2.fromOffset(96, 34), Size = UDim2.fromOffset(140, 18), Font = UI_FONT, TextSize = 11,
+		Text = "JEUX COMBAT", TextColor3 = WHITE, Rotation = -6 })
+	-- Tabs.
+	self.tabs = {}
+	local tabs = { { "JOUER", "home" }, { "PERSONNAGES", "characters" }, { "CLASSEMENT", "ranking" }, { "PARAMÈTRES", "settings" } }
+	for i, tab in tabs do
+		local b = new("TextButton", { Position = UDim2.fromOffset(280 + (i - 1) * 150, 0), Size = UDim2.fromOffset(146, 64),
+			BackgroundColor3 = DARKRED, BackgroundTransparency = 1, Font = UI_FONT, TextSize = 15, Text = tab[1], TextColor3 = GREY,
+			AutoButtonColor = false, BorderSizePixel = 0 }, bar)
+		local underline = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 4),
+			BackgroundColor3 = RED, BorderSizePixel = 0, Visible = false }, b)
+		b.Activated:Connect(function() self:open(tab[2]) end)
+		self.tabs[tab[2]] = { button = b, underline = underline }
+	end
+	-- Profile: Roblox headshot, name, rank, bar to the next rank, points.
+	local card = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 6), Size = UDim2.fromOffset(420, 52),
+		BackgroundColor3 = PANEL, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, bar)
+	corner(card, 6)
+	stroke(card, 1.5, Color3.fromHex("33333D"))
+	local face = new("ImageLabel", { Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(44, 44), BackgroundColor3 = DARKRED,
+		BorderSizePixel = 0 }, card)
+	corner(face, 4)
+	stroke(face, 2, RED)
+	task.spawn(function()
+		local player = Players.LocalPlayer
+		local ok, image = pcall(Players.GetUserThumbnailAsync, Players, player.UserId,
+			Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+		if ok then face.Image = image end
+	end)
+	label(card, { Position = UDim2.fromOffset(56, 4), Size = UDim2.fromOffset(180, 20), Font = UI_FONT, TextSize = 15,
+		Text = Players.LocalPlayer.DisplayName, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+	self.profileRank = label(card, { Position = UDim2.fromOffset(56, 22), Size = UDim2.fromOffset(180, 14), Font = BODY_FONT, TextSize = 11,
+		Text = "", TextColor3 = GREY })
+	local track = new("Frame", { Position = UDim2.fromOffset(56, 39), Size = UDim2.fromOffset(170, 5), BackgroundColor3 = Color3.fromHex("2A2A33"),
+		BorderSizePixel = 0 }, card)
+	corner(track, 3)
+	self.profileBar = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = GOLD, BorderSizePixel = 0 }, track)
+	corner(self.profileBar, 3)
+	local points = new("Frame", { Position = UDim2.fromOffset(240, 6), Size = UDim2.fromOffset(84, 40), BackgroundColor3 = PANEL2, BorderSizePixel = 0 }, card)
+	corner(points, 6)
+	label(points, { Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(20, 36), Font = UI_FONT, TextSize = 18, Text = "◆", TextColor3 = GOLD })
+	self.profilePoints = label(points, { Position = UDim2.fromOffset(26, 2), Size = UDim2.fromOffset(56, 36), Font = UI_FONT, TextSize = 15, Text = "1000", TextColor3 = WHITE })
+	local wins = new("Frame", { Position = UDim2.fromOffset(330, 6), Size = UDim2.fromOffset(84, 40), BackgroundColor3 = PANEL2, BorderSizePixel = 0 }, card)
+	corner(wins, 6)
+	label(wins, { Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(20, 36), Font = UI_FONT, TextSize = 18, Text = "✦", TextColor3 = VIOLET })
+	self.profileWins = label(wins, { Position = UDim2.fromOffset(26, 2), Size = UDim2.fromOffset(56, 36), Font = UI_FONT, TextSize = 13, Text = "0 V", TextColor3 = WHITE })
+end
+
+-- A big slanted button (left column, like the mock-up).
+local function slanted(parent, y, title, sub, kanji, primary)
+	local b = new("TextButton", { Position = UDim2.fromOffset(0, y), Size = UDim2.fromOffset(370, if primary then 96 else 76),
+		BackgroundColor3 = if primary then RED else PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0, Rotation = -2.5 }, parent)
+	if primary then gradient(b, Color3.fromHex("FF2A3D"), Color3.fromHex("8C0716"), 0) else gradient(b, PANEL2, INK, 0) end
+	stroke(b, 2, if primary then Color3.fromHex("FF5A6A") else Color3.fromHex("33333D"))
+	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -46, 0.5, 0), Size = UDim2.fromOffset(90, 90), Font = Enum.Font.GothamBlack,
+		TextScaled = true, Text = kanji, TextColor3 = if primary then Color3.fromHex("5A0712") else Color3.fromHex("2E2E38"),
+		TextXAlignment = Enum.TextXAlignment.Center })
+	local t = label(b, { Position = UDim2.fromOffset(20, if primary then 8 else 6), Size = UDim2.fromOffset(280, if primary then 52 else 40),
+		Font = DISPLAY, TextScaled = true, Text = title, TextColor3 = WHITE })
+	stroke(t, 1.5, INK)
+	label(b, { Position = UDim2.fromOffset(22, if primary then 62 else 48), Size = UDim2.fromOffset(300, 18), Font = UI_FONT, TextSize = 12,
+		Text = sub, TextColor3 = if primary then WHITE else GREY })
+	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 40), Font = UI_FONT,
+		TextSize = 26, Text = "›", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center })
+	b.MouseEnter:Connect(function() b.Rotation = -1 end)
+	b.MouseLeave:Connect(function() b.Rotation = -2.5 end)
+	return b
+end
+
+function MenuController:buildNav()
+	local nav = new("Frame", { Position = UDim2.fromOffset(40, 96), Size = UDim2.fromOffset(380, 460), BackgroundTransparency = 1 }, self.root)
+	self.nav = nav
+	slanted(nav, 0, "JOUER", "COMBATTRE EN LIGNE OU CONTRE LE CPU", "戦", true).Activated:Connect(function() self:open("home") end)
+	slanted(nav, 108, "PERSONNAGES", "LES 8 COMBATTANTS · TON FAVORI", "人").Activated:Connect(function() self:open("characters") end)
+	slanted(nav, 194, "CLASSEMENT", "MONTER DANS LES RANGS", "位").Activated:Connect(function() self:open("ranking") end)
+	slanted(nav, 280, "JOUEURS", "DÉFIER · INVITER UN AMI (H)", "友").Activated:Connect(function()
+		if self.hub then self.hub.panel.Visible = not self.hub.panel.Visible end
+	end)
+	slanted(nav, 366, "PARAMÈTRES", "EFFETS · SON · SOURIS", "設").Activated:Connect(function() self:open("settings") end)
+end
+
+-- ===================================================================== home: mode cards
+-- A mode card (right column): title, lines, a kanji in the corner, an arrow.
+local function card(parent, props)
+	local b = new("TextButton", { Position = props.position, Size = props.size, BackgroundColor3 = PANEL, AutoButtonColor = false, Text = "",
+		BorderSizePixel = 0, ClipsDescendants = true }, parent)
+	corner(b, 6)
+	gradient(b, PANEL2, props.color:Lerp(INK, 0.55), 0)
+	stroke(b, 2, props.color, 0.2)
+	label(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 6, 0, -14), Size = UDim2.fromOffset(props.kanjiSize or 150, props.kanjiSize or 150),
+		Font = Enum.Font.GothamBlack, TextScaled = true, Text = props.kanji, TextColor3 = props.color, TextTransparency = 0.72,
+		TextXAlignment = Enum.TextXAlignment.Center })
+	local t = label(b, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, props.titleSize or 46), Font = DISPLAY,
+		TextScaled = true, Text = props.title, TextColor3 = WHITE })
+	stroke(t, 1.5, INK)
+	for i, line in props.lines or {} do
+		label(b, { Position = UDim2.fromOffset(18, (props.titleSize or 46) + 8 + (i - 1) * 20), Size = UDim2.new(1, -60, 0, 18),
+			Font = UI_FONT, TextSize = 13, Text = line, TextColor3 = Color3.fromHex("D8D8E0") })
+	end
+	local arrow = new("TextLabel", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(32, 32),
+		BackgroundColor3 = props.color, Font = UI_FONT, TextSize = 22, Text = "›", TextColor3 = WHITE }, b)
+	corner(arrow, 4)
+	b.MouseEnter:Connect(function() b.BackgroundColor3 = PANEL2 end)
+	b.MouseLeave:Connect(function() b.BackgroundColor3 = PANEL end)
+	return b
+end
+
+function MenuController:buildHome()
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
+		BackgroundTransparency = 1 }, self.root)
+	card(page, { position = UDim2.fromOffset(0, 0), size = UDim2.fromOffset(540, 160), color = RED, kanji = "対", title = "MODE EN LIGNE",
+		titleSize = 52, lines = { "COMBATS CLASSÉS", "COMBATS NORMAUX", "DÉFIER UN AMI DU SERVEUR" } }).Activated:Connect(function()
+		self:open("online")
+	end)
+	card(page, { position = UDim2.fromOffset(0, 172), size = UDim2.fromOffset(540, 160), color = Color3.fromHex("C8C8D0"), kanji = "戦",
+		title = "MODE SOLO", titleSize = 52, lines = { "1 CONTRE 1 · IA", "SURVIE", "CHALLENGE (BIENTÔT)" } }).Activated:Connect(function()
+		self:open("solo")
+	end)
+	card(page, { position = UDim2.fromOffset(0, 344), size = UDim2.fromOffset(264, 150), color = BLUE, kanji = "隊", title = "ÉQUIPES",
+		titleSize = 40, kanjiSize = 120, lines = { "1V1 · 2V2 · 3V3", "contre le CPU" } }).Activated:Connect(function()
+		self:choose({ id = "VERSUS_CPU" }, 3)
+	end)
+	card(page, { position = UDim2.fromOffset(276, 344), size = UDim2.fromOffset(264, 150), color = VIOLET, kanji = "練", title = "ENTRAÎNEMENT",
+		titleSize = 40, kanjiSize = 120, lines = { "APPRENDRE · TESTER", "COMBOS" } }).Activated:Connect(function()
+		self:choose({ id = "TRAINING" })
+	end)
+	return page
+end
+
+-- MODE SOLO / MODE EN LIGNE: a title and a column of cards.
+function MenuController:buildSubCards(title, entries)
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
+		BackgroundTransparency = 1 }, self.root)
+	local t = label(page, { Size = UDim2.new(1, 0, 0, 50), Font = DISPLAY, TextSize = 48, Text = title, TextColor3 = WHITE })
+	stroke(t, 2, RED)
+	for i, entry in entries do
+		local locked = entry.id == "CHALLENGE"
+		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * 132), size = UDim2.fromOffset(540, 120),
+			color = if locked then GREY else entry.color, kanji = entry.kanji, title = entry.title, titleSize = 42, kanjiSize = 120,
+			lines = entry.lines })
 		b.Activated:Connect(function()
-			self.modeIndex = i
-			self:chooseMode()
+			if locked then
+				self:flash("CHALLENGE · BIENTÔT", GREY)
+			elseif entry.queue == "FRIEND" then
+				self.queue = "FRIEND"
+				self:choose({ id = "VERSUS" })
+			else
+				if entry.queue then self.queue = entry.queue end
+				self:choose({ id = entry.id })
+			end
 		end)
-		self.modeButtons[i] = { button = b, edge = edge, kanji = kanji, name = name }
 	end
-	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.42, 0, 0, 200),
-		BackgroundColor3 = PANEL, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, self.modesScreen)
-	corner(info, 8)
-	stroke(info, 2, RED)
-	self.modeTitle = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 44),
-		Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left }, info)
-	self.modeText = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 60), Size = UDim2.new(1, -32, 1, -70),
-		Font = BODY_FONT, TextSize = 16, TextWrapped = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top }, info)
-	self.onlineText = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 212), Size = UDim2.new(0.42, 0, 0, 40),
-		BackgroundTransparency = 1, Font = BODY_FONT, TextSize = 13, TextWrapped = true, Text = "", TextColor3 = GREY,
-		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top }, self.modesScreen)
+	local back = new("TextButton", { Position = UDim2.fromOffset(0, 60 + #entries * 132), Size = UDim2.fromOffset(150, 40),
+		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 15, Text = "◀ RETOUR", TextColor3 = WHITE }, page)
+	corner(back, 6)
+	stroke(back, 2, GREY)
+	back.Activated:Connect(function() self:open("home") end)
+	return page
 end
 
-function MenuController:refreshModes()
-	for i, entry in self.modeButtons do
-		local selected = i == self.modeIndex
-		entry.edge.Color = if selected then GOLD else Color3.fromHex("2A2A33")
-		entry.edge.Thickness = if selected then 3 else 2
-		entry.button.BackgroundColor3 = if selected then Color3.fromHex("3A0A12") else PANEL
-		entry.button.Size = UDim2.new(if selected then 1 else 0.94, 0, 0, 58)
-	end
-	local mode = GameModes.List[self.modeIndex]
-	self.modeTitle.Text = mode.name
-	self.modeText.Text = mode.description
-	self.bigKanji.Text = mode.kanji
-	local s = self.status
-	local waiting = s.waiting or {}
-	self.onlineText.Text = string.format("%d joueur(s) sur ce serveur · %d combat(s) en cours · en recherche : %d normal, %d classé",
-		s.online or 1, s.matches or 0, waiting.NORMAL or 0, waiting.RANKED or 0)
-end
-
-function MenuController:chooseMode()
-	local mode = GameModes.List[self.modeIndex]
-	if mode.locked then
-		self:flash(mode.name .. " ARRIVE BIENTÔT", GREY)
-		return
-	end
-	self.mode = mode
-	self.teamSize = if mode.team then math.clamp(self.teamSize, 1, GameModes.MAX_TEAM) else 1
-	self.team = {}
-	self:show("select")
-end
-
--- ===================================================================== screen 2: fighters
+-- ===================================================================== select
 function MenuController:buildSelect()
-	local grid = new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(0.56, 0, 0, 280) }, self.selectScreen)
-	new("UIGridLayout", { CellSize = UDim2.new(0.25, -10, 0.5, -10), CellPadding = UDim2.fromOffset(10, 10),
-		SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local page = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84), Size = UDim2.new(1, -80, 1, -120),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 5 }, self.root)
+	corner(page, 10)
+	stroke(page, 2, RED)
+	self.selectTitle = label(page, { Position = UDim2.fromOffset(24, 10), Size = UDim2.new(1, -48, 0, 50), Font = DISPLAY, TextSize = 46,
+		Text = "", TextColor3 = WHITE, ZIndex = 6 })
+	local grid = new("Frame", { Position = UDim2.fromOffset(24, 70), Size = UDim2.new(0.55, -24, 0, 300), BackgroundTransparency = 1, ZIndex = 6 }, page)
+	new("UIGridLayout", { CellSize = UDim2.new(0.25, -10, 0.5, -10), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	self.kitCells = {}
 	for i, name in MoveData.KitOrder do
 		local kit = MoveData.Kits[name]
 		local color = kitColor(name)
-		local cell = new("TextButton", { LayoutOrder = i, BackgroundColor3 = PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, grid)
+		local cell = new("TextButton", { LayoutOrder = i, BackgroundColor3 = PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 6 }, grid)
 		corner(cell, 6)
 		local edge = stroke(cell, 2, color)
-		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromHex("1C1C24"), color:Lerp(INK, 0.6)) }, cell)
-		new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, 0.04), Size = UDim2.fromScale(1, 0.56),
-			Font = Enum.Font.GothamBlack, TextScaled = true, Text = kit.Kanji, TextColor3 = color }, cell)
-		new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, 0.6), Size = UDim2.fromScale(1, 0.22),
-			Font = DISPLAY, TextScaled = true, Text = name, TextColor3 = WHITE }, cell)
-		new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, 0.82), Size = UDim2.fromScale(1, 0.14),
-			Font = UI_FONT, TextScaled = true, Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)),
-			TextColor3 = GOLD }, cell)
+		gradient(cell, Color3.fromHex("1C1C24"), color:Lerp(INK, 0.55), 90)
+		label(cell, { Position = UDim2.fromScale(0, 0.04), Size = UDim2.fromScale(1, 0.56), Font = Enum.Font.GothamBlack, TextScaled = true,
+			Text = kit.Kanji, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+		label(cell, { Position = UDim2.fromScale(0, 0.6), Size = UDim2.fromScale(1, 0.22), Font = DISPLAY, TextScaled = true, Text = name,
+			TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+		label(cell, { Position = UDim2.fromScale(0, 0.82), Size = UDim2.fromScale(1, 0.14), Font = UI_FONT, TextScaled = true,
+			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
+			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
 		local pick = new("TextLabel", { BackgroundColor3 = RED, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4),
-			Size = UDim2.fromOffset(26, 26), Font = DISPLAY, TextSize = 20, Text = "", TextColor3 = WHITE, Visible = false }, cell)
+			Size = UDim2.fromOffset(26, 26), Font = DISPLAY, TextSize = 20, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 8 }, cell)
 		corner(pick, 13)
 		cell.MouseEnter:Connect(function() self.kitIndex = i; self:refreshSelect() end)
 		cell.Activated:Connect(function()
@@ -237,52 +381,53 @@ function MenuController:buildSelect()
 		self.kitCells[i] = { cell = cell, edge = edge, pick = pick, color = color }
 	end
 	-- Fighter details.
-	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.4, 0, 0, 280),
-		BackgroundColor3 = PANEL, BackgroundTransparency = 0.05, BorderSizePixel = 0 }, self.selectScreen)
+	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 70), Size = UDim2.new(0.42, 0, 0, 300),
+		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 6 }, page)
 	corner(info, 8)
 	self.kitInfoStroke = stroke(info, 2, RED)
-	self.kitName = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 50),
-		Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left }, info)
-	self.kitRole = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 60), Size = UDim2.new(1, -32, 0, 22),
-		Font = UI_FONT, TextSize = 16, Text = "", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left }, info)
-	self.kitText = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100),
-		Font = BODY_FONT, TextSize = 15, TextWrapped = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top }, info)
-	-- Options row: team size, CPU level / queue.
-	local options = new("Frame", { BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 296), Size = UDim2.new(1, 0, 0, 120) }, self.selectScreen)
+	self.kitName = label(info, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 50), Font = DISPLAY, TextScaled = true,
+		Text = "", TextColor3 = WHITE, ZIndex = 7 })
+	self.kitRole = label(info, { Position = UDim2.fromOffset(16, 60), Size = UDim2.new(1, -32, 0, 22), Font = UI_FONT, TextSize = 16,
+		Text = "", TextColor3 = GOLD, ZIndex = 7 })
+	self.kitText = label(info, { Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100), Font = BODY_FONT, TextSize = 15,
+		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 7 })
+	-- Options and buttons.
+	local options = new("Frame", { Position = UDim2.fromOffset(24, 384), Size = UDim2.new(1, -48, 0, 130), BackgroundTransparency = 1, ZIndex = 6 }, page)
 	self.teamLine = self:optionLine(options, 0, "ÉQUIPE", function(step)
 		if not self.mode.team then return end
 		self.teamSize = math.clamp(self.teamSize + step, 1, GameModes.MAX_TEAM)
 		while #self.team > self.teamSize do table.remove(self.team) end
 	end)
-	self.secondLine = self:optionLine(options, 42, "NIVEAU", function(step)
+	self.secondLine = self:optionLine(options, 44, "NIVEAU", function(step)
 		if self.mode.level then
 			self.level = math.clamp(self.level + step, 1, #LEVEL_NAMES)
 		elseif self.mode.queue then
-			self.queueIndex = (self.queueIndex - 1 + step) % #QUEUES + 1
+			local order = { "NORMAL", "RANKED", "FRIEND" }
+			local index = table.find(order, self.queue) or 1
+			self.queue = order[(index - 1 + step) % #order + 1]
 		end
 	end)
-	self.teamSlots = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 86), Size = UDim2.new(0.6, 0, 0, 30),
-		Font = DISPLAY, TextSize = 26, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left }, options)
-	self.goButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(240, 50),
-		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 34, Text = "COMBAT !", TextColor3 = WHITE, AutoButtonColor = true }, options)
+	self.teamSlots = label(options, { Position = UDim2.fromOffset(0, 92), Size = UDim2.new(0.6, 0, 0, 30), Font = DISPLAY, TextSize = 26,
+		Text = "", TextColor3 = WHITE, ZIndex = 7 })
+	self.goButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(250, 56),
+		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 36, Text = "COMBAT !", TextColor3 = WHITE, ZIndex = 7 }, options)
 	corner(self.goButton, 8)
 	stroke(self.goButton, 3, GOLD)
 	self.goButton.Activated:Connect(function() self:start() end)
-	local backButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -252, 0, 76), Size = UDim2.fromOffset(120, 40),
-		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 16, Text = "◀ RETOUR", TextColor3 = WHITE, AutoButtonColor = true }, options)
-	corner(backButton, 8)
-	stroke(backButton, 2, GREY)
-	backButton.Activated:Connect(function() self:back() end)
+	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -262, 0, 78), Size = UDim2.fromOffset(130, 42),
+		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 16, Text = "◀ RETOUR", TextColor3 = WHITE, ZIndex = 7 }, options)
+	corner(back, 8)
+	stroke(back, 2, GREY)
+	back.Activated:Connect(function() self:back() end)
+	return page
 end
 
-function MenuController:optionLine(parent, y, label, change)
-	local line = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(0.6, 0, 0, 36) }, parent)
-	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromOffset(110, 36), Font = UI_FONT, TextSize = 16, Text = label,
-		TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left, Name = "Label" }, line)
+function MenuController:optionLine(parent, y, name, change)
+	local line = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(0.6, 0, 0, 38), ZIndex = 6 }, parent)
+	local caption = label(line, { Size = UDim2.fromOffset(130, 38), Font = UI_FONT, TextSize = 16, Text = name, TextColor3 = GREY, ZIndex = 7 })
 	local function arrow(text, x, step)
-		local b = new("TextButton", { Position = UDim2.fromOffset(x, 2), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = PANEL,
-			Font = UI_FONT, TextSize = 18, Text = text, TextColor3 = GOLD, AutoButtonColor = true }, line)
+		local b = new("TextButton", { Position = UDim2.fromOffset(x, 3), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = PANEL,
+			Font = UI_FONT, TextSize = 18, Text = text, TextColor3 = GOLD, ZIndex = 7 }, line)
 		corner(b, 6)
 		stroke(b, 2, GOLD)
 		b.Activated:Connect(function()
@@ -290,11 +435,11 @@ function MenuController:optionLine(parent, y, label, change)
 			self:refreshSelect()
 		end)
 	end
-	arrow("◀", 110, -1)
-	local value = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(148, 0), Size = UDim2.fromOffset(260, 36),
-		Font = DISPLAY, TextSize = 26, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, Name = "Value" }, line)
-	arrow("▶", 414, 1)
-	return { frame = line, value = value, label = line.Label, change = change }
+	arrow("◀", 130, -1)
+	local value = label(line, { Position = UDim2.fromOffset(168, 0), Size = UDim2.fromOffset(330, 38), Font = DISPLAY, TextSize = 26, Text = "",
+		TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+	arrow("▶", 504, 1)
+	return { frame = line, value = value, label = caption, change = change }
 end
 
 function MenuController:refreshSelect()
@@ -312,13 +457,10 @@ function MenuController:refreshSelect()
 	end
 	self.kitName.Text = name .. " " .. kit.Kanji
 	local level = kit.Difficulty or 2
-	self.kitRole.Text = kit.Role .. "  ·  " .. string.rep("★", level) .. string.rep("☆", 3 - level) .. " "
-		.. ({ "SIMPLE", "MOYEN", "TECHNIQUE" })[level]
+	self.kitRole.Text = kit.Role .. "  ·  " .. string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. ({ "SIMPLE", "MOYEN", "TECHNIQUE" })[level]
 	self.kitText.Text = kit.Description .. "\n\nVie " .. kit.Stats.MaxHealth .. (if kit.Passive then " · passif " .. kit.Passive.Name else "")
 	self.kitInfoStroke.Color = kitColor(name)
-	self.slash.BackgroundColor3 = kitColor(name)
 	self.bigKanji.Text = kit.Kanji
-	-- Options.
 	self.teamLine.frame.Visible = mode.team == true
 	self.teamLine.value.Text = self.teamSize .. (if self.teamSize > 1 then " PERSOS (RELAIS)" else " PERSO")
 	if mode.level then
@@ -328,23 +470,18 @@ function MenuController:refreshSelect()
 	elseif mode.queue then
 		self.secondLine.frame.Visible = true
 		self.secondLine.label.Text = "PARTIE"
-		local q = QUEUES[self.queueIndex]
-		self.secondLine.value.Text = q.name .. " · " .. q.sub
+		self.secondLine.value.Text = QUEUES[self.queue]
 	else
 		self.secondLine.frame.Visible = false
 	end
 	local slots = {}
-	for i = 1, self.teamSize do
-		slots[i] = self.team[i] or "—"
-	end
+	for i = 1, self.teamSize do slots[i] = self.team[i] or "—" end
 	self.teamSlots.Text = "TON ÉQUIPE : " .. table.concat(slots, "  ·  ")
 	local ready = #self.team >= self.teamSize
-	self.goButton.Text = if mode.queue and QUEUES[self.queueIndex].id == "FRIEND" then "VOIR LES JOUEURS"
-		elseif mode.queue then "CHERCHER !" else "COMBAT !"
+	self.goButton.Text = if mode.queue and self.queue == "FRIEND" then "VOIR LES JOUEURS" elseif mode.queue then "CHERCHER !" else "COMBAT !"
 	self.goButton.BackgroundColor3 = if ready then RED else Color3.fromHex("3A3A44")
 end
 
--- Click / ENTRÉE on a fighter: adds it to the team (again: removes it).
 function MenuController:pickKit()
 	local name = MoveData.KitOrder[self.kitIndex]
 	local found = table.find(self.team, name)
@@ -356,7 +493,20 @@ function MenuController:pickKit()
 		self.team[#self.team] = name
 	end
 	self:refreshSelect()
-	if #self.team >= self.teamSize and self.teamSize == 1 then self:flash(name .. " CHOISI · ENTRÉE POUR COMBATTRE", GOLD) end
+end
+
+-- Opens the fighter select for a mode (`teamSize`: preset team size, ÉQUIPES card).
+function MenuController:choose(entry, teamSize)
+	local mode = GameModes.find(entry.id)
+	if not mode or mode.locked then return end
+	self.mode = mode
+	self.teamSize = if mode.team then math.clamp(teamSize or self.teamSize, 1, GameModes.MAX_TEAM) else 1
+	-- The favourite fighter is preselected.
+	local favourite = self.status.hero or "KAI"
+	self.team = { favourite }
+	self.kitIndex = table.find(MoveData.KitOrder, favourite) or 1
+	if not mode.queue then self.queue = "NORMAL" end
+	self:open("select")
 end
 
 function MenuController:start()
@@ -366,110 +516,284 @@ function MenuController:start()
 		return
 	end
 	local team = table.clone(self.team)
-	if mode.queue and QUEUES[self.queueIndex].id == "FRIEND" then
-		-- A friend's 1v1: remember the team, then the hub (DÉFIER / ACCEPTER).
+	if mode.queue and self.queue == "FRIEND" then
+		-- A friend's 1v1: remember the team on the server, then the players' list (DÉFIER).
 		self.remote:FireServer({ action = "start", request = { mode = "VERSUS", team = team, queue = "NORMAL" } })
-		self.remote:FireServer({ action = "cancel" })
+		task.delay(0.6, function() self.remote:FireServer({ action = "cancel" }) end)
 		if self.hub then self.hub.panel.Visible = true end
 		return
 	end
 	self.remote:FireServer({ action = "start", request = {
-		mode = mode.id, team = team, level = if mode.level then self.level else nil,
-		queue = if mode.queue then QUEUES[self.queueIndex].id else nil,
+		mode = mode.id, team = team, level = if mode.level then self.level else nil, queue = if mode.queue then self.queue else nil,
 	} })
 end
 
--- ===================================================================== screen 3: search
+-- ===================================================================== search
 function MenuController:buildSearch()
-	local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 40), Size = UDim2.fromOffset(560, 240),
-		BackgroundColor3 = PANEL, BorderSizePixel = 0 }, self.searchScreen)
-	corner(box, 10)
-	stroke(box, 3, GOLD)
-	self.searchTitle = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 16), Size = UDim2.new(1, -40, 0, 56),
-		Font = DISPLAY, TextScaled = true, Text = "RECHERCHE D'ADVERSAIRE…", TextColor3 = GOLD }, box)
-	self.searchText = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 82), Size = UDim2.new(1, -40, 0, 80),
-		Font = BODY_FONT, TextSize = 16, TextWrapped = true, Text = "", TextColor3 = WHITE }, box)
-	local cancel = new("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(200, 44),
-		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 28, Text = "ANNULER", TextColor3 = WHITE }, box)
+	local page = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 160), Size = UDim2.fromOffset(600, 250),
+		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 5 }, self.root)
+	corner(page, 10)
+	stroke(page, 3, GOLD)
+	self.searchTitle = label(page, { Position = UDim2.fromOffset(20, 16), Size = UDim2.new(1, -40, 0, 56), Font = DISPLAY, TextScaled = true,
+		Text = "RECHERCHE D'ADVERSAIRE…", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+	self.searchText = label(page, { Position = UDim2.fromOffset(20, 82), Size = UDim2.new(1, -40, 0, 80), Font = BODY_FONT, TextSize = 16,
+		TextWrapped = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+	local cancel = new("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(200, 46),
+		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 30, Text = "ANNULER", TextColor3 = WHITE, ZIndex = 6 }, page)
 	corner(cancel, 8)
 	cancel.Activated:Connect(function() self.remote:FireServer({ action = "cancel" }) end)
+	return page
 end
 
--- ===================================================================== common
-function MenuController:show(screen)
-	self.screen = screen
-	self.modesScreen.Visible = screen == "modes"
-	self.selectScreen.Visible = screen == "select"
-	self.searchScreen.Visible = screen == "search"
-	if screen == "modes" then
-		self.subtitle.Text = "CHOISIS TON MODE"
-		self.slash.BackgroundColor3 = RED
-		self.help.Text = "Z / S ou flèches : choisir · ENTRÉE : valider · souris et manette aussi"
-		self:refreshModes()
-	elseif screen == "select" then
-		self.subtitle.Text = self.mode.name .. " · CHOISIS " .. (if self.mode.team then "TON ÉQUIPE" else "TON PERSO")
-		self.help.Text = "Flèches : choisir un perso · ENTRÉE : le prendre (encore : le retirer) · Z / S : options · ESPACE : combat · RETOUR ARRIÈRE : retour"
+-- ===================================================================== characters, ranking, settings
+function MenuController:buildCharacters()
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
+	corner(page, 8)
+	stroke(page, 2, RED)
+	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
+		Text = "PERSONNAGES", TextColor3 = WHITE })
+	stroke(t, 1.5, RED)
+	self.galleryName = label(page, { Position = UDim2.fromOffset(16, 58), Size = UDim2.new(1, -32, 0, 30), Font = DISPLAY, TextSize = 30,
+		Text = "", TextColor3 = GOLD })
+	self.galleryText = label(page, { Position = UDim2.fromOffset(16, 92), Size = UDim2.new(1, -32, 0, 250), Font = BODY_FONT, TextSize = 15,
+		TextWrapped = true, Text = "Choisis un perso en bas : il devient ton favori (au centre du menu, présélectionné en combat).",
+		TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top })
+	return page
+end
+
+function MenuController:showKitInfo(name)
+	local kit = MoveData.Kits[name]
+	if not kit then return end
+	local level = kit.Difficulty or 2
+	self.galleryName.Text = name .. " " .. kit.Kanji .. " · " .. kit.Role .. " · " .. string.rep("★", level) .. string.rep("☆", 3 - level)
+	local lines = { kit.Description, "", "Vie " .. kit.Stats.MaxHealth .. " · vitesse " .. kit.Stats.WalkSpeed }
+	if kit.Passive then table.insert(lines, "Passif : " .. kit.Passive.Name) end
+	table.insert(lines, "")
+	table.insert(lines, "Ultimes : " .. MoveData.Moves[kit.Ultimates.Rush].name .. " · " .. MoveData.Moves[kit.Ultimates.Awaken].name
+		.. " · " .. MoveData.Moves[kit.Ultimates.Gate].name .. (if kit.Ultimates.Fatal then " · " .. MoveData.Moves[kit.Ultimates.Fatal].name else ""))
+	self.galleryText.Text = table.concat(lines, "\n")
+end
+
+function MenuController:buildRanking()
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
+	corner(page, 8)
+	stroke(page, 2, GOLD)
+	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
+		Text = "CLASSEMENT", TextColor3 = GOLD })
+	stroke(t, 1.5, INK)
+	self.rankingMine = label(page, { Position = UDim2.fromOffset(16, 56), Size = UDim2.new(1, -32, 0, 24), Font = UI_FONT, TextSize = 15,
+		Text = "", TextColor3 = WHITE })
+	self.rankingList = new("Frame", { Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100), BackgroundTransparency = 1 }, page)
+	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, self.rankingList)
+	return page
+end
+
+function MenuController:refreshRanking()
+	local list = self.rankingList
+	for _, child in list:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	local s = self.status
+	self.rankingMine.Text = "TOI : " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " pts · " .. (s.wins or 0) .. " V / " .. (s.losses or 0) .. " D"
+	local entries = self.ranking
+	if not entries then
+		label(list, { Size = UDim2.new(1, 0, 0, 30), Font = BODY_FONT, TextSize = 14, Text = "Chargement…", TextColor3 = GREY })
+		return
+	end
+	if #entries == 0 then
+		label(list, { Size = UDim2.new(1, 0, 0, 60), Font = BODY_FONT, TextSize = 14, TextWrapped = true, TextColor3 = GREY,
+			Text = "Pas encore de classement : joue une partie CLASSÉE (le classement est gardé dans le jeu publié)." })
+		return
+	end
+	for i, e in entries do
+		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = if i <= 3 then DARKRED else PANEL,
+			BorderSizePixel = 0 }, list)
+		corner(row, 4)
+		label(row, { Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(40, 34), Font = DISPLAY, TextSize = 24, Text = "#" .. e.rank,
+			TextColor3 = if i == 1 then GOLD else WHITE })
+		label(row, { Position = UDim2.fromOffset(60, 0), Size = UDim2.new(1, -230, 1, 0), Font = UI_FONT, TextSize = 15, Text = e.name,
+			TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 0), Size = UDim2.fromOffset(170, 34), Font = UI_FONT,
+			TextSize = 14, Text = e.title .. " · " .. e.rating, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Right })
+	end
+end
+
+function MenuController:buildSettings()
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 360),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
+	corner(page, 8)
+	stroke(page, 2, GREY)
+	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
+		Text = "PARAMÈTRES", TextColor3 = WHITE })
+	stroke(t, 1.5, RED)
+	local y = 70
+	for _, entry in { { "effects", "EFFETS" }, { "sound", "SON" }, { "mouse", "SOURIS BLOQUÉE (CTRL)" } } do
+		local key, name = entry[1], entry[2]
+		local b = new("TextButton", { Position = UDim2.fromOffset(16, y), Size = UDim2.new(1, -32, 0, 52), BackgroundColor3 = PANEL,
+			Font = UI_FONT, TextSize = 18, Text = name, TextColor3 = WHITE }, page)
+		corner(b, 6)
+		stroke(b, 2, Color3.fromHex("33333D"))
+		local function refresh()
+			local get = self.settings[key .. "State"]
+			b.Text = name .. " : " .. (if get then get() else "—")
+		end
+		b.Activated:Connect(function()
+			local toggle = self.settings[key]
+			if toggle then toggle() end
+			refresh()
+		end)
+		task.defer(refresh)
+		y += 62
+	end
+	label(page, { Position = UDim2.fromOffset(16, y + 6), Size = UDim2.new(1, -32, 0, 70), Font = BODY_FONT, TextSize = 13, TextWrapped = true,
+		TextColor3 = GREY, TextYAlignment = Enum.TextYAlignment.Top,
+		Text = "En combat : P ou ◀ MENU pour revenir ici. Commandes complètes : bouton COMBOS en combat, ou le README." })
+	return page
+end
+
+-- ===================================================================== bottom: news and fighters
+function MenuController:buildBottom()
+	local news = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -14), Size = UDim2.fromOffset(640, 168),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)
+	corner(news, 6)
+	stroke(news, 1.5, Color3.fromHex("2A2A33"))
+	label(news, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 26, Text = "NOUVEAUTÉS", TextColor3 = WHITE })
+	self.bottomNews = news
+	for i, item in NEWS do
+		local x = 14 + (i - 1) * 154
+		local tile = new("Frame", { Position = UDim2.fromOffset(x, 38), Size = UDim2.fromOffset(146, 118), BackgroundColor3 = PANEL,
+			BorderSizePixel = 0, ClipsDescendants = true }, news)
+		corner(tile, 4)
+		stroke(tile, 2, item.color, 0.1)
+		gradient(tile, item.color:Lerp(INK, 0.35), INK, 90)
+		label(tile, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.fromOffset(80, 66), Font = Enum.Font.GothamBlack,
+			TextScaled = true, Text = item.kanji, TextColor3 = WHITE, TextTransparency = 0.25, TextXAlignment = Enum.TextXAlignment.Center })
+		label(tile, { Position = UDim2.fromOffset(8, 70), Size = UDim2.fromOffset(130, 14), Font = UI_FONT, TextSize = 10, Text = item.tag, TextColor3 = GREY })
+		label(tile, { Position = UDim2.fromOffset(8, 86), Size = UDim2.fromOffset(130, 26), Font = DISPLAY, TextScaled = true, Text = item.title, TextColor3 = WHITE })
+	end
+	-- MES PERSONNAGES: the 8 fighters; a click makes one the favourite (the lobby hero).
+	local roster = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -14), Size = UDim2.fromOffset(700, 168),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)
+	corner(roster, 6)
+	stroke(roster, 1.5, Color3.fromHex("2A2A33"))
+	label(roster, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 26, Text = "MES PERSONNAGES", TextColor3 = WHITE })
+	self.bottomRoster = roster
+	self.rosterTiles = {}
+	for i, name in MoveData.KitOrder do
+		local kit = MoveData.Kits[name]
+		local color = kitColor(name)
+		local tile = new("TextButton", { Position = UDim2.fromOffset(14 + (i - 1) * 84, 38), Size = UDim2.fromOffset(78, 118), BackgroundColor3 = PANEL,
+			AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, roster)
+		corner(tile, 4)
+		gradient(tile, color:Lerp(INK, 0.3), INK, 90)
+		local edge = stroke(tile, 2, Color3.fromHex("33333D"))
+		label(tile, { Position = UDim2.fromOffset(0, 4), Size = UDim2.fromOffset(78, 62), Font = Enum.Font.GothamBlack, TextScaled = true,
+			Text = kit.Kanji, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center })
+		label(tile, { Position = UDim2.fromOffset(0, 70), Size = UDim2.fromOffset(78, 22), Font = DISPLAY, TextScaled = true, Text = name,
+			TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center })
+		label(tile, { Position = UDim2.fromOffset(0, 94), Size = UDim2.fromOffset(78, 16), Font = UI_FONT, TextSize = 11,
+			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
+			TextXAlignment = Enum.TextXAlignment.Center })
+		tile.MouseEnter:Connect(function() self:showKitInfo(name) end)
+		tile.Activated:Connect(function()
+			self.remote:FireServer({ action = "hero", kit = name })
+			self:showKitInfo(name)
+			self:flash(name .. " · TON FAVORI", kitColor(name))
+		end)
+		self.rosterTiles[name] = edge
+	end
+end
+
+-- ===================================================================== navigation
+function MenuController:open(page)
+	if page ~= "search" and self.page == "search" and self.status.state == "queue" then
+		self.remote:FireServer({ action = "cancel" })
+	end
+	self.page = page
+	for name, frame in self.pages do frame.Visible = name == page end
+	local overlay = page == "select" or page == "search"
+	self.nav.Visible = not overlay
+	self.bottomNews.Visible = not overlay
+	self.bottomRoster.Visible = not overlay
+	local tab = if page == "solo" or page == "online" then "home" else page
+	for name, entry in self.tabs do
+		local active = name == tab
+		entry.underline.Visible = active
+		entry.button.TextColor3 = if active then WHITE else GREY
+		entry.button.BackgroundTransparency = if active then 0.2 else 1
+	end
+	if page == "select" then
+		self.selectTitle.Text = self.mode.name .. " · CHOISIS " .. (if self.mode.team then "TON ÉQUIPE" else "TON PERSO")
 		self:refreshSelect()
+	elseif page == "ranking" then
+		self.remote:FireServer({ action = "ranking" })
+		self:refreshRanking()
+	elseif page == "characters" then
+		self:showKitInfo(self.status.hero or "KAI")
 	else
-		self.subtitle.Text = "1 CONTRE 1 · JOUEUR"
-		self.help.Text = "La partie démarre dès qu'un adversaire est trouvé"
+		self.bigKanji.Text = "開"
 	end
 end
 
 function MenuController:back()
-	if self.screen == "select" then self:show("modes")
-	elseif self.screen == "search" then self.remote:FireServer({ action = "cancel" }) end
+	if self.page == "select" then
+		self:open(if self.mode.id == "VERSUS" then "online" elseif self.mode.id == "TRAINING" then "home" else "solo")
+	elseif self.page == "search" then
+		self.remote:FireServer({ action = "cancel" })
+	elseif self.page ~= "home" then
+		self:open("home")
+	end
 end
 
 function MenuController:onKey(key)
 	local K = Enum.KeyCode
-	if self.screen == "modes" then
-		if key == K.Up or key == K.Z or key == K.W or key == K.DPadUp then
-			self.modeIndex = (self.modeIndex - 2) % #GameModes.List + 1
-			self:refreshModes()
-		elseif key == K.Down or key == K.S or key == K.DPadDown then
-			self.modeIndex = self.modeIndex % #GameModes.List + 1
-			self:refreshModes()
-		elseif key == K.Return or key == K.Space or key == K.ButtonA then
-			self:chooseMode()
-		end
-	elseif self.screen == "select" then
-		local n = #MoveData.KitOrder
-		if key == K.Left or key == K.Q or key == K.A or key == K.DPadLeft then
-			self.kitIndex = (self.kitIndex - 2) % n + 1
-		elseif key == K.Right or key == K.D or key == K.DPadRight then
-			self.kitIndex = self.kitIndex % n + 1
-		elseif key == K.Up or key == K.Z or key == K.W or key == K.DPadUp then
-			self.secondLine.change(1)
-		elseif key == K.Down or key == K.S or key == K.DPadDown then
-			self.teamLine.change(if self.teamSize >= GameModes.MAX_TEAM then -(GameModes.MAX_TEAM - 1) else 1)
-		elseif key == K.Return or key == K.ButtonA then
-			self:pickKit()
-			return
-		elseif key == K.Space or key == K.ButtonStart then
-			self:start()
-			return
-		elseif key == K.Backspace or key == K.ButtonB then
-			self:back()
-			return
-		end
-		self:refreshSelect()
-	elseif self.screen == "search" then
-		if key == K.Backspace or key == K.ButtonB then self:back() end
+	if key == K.Backspace or key == K.ButtonB then
+		self:back()
+		return
 	end
+	if self.page ~= "select" then return end
+	local n = #MoveData.KitOrder
+	if key == K.Left or key == K.Q or key == K.A or key == K.DPadLeft then
+		self.kitIndex = (self.kitIndex - 2) % n + 1
+	elseif key == K.Right or key == K.D or key == K.DPadRight then
+		self.kitIndex = self.kitIndex % n + 1
+	elseif key == K.Up or key == K.Z or key == K.W or key == K.DPadUp then
+		self.secondLine.change(1)
+	elseif key == K.Down or key == K.S or key == K.DPadDown then
+		self.teamLine.change(if self.teamSize >= GameModes.MAX_TEAM then -(GameModes.MAX_TEAM - 1) else 1)
+	elseif key == K.Return or key == K.ButtonA then
+		self:pickKit()
+		return
+	elseif key == K.Space or key == K.ButtonStart then
+		self:start()
+		return
+	end
+	self:refreshSelect()
 end
 
 function MenuController:refreshProfile()
 	local s = self.status
 	if not s.rating then return end
-	self.profileRank.Text = (s.rank or "BRONZE") .. " · " .. s.rating .. " pts"
-	self.profileStats.Text = string.format("Victoires %d · Défaites %d · Record SURVIE : %d", s.wins or 0, s.losses or 0, s.survivalBest or 0)
-	if self.screen == "modes" then self:refreshModes() end
+	self.profileRank.Text = (s.rank or "BRONZE") .. (if s.nextRank then " · prochain rang à " .. s.nextRank else " · rang max")
+	local floor = 0
+	for _, min in { 0, 900, 1100, 1300, 1500, 1700 } do
+		if s.rating >= min then floor = min end
+	end
+	self.profileBar.Size = UDim2.fromScale(if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1, 1)
+	self.profilePoints.Text = tostring(s.rating)
+	self.profileWins.Text = (s.wins or 0) .. " V"
+	for name, edge in self.rosterTiles do
+		edge.Color = if name == s.hero then GOLD else Color3.fromHex("33333D")
+		edge.Thickness = if name == s.hero then 3 else 2
+	end
+	if self.page == "ranking" then self:refreshRanking() end
 end
 
 function MenuController:flash(text, color)
-	self.result.Text, self.result.TextColor3, self.result.Visible = text, color or GOLD, true
-	self.resultUntil = os.clock() + 2.5
+	self.toast.Text, self.toast.TextColor3, self.toast.Visible = text, color or GOLD, true
+	self.toastUntil = os.clock() + 2.5
 end
 
 function MenuController:showResult(packet)
@@ -482,25 +806,30 @@ function MenuController:showResult(packet)
 	else
 		self:flash(if packet.won then "VICTOIRE !" elseif packet.draw then "ÉGALITÉ" else "DÉFAITE", if packet.won then GOLD else RED)
 	end
-	self.resultUntil = os.clock() + 5
+	self.toastUntil = os.clock() + 5
 end
 
--- In a match the menu hides; back in the menu it shows again with a slow camera on the stage.
+-- In a match the menu hides; back in the menu it shows again.
 function MenuController:setInMatch(inMatch)
 	self.inMatch = inMatch
 	self.gui.Enabled = not inMatch
-	if not inMatch and self.screen == "search" and self.status.state ~= "queue" then self:show("modes") end
+	if not inMatch and self.page == "search" and self.status.state ~= "queue" then self:open("home") end
+	if inMatch and self.hub then self.hub.panel.Visible = false end
 end
 
--- HUD ◀ MENU: leave the match (back here).
 function MenuController:leave()
 	self.remote:FireServer({ action = "leave" })
 end
 
-function MenuController:frame(dt)
-	if self.result.Visible and os.clock() > (self.resultUntil or 0) then self.result.Visible = false end
+-- (bound as a plain function for the HUD button)
+function MenuController:bindLeave()
+	return function() self:leave() end
+end
+
+function MenuController:frame()
+	if self.toast.Visible and os.clock() > (self.toastUntil or 0) then self.toast.Visible = false end
 	if self.inMatch then return end
-	if self.screen == "search" then
+	if self.page == "search" then
 		local s = self.status
 		local waited = math.floor(os.clock() - self.searchStart)
 		local queue = if s.queue == "RANKED" then "CLASSÉ" else "NORMAL"
@@ -509,19 +838,14 @@ function MenuController:frame(dt)
 			queue, waited // 60, waited % 60, count, s.rank or "BRONZE", s.rating or 1000)
 		self.searchTitle.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 4)
 	end
-	-- A slow camera on the empty stage behind the menu.
+	-- Camera on the lobby hero: low angle, slightly to the side, like the cover art.
 	local camera = workspace.CurrentCamera
 	if camera then
 		camera.CameraType = Enum.CameraType.Scriptable
-		local t = os.clock() * 0.08
-		local eye = Vector3.new(math.sin(t) * 18, 9, 34 + math.cos(t) * 6)
-		camera.CFrame = CFrame.lookAt(eye, Vector3.new(0, 4, 0))
+		camera.FieldOfView = 40
+		local sway = math.sin(os.clock() * 0.25) * 0.6
+		camera.CFrame = CFrame.lookAt(Vector3.new(1.6 + sway, 2.6, 13.5), Vector3.new(0, 3.4, 0))
 	end
-end
-
--- (bound as a plain function for the HUD button)
-function MenuController:bindLeave()
-	return function() self:leave() end
 end
 
 return MenuController

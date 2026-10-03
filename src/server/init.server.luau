@@ -71,7 +71,7 @@ do
 	if ok then store = result end
 end
 local function defaultProfile()
-	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0 }
+	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI" }
 end
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
@@ -80,18 +80,49 @@ local function loadProfile(player, client)
 		local ok, data = pcall(store.GetAsync, store, "joueur_" .. player.UserId)
 		if ok and type(data) == "table" and clients[player] == client then
 			for k, v in defaultProfile() do
-				if type(data[k]) == "number" then client.profile[k] = data[k] end
+				if type(data[k]) == type(v) then client.profile[k] = data[k] end
 			end
+			if not MoveData.Kits[client.profile.hero] then client.profile.hero = "KAI" end
+			client.onProfileLoaded()
 		end
 		client.profileLoaded = true
 	end)
+end
+-- The ranking (CLASSEMENT): an ordered store of the ratings, read 10 at a time.
+local board = nil
+do
+	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Classement_v1")
+	if ok then board = result end
 end
 local function saveProfile(player, client)
 	if not store or not client.profile then return end
 	local data = table.clone(client.profile)
 	task.spawn(function()
 		pcall(store.SetAsync, store, "joueur_" .. player.UserId, data)
+		if board then pcall(board.SetAsync, board, tostring(player.UserId), math.floor(data.rating)) end
 	end)
+end
+local boardCache, boardAt, nameCache = nil, -math.huge, {}
+local function topRatings()
+	if boardCache and os.clock() - boardAt < 60 then return boardCache end
+	local list = {}
+	if board then
+		local ok, pages = pcall(board.GetSortedAsync, board, false, 10)
+		if ok and pages then
+			for rank, entry in pages:GetCurrentPage() do
+				local id = tonumber(entry.key)
+				local name = id and nameCache[id]
+				if id and not name then
+					local okName, value = pcall(Players.GetNameFromUserIdAsync, Players, id)
+					name = if okName then value else "#" .. entry.key
+					nameCache[id] = name
+				end
+				table.insert(list, { rank = rank, name = name or "?", rating = entry.value, title = Matchmaker.rankName(entry.value) })
+			end
+		end
+	end
+	boardCache, boardAt = list, os.clock()
+	return list
 end
 
 -- ===================================================================== matches
@@ -400,7 +431,13 @@ function menuStatus(player)
 	menuRemote:FireClient(player, {
 		state = if client.match then "match" elseif client.queue then "queue" else "menu",
 		mode = client.match and client.match.mode or nil, queue = client.queue,
-		rating = profile.rating, rank = Matchmaker.rankName(profile.rating),
+		rating = profile.rating, rank = Matchmaker.rankName(profile.rating), hero = profile.hero,
+		nextRank = (function()
+			for _, r in Matchmaker.RANKS do
+				if r.min > profile.rating then return r.min end
+			end
+			return nil
+		end)(),
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest,
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
@@ -428,6 +465,45 @@ local function broadcastHub()
 	hubRemote:FireAllClients({ players = hubStatus(), seconds = Lobby.CHALLENGE_SECONDS })
 end
 
+-- ===================================================================== lobby hero
+-- The player's favourite fighter stands in the middle of the stage behind the main menu
+-- (workspace.Fighters.Lobby_<user id>); only that player draws it (like the matches).
+local function buildHero(player)
+	local client = clients[player]
+	if not client then return end
+	client.heroTicket = (client.heroTicket or 0) + 1
+	local ticket = client.heroTicket
+	local kit = client.profile and client.profile.hero or "KAI"
+	local look = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
+	task.spawn(function()
+		local model
+		if client.avatar then
+			local ok, built = pcall(RigBuilder.buildAvatar, 1, player, rigOf(player, client), look) -- yields
+			model = if ok then built else nil
+		end
+		model = model or RigBuilder.build(1, nil, look)
+		if clients[player] ~= client or client.heroTicket ~= ticket then
+			model:Destroy()
+			return
+		end
+		local folderName = "Lobby_" .. player.UserId
+		local holder = fightersFolder:FindFirstChild(folderName)
+		if holder then holder:ClearAllChildren() else
+			holder = Instance.new("Folder")
+			holder.Name, holder.Parent = folderName, fightersFolder
+		end
+		model.Name = "Hero"
+		model.Parent = holder
+		RigReader.ensureJoints(model)
+		local root = model:FindFirstChild("HumanoidRootPart")
+		if root then
+			local pos = Vector3.new(0, Config.RootHeight, Config.PlaneZ)
+			root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(1, 0, 0))
+		end
+		player:SetAttribute("HeroKit", kit)
+	end)
+end
+
 local function joined(player)
 	if clients[player] then return end
 	local client = {
@@ -436,7 +512,12 @@ local function joined(player)
 		team = { "KAI" },
 	}
 	clients[player] = client
+	client.onProfileLoaded = function()
+		buildHero(player)
+		menuStatus(player)
+	end
 	loadProfile(player, client)
+	buildHero(player)
 	player:SetAttribute("Avatar", true)
 	player:SetAttribute("FighterSlot", 0)
 	player:SetAttribute("MatchId", 0)
@@ -452,6 +533,8 @@ Players.PlayerRemoving:Connect(function(player)
 		Matchmaker.leave(matchmaker, player.UserId)
 		unseat(player)
 		saveProfile(player, client)
+		local holder = fightersFolder:FindFirstChild("Lobby_" .. player.UserId)
+		if holder then holder:Destroy() end
 	end
 	Lobby.leave(lobby, player.UserId)
 	lobby.slots = {}
@@ -503,6 +586,19 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	local action = packet.action
 	if action == "hello" then
 		menuStatus(player)
+	elseif action == "hero" then
+		-- PERSONNAGES / MES PERSONNAGES: the favourite fighter (also the lobby's hero).
+		if typeof(packet.kit) == "string" and MoveData.Kits[packet.kit] and client.profile then
+			client.profile.hero = packet.kit
+			saveProfile(player, client)
+			buildHero(player)
+			menuStatus(player)
+		end
+	elseif action == "ranking" then
+		task.spawn(function()
+			local list = topRatings()
+			if clients[player] then menuRemote:FireClient(player, { ranking = list }) end
+		end)
 	elseif action == "start" then
 		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder)
 		if not request then

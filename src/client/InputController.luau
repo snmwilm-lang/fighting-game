@@ -53,11 +53,19 @@ function InputController.start(remote)
 		end
 		if onMouseLock then onMouseLock(on) end
 	end
+	local wasLocked = false
 	RunService:BindToRenderStep("FightMouseLock", Enum.RenderPriority.Camera.Value + 2, function()
-		if mouseLocked then -- (the default camera scripts reset it: enforce every frame)
+		-- Only in a match: the menu always needs its cursor.
+		local inMatch = (Players.LocalPlayer:GetAttribute("MatchId") or 0) ~= 0
+		local lock = mouseLocked and inMatch
+		if lock then -- (the default camera scripts reset it: enforce every frame)
 			UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
 			UIS.MouseIconEnabled = false
+		elseif wasLocked then
+			UIS.MouseBehavior = Enum.MouseBehavior.Default
+			UIS.MouseIconEnabled = true
 		end
+		wasLocked = lock
 	end)
 	local function set(action, key, down)
 		if action == "MouseLock" then
@@ -228,6 +236,7 @@ function InputController.start(remote)
 		reset = function() pulses.reset = true end,
 		toggleDummy = function() pulses.dummy = true end,
 		toggleMouseLock = function() setMouseLock(not mouseLocked) end,
+		isMouseLocked = function() return mouseLocked end,
 		onMouseLock = function(callback) onMouseLock = callback end, -- (the HUD shows the state)
 		toggleUltiConditions = function() pulses.ultiConditions = true end, -- training: ki always full
 		toggleAvatar = function() pulses.avatar = true end,

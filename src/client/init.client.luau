@@ -29,7 +29,19 @@ local cinematic = CinematicController.new(Config, hud, effects)
 local stage = StageController.new(Config)
 local sounds = SoundController.new()
 local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
-local menu = MenuController.new(remotes:WaitForChild("Menu"), hub) -- main menu: modes, fighters, opponent search
+-- PARAMÈTRES of the main menu: the same switches as the HUD's.
+local settings = {
+	effects = function()
+		effects.reduced = not effects.reduced
+		hud:setEffectsReduced(effects.reduced)
+	end,
+	effectsState = function() return if effects.reduced then "RÉDUITS" else "FORTS" end,
+	sound = function() sounds:setEnabled(not sounds.enabled) end,
+	soundState = function() return if sounds.enabled then "OUI" else "NON" end,
+	mouse = function() input.toggleMouseLock() end,
+	mouseState = function() return if input.isMouseLocked() then "OUI (en combat)" else "NON" end,
+}
+local menu = MenuController.new(remotes:WaitForChild("Menu"), hub, settings) -- main menu (lobby)
 hud.onMenu = menu:bindLeave()
 -- P: back to the main menu from a match (same as the HUD's ◀ MENU).
 game:GetService("UserInputService").InputBegan:Connect(function(key, processed)
@@ -110,13 +122,18 @@ local function setHidden(container, hidden)
 	if hiddenConnections[container] then hiddenConnections[container]:Disconnect() end
 	hiddenConnections[container] = if hidden then container.DescendantAdded:Connect(apply) else nil
 end
+-- In a match: only its folder; in the menu: only the player's own lobby hero.
+local function shownFolder(child)
+	if currentMatch ~= 0 then return child.Name == "Match" .. currentMatch end
+	return child.Name == "Lobby_" .. player.UserId
+end
 local function refreshVisibility()
 	for _, child in folder:GetChildren() do
-		setHidden(child, child.Name ~= "Match" .. currentMatch)
+		setHidden(child, not shownFolder(child))
 	end
 end
 folder.ChildAdded:Connect(function(child)
-	task.defer(function() setHidden(child, child.Name ~= "Match" .. currentMatch) end)
+	task.defer(function() setHidden(child, not shownFolder(child)) end)
 end)
 folder.ChildRemoved:Connect(function(child)
 	if hiddenConnections[child] then hiddenConnections[child]:Disconnect() end
@@ -242,8 +259,31 @@ local function findRig(slot)
 	return cached
 end
 
+-- The lobby hero (main menu): the favourite fighter, in its victory pose, then on guard.
+local hero = { model = nil, animation = nil, since = 0 }
+local function updateHero(dt, now)
+	local holder = folder:FindFirstChild("Lobby_" .. player.UserId)
+	local model = holder and holder:FindFirstChild("Hero")
+	if not model or not model:FindFirstChild("HumanoidRootPart") then return end
+	if hero.model ~= model then
+		local ok, animation = pcall(AnimationController.new, model)
+		if not ok then return end
+		hero.model, hero.animation, hero.since = model, animation, now
+	end
+	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0,
+		victory = now - hero.since < 3.5 }
+	hero.animation:update(view, { x = 6, y = 0, state = "Idle" }, dt, now, hud.poseRate, false)
+	local pos = Vector3.new(0, hero.animation.rootHeight, Config.PlaneZ)
+	-- Turned three-quarters toward the camera, like the cover art.
+	model.HumanoidRootPart.CFrame = CFrame.lookAt(pos, pos + Vector3.new(math.cos(math.rad(35)), 0, math.sin(math.rad(35))))
+end
+
 local fps = 60
 RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.Value + 1, function(dt)
+	if currentMatch == 0 then
+		updateHero(dt, os.clock())
+		return
+	end
 	if not world then return end
 	local now = os.clock()
 	local alpha = 1 - math.exp(-35 * math.min(dt, 0.1))

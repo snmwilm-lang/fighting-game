@@ -1,5 +1,34 @@
 # Journal du projet — état à transmettre
 
+## Version 0.14.1 — 3 octobre 2026
+
+Retour de Wilhem (avec une image de lobby faite sous ChatGPT) : « un truc similaire à ça ».
+
+- **Nouveau menu (lobby)** sur le modèle de l'image, sans aucun asset image (pas d'ID inventé) :
+  barre du haut (logo K.O. 開 sur un coup de pinceau rouge, onglets JOUER / PERSONNAGES /
+  CLASSEMENT / PARAMÈTRES, carte de profil avec la photo Roblox du joueur via
+  `GetUserThumbnailAsync`, rang, barre vers le rang suivant, points ◆ et victoires) ; colonne
+  de gros boutons inclinés à gauche (JOUER, PERSONNAGES, CLASSEMENT, JOUEURS, PARAMÈTRES) ;
+  **le perso favori en 3D au centre** (rig construit par le serveur dans
+  `workspace.Fighters.Lobby_<id>`, visible seulement par son joueur, en pose de victoire puis
+  en garde, caméra en contre-plongée) ; cartes de mode à droite (MODE EN LIGNE, MODE SOLO,
+  ÉQUIPES 1V1·2V2·3V3, ENTRAÎNEMENT) ; NOUVEAUTÉS et MES PERSONNAGES en bas (un clic = favori).
+  Tout le menu est dans un cadre 1600 × 900 mis à l'échelle de l'écran.
+- Pages : MODE SOLO (1V1 IA, SURVIE, CHALLENGE bientôt), MODE EN LIGNE (CLASSÉ, NORMAL, DÉFIER
+  UN AMI), sélection des persos (le favori présélectionné), recherche, PERSONNAGES (fiche :
+  description, vie, vitesse, passif, ultimes), CLASSEMENT (top 10 des points :
+  `OrderedDataStore` « JeuxCombat_Classement_v1 », relu toutes les 60 s ; jeu publié seulement),
+  PARAMÈTRES (effets, son, souris bloquée).
+- La souris bloquée ne s'applique qu'en combat : au menu, le curseur revient toujours.
+- Tests : CombatSimulation 94, FighterAI 11, CinematicDirector 323, Animation 35, PressQueue 4,
+  Fuzz 2, Cinematography 114, Lobby 9 (Kits inchangé : 67 sur 68, voir 0.14.0) ; `rigcheck` :
+  tous les corps se construisent. Menu non testable hors Studio : **rien essayé dans Studio**.
+
+### Problèmes ouverts / prochaine étape
+
+- Juger le cadrage du héros et la lisibilité du menu dans Studio (plusieurs tailles d'écran).
+- CHALLENGE (ASURA) ; recherche entre serveurs si besoin.
+
 ## Version 0.14.0 — 3 octobre 2026
 
 Demandes de Wilhem : « un menu à la Street Fighter, sélection du mode : survie, 1v1 IA, joueur,

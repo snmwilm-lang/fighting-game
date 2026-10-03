@@ -225,9 +225,10 @@ de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois p
 
 ## Menu et modes de jeu
 
-En arrivant, le **menu principal** (façon Street Fighter) : Z / S ou flèches pour choisir,
-ENTRÉE pour valider (souris, tactile et manette aussi). À droite, ton profil : rang, points,
-victoires / défaites, record de SURVIE.
+En arrivant, le **lobby** : ton perso favori en 3D au centre, les modes à droite (MODE EN LIGNE,
+MODE SOLO, ÉQUIPES, ENTRAÎNEMENT), JOUER / PERSONNAGES / CLASSEMENT / JOUEURS / PARAMÈTRES à
+gauche, ton profil en haut (photo, rang, points, victoires), MES PERSONNAGES en bas (un clic :
+ton favori). RETOUR ARRIÈRE revient en arrière.
 
 | Mode | Ce que c'est |
 |---|---|

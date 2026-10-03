@@ -22,6 +22,13 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | **Changer de perso** | **T** ou bouton PERSO | — | bouton |
 | Perso du CPU (solo) | **G** ou bouton ADVERSAIRE | — | bouton |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
+
+**Niveaux du CPU** : FACILE (débutant, il se fait avoir par le spam), NORMAL, DIFFICILE (lit à
+moitié tes habitudes), **LÉGENDE** : réagit en 0,1 s, ne lâche jamais un combo, et **lit tes
+habitudes** — spam de coups (il garde et sort son coup invincible ou le jab le plus rapide),
+sauts (anti-air calculé sur ta trajectoire), zoning (il saute par-dessus), coup invincible au
+réveil (il garde et punit), hauteur de garde (il se cale sur tes coups). Il ne triche pas : il
+ne voit que ce qui est à l'écran, avec son temps de réaction.
 | Apparence : avatar R15 → avatar R6 → modèle | bouton APPARENCE | — | bouton |
 | Couleurs du perso | bouton STYLE | — | bouton |
 | Sons on / off | bouton SON | — | bouton |
@@ -35,24 +42,24 @@ match repart à zéro) ; en solo, à tout moment.
 | Perso | Style | Vie | Points forts | Points faibles | S + E |
 |---|---|---|---|---|---|
 | **KAI 開** | polyvalent : poings, pieds, ki | 1550 | rien de faible, boule de ki | rien d'extrême | KIKOHO (boule de ki) |
-| **TARO 火** | **boxeur** : que les poings | 1560 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
+| **TARO 火** | **boxeur** : que les poings | 1560 | le plus robuste, dégâts −6 %, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
 | **ZEPHYR 風** | **que les pieds** | 1450 | **plus grande allonge** (+12 %), saut le plus haut, dégâts +8 % | coups qui démarrent un peu plus tard | LAME DE VENT (projectile) |
-| **AKEMI 影** | **esquive** | **1060** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −15 % | KUNAÏ (projectile) |
-| **RYUKEN 拳** | **force** : poings brisés, pression | 1500 | coups lourds, **CHARGE FRONTALE** qui traverse l'écran, passif **RAGE** | allonge un peu courte ; perd sa RAGE dès qu'il est touché | FRAPPE SISMIQUE (onde au ras du sol : à garder accroupi) |
-| **SHIN 流** | **sabre** : vitesse, précision | 1450 | **la plus grande allonge** (+22 %), coupes rapides (dégâts +15 %), **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
-| **DAICHA 闇** | **zoning** : l'espace inversé | 1500 | **SPHÈRE INVERSÉE** lente et énorme, dégâts +15 %, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
-| **HIBECARES 崩** | **endurance** : le roi des ruines | **1620** | **le plus de vie**, coups lourds, garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
+| **AKEMI 影** | **esquive** | **1180** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −6 % | KUNAÏ (projectile) |
+| **RYUKEN 拳** | **force** : poings brisés, pression | 1500 | coups lourds (dégâts +12 %), **CHARGE FRONTALE** qui traverse l'écran, passif **RAGE** | allonge un peu courte ; perd sa RAGE dès qu'il est touché | FRAPPE SISMIQUE (onde au ras du sol : à garder accroupi) |
+| **SHIN 流** | **sabre** : vitesse, précision | 1450 | **la plus grande allonge** (+22 %), coupes rapides (dégâts +18 %), **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
+| **DAICHA 闇** | **zoning** : l'espace inversé | 1500 | **SPHÈRE INVERSÉE** lente et énorme, dégâts +25 %, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
+| **HIBECARES 崩** | **endurance** : le roi des ruines | **1580** | **le plus de vie**, coups lourds (dégâts −10 %), garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
 
 **Difficulté** (affichée dans le jeu) : ★☆☆ SIMPLE — KAI, RYUKEN, HIBECARES ; ★★☆ MOYEN —
 TARO, ZEPHYR, SHIN ; ★★★ TECHNIQUE — AKEMI, DAICHA. Tous équilibrés (CPU contre CPU : entre
-44 et 59 % de victoires).
+43 et 57 % de victoires).
 
 **VOILE D'OMBRE** (passif d'AKEMI, façon Goku Ultra Instinct de FighterZ) : au neutre — sans
 attaquer, sans être déjà touchée, sans garder — le coup reçu est esquivé : AKEMI recule hors
 de portée, intouchable un instant. Elle a **2 esquives d'avance** (●● à côté de la barre de
 garde) ; chacune revient en **18 s**, et **chaque coup qu'elle porte retire 0,33 s**. Juste
 après une esquive, **L ou R** : **CONTRE-INSTINCT**, elle réapparaît dans le dos de
-l'attaquant et frappe. Jamais contre les ultimes ; pour vider ses esquives, des jabs suffisent.
+l'attaquant et frappe (coûte **½ barre de ki**, comme les suites de FighterZ). Jamais contre les ultimes ; pour vider ses esquives, des jabs suffisent.
 
 Passifs des 4 nouveaux (jauge à côté de la barre de garde) :
 

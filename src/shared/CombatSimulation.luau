@@ -378,7 +378,8 @@ local function stepFighter(world, f, input, events)
 	if f.evadeCounter > 0 and f.stunKind == "Evade" and f.hitstop == 0 and (input.light or input.heavy) then
 		local a = world.fighters[f.evadeFrom or (3 - f.slot)]
 		local passive = kitOf(world, f).Passive
-		if a and a.state ~= "KO" and passive then
+		if a and a.state ~= "KO" and passive and f.meter >= (passive.CounterCost or 0) then
+			f.meter -= passive.CounterCost or 0 -- like DBFZ's follow-ups, the counter costs ki
 			local lo, hi = c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5
 			f.x = math.clamp(a.x - a.facing * (passive.CounterGap or 1.7), lo, hi)
 			f.y, f.vy, f.vx, f.pushVx = 0, 0, 0, 0

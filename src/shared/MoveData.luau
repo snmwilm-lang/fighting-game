@@ -386,7 +386,7 @@ derive(TARO, {
 	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
 	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
 	TaroRush = "RUSH DÉVASTATEUR", TaroAwakening = "UPPERCUT CÉLESTE", TaroGate = "火嵐 · TEMPÊTE DE CROCHETS", TaroFatal = "終 · DERNIÈRE CLOCHE",
-}, { damage = 0.96, reach = 0.94 }, {
+}, { damage = 0.94, reach = 0.94 }, {
 	TaroJab = { startup = 4, recovery = 8 },
 	TaroStraight = { startup = 5 },
 	TaroHeavy = { guardDamage = 46 },
@@ -488,7 +488,7 @@ derive(AKEMI, {
 	AkemiLow = "COUP BAS", AkemiAirEdge = "LAME AÉRIENNE", AkemiAirEdge2 = "DOUBLE LAME", AkemiStoop = "PIQUÉ",
 	AkemiStep = "PAS DE L'OMBRE", AkemiChase = "TRAQUE", AkemiFinale = "EXÉCUTION", AkemiKunai = "KUNAÏ",
 	AkemiRush = "OMBRES MULTIPLES", AkemiAwakening = "TEMPS SUSPENDU", AkemiGate = "幻舞 · DANSE FANTÔME", AkemiFatal = "刻 · L'INSTANT VOLÉ",
-}, { damage = 0.85, startup = 0, reach = 1 }, {
+}, { damage = 0.94, startup = 0, reach = 1 }, {
 	AkemiStep = { lunge = 26, invuln = { from = 1, to = 11 }, damage = 80 },
 	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
 })
@@ -516,7 +516,7 @@ derive(RYUKEN, {
 	RyukenLow = "COUP BAS", RyukenAirPunch = "POING AÉRIEN", RyukenAirHook = "CROCHET AÉRIEN", RyukenAirSlam = "SLAM AÉRIEN",
 	RyukenCharge = "CHARGE FRONTALE", RyukenChase = "POURSUITE", RyukenFinale = "COUP DE GRÂCE", RyukenQuake = "FRAPPE SISMIQUE",
 	RyukenRush = "FUREUR DU POING", RyukenAwakening = "EFFONDREMENT", RyukenGate = "拳 · DERNIER ROUND", RyukenFatal = "砕 · POING DU MONDE",
-}, { damage = 1.04, startup = 0, reach = 0.95 }, {
+}, { damage = 1.12, startup = 0, reach = 0.95 }, {
 	RyukenCharge = { lunge = 30, invuln = { from = 1, to = 8 }, damage = 96, launch = 20, wallBounce = true },
 	RyukenQuake = { startup = 12, projectile = { speed = 34, life = 26, damage = 60, height = 0.6, halfHeight = 0.6,
 		halfWidth = 1.1, guard = "Low", guardDamage = 16 } },
@@ -545,7 +545,7 @@ derive(SHIN, {
 	ShinLow = "TRANCHE BASSE", ShinAirCut = "TRANCHE AÉRIENNE", ShinAirCut2 = "DOUBLE TRANCHE", ShinDive = "PIQUÉ DE LAME",
 	ShinStep = "PAS DU VENT", ShinChase = "POURSUITE", ShinFinale = "COUPE FINALE", ShinCurrent = "COURANT TRANCHANT",
 	ShinRush = "DANSE DES COURANTS", ShinAwakening = "TEMPÊTE CONTINUE", ShinGate = "零 · ZÉRO HORIZON", ShinFatal = "一閃 · ISSEN",
-}, { damage = 1.15, startup = 0, reach = 1.22 }, {
+}, { damage = 1.18, startup = 0, reach = 1.22 }, {
 	ShinStep = { lunge = 34, invuln = { from = 1, to = 9 }, damage = 82, launch = 30 },
 	ShinBreaker = { guardDamage = 46 },
 	ShinCurrent = { startup = 10, projectile = { speed = 48, life = 40, damage = 50, halfHeight = 0.5, halfWidth = 1.4 } },
@@ -574,7 +574,7 @@ derive(DAICHA, {
 	DaichaLow = "GRIFFE BASSE", DaichaAirClaw = "GRIFFE AÉRIENNE", DaichaAirClaw2 = "DOUBLE GRIFFE", DaichaDive = "PIQUÉ D'OMBRE",
 	DaichaTeleport = "TÉLÉPORTATION", DaichaChase = "POURSUITE", DaichaFinale = "RETOUR AU NÉANT", DaichaSphere = "SPHÈRE INVERSÉE",
 	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE", DaichaFatal = "虚 · NÉANT",
-}, { damage = 1.15, startup = 0, reach = 1.05 }, {
+}, { damage = 1.25, startup = 0, reach = 1.05 }, {
 	-- (limited range, 2 s before the next one, shorter invulnerability: no more teleport on every click)
 	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 8 }, teleport = 1.7, teleportRange = 9, teleportCooldown = 120,
 		damage = 70, launch = 26, recovery = 32 },
@@ -604,7 +604,7 @@ derive(HIBECARES, {
 	HibecaresLow = "COUP BAS", HibecaresAirFist = "POING AÉRIEN", HibecaresAirSwing = "CHAÎNE AÉRIENNE", HibecaresMeteor = "CHUTE DE ROC",
 	HibecaresShock = "ONDE DE CHOC", HibecaresChase = "POURSUITE", HibecaresFinale = "EFFONDREMENT DU ROI",
 	HibecaresRush = "COLOSSE ÉVEILLÉ", HibecaresAwakening = "CHÂTIMENT", HibecaresGate = "崩 · RUINES DU MONDE", HibecaresFatal = "墓 · TOMBEAU DES ROIS",
-}, { damage = 1.05, startup = 1, reach = 1 }, {
+}, { damage = 0.9, startup = 1, reach = 1 }, {
 	HibecaresBreaker = { guardDamage = 40 },
 	HibecaresGrab = { guardDamage = 30 },
 	HibecaresShock = { lunge = 4, invuln = { from = 1, to = 10 }, launch = 30, hitbox = { near = 0, far = 4.6, low = 0, high = 6.5 } },
@@ -847,18 +847,19 @@ kit("ZEPHYR", {
 kit("AKEMI", {
 	Kanji = "影", Role = "ESQUIVE",
 	Difficulty = 3,
-	Description = "Rapide et fragile : VOILE D'OMBRE (2 esquives d'avance, puis L ou R = contre dans le dos), dash intouchable, KUNAÏ (S + E).",
+	Description = "Rapide et fragile : VOILE D'OMBRE (2 esquives d'avance, puis L ou R = contre dans le dos pour ½ barre de ki), dash intouchable, KUNAÏ (S + E).",
 	Roles = AKEMI,
-	Stats = { MaxHealth = 1060, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
+	Stats = { MaxHealth = 1180, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
 	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
 	-- hit is evaded: AKEMI slides back (Slide = push speed, about 2.4 studs), untouchable
 	-- for Invuln ticks, unable to act for Recovery ticks (except for the counter below).
 	-- Ultimates cannot be evaded.
 	-- Like Ultra Instinct Goku (DBFZ): up to Charges evades ready, each recharging in Cooldown
 	-- ticks (one after the other); each hit she lands takes HitRefund ticks off. Right after an
-	-- evade, L or R within CounterWindow ticks: she reappears behind the attacker and strikes.
+	-- evade, L or R within CounterWindow ticks: she reappears behind the attacker and strikes,
+	-- for CounterCost ki (half a bar).
 	Passive = { Type = "Evade", Name = "VOILE D'OMBRE", Charges = 2, Cooldown = 1080, HitRefund = 20, Invuln = 14,
-		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6 },
+		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6, CounterCost = 50 },
 	RouteNames = { "CHAÎNE", "ENVOL", "PERCÉE", "MUR", "CHUTE", "FAUCHE", "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "CROISSANT" },
 	FullRouteNames = { "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "MUR", "CROISSANT" },
 	GateTitle = { text = "幻舞", sub = "DANSE FANTÔME" },
@@ -913,7 +914,7 @@ kit("HIBECARES", {
 	Description = "Le roi des ruines : le plus de vie, des coups lourds. MUR DE PIERRE (S + E) encaisse et riposte ; ROI DES RUINES : plus il est blessé, plus il frappe fort.",
 	Roles = HIBECARES,
 	Starters = { Crouch = { Special = "HibecaresWall" } },
-	Stats = { MaxHealth = 1620, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
+	Stats = { MaxHealth = 1580, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
 	-- ROI DES RUINES: up to MaxBonus more damage, growing as his health falls from From to To
 	-- (shares of his maximum health).
 	Passive = { Type = "Ruins", Name = "ROI DES RUINES", MaxBonus = 0.3, From = 1, To = 0.3 },

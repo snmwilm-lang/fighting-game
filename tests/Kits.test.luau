@@ -536,9 +536,21 @@ test("AKEMI: VOILE D'OMBRE evades on its own (2 charges), then recharges", funct
 	expect(find(later, "Evade") ~= nil, "the passive did not recharge")
 end)
 
-test("AKEMI: right after an evade, a press brings her behind the attacker for a counter", function()
+test("AKEMI: right after an evade, a press brings her behind the attacker for a counter (½ bar of ki)", function()
+	-- Without the ki, no counter.
+	local broke = kitWorld("KAI", "AKEMI", 3)
+	broke.fighters[2].meter = Kits.AKEMI.Passive.CounterCost - 1
+	local evadedBroke, counterBroke = false, false
+	for t = 1, 60 do
+		for _, e in Sim.step(broke, { input({ light = t == 1 }), input({ light = evadedBroke }) }) do
+			if e.kind == "Evade" then evadedBroke = true end
+			if e.kind == "Blink" and e.counter then counterBroke = true end
+		end
+	end
+	expect(evadedBroke and not counterBroke, "countered without the ki")
 	local world = kitWorld("KAI", "AKEMI", 3)
 	local a, d = world.fighters[1], world.fighters[2]
+	d.meter = 100
 	local evaded, counter, hit = false, false, false
 	for t = 1, 60 do
 		local press = evaded and not counter
@@ -549,6 +561,7 @@ test("AKEMI: right after an evade, a press brings her behind the attacker for a 
 		end
 	end
 	expect(evaded and counter, "no counter after the evade")
+	expect(d.meter <= 100 - Kits.AKEMI.Passive.CounterCost + 30, "the counter did not cost its ki")
 	expect(hit, "the counter did not hit the attacker")
 	expect((d.x - a.x) * a.facing < 0 or hit, "she did not come out behind the attacker")
 end)

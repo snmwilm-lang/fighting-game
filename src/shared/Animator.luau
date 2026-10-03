@@ -686,9 +686,15 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 		local family = key:match("^[^:]+")
 		local last = self.lastKey and self.lastKey:match("^[^:]+")
 		local instant = snap or family == last or not self.current or tr.landAge == 0
-		self.from = self.current
-		self.blendStart = time
-		self.blendTime = if instant then 0 else BLEND_TIMES[family] or BLEND_TIMES[last or ""] or 0.07
+		local blending = self.blendTime ~= nil and self.blendTime > 0 and time - self.blendStart < self.blendTime
+		if family == last and blending and not snap then
+			-- A step inside the family while the blend into it still runs (walk -> low kick):
+			-- keep blending from where it started, toward the new step (no pop on frame 2).
+		else
+			self.from = self.current
+			self.blendStart = time
+			self.blendTime = if instant then 0 else BLEND_TIMES[family] or BLEND_TIMES[last or ""] or 0.07
+		end
 		self.lastKey = key
 	end
 	local t = if self.blendTime and self.blendTime > 0 then clamp01((time - self.blendStart) / self.blendTime) else 1

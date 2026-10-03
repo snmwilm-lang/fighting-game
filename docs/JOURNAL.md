@@ -1,5 +1,52 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.1 — 3 octobre 2026
+
+Retour de Wilhem : « les difficultés, rends-les réelles, genre LÉGENDE c'est vraiment fort ».
+
+- **Mesure** : 7 « joueurs-tricheurs » scriptés (spam de jab, sauts permanents, spam de R, zoner
+  qui fuit, tortue, ultime à froid, rush L L R + coup invincible). Avant : LÉGENDE perdait 22 %
+  des matchs contre le spam, 25 % contre le zoner, 16 % contre le rush.
+- **Lectures** (`read` dans `FighterAI.Levels` : NORMAL 0,35, DIFFICILE 0,8, LÉGENDE 1) : le CPU
+  retient ce que fait l'adversaire (pression de près, hauteur de ses coups, zoning, sauts,
+  coups invincibles), oublié en ~3 s. Réponses : garde et coup invincible contre le spam,
+  ouverture au jab (le plus rapide) au lieu d'un coup lent qui se fait couper ; anti-air
+  calculé sur la trajectoire du saut (et garde debout pour RYUKEN, dont la spéciale est une
+  charge au sol) ; pas de combo au sol sous un saut ; saut par-dessus les projectiles ;
+  garde qui suit la hauteur de chaque coup ; au réveil d'un adversaire qui aime son coup
+  invincible, garde puis punition ; pas de punition trop tardive (il calcule la récupération
+  restante) ni sur une chaîne qui peut finir en coup invincible. Toujours sans triche : il ne
+  voit que l'écran, avec son temps de réaction.
+- LÉGENDE : garde 0,88, combos jamais lâchés, routes complètes 75 %, punition 100 %, anti-air
+  0,95, décision toutes les 5 images.
+- **Bug du CPU contre AKEMI** : avec VOILE D'OMBRE prête, LÉGENDE n'envoyait plus que des jabs
+  isolés (« appât »), même pour punir. L'appât ne sert plus qu'au neutre (une fois sur deux), et
+  après une esquive le CPU garde le contre. **Le CONTRE-INSTINCT coûte ½ barre de ki**
+  (`CounterCost = 50`), comme les suites de FighterZ : sinon chaque esquive = un combo gratuit.
+- Résultats (32 matchs par habitude, tous persos) : LÉGENDE gagne 91 à 100 % contre chaque
+  tricheur ; DIFFICILE 69 à 100 % ; NORMAL et FACILE restent battables par le spam (niveaux
+  débutants). LÉGENDE bat DIFFICILE 100 %, DIFFICILE bat NORMAL 98 %.
+- **Animation** : un passage marche → coup bas en une image coupait le fondu dès la 2ᵉ image
+  (pied d'appui qui flotte de 0,28, trouvé par le combat CPU du test d'animation). Le fondu
+  continue maintenant vers l'étape suivante du même coup. AnimQuality : à-coups ÷ 2 environ sur
+  les 8 persos (KAI 41 → 26 en démo, AKEMI 46 → 21), tremblements et interpénétration égaux ou
+  moindres (SHIN pire cas 4,4 → 1,5 %).
+- Rééquilibrage pour la nouvelle IA : TARO dégâts −6 % ; AKEMI vie 1060 → 1180, dégâts −6 % ;
+  RYUKEN +12 % ; SHIN +18 % ; DAICHA +25 % ; HIBECARES vie 1620 → 1580, dégâts −10 %.
+  `Balance.luau` 120 matchs — LÉGENDE : KAI 51, TARO 52, ZEPHYR 52, AKEMI 49, RYUKEN 43, SHIN
+  48, DAICHA 48, HIBECARES 57 ; DIFFICILE : KAI 54, TARO 49, ZEPHYR 51, AKEMI 54, RYUKEN 50,
+  SHIN 49, DAICHA 44, HIBECARES 50.
+- Tests : FighterAI 11 (+1 : LÉGENDE bat spam, sauts, zoning et rush ≥ 85 %, FACILE perd
+  contre le spam), Kits 57 (contre sans ki refusé, coût du contre), Animation 35,
+  CombatSimulation 89, CinematicDirector 323, PressQueue 4, Fuzz 2, Cinematography 114,
+  Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- Les niveaux restent à juger contre de vrais joueurs (je n'ai rien testé dans Studio).
+- Suite : menu façon Street Fighter et modes de jeu, puis CHALLENGE (KAI à 4 bras), équipes de
+  1 à 3, parties classées.
+
 ## Version 0.13.0 — 3 octobre 2026
 
 Retours de Wilhem : « pour AKEMI, l'esquive une fois toutes les 20 s c'est trop punitif, au

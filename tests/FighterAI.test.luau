@@ -172,6 +172,65 @@ test("DAICHA's CPU blinks through the opponent (OMBRE INVERSÉE); HIBECARES's CP
 	expect(walls >= 1, "HIBECARES's CPU never put up the stone wall against a crouching opponent")
 end)
 
+-- Scripted "player habits" a human finds quickly; LÉGENDE must read and beat every one.
+local function toward(me, foe) return if foe.x > me.x then 1 else -1 end
+local EXPLOITS = {
+	mash = function(w, s, t) -- walk in and mash jab / heavy
+		local me, foe = w.fighters[s], w.fighters[3 - s]
+		local i = Sim.neutralInput()
+		if math.abs(foe.x - me.x) > 3 then i.axis = toward(me, foe) else i.light = t % 6 == 0; i.heavy = t % 6 == 3 end
+		return i
+	end,
+	jump = function(w, s, t) -- jump-in heavies all day
+		local me, foe = w.fighters[s], w.fighters[3 - s]
+		local i = Sim.neutralInput()
+		i.axis = toward(me, foe)
+		if me.y <= 0 then i.jump = t % 4 == 0 else i.heavy = me.vy < 0 and math.abs(foe.x - me.x) < 4 end
+		return i
+	end,
+	zoner = function(w, s, t) -- run away and throw projectiles
+		local me, foe = w.fighters[s], w.fighters[3 - s]
+		local i = Sim.neutralInput()
+		if math.abs(foe.x - me.x) < 5 then i.axis = -toward(me, foe); i.jump = t % 40 == 0 else i.crouch = true; i.special = t % 10 == 0 end
+		return i
+	end,
+	rush = function(w, s, t) -- dash in, L L R, then the invincible reversal
+		local me, foe = w.fighters[s], w.fighters[3 - s]
+		local i = Sim.neutralInput()
+		local p = t % 30
+		if math.abs(foe.x - me.x) > 3 then i.axis = toward(me, foe); i.dash = p == 0 else
+			i.light = p == 0 or p == 8; i.heavy = p == 16; i.special = p == 26
+		end
+		return i
+	end,
+}
+
+local function exploitWins(level, habit, matches)
+	local order, wins = MoveData.KitOrder, 0
+	for m = 1, matches do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, order[(m - 1) % 8 + 1], order[(m * 3 + 1) % 8 + 1])
+		local brain, winner, t = FighterAI.new(level, m * 17 + 5), nil, 0
+		while not winner and t < 60 * 60 * 6 do
+			t += 1
+			for _, e in Sim.step(world, { brain:think(world, 1), EXPLOITS[habit](world, 2, t) }) do
+				if e.kind == "MatchEnd" then winner = e.winner end
+			end
+		end
+		if winner == 1 then wins += 1 end
+	end
+	return wins / matches
+end
+
+test("LÉGENDE reads and beats the habits players abuse (mash, jump-ins, zoning, reversal rush)", function()
+	for habit in EXPLOITS do
+		local rate = exploitWins(4, habit, 8)
+		expect(rate >= 0.85, string.format("LÉGENDE only wins %d %% against %s", rate * 100, habit))
+	end
+	-- And the levels are real steps: LÉGENDE does clearly better than FACILE against a masher.
+	expect(exploitWins(1, "mash", 8) <= 0.25, "FACILE should lose to a masher (a beginner's level)")
+end)
+
 test("the same seed replays the same fight", function()
 	local a = versus(3, 2, 42, 60 * 30)
 	local b = versus(3, 2, 42, 60 * 30)

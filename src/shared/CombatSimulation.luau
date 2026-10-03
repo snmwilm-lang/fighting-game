@@ -26,6 +26,7 @@ local function newFighter(slot, c, kit, stanceId)
 		evadeCharges = kit.Passive and kit.Passive.Charges or 0, evadeCounter = 0, evadeFrom = nil,
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1, teleportReady = 0,
+		slipCharges = 3, slipCharge = 0, -- boxer's slips ready (see Weave.Charges) and the refill timer
 		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
 		rage = 0, -- RYUKEN's RAGE stacks (passive "Rage")
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
@@ -449,6 +450,18 @@ local function stepFighter(world, f, input, events)
 		if f.evadeCharge == 0 then
 			f.evadeCharges += 1
 			if f.evadeCharges < (evadePassive.Charges or 1) then f.evadeCharge = evadePassive.Cooldown end
+		end
+	end
+	-- Boxer's slips (TARO, ESQUIVE): up to Weave.Charges, back one after the other.
+	local slipWeave = weaveOf(world, f)
+	if slipWeave and slipWeave.Charges then
+		f.slipCharges = math.min(f.slipCharges, slipWeave.Charges)
+		if f.slipCharges < slipWeave.Charges then
+			f.slipCharge = math.max(0, f.slipCharge - 1)
+			if f.slipCharge == 0 then
+				f.slipCharges += 1
+				if f.slipCharges < slipWeave.Charges then f.slipCharge = slipWeave.Cooldown end
+			end
 		end
 	end
 	f.evadeCounter = math.max(0, f.evadeCounter - 1)
@@ -1067,12 +1080,21 @@ local function slips(world, a, d, m, events)
 	local dm = d.move and world.moves[d.move]
 	local ducking = d.weaveTicks > 0
 		or (dm ~= nil and dm.slip ~= nil and d.moveFrame >= dm.slip.from and d.moveFrame <= dm.slip.to)
+	if d.slipSerial == a.moveSerial then return true end -- this attack was already slipped: it whiffs to the end
 	if not ducking then return false end
-	if d.slipSerial ~= a.moveSerial then
-		d.slipSerial = a.moveSerial
-		gainMeter(d, world.config.SlipMeter or 0, world.config)
-		table.insert(events, { kind = "Slip", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3.4 })
+	-- Like VOILE D'OMBRE, the slips are counted (Weave.Charges, refilled over time).
+	local weave = weaveOf(world, d)
+	if weave and weave.Charges then
+		if d.slipCharges <= 0 then return false end
+		d.slipCharges -= 1
+		if d.slipCharge <= 0 then d.slipCharge = weave.Cooldown end
 	end
+	d.slipSerial = a.moveSerial
+	gainMeter(d, world.config.SlipMeter or 0, world.config)
+	-- A short slow-down on both fighters (drawn in black and white by the client).
+	local freeze = world.config.SlipFreezeTicks or 0
+	a.hitstop, d.hitstop = math.max(a.hitstop, freeze), math.max(d.hitstop, freeze)
+	table.insert(events, { kind = "Slip", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3.4 })
 	return true
 end
 
@@ -1394,6 +1416,8 @@ end
 -- VOILE D'OMBRE, DAICHA's OMBRE INVERSÉE: the dash) or RYUKEN's RAGE stacks; nil for the
 -- passives without a gauge (SHIN's PRÉCISION, HIBECARES's ROI DES RUINES: shown from health).
 function CombatSimulation.passiveGauge(world, f)
+	local weave = weaveOf(world, f)
+	if weave and weave.Charges then return f.slipCharge end -- TARO's slips (ESQUIVE)
 	local passive = kitOf(world, f).Passive
 	if not passive then return nil end
 	if passive.Type == "Evade" then return f.evadeCharge end
@@ -1405,7 +1429,9 @@ end
 -- AKEMI's VOILE D'OMBRE: the evades ready (nil for the other passives).
 function CombatSimulation.passiveCharges(world, f)
 	local passive = kitOf(world, f).Passive
-	return if passive and passive.Type == "Evade" then f.evadeCharges else nil
+	if passive and passive.Type == "Evade" then return f.evadeCharges end
+	local weave = weaveOf(world, f)
+	return if weave and weave.Charges then f.slipCharges else nil
 end
 
 -- Training lab: plays a cinematic directly, without performing its combo. The two fighters

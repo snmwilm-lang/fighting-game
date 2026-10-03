@@ -1,5 +1,39 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.5 — 3 octobre 2026
+
+Retours de Wilhem : « TARO dash en mode ESQUIVE, ça dit qu'il esquive mais il n'esquive pas ;
+mets un petit ralenti en noir et blanc, fais comme AKEMI, limité à 3, des esquives à la Dempsey
+Roll » ; « l'ISSEN de SHIN, le timing est trop serré » ; « nerf un peu la jauge d'énergie, on a
+nos ultimes trop vite » ; « pour la phrase du PERFECT, cherche sur internet des phrases de
+moquerie ».
+
+- **TARO (ESQUIVE)** : l'esquive ne couvrait que les 9 images du dash ; le coup adverse, encore
+  actif, touchait juste après « ESQUIVE ! ». Un coup esquivé rate maintenant **jusqu'au bout**.
+  **3 esquives** (`Weave.Charges = 3`, ●●● à côté de la garde), chacune revient en 7 s
+  (`Cooldown = 420`), l'une après l'autre ; sans charge, plus d'esquive. Chaque esquive fige les
+  deux combattants 14 images (`SlipFreezeTicks`) et passe l'écran en **noir et blanc** 0,45 s.
+- **Coup fatal (ISSEN et les autres)** : fenêtre du QTE C ±4 → ±9 images (±0,15 s).
+- **Jauge de ki** : gains ~−35 % (porté 0,28 → 0,18, reçu 0,16 → 0,10, en garde 0,25 → 0,15 et
+  0,2 → 0,12, esquive de TARO 12 → 8). Mesure (CPU DIFFICILE, 40 matchs) : premier ultime
+  après 12,2 s → 19,2 s de combat ; ultimes par round 1,14 → 0,91.
+- **Phrases du PERFECT** prises sur le web : « GIT GUD. » (argot Dark Souls), « FLAWLESS
+  VICTORY. », « TOASTY! », « GET OVER HERE… » (Mortal Kombat), « You must defeat Sheng Long to
+  stand a chance. » (Ryu), « Handsome fighters never lose battles. » (Vega), « I will meditate
+  and then destroy you! » (Dhalsim, Street Fighter II), « Comme voler un bonbon à un bébé… »
+  (Walshy, Halo), « You can't beat me. » (LowTierGod) ; plus 5 des nôtres. Sources :
+  tvtropes.org (Victory Quote), meme.com (git gud), 3djuegos.com (trash talk).
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 51, TARO 57, ZEPHYR 49, AKEMI 42,
+  RYUKEN 49, SHIN 45, DAICHA 50, HIBECARES 57 ; DIFFICILE : KAI 50, TARO 54, ZEPHYR 54,
+  AKEMI 46, RYUKEN 51, SHIN 49, DAICHA 50, HIBECARES 46.
+- Tests : Kits 59 (+1 : coup esquivé raté jusqu'au bout, 3 charges, plus d'esquive sans
+  charge, recharge), CombatSimulation 92, FighterAI 11, CinematicDirector 323, Animation 35,
+  PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- Menu façon Street Fighter et modes de jeu (en cours), plusieurs combats par serveur.
+
 ## Version 0.13.4 — 3 octobre 2026
 
 Retours de Wilhem : « une petite invincibilité quand les persos se relèvent » ; « combos

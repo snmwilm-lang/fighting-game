@@ -698,7 +698,7 @@ local CINEMATICS = {
 		MissRatio = 0.4,
 		FinishExtra = 0,
 		PromptTicks = { 138 },
-		PromptWindow = 4,
+		PromptWindow = 9, -- (±0.15 s: ±4 was too tight, ISSEN's black-and-white cut especially)
 		PromptButton = "Fatal",
 	},
 	-- ÉVEIL ÉCARLATE: MaxHealthShare of the target's MAXIMUM health when every rhythm prompt is
@@ -823,7 +823,8 @@ kit("TARO", {
 			Name = "BOXEUR ESQUIVE", Key = "é",
 			Stats = { WalkSpeed = 17, DashSpeed = 40, GuardDamageTaken = 1, DamageDealt = 0.95 },
 			CrouchSpecial = "TaroParry",
-			Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6 },
+			-- Slips: up to Charges ready, each back in Cooldown ticks (one after the other).
+			Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6, Charges = 3, Cooldown = 420 },
 		},
 	},
 	Starters = { Crouch = { Special = "TaroParry" } },

@@ -507,6 +507,23 @@ function HUD:fillTrainer()
 end
 
 
+-- A brief black-and-white flash (TARO's slip: the world slows down around the dodge).
+function HUD:slowMotion(seconds)
+	local Lighting = game:GetService("Lighting")
+	local grade = Lighting:FindFirstChild("SlipGrade")
+	if not grade then
+		grade = Instance.new("ColorCorrectionEffect")
+		grade.Name, grade.Parent = "SlipGrade", Lighting
+	end
+	self.slowSerial = (self.slowSerial or 0) + 1
+	local serial = self.slowSerial
+	grade.Enabled, grade.Saturation, grade.Contrast = true, -1, 0.15
+	task.delay(seconds, function()
+		if self.slowSerial ~= serial then return end
+		game:GetService("TweenService"):Create(grade, TweenInfo.new(0.2), { Saturation = 0, Contrast = 0 }):Play()
+	end)
+end
+
 -- Mouse lock state shown on its button (Ctrl toggles it; locked, the cursor is hidden).
 function HUD:setMouseLock(on)
 	self.mouseButton.Text = if on then "SOURIS : BLOQUÉE (CTRL)" else "SOURIS : LIBRE (CTRL)"
@@ -781,13 +798,23 @@ function HUD:setEffectsReduced(reduced)
 end
 
 -- What the loser of a PERFECT round reads.
+-- Taunts for the loser of a PERFECT: famous lines of games and players found on the web
+-- (sources in docs/JOURNAL.md, v0.13.5), then a few of our own.
 HUD.LOSER_LINES = {
+	"GIT GUD.", -- Dark Souls / internet slang
+	"FLAWLESS VICTORY.", -- Mortal Kombat
+	"You must defeat Sheng Long to stand a chance.", -- Ryu, Street Fighter II
+	"Handsome fighters never lose battles.", -- Vega, Street Fighter II
+	"I will meditate and then destroy you!", -- Dhalsim, Street Fighter II
+	"Comme voler un bonbon à un bébé… sauf qu'un bébé se serait mieux défendu.", -- Walshy, Halo
+	"You can't beat me.", -- LowTierGod
+	"GET OVER HERE… et apprends à jouer.", -- Scorpion, Mortal Kombat
+	"TOASTY!", -- Mortal Kombat
 	"LOOSER… pas un seul coup porté.",
-	"Même pas une égratignure. Retourne t'entraîner.",
 	"Zéro dégât. ZÉRO.",
-	"Il ne t'a même pas senti passer.",
 	"Tu as touché le vent. Bravo.",
-	"PERFECT encaissé. Ça pique, hein ?",
+	"Même le mannequin d'entraînement a fait mieux.",
+	"GG… enfin, surtout G pour lui.",
 }
 
 function HUD:announceText(main, sub, color, size, hold)
@@ -865,6 +892,7 @@ function HUD:onEvent(event, world)
 		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ESQUIVE") .. " !")
 	elseif event.kind == "Slip" then
 		self:callout(event.defender, "ESQUIVE !")
+		self:slowMotion(0.45) -- black and white for the slow-down
 	elseif event.kind == "Stance" then
 		self:callout(event.slot, (event.name or event.stance) .. " !")
 		-- The local player: how the new style plays, in one line.
@@ -922,6 +950,12 @@ function HUD:update(world, views, fps, dt)
 		-- Passive gauge: ready or the seconds left (VOILE D'OMBRE, OMBRE INVERSÉE), the RAGE
 		-- stacks, the ROI DES RUINES bonus (from health), PRÉCISION's rule.
 		local passive = kit.Passive
+		-- TARO in ESQUIVE: his slips (●●●) take the passive's place.
+		local stance = kit.Stances and view.stance and kit.Stances[view.stance]
+		local weave = stance and stance.Weave
+		if weave and weave.Charges then
+			passive = { Type = "Evade", Name = "ESQUIVES", Charges = weave.Charges }
+		end
 		bar.passive.Visible = passive ~= nil
 		if passive then
 			local gauge = view.passive or 0

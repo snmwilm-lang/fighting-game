@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.13.4",
+	Version = "0.13.5",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -66,7 +66,8 @@ return table.freeze({
 	MaxMeter = 300,
 	-- COUP FATAL (C): only below this share of one's own health, once per match (MoveData.Fatal).
 	FatalHealth = 0.3,
-	SlipMeter = 12, -- ki for slipping an attack (boxer weave, see CombatSimulation slips)
+	SlipMeter = 8, -- ki for slipping an attack (boxer weave, see CombatSimulation slips)
+	SlipFreezeTicks = 14, -- slow-down on both fighters when the boxer slips an attack (black and white)
 	StanceCooldownTicks = 30, -- between two stance switches (TARO: CLASSIQUE / ESQUIVE)
 	-- Ultimate cinematics play in slow motion (share of real time), slower still around the
 	-- final blow; the round timer is paused meanwhile. CinematicGap: distance the attacker
@@ -76,10 +77,10 @@ return table.freeze({
 	CinematicImpactTicks = { -4, 16 }, -- around the final blow
 	CinematicGap = 2.6,
 	MeterBar = 100,
-	MeterOnHit = 0.28, -- fractions of the damage dealt / received
-	MeterOnBlock = 0.25,
-	MeterWhenHit = 0.16,
-	MeterWhenBlocking = 0.2,
+	MeterOnHit = 0.18, -- fractions of the damage dealt / received
+	MeterOnBlock = 0.15,
+	MeterWhenHit = 0.1,
+	MeterWhenBlocking = 0.12,
 	SuperFlashTicks = 40,
 	UltimateLaunch = 34,
 	UltimatePush = 48,

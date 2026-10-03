@@ -290,6 +290,27 @@ local function dempsey(keys, ticks)
 	return hooks, world, events
 end
 
+test("TARO: a slipped attack whiffs to its end; 3 slips at most, refilled over time", function()
+	local weave = MoveData.Kits.TARO.Stances.ESQUIVE.Weave
+	expect(weave.Charges == 3, "TARO should hold 3 slips")
+	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local taro = world.fighters[2]
+	local events = run(world, 60, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(events, "Slip") ~= nil and find(events, "Hit") == nil, "the slipped jab hit afterwards")
+	expect(taro.slipCharges == weave.Charges - 1, "a slip did not use a charge")
+	-- No charge left: the weave does not slip any more.
+	local empty = esquive(kitWorld("KAI", "TARO", 4), 2)
+	empty.fighters[2].slipCharges, empty.fighters[2].slipCharge = 0, weave.Cooldown
+	local e2 = run(empty, 30, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(e2, "Slip") == nil and find(e2, "Hit") ~= nil, "slipped with no charge left")
+	run(empty, weave.Cooldown + 2, nil)
+	expect(empty.fighters[2].slipCharges >= 1, "the slips did not refill")
+end)
+
 test("TARO: DEMPSEY ROLL out of the weave: alternating hooks, then the finishing hook", function()
 	local hooks = dempsey({ "L", "L", "L", "L", "L", "L", "R" })
 	expect(table.concat(hooks, ",") == "TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyFinish",

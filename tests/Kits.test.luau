@@ -601,6 +601,25 @@ test("AKEMI: the dash slips through attacks", function()
 	expect(find(events, "Hit") == nil, "the dash did not slip through the jab")
 end)
 
+test("ultimates (R and the coup fatal) aim at a jumping opponent instead of running under it", function()
+	for _, name in MoveData.KitOrder do
+		for _, button in { "ultimate", "fatal" } do
+			for _, jumpTick in { 1, 7, 13 } do -- the opponent at the top of its jump when it strikes
+				local world = kitWorld(name, "ZEPHYR", 3) -- (ZEPHYR jumps the highest)
+				local a, d = world.fighters[1], world.fighters[2]
+				a.x, d.x, a.meter, a.hp = 0, 2.6, 300, 300
+				local landed = false
+				for t = 1, 80 do
+					for _, e in Sim.step(world, { input({ [button] = t == 20 }), input({ jump = t == jumpTick }) }) do
+						if (e.kind == "Hit" or e.kind == "CinematicStart") and e.attacker == 1 then landed = true end
+					end
+				end
+				expect(landed, string.format("%s's %s misses an opponent who jumped at tick %d", name, button, jumpTick))
+			end
+		end
+	end
+end)
+
 test("balance: no kit wins more than 65 % or less than 35 % against the field (CPU vs CPU)", function()
 	local Balance = require("./BalanceKit")
 	for _, level in { 3, 4 } do

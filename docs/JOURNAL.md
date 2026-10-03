@@ -1,5 +1,29 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.3 — 3 octobre 2026
+
+Suite du retour de Wilhem : « les hitbox des ultimes à travailler, surtout quand l'autre joueur
+est dans les airs ».
+
+- Cause : la Ruée (R), la Porte, l'Éveil et le coup fatal chargent tout droit (`lunge`) ; contre
+  un adversaire en l'air, l'attaquant passait **sous lui** et frappait dans le vide de l'autre
+  côté ; et leur hitbox s'arrêtait à 8,5–9 m (ZEPHYR saute à 10).
+- Correctif : ces 4 ultimes visent la cible (`track = true` : ils s'arrêtent juste devant elle,
+  même si elle est en l'air) et leur hitbox monte à 11 m.
+- Mesure (adversaire qui saute à 10 moments différents, 3 distances, 8 persos) : R 5/10 → 10/10
+  de près, coup fatal 4/10 → 10/10.
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 50, TARO 54, ZEPHYR 51, AKEMI 49,
+  RYUKEN 48, SHIN 46, DAICHA 47, HIBECARES 55 ; DIFFICILE : KAI 48, TARO 50, ZEPHYR 54,
+  AKEMI 54, RYUKEN 52, SHIN 46, DAICHA 42, HIBECARES 52.
+- Tests : Kits 58 (+1 : R et coup fatal touchent un adversaire qui saute, 8 persos, 3 moments
+  du saut), CombatSimulation 92, FighterAI 11, CinematicDirector 323, Animation 35,
+  PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- À juger en jeu (rien testé dans Studio) : garde, déplacements, ultimes contre un sauteur.
+- Suite : menu façon Street Fighter et modes de jeu.
+
 ## Version 0.13.2 — 3 octobre 2026
 
 Retour de Wilhem : « les combos sont trop violents, on a l'impression que bloquer ne sert à

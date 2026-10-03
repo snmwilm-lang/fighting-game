@@ -261,17 +261,17 @@ local KAI = {
 	Kaiten = { -- third ultimate: clean full route ending on the R key, 3 bars
 		id = "Kaiten", name = "開天 · PORTE DES CIEUX", kind = "Ultimate", startup = 8, active = 6, recovery = 44,
 		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
-		push = 2, blockPush = 24, lunge = 18, meterCost = 300,
+		push = 2, blockPush = 24, lunge = 18, meterCost = 300, track = true,
 		invuln = { from = 1, to = 14 },
-		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		hitbox = { near = 0, far = 4.6, low = -1, high = 11 },
 		heavy = true,
 	},
 	Awakening = { -- unique attack: 3 bars, cinematic, up to 35 % of the maximum health (rhythm prompts)
 		id = "Awakening", name = "ÉVEIL ÉCARLATE", kind = "Ultimate", startup = 8, active = 6, recovery = 40,
 		damage = 20, guardDamage = 40, hitstun = 40, blockstun = 22, hitstop = 4,
-		push = 2, blockPush = 24, lunge = 20, meterCost = 300,
+		push = 2, blockPush = 24, lunge = 20, meterCost = 300, track = true,
 		invuln = { from = 1, to = 14 },
-		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
+		hitbox = { near = 0, far = 4.6, low = -1, high = 11 },
 		heavy = true,
 	},
 	-- COUP FATAL (C): the last-breath move. 3 bars, the user under Config.FatalHealth of its
@@ -282,9 +282,9 @@ local KAI = {
 	Fatal = {
 		id = "Fatal", name = "滅 · CIEL ÉTEINT", kind = "Ultimate", fatal = true, startup = 14, active = 6, recovery = 52,
 		damage = 20, guardDamage = 60, hitstun = 40, blockstun = 30, hitstop = 4,
-		push = 2, blockPush = 30, lunge = 24, meterCost = 300,
+		push = 2, blockPush = 30, lunge = 24, meterCost = 300, track = true,
 		invuln = { from = 1, to = 8 },
-		hitbox = { near = 0, far = 4.8, low = -1, high = 9 },
+		hitbox = { near = 0, far = 4.8, low = -1, high = 11 },
 		heavy = true,
 	},
 	-- Crouch + E: ki blast projectile
@@ -301,9 +301,9 @@ local KAI = {
 	KaienRush = {
 		id = "KaienRush", name = "KAIEN RUSH", kind = "Ultimate", startup = 8, active = 10, recovery = 36,
 		damage = 30, guardDamage = 30, hitstun = 40, blockstun = 20, hitstop = 4,
-		push = 2, blockPush = 20, lunge = 34, meterCost = 200,
+		push = 2, blockPush = 20, lunge = 34, meterCost = 200, track = true, -- (aims at a jumper, never runs under it)
 		invuln = { from = 1, to = 12 },
-		hitbox = { near = 0.2, far = 3.8, low = 0.8, high = 8.5 },
+		hitbox = { near = 0.2, far = 3.8, low = 0.8, high = 11 },
 		heavy = true,
 	},
 }

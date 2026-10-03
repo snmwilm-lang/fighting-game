@@ -435,8 +435,9 @@ BODIES.TARO = {
 }
 RigBuilder.BODIES = BODIES
 
-function RigBuilder.build(slot, parent)
-	local data = CharacterData[slot]
+-- `data` (optional): the look to build (a CharacterData entry); default CharacterData[slot].
+function RigBuilder.build(slot, parent, data)
+	data = data or CharacterData[slot]
 	local function color(key)
 		return Color3.fromHex(data[key])
 	end
@@ -663,7 +664,7 @@ function RigBuilder.build(slot, parent)
 	outline.Parent = model
 	-- Another kit: its outfit over the block body (gloves, scarf, hood...).
 	-- (TARO's body draws its own kanji, a tattoo; the others carry it on the back)
-	if data.Kit ~= "KAI" then RigBuilder.applyKit(model, slot, data.Kit == "TARO", true) end
+	if data.Kit ~= "KAI" then RigBuilder.applyKit(model, slot, data.Kit == "TARO", true, data) end
 	model:SetAttribute("Kit", data.Kit)
 	model:SetAttribute("Skin", data.Skin)
 	model.PrimaryPart, model.Parent = root, parent
@@ -892,8 +893,8 @@ end
 	other than KAI): every piece is sized from the body's own parts so it fits any avatar, and
 	the kit's kanji goes on the back unless `noEmblem` (the block model draws its own).
 ]]
-function RigBuilder.applyKit(model, slot, noEmblem, block)
-	local data = CharacterData[slot]
+function RigBuilder.applyKit(model, slot, noEmblem, block, data)
+	data = data or CharacterData[slot]
 	local function color(key)
 		return Color3.fromHex(data[key] or "FFFFFF")
 	end
@@ -1024,7 +1025,7 @@ end
 
 -- Builds a fighter from a HumanoidDescription as an R15 or R6 body (see buildAvatar /
 -- buildShadow). Returns the model, or nil and the reason.
-local function fromDescription(slot, description, label, rigType)
+local function fromDescription(slot, description, label, rigType, data)
 	rigType = if rigType == "R6" then "R6" else "R15"
 	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType[rigType])
 	if not built or not model then
@@ -1081,13 +1082,13 @@ local function fromDescription(slot, description, label, rigType)
 	outline.DepthMode = Enum.HighlightDepthMode.Occluded
 	outline.Parent = model
 	model.PrimaryPart = root
-	RigBuilder.applyKit(model, slot)
+	RigBuilder.applyKit(model, slot, nil, nil, data)
 	return model, nil
 end
 
 -- A plain body in the kit's colours (no asset id): used when the avatar cannot load.
-local function defaultDescription(slot)
-	local data = CharacterData[slot]
+local function defaultDescription(slot, data)
+	data = data or CharacterData[slot]
 	local description = Instance.new("HumanoidDescription")
 	local skin = Color3.fromHex(data.SkinTone)
 	description.HeadColor, description.LeftArmColor, description.RightArmColor = skin, skin, skin
@@ -1104,24 +1105,24 @@ end
 	  avatar body cannot be built  -> retried without its accessories, then the default body
 	Returns nil only if even the default body fails (the server then uses the block model).
 ]]
-function RigBuilder.buildAvatar(slot, player, rigType)
+function RigBuilder.buildAvatar(slot, player, rigType, data)
 	local description, reason = describe(player)
 	if description then
-		local model, problem = fromDescription(slot, description, "AVATAR", rigType)
+		local model, problem = fromDescription(slot, description, "AVATAR", rigType, data)
 		if model then return model, "OK" end
 		reason = problem
 		-- Some accessories / layered clothing can fail to build: keep the body and colours.
-		local plain = defaultDescription(slot)
+		local plain = defaultDescription(slot, data)
 		for _, field in { "HeadColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor", "TorsoColor",
 			"Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "Face",
 			"HeightScale", "WidthScale", "DepthScale", "HeadScale", "BodyTypeScale", "ProportionScale" } do
 			pcall(function() plain[field] = description[field] end)
 		end
-		model = fromDescription(slot, plain, "AVATAR", rigType)
+		model = fromDescription(slot, plain, "AVATAR", rigType, data)
 		if model then return model, "SANS ACCESSOIRES|" .. tostring(reason) end
 	end
 	warn("[FightingGame] Avatar indisponible pour " .. player.Name .. " : " .. tostring(reason))
-	local model, problem = fromDescription(slot, defaultDescription(slot), "DÉFAUT", rigType)
+	local model, problem = fromDescription(slot, defaultDescription(slot, data), "DÉFAUT", rigType, data)
 	if model then return model, "DÉFAUT|" .. tostring(reason) end
 	return nil, "MODÈLE|" .. tostring(problem)
 end
@@ -1129,19 +1130,19 @@ end
 -- The CPU / training dummy: a shadow clone of the opponent's avatar (dark body, glowing
 -- outline), with the same rig type. Without a loadable avatar (Studio test players), a
 -- default Roblox body in the slot's colours. No asset id is involved: only colours change.
-function RigBuilder.buildShadow(slot, player, rigType)
+function RigBuilder.buildShadow(slot, player, rigType, data)
 	local description = if player then describe(player) else nil
 	local shadow = description ~= nil
-	local data = CharacterData[slot]
+	data = data or CharacterData[slot]
 	if shadow then
 		local body = Color3.fromHex("1A1424")
 		description.HeadColor, description.LeftArmColor, description.RightArmColor = body, body, body
 		description.LeftLegColor, description.RightLegColor, description.TorsoColor = body, body, body
 	else
-		description = defaultDescription(slot)
+		description = defaultDescription(slot, data)
 	end
-	local model = fromDescription(slot, description, if shadow then "OMBRE" else "DÉFAUT", rigType)
-	if not model and shadow then model = fromDescription(slot, defaultDescription(slot), "DÉFAUT", rigType) end
+	local model = fromDescription(slot, description, if shadow then "OMBRE" else "DÉFAUT", rigType, data)
+	if not model and shadow then model = fromDescription(slot, defaultDescription(slot, data), "DÉFAUT", rigType, data) end
 	if model and shadow then
 		local outline = model:FindFirstChild("InkOutline")
 		if outline then

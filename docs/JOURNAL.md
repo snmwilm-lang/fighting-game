@@ -1,5 +1,58 @@
 # Journal du projet — état à transmettre
 
+## Version 0.14.0 — 3 octobre 2026
+
+Demandes de Wilhem : « un menu à la Street Fighter, sélection du mode : survie, 1v1 IA, joueur,
+entraînement ; dans les 1v1 l'option 1, 2 ou 3 persos comme FighterZ ; des games classées et
+normales avec recherche d'adversaire ; optimise le multi pour que 150 personnes jouent en même
+temps » ; « la fenêtre de défi est grise, on ne voit pas bien la croix ».
+
+- **Plusieurs combats par serveur** (`src/server/init.server.luau` réécrit) : chaque combat
+  (`match`) a son monde de simulation, ses deux places (joueur, CPU ou mannequin), son CPU et
+  ses rigs dans `workspace.Fighters.Match<id>`. Tous partagent la même arène ; chaque client
+  ne dessine que les deux combattants de son combat (les autres sont cachés chez lui :
+  `LocalTransparencyModifier`, jamais sur le serveur ; les rigs sont ancrés et sans collision).
+  Snapshots et événements ne partent qu'aux joueurs du combat. Le pas de simulation est très
+  léger (des dizaines de milliers de combats CPU tournent en quelques minutes dans les tests) ;
+  au-delà d'un serveur plein, Roblox en ouvre d'autres. Attribut `MatchId` du joueur.
+  `RigBuilder` prend maintenant le look en paramètre (un look par combat, plus de
+  `CharacterData` global côté serveur).
+- **Menu principal** (`src/client/MenuController.luau`) : écran des modes (liste, description,
+  kanji, profil : rang, points, V/D, record SURVIE, joueurs et combats en cours), sélection des
+  persos (grille des 8 avec ★, ordre de passage, ÉQUIPE 1 à 3, NIVEAU CPU ou PARTIE NORMAL /
+  CLASSÉ / AMI), écran de recherche (chrono, joueurs en file, ANNULER), bandeau de résultat.
+  Clavier, souris, tactile, manette ; caméra lente sur l'arène derrière. En combat : ◀ MENU / P.
+- **Modes** (`src/shared/GameModes.luau`, pur) : 1 CONTRE 1 · IA (équipe 1-3, niveau),
+  1 CONTRE 1 · JOUEUR (NORMAL, CLASSÉ, AMI), SURVIE (vagues de plus en plus fortes : FACILE
+  vagues 1-2, NORMAL 3-4, DIFFICILE 5-7, LÉGENDE ensuite ; record sauvegardé), ENTRAÎNEMENT
+  (mannequin, labo, ULTIMES : ON), CHALLENGE (verrouillé, « bientôt »). Le serveur valide chaque
+  demande (mode, persos, taille d'équipe, niveau, file).
+- **Équipes (relais)** dans la simulation : `Sim.setTeams`, un K.O. élimine le perso, le
+  suivant entre (événement `TeamSwap`, le serveur reconstruit le rig), le gagnant garde sa vie
+  (+20 %, `TeamHealOnKO`) et son ki ; l'équipe vide perd. HUD : ✕ ● ○ sous le nom.
+- **Recherche d'adversaire** (`src/server/Matchmaker.luau`, pur) : NORMAL = premier arrivé ;
+  CLASSÉ = écart de points ≤ 100, +25 par seconde d'attente (max 800), le plus proche d'abord ;
+  Elo K = 32, départ 1000, rangs BRONZE → LÉGENDE. Quitter un 1v1 le donne perdu. Profil
+  (points, V/D, record SURVIE) sauvegardé par DataStore (jeu publié seulement).
+- **Fenêtre des joueurs / défis** (ex-HUB) : fond opaque, **grosse croix rouge ✕** (44 px, fond
+  rouge, contour blanc), état de chaque joueur (AU MENU, RECHERCHE, EN COMBAT…), plus
+  d'ouverture automatique ; un défi accepté lance un 1v1 avec l'équipe choisie au menu.
+- Tests : Lobby 9 (+4 : demandes du menu, vagues de SURVIE et équipes CPU, recherche NORMAL /
+  CLASSÉ qui s'élargit, Elo et rangs), CombatSimulation 94 (+2 : relais), FighterAI 11,
+  CinematicDirector 323, Animation 35, Kits 67 sur 68 (équilibre : AKEMI 35 % en LÉGENDE, laissée
+  telle quelle à la demande de Wilhem), PressQueue 4, Fuzz 2, Cinematography 114 ;
+  `rigcheck` : tous les corps se construisent. Le serveur, le menu et la recherche ne sont pas
+  testables hors Studio : **rien n'a été essayé dans Roblox Studio**.
+
+### Problèmes ouverts / prochaine étape
+
+- À vérifier dans Studio (Test › Clients et serveurs, 2 à 3 joueurs) : menu, 1v1 IA en équipe,
+  SURVIE, recherche NORMAL entre deux clients, défi d'ami, retour au menu.
+- La recherche se fait sur le serveur du joueur (pas encore entre serveurs : MemoryStore +
+  TeleportService à faire si les serveurs sont trop vides).
+- CHALLENGE (ASURA, KAI à quatre bras) : prochaine étape.
+- Toujours : AKEMI 37 % / TARO 65 % en LÉGENDE (laissés tels quels à la demande de Wilhem).
+
 ## Version 0.13.7 — 3 octobre 2026
 
 Retours de Wilhem : « quand TARO esquive il prend forcément le dessus, ce n'est pas normal que je

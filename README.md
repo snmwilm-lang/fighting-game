@@ -19,10 +19,11 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | **Coup fatal** (3 barres, ta vie sous 30 %, une fois par match) | **C** | LB | FATAL |
 | Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
 | Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
-| **Changer de perso** | **T** ou bouton PERSO | — | bouton |
-| Perso du CPU (solo) | **G** ou bouton ADVERSAIRE | — | bouton |
+| **Revenir au menu** | **P** ou bouton ◀ MENU | — | bouton |
+| Changer de perso (entraînement) | **T** ou bouton PERSO | — | bouton |
+| Perso du mannequin (entraînement) | **G** ou bouton ADVERSAIRE | — | bouton |
 | **Souris bloquée** (curseur caché au centre, façon shift lock) | **Ctrl** ou bouton SOURIS | — | — |
-| Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
+| Mode du mannequin (entraînement : immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
 
 **Garde** : elle marche dès la 1ʳᵉ image. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
 de quoi punir celui qui spamme. Les petits coups usent peu la garde, les gros la cassent.
@@ -222,15 +223,36 @@ de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois p
   l'esquive : le crochet final seul.
 - Le contre : un coup bas, ou garder puis punir la fin du roll.
 
-## Jouer en 1 contre 1 avec un ami (HUB)
+## Menu et modes de jeu
 
-Bouton doré **HUB MULTI (H)** en haut à droite, ou la touche **H** : le panneau du hub s'ouvre
-aussi tout seul à l'arrivée. On y voit les joueurs du serveur, **DÉFIER** (le défi dure 30 s),
-**ACCEPTER / REFUSER** (bandeau quand on te défie), **QUITTER LE COMBAT**, **JOUER** (quand
-personne ne combat) et **INVITER UN AMI** (l'invitation Roblox : ton ami arrive sur ton
-serveur). Le premier arrivé combat le CPU ; les suivants attendent au hub et regardent.
-**Seul sur le serveur, il n'y a personne à défier** : ton ami doit être sur le MÊME serveur
-(invitation, ou rejoindre depuis ton profil Roblox).
+En arrivant, le **menu principal** (façon Street Fighter) : Z / S ou flèches pour choisir,
+ENTRÉE pour valider (souris, tactile et manette aussi). À droite, ton profil : rang, points,
+victoires / défaites, record de SURVIE.
+
+| Mode | Ce que c'est |
+|---|---|
+| **1 CONTRE 1 · IA** | Toi contre le CPU : **1, 2 ou 3 persos** (relais) et le niveau (FACILE à LÉGENDE). |
+| **1 CONTRE 1 · JOUEUR** | **NORMAL** (sans points), **CLASSÉ** (points Elo et rang : BRONZE, ARGENT, OR, PLATINE, DIAMANT, LÉGENDE) ou **AMI** (la liste des joueurs du serveur, DÉFIER / ACCEPTER). La recherche trouve un adversaire de niveau proche, puis élargit avec le temps. |
+| **SURVIE** | Un seul perso contre des adversaires à la chaîne, de plus en plus forts (LÉGENDE dès la 8ᵉ vague) ; ta vie ne remonte que de 20 % entre deux. Ton record est gardé. |
+| **ENTRAÎNEMENT** | Mannequin (immobile, garde, CPU ×4), entraîneur de combos, ULTIMES : ON, labo des cinématiques. |
+| **CHALLENGE** | ASURA, un KAI à quatre bras (bientôt). |
+
+**Sélection des persos** : la grille des 8 persos (★ difficulté) ; ENTRÉE ou clic pour
+prendre un perso (encore : le retirer), dans l'ordre de passage ; ÉQUIPE ◀ ▶ (1 à 3) ;
+NIVEAU CPU ou PARTIE ◀ ▶ ; ESPACE ou **COMBAT !**.
+
+**Équipes (relais, comme King of Fighters ; jusqu'à 3 persos comme FighterZ)** : un K.O.
+élimine le perso et fait entrer le suivant ; le gagnant reste, garde sa vie (+20 %) et son ki.
+L'équipe qui n'a plus personne perd. Sous la barre de vie : ✕ éliminé, ● en combat, ○ en attente.
+
+En combat : **◀ MENU** (ou **P**) pour revenir au menu ; quitter un 1 contre 1 le donne perdu
+à l'adversaire.
+
+**Beaucoup de joueurs** : un serveur fait tourner autant de combats que de paires de joueurs,
+tous en même temps (chacun ne voit que ses deux combattants). Roblox ouvre d'autres serveurs
+quand celui-ci est plein (nombre de joueurs par serveur : Paramètres du jeu > Places). Le
+classement et le record de SURVIE sont sauvegardés (DataStore) : il faut publier le jeu et,
+pour les essayer dans Studio, activer **Paramètres du jeu > Sécurité > Accès aux services API**.
 
 Le ping des deux joueurs s'affiche sur la ligne d'état. Pour un ami loin (autre région), le
 serveur compense un peu sa latence (enchaînements, QTE des cinématiques) et son propre perso
@@ -238,8 +260,8 @@ réagit tout de suite à l'écran.
 
 Pour jouer en ligne, la place doit être publiée : dans Roblox Studio, **Fichier > Publier
 sur Roblox**, puis dans **Paramètres du jeu > Autorisations**, rendre le jeu public (ou
-réservé aux amis). Lance le jeu depuis sa page Roblox, ouvre le HUB et invite ton ami. Pour
-essayer à deux en local : **Test > Clients et serveurs**, 2 joueurs.
+réservé aux amis). Pour un ami : **JOUEURS DU SERVEUR (H)** › INVITER UN AMI. Pour essayer à
+deux en local : **Test > Clients et serveurs**, 2 joueurs.
 
 ## Avatars R15 et R6
 
@@ -355,7 +377,7 @@ luau tests/Kits.test.luau             # les 8 kits, leurs passifs, la palette de
 luau tests/PressQueue.test.luau
 luau tests/Fuzz.test.luau            # entrées aléatoires, tous les duels : invariants
 luau tests/Cinematography.test.luau  # cadrage de chaque ultime avec le vrai rig
-luau tests/Lobby.test.luau           # règles du hub (défis, places)
+luau tests/Lobby.test.luau           # hub (défis), menu (modes), recherche d'adversaire, Elo
 python3 tools/rigcheck.py check      # construit chaque perso (corps + tenues R15 / R6) hors Studio
 luau tests/Balance.luau -a 4 120   # rapport d'équilibrage CPU contre CPU (niveau, matchs)
 ```

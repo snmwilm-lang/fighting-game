@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.13.7",
+	Version = "0.14.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -90,6 +90,7 @@ return table.freeze({
 	-- Match
 	RoundSeconds = 99,
 	RoundsToWin = 2,
+	TeamHealOnKO = 0.2, -- teams (relay): the fighter who stays in gets back this share of its health
 	IntroTicks = 130,
 	KOTicks = 200,
 	MatchEndTicks = 260,

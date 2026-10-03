@@ -47,16 +47,17 @@ function HubController.new(remote)
 	local player = Players.LocalPlayer
 	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 8 }, player:WaitForChild("PlayerGui"))
 	-- HUB MULTI button, top right, big and gold; the H key opens / closes the hub too.
-	self.toggle = button(gui, "HUB MULTI (H)", GOLD, {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 112), Size = UDim2.fromOffset(220, 36), TextSize = 15,
+	self.toggle = button(gui, "JOUEURS DU SERVEUR (H)", GOLD, {
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 128), Size = UDim2.fromOffset(300, 36), TextSize = 15,
 		TextColor3 = GOLD, ZIndex = 5,
 	})
 	-- The hub itself: a lobby panel in the middle of the screen. It opens on arrival.
 	local panel = new("Frame", {
-		Name = "Players", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.04, BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(480, 0),
+		Name = "Players", Visible = false, BackgroundColor3 = Color3.fromHex("15151B"), BackgroundTransparency = 0, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(520, 0),
 		AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 10,
 	}, gui)
+	new("UICorner", { CornerRadius = UDim.new(0, 10) }, panel)
 	stroke(panel, 3, GOLD)
 	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8),
 		PaddingBottom = UDim.new(0, 10) }, panel)
@@ -103,7 +104,6 @@ function HubController.new(remote)
 		for _, p in self.status do before[p.id] = p.name end
 		local first = not self.received
 		self.received = true
-		if first then self.panel.Visible = true end -- the hub greets every arrival
 		self.status, self.seconds = packet.players or {}, packet.seconds or 30
 		local me, arrived = Players.LocalPlayer.UserId, nil
 		for _, p in self.status do
@@ -112,12 +112,11 @@ function HubController.new(remote)
 		end
 		local left = next(before) and before[next(before)]
 		if arrived and not first then
-			self:say(arrived.name .. " a rejoint le serveur · HUB pour le défier")
+			self:say(arrived.name .. " a rejoint le serveur · H pour le défier")
 		elseif left and not first then
 			self:say(left .. " a quitté le serveur")
 		end
 		-- Someone to fight and nobody to fight yet: open the list.
-		if arrived and not self:fightingHuman() then self.panel.Visible = true end
 		self:render()
 	end)
 	remote:FireServer("hello") -- the hub status, now
@@ -162,7 +161,7 @@ function HubController:render()
 		if p.id == me then mine = p end
 		if p.slot > 0 then fighting += 1 end
 	end
-	self.toggle.Text = "HUB MULTI (H) · " .. #self.status .. (if #self.status > 1 then " JOUEURS" else " JOUEUR")
+	self.toggle.Text = "JOUEURS DU SERVEUR (H) · " .. #self.status
 	for _, child in self.panel:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
 	end
@@ -173,25 +172,28 @@ function HubController:render()
 		props.BackgroundTransparency = 1
 		return new("Frame", props, self.panel)
 	end
-	local title = line({ Size = UDim2.new(1, 0, 0, 36) })
-	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -40, 1, 0), Font = DISPLAY, TextSize = 34,
-		TextColor3 = GOLD, Text = "HUB MULTI · 1 CONTRE 1", TextXAlignment = Enum.TextXAlignment.Left }, title)
-	local close = button(title, "X", RED, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 2), Size = UDim2.fromOffset(32, 28) })
+	local title = line({ Size = UDim2.new(1, 0, 0, 44) })
+	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -56, 1, 0), Font = DISPLAY, TextSize = 36,
+		TextColor3 = GOLD, Text = "JOUEURS DU SERVEUR · DÉFIS", TextXAlignment = Enum.TextXAlignment.Left }, title)
+	-- A big red close button, easy to see and to hit.
+	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(44, 44),
+		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "✕", TextColor3 = WHITE, AutoButtonColor = true }, title)
+	new("UICorner", { CornerRadius = UDim.new(0, 8) }, close)
+	stroke(close, 2, WHITE)
 	close.Activated:Connect(function() self.panel.Visible = false end)
 	-- Where the local player is right now.
 	local opponent
 	for _, p in self.status do
 		if p.id ~= me and p.slot > 0 then opponent = p.name end
 	end
-	local where = if mine and mine.slot > 0 then (if opponent then "TU COMBATS " .. opponent else "TU COMBATS LE CPU")
-		elseif fighting > 0 then "TU ES AU HUB : tu regardes le combat en cours"
-		else "TU ES AU HUB"
+	local where = if mine and mine.slot > 0 then (if opponent then "TU COMBATS " .. opponent else "TU ES EN COMBAT")
+		else "DÉFIE un joueur : il ACCEPTE, le 1 contre 1 commence (avec l'équipe choisie au menu)"
 	local stateLine = line({ Size = UDim2.new(1, 0, 0, 20) })
 	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 13,
 		TextColor3 = WHITE, Text = where, TextXAlignment = Enum.TextXAlignment.Left }, stateLine)
 	for _, p in self.status do
 		local row = line({ Size = UDim2.new(1, 0, 0, 30) })
-		local state = if p.slot > 0 then "EN COMBAT" else "AU HUB"
+		local state = p.where or (if p.slot > 0 then "EN COMBAT" else "AU MENU")
 		new("TextLabel", {
 			BackgroundTransparency = 1, Size = UDim2.new(1, -130, 1, 0), Font = UI_FONT, TextSize = 13,
 			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
@@ -229,16 +231,9 @@ function HubController:render()
 	invite.Activated:Connect(function()
 		if not self:invite() then invite.Text = "INDISPONIBLE ICI" end
 	end)
-	if mine and mine.slot > 0 then
-		local quit = button(actions, "QUITTER LE COMBAT", RED, { Size = UDim2.fromOffset(150, 28) })
-		quit.Activated:Connect(function() self.remote:FireServer("quit") end)
-	elseif mine and fighting == 0 then
-		local play = button(actions, "JOUER CONTRE LE CPU", RED, { Size = UDim2.fromOffset(170, 28) })
-		play.Activated:Connect(function() self.remote:FireServer("play") end)
-	end
 	local keys = line({ Size = UDim2.new(1, 0, 0, 16) })
 	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 10, TextColor3 = GREY,
-		Text = "H : ouvrir / fermer le hub", TextXAlignment = Enum.TextXAlignment.Left }, keys)
+		Text = "H : ouvrir / fermer cette fenêtre", TextXAlignment = Enum.TextXAlignment.Left }, keys)
 	-- Incoming challenge: the most recent one is shown in the banner.
 	local from = mine and mine.from and mine.from[#mine.from]
 	if from ~= self.shownChallenge then

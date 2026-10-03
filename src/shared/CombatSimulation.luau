@@ -63,6 +63,11 @@ local function resetFighters(world)
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
 			world.fighters[slot].latencyTicks = old.latencyTicks
 			world.fighters[slot].fatalUsed = old.fatalUsed -- the COUP FATAL is once per match
+			-- Teams (relay): the fighter who stays in keeps the health it had left.
+			local carry = world.teams and world.teams[slot].carryHp
+			if carry and old.kit == world.kits[slot] then
+				world.fighters[slot].hp = math.clamp(carry, 1, world.fighters[slot].maxHp)
+			end
 		end
 	end
 	world.epoch += 1
@@ -92,8 +97,37 @@ end
 -- Chooses each slot's kit (MoveData.Kits) and starts a fresh match with their stats.
 function CombatSimulation.setKits(world, kit1, kit2)
 	local kits = world.moveData.Kits
+	world.teams = nil
 	world.kits = { if kits[kit1] then kit1 else "KAI", if kits[kit2] then kit2 else "KAI" }
 	CombatSimulation.resetMatch(world, world.training)
+end
+
+--[[
+	Teams (relay, like King of Fighters; FighterZ's 1 to 3 fighters): each side brings a list
+	of kits. A K.O. (or the lower health at the timeout) eliminates that fighter and the next
+	one of its team comes in; the fighter who won stays, keeps its health (+ TeamHealOnKO of its
+	maximum) and its ki. The match ends when a team has nobody left. A team list may grow
+	while the match runs (SURVIE: the server appends the next opponents).
+]]
+function CombatSimulation.setTeams(world, team1, team2)
+	local kits = world.moveData.Kits
+	local function clean(list)
+		local out = {}
+		for _, kit in list do
+			if kits[kit] then table.insert(out, kit) end
+		end
+		if #out == 0 then out[1] = "KAI" end
+		return out
+	end
+	world.teams = { { kits = clean(team1), index = 1 }, { kits = clean(team2), index = 1 } }
+	world.kits = { world.teams[1].kits[1], world.teams[2].kits[1] }
+	CombatSimulation.resetMatch(world, world.training)
+end
+
+-- The fighters still standing in a team (the current one included); nil without teams.
+function CombatSimulation.teamLeft(world, slot)
+	local team = world.teams and world.teams[slot]
+	return team and (#team.kits - team.index + 1)
 end
 
 local function kitOf(world, f)
@@ -122,6 +156,10 @@ end
 function CombatSimulation.resetMatch(world, training)
 	world.training = training
 	world.fighters = {}
+	if world.teams then
+		for _, team in world.teams do team.index, team.carryHp = 1, nil end
+		world.kits = { world.teams[1].kits[1], world.teams[2].kits[1] }
+	end
 	resetFighters(world)
 	world.round = 1
 	world.matchWinner = nil
@@ -1303,7 +1341,19 @@ local function endRound(world, events, reason)
 		winner = if a.hp > b.hp then 1 elseif b.hp > a.hp then 2 else 0
 	end
 	world.winner, world.reason = winner, reason
-	if not world.training then
+	if world.teams and not world.training then
+		-- Relay: the loser (both on a draw) is out; the winner stays with its health.
+		for slot = 1, 2 do
+			local team, f = world.teams[slot], world.fighters[slot]
+			if winner == 0 or winner ~= slot then
+				team.index += 1
+				team.carryHp = nil
+				world.fighters[3 - slot].wins += 1 -- (a pip per opponent knocked out)
+			else
+				team.carryHp = f.hp + f.maxHp * (c.TeamHealOnKO or 0)
+			end
+		end
+	elseif not world.training then
 		-- A draw (double KO or equal health at timeout) gives both fighters the round.
 		if winner == 0 or winner == 1 then a.wins += 1 end
 		if winner == 0 or winner == 2 then b.wins += 1 end
@@ -1334,10 +1384,31 @@ local function advancePhase(world, events)
 		world.phaseTicks -= 1
 		if world.phaseTicks > 0 then return end
 		local a, b = world.fighters[1], world.fighters[2]
+		local teams = world.teams
+		local out1 = teams and teams[1].index > #teams[1].kits
+		local out2 = teams and teams[2].index > #teams[2].kits
 		if world.training then
 			resetFighters(world)
 			world.phase = "Fight"
 			table.insert(events, { kind = "Reset" })
+		elseif teams and (out1 or out2) then
+			world.matchWinner = if out1 and out2 then 0 elseif out1 then 2 else 1
+			world.phase, world.phaseTicks = "MatchEnd", c.MatchEndTicks
+			table.insert(events, { kind = "MatchEnd", winner = world.matchWinner })
+		elseif teams then
+			-- The next fighter of each beaten team comes in.
+			local before = { world.kits[1], world.kits[2] }
+			world.kits = { teams[1].kits[teams[1].index], teams[2].kits[teams[2].index] }
+			world.round += 1
+			resetFighters(world)
+			world.phase, world.phaseTicks = "Intro", c.IntroTicks
+			for slot = 1, 2 do
+				if teams[slot].carryHp == nil then
+					table.insert(events, { kind = "TeamSwap", slot = slot, kit = world.kits[slot], from = before[slot],
+						index = teams[slot].index, size = #teams[slot].kits })
+				end
+			end
+			table.insert(events, { kind = "Round", round = world.round })
 		elseif a.wins >= c.RoundsToWin or b.wins >= c.RoundsToWin then
 			world.matchWinner = if a.wins >= c.RoundsToWin and b.wins >= c.RoundsToWin then 0
 				elseif a.wins >= c.RoundsToWin then 1 else 2

@@ -1,6 +1,9 @@
 -- Offline tests of the hub (src/server/Lobby.luau). Run from the repository root:
 --   luau tests/Lobby.test.luau
 local Lobby = require("../src/server/Lobby")
+local Matchmaker = require("../src/server/Matchmaker")
+local GameModes = require("../src/shared/GameModes")
+local MoveData = require("../src/shared/MoveData")
 local T = require("./TestKit")
 local test, expect = T.test, T.expect
 
@@ -67,6 +70,65 @@ test("quit, play and leaving keep someone fighting when possible", function()
 	Lobby.challenge(l, 3, 1, 0)
 	Lobby.leave(l, 3)
 	expect(next(l.challenges) == nil, "a challenge of a player who left is still pending")
+end)
+
+test("menu: requests are checked (mode, kits, team size, level, queue)", function()
+	local kits = MoveData.KitOrder
+	local ok = GameModes.validate({ mode = "VERSUS_CPU", team = { "KAI", "SHIN", "TARO" }, level = 4 }, kits)
+	expect(ok and #ok.team == 3 and ok.level == 4, "a valid 3-fighter request was refused")
+	expect(GameModes.validate({ mode = "VERSUS_CPU", team = { "KAI" }, level = 9 }, kits) == nil, "level 9 accepted")
+	expect(GameModes.validate({ mode = "VERSUS_CPU", team = { "GOKU" }, level = 2 }, kits) == nil, "unknown kit accepted")
+	expect(GameModes.validate({ mode = "CHALLENGE", team = { "KAI" } }, kits) == nil, "a locked mode was accepted")
+	expect(GameModes.validate({ mode = "VERSUS", team = { "KAI" }, queue = "WHATEVER" }, kits) == nil, "unknown queue accepted")
+	local four = GameModes.validate({ mode = "VERSUS", team = { "KAI", "SHIN", "TARO", "AKEMI" }, queue = "RANKED" }, kits)
+	expect(four and #four.team == 3, "a team was not capped at 3")
+	local survival = GameModes.validate({ mode = "SURVIVAL", team = { "KAI", "SHIN" } }, kits)
+	expect(survival and #survival.team == 1, "SURVIE takes a single fighter")
+	expect(GameModes.validate("hack", kits) == nil and GameModes.validate({ mode = "TRAINING" }, kits) == nil,
+		"a request without a fighter was accepted")
+end)
+
+test("menu: SURVIE waves get harder, the CPU teams have different fighters", function()
+	local kits = MoveData.KitOrder
+	local _, first = GameModes.survivalOpponent(1, kits, 0)
+	local _, later = GameModes.survivalOpponent(10, kits, 0)
+	expect(first == 1 and later == 4, "levels " .. first .. " / " .. later)
+	local team = GameModes.cpuTeam(3, kits, 5)
+	expect(#team == 3 and team[1] ~= team[2] and team[2] ~= team[3] and team[1] ~= team[3], "CPU team with doubles")
+end)
+
+test("matchmaking: NORMAL pairs by waiting order, CLASSÉ by close ratings, widening with time", function()
+	local mm = Matchmaker.new()
+	Matchmaker.enqueue(mm, 1, "NORMAL", 1000, 0)
+	Matchmaker.enqueue(mm, 2, "RANKED", 1000, 0)
+	Matchmaker.enqueue(mm, 3, "NORMAL", 1600, 1)
+	Matchmaker.enqueue(mm, 4, "RANKED", 1500, 1)
+	local pairs = Matchmaker.pair(mm, 1)
+	expect(#pairs == 1 and pairs[1].queue == "NORMAL" and pairs[1].a == 1 and pairs[1].b == 3, "NORMAL pairing")
+	expect(Matchmaker.waitingIn(mm, "RANKED") == 2, "far ratings were paired at once")
+	-- 500 points apart: paired once both waited long enough ((500 - 100) / 25 = 16 s).
+	expect(#Matchmaker.pair(mm, 10) == 0, "paired too early")
+	local late = Matchmaker.pair(mm, 18)
+	expect(#late == 1 and late[1].queue == "RANKED", "never paired after waiting")
+	-- The closest rating wins.
+	Matchmaker.enqueue(mm, 5, "RANKED", 1000, 20)
+	Matchmaker.enqueue(mm, 6, "RANKED", 1090, 20)
+	Matchmaker.enqueue(mm, 7, "RANKED", 1010, 20)
+	local close = Matchmaker.pair(mm, 20)
+	expect(#close == 1 and close[1].a == 5 and close[1].b == 7, "the closest opponent was not chosen")
+	Matchmaker.leave(mm, 6)
+	expect(Matchmaker.waitingIn(mm, "RANKED") == 0, "leaving did not remove the player")
+end)
+
+test("ranking: Elo moves points from the loser to the winner, more for an upset", function()
+	local a, b = Matchmaker.elo(1000, 1000, 1)
+	expect(a == 1016 and b == 984, "even match: " .. a .. " / " .. b)
+	local upset = Matchmaker.elo(1000, 1400, 1)
+	local expected = Matchmaker.elo(1400, 1000, 1)
+	expect(upset - 1000 > expected - 1400, "an upset should win more points")
+	local d1, d2 = Matchmaker.elo(1200, 1200, 0.5)
+	expect(d1 == 1200 and d2 == 1200, "a draw between equals changed the ratings")
+	expect(Matchmaker.rankName(950) == "ARGENT" and Matchmaker.rankName(1750) == "LÉGENDE", "rank names")
 end)
 
 T.finish()

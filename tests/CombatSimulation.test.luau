@@ -1195,4 +1195,50 @@ test("wake-up: a short invincibility once back on its feet, ended by attacking",
 	expect(d2.move ~= nil and d2.wakeInvuln == 0, "attacking kept the wake-up invincibility")
 end)
 
+test("teams (relay): a K.O. brings the next fighter in, the winner stays with its health", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setTeams(world, { "KAI" }, { "TARO", "SHIN", "AKEMI" })
+	expect(world.fighters[2].kit == "TARO" and Sim.teamLeft(world, 2) == 3, "the first fighter of team 2 should be TARO")
+	local function knockOut(loser)
+		world.phase = "Fight"
+		world.fighters[3 - loser].hp = 900
+		world.fighters[loser].hp = 0
+		local events = {}
+		for _ = 1, Config.KOTicks + 5 do
+			for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do table.insert(events, e) end
+		end
+		return events
+	end
+	local events = knockOut(2)
+	local swap = find(events, "TeamSwap")
+	expect(swap and swap.slot == 2 and swap.kit == "SHIN", "SHIN did not come in")
+	local kai = world.fighters[1]
+	expect(kai.kit == "KAI" and kai.hp == math.min(kai.maxHp, 900 + math.floor(kai.maxHp * Config.TeamHealOnKO)) or kai.hp > 900,
+		"the winner did not keep its health (+ the K.O. heal): " .. kai.hp)
+	expect(world.fighters[2].hp == world.fighters[2].maxHp, "the new fighter is not at full health")
+	expect(find(events, "MatchEnd") == nil, "the match ended with fighters left")
+	knockOut(2)
+	expect(world.fighters[2].kit == "AKEMI", "AKEMI did not come in")
+	local last = knockOut(2)
+	local finish = find(last, "MatchEnd")
+	expect(finish and finish.winner == 1, "the match did not end when team 2 had nobody left")
+end)
+
+test("teams (relay): the side whose team runs out loses, even with one fighter left on the other", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setTeams(world, { "ZEPHYR", "RYUKEN" }, { "DAICHA" })
+	world.phase = "Fight"
+	world.fighters[1].hp = 0
+	local ended = nil
+	for _ = 1, 2000 do
+		for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do
+			if e.kind == "TeamSwap" then expect(e.kit == "RYUKEN", "wrong next fighter") end
+			if e.kind == "MatchEnd" then ended = e end
+		end
+		if world.phase == "Fight" and world.fighters[1].kit == "RYUKEN" and not ended then world.fighters[1].hp = 0 end
+		if ended then break end
+	end
+	expect(ended and ended.winner == 2, "team 1 should lose once ZEPHYR and RYUKEN are out")
+end)
+
 T.finish()

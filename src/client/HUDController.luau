@@ -227,6 +227,10 @@ function HUD.new(config)
 		return b
 	end
 	-- Fighter pick first: the own kit (T) and, in solo, the CPU's (G).
+	self.menuButton = button("Menu", "◀ MENU", 84, function()
+		if self.onMenu then self.onMenu() end
+	end)
+	self.menuButton.TextColor3 = Color3.fromHex("FFD23F")
 	self.mouseButton = button("MouseLock", "SOURIS : LIBRE (CTRL)", 168, function()
 		if self.onMouseLock then self.onMouseLock() end
 	end)
@@ -340,7 +344,7 @@ function HUD.new(config)
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
 			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · RB : garde · RT : dash · SELECT : replacer"
-			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée"
+			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée · P : menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -506,6 +510,12 @@ function HUD:fillTrainer()
 	end
 end
 
+
+-- In a match: the fight HUD; in the main menu, nothing of it (the menu takes the screen).
+function HUD:setInMatch(inMatch)
+	self.inMatch = inMatch
+	self.gui.Enabled = inMatch
+end
 
 -- A brief black-and-white flash (TARO's slip: the world slows down around the dodge).
 function HUD:slowMotion(seconds)
@@ -947,6 +957,14 @@ function HUD:update(world, views, fps, dt)
 		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
 		bar.player.Text = (if localSlot == slot then "VOUS · " else "") .. view.player .. " · " .. kit.Role
+		if view.team and #view.team > 1 then
+			-- Relay team: who is out (✕), who fights (●), who waits (○).
+			local marks = {}
+			for i in view.team do
+				marks[i] = if i < (view.teamIndex or 1) then "✕" elseif i == view.teamIndex then "●" else "○"
+			end
+			bar.player.Text ..= "  ·  ÉQUIPE " .. table.concat(marks, "")
+		end
 		-- Passive gauge: ready or the seconds left (VOILE D'OMBRE, OMBRE INVERSÉE), the RAGE
 		-- stacks, the ROI DES RUINES bonus (from health), PRÉCISION's rule.
 		local passive = kit.Passive
@@ -1005,8 +1023,11 @@ function HUD:update(world, views, fps, dt)
 		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end
 	end
 	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
-	self.round.Text = if world.training then "ENTRAÎNEMENT" else "ROUND " .. world.round
-	local solo = world.solo
+	self.round.Text = if world.training then "ENTRAÎNEMENT"
+		elseif world.mode == "SURVIVAL" then "SURVIE · VAGUE " .. (world.wave or 1)
+		else "ROUND " .. world.round
+	-- Training tools only in ENTRAÎNEMENT (the server ignores them elsewhere anyway).
+	local solo = world.solo and (world.mode == nil or world.mode == "TRAINING")
 	self.labButton.Visible = solo and localSlot > 0
 	self.ultiButton.Visible = solo and localSlot > 0
 	self.ultiButton.Text = if world.ultimateConditions then "ULTIMES : ON (ki plein, vie 25 %)" else "ULTIMES : OFF"
@@ -1020,7 +1041,7 @@ function HUD:update(world, views, fps, dt)
 	self.dummyButton.Text = "MANNEQUIN : " .. world.dummyMode .. " (M)"
 	self.avatarButton.Visible = localSlot > 0
 	self.skinButton.Visible = localSlot > 0
-	self.kitButton.Visible = localSlot > 0
+	self.kitButton.Visible = solo and localSlot > 0
 	self.foeKitButton.Visible = solo and localSlot > 0
 	local stances = mine and MoveData.Kits[mine.kit] and MoveData.Kits[mine.kit].Stances
 	for rank, b in self.stanceButtons do

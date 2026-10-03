@@ -17,6 +17,7 @@ local CinematicController = require(script.CinematicController)
 local StageController = require(script.StageController)
 local SoundController = require(script.SoundController)
 local HubController = require(script.HubController)
+local MenuController = require(script.MenuController)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("FightingRemotes")
 local folder = workspace:WaitForChild("Fighters")
@@ -27,7 +28,13 @@ local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
 local stage = StageController.new(Config)
 local sounds = SoundController.new()
-HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
+local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
+local menu = MenuController.new(remotes:WaitForChild("Menu"), hub) -- main menu: modes, fighters, opponent search
+hud.onMenu = menu:bindLeave()
+-- P: back to the main menu from a match (same as the HUD's ◀ MENU).
+game:GetService("UserInputService").InputBegan:Connect(function(key, processed)
+	if not processed and key.KeyCode == Enum.KeyCode.P and (player:GetAttribute("MatchId") or 0) ~= 0 then menu:leave() end
+end)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onMouseLock = input.toggleMouseLock
@@ -82,7 +89,59 @@ effects.rigs = rigs
 local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
 local lastCinematic = nil
 local roster = nil -- last names / looks / kits sent by the server
+-- Many matches share the stage: this client draws only the two fighters of its own match
+-- (workspace.Fighters.Match<id>); every other match is hidden here (never on the server).
+local currentMatch = 0
+local hiddenConnections = {}
+local function setHidden(container, hidden)
+	local function apply(d)
+		if d:IsA("BasePart") or d:IsA("Decal") or d:IsA("Texture") then
+			d.LocalTransparencyModifier = if hidden then 1 else 0
+		elseif d:IsA("BillboardGui") or d:IsA("Highlight") or d:IsA("ParticleEmitter") or d:IsA("Beam") or d:IsA("Trail") then
+			if hidden then
+				if d:GetAttribute("WasEnabled") == nil then d:SetAttribute("WasEnabled", d.Enabled) end
+				d.Enabled = false
+			elseif d:GetAttribute("WasEnabled") ~= nil then
+				d.Enabled = d:GetAttribute("WasEnabled")
+			end
+		end
+	end
+	for _, d in container:GetDescendants() do apply(d) end
+	if hiddenConnections[container] then hiddenConnections[container]:Disconnect() end
+	hiddenConnections[container] = if hidden then container.DescendantAdded:Connect(apply) else nil
+end
+local function refreshVisibility()
+	for _, child in folder:GetChildren() do
+		setHidden(child, child.Name ~= "Match" .. currentMatch)
+	end
+end
+folder.ChildAdded:Connect(function(child)
+	task.defer(function() setHidden(child, child.Name ~= "Match" .. currentMatch) end)
+end)
+folder.ChildRemoved:Connect(function(child)
+	if hiddenConnections[child] then hiddenConnections[child]:Disconnect() end
+	hiddenConnections[child] = nil
+end)
+local function onMatchChanged()
+	local id = player:GetAttribute("MatchId") or 0
+	if id == currentMatch then return end
+	currentMatch = id
+	world, displayed, roster, lastPhase = nil, {}, nil, nil
+	table.clear(rigs)
+	generation, epoch, latestTick = -1, -1, -1
+	input.clear()
+	refreshVisibility()
+	hud:setInMatch(id ~= 0)
+	menu:setInMatch(id ~= 0)
+end
+player:GetAttributeChangedSignal("MatchId"):Connect(onMatchChanged)
+task.defer(function()
+	currentMatch = -1
+	onMatchChanged()
+end)
+
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
+	if packet.matchId ~= currentMatch then return end -- (a late packet of the previous match)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
 	-- Names, looks and kits come only when they change (see the server's roster): merged
@@ -144,7 +203,8 @@ end)
 
 local firstSeen = setmetatable({}, { __mode = "k" }) -- model -> first time seen incomplete
 local function findRig(slot)
-	local model = folder:FindFirstChild("Fighter" .. slot)
+	local container = folder:FindFirstChild("Match" .. currentMatch)
+	local model = container and container:FindFirstChild("Fighter" .. slot)
 	if not model then return nil end
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not root or not model:FindFirstChild("Head") then return nil end

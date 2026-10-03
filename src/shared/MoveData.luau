@@ -386,7 +386,7 @@ derive(TARO, {
 	TaroLowJab = "JAB BAS", TaroAirJab = "DIRECT AÉRIEN", TaroAirHook = "CROCHET AÉRIEN", TaroAirHammer = "POING MÉTÉORE",
 	TaroRisingFist = "POING ASCENDANT", TaroChase = "POURSUITE ARDENTE", TaroFinale = "K.O. DE FEU",
 	TaroRush = "RUSH DÉVASTATEUR", TaroAwakening = "UPPERCUT CÉLESTE", TaroGate = "火嵐 · TEMPÊTE DE CROCHETS", TaroFatal = "終 · DERNIÈRE CLOCHE",
-}, { damage = 1, reach = 0.94 }, {
+}, { damage = 0.96, reach = 0.94 }, {
 	TaroJab = { startup = 4, recovery = 8 },
 	TaroStraight = { startup = 5 },
 	TaroHeavy = { guardDamage = 46 },
@@ -459,15 +459,16 @@ derive(ZEPHYR, {
 	ZephyrLow = "PIED BAS", ZephyrAirKick = "PIED AÉRIEN", ZephyrAirKick2 = "DOUBLE AÉRIEN", ZephyrDiveKick = "PIQUÉ DU FAUCON",
 	ZephyrEnvol = "ENVOL", ZephyrChase = "PIQUÉ DU VENT", ZephyrFinale = "LAME FINALE", ZephyrBlade = "LAME DE VENT",
 	ZephyrRush = "VENT TRANCHEUR", ZephyrAwakening = "DRAGON ASCENDANT", ZephyrGate = "旋風 · CYCLONE FURIEUX", ZephyrFatal = "嵐 · CHUTE DE LA LUNE",
-}, { damage = 1.05, startup = 0, reach = 1.12 }, {
+}, { damage = 1.08, startup = 0, reach = 1.12 }, {
 	ZephyrBlade = { startup = 11, projectile = { speed = 36, life = 75, damage = 58, halfHeight = 0.7 } },
 	ZephyrPush = { push = 36 },
 })
 
 -- ===================================================================== AKEMI 影 · shadow
 -- Fast and evasive but fragile: the lowest health, quicker wind-ups, a dash that slips
--- through attacks and the passive VOILE D'OMBRE (the first hit of an attack sequence is
--- evaded every 20 s, see Kits.AKEMI.Passive). Crouch + E throws kunai.
+-- through attacks and the passive VOILE D'OMBRE (like Ultra Instinct: 2 evades in stock, each
+-- back in 18 s, sooner when she lands hits, then a counter from behind; see
+-- Kits.AKEMI.Passive). Crouch + E throws kunai.
 local AKEMI = {
 	Jab = "AkemiEdge", Cross = "AkemiPalm", Elbow = "AkemiKnee", Kick = "AkemiFlip",
 	BodyBlow = "AkemiPierce", Uppercut = "AkemiRise", PalmStrike = "AkemiMark",
@@ -487,7 +488,7 @@ derive(AKEMI, {
 	AkemiLow = "COUP BAS", AkemiAirEdge = "LAME AÉRIENNE", AkemiAirEdge2 = "DOUBLE LAME", AkemiStoop = "PIQUÉ",
 	AkemiStep = "PAS DE L'OMBRE", AkemiChase = "TRAQUE", AkemiFinale = "EXÉCUTION", AkemiKunai = "KUNAÏ",
 	AkemiRush = "OMBRES MULTIPLES", AkemiAwakening = "TEMPS SUSPENDU", AkemiGate = "幻舞 · DANSE FANTÔME", AkemiFatal = "刻 · L'INSTANT VOLÉ",
-}, { damage = 0.88, startup = 0, reach = 1 }, {
+}, { damage = 0.85, startup = 0, reach = 1 }, {
 	AkemiStep = { lunge = 26, invuln = { from = 1, to = 11 }, damage = 80 },
 	AkemiKunai = { startup = 11, projectile = { speed = 40, life = 55, damage = 40, halfHeight = 0.6, halfWidth = 0.7 } },
 })
@@ -544,7 +545,7 @@ derive(SHIN, {
 	ShinLow = "TRANCHE BASSE", ShinAirCut = "TRANCHE AÉRIENNE", ShinAirCut2 = "DOUBLE TRANCHE", ShinDive = "PIQUÉ DE LAME",
 	ShinStep = "PAS DU VENT", ShinChase = "POURSUITE", ShinFinale = "COUPE FINALE", ShinCurrent = "COURANT TRANCHANT",
 	ShinRush = "DANSE DES COURANTS", ShinAwakening = "TEMPÊTE CONTINUE", ShinGate = "零 · ZÉRO HORIZON", ShinFatal = "一閃 · ISSEN",
-}, { damage = 0.98, startup = 0, reach = 1.22 }, {
+}, { damage = 1.15, startup = 0, reach = 1.22 }, {
 	ShinStep = { lunge = 34, invuln = { from = 1, to = 9 }, damage = 82, launch = 30 },
 	ShinBreaker = { guardDamage = 46 },
 	ShinCurrent = { startup = 10, projectile = { speed = 48, life = 40, damage = 50, halfHeight = 0.5, halfWidth = 1.4 } },
@@ -573,7 +574,7 @@ derive(DAICHA, {
 	DaichaLow = "GRIFFE BASSE", DaichaAirClaw = "GRIFFE AÉRIENNE", DaichaAirClaw2 = "DOUBLE GRIFFE", DaichaDive = "PIQUÉ D'OMBRE",
 	DaichaTeleport = "TÉLÉPORTATION", DaichaChase = "POURSUITE", DaichaFinale = "RETOUR AU NÉANT", DaichaSphere = "SPHÈRE INVERSÉE",
 	DaichaRush = "DOMAINE OBSCUR", DaichaAwakening = "RIVIÈRE D'OMBRES", DaichaGate = "蝕 · ÉCLIPSE TOTALE", DaichaFatal = "虚 · NÉANT",
-}, { damage = 1.0, startup = 0, reach = 1.05 }, {
+}, { damage = 1.15, startup = 0, reach = 1.05 }, {
 	-- (limited range, 2 s before the next one, shorter invulnerability: no more teleport on every click)
 	DaichaTeleport = { lunge = 0, invuln = { from = 1, to = 8 }, teleport = 1.7, teleportRange = 9, teleportCooldown = 120,
 		damage = 70, launch = 26, recovery = 32 },
@@ -661,8 +662,8 @@ local CINEMATICS = {
 		Length = 150,
 		FinalTick = 118,
 		Hits = { 22, 30, 37, 44, 51, 58, 65, 72, 80, 88, 96 },
-		HitDamage = 22,
-		FinalDamage = 170,
+		HitDamage = 16,
+		FinalDamage = 130,
 		MinScaling = 0.5,
 	},
 	-- 開天 · PORTE DES CIEUX: a gate drags the target into a crimson world for one blow.
@@ -675,7 +676,7 @@ local CINEMATICS = {
 		FinalTick = 150,
 		Hits = { 118, 126 },
 		HitShare = 0.05,
-		MaxHealthShare = 0.4,
+		MaxHealthShare = 0.3,
 		FinishExtra = 200,
 		PromptTicks = { 140 },
 		PromptWindow = 4,
@@ -691,8 +692,9 @@ local CINEMATICS = {
 		Length = 240,
 		FinalTick = 150,
 		Hits = {},
-		ComboShare = 0.95,
-		RawShare = 0.6,
+		ComboShare = 0.5,
+		RawShare = 0.3,
+		FinishThreshold = 0.5, -- it only kills a target already under half of its health
 		MissRatio = 0.4,
 		FinishExtra = 0,
 		PromptTicks = { 138 },
@@ -709,8 +711,8 @@ local CINEMATICS = {
 		FinalTick = 160,
 		Hits = { 70, 78, 86, 94, 102, 110, 118 },
 		HitShare = 0.03,
-		MaxHealthShare = 0.35,
-		MissShare = 0.0575,
+		MaxHealthShare = 0.3,
+		MissShare = 0.045,
 		FinishExtra = 200, -- the K.O. scene of a FINAL FINISH
 		-- Rhythm prompts during the rush: the four first keys of the route that was played.
 		PromptTicks = { 66, 82, 98, 114 },
@@ -791,6 +793,7 @@ MoveData.Cinematics = {}
 
 kit("KAI", {
 	Kanji = "開", Role = "POLYVALENT",
+	Difficulty = 1, -- 1 = simple to pick up, 3 = technical (shown as stars)
 	Description = "Tout-terrain : poings, pieds et boule de ki.",
 	Roles = KAI_ROLES,
 	Stats = { MaxHealth = 1550, WalkSpeed = 17, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 38 },
@@ -801,6 +804,7 @@ kit("KAI", {
 })
 kit("TARO", {
 	Kanji = "火", Role = "BOXEUR",
+	Difficulty = 2,
 	Description = "Que les poings, deux styles : CLASSIQUE (touche & / 1 : garde de fer, frappe lourde, DROITE DU CHAMPION) "
 		.. "ou ESQUIVE (touche é / 2 : esquive de buste, DEMPSEY ROLL, PARADE qui contre).",
 	Roles = TARO,
@@ -823,7 +827,7 @@ kit("TARO", {
 		},
 	},
 	Starters = { Crouch = { Special = "TaroParry" } },
-	Stats = { MaxHealth = 1600, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
+	Stats = { MaxHealth = 1560, WalkSpeed = 15.5, AirSpeed = 13, JumpVelocity = 41, DashSpeed = 36, GuardDamageTaken = 0.8 },
 	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "OVERHAND", "PLONGEON", "GATLING", "HUIT", "VOLCAN", "ÉRUPTION", "MÉTÉORE" },
 	FullRouteNames = { "GATLING", "HUIT", "VOLCAN", "ÉRUPTION", "MUR", "MÉTÉORE" },
 	GateTitle = { text = "火嵐", sub = "TEMPÊTE DE CROCHETS" },
@@ -831,6 +835,7 @@ kit("TARO", {
 })
 kit("ZEPHYR", {
 	Kanji = "風", Role = "JAMBES",
+	Difficulty = 2,
 	Description = "Que les pieds. Plus grande allonge, saut le plus haut, LAME DE VENT (S + E).",
 	Roles = ZEPHYR,
 	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
@@ -841,14 +846,19 @@ kit("ZEPHYR", {
 })
 kit("AKEMI", {
 	Kanji = "影", Role = "ESQUIVE",
-	Description = "Rapide et fragile : VOILE D'OMBRE esquive un coup toutes les 20 s, dash intouchable, KUNAÏ (S + E).",
+	Difficulty = 3,
+	Description = "Rapide et fragile : VOILE D'OMBRE (2 esquives d'avance, puis L ou R = contre dans le dos), dash intouchable, KUNAÏ (S + E).",
 	Roles = AKEMI,
-	Stats = { MaxHealth = 1100, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
+	Stats = { MaxHealth = 1060, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
 	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
 	-- hit is evaded: AKEMI slides back (Slide = push speed, about 2.4 studs), untouchable
-	-- for Invuln ticks, unable to act for Recovery ticks; then it recharges for Cooldown
-	-- ticks. Ultimates cannot be evaded.
-	Passive = { Type = "Evade", Name = "VOILE D'OMBRE", Cooldown = 1200, Invuln = 14, Recovery = 16, Slide = 26 },
+	-- for Invuln ticks, unable to act for Recovery ticks (except for the counter below).
+	-- Ultimates cannot be evaded.
+	-- Like Ultra Instinct Goku (DBFZ): up to Charges evades ready, each recharging in Cooldown
+	-- ticks (one after the other); each hit she lands takes HitRefund ticks off. Right after an
+	-- evade, L or R within CounterWindow ticks: she reappears behind the attacker and strikes.
+	Passive = { Type = "Evade", Name = "VOILE D'OMBRE", Charges = 2, Cooldown = 1080, HitRefund = 20, Invuln = 14,
+		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6 },
 	RouteNames = { "CHAÎNE", "ENVOL", "PERCÉE", "MUR", "CHUTE", "FAUCHE", "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "CROISSANT" },
 	FullRouteNames = { "TOURBILLON", "ENTAILLES", "CROC", "ÉCLIPSE", "MUR", "CROISSANT" },
 	GateTitle = { text = "幻舞", sub = "DANSE FANTÔME" },
@@ -857,6 +867,7 @@ kit("AKEMI", {
 -- The four fighters of Wilhem's second sheet.
 kit("RYUKEN", {
 	Kanji = "拳", Role = "FORCE",
+	Difficulty = 1,
 	Description = "Brutal : la puissance et la pression. RAGE : chaque coup porté frappe plus fort, perdue quand il est touché.",
 	Roles = RYUKEN,
 	Stats = { MaxHealth = 1500, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40 },
@@ -870,9 +881,10 @@ kit("RYUKEN", {
 })
 kit("SHIN", {
 	Kanji = "流", Role = "VITESSE",
+	Difficulty = 2,
 	Description = "Bretteur : la plus grande allonge, des coupes rapides. PRÉCISION : un coup du bout de la lame fait plus mal.",
 	Roles = SHIN,
-	Stats = { MaxHealth = 1400, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
+	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
 	-- PRÉCISION: a hit whose target stands in the outer part of the blade's reach (beyond From
 	-- of it) deals Bonus more.
 	Passive = { Type = "Tip", Name = "PRÉCISION", From = 0.62, Bonus = 0.2 },
@@ -883,9 +895,10 @@ kit("SHIN", {
 })
 kit("DAICHA", {
 	Kanji = "闇", Role = "ZONING",
+	Difficulty = 3,
 	Description = "Mystérieux : contrôle l'espace. SPHÈRE INVERSÉE (S + E), TÉLÉPORTATION, et OMBRE INVERSÉE : son dash traverse l'adversaire.",
 	Roles = DAICHA,
-	Stats = { MaxHealth = 1400, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
+	Stats = { MaxHealth = 1500, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
 	-- OMBRE INVERSÉE: a forward dash within Range studs of the opponent blinks through to
 	-- Gap studs behind them, untouchable for Invuln ticks; Cooldown before the next dash.
 	Passive = { Type = "Blink", Name = "OMBRE INVERSÉE", Range = 5, Gap = 1.8, Invuln = 10, Cooldown = 54 },
@@ -896,10 +909,11 @@ kit("DAICHA", {
 })
 kit("HIBECARES", {
 	Kanji = "崩", Role = "ENDURANCE",
+	Difficulty = 1,
 	Description = "Le roi des ruines : le plus de vie, des coups lourds. MUR DE PIERRE (S + E) encaisse et riposte ; ROI DES RUINES : plus il est blessé, plus il frappe fort.",
 	Roles = HIBECARES,
 	Starters = { Crouch = { Special = "HibecaresWall" } },
-	Stats = { MaxHealth = 1800, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
+	Stats = { MaxHealth = 1620, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
 	-- ROI DES RUINES: up to MaxBonus more damage, growing as his health falls from From to To
 	-- (shares of his maximum health).
 	Passive = { Type = "Ruins", Name = "ROI DES RUINES", MaxBonus = 0.3, From = 1, To = 0.3 },

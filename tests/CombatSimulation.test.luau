@@ -447,10 +447,10 @@ test("spamming during the route locks ÉVEIL ÉCARLATE (KAIEN RUSH instead)", fu
 	end
 end)
 
-test("ÉVEIL ÉCARLATE: the rhythm prompts decide the damage (35 % perfect, 12 % all missed), KO only if it finishes", function()
+test("ÉVEIL ÉCARLATE: the rhythm prompts decide the damage (30 % perfect, 12 % all missed), KO only if it finishes", function()
 	local maxHp = Config.MaxHealth
 	local perfect, none = awakeningDamage(maxHp, 0), awakeningDamage(maxHp, 4)
-	expect(math.abs(perfect / maxHp - 0.35) < 0.01, string.format("perfect awakening %.1f %%", perfect / maxHp * 100))
+	expect(math.abs(perfect / maxHp - 0.30) < 0.01, string.format("perfect awakening %.1f %%", perfect / maxHp * 100))
 	expect(math.abs(none / maxHp - 0.12) < 0.01, string.format("awakening with every prompt missed %.1f %%", none / maxHp * 100))
 	-- Perfect on a target with less health than that: FINAL FINISH.
 	local world = closeWorld(3, false)
@@ -1035,7 +1035,7 @@ test("COUP FATAL: only with the whole ki gauge, under 30 % of one's own health, 
 	end
 end)
 
-test("COUP FATAL: 95 % from a combo, 60 % raw; the missed C prompt costs 40 % of it", function()
+test("COUP FATAL: 65 % from a combo, 40 % raw; the missed C prompt costs 40 % of it", function()
 	local maxHp = Config.MaxHealth
 	local cin = MoveData.Cinematics.Fatal
 	local combo = math.floor(maxHp * cin.ComboShare)
@@ -1053,8 +1053,12 @@ test("COUP FATAL: 95 % from a combo, 60 % raw; the missed C prompt costs 40 % of
 	expect(world.fighters[2].hp > 0 and not find(events, "RoundEnd"), "a full-health target did not survive it")
 end)
 
-test("COUP FATAL: kills a target it out-damages (its scene is the K.O. screen), lost if dodged", function()
-	local world = fatalWorld(3, 900)
+test("COUP FATAL: kills only a target under half its health (its scene is the K.O. screen), lost if dodged", function()
+	local high = fatalWorld(3, 900) -- (more than half: it hurts, it never kills)
+	local highEvents = playFatal(high, true, true)
+	expect(find(highEvents, "CinematicStart") and not find(highEvents, "RoundEnd") and high.fighters[2].hp > 0,
+		"the COUP FATAL killed a target over half its health")
+	local world = fatalWorld(3, 700)
 	local events = playFatal(world, true, true)
 	local start = find(events, "CinematicStart")
 	expect(start and start.finish, "a killing COUP FATAL is not a finish")
@@ -1121,6 +1125,20 @@ test("ULTIMES ON: the player's ki stays full and its health at 25 % (COUP FATAL 
 	expect(Sim.fatalReady(world, f), "ULTIMES ON: no COUP FATAL")
 	local events = run(world, 30, function(t) return { input({ fatal = t == 1 }) } end)
 	expect(count(events, "SuperFlash") == 1, "the COUP FATAL did not come out with ULTIMES ON")
+end)
+
+test("PERFECT: a round won without losing any health is flagged, not otherwise", function()
+	local function finish(winnerHp)
+		local world = closeWorld(3, false)
+		world.fighters[1].hp = winnerHp or world.fighters[1].maxHp
+		world.fighters[2].hp = 5
+		local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
+		return find(events, "RoundEnd")
+	end
+	local clean = finish()
+	expect(clean and clean.winner == 1 and clean.perfect, "a flawless round is not PERFECT")
+	local hurt = finish(1000)
+	expect(hurt and hurt.winner == 1 and not hurt.perfect, "a round won while hurt is PERFECT")
 end)
 
 T.finish()

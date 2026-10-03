@@ -200,6 +200,17 @@ test("stats: health, walk speed and jump height differ per kit", function()
 	expect(jump.ZEPHYR > jump.KAI and jump.TARO < jump.KAI, "jump order")
 end)
 
+test("difficulty: every kit is rated 1 (simple) to 3 (technical), all three levels exist", function()
+	local seen = {}
+	for _, name in MoveData.KitOrder do
+		local level = Kits[name].Difficulty
+		expect(level == 1 or level == 2 or level == 3, name .. " has no difficulty from 1 to 3")
+		seen[level] = true
+	end
+	expect(seen[1] and seen[2] and seen[3], "the roster needs simple, medium and technical kits")
+	expect(Kits.KAI.Difficulty == 1, "KAI, the first kit, must stay simple to pick up")
+end)
+
 test("ZEPHYR outranges KAI and TARO from the same distance", function()
 	local function lands(name, gap)
 		local world = kitWorld(name, "KAI", gap)
@@ -506,19 +517,52 @@ test("HIBECARES: ROI DES RUINES hits harder when hurt; MUR DE PIERRE takes half 
 	expect(find(e2, "Parry") ~= nil, "the wall did not stop a low attack")
 end)
 
-test("AKEMI: VOILE D'OMBRE evades the first hit, then recharges", function()
+test("AKEMI: VOILE D'OMBRE evades on its own (2 charges), then recharges", function()
 	local world = kitWorld("KAI", "AKEMI", 3)
 	local d = world.fighters[2]
-	local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
-	expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "the first jab was not evaded")
+	local charges = Kits.AKEMI.Passive.Charges
+	for i = 1, charges do
+		world.fighters[1].x = d.x - 3
+		local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
+		expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "jab " .. i .. " was not evaded")
+	end
 	expect(d.hp == d.maxHp, "damage through the evade")
 	world.fighters[1].x = d.x - 3
 	local again = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
-	expect(find(again, "Hit") ~= nil, "evaded again during the recharge")
+	expect(find(again, "Hit") ~= nil, "evaded with no charge left")
 	run(world, Kits.AKEMI.Passive.Cooldown, nil)
 	world.fighters[1].x = d.x - 3
 	local later = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
 	expect(find(later, "Evade") ~= nil, "the passive did not recharge")
+end)
+
+test("AKEMI: right after an evade, a press brings her behind the attacker for a counter", function()
+	local world = kitWorld("KAI", "AKEMI", 3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local evaded, counter, hit = false, false, false
+	for t = 1, 60 do
+		local press = evaded and not counter
+		for _, e in Sim.step(world, { input({ light = t == 1 }), input({ light = press }) }) do
+			if e.kind == "Evade" then evaded = true end
+			if e.kind == "Blink" and e.counter then counter = true end
+			if e.kind == "Hit" and e.attacker == 2 then hit = true end
+		end
+	end
+	expect(evaded and counter, "no counter after the evade")
+	expect(hit, "the counter did not hit the attacker")
+	expect((d.x - a.x) * a.facing < 0 or hit, "she did not come out behind the attacker")
+end)
+
+test("AKEMI: every hit she lands brings VOILE D'OMBRE back sooner (2 charges, 18 s each at most)", function()
+	expect(Kits.AKEMI.Passive.Charges >= 2 and Kits.AKEMI.Passive.Cooldown <= 18 * 60,
+		"VOILE D'OMBRE: fewer than 2 charges or more than 18 s per charge")
+	local world = kitWorld("AKEMI", "KAI", 3)
+	local a = world.fighters[1]
+	a.evadeCharges, a.evadeCharge = 0, 400
+	local events = run(world, 20, function(t) return { input({ light = t == 1 }) } end)
+	expect(find(events, "Hit") ~= nil, "AKEMI's jab did not land")
+	expect(a.evadeCharge <= 400 - Kits.AKEMI.Passive.HitRefund,
+		string.format("a hit did not shorten the recharge (%d left)", a.evadeCharge))
 end)
 
 test("AKEMI: no evade while guarding, in a combo or against an ultimate", function()
@@ -526,7 +570,7 @@ test("AKEMI: no evade while guarding, in a combo or against an ultimate", functi
 	local e1 = run(guard, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
 	expect(find(e1, "Block") ~= nil and find(e1, "Evade") == nil, "a guarded hit was evaded")
 	local combo = kitWorld("KAI", "AKEMI", 3)
-	combo.fighters[2].evadeCharge = 999
+	combo.fighters[2].evadeCharges, combo.fighters[2].evadeCharge = 0, 999
 	local e2 = play(combo, { "L", "L" }, { ticks = 60 })
 	expect(find(e2, "Evade") == nil, "evaded while recharging")
 	local ultimate = kitWorld("KAI", "AKEMI", 3)

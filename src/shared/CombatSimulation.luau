@@ -23,6 +23,7 @@ local function newFighter(slot, c, kit, stanceId)
 		kit = kit.Name, stats = stats, maxHp = stats.MaxHealth,
 		stance = stance and stance.Id, stanceCooldown = 0,
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
+		evadeCharges = kit.Passive and kit.Passive.Charges or 0, evadeCounter = 0, evadeFrom = nil,
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1, teleportReady = 0,
 		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
@@ -372,6 +373,25 @@ local function stepFighter(world, f, input, events)
 	if input.block or input.jump or input.dash then
 		table.clear(f.buffer)
 	end
+	-- VOILE D'OMBRE's counter (AKEMI, like Ultra Instinct): L or R right after an evade, she
+	-- reappears behind the attacker (still in its whiffed attack) and strikes.
+	if f.evadeCounter > 0 and f.stunKind == "Evade" and f.hitstop == 0 and (input.light or input.heavy) then
+		local a = world.fighters[f.evadeFrom or (3 - f.slot)]
+		local passive = kitOf(world, f).Passive
+		if a and a.state ~= "KO" and passive then
+			local lo, hi = c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5
+			f.x = math.clamp(a.x - a.facing * (passive.CounterGap or 1.7), lo, hi)
+			f.y, f.vy, f.vx, f.pushVx = 0, 0, 0, 0
+			f.facing = if a.x >= f.x then 1 else -1
+			f.stun, f.stunKind, f.state, f.evadeCounter = 0, nil, "Idle", 0
+			f.crossed = true -- (she came out on the other side: the pushboxes keep her there)
+			table.clear(f.buffer)
+			local id = kitOf(world, f).Starters.Ground[if input.heavy then "Heavy" else "Light"]
+			startMove(world, f, id, events, false)
+			table.insert(events, { kind = "Blink", slot = f.slot, x = f.x, counter = true })
+			return
+		end
+	end
 	-- Spam = hitting every button: several buttons on the same tick, a press that overflows
 	-- the queue, a wrong button or a press that is never used. A clean route also needs
 	-- rhythm: each press once the previous attack is out (see startMove).
@@ -404,7 +424,16 @@ local function stepFighter(world, f, input, events)
 	f.frozen = false
 	f.holdBlock, f.holdCrouch = input.block, input.crouch
 	f.dashCooldown = math.max(0, f.dashCooldown - 1)
-	f.evadeCharge = math.max(0, f.evadeCharge - 1)
+	-- VOILE D'OMBRE: the charges come back one after the other.
+	local evadePassive = kitOf(world, f).Passive
+	if evadePassive and evadePassive.Type == "Evade" and f.evadeCharges < (evadePassive.Charges or 1) then
+		f.evadeCharge = math.max(0, f.evadeCharge - 1)
+		if f.evadeCharge == 0 then
+			f.evadeCharges += 1
+			if f.evadeCharges < (evadePassive.Charges or 1) then f.evadeCharge = evadePassive.Cooldown end
+		end
+	end
+	f.evadeCounter = math.max(0, f.evadeCounter - 1)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
 	f.weaveTicks = math.max(0, f.weaveTicks - 1)
@@ -701,7 +730,7 @@ local function startCinematic(world, a, d, events, moveId)
 	if cin.Type == "Fatal" then
 		-- COUP FATAL: one blow, a share of the target's MAXIMUM health (much more from a combo).
 		local total = math.floor(d.maxHp * (if a.fatalCombo then cin.ComboShare else cin.RawShare))
-		finish = total >= d.hp
+		finish = total >= d.hp and (not cin.FinishThreshold or d.hp < d.maxHp * cin.FinishThreshold)
 		table.insert(plan, { tick = cin.FinalTick, damage = total, final = true })
 	elseif cin.MaxHealthShare then
 		-- A share of the target's MAXIMUM health, ignoring combo scaling (Gate, Awaken); the
@@ -740,6 +769,7 @@ local function startCinematic(world, a, d, events, moveId)
 		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
 		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
 		prompts = prompts, nextPrompt = 1, perfect = 0, combo = if cin.Type == "Fatal" then a.fatalCombo == true else nil,
+		startHp = d.hp, -- (a finish threshold looks at the health the target had when it began)
 	}
 	a.move, a.moveContact, a.state = moveId, "Hit", "Cinematic"
 	a.pushVx, d.pushVx, a.vx = 0, 0, 0
@@ -793,7 +823,7 @@ end
 -- the attack whiffs.
 local function tryEvade(world, a, d, m, events, source)
 	local passive = kitOf(world, d).Passive
-	if not passive or passive.Type ~= "Evade" or d.evadeCharge > 0 or m.kind == "Ultimate" then return false end
+	if not passive or passive.Type ~= "Evade" or d.evadeCharges <= 0 or m.kind == "Ultimate" then return false end
 	-- Only from neutral: not in the middle of an own attack, not already hit or down.
 	if d.move or d.stun > 0 or d.launched or d.knockdown > 0 or d.getUp > 0 or d.state == "KO" then return false end
 	local sourceX = if source then source.x else a.x
@@ -803,7 +833,10 @@ local function tryEvade(world, a, d, m, events, source)
 	-- evade never grants a free punish (and the whiffed attack stays punishable only by
 	-- whoever was ready for it).
 	d.pushVx = -dir * passive.Slide
-	d.evadeCharge, d.evadeInvuln = passive.Cooldown, passive.Invuln
+	d.evadeCharges -= 1
+	if d.evadeCharge <= 0 then d.evadeCharge = passive.Cooldown end
+	d.evadeInvuln = passive.Invuln
+	d.evadeCounter, d.evadeFrom = passive.CounterWindow or 0, a.slot
 	d.stun, d.stunKind, d.vx = passive.Recovery, "Evade", 0
 	d.grace, d.dashTicks, d.weaveTicks, d.dempseyWindow = nil, 0, 0, 0
 	table.clear(d.buffer)
@@ -884,6 +917,10 @@ local function applyHit(world, a, d, m, events, source)
 	-- RAGE: a hit landed adds a stack; being hit loses them all.
 	local rage = kitOf(world, a).Passive
 	if rage and rage.Type == "Rage" then a.rage = math.min(rage.Max, a.rage + 1) end
+	-- VOILE D'OMBRE (AKEMI): each hit she lands brings her next evade closer.
+	if rage and rage.Type == "Evade" and rage.HitRefund and a.evadeCharges < (rage.Charges or 1) then
+		a.evadeCharge = math.max(1, a.evadeCharge - rage.HitRefund)
+	end
 	d.rage = 0
 	d.comboHits += 1
 	d.comboDamage += damage
@@ -1105,6 +1142,7 @@ local function judgePrompts(world, state, input, events, force)
 				if not step.done then remaining += step.damage end
 			end
 			state.finish = remaining >= d.hp
+				and (not cin.FinishThreshold or (state.startHp or d.hp) < d.maxHp * cin.FinishThreshold)
 			state.length = cin.Length + (if state.finish then cin.FinishExtra else 0)
 		end
 		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
@@ -1338,6 +1376,12 @@ function CombatSimulation.passiveGauge(world, f)
 	if passive.Type == "Blink" then return f.dashCooldown end
 	if passive.Type == "Rage" then return f.rage end
 	return nil
+end
+
+-- AKEMI's VOILE D'OMBRE: the evades ready (nil for the other passives).
+function CombatSimulation.passiveCharges(world, f)
+	local passive = kitOf(world, f).Passive
+	return if passive and passive.Type == "Evade" then f.evadeCharges else nil
 end
 
 -- Training lab: plays a cinematic directly, without performing its combo. The two fighters

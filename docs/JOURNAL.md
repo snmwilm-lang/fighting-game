@@ -1,5 +1,57 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.0 — 3 octobre 2026
+
+Retours de Wilhem : « pour AKEMI, l'esquive une fois toutes les 20 s c'est trop punitif, au
+pire fais comme Goku Ultra Instinct sur FighterZ » ; « le coup fatal qui one-shot c'est trop,
+fais un % de vie, que si l'adversaire est sous la mi-vie » ; « rééquilibre les dégâts globaux,
+ça doit vraiment être du skill vs skill » ; « quand on gagne en perfect, un gros PERFECT pour
+le gagnant, une phrase genre looser pour le perdant » ; « review des specs de tous les persos :
+certains plus simples à comprendre que d'autres, mais tous équilibrés ».
+
+- **AKEMI, VOILE D'OMBRE façon Ultra Instinct** : 2 esquives d'avance (au lieu d'une toutes
+  les 20 s), chacune revient en 18 s, chaque coup porté retire 0,33 s ; juste après une
+  esquive, L ou R dans les 14 images = **CONTRE-INSTINCT** : elle réapparaît dans le dos de
+  l'attaquant (2,6 m, le côté est verrouillé par `crossed`) et lance son starter. HUD : ●○ et
+  secondes à côté de la garde, annonce « CONTRE-INSTINCT ! ». Le CPU contre aussi.
+  `Passive = { Charges, Cooldown, HitRefund, CounterWindow, CounterGap }`,
+  `Sim.passiveCharges`, champ `passiveCharges` du snapshot.
+- **Coup fatal** : plus de one-shot. En plein combo −50 % de la vie max, à froid −30 %, et il
+  ne tue que si la cible était **déjà sous la moitié de sa vie** au début de la scène
+  (`FinishThreshold = 0.5`, jugé sur `startHp`) ; sinon elle survit et le round continue.
+- **Dégâts globaux (skill vs skill)** : le ki monte moins vite (0,5 → 0,28 des dégâts portés,
+  0,3 → 0,16 des dégâts reçus), Ruée 22/170 → 16/130, Porte 40 → 30 % de la vie max, Éveil
+  35 → 30 %. Part des dégâts mesurée (CPU contre CPU) : coups normaux 41 %, spéciales 16 %,
+  fatal 12 %, routes à skill 8 %, Ruée 8 %, Éveil 8 %, Porte 6 % (avant : ultimes 46 %) ;
+  un round dure environ 43 s.
+- **PERFECT** : victoire sans un coup reçu = gros PERFECT doré pour le gagnant ; le perdant
+  voit PERFECT en rouge et une phrase au hasard (« LOOSER… pas un seul coup porté. », « Zéro
+  dégât. ZÉRO. »…). Champ `perfect` de RoundEnd.
+- **Revue des 8 persos** : note de difficulté (`Difficulty`, affichée ★☆☆ SIMPLE / ★★☆ MOYEN
+  / ★★★ TECHNIQUE dans l'annonce du perso et le panneau des combos) : KAI, RYUKEN, HIBECARES
+  simples ; TARO, ZEPHYR, SHIN moyens ; AKEMI, DAICHA techniques. Réglages : TARO vie 1600 →
+  1560, dégâts −4 % ; ZEPHYR dégâts +5 → +8 % ; AKEMI vie 1100 → 1060, dégâts −12 → −15 % ;
+  SHIN vie 1400 → 1450, dégâts −2 → +15 % ; DAICHA vie 1400 → 1500, dégâts +15 % ;
+  HIBECARES vie 1800 → 1620.
+- Équilibre (`Balance.luau`, 120 matchs par duel) — LÉGENDE : KAI 46, TARO 52, ZEPHYR 47,
+  AKEMI 59, RYUKEN 53, SHIN 47, DAICHA 45, HIBECARES 53 ; DIFFICILE : KAI 52, TARO 55,
+  ZEPHYR 46, AKEMI 47, RYUKEN 50, SHIN 52, DAICHA 44, HIBECARES 54. Avant ce passage :
+  LÉGENDE de 35 % (DAICHA) à 65 % (AKEMI), DIFFICILE de 33 % (DAICHA) à 63 %.
+- Tests : CombatSimulation 89 (coup fatal sous la mi-vie, PERFECT), Kits 57 (AKEMI 2 charges,
+  contre dans le dos, recharge par coup porté, difficulté 1 à 3), FighterAI 10 (le test du
+  blink de DAICHA compte sur 6 graines au lieu d'une), CinematicDirector 323, Animation 35,
+  PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe. Sondes `tests/_*.luau`
+  supprimées (dont `_fatal.luau`, commité par erreur en 0.12.0).
+
+### Problèmes ouverts / prochaine étape
+
+- AKEMI monte avec le niveau du CPU (59 % en LÉGENDE, 47 % en DIFFICILE) : perso technique,
+  à surveiller en vrai match.
+- Prochaines demandes, dans l'ordre : vraies difficultés (LÉGENDE vraiment forte), menu façon
+  Street Fighter (SURVIE, 1V1 IA, 1V1 JOUEUR, ENTRAÎNEMENT), mode CHALLENGE (KAI à 4 bras),
+  équipes de 1 à 3 persos façon FighterZ, parties classées / normales avec recherche
+  d'adversaire et serveurs pour 150 joueurs (vérifiable seulement dans le jeu publié).
+
 ## Version 0.12.4 — 3 octobre 2026
 
 Retours de Wilhem : « ça explique très mal comment faire l'ultime, je fais les trois touches et

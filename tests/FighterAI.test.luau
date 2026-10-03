@@ -160,11 +160,13 @@ local function scripted(kit, level, seed, ticks, foeInput)
 end
 
 test("DAICHA's CPU blinks through the opponent (OMBRE INVERSÉE); HIBECARES's CPU walls a crouching opponent", function()
-	local blinks = 0
-	for _, e in scripted("DAICHA", 4, 11, 60 * 40, function() return Sim.neutralInput() end) do
-		if e.kind == "Blink" and not e.move then blinks += 1 end
+	local blinks = 0 -- over a few seeds: whether one fight shows a blink is luck
+	for seed = 1, 6 do
+		for _, e in scripted("DAICHA", 4, seed, 60 * 20, function() return Sim.neutralInput() end) do
+			if e.kind == "Blink" and not e.move then blinks += 1 end
+		end
 	end
-	expect(blinks >= 1, "DAICHA's CPU never blinked through")
+	expect(blinks >= 2, "DAICHA's CPU (almost) never blinked through")
 	-- A crouching opponent close by: a low is coming (too fast to see), the wall goes up.
 	local _, walls = scripted("HIBECARES", 4, 5, 60 * 20, function() return input({ crouch = true }) end)
 	expect(walls >= 1, "HIBECARES's CPU never put up the stone wall against a crouching opponent")

@@ -234,6 +234,11 @@ function FighterAI:think(world, slot)
 			self.plan = nil -- combo dropped or finished
 		end
 	end
+	-- AKEMI right after an evade: the counter behind the attacker (as often as it counters).
+	if (me.evadeCounter or 0) > 0 and me.stunKind == "Evade" and self:chance(self.level.counter) then
+		input.light = true
+		return input
+	end
 	if me.knockdown > 0 or me.getUp > 0 then self.wasDown = true end
 	if me.stun > 0 then self.wasStunned = true end
 	if me.move or (me.stun > 0 and me.stunKind ~= "Block") or me.launched or me.knockdown > 0 or me.getUp > 0 then

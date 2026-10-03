@@ -394,7 +394,7 @@ function HUD:setKit(kitName)
 	self:fillLab()
 	if not first then
 		local kit = self:kitData()
-		self:announceText(kit.Name .. " " .. kit.Kanji, kit.Role .. " · " .. kit.Description, GOLD)
+		self:announceText(kit.Name .. " " .. kit.Kanji, kit.Role .. " · " .. HUD.difficultyText(kit) .. " · " .. kit.Description, GOLD)
 	end
 end
 
@@ -504,6 +504,13 @@ function HUD:fillTrainer()
 end
 
 
+-- How hard the kit is to pick up: ★ SIMPLE, ★★ MOYEN, ★★★ TECHNIQUE.
+HUD.DIFFICULTY = { "SIMPLE", "MOYEN", "TECHNIQUE" }
+function HUD.difficultyText(kit)
+	local level = kit.Difficulty or 2
+	return string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. HUD.DIFFICULTY[level]
+end
+
 -- Combo routes of the kit, its ultimates, specials and passive.
 function HUD:fillCombos()
 	local panel = self.combosPanel
@@ -511,7 +518,7 @@ function HUD:fillCombos()
 	local kit = self:kitData()
 	local u = kit.Ultimates
 	local lines = {
-		{ kit.Name .. " " .. kit.Kanji .. " · " .. kit.Role, RED },
+		{ kit.Name .. " " .. kit.Kanji .. " · " .. kit.Role .. " · " .. HUD.difficultyText(kit), RED },
 		{ kit.Description, GREY },
 		{ "COMBOS  ·  L = clic gauche, R = clic droit", RED },
 	}
@@ -528,10 +535,10 @@ function HUD:fillCombos()
 	table.insert(lines, { "3 ULTIMES (route PROPRE seulement)", GOLD })
 	table.insert(lines, { "1. TOUCHE R du clavier (2 barres), seule ou après un coup qui touche (ex. CLIC G, CLIC G, puis TOUCHE R) : " .. moveName(kit, u.Rush), ULTIMATE })
 	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : " .. moveName(kit, u.Awaken) .. ", finale selon la route", ULTIMATE })
-	table.insert(lines, { "   jusqu'à −35 % de la vie max : chaque QTE raté pendant la rafale en retire ; FINAL FINISH s'il achève", ULTIMATE })
+	table.insert(lines, { "   jusqu'à −30 % de la vie max : chaque QTE raté pendant la rafale en retire ; FINAL FINISH s'il achève", ULTIMATE })
 	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R au sommet : +10 % ; raté : −15 %)", ULTIMATE })
 	table.insert(lines, { "COUP FATAL · touche C (manette L1) : " .. moveName(kit, "Fatal") .. " — 3 barres, ta vie sous 30 %, une fois par match", ULTIMATE })
-	table.insert(lines, { "   en plein combo : −95 % de la vie max ; à froid : −60 % ; QTE raté : −40 % du coup ; paré ou esquivé : perdu", ULTIMATE })
+	table.insert(lines, { "   en plein combo : −50 % de la vie max ; à froid : −30 % ; ne tue que sous la moitié de la vie ; QTE raté : −40 % du coup ; paré ou esquivé : perdu", ULTIMATE })
 	table.insert(lines, { "↓ + L : " .. moveName(kit, "LowKick") .. " (garde basse)  ·  ↓ + R : " .. moveName(kit, "Uppercut") .. " (lanceur)", WHITE })
 	table.insert(lines, { "Après le lanceur : ESPACE puis L L R en l'air", WHITE })
 	table.insert(lines, { "E après un coup : " .. moveName(kit, "Rising") .. " (invincible au départ)", ORANGE })
@@ -567,8 +574,9 @@ function HUD:fillCombos()
 	end
 	local passive = kit.Passive
 	if passive and passive.Type == "Evade" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " : au neutre (sans attaquer, sans être touché, sans garder), le 1er coup reçu est esquivé (recul), recharge "
-			.. math.floor(passive.Cooldown / 60) .. " s. Jamais contre les ultimes.", ORANGE })
+		table.insert(lines, { "PASSIF " .. passive.Name .. " (comme Ultra Instinct) : au neutre, un coup reçu est esquivé tout seul ; "
+			.. (passive.Charges or 1) .. " esquives en réserve, chacune revient en " .. math.floor(passive.Cooldown / 60)
+			.. " s (plus vite quand elle touche). Juste après l'esquive, CLIC G ou CLIC D : elle réapparaît dans le dos et frappe. Jamais contre les ultimes.", ORANGE })
 	elseif passive and passive.Type == "Rage" then
 		table.insert(lines, { "PASSIF " .. passive.Name .. " : chaque coup porté (pas en garde) ajoute +" .. passive.PerStack * 100 .. " % de dégâts (jusqu'à "
 			.. passive.Max .. "), tout est perdu dès qu'il est touché.", ORANGE })
@@ -764,15 +772,26 @@ function HUD:setEffectsReduced(reduced)
 	self.effectsButton.Text = if reduced then "EFFETS : RÉDUITS" else "EFFETS : FORTS"
 end
 
-function HUD:announceText(main, sub, color)
+-- What the loser of a PERFECT round reads.
+HUD.LOSER_LINES = {
+	"LOOSER… pas un seul coup porté.",
+	"Même pas une égratignure. Retourne t'entraîner.",
+	"Zéro dégât. ZÉRO.",
+	"Il ne t'a même pas senti passer.",
+	"Tu as touché le vent. Bravo.",
+	"PERFECT encaissé. Ça pique, hein ?",
+}
+
+function HUD:announceText(main, sub, color, size, hold)
 	local a = self.announce
 	a.Text, a.TextColor3, a.Visible, a.TextTransparency = main, color or WHITE, true, 0
-	self.announceScale.Scale = 2.4
-	tween(self.announceScale, 0.22, { Scale = 1 }, Enum.EasingStyle.Back)
+	-- (size: a bigger title, PERFECT; hold: seconds on screen)
+	self.announceScale.Scale = 2.4 * (size or 1)
+	tween(self.announceScale, 0.22, { Scale = size or 1 }, Enum.EasingStyle.Back)
 	self.announceSub.Text, self.announceSub.Visible = sub or "", sub ~= nil
 	self.announceId = (self.announceId or 0) + 1
 	local id = self.announceId
-	task.delay(1.3, function()
+	task.delay(hold or 1.3, function()
 		if self.announceId ~= id then return end
 		tween(a, 0.25, { TextTransparency = 1 })
 		self.announceSub.Visible = false
@@ -828,6 +847,8 @@ function HUD:onEvent(event, world)
 		local label = if event.name then event.name .. " !" else "PARADE !"
 		if event.absorbed then label ..= " −" .. event.absorbed end
 		self:callout(event.defender, label)
+	elseif event.kind == "Blink" and event.counter then
+		self:callout(event.slot, "CONTRE-INSTINCT !")
 	elseif event.kind == "Blink" and not event.move then
 		local kit = MoveData.Kits[CharacterData[event.slot].Kit]
 		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TÉLÉPORTATION") .. " !")
@@ -854,7 +875,18 @@ function HUD:onEvent(event, world)
 		local sub
 		if not world.training then
 			sub = if event.winner == 0 then "ÉGALITÉ" else CharacterData[event.winner].Name .. " " .. CharacterData[event.winner].Skin .. " GAGNE LE ROUND"
-			if event.perfect then sub = "PERFECT ! " .. sub end
+		end
+		if event.perfect and not world.training and event.winner ~= 0 then
+			-- PERFECT: the round won without losing any health. Big and gold for the winner (and
+			-- whoever watches); the loser gets a line to remember it by.
+			local localSlot = Players.LocalPlayer:GetAttribute("FighterSlot") or 0
+			if localSlot == 3 - event.winner then
+				local lines = HUD.LOSER_LINES
+				self:announceText("PERFECT", lines[(event.tick or 0) % #lines + 1], RED, 1.6, 2.6)
+			else
+				self:announceText("PERFECT", sub, Color3.fromHex("FFD23F"), 1.6, 2.6)
+			end
+			return
 		end
 		self:announceText(main, sub, if main == "K.O." then RED else WHITE)
 	elseif event.kind == "MatchEnd" then
@@ -894,6 +926,12 @@ function HUD:update(world, views, fps, dt)
 				label, ready = passive.Name .. " +" .. bonus .. " %", bonus > 0
 			elseif passive.Type == "Tip" then
 				label, ready = passive.Name .. " : BOUT DE LAME +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
+			elseif passive.Type == "Evade" then
+				-- The evades ready (●) and the seconds before the next one.
+				local charges, most = view.passiveCharges or 0, passive.Charges or 1
+				label = passive.Name .. " " .. string.rep("●", charges) .. string.rep("○", most - charges)
+					.. (if charges < most then " " .. math.ceil(gauge / 60) .. " s" else "")
+				ready = charges > 0
 			else
 				label = if gauge <= 0 then passive.Name .. " ✓" else passive.Name .. " " .. math.ceil(gauge / 60) .. " s"
 				ready = gauge <= 0

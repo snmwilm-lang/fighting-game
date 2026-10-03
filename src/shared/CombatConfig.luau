@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.12.4",
+	Version = "0.13.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -72,9 +72,9 @@ return table.freeze({
 	CinematicImpactTicks = { -4, 16 }, -- around the final blow
 	CinematicGap = 2.6,
 	MeterBar = 100,
-	MeterOnHit = 0.5, -- fractions of the damage dealt / received
+	MeterOnHit = 0.28, -- fractions of the damage dealt / received
 	MeterOnBlock = 0.25,
-	MeterWhenHit = 0.3,
+	MeterWhenHit = 0.16,
 	MeterWhenBlocking = 0.2,
 	SuperFlashTicks = 40,
 	UltimateLaunch = 34,

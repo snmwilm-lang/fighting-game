@@ -35,19 +35,24 @@ match repart à zéro) ; en solo, à tout moment.
 | Perso | Style | Vie | Points forts | Points faibles | S + E |
 |---|---|---|---|---|---|
 | **KAI 開** | polyvalent : poings, pieds, ki | 1550 | rien de faible, boule de ki | rien d'extrême | KIKOHO (boule de ki) |
-| **TARO 火** | **boxeur** : que les poings | 1600 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
-| **ZEPHYR 風** | **que les pieds** | 1450 | **plus grande allonge** (+12 %), saut le plus haut, dégâts +5 % | coups qui démarrent un peu plus tard | LAME DE VENT (projectile) |
-| **AKEMI 影** | **esquive** | **1100** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −12 % | KUNAÏ (projectile) |
+| **TARO 火** | **boxeur** : que les poings | 1560 | le plus robuste, **garde de fer** (−20 % d'usure de garde), jab le plus rapide, **esquive de buste + DEMPSEY ROLL** | allonge courte, le plus lent | **PARADE** : bloque un coup debout ou un projectile et contre-attaque (perd contre les coups bas et les ultimes) |
+| **ZEPHYR 風** | **que les pieds** | 1450 | **plus grande allonge** (+12 %), saut le plus haut, dégâts +8 % | coups qui démarrent un peu plus tard | LAME DE VENT (projectile) |
+| **AKEMI 影** | **esquive** | **1060** | la plus rapide, **dash intouchable** au départ, passif **VOILE D'OMBRE** | **encaisse le moins**, dégâts −15 % | KUNAÏ (projectile) |
 | **RYUKEN 拳** | **force** : poings brisés, pression | 1500 | coups lourds, **CHARGE FRONTALE** qui traverse l'écran, passif **RAGE** | allonge un peu courte ; perd sa RAGE dès qu'il est touché | FRAPPE SISMIQUE (onde au ras du sol : à garder accroupi) |
-| **SHIN 流** | **sabre** : vitesse, précision | 1400 | **la plus grande allonge** (+22 %), coupes rapides, **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
-| **DAICHA 闇** | **zoning** : l'espace inversé | 1400 | **SPHÈRE INVERSÉE** lente et énorme, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
-| **HIBECARES 崩** | **endurance** : le roi des ruines | **1800** | **le plus de vie**, coups lourds, garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
+| **SHIN 流** | **sabre** : vitesse, précision | 1450 | **la plus grande allonge** (+22 %), coupes rapides (dégâts +15 %), **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
+| **DAICHA 闇** | **zoning** : l'espace inversé | 1500 | **SPHÈRE INVERSÉE** lente et énorme, dégâts +15 %, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
+| **HIBECARES 崩** | **endurance** : le roi des ruines | **1620** | **le plus de vie**, coups lourds, garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
 
-**VOILE D'OMBRE** (passif d'AKEMI) : au neutre — sans attaquer, sans être déjà touchée, sans
-garder — le premier coup reçu est esquivé : AKEMI recule hors de portée, intouchable un
-instant, puis se remet en garde. Recharge en **20 s** (jauge à côté de la barre de garde),
-jamais contre les ultimes. Elle remet le neutre à zéro, elle ne donne pas de punition
-gratuite ; pour la vider, un jab seul suffit.
+**Difficulté** (affichée dans le jeu) : ★☆☆ SIMPLE — KAI, RYUKEN, HIBECARES ; ★★☆ MOYEN —
+TARO, ZEPHYR, SHIN ; ★★★ TECHNIQUE — AKEMI, DAICHA. Tous équilibrés (CPU contre CPU : entre
+44 et 59 % de victoires).
+
+**VOILE D'OMBRE** (passif d'AKEMI, façon Goku Ultra Instinct de FighterZ) : au neutre — sans
+attaquer, sans être déjà touchée, sans garder — le coup reçu est esquivé : AKEMI recule hors
+de portée, intouchable un instant. Elle a **2 esquives d'avance** (●● à côté de la barre de
+garde) ; chacune revient en **18 s**, et **chaque coup qu'elle porte retire 0,33 s**. Juste
+après une esquive, **L ou R** : **CONTRE-INSTINCT**, elle réapparaît dans le dos de
+l'attaquant et frappe. Jamais contre les ultimes ; pour vider ses esquives, des jabs suffisent.
 
 Passifs des 4 nouveaux (jauge à côté de la barre de garde) :
 
@@ -159,9 +164,9 @@ Les ruées (**R** seul) ne se ressemblent plus, chacune a sa propre structure :
   sans se presser, le 2e l'enfonce dans le sol, ses piétinements la font décoller de plus en
   plus haut, le 3e fait le cratère.
 
-Les QTE comptent : l'éveil retire **jusqu'à 35 % de la vie max** (les 4 QTE en rythme réussis),
+Les QTE comptent : l'éveil retire **jusqu'à 30 % de la vie max** (les 4 QTE en rythme réussis),
 chaque QTE raté en retire une part (tout raté : 12 %) ; il ne tue que s'il achève (FINAL FINISH).
-La finale change selon la route. La porte retire 40 % de la vie max (peut tuer) ; R pile au
+La finale change selon la route. La porte retire 30 % de la vie max (peut tuer) ; R pile au
 sommet : +10 %, raté : −15 %. Les ultimes ne sont ni esquivés ni parés.
 
 ### Le coup fatal (touche C)
@@ -169,8 +174,8 @@ sommet : +10 %, raté : −15 %. Les ultimes ne sont ni esquivés ni parés.
 Le coup du dernier souffle, inspiré des Fatal Blow (Mortal Kombat 11), Rage Art (Tekken) et
 de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois par match**.
 
-- **En plein combo** (sur un coup qui touche) : **−95 % de la vie max** de l'adversaire.
-- **À froid** (hors combo) : −60 % seulement. Lent à sortir : paré ou esquivé, il est perdu
+- **En plein combo** (sur un coup qui touche) : **−50 % de la vie max** de l'adversaire. Il ne tue **que si l'adversaire est sous la moitié de sa vie**.
+- **À froid** (hors combo) : −30 % seulement. Lent à sortir : paré ou esquivé, il est perdu
   (et la jauge avec).
 - Un seul QTE, très serré : **C** au sommet de la scène. Raté : le coup perd 40 %.
 - En **entraînement**, il est toujours disponible (avec 3 barres) pour s'exercer, sans condition de vie.

@@ -46,6 +46,8 @@ local function newFighter(slot, c, kit, stanceId)
 		comboHits = 0, comboDamage = 0, calmTicks = 0,
 		buffer = {}, -- queued presses { button, ticks }, oldest first
 		blocking = false, crouching = false, holdBlock = false, holdCrouch = false,
+		guardWindow = 0, -- ticks left to strike out of the guard (fast light attack)
+		blockChain = 0, -- hits of the current chain that were blocked (see BlockChainMax)
 		wins = 0,
 	}
 end
@@ -222,6 +224,15 @@ local function startMove(world, f, id, events, isLink)
 	end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
+	if not isLink then f.blockChain = 0 end
+	local fast = world.config.GuardCancelStartup
+	if fast and not isLink and f.guardWindow > 0 and (m.kind or "Normal") == "Normal" and not m.air
+		and m == world.moves[startersOf(world, f).Ground.Light] and m.startup > fast then
+		-- Out of the guard: the jab skips part of its wind-up.
+		f.moveFrame = m.startup - fast + 1
+		f.guardWindow = 0
+		table.insert(events, { kind = "GuardRelease", slot = f.slot })
+	end
 	if m.air then f.airAttackUsed = true end
 	if m.homing then
 		local target = world.fighters[3 - f.slot]
@@ -308,7 +319,8 @@ local function chooseMove(world, f, grounded, crouching)
 				nextId = ultimates.Gate
 				f.awakenStyle = style
 			end
-		elseif current.cancels then
+		elseif current.cancels and f.blockChain < (world.config.BlockChainMax or math.huge) then
+			-- (A guarded chain stops after BlockChainMax blocked hits: the defender gets a turn.)
 			nextId = current.cancels[button]
 			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
 			if nextId == ultimates.Finale then
@@ -425,6 +437,13 @@ local function stepFighter(world, f, input, events)
 	f.frozen = false
 	f.holdBlock, f.holdCrouch = input.block, input.crouch
 	f.dashCooldown = math.max(0, f.dashCooldown - 1)
+	-- Guard release: a light attack started while guarding or just after a blocked hit comes
+	-- out faster (GuardCancelStartup): blocking gives the turn back.
+	if f.blocking or (f.stunKind == "Block" and f.stun > 0) then
+		f.guardWindow = c.GuardCancelTicks or 0
+	else
+		f.guardWindow = math.max(0, f.guardWindow - 1)
+	end
 	-- VOILE D'OMBRE: the charges come back one after the other.
 	local evadePassive = kitOf(world, f).Passive
 	if evadePassive and evadePassive.Type == "Evade" and f.evadeCharges < (evadePassive.Charges or 1) then
@@ -884,11 +903,16 @@ local function applyHit(world, a, d, m, events, source)
 	local firstHit = source ~= nil or a.moveHits == 1
 	local stop = if final then m.hitstop else (m.multiHitstop or 3)
 	if canBlock(d, if source then source.x else a.x, m) then
-		if not source then a.moveContact = "Block" end
+		if not source then
+			a.moveContact = "Block"
+			if final then a.blockChain += 1 end
+		end
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
 		d.hp = math.max(math.min(d.hp, 1), d.hp - chip)
 		event.damage = chip
-		d.guard -= m.guardDamage * (d.stats.GuardDamageTaken or 1)
+		-- Light pokes (jab, cross...) wear the guard less: mashing does not break it.
+		local wear = if (m.kind or "Normal") == "Normal" and m.guardDamage <= 10 then c.LightGuardWear or 1 else 1
+		d.guard -= m.guardDamage * wear * (d.stats.GuardDamageTaken or 1)
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
 		if m.kind ~= "Ultimate" then gainMeter(a, m.damage * c.MeterOnBlock, c) end
@@ -910,7 +934,7 @@ local function applyHit(world, a, d, m, events, source)
 		return
 	end
 
-	if not source then a.moveContact = "Hit" end
+	if not source then a.moveContact, a.blockChain = "Hit", 0 end
 	local bonus, tip = passiveBonus(world, a, d, m, source)
 	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)

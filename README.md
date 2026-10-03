@@ -23,6 +23,10 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Perso du CPU (solo) | **G** ou bouton ADVERSAIRE | — | bouton |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
 
+**Garde** : elle marche dès la 1ʳᵉ image. Après 2 coups bloqués, l'attaquant ne peut plus
+enchaîner : c'est ton tour. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
+de quoi punir celui qui spamme. Les petits coups usent peu la garde, les gros la cassent.
+
 **Niveaux du CPU** : FACILE (débutant, il se fait avoir par le spam), NORMAL, DIFFICILE (lit à
 moitié tes habitudes), **LÉGENDE** : réagit en 0,1 s, ne lâche jamais un combo, et **lit tes
 habitudes** — spam de coups (il garde et sort son coup invincible ou le jab le plus rapide),

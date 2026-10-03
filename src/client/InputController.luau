@@ -41,9 +41,11 @@ function InputController.start(remote)
 			pulses[pulse] = true
 		end
 	end
+	local lastDirection = nil -- left + right held together: the last one pressed wins
 	local function set(action, key, down)
 		if down and not blocked and not UIS:GetFocusedTextBox() then
 			keys[key] = action
+			if action == "Left" or action == "Right" then lastDirection = action end
 			local pulse = PULSES[action]
 			if pulse then press(pulse) end
 		else keys[key] = nil end
@@ -168,6 +170,10 @@ function InputController.start(remote)
 		if blocked or UIS:GetFocusedTextBox() then return 0, false, false end
 		local right, left = has("Right"), has("Left")
 		local axis = (if right then 1 else 0) - (if left then 1 else 0)
+		if right and left then
+			-- Switching side before letting go of the other key must not stop the fighter.
+			axis = if lastDirection == "Left" then -1 else 1
+		end
 		if not right and not left then
 			local v = if activeTouch then touchStick.X else stick.X
 			axis = if math.abs(v) > Bindings.Deadzone then math.sign(v) * (math.abs(v) - Bindings.Deadzone) / (1 - Bindings.Deadzone) else 0

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.13.1",
+	Version = "0.13.2",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -31,9 +31,13 @@ return table.freeze({
 	-- Combat
 	MaxHealth = 1550, -- KAI's health (each kit has its own, see MoveData.Kits[kit].Stats)
 	MaxGuard = 100,
-	BlockDamageRatio = 0.15, -- the guard reduces damage, it does not cancel it
-	GuardRegenDelayTicks = 50,
+	BlockDamageRatio = 0.08, -- the guard reduces damage, it does not cancel it
+	GuardRegenDelayTicks = 12,
 	GuardRegenPerTick = 0.6,
+	LightGuardWear = 0.5, -- light pokes (guard damage 10 or less) wear the guard at half rate
+	BlockChainMax = 2, -- a chain stops after this many blocked hits: the defender gets a turn
+	GuardCancelTicks = 8, -- after guarding, for this long a jab comes out faster...
+	GuardCancelStartup = 3, -- ...in this many frames of wind-up
 	GuardBreakTicks = 55,
 	BufferTicks = 10, -- lifetime of a queued press (frozen during hitstop and while a hit lands)
 	BufferSize = 3, -- presses kept ahead: enough for rhythm, not to type a whole route

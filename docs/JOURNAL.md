@@ -1,5 +1,38 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.2 — 3 octobre 2026
+
+Retour de Wilhem : « les combos sont trop violents, on a l'impression que bloquer ne sert à
+rien ; pendant le blocage les combos doivent être limités ; quand on lâche la garde les coups
+légers doivent sortir entre la frame 1 et 3 ; la différence de frames doit permettre
+d'intervenir si je bloque et que l'autre me spam ; fluidifier les déplacements gauche-droite
+(on reste au même endroit) ; travailler les hitbox des ultimes, surtout en l'air ».
+
+- Mesure avant (KAI qui garde 10 s) : contre un spam de jab, la garde cassait 2 fois et
+  ~330 dégâts passaient ; contre L L L R répété, 0 sortie réussie sur 3.
+- **Chaîne limitée en garde** : après `BlockChainMax = 2` coups bloqués, l'attaquant ne peut
+  plus annuler dans le coup suivant (même en retard) : il doit récupérer, le défenseur a la
+  main. Remis à zéro dès qu'un coup touche.
+- **Sortie de garde** : pendant la garde et 8 images après (`GuardCancelTicks`), le jab sort
+  en **3 images** au lieu de 5 (`GuardCancelStartup`), événement `GuardRelease`.
+- **Garde plus solide** : dégâts gratter 15 → 8 %, les petits coups (usure ≤ 10) usent la
+  garde 2 fois moins (`LightGuardWear`), elle revient après 0,2 s au lieu de 0,8 s. Les gros
+  coups répétés la cassent toujours (~3 s de spam de R, ~21 s de spam de jab).
+- Après : contre un spam de jab, 0 dégât, 0 cassure, 10 sorties de garde sur 10 réussies.
+- **Déplacements** : gauche + droite tenues ensemble s'annulaient (le perso s'arrêtait net en
+  changeant de sens) : la dernière direction pressée gagne maintenant.
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 50, TARO 52, ZEPHYR 52, AKEMI 48,
+  RYUKEN 47, SHIN 46, DAICHA 49, HIBECARES 56 ; DIFFICILE : KAI 49, TARO 48, ZEPHYR 53,
+  AKEMI 54, RYUKEN 51, SHIN 49, DAICHA 45, HIBECARES 50.
+- Tests : CombatSimulation 92 (+3 : chaîne bloquée limitée, garde contre 10 s de spam, jab
+  en 3 images en sortie de garde), FighterAI 11, CinematicDirector 323, Animation 35, Kits 57,
+  PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- Hitbox des ultimes contre un adversaire en l'air : en cours.
+- Je n'ai rien testé dans Studio : la sensation de garde et de déplacement est à juger en jeu.
+
 ## Version 0.13.1 — 3 octobre 2026
 
 Retour de Wilhem : « les difficultés, rends-les réelles, genre LÉGENDE c'est vraiment fort ».

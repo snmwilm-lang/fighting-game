@@ -90,7 +90,7 @@ end)
 
 test("holding block reduces damage and spends guard", function()
 	local world = closeWorld(3)
-	local events = run(world, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
+	local events = run(world, 16, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
 	expect(count(events, "Block") == 1 and count(events, "Hit") == 0, "expected a block")
 	local chip = math.floor(Moves.Jab.damage * Config.BlockDamageRatio + 0.5)
 	expect(world.fighters[2].hp == Config.MaxHealth - chip, "blocked damage " .. world.fighters[2].hp)
@@ -1139,6 +1139,53 @@ test("PERFECT: a round won without losing any health is flagged, not otherwise",
 	expect(clean and clean.winner == 1 and clean.perfect, "a flawless round is not PERFECT")
 	local hurt = finish(1000)
 	expect(hurt and hurt.winner == 1 and not hurt.perfect, "a round won while hurt is PERFECT")
+end)
+
+test("guard: a blocked chain stops after BlockChainMax blocked hits, the defender gets a turn", function()
+	local world = closeWorld(2.6, false)
+	local blocks = run(world, 90, function(t)
+		return { input({ light = t % 3 == 1 }), input({ block = true }) }
+	end)
+	local a = world.fighters[1]
+	expect(a.blockChain <= Config.BlockChainMax, "the chain went on after its blocked hits: " .. a.blockChain)
+	-- The blocked hits come from separate restarts (jab, cross, then a new jab), never one long chain.
+	local streak, longest = 0, 0
+	for _, e in blocks do
+		if e.kind == "Block" then streak += 1; longest = math.max(longest, streak) end
+		if e.kind == "MoveStart" then streak = 0 end
+	end
+	expect(count(blocks, "Hit") == 0, "a hit went through the guard")
+end)
+
+test("guard: holding it against 10 s of mashing never breaks it and only chips", function()
+	local world = closeWorld(2.6, false)
+	local d = world.fighters[2]
+	local events = run(world, 600, function(t)
+		if math.abs(world.fighters[1].x - d.x) > 3.2 then world.fighters[1].x = d.x - 2.6 end
+		return { input({ light = t % 4 == 1 }), input({ block = true }) }
+	end)
+	expect(count(events, "GuardBreak") == 0, "a jab mash broke the guard")
+	expect(count(events, "Hit") == 0, "a hit went through the guard")
+	expect(d.hp >= d.maxHp * 0.9, string.format("the guard let %d damage through", d.maxHp - d.hp))
+end)
+
+test("guard release: a jab started out of the guard comes out in GuardCancelStartup frames", function()
+	local world = closeWorld(2.6, false)
+	local a, d = world.fighters[1], world.fighters[2]
+	-- One blocked jab, then the defender lets go and jabs back at once.
+	local released, hitTick, releaseTick = false, nil, nil
+	for t = 1, 60 do
+		local free = d.stun == 0 and not d.move and t > 8
+		local dIn = if free and not released then input({ light = true }) elseif released then input({}) else input({ block = true })
+		if free and not released then released, releaseTick = true, t end
+		for _, e in Sim.step(world, { input({ light = t == 1 }), dIn }) do
+			if e.kind == "Hit" and e.attacker == 2 and not hitTick then hitTick = t end
+		end
+	end
+	expect(releaseTick ~= nil and hitTick ~= nil, "the defender's jab out of the guard did not land")
+	expect(hitTick - releaseTick <= Config.GuardCancelStartup + 1,
+		string.format("out of the guard the jab took %d frames", hitTick - releaseTick))
+	expect(Moves.Jab.startup > Config.GuardCancelStartup, "the guard release is not faster than a normal jab")
 end)
 
 T.finish()

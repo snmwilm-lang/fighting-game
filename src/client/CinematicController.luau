@@ -503,7 +503,8 @@ function CinematicController:update(world, views, dt, stale)
 		self:updatePrompt(cin, tick)
 		self:showDebug(cin.move .. (if cin.style then "/" .. cin.style else "") .. (if cin.finish then "/FINISH" else ""),
 			tick, cin.length)
-		if cin.finish then self.finishEpoch = world.epoch end
+		-- (a FINAL FINISH is only certain once the blow landed: missed prompts can still undo it)
+		if cin.finish and tick >= MoveData.Cinematics[cin.move].FinalTick then self.finishEpoch = world.epoch end
 		ctx.cin, ctx.tick = cin, tick
 		local frame = Director.cinematic(ctx)
 		if frame then self:applyFrame(frame) end

@@ -40,6 +40,7 @@ local function randomPlayer(seed)
 		elseif r < 0.16 then input.dash = true
 		elseif r < 0.17 then input.light, input.heavy = true, true -- mashing two at once
 		elseif r < 0.18 then input.stance = 1 + math.floor(rand() * 2) -- TARO's style keys (others ignore them)
+		elseif r < 0.19 then input.fatal = true -- the COUP FATAL (C)
 		end
 		return input
 	end, rng
@@ -97,6 +98,13 @@ test("random players: invariants hold for every kit pairing (versus and training
 					if not ok then break end
 					-- Lots of meter now and then, so ultimates get played.
 					if tick % 900 == 0 then for _, f in world.fighters do f.meter = Config.MaxMeter end end
+					-- Now and then a fighter on its last breath (COUP FATAL ready) and a far player
+					-- (QTE judged with lag compensation).
+					if tick % 1800 == 0 then
+						local f = world.fighters[1]
+						f.hp = math.min(f.hp, math.floor(f.maxHp * 0.25))
+						f.latencyTicks = 12
+					end
 					check(world, label, tick, last)
 				end
 			end

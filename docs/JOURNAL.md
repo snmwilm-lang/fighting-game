@@ -1,5 +1,28 @@
 # Journal du projet — état à transmettre
 
+## Version 0.12.2 — 3 octobre 2026
+
+Retour de Wilhem : « l'entraîneur est bugué, arrange-le, mets-le en deux catégories ; et audite
+et règle tous les bugs ».
+
+- **Entraîneur** : le bouton ENTRAÎNEUR ouvre un panneau en deux catégories (COMBOS ★ ET
+  COUPS : routes à skill, routes courtes, spéciale ; ROUTES COMPLÈTES ET ULTIMES : 6 routes,
+  ultime, coup fatal) au lieu de faire défiler 19 combos ; le combo choisi s'affiche au-dessus
+  des cases (le bouton débordait). Bug corrigé : finir un combo court puis continuer affichait
+  « RATÉ ». Aide en bas d'écran : C / LB = coup fatal.
+- **Audit** :
+  - QTE d'un joueur lointain : le « raté » n'était jugé qu'après le coup final (fenêtre de
+    latence) ; la pénalité arrivait trop tard et le K.O. pouvait être défait après coup. Les QTE
+    en attente sont maintenant jugés ratés juste avant le coup final ; les coups déjà portés
+    sont marqués (`step.done`) pour le calcul du K.O.
+  - Client : la scène de K.O. d'un round pouvait être sautée si une cinématique annonçait un
+    FINAL FINISH que les QTE ratés ont ensuite annulé (`finishEpoch` posé seulement une fois le
+    coup final porté).
+  - HUD : couleur du titre de l'entraîneur lue avant d'être définie (aurait cassé le HUD),
+    trouvé par `luau-analyze` (passé sur tout le code : plus aucune variable inconnue).
+  - Fuzz : joue aussi le coup fatal, un combattant à 25 % de vie et un joueur lointain.
+- Tests : CombatSimulation 86 (+1 : QTE d'un joueur lointain jugé avant le coup final) ; RESULTS.
+
 ## Version 0.12.1 — 2 octobre 2026
 
 Demande de Wilhem : « dans l'entraîneur mets tous les combos spé ».

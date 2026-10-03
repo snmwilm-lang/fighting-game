@@ -1067,4 +1067,35 @@ test("COUP FATAL: kills a target it out-damages (its scene is the K.O. screen), 
 	expect(far.fighters[1].meter == 0 and far.fighters[1].fatalUsed, "a missed COUP FATAL kept the gauge")
 end)
 
+test("a far player's missed QTE is judged before the final blow: the K.O. is decided once", function()
+	for _, kind in { "Gate", "Fatal", "Awaken" } do
+		for _, hp in { 200, 700 } do
+			local world = closeWorld(3, false)
+			world.fighters[1].latencyTicks = Config.MaxLatencyTicks or 12
+			Sim.debugCinematic(world, 1, kind, MoveData.FullRoutes[1].name, hp)
+			local events = {}
+			for _ = 1, 2000 do
+				for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do table.insert(events, e) end
+				if not world.cinematic then break end
+			end
+			local final, ended
+			for _, e in events do
+				if e.kind == "Hit" and e.cinematic and e.heavy then final = e end
+				if e.kind == "CinematicEnd" then ended = e end
+			end
+			local judged = 0
+			for _, e in events do
+				if e.kind == "Prompt" then
+					judged += 1
+				end
+			end
+			expect(final and ended, kind .. ": the cinematic did not end")
+			expect(judged == #MoveData.Cinematics[MoveData.Kits.KAI.Ultimates[kind]].PromptTicks, kind .. ": prompts left unjudged")
+			expect((world.fighters[2].hp <= 0) == (ended.finish == true), string.format("%s at %d hp: finish flag %s but hp %d", kind, hp,
+				tostring(ended.finish), world.fighters[2].hp))
+			expect((final.ko == true) == (ended.finish == true), kind .. ": the final blow and the end disagree on the K.O.")
+		end
+	end
+end)
+
 T.finish()

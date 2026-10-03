@@ -257,12 +257,11 @@ function HUD.new(config)
 	self.combosButton = button("Combos", "COMBOS", 76, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
 	end)
-	-- Combo trainer: pick a full route, the bar at the bottom shows what to press and when.
+	-- Combo trainer: pick a combo in its panel (two categories), the bar at the bottom shows
+	-- what to press and when.
 	self.trainerRoute = 0
-	self.routeButton = button("Route", "ENTRAÎNEUR : OFF", 196, function()
-		self.trainerRoute = (self.trainerRoute + 1) % (#self:trainerRoutes() + 1)
-		self:refreshRouteButton()
-		self:buildTrainer()
+	self.routeButton = button("Route", "ENTRAÎNEUR ▾", 130, function()
+		self.trainerPanel.Visible = not self.trainerPanel.Visible
 	end)
 	self.labButton = button("Lab", "LABO CINÉ", 86, function()
 		self.labPanel.Visible = not self.labPanel.Visible
@@ -297,6 +296,10 @@ function HUD.new(config)
 	stroke(self.trainerNow, 3)
 	self.trainerStatus = text(trainer, { TextSize = 15, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 20),
 		Position = UDim2.fromOffset(0, 120) })
+	-- The combo being trained, above its boxes.
+	self.trainerTitle = text(trainer, { TextSize = 16, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.fromOffset(0, -22), TextColor3 = Color3.fromHex("FFD23F") })
+	stroke(self.trainerTitle, 2)
 	stroke(self.trainerStatus, 2)
 	self.trainerBoxes = {}
 
@@ -313,6 +316,7 @@ function HUD.new(config)
 	end
 	self.combosPanel = panel("CombosPanel", 380, UDim2.fromOffset(12, panelY))
 	self.labPanel = panel("LabPanel", 300, UDim2.new(1, -312, 0, panelY))
+	self.trainerPanel = panel("TrainerPanel", 330, UDim2.new(0.5, -165, 0, panelY))
 	self:setKit("KAI")
 
 	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -30), TextSize = 13,
@@ -322,8 +326,8 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · RB : garde · RT : dash · SELECT : replacer"
-			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · F : garde · SHIFT : dash · T : perso · G : perso CPU"
+			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · RB : garde · RT : dash · SELECT : replacer"
+			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -361,11 +365,18 @@ function HUD:setKit(kitName)
 	self.trainerRoute = math.min(self.trainerRoute, #self:trainerRoutes())
 	self:refreshRouteButton()
 	self:buildTrainer()
+	self:fillTrainer()
 	self:fillCombos()
 	self:fillLab()
 	if not first then
 		local kit = self:kitData()
 		self:announceText(kit.Name .. " " .. kit.Kanji, kit.Role .. " · " .. kit.Description, GOLD)
+	end
+end
+
+local function clearContent(panel)
+	for _, child in panel:GetChildren() do
+		if child:IsA("TextLabel") or child:IsA("TextButton") then child:Destroy() end
 	end
 end
 
@@ -376,35 +387,80 @@ function HUD:trainerRoutes()
 	local kit = self:kitData()
 	if self.trainerCache and self.trainerCache.kit == kit then return self.trainerCache.list end
 	local list = {}
-	for _, route in kit.Routes do
-		if route.name:find("★") and not route.keys:find("↑") then table.insert(list, route) end
+	local function add(route, category, full)
+		table.insert(list, { name = route.name, keys = route.keys, moves = route.moves, category = category, full = full })
 	end
-	for _, route in kit.FullRoutes do
-		table.insert(list, { name = route.name, keys = route.keys, moves = route.moves, full = true })
+	-- 1. COMBOS: the skill routes (★), the short routes and the special after two hits.
+	for _, route in kit.Routes do
+		if route.name:find("★") and not route.keys:find("↑") then add(route, 1) end
 	end
 	for _, route in kit.Routes do
-		if not route.name:find("★") and not route.keys:find("↑") then table.insert(list, route) end
+		if not route.name:find("★") and not route.keys:find("↑") then add(route, 1) end
 	end
 	local starters = kit.Starters.Ground
 	local jab = kit.Roles.Jab or "Jab"
 	local cross = MoveData.Moves[jab].cancels and MoveData.Moves[jab].cancels.Light or kit.Roles.Cross
-	table.insert(list, { name = "SPÉCIALE", keys = "L L E", moves = { jab, cross, kit.Roles.Rising or starters.Special } })
-	table.insert(list, { name = "ULTIME", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } })
-	table.insert(list, { name = "COUP FATAL (vie < 30 %, 3 barres)", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } })
+	add({ name = "SPÉCIALE", keys = "L L E", moves = { jab, cross, kit.Roles.Rising or starters.Special } }, 1)
+	-- 2. ULTIMES: the full routes (ÉVEIL / PORTE), the ultimate and the COUP FATAL.
+	for _, route in kit.FullRoutes do add(route, 2, true) end
+	add({ name = "ULTIME", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } }, 2)
+	add({ name = "COUP FATAL (vie < 30 %, 3 barres)", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } }, 2)
 	self.trainerCache = { kit = kit, list = list }
 	return list
 end
 
 function HUD:refreshRouteButton()
 	local route = self:trainerRoutes()[self.trainerRoute]
-	self.routeButton.Text = if route then "ENTRAÎNEUR : " .. route.name .. " (" .. route.keys .. ")" else "ENTRAÎNEUR : OFF"
-end
-
-local function clearContent(panel)
-	for _, child in panel:GetChildren() do
-		if child:IsA("TextLabel") or child:IsA("TextButton") then child:Destroy() end
+	self.routeButton.Text = if route then "ENTRAÎNEUR ✓" else "ENTRAÎNEUR ▾"
+	if self.trainerTitle then
+		self.trainerTitle.Text = if route then route.name .. "  ·  " .. route.keys:gsub("U", "R(ulti)") else ""
 	end
 end
+
+-- The trainer's panel: the combos in two categories, one button each, and OFF.
+function HUD:fillTrainer()
+	local panel = self.trainerPanel
+	if not panel then return end
+	clearContent(panel)
+	local order = 0
+	local function label(textValue, color, size)
+		order += 1
+		text(panel, { Text = textValue, TextSize = size or 13, Font = UI_FONT, Size = UDim2.new(1, 0, 0, (size or 13) + 6),
+			TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, TextWrapped = true })
+	end
+	local function choose(index)
+		self.trainerRoute = index
+		self:refreshRouteButton()
+		self:buildTrainer()
+		self.trainerPanel.Visible = false
+	end
+	local function entry(index, route)
+		order += 1
+		local selected = index == self.trainerRoute
+		local b = new("TextButton", {
+			Text = (if selected then "▶ " else "") .. route.name .. "   " .. route.keys:gsub("U", "R"),
+			Size = UDim2.new(1, 0, 0, 24), Font = UI_FONT, TextSize = 12, TextColor3 = if selected then GOLD else WHITE,
+			TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromHex("1C1C24"), AutoButtonColor = true,
+			LayoutOrder = order,
+		}, panel)
+		b.Activated:Connect(function() choose(index) end)
+	end
+	local routes = self:trainerRoutes()
+	label("ENTRAÎNEUR · " .. self:kitData().Name, RED, 18)
+	for category, title in { "COMBOS ★ ET COUPS (L = clic G, R = clic D, E = spéciale)", "ROUTES COMPLÈTES ET ULTIMES (R = ultime, C = coup fatal)" } do
+		label(title, GOLD)
+		for index, route in routes do
+			if route.category == category then entry(index, route) end
+		end
+	end
+	order += 1
+	local off = new("TextButton", {
+		Text = "ARRÊTER L'ENTRAÎNEUR", Size = UDim2.new(1, 0, 0, 24), Font = UI_FONT, TextSize = 12, TextColor3 = GREY,
+		BackgroundColor3 = Color3.fromHex("2A1418"), AutoButtonColor = true, LayoutOrder = order,
+	}, panel)
+	off.Activated:Connect(function() choose(0) end)
+end
+
 
 -- Combo routes of the kit, its ultimates, specials and passive.
 function HUD:fillCombos()
@@ -579,7 +635,9 @@ function HUD:updateTrainer(view, meterFull)
 	local typed = view.chainKeys or ""
 	local progress, failed = 0, false
 	if typed ~= "" then
-		if keys:sub(1, #typed) == typed then
+		if typed:sub(1, n) == keys then
+			progress = n -- done (going on afterwards does not undo it)
+		elseif keys:sub(1, #typed) == typed then
 			progress = #typed
 		elseif route.full and #typed == 6 and keys:sub(1, 5) == typed:sub(1, 5) and typed:sub(6, 6) == "U" then
 			progress = 6 -- ended on the R key: the gate ultimate

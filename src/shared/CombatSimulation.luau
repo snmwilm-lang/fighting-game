@@ -1038,7 +1038,7 @@ end
 -- Cinematics play as scripted, authoritative sequences: fixed hits, then a final blow.
 -- Rhythm prompts: each one is judged once. Pressing early (spam) or the wrong button fails
 -- it; missing the window fails it too. All succeeded: PARFAIT, one ki bar back.
-local function judgePrompts(world, state, input, events)
+local function judgePrompts(world, state, input, events, force)
 	local cin = world.moveData.Cinematics[state.move]
 	local prompt = state.prompts[state.nextPrompt]
 	if not prompt then return end
@@ -1064,6 +1064,7 @@ local function judgePrompts(world, state, input, events)
 	elseif state.tick - prompt.tick > cin.PromptWindow + reach then
 		result = false -- missed
 	end
+	if result == nil and force then result = false end -- (the blow lands now: too late)
 	if result == nil then return end
 	prompt.result = result
 	if result then
@@ -1099,7 +1100,7 @@ local function judgePrompts(world, state, input, events)
 			local d = world.fighters[state.defender]
 			local remaining = 0
 			for _, step in state.plan do
-				if step.tick > state.tick then remaining += step.damage end
+				if not step.done then remaining += step.damage end
 			end
 			state.finish = remaining >= d.hp
 			state.length = cin.Length + (if state.finish then cin.FinishExtra else 0)
@@ -1138,7 +1139,17 @@ local function stepCinematic(world, events, inputs)
 	end
 	local dir = if d.x >= a.x then 1 else -1
 	for _, step in state.plan do
+		if step.tick == state.tick and step.final then
+			-- A prompt still waiting (a far player's lag window) is judged missed before the
+			-- final blow: what the blow deals and whether it kills are decided now.
+			while state.nextPrompt <= #state.prompts do
+				judgePrompts(world, state, CombatSimulation.neutralInput(), events, true)
+			end
+		end
+	end
+	for _, step in state.plan do
 		if step.tick == state.tick then
+			step.done = true
 			local finishing = step.final and state.finish
 			-- Only the rush's last blow or a FINAL FINISH can KO; the awakening otherwise
 			-- always leaves the target standing on its last 5 %.

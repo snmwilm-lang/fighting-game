@@ -824,7 +824,7 @@ kit("TARO", {
 			Stats = { WalkSpeed = 17, DashSpeed = 40, GuardDamageTaken = 1, DamageDealt = 0.95 },
 			CrouchSpecial = "TaroParry",
 			-- Slips: up to Charges ready, each back in Cooldown ticks (one after the other).
-			Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6, Charges = 3, Cooldown = 420 },
+			Weave = { Window = 10, Hook = "TaroDempseyL", Finish = "TaroDempseyFinish", MaxHooks = 6, Charges = 3, Cooldown = 420, Duck = 8 },
 		},
 	},
 	Starters = { Crouch = { Special = "TaroParry" } },

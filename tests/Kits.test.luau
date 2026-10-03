@@ -129,6 +129,30 @@ for _, name in MoveData.KitOrder do
 		end
 	end)
 
+	test(name .. ": a combo launches high only once (later launchers just keep the target up)", function()
+		for _, route in Kits[name].FullRoutes do
+			local world = kitWorld(name, "KAI", 3)
+			local d = world.fighters[2]
+			local highLaunches, lastVy = 0, 0
+			local keys = split(route.keys)
+			-- Replay the route and watch the target's vertical speed jump up.
+			local step, pressedFor = 1, nil
+			for _ = 1, 500 do
+				local a = world.fighters[1]
+				local i = input()
+				local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+				if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor and a.moveHits >= (Moves[a.move].hits or 1))) then
+					if keys[step] == "L" then i.light = true else i.heavy = true end
+					pressedFor, step = key, step + 1
+				end
+				Sim.step(world, { i, Sim.neutralInput() })
+				if d.vy - lastVy > Config.RelaunchVelocity + 2 and d.vy > Config.RelaunchVelocity + 2 then highLaunches += 1 end
+				lastVy = d.vy
+			end
+			expect(highLaunches <= 1, string.format("%s %s launches high %d times", name, route.name, highLaunches))
+		end
+	end)
+
 	test(name .. ": every short route and skill connects", function()
 		for _, route in Kits[name].Routes do
 			if not route.keys:find("↑") then
@@ -255,7 +279,7 @@ test("TARO: a low attack beats the parry, and a whiffed parry can be punished", 
 	expect(hit and hit.attacker == 1, "the parry recovery was not punishable")
 end)
 
-test("TARO: the forward dash weaves under high attacks (slip + ki), lows still hit", function()
+test("TARO: the forward dash slips attacks (slip + ki), lows too, and he takes the lead", function()
 	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
 	local taro = world.fighters[2]
 	local events = run(world, 30, function(t)
@@ -268,7 +292,19 @@ test("TARO: the forward dash weaves under high attacks (slip + ki), lows still h
 	local e2 = run(low, 30, function(t)
 		return { input({ crouch = t <= 3, light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
 	end)
-	expect(find(e2, "Hit") ~= nil and find(e2, "Slip") == nil, "a low attack was slipped")
+	expect(find(e2, "Slip") ~= nil and find(e2, "Hit") == nil, "a low attack hit TARO during his slip")
+	-- After a slip the attacker is off balance: TARO's jab right after lands first.
+	local lead = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local slipped, tarohit, kaihit = false, false, false
+	for t = 1, 90 do
+		local tIn = input({ dash = t == 1, axis = -1, light = slipped and lead.fighters[2].hitstop == 0 })
+		for _, e in Sim.step(lead, { input({ heavy = t == 1 }), tIn }) do
+			if e.kind == "Slip" then slipped = true end
+			if e.kind == "Hit" and e.attacker == 2 and not kaihit then tarohit = true end
+			if e.kind == "Hit" and e.attacker == 1 and not tarohit then kaihit = true end
+		end
+	end
+	expect(slipped and tarohit and not kaihit, "TARO did not take the lead after his slip")
 	-- Only toward the opponent: a back dash is not a weave.
 	local back = esquive(kitWorld("KAI", "TARO", 4), 2)
 	run(back, 2, function() return { nil, input({ dash = true, axis = 1 }) } end)

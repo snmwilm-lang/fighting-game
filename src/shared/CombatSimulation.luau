@@ -671,7 +671,7 @@ local function stepFighter(world, f, input, events)
 		end
 		if weave and foe and f.dashDirection == (if foe.x >= f.x then 1 else -1) then
 			-- The boxer's forward dash is a weave: the head ducks under high attacks.
-			f.weaveTicks = c.DashTicks
+			f.weaveTicks = c.DashTicks + (weave.Duck or 0) -- (still ducking a moment after the dash)
 			f.dempseyWindow = c.DashTicks + weave.Window
 		end
 	end
@@ -996,7 +996,9 @@ local function applyHit(world, a, d, m, events, source)
 		end
 		d.launched = true
 	elseif m.launch > 0 then
-		d.vy = m.launch
+		-- One real launch per combo: a target already in the air is only kept up (a small
+		-- pop), never thrown sky-high again.
+		d.vy = if airborne and d.juggle > 1 then math.max(d.vy, math.min(m.launch, c.RelaunchVelocity or m.launch)) else m.launch
 		d.launched = true
 	elseif m.launch < 0 then
 		if airborne then
@@ -1034,6 +1036,7 @@ local function applyHit(world, a, d, m, events, source)
 end
 
 -- Ki blasts: swept against the opponent's hurtbox each tick, clash with enemy blasts.
+local slips -- (the boxer's slip, defined with detectHits below)
 local function stepProjectiles(world, events)
 	local c = world.config
 	local dt = 1 / c.TickRate
@@ -1065,7 +1068,8 @@ local function stepProjectiles(world, events)
 			local x1, x2 = span(p)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(d, c)
 			local h = p.data.halfHeight
-			if x1 <= dx2 and dx1 <= x2 and p.y - h <= dy2 and dy1 <= p.y + h then
+			if x1 <= dx2 and dx1 <= x2 and p.y - h <= dy2 and dy1 <= p.y + h
+				and not slips(world, world.fighters[p.owner], d, p.data, events, "p" .. p.id) then
 				p.dead = true
 				applyHit(world, world.fighters[p.owner], d, p.data, events,
 					{ x = p.x, y = p.y, dir = math.sign(p.vx) })
@@ -1083,25 +1087,33 @@ end
 -- Boxer's slip (TARO): during the weave (forward dash) and the start of each DEMPSEY ROLL
 -- hook, attacks that are not low whiff over the ducking head. Lows, projectiles and
 -- ultimates still hit. The first slip of each attack gives a little ki.
-local function slips(world, a, d, m, events)
-	if m.guard == "Low" or m.kind == "Ultimate" then return false end
+function slips(world, a, d, m, events, serial)
+	serial = serial or a.moveSerial
+	if m.kind == "Ultimate" then return false end
+	local weave = weaveOf(world, d)
+	-- The counted slips (ESQUIVE) dodge everything but the ultimates, lows and projectiles
+	-- included; the old uncounted weave only ducks under the high blows.
+	if (m.guard == "Low" or serial ~= a.moveSerial) and not (weave and weave.Charges) then return false end
 	local dm = d.move and world.moves[d.move]
 	local ducking = d.weaveTicks > 0
 		or (dm ~= nil and dm.slip ~= nil and d.moveFrame >= dm.slip.from and d.moveFrame <= dm.slip.to)
-	if d.slipSerial == a.moveSerial then return true end -- this attack was already slipped: it whiffs to the end
+	if d.slipSerial == serial then return true end -- this attack was already slipped: it whiffs to the end
 	if not ducking then return false end
 	-- Like VOILE D'OMBRE, the slips are counted (Weave.Charges, refilled over time).
-	local weave = weaveOf(world, d)
 	if weave and weave.Charges then
 		if d.slipCharges <= 0 then return false end
 		d.slipCharges -= 1
 		if d.slipCharge <= 0 then d.slipCharge = weave.Cooldown end
 	end
-	d.slipSerial = a.moveSerial
+	d.slipSerial = serial
 	gainMeter(d, world.config.SlipMeter or 0, world.config)
-	-- A short slow-down on both fighters (drawn in black and white by the client).
+	-- A short slow-down on both fighters (drawn in black and white by the client); the
+	-- attacker, thrown off balance, stays frozen longer: the boxer always takes the lead
+	-- (his DEMPSEY ROLL window opens again).
 	local freeze = world.config.SlipFreezeTicks or 0
-	a.hitstop, d.hitstop = math.max(a.hitstop, freeze), math.max(d.hitstop, freeze)
+	a.hitstop = math.max(a.hitstop, freeze + (world.config.SlipAdvantageTicks or 0))
+	d.hitstop = math.max(d.hitstop, freeze)
+	if weave then d.dempseyWindow = math.max(d.dempseyWindow, weave.Window + (world.config.SlipAdvantageTicks or 0)) end
 	table.insert(events, { kind = "Slip", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3.4 })
 	return true
 end

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.13.6",
+	Version = "0.13.7",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -47,6 +47,7 @@ return table.freeze({
 	MinComboScaling = 0.4,
 	MaxJuggleHits = 6, -- airborne hits allowed before the target becomes untouchable until landing
 	JugglePop = 18,
+	RelaunchVelocity = 20, -- a launcher on a target already in the air only keeps it up (one launch per combo)
 	SuperJumpVelocity = 50, -- jump cancel after a launcher
 	GroundBounceVelocity = 30,
 	SpikeVelocity = 30,
@@ -67,6 +68,7 @@ return table.freeze({
 	-- COUP FATAL (C): only below this share of one's own health, once per match (MoveData.Fatal).
 	FatalHealth = 0.3,
 	SlipMeter = 8, -- ki for slipping an attack (boxer weave, see CombatSimulation slips)
+	SlipAdvantageTicks = 18, -- the slipped attacker stays frozen this much longer: the boxer takes the lead
 	SlipFreezeTicks = 14, -- slow-down on both fighters when the boxer slips an attack (black and white)
 	StanceCooldownTicks = 30, -- between two stance switches (TARO: CLASSIQUE / ESQUIVE)
 	-- Ultimate cinematics play in slow motion (share of real time), slower still around the

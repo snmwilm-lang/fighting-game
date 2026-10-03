@@ -1,5 +1,36 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.7 — 3 octobre 2026
+
+Retours de Wilhem : « quand TARO esquive il prend forcément le dessus, ce n'est pas normal que je
+puisse le taper pendant son esquive » ; « pas tous les combos doivent envoyer en l'air plusieurs
+fois » ; « laisse AKEMI et TARO comme ça ».
+
+- **TARO (ESQUIVE)** : une esquive comptée esquive maintenant **tout sauf les ultimes** (coups
+  bas et projectiles compris) ; il reste baissé 8 images après le dash (`Weave.Duck`), la fin
+  du Dempsey Roll comprise ; l'attaquant esquivé reste figé 18 images de plus que lui
+  (`SlipAdvantageTicks`) et la fenêtre du DEMPSEY ROLL se rouvre : TARO prend la main (sonde :
+  le gros coup esquivé, puis 4 crochets du Dempsey qui touchent).
+- **Une seule vraie projection par combo** : un lanceur sur une cible déjà en l'air ne la
+  relance plus haut, il la maintient (vitesse plafonnée à `RelaunchVelocity = 20`). Avant, une
+  route complète comme FOUDRE de KAI projetait 5 fois. Toutes les routes complètes des 8 persos
+  passent encore.
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 48, TARO 65, ZEPHYR 51, AKEMI 37,
+  RYUKEN 47, SHIN 49, DAICHA 50, HIBECARES 55 ; DIFFICILE : KAI 50, TARO 59, ZEPHYR 54,
+  AKEMI 44, RYUKEN 50, SHIN 49, DAICHA 46, HIBECARES 48. Sur demande de Wilhem, AKEMI et TARO
+  ne sont pas retouchés : TARO est à la limite haute (65 %) et AKEMI basse en LÉGENDE ; le test
+  d'équilibre de Kits (60 matchs par duel) échoue de justesse (AKEMI 35 % en LÉGENDE).
+- Tests : Kits 68 (+8 : une seule projection haute par route complète, 8 persos ; TARO esquive
+  un coup bas et prend la main) dont l'équilibre en échec ci-dessus, CombatSimulation 92,
+  FighterAI 11, CinematicDirector 323, Animation 35, PressQueue 4, Fuzz 2, Cinematography 114,
+  Lobby 5.
+
+### Problèmes ouverts / prochaine étape
+
+- AKEMI / TARO en LÉGENDE (voir plus haut) : à juger en vrai match avant d'y retoucher.
+- « Le final de SHIN » : à préciser avec Wilhem.
+- Menu façon Street Fighter et modes de jeu.
+
 ## Version 0.13.6 — 3 octobre 2026
 
 Retour de Wilhem : « le fatal de SHIN, ce n'est pas le QTE, c'est l'animation en combo : elle

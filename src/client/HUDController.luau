@@ -316,7 +316,13 @@ function HUD.new(config)
 	end
 	self.combosPanel = panel("CombosPanel", 380, UDim2.fromOffset(12, panelY))
 	self.labPanel = panel("LabPanel", 300, UDim2.new(1, -312, 0, panelY))
-	self.trainerPanel = panel("TrainerPanel", 330, UDim2.new(0.5, -165, 0, panelY))
+	-- The trainer's picker: two scrolling columns (one per category), never taller than the screen.
+	self.trainerPanel = new("Frame", {
+		Name = "TrainerPanel", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.08, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, panelY), Size = UDim2.new(0, 760, 1, -panelY - 170),
+	}, gui)
+	stroke(self.trainerPanel, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	new("UISizeConstraint", { MaxSize = Vector2.new(math.huge, 560) }, self.trainerPanel)
 	self:setKit("KAI")
 
 	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -30), TextSize = 13,
@@ -421,44 +427,58 @@ end
 function HUD:fillTrainer()
 	local panel = self.trainerPanel
 	if not panel then return end
-	clearContent(panel)
-	local order = 0
-	local function label(textValue, color, size)
-		order += 1
-		text(panel, { Text = textValue, TextSize = size or 13, Font = UI_FONT, Size = UDim2.new(1, 0, 0, (size or 13) + 6),
-			TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, TextWrapped = true })
+	for _, child in panel:GetChildren() do
+		if not child:IsA("UIStroke") and not child:IsA("UISizeConstraint") then child:Destroy() end
 	end
 	local function choose(index)
 		self.trainerRoute = index
 		self:refreshRouteButton()
 		self:buildTrainer()
+		self:fillTrainer()
 		self.trainerPanel.Visible = false
 	end
-	local function entry(index, route)
-		order += 1
-		local selected = index == self.trainerRoute
-		local b = new("TextButton", {
-			Text = (if selected then "▶ " else "") .. route.name .. "   " .. route.keys:gsub("U", "R"),
-			Size = UDim2.new(1, 0, 0, 24), Font = UI_FONT, TextSize = 12, TextColor3 = if selected then GOLD else WHITE,
-			TextXAlignment = Enum.TextXAlignment.Left, BackgroundColor3 = Color3.fromHex("1C1C24"), AutoButtonColor = true,
-			LayoutOrder = order,
-		}, panel)
-		b.Activated:Connect(function() choose(index) end)
-	end
-	local routes = self:trainerRoutes()
-	label("ENTRAÎNEUR · " .. self:kitData().Name, RED, 18)
-	for category, title in { "COMBOS ★ ET COUPS (L = clic G, R = clic D, E = spéciale)", "ROUTES COMPLÈTES ET ULTIMES (R = ultime, C = coup fatal)" } do
-		label(title, GOLD)
-		for index, route in routes do
-			if route.category == category then entry(index, route) end
-		end
-	end
-	order += 1
+	text(panel, { Text = "ENTRAÎNEUR · " .. self:kitData().Name .. "  (choisis un combo)", TextSize = 18, Font = UI_FONT,
+		Size = UDim2.new(1, -150, 0, 26), Position = UDim2.fromOffset(10, 6), TextColor3 = RED,
+		TextXAlignment = Enum.TextXAlignment.Left })
 	local off = new("TextButton", {
-		Text = "ARRÊTER L'ENTRAÎNEUR", Size = UDim2.new(1, 0, 0, 24), Font = UI_FONT, TextSize = 12, TextColor3 = GREY,
-		BackgroundColor3 = Color3.fromHex("2A1418"), AutoButtonColor = true, LayoutOrder = order,
+		Text = "ARRÊTER", Size = UDim2.fromOffset(130, 26), Position = UDim2.new(1, -140, 0, 6), Font = UI_FONT, TextSize = 13,
+		TextColor3 = GREY, BackgroundColor3 = Color3.fromHex("2A1418"), AutoButtonColor = true,
 	}, panel)
 	off.Activated:Connect(function() choose(0) end)
+	local routes = self:trainerRoutes()
+	local titles = { "COMBOS ★ ET COUPS  ·  L = clic G, R = clic D, E = spéciale", "ROUTES COMPLÈTES ET ULTIMES  ·  R = ultime, C = coup fatal" }
+	for category, title in titles do
+		local x = if category == 1 then 0 else 0.5
+		text(panel, { Text = title, TextSize = 12, Font = UI_FONT, TextColor3 = GOLD, TextWrapped = true,
+			Size = UDim2.new(0.5, -16, 0, 30), Position = UDim2.new(x, 10, 0, 36), TextXAlignment = Enum.TextXAlignment.Left })
+		local column = new("ScrollingFrame", {
+			BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(0.5, -16, 1, -76), Position = UDim2.new(x, 8, 0, 70),
+			CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+		}, panel)
+		new("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }, column)
+		for index, route in routes do
+			if route.category == category then
+				local selected = index == self.trainerRoute
+				local names = {}
+				for _, id in route.moves do
+					local m = MoveData.Moves[id]
+					table.insert(names, if m then m.name else tostring(id))
+				end
+				local b = new("TextButton", {
+					Text = "", Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = if selected then Color3.fromHex("3A2A10") else Color3.fromHex("1C1C24"),
+					AutoButtonColor = true, LayoutOrder = index,
+				}, column)
+				text(b, { Text = (if selected then "▶ " else "") .. route.name .. "   " .. (route.keys:gsub("U", "R")), TextSize = 13,
+					Font = UI_FONT, Size = UDim2.new(1, -10, 0, 18), Position = UDim2.fromOffset(6, 3),
+					TextColor3 = if selected then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left })
+				text(b, { Text = table.concat(names, " > "), TextSize = 10, Font = UI_FONT, TextWrapped = true,
+					Size = UDim2.new(1, -10, 0, 20), Position = UDim2.fromOffset(6, 22), TextColor3 = GREY,
+					TextXAlignment = Enum.TextXAlignment.Left })
+				b.Activated:Connect(function() choose(index) end)
+			end
+		end
+	end
 end
 
 
@@ -573,8 +593,9 @@ function HUD:buildTrainer()
 		local keyLabel = text(frame, { Text = KEY_LABEL[key] or key, TextSize = 24, Size = UDim2.new(1, 0, 0, 36) })
 		local m = MoveData.Moves[route.moves[i]]
 		local moveLabel = text(frame, { Text = if m then m.name else route.moves[i], TextSize = 10, Font = UI_FONT,
-			Size = UDim2.new(1, -4, 0, 30), Position = UDim2.fromOffset(2, 36), TextWrapped = true,
+			Size = UDim2.new(1, -4, 0, 30), Position = UDim2.fromOffset(2, 36), TextWrapped = true, TextScaled = true,
 			TextColor3 = GREY })
+		new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 6 }, moveLabel)
 		self.trainerBoxes[i] = { frame = frame, outline = outline, key = key, keyLabel = keyLabel, moveLabel = moveLabel }
 	end
 end

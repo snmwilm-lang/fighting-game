@@ -1,5 +1,16 @@
 # Journal du projet — état à transmettre
 
+## Version 0.12.3 — 3 octobre 2026
+
+Retour de Wilhem : « on ne voit pas toutes les attaques de l'entraîneur ».
+
+- Le panneau de l'entraîneur (une seule colonne de 19 boutons) dépassait de l'écran. Il a
+  maintenant deux colonnes côte à côte (COMBOS ★ ET COUPS / ROUTES COMPLÈTES ET ULTIMES), qui
+  défilent si elles sont trop longues, et sa hauteur suit l'écran. Chaque combo montre ses
+  touches ET le nom de toutes ses attaques ; ARRÊTER en haut à droite.
+- Cases de l'entraîneur : le nom de l'attaque se réduit pour tenir dans la case (il était coupé).
+- Tests : CombatSimulation 86, FighterAI 10, CinematicDirector 323, Animation 35, Kits 54, PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe (le HUD n'est pas testable hors Studio).
+
 ## Version 0.12.2 — 3 octobre 2026
 
 Retour de Wilhem : « l'entraîneur est bugué, arrange-le, mets-le en deux catégories ; et audite

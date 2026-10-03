@@ -55,9 +55,16 @@ local function neutral()
 	}
 end
 
+-- The CHALLENGE boss (ASURA): LÉGENDE's reads, faster still, never drops a combo, always
+-- ends on its ultimates and reverses pressure more often. Not one of the menu's levels.
+FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 4, block = 0.93, lowBlock = 0.97, combo = 1, aggression = 0.88,
+	antiAir = 0.97, punish = 1, reversal = 0.6, counter = 0.85, zoning = 0.5, full = 0.85, promptSpread = 1, decision = 4,
+	ultimate = 1, read = 1, routes = { "hard" } })
+
+-- levelIndex: 1 (FACILE) to 4 (LÉGENDE), or "ASURA" (the boss).
 function FighterAI.new(levelIndex, seed)
 	return setmetatable({
-		level = FighterAI.Levels[levelIndex],
+		level = if levelIndex == "ASURA" then FighterAI.Boss else FighterAI.Levels[levelIndex],
 		seed = (seed or 1) % 2147483647,
 		history = {},
 		plan = nil, step = 1, pressedMove = nil,

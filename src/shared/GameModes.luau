@@ -21,8 +21,9 @@ GameModes.List = {
 		description = "Un seul perso, des adversaires à la chaîne, de plus en plus forts. Ta vie ne revient qu'un peu.", team = false },
 	{ id = "TRAINING", name = "ENTRAÎNEMENT", kanji = "練",
 		description = "Mannequin, CPU, entraîneur de combos, conditions des ultimes.", team = false },
-	{ id = "CHALLENGE", name = "CHALLENGE", kanji = "阿",
-		description = "ASURA, un KAI à quatre bras. Bientôt.", locked = true },
+	{ id = "CHALLENGE", name = "CHALLENGE · ASURA", kanji = "阿",
+		description = "ASURA, un KAI à quatre bras, sorti de la Porte des Cieux. Emmène 1 à 3 persos. Ta victoire décide de ta récompense.",
+		team = true },
 }
 
 GameModes.QUEUES = { NORMAL = true, RANKED = true }
@@ -83,6 +84,21 @@ function GameModes.cpuTeam(size, kitOrder, n)
 		team[i] = kitOrder[(n + (i - 1) * 3) % #kitOrder + 1]
 	end
 	return team
+end
+
+-- CHALLENGE: the reward is decided by how the boss was beaten.
+--   won: the player's team beat ASURA · fighters: the team's size · hpLeft: health share
+--   left on the last fighter · damage: share of ASURA's health taken (also when lost).
+-- Returns grade (0 none, 1 C, 2 B, 3 A, 4 S), the title earned, and whether KAI's ÉVEILLÉ
+-- style is unlocked (any win).
+GameModes.CHALLENGE_TITLES = { "VAINQUEUR D'ASURA", "BRISEUR DE BRAS", "ÉGAL D'ASURA", "ASURA" }
+function GameModes.challengeGrade(won, fighters, hpLeft)
+	if not won then return 0, nil, false end
+	local grade = 1 -- C: beaten with a team of 3
+	if fighters <= 2 then grade = 2 end -- B: with 2
+	if fighters <= 1 then grade = 3 end -- A: alone
+	if fighters <= 1 and hpLeft >= 0.5 then grade = 4 end -- S: alone, with half the health left
+	return grade, GameModes.CHALLENGE_TITLES[grade], true
 end
 
 return GameModes

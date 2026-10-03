@@ -924,6 +924,22 @@ kit("HIBECARES", {
 	GateTitle = { text = "崩", sub = "RUINES DU MONDE" },
 	Colors = { TORNADE = "FF8A1A", RAFALE = "FFB21A", DRAGON = "FF6A1A", FOUDRE = "FFD45A", MUR = "FF8A1A", LUNE = "C8A070" },
 })
+-- ===================================================================== ASURA 阿 · boss
+-- The CHALLENGE boss: KAI's moves with four arms (the extra pair is cosmetic, see RigBuilder),
+-- a lot more health, harder hits and a sturdier guard. Not selectable (not in KitOrder).
+kit("ASURA", {
+	Kanji = "阿", Role = "BOSS", Boss = true,
+	Difficulty = 3,
+	Description = "Un KAI à quatre bras, sorti de la Porte des Cieux. Il frappe plus fort, encaisse deux fois plus et ne lâche rien.",
+	Roles = table.clone(KAI_ROLES),
+	Stats = { MaxHealth = 2700, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40, DamageDealt = 1.2,
+		GuardDamageTaken = 0.7 },
+	RouteNames = { "CHAÎNE", "LANCEUR", "FOIE", "MUR", "HACHE", "BALAYAGE", "TORNADE", "RAFALE", "DRAGON", "FOUDRE", "LUNE" },
+	FullRouteNames = { "TORNADE", "RAFALE", "DRAGON", "FOUDRE", "MUR", "LUNE" },
+	GateTitle = { text = "阿修羅", sub = "COLÈRE DES QUATRE BRAS" },
+	Colors = { TORNADE = "FFD23F", RAFALE = "FF7A2A", DRAGON = "FFD23F", FOUDRE = "FFE9B0", MUR = "FFD23F", LUNE = "FFE9B0" },
+})
+
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)
 MoveData.Kits = table.freeze(Kits)
 MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES" })
@@ -937,7 +953,9 @@ MoveData.Cinematic = MoveData.Cinematics.KaienRush
 -- Kit of a move id (nil for unknown ids).
 local moveKit = {}
 for name, data in Kits do
-	for _, id in data.Roles do moveKit[id] = name end
+	if not data.Boss then -- (ASURA borrows KAI's moves: they stay KAI's)
+		for _, id in data.Roles do moveKit[id] = name end
+	end
 end
 moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"

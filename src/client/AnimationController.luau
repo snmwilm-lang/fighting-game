@@ -60,8 +60,36 @@ end
 
 -- view: the displayed snapshot of this fighter ({ state, move, moveFrame, x, y, vx, vy,
 -- facing, hitstop, combo, victory, intro, pose }); other: the opponent's view.
+-- ASURA's second pair of arms (RigBuilder.addFourArms): they copy the real shoulders' swing
+-- a few frames late and a little wider, so every blow seems to come twice.
+function AnimationController:swingFourArms(pose, dt)
+	local model = self.model
+	if not model then return end
+	if self.fourArms == nil then
+		self.fourArms = false
+		for _, name in { "Left", "Right" } do
+			local joint = model:FindFirstChild("Asura" .. name, true)
+			if joint and joint:IsA("Motor6D") then
+				self.fourArms = self.fourArms or {}
+				self.fourArms[name] = { joint = joint, base = joint.C0, x = 0, z = 0 }
+			end
+		end
+	end
+	if not self.fourArms then return end
+	local follow = 1 - math.exp(-14 * dt)
+	for name, info in self.fourArms do
+		local shoulder = pose[name .. "Shoulder"]
+		local tx, tz = 0, 0
+		if shoulder then tx, tz = (shoulder[1] or 0) * 0.85, (shoulder[3] or 0) * 0.6 end
+		info.x += (tx - info.x) * follow
+		info.z += (tz - info.z) * follow
+		info.joint.C0 = info.base * CFrame.Angles(rad(info.x), 0, rad(info.z))
+	end
+end
+
 function AnimationController:update(view, other, dt, now, poseRate, cinematic)
 	local pose, lift = self.animator:step(view, other, dt, now, poseRate, cinematic)
+	self:swingFourArms(pose, dt)
 	if self.retarget then
 		local c0 = Retarget.solve(self.retarget, pose, view.y or 0)
 		for name, info in self.joints do

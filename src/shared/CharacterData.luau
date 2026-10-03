@@ -170,6 +170,24 @@ local Skins = table.freeze({
 		Energy = "C080FF", Shield = "FFD45A",
 	}),
 	-- HIBECARES 崩: stone, rust and embers (RUINES); molten rock (MAGMA).
+	ASURA = style("ASURA", "ASURA", {
+		Hair = "0A0A0E", HairTip = "FFD23F",
+		SkinTone = "8A5A44", Eyes = "FFD23F",
+		Vest = "0E0E12", VestTrim = "FFD23F", Shirt = "2A0A0E",
+		Sash = "FFD23F", Wraps = "C8A040",
+		Pants = "16090B", PantsShade = "0B0507",
+		Shoes = "C8A040", ShoeAccent = "FF2A3D", Sole = "0E0E12",
+		Energy = "FFD23F", Shield = "FF2A3D",
+	}),
+	["ÉVEILLÉ"] = skin("ÉVEILLÉ", { -- KAI's style won by beating ASURA (CHALLENGE)
+		Hair = "F5F0E0", HairTip = "FFD23F",
+		SkinTone = "E3A98A", Eyes = "FFD23F",
+		Vest = "F2F2F5", VestTrim = "FFD23F", Shirt = "16161B",
+		Sash = "FFD23F", Wraps = "FFE9B0",
+		Pants = "F2F2F5", PantsShade = "C8C8D0",
+		Shoes = "16161B", ShoeAccent = "FFD23F", Sole = "F2F2F5",
+		Energy = "FFD23F", Shield = "FFE9B0",
+	}),
 	RUINES = style("HIBECARES", "RUINES", {
 		Hair = "2A1E16", HairTip = "FF8A1A", SkinTone = "C98F6E", Eyes = "FF6A1A",
 		Vest = "6A5A4A", VestTrim = "C8102E", Shirt = "6A5A4A",
@@ -189,7 +207,8 @@ local Skins = table.freeze({
 })
 
 local STYLE_ORDER = table.freeze({
-	KAI = table.freeze({ "CLASSIQUE", "NUIT", "SACRÉ", "MAUDIT" }),
+	KAI = table.freeze({ "CLASSIQUE", "NUIT", "SACRÉ", "MAUDIT", "ÉVEILLÉ" }), -- (ÉVEILLÉ: won against ASURA)
+	ASURA = table.freeze({ "ASURA" }),
 	TARO = table.freeze({ "BRASIER", "CHAMPION" }),
 	ZEPHYR = table.freeze({ "AZUR", "TEMPÊTE" }),
 	AKEMI = table.freeze({ "OMBRE", "LUNE ROUGE" }),
@@ -206,6 +225,8 @@ local CharacterData = {
 	Skins.CLASSIQUE, -- slot 1
 	Skins.NUIT, -- slot 2
 }
+
+CharacterData.LOCKED = table.freeze({ ["ÉVEILLÉ"] = true }) -- styles to earn (the server checks)
 
 -- Next style of the same kit, skipping `avoid` (the opponent's style).
 function CharacterData.nextSkin(current, avoid)

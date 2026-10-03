@@ -963,6 +963,47 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 	end
 	model:SetAttribute("Kit", data.Kit)
 	model:SetAttribute("Skin", data.Skin)
+	if data.Kit == "ASURA" then RigBuilder.addFourArms(model, data) end
+end
+
+-- ASURA's second pair of arms, under the first: an upper arm, a forearm and a wrapped fist on
+-- each side, jointed to the torso (Motor6D AsuraLeft / AsuraRight). The client swings them
+-- after the real arms (AnimationController), so they follow every blow with a little delay.
+function RigBuilder.addFourArms(model, data)
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	if not torso or model:FindFirstChild("AsuraArmLeft") then return end
+	local skin, wraps = Color3.fromHex(data.SkinTone or "8A5A44"), Color3.fromHex(data.Wraps or "C8A040")
+	local width = torso.Size.X / 2
+	-- Outside the real arms (their width read on the body), so both pairs show.
+	local realArm = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm")
+	local armWidth = if realArm then realArm.Size.X else 1
+	for _, side in { -1, 1 } do
+		local name = if side < 0 then "Left" else "Right"
+		local arm = Instance.new("Part")
+		arm.Name = "AsuraArm" .. name
+		arm.Size = Vector3.new(0.5, 1.7, 0.5)
+		arm.Color, arm.Material = skin, Enum.Material.SmoothPlastic
+		arm.CanCollide, arm.CanTouch, arm.CanQuery, arm.Massless = false, false, false, true
+		local fist = Instance.new("Part")
+		fist.Name = "AsuraFist" .. name
+		fist.Size = Vector3.new(0.58, 0.58, 0.58)
+		fist.Color, fist.Material = wraps, Enum.Material.Fabric
+		fist.CanCollide, fist.CanTouch, fist.CanQuery, fist.Massless = false, false, false, true
+		local weld = Instance.new("Weld")
+		weld.Part0, weld.Part1, weld.C0 = arm, fist, CFrame.new(0, -1.0, 0)
+		weld.Parent = fist
+		local joint = Instance.new("Motor6D")
+		joint.Name = "Asura" .. name
+		joint.Part0, joint.Part1 = torso, arm
+		-- Lower, a little behind and outside the real shoulders, spread outward.
+		joint.C0 = CFrame.new(side * (width + armWidth + 0.1), -0.45, 0.35) * CFrame.Angles(0, 0, side * math.rad(28))
+		joint.C1 = CFrame.new(0, 0.75, 0)
+		-- Placed where the joint holds them (the engine would snap them there anyway).
+		arm.CFrame = torso.CFrame * joint.C0 * joint.C1:Inverse()
+		fist.CFrame = arm.CFrame * weld.C0
+		joint.Parent = torso
+		arm.Parent, fist.Parent = model, model
+	end
 end
 
 -- Avatar appearances, fetched once per player and cloned for each build (style changes and

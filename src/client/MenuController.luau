@@ -73,7 +73,7 @@ local NEWS = {
 	{ tag = "NOUVEAU MODE", title = "SURVIE", color = RED, kanji = "生" },
 	{ tag = "ÉQUIPES", title = "1, 2 OU 3 PERSOS", color = VIOLET, kanji = "隊" },
 	{ tag = "EN LIGNE", title = "PARTIES CLASSÉES", color = GOLD, kanji = "位" },
-	{ tag = "BIENTÔT", title = "CHALLENGE ASURA", color = BLUE, kanji = "阿" },
+	{ tag = "BOSS", title = "CHALLENGE ASURA", color = GOLD, kanji = "阿" },
 }
 
 function MenuController.new(remote, hub, settings)
@@ -121,7 +121,7 @@ function MenuController.new(remote, hub, settings)
 	self.pages.solo = self:buildSubCards("MODE SOLO", {
 		{ id = "VERSUS_CPU", title = "1 CONTRE 1 · IA", lines = { "Toi contre le CPU", "1, 2 ou 3 persos (relais)", "FACILE → LÉGENDE" }, color = RED, kanji = "戦" },
 		{ id = "SURVIVAL", title = "SURVIE", lines = { "Adversaires à la chaîne", "De plus en plus forts", "Bats ton record" }, color = DARKRED, kanji = "生" },
-		{ id = "CHALLENGE", title = "CHALLENGE", lines = { "ASURA, KAI à quatre bras", "Bientôt" }, color = BLUE, kanji = "阿" },
+		{ id = "CHALLENGE", title = "CHALLENGE · ASURA", lines = { "Le KAI à quatre bras", "1 à 3 persos contre lui", "Ta victoire décide de ta récompense" }, color = GOLD, kanji = "阿" },
 	})
 	self.pages.online = self:buildSubCards("MODE EN LIGNE", {
 		{ id = "VERSUS", queue = "RANKED", title = "COMBAT CLASSÉ", lines = { "Points Elo et rang", "Adversaire de ton niveau" }, color = GOLD, kanji = "位" },
@@ -300,7 +300,7 @@ function MenuController:buildHome()
 		self:open("online")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 172), size = UDim2.fromOffset(540, 160), color = Color3.fromHex("C8C8D0"), kanji = "戦",
-		title = "MODE SOLO", titleSize = 52, lines = { "1 CONTRE 1 · IA", "SURVIE", "CHALLENGE (BIENTÔT)" } }).Activated:Connect(function()
+		title = "MODE SOLO", titleSize = 52, lines = { "1 CONTRE 1 · IA", "SURVIE", "CHALLENGE · ASURA" } }).Activated:Connect(function()
 		self:open("solo")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 344), size = UDim2.fromOffset(264, 150), color = BLUE, kanji = "隊", title = "ÉQUIPES",
@@ -321,7 +321,7 @@ function MenuController:buildSubCards(title, entries)
 	local t = label(page, { Size = UDim2.new(1, 0, 0, 50), Font = DISPLAY, TextSize = 48, Text = title, TextColor3 = WHITE })
 	stroke(t, 2, RED)
 	for i, entry in entries do
-		local locked = entry.id == "CHALLENGE"
+		local locked = false
 		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * 132), size = UDim2.fromOffset(540, 120),
 			color = if locked then GREY else entry.color, kanji = entry.kanji, title = entry.title, titleSize = 42, kanjiSize = 120,
 			lines = entry.lines })
@@ -518,8 +518,7 @@ function MenuController:start()
 	local team = table.clone(self.team)
 	if mode.queue and self.queue == "FRIEND" then
 		-- A friend's 1v1: remember the team on the server, then the players' list (DÉFIER).
-		self.remote:FireServer({ action = "start", request = { mode = "VERSUS", team = team, queue = "NORMAL" } })
-		task.delay(0.6, function() self.remote:FireServer({ action = "cancel" }) end)
+		self.remote:FireServer({ action = "team", team = team })
 		if self.hub then self.hub.panel.Visible = true end
 		return
 	end
@@ -784,6 +783,10 @@ function MenuController:refreshProfile()
 	self.profileBar.Size = UDim2.fromScale(if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1, 1)
 	self.profilePoints.Text = tostring(s.rating)
 	self.profileWins.Text = (s.wins or 0) .. " V"
+	if s.title and s.title ~= "" then
+		self.profileRank.Text = "« " .. s.title .. " » · " .. self.profileRank.Text
+		self.profileRank.TextColor3 = GOLD
+	end
 	for name, edge in self.rosterTiles do
 		edge.Color = if name == s.hero then GOLD else Color3.fromHex("33333D")
 		edge.Thickness = if name == s.hero then 3 else 2
@@ -796,7 +799,18 @@ function MenuController:flash(text, color)
 	self.toastUntil = os.clock() + 2.5
 end
 
+local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
+	if packet.challenge then
+		if packet.won then
+			self:flash("ASURA VAINCU · RANG " .. GRADE_NAMES[packet.grade] .. " · TITRE « " .. (packet.title or "") .. " »"
+				.. (if packet.unlock then " · STYLE KAI ÉVEILLÉ" else ""), GOLD)
+		else
+			self:flash("ASURA T'A ÉCRASÉ · " .. (packet.damage or 0) .. " % DE SA VIE ENLEVÉS", RED)
+		end
+		self.toastUntil = os.clock() + 6
+		return
+	end
 	if packet.survival then
 		self:flash("SURVIE : " .. packet.survival .. " ADVERSAIRE(S) BATTU(S) · RECORD " .. (packet.best or 0), GOLD)
 	elseif packet.queue == "RANKED" then

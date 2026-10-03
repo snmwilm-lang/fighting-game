@@ -231,6 +231,32 @@ test("LÉGENDE reads and beats the habits players abuse (mash, jump-ins, zoning,
 	expect(exploitWins(1, "mash", 8) <= 0.25, "FACILE should lose to a masher (a beginner's level)")
 end)
 
+test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉGENDE", function()
+	local boss = MoveData.Kits.ASURA
+	expect(boss and boss.Boss and not table.find(MoveData.KitOrder, "ASURA"), "ASURA must exist and stay out of the roster")
+	for _, name in MoveData.KitOrder do
+		expect(boss.Stats.MaxHealth > MoveData.Kits[name].Stats.MaxHealth * 1.5, "ASURA is not much tougher than " .. name)
+	end
+	-- Same kit (KAI) on both sides: only the brains differ.
+	local wins = 0
+	for seed = 1, 6 do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, "KAI", "KAI")
+		local brains = { FighterAI.new("ASURA", seed), FighterAI.new(4, seed * 7 + 3) }
+		for _ = 1, 60 * 60 * 5 do
+			local over = false
+			for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do
+				if e.kind == "MatchEnd" then
+					if e.winner == 1 then wins += 1 end
+					over = true
+				end
+			end
+			if over then break end
+		end
+	end
+	expect(wins >= 4, "the boss AI won only " .. wins .. " of 6 against LÉGENDE")
+end)
+
 test("the same seed replays the same fight", function()
 	local a = versus(3, 2, 42, 60 * 30)
 	local b = versus(3, 2, 42, 60 * 30)

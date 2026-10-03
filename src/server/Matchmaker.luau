@@ -8,6 +8,7 @@
 	  allowed starts at BASE_WINDOW points and widens by WIDEN_PER_SECOND each second of
 	  waiting (up to MAX_WINDOW): nobody waits forever.
 	- A player is in one queue at a time; leaving the server or the menu removes them.
+	- Only teams of the same size meet: 1 against 1, 2 against 2, 3 against 3 (relay).
 	- Ratings: Elo, K = K_FACTOR, starting at START_RATING; a rank name per band.
 
 	  local mm = Matchmaker.new()
@@ -36,9 +37,10 @@ function Matchmaker.new()
 	return { waiting = {}, serial = 0 } -- waiting: id -> { queue, rating, since, order }
 end
 
-function Matchmaker.enqueue(mm, id, queue, rating, now)
+-- `size`: the player's team (1 to 3 fighters): only teams of the same size meet (1v1, 2v2, 3v3).
+function Matchmaker.enqueue(mm, id, queue, rating, now, size)
 	mm.serial += 1
-	mm.waiting[id] = { queue = queue, rating = rating or Matchmaker.START_RATING, since = now, order = mm.serial }
+	mm.waiting[id] = { queue = queue, rating = rating or Matchmaker.START_RATING, since = now, order = mm.serial, size = size or 1 }
 end
 
 function Matchmaker.leave(mm, id)
@@ -72,7 +74,7 @@ function Matchmaker.pair(mm, now)
 				local best, bestGap = nil, math.huge
 				for j = i + 1, #list do
 					local y = list[j]
-					if not taken[y.id] then
+					if not taken[y.id] and y.entry.size == x.entry.size then
 						local gap = math.abs(x.entry.rating - y.entry.rating)
 						if queue == "NORMAL" then
 							best, bestGap = y, 0

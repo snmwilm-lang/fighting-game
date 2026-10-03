@@ -85,7 +85,14 @@ local function emit(models, label, cam)
 	end
 end
 
+-- Every kit that has styles (the roster, the bosses and any new kit), roster order first.
 local KITS = { "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES" }
+local extra = {}
+for kit in CharacterData.StyleOrder do
+	if not table.find(KITS, kit) then table.insert(extra, kit) end
+end
+table.sort(extra)
+for _, kit in extra do table.insert(KITS, kit) end
 for _, kit in KITS do
 	for i, style in CharacterData.StyleOrder[kit] do
 		CharacterData[1] = CharacterData.Skins[style]

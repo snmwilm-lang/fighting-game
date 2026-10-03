@@ -41,13 +41,12 @@ local function newFighter(slot, c, kit, stanceId)
 		grace = nil, -- { move, ticks, serial }: late presses still link after the move ended
 		stun = 0, stunKind = nil, launched = false, juggle = 0,
 		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
-		knockdown = 0, getUp = 0,
+		knockdown = 0, getUp = 0, wakeInvuln = 0, -- wakeInvuln: untouchable just after getting up
 		hitstop = 0, frozen = false,
 		comboHits = 0, comboDamage = 0, calmTicks = 0,
 		buffer = {}, -- queued presses { button, ticks }, oldest first
 		blocking = false, crouching = false, holdBlock = false, holdCrouch = false,
 		guardWindow = 0, -- ticks left to strike out of the guard (fast light attack)
-		blockChain = 0, -- hits of the current chain that were blocked (see BlockChainMax)
 		wins = 0,
 	}
 end
@@ -146,7 +145,7 @@ end
 
 local function isInvulnerable(f, c, moves)
 	if f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits)
-		or f.evadeInvuln > 0 or f.dashInvuln > 0 then
+		or f.evadeInvuln > 0 or f.dashInvuln > 0 or f.wakeInvuln > 0 then
 		return true
 	end
 	local m = f.move and moves[f.move]
@@ -224,7 +223,7 @@ local function startMove(world, f, id, events, isLink)
 	end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
-	if not isLink then f.blockChain = 0 end
+	f.wakeInvuln = 0 -- (the wake-up invincibility is for getting out, not for attacking)
 	local fast = world.config.GuardCancelStartup
 	if fast and not isLink and f.guardWindow > 0 and (m.kind or "Normal") == "Normal" and not m.air
 		and m == world.moves[startersOf(world, f).Ground.Light] and m.startup > fast then
@@ -319,8 +318,7 @@ local function chooseMove(world, f, grounded, crouching)
 				nextId = ultimates.Gate
 				f.awakenStyle = style
 			end
-		elseif current.cancels and f.blockChain < (world.config.BlockChainMax or math.huge) then
-			-- (A guarded chain stops after BlockChainMax blocked hits: the defender gets a turn.)
+		elseif current.cancels then
 			nextId = current.cancels[button]
 			-- Second ultimate, ÉVEIL ÉCARLATE: the same clean route ending on the right click.
 			if nextId == ultimates.Finale then
@@ -456,6 +454,7 @@ local function stepFighter(world, f, input, events)
 	f.evadeCounter = math.max(0, f.evadeCounter - 1)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
+	if f.getUp == 0 then f.wakeInvuln = math.max(0, f.wakeInvuln - 1) end
 	f.weaveTicks = math.max(0, f.weaveTicks - 1)
 	f.stanceCooldown = math.max(0, f.stanceCooldown - 1)
 	f.dempseyWindow = math.max(0, f.dempseyWindow - 1)
@@ -482,6 +481,9 @@ local function stepFighter(world, f, input, events)
 	end
 	if f.getUp > 0 then
 		f.getUp -= 1
+		-- Back on its feet: a moment untouchable, so a waiting attack cannot glue it into a new
+		-- combo the very first frame (it may guard, move or jump; attacking ends it).
+		if f.getUp == 0 then f.wakeInvuln = c.WakeInvulnTicks or 0 end
 		f.vx, f.state = 0, "GetUp"
 		physics(f, c)
 		return
@@ -903,15 +905,12 @@ local function applyHit(world, a, d, m, events, source)
 	local firstHit = source ~= nil or a.moveHits == 1
 	local stop = if final then m.hitstop else (m.multiHitstop or 3)
 	if canBlock(d, if source then source.x else a.x, m) then
-		if not source then
-			a.moveContact = "Block"
-			if final then a.blockChain += 1 end
-		end
+		if not source then a.moveContact = "Block" end
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
 		d.hp = math.max(math.min(d.hp, 1), d.hp - chip)
 		event.damage = chip
 		-- Light pokes (jab, cross...) wear the guard less: mashing does not break it.
-		local wear = if (m.kind or "Normal") == "Normal" and m.guardDamage <= 10 then c.LightGuardWear or 1 else 1
+		local wear = if (m.kind or "Normal") == "Normal" and m.guardDamage <= 12 then c.LightGuardWear or 1 else 1
 		d.guard -= m.guardDamage * wear * (d.stats.GuardDamageTaken or 1)
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
@@ -934,7 +933,7 @@ local function applyHit(world, a, d, m, events, source)
 		return
 	end
 
-	if not source then a.moveContact, a.blockChain = "Hit", 0 end
+	if not source then a.moveContact = "Hit" end
 	local bonus, tip = passiveBonus(world, a, d, m, source)
 	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)
@@ -1421,7 +1420,7 @@ function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
 	for _, f in { a, d } do
 		f.y, f.vy, f.vx, f.pushVx = 0, 0, 0, 0
 		f.move, f.moveContact, f.stun, f.stunKind, f.launched = nil, nil, 0, nil, false
-		f.knockdown, f.getUp, f.hitstop, f.buffer, f.grace = 0, 0, 0, {}, nil
+		f.knockdown, f.getUp, f.wakeInvuln, f.hitstop, f.buffer, f.grace = 0, 0, 0, 0, {}, nil
 		if f.state == "KO" then f.state = "Idle" end
 	end
 	local center = math.clamp((a.x + d.x) / 2, world.config.ArenaMinX + 4, world.config.ArenaMaxX - 4)

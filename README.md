@@ -21,10 +21,10 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
 | **Changer de perso** | **T** ou bouton PERSO | — | bouton |
 | Perso du CPU (solo) | **G** ou bouton ADVERSAIRE | — | bouton |
+| **Souris bloquée** (curseur caché au centre, façon shift lock) | **Ctrl** ou bouton SOURIS | — | — |
 | Mode du mannequin (immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
 
-**Garde** : elle marche dès la 1ʳᵉ image. Après 2 coups bloqués, l'attaquant ne peut plus
-enchaîner : c'est ton tour. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
+**Garde** : elle marche dès la 1ʳᵉ image. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
 de quoi punir celui qui spamme. Les petits coups usent peu la garde, les gros la cassent.
 
 **Niveaux du CPU** : FACILE (débutant, il se fait avoir par le spam), NORMAL, DIFFICILE (lit à

@@ -460,6 +460,7 @@ local function snapshot()
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching, maxHp = f.maxHp, passive = Sim.passiveGauge(world, f), weave = f.weaveTicks > 0,
 			passiveCharges = Sim.passiveCharges(world, f) or 0,
+			wakeInvuln = f.wakeInvuln, -- (the body blinks while untouchable after getting up)
 			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),

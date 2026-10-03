@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.13.3",
+	Version = "0.13.4",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -34,8 +34,7 @@ return table.freeze({
 	BlockDamageRatio = 0.08, -- the guard reduces damage, it does not cancel it
 	GuardRegenDelayTicks = 12,
 	GuardRegenPerTick = 0.6,
-	LightGuardWear = 0.5, -- light pokes (guard damage 10 or less) wear the guard at half rate
-	BlockChainMax = 2, -- a chain stops after this many blocked hits: the defender gets a turn
+	LightGuardWear = 0.5, -- light chain hits (guard damage 12 or less) wear the guard at half rate
 	GuardCancelTicks = 8, -- after guarding, for this long a jab comes out faster...
 	GuardCancelStartup = 3, -- ...in this many frames of wind-up
 	GuardBreakTicks = 55,
@@ -59,6 +58,7 @@ return table.freeze({
 	CornerMargin = 0.75,
 	KnockdownTicks = 40,
 	GetUpTicks = 14,
+	WakeInvulnTicks = 15, -- untouchable for this long once back on its feet (0.25 s)
 	KOPop = 26,
 	KOHitstop = 26,
 

@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.13.4 — 3 octobre 2026
+
+Retours de Wilhem : « une petite invincibilité quand les persos se relèvent » ; « combos
+limités en garde : supprime ça » ; « mets la possibilité de shift lock sans le gros point, pour
+éviter de mettre sa souris n'importe où ».
+
+- **Invincibilité au relevé** : déjà intouchable pendant la chute et le relevé, le perso
+  l'est encore 0,25 s une fois debout (`WakeInvulnTicks = 15`) : un coup qui attend au
+  relevé ne le recolle plus en combo. Il peut garder, bouger ou sauter ; attaquer y met fin.
+  Le corps clignote pendant ce temps (champ `wakeInvuln` du snapshot).
+- **Limite de chaîne en garde supprimée** (`BlockChainMax` retiré). Pour que la garde tienne
+  quand même : toute la chaîne des coups légers (usure ≤ 12) use la garde 2 fois moins. Le
+  jab rapide en sortie de garde et les autres réglages de la 0.13.2 restent.
+- **Souris bloquée** (Ctrl ou bouton SOURIS) : curseur caché et tenu au centre de l'écran
+  (`MouseBehavior.LockCenter`), les clics comptent toujours ; Shift reste le dash.
+- Équilibre (`Balance.luau`, 120 matchs) — LÉGENDE : KAI 48, TARO 53, ZEPHYR 53, AKEMI 42,
+  RYUKEN 50, SHIN 47, DAICHA 51, HIBECARES 55 ; DIFFICILE : KAI 55, TARO 47, ZEPHYR 54,
+  AKEMI 51, RYUKEN 50, SHIN 55, DAICHA 45, HIBECARES 43.
+- Tests : CombatSimulation 92 (+1 invincibilité au relevé, −1 limite de chaîne ; 10 s de spam
+  contre la garde : pas de cassure, ≤ 15 % de dégâts), FighterAI 11, CinematicDirector 323,
+  Animation 35, Kits 58, PressQueue 4, Fuzz 2, Cinematography 114, Lobby 5 : tout passe.
+
+### Problèmes ouverts / prochaine étape
+
+- Souris bloquée : les boutons du HUD ne sont plus cliquables tant qu'elle l'est (Ctrl pour
+  la libérer). Rien n'a été testé dans Studio.
+- Suite : menu façon Street Fighter et modes de jeu.
+
 ## Version 0.13.3 — 3 octobre 2026
 
 Suite du retour de Wilhem : « les hitbox des ultimes à travailler, surtout quand l'autre joueur

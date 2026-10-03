@@ -227,6 +227,9 @@ function HUD.new(config)
 		return b
 	end
 	-- Fighter pick first: the own kit (T) and, in solo, the CPU's (G).
+	self.mouseButton = button("MouseLock", "SOURIS : LIBRE (CTRL)", 168, function()
+		if self.onMouseLock then self.onMouseLock() end
+	end)
 	self.kitButton = button("Kit", "PERSO : KAI (T)", 156, function()
 		if self.onKit then self.onKit() end
 	end)
@@ -337,7 +340,7 @@ function HUD.new(config)
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
 			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · RB : garde · RT : dash · SELECT : replacer"
-			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU"
+			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -503,6 +506,11 @@ function HUD:fillTrainer()
 	end
 end
 
+
+-- Mouse lock state shown on its button (Ctrl toggles it; locked, the cursor is hidden).
+function HUD:setMouseLock(on)
+	self.mouseButton.Text = if on then "SOURIS : BLOQUÉE (CTRL)" else "SOURIS : LIBRE (CTRL)"
+end
 
 -- How hard the kit is to pick up: ★ SIMPLE, ★★ MOYEN, ★★★ TECHNIQUE.
 HUD.DIFFICULTY = { "SIMPLE", "MOYEN", "TECHNIQUE" }

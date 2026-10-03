@@ -42,7 +42,28 @@ function InputController.start(remote)
 		end
 	end
 	local lastDirection = nil -- left + right held together: the last one pressed wins
+	-- Mouse lock (Ctrl or the HUD button): the cursor is hidden and held at the centre of the
+	-- screen, so clicking to attack never sends the mouse anywhere (like shift lock, no dot).
+	local mouseLocked, onMouseLock = false, nil
+	local function setMouseLock(on)
+		mouseLocked = on
+		if not on then
+			UIS.MouseBehavior = Enum.MouseBehavior.Default
+			UIS.MouseIconEnabled = true
+		end
+		if onMouseLock then onMouseLock(on) end
+	end
+	RunService:BindToRenderStep("FightMouseLock", Enum.RenderPriority.Camera.Value + 2, function()
+		if mouseLocked then -- (the default camera scripts reset it: enforce every frame)
+			UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+			UIS.MouseIconEnabled = false
+		end
+	end)
 	local function set(action, key, down)
+		if action == "MouseLock" then
+			if down and not blocked and not UIS:GetFocusedTextBox() then setMouseLock(not mouseLocked) end
+			return
+		end
 		if down and not blocked and not UIS:GetFocusedTextBox() then
 			keys[key] = action
 			if action == "Left" or action == "Right" then lastDirection = action end
@@ -206,6 +227,8 @@ function InputController.start(remote)
 	return {
 		reset = function() pulses.reset = true end,
 		toggleDummy = function() pulses.dummy = true end,
+		toggleMouseLock = function() setMouseLock(not mouseLocked) end,
+		onMouseLock = function(callback) onMouseLock = callback end, -- (the HUD shows the state)
 		toggleUltiConditions = function() pulses.ultiConditions = true end, -- training: ki always full
 		toggleAvatar = function() pulses.avatar = true end,
 		nextSkin = function() pulses.skin = true end,

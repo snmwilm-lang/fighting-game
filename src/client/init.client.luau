@@ -30,6 +30,8 @@ local sounds = SoundController.new()
 HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
+hud.onMouseLock = input.toggleMouseLock
+input.onMouseLock(function(on) hud:setMouseLock(on) end)
 hud.onUltiConditions = input.toggleUltiConditions
 hud.onAvatar = input.toggleAvatar
 hud.onSkin = input.nextSkin
@@ -255,6 +257,14 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(math.cos(heading), 0, math.sin(heading)))
 			end
 			rig.animation:update(current, displayed[3 - i], dt, now, hud.poseRate, cinematicActive)
+			-- Wake-up invincibility: the body blinks while it cannot be hit.
+			local blink = (current.wakeInvuln or 0) > 0 and not cinematicActive and math.floor(now * 20) % 2 == 0
+			if blink ~= (rig.blinking or false) then
+				rig.blinking = blink
+				for _, part in rig.model:GetDescendants() do
+					if part:IsA("BasePart") or part:IsA("Decal") then part.LocalTransparencyModifier = if blink then 0.6 else 0 end
+				end
+			end
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }
 			sounds:update(i, current, MoveData.Moves)
 		end

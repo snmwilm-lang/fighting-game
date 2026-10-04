@@ -1,5 +1,62 @@
 # Journal du projet — état à transmettre
 
+## Version 0.17.0 — 4 octobre 2026 · MAJOR UPDATE : KUROEN
+
+Demandes de Wilhem : supprimer MARION, refaire KAZAN avec deux griffes, créer KUROEN (rushdown
+technique, jauge DOMINATION, CRIMSON STEP, ECLIPSE BREAKER, TYRANT'S FIST, EMPEROR RUSH,
+ZÉRO ABSOLU : ÉCLIPSE), auditer et rééquilibrer le roster (20 jouables, ASURA boss), nerf de
+SHIN, reset des succès pour tout le monde, ASURA « beaucoup plus fort », un nouveau boss
+KUROEN SHIN « cassé comme Gogeta » qui donne un skin, des icônes de monnaie, avis sur l'UI de GPT.
+Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag local
+`backup/pre-kuroen`, le dépôt distant refuse les tags).
+
+- **MARION supprimée** : kit, pantin (passif Puppet et son coup), poses, corps, tenue, styles,
+  sons, thème de cinématique, étalonnage, traductions et test. Rien de partagé n'a été retiré
+  (les archétypes de cinématique « dance », les règles de projectile `bind`/`pull` restent).
+- **KAZAN refait (griffes)** : plus de chaîne ni de fouet. Deux griffes d'acier, trois longues
+  lames par main (`WeaponSpec.KAZAN`, construites comme les armes : elles suivent les mains),
+  vambraces, masque de mâchoire. 29 coups renommés et réanimés (griffures alternées, croisées,
+  montantes, lourdes, SKULL SPLITTER en overhead), portée moyenne (x1,05 au lieu de x1,25),
+  startup -1, 1400 PV, dash 42 ; SHACKLE HOOK (S + E) : une fente, la griffe accroche et
+  retient (bind). L'ENTRAVE (dash coupé) est conservée. Cinématiques : il tourne autour de sa
+  proie (R), saisit (ÉVEIL), retient dans l'entrave (PORTE), harponne (FATAL). Sons de lames.
+  Tests : griffes (2 x 3 lames, chaque griffure balaie vraiment les lames, jamais sous le sol),
+  portée sans fouet, crochet qui retient.
+- **KUROEN 蝕 · L'EMPEREUR DE L'ÉCLIPSE** (prend la place de MARION : 20 jouables) — voir le
+  rapport final pour les statistiques ; mécanique DOMINATION dans `CombatSimulation` (gain sur
+  un combo propre de 4 coups, une fois par combo, max 3 ; -1 quand il prend un combo ou après
+  6 s sans toucher ; I : EMPEROR STEP, II : annulation technique → technique, III : ZÉRO ABSOLU
+  sur R après un coup touché ; chaque usage consomme ; jamais de bonus de dégâts). Aura par
+  niveau (braises, fumée rouge et noire, aura noire + anneau rouge), annonces, son.
+- **ASURA beaucoup plus fort** (sans toucher ses PV) : armure sur tous ses coups au sol, sa
+  deuxième paire de bras suit chaque coup qui touche (+35 %, impact doré), en garde il écrase
+  (usure x1,5), jamais de COUNTER HIT contre lui, garde x0,5. IA du boss : 100 % contre LÉGENDE.
+- **Nouveau boss KUROEN SHIN 真** (mode CHALLENGE · KUROEN SHIN) : les coups de KUROEN, la
+  DOMINATION née en ÉCLIPSE qui revient seule (un niveau / 4 s) et ne se perd jamais, 3000 PV,
+  dégâts x1,4, dash invincible (« transmission instantanée »), allure divine blanc et or, son
+  propre thème de cinématique. Battu : style ÉCLIPSE DIVINE de KUROEN (verrouillé jusque-là),
+  titres GOD SLAYER…, succès GOD SLAYER / TRUE EMPEROR. 100 % contre LÉGENDE.
+- **SHIN nerfé** : dégâts x1,10 (1,18), allonge x1,17 (1,22), récupération +3, PRÉCISION +12 %
+  à partir de 68 % de l'allonge (+20 % à 62 %).
+- **Succès remis à zéro pour tout le monde** : compteurs propres aux succès, remis à zéro par
+  une nouvelle saison (`ACHIEVEMENT_SEASON` = 2) sans toucher points, victoires, titres ni styles.
+- **Icônes de monnaie** (`assets/icons`, `tools/currency_icons.py`) : pièce 金, cristal de ki 気,
+  médaille de rang 位, ticket ofuda 闘 — PNG 512 px à uploader dans Roblox.
+- **Correctifs** : un champ retiré par un kit (`invuln = false`, `projectile = false`) faisait
+  planter la simulation (normalisé dans `move()`) ; l'IA n'utilise plus un « reversal » qui
+  n'est pas invincible ; cadrages des cinématiques KUROEN / KAZAN.
+- Version 0.17.0.
+
+AUDIT_LINE
+
+Tests : TESTS_LINE
+
+Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
+nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité
+refuse d'injecter du code venu d'un fichier téléchargé — à appliquer par Wilhem ou à autoriser.
+Prochaine étape : jouer KUROEN contre KAI, TARO, AKEMI, RYUKEN, ZEPHYR, SHIN, GORAN, KAZAN,
+HIBIKI en vrai et ajuster.
+
 ## Version 0.16.1 — 4 octobre 2026
 
 Retours de Wilhem : « les bras d'ASURA quand il est en idle ou en animation d'ult » ; « une

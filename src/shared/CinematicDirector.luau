@@ -4657,28 +4657,31 @@ GEN.add("HIBIKI", {
 	fx = { line = "soundWave", burst = "soundRing", ground = "beatRing" },
 })
 
--- MARION 糸: the puppet dances on its threads (R); swung round at the end of them (ÉVEIL); the
--- ball of the puppets around it (PORTE); lifted higher and higher (FATAL).
-GEN.add("MARION", {
+-- KUROEN 蝕: EMPEROR RUSH, blows from every side, faster and faster, red and black, the last one
+-- throws the target away (R); ZERO ABSOLU: ECLIPSE, the light goes out, a red eclipse in the
+-- sky, he strikes out of the dark (ÉVEIL: his ÉCLIPSE finish, DOMINATION III); a storm of fists
+-- (PORTE); the last blow under the eclipse (FATAL). Short: no ultimate drags on.
+GEN.add("KUROEN", {
 	turn = { ["eveil-approach"] = 30, ["eveil-blows-a"] = 30, ["eveil-final"] = 30, ["fatal-spin"] = 30, ["fatal-take"] = 30, ["gate-backturn"] = 30, ["gate-draw"] = 30 },
 	open = { rush = "target", awaken = "levitate", gate = "backturn", fatal = "spin" },
 	finish = { rush = "flourish", awaken = "pin", gate = "vanish", fatal = "hover" },
-	id = "marion", grade = "puppet", kanji = "糸", pose = "WindGather", rest = "StandTall", seed = 7, step = 5,
-	rush = "dance", awaken = "swing", gate = "orbit", fatal = "juggle",
-	blows = { "PalmStrike", "Jab", "Cross", "SpinKick" },
-	fx = { line = "threads", burst = "puppetBurst", ground = "stageRing" },
+	id = "kuroen", grade = "eclipse", kanji = "蝕", pose = "Roar", rest = "StandTall", seed = 7, step = 5, quake = true,
+	rush = "lunge", awaken = "stalk", gate = "gatling", fatal = "juggle",
+	blows = { "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Smash" },
+	fx = { line = "crimsonFist", burst = "eclipseBurst", ground = "eclipseSeal" },
 })
 
--- KAZAN 鎖: the target swung round on the chain (R); the chain's hook thrown straight (ÉVEIL);
--- seized and slammed (PORTE); dragged in on the chains (FATAL).
+-- KAZAN 鎖: the predator circles the prey and rakes it at every pass (R); the claws seize it and
+-- slam it (ÉVEIL); held still in the shackle while the claws work (PORTE); hooked and dragged
+-- in (FATAL).
 GEN.add("KAZAN", {
 	turn = { ["eveil-blows-b"] = 30, ["eveil-charge"] = 30, ["gate-advance"] = 30, ["gate-break"] = -30, ["gate-target"] = -55, ["gate-target-found"] = 30, ["rush-stride"] = 30 },
 	open = { rush = "stride", awaken = "charge", gate = "target", fatal = "slam" },
 	finish = { rush = "pin", awaken = "blowaway", gate = "crater", fatal = "stomp" },
 	id = "kazan", grade = "iron", kanji = "鎖", pose = "Roar", rest = "StandTall", seed = 8, step = 11,
-	rush = "swing", awaken = "thrust", gate = "grapple", fatal = "pull",
-	blows = { "Cross", "Hammer", "Smash", "Elbow" },
-	fx = { line = "chainLine", burst = "ironBurst", ground = "prisonRing" },
+	rush = "orbit", awaken = "grapple", gate = "freeze", fatal = "pull",
+	blows = { "Cross", "Jab", "Smash", "Kick", "Hammer" },
+	fx = { line = "clawRend", burst = "clawBurst", ground = "prisonRing" },
 })
 
 -- KUREN 血: blood rains on the target (R); lances from every side (ÉVEIL); the vampire out of

@@ -944,8 +944,17 @@ function HUD:onEvent(event, world)
 		self:callout(event.slot, "ICE MIRROR!")
 	elseif event.kind == "Shackled" then
 		self:callout(event.slot, "SHACKLED! DASH CUT")
-	elseif event.kind == "Puppet" then
-		self:callout(event.slot, "DOUBLE CONTROL!")
+	elseif event.kind == "Domination" then
+		-- KUROEN: the level reached, spent or lost, so both players can read the danger.
+		local titles = { "DOMINATION I · AWAKENING", "DOMINATION II · SUPREMACY", "DOMINATION III · ECLIPSE" }
+		if event.lost then
+			self:callout(event.slot, "DOMINATION LOST")
+		elseif event.spent then
+			local m = MoveData.Moves[event.spent]
+			self:callout(event.slot, (if m then m.name else "DOMINATION") .. "!")
+		elseif titles[event.level] then
+			self:callout(event.slot, titles[event.level] .. "!")
+		end
 	elseif event.kind == "Drone" then
 		self:callout(event.slot, "SENTRY!")
 	elseif event.kind == "PassiveEmpty" then

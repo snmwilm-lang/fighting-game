@@ -750,9 +750,47 @@ function EffectsController:blackAura(rig)
 	return true
 end
 
+-- KUROEN's DOMINATION, readable by both players: no aura at 0; I a few red embers, II red and
+-- black smoke, III (ÉCLIPSE) a black core with red flames and a red ring at his feet. One
+-- emitter, its rate and colours set by the level (cheap).
+local DOMINATION_LOOK = {
+	{ rate = 6, size = 0.6, colors = { "FF4A5A", "E0102E" } },
+	{ rate = 16, size = 0.9, colors = { "E0102E", "1A0408" } },
+	{ rate = 30, size = 1.3, colors = { "0A0204", "FF1A2E" } },
+}
+function EffectsController:domination(rig, level, view)
+	local torso = rig.model:FindFirstChild("UpperTorso") or rig.model:FindFirstChild("Torso")
+	if not torso then return end
+	local aura = rig.dominationAura
+	if not aura or not aura.Parent then
+		aura = Instance.new("ParticleEmitter")
+		aura.Name = "DominationAura"
+		aura.LightEmission, aura.LightInfluence = 0.3, 0
+		aura.Lifetime = NumberRange.new(0.4, 0.8)
+		aura.Speed = NumberRange.new(2, 5)
+		aura.SpreadAngle = Vector2.new(30, 30)
+		aura.Acceleration = Vector3.new(0, 8, 0)
+		aura.EmissionDirection = Enum.NormalId.Top
+		aura.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+		aura.Parent = torso
+		rig.dominationAura = aura
+	end
+	if rig.dominationLevel == level then return end
+	rig.dominationLevel = level
+	local look = DOMINATION_LOOK[level]
+	aura.Enabled = look ~= nil
+	if look then
+		aura.Rate = if self.reduced then look.rate * 0.4 else look.rate
+		aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, look.size), NumberSequenceKeypoint.new(1, look.size * 2) })
+		aura.Color = ColorSequence.new(Color3.fromHex(look.colors[1]), Color3.fromHex(look.colors[2]))
+		if level == 3 then self:arc(Vector3.new(view.x, 0.08, self.config.PlaneZ), 2.6, 0, 360, Color3.fromHex("E0102E"), math.pi / 2, 1) end
+	end
+end
+
 -- Per-frame presentation driven by the interpolated fighter views.
 function EffectsController:update(slot, view, rig, previous, now)
 	if view.revived and not rig.blackAura then rig.blackAura = self:blackAura(rig) end
+	if view.kit == "KUROEN" or rig.dominationAura then self:domination(rig, view.domination or 0, view) end
 	local color = self:energy(slot)
 	local phase = if view.state == "Attack" and MoveData.Moves[view.move]
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
@@ -907,12 +945,12 @@ function EffectsController:onEvent(event, views, rigs)
 		if v then self.camera:punch(0.1, Vector3.new(v.x, v.y + 3.5, 0)) end
 		return
 	elseif event.kind == "Chilled" or event.kind == "Poison" or event.kind == "Heal" or event.kind == "Reflect"
-		or event.kind == "Armor" or event.kind == "Shackled" or event.kind == "Puppet" or event.kind == "Drone" then
+		or event.kind == "Armor" or event.kind == "Shackled" or event.kind == "Domination" or event.kind == "Drone" then
 		-- The third sheet's passives: a mark where it happened, in a colour that tells it.
 		local slot = event.slot or event.defender
 		local position = Vector3.new(event.x or 0, event.y or 3, 0)
 		local colors = { Chilled = "9FE6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "C8F0FF", Armor = "FF4A3A",
-			Shackled = "FFB04A", Puppet = "E0304A", Drone = "FF8A2A" }
+			Shackled = "FFB04A", Domination = "E0102E", Drone = "FF8A2A" }
 		local color = Color3.fromHex(colors[event.kind])
 		self:spark(position, color, if event.kind == "Poison" then 0.5 else 1.2)
 		if event.kind == "Heal" or event.kind == "Chilled" then

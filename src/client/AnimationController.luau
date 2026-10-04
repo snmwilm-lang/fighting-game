@@ -64,7 +64,7 @@ function AnimationController.new(model)
 							weld.Part0, weld.Part1, weld.C0 = arm, p, arm.CFrame:ToObjectSpace(p.CFrame)
 							weld.Parent = p
 							table.insert(self.weapons, { weld = weld, spec = held, arm = armName,
-								offset = CFrame.new(0, piece.y or 0, piece.z or 0) })
+								offset = CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0) })
 						end
 					end
 				end

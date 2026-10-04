@@ -929,6 +929,7 @@ local function snapshot(match)
 			chilled = f.chilled > 0 or nil, poisoned = f.poisonTicks > 0 or nil, tempo = f.tempo > 0 or nil,
 			wakeInvuln = f.wakeInvuln, -- (the body blinks while untouchable after getting up)
 			revived = f.revived or nil, -- ASURA's SECOND LIFE (black aura)
+			domination = if f.domination > 0 then f.domination else nil, -- KUROEN's DOMINATION (his aura)
 			stance = f.stance, -- TARO: "CLASSIC" / "PEEKABOO"
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),

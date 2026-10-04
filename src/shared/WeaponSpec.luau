@@ -6,7 +6,8 @@
 	grip's -Z axis. Built by the server (RigBuilder), drawn by the pose sheets and
 	storyboards, and measured by the animation tests (a cut must really sweep the blade).
 	`r6Grip` replaces `grip` on an R6 body, whose hand is the end of a rigid arm.
-	`pair`: a second weapon in the other hand (YUKINA's two fans).
+	`pair`: a second weapon in the other hand (YUKINA's two fans, KAZAN's two claws).
+	A piece may be offset sideways (`x`, the grip's X: KAZAN's three blades side by side).
 ]]
 local WeaponSpec = {}
 
@@ -72,5 +73,28 @@ local function fan(hand)
 end
 WeaponSpec.YUKINA = fan("RightHand")
 WeaponSpec.YUKINA.pair = fan("LeftHand")
+
+-- KAZAN's claws: a steel gauntlet on each hand, three long blades out of the knuckles, on the
+-- line of the forearm (tilt -90: the grip's -Z is the hand's -Y, past the fist), side by side
+-- across the knuckles (x). Long enough to read at a glance, short enough to stay a fist's
+-- weapon (the reach of his moves is in MoveData: middle range, never a whip's).
+local function claw(hand)
+	local pieces = {
+		{ name = "ClawPlate", size = { 0.74, 0.16, 0.26 }, z = 0.02, color = "trim", material = "Metal" },
+	}
+	for i, x in { -0.24, 0, 0.24 } do
+		table.insert(pieces, { name = "ClawBlade" .. i, size = { 0.07, 0.16, 1.35 }, x = x, z = -0.68, color = "C8CCD6", material = "Metal" })
+		table.insert(pieces, { name = "ClawEdge" .. i, size = { 0.08, 0.04, 1.2 }, x = x, y = 0.09, z = -0.7, color = "energy", material = "Neon" })
+	end
+	return {
+		hand = hand,
+		grip = { y = -0.38, z = -0.08, tilt = -90 },
+		r6Grip = { y = -0.46, z = -0.08, tilt = -90 },
+		pieces = pieces,
+		base = -0.05, tip = -1.35,
+	}
+end
+WeaponSpec.KAZAN = claw("RightHand")
+WeaponSpec.KAZAN.pair = claw("LeftHand")
 
 return WeaponSpec

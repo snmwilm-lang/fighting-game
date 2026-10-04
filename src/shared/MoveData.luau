@@ -737,32 +737,48 @@ newKit("HIBIKI", "Hibiki", {
 }, { damage = 0.94, startup = -1, reach = 1, recovery = -3 }, {
 	KiBlast = { startup = 9, projectile = { speed = 38, life = 36, damage = 48, halfHeight = 1.8, push = 42, blockPush = 30 } },
 })
--- MARION 糸: a puppeteer. Long threads, a puppet that strikes from the other side; FILS CROISÉS
--- (S + E) binds the target.
-newKit("MARION", "Marion", {
-	"THREAD", "THREAD BACKHAND", "PUPPET", "DANSE MACABRE", "NEEDLE", "CURTAIN UP", "WOODEN HAND", "PUPPET PIROUETTE",
-	"RISING STRING", "SILK ARC", "WEB", "THOUSAND THREADS", "FALLING SET", "PUPPET WALTZ", "PLOT TWIST",
-	"CURTAIN FALL", "SKIMMING THREAD", "LOW NEEDLE", "AIR THREAD", "DOUBLE THREAD", "MARIONETTE DROP",
-	"GRAND ENTRANCE", "STRING PULL", "FINAL BOW", "CROSSED THREADS",
-	"PUPPET BALL", "BLOODY THEATER", "操人 · FINAL ACT", "終演 · THE CURTAIN FALLS",
-}, { damage = 1.12, startup = 0, reach = 1.2, recovery = -2 }, {
-	KiBlast = { projectile = { speed = 30, life = 56, damage = 30, hitstun = 10, bind = 40, push = 0 } },
+-- KUROEN 蝕: the emperor of the eclipse. Fists, elbows, knees, short bursts of red and black ki.
+-- A technical rushdown: CRIMSON STEP (E) closes in (never invincible), ECLIPSE BREAKER (S + E) a
+-- charged blow, TYRANT'S FIST (skill) only goes on if its first blow lands. DOMINATION (see
+-- the kit below and CombatSimulation) changes what his combos can do, not how hard he hits.
+newKit("KUROEN", "Kuroen", {
+	"JAB", "STRAIGHT", "ELBOW CRUSH", "KNEE STRIKE", "LIVER SHOT", "RISING UPPER", "UMBRA PALM",
+	"CRIMSON SPIRAL", "SOVEREIGN UPPER", "BLACK CRESCENT", "ECLIPSE KICK", "TYRANT'S FIST", "FALLING EMPEROR",
+	"SPINNING HEEL", "CROWN BREAKER", "AXE OF NIGHT", "LOW SWEEP", "SHIN KICK", "AIR KNEE", "AIR HEEL",
+	"METEOR ELBOW", "CRIMSON STEP", "DARK PURSUIT", "EMPEROR'S DECREE", "ECLIPSE BREAKER",
+	"EMPEROR RUSH", "零 · ZERO ABSOLU: ECLIPSE", "皇 · EMPEROR'S GATE", "蝕 · TOTAL ECLIPSE",
+}, { damage = 0.94, startup = -1, reach = 1.0, recovery = 1 }, {
+	-- CRIMSON STEP (E): a fast step in and a blow. Not invincible (no free reversal), long recovery:
+	-- thrown carelessly it is punished.
+	Rising = { invuln = false, startup = 10, lunge = 30, recovery = 32, damage = 72, launch = 26, jumpCancel = false },
+	-- TYRANT'S FIST: the flurry only goes on if its first blow lands (CombatSimulation: confirm).
+	KiFlurry = { confirm = true, startup = 8 },
+	-- ECLIPSE BREAKER (S + E): a blow charged in the arm (a visible wind-up), a finisher or a punish.
+	KiBlast = { projectile = false, startup = 20, active = 4, recovery = 34, damage = 128, guardDamage = 34,
+		hitstun = 30, blockstun = 16, hitstop = 14, push = 34, blockPush = 22, lunge = 10, launch = 22, wallBounce = true,
+		heavy = true, charge = true, hitbox = { near = 0.3, far = 4.0, low = 1.6, high = 5.6 } },
 })
-Moves.MarionPuppet = move({ -- DOUBLE COMMANDE: the puppet's strike from the other side (thrown by the passive)
-	id = "MarionPuppet", name = "THE PUPPET", kind = "Special", startup = 8, active = 2, recovery = 14,
-	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
-	projectile = { speed = 34, life = 26, spawnX = 0, height = 3.2, halfWidth = 0.9, halfHeight = 1.4,
-		damage = 44, guardDamage = 10, hitstun = 22, blockstun = 12, hitstop = 8, push = 10, blockPush = 10 },
+-- DOMINATION I (ÉVEIL): CRIMSON STEP becomes EMPEROR STEP: two blows, a quicker recovery. Costs a level.
+Moves.KuroenEmperorStep = move({
+	id = "KuroenEmperorStep", name = "EMPEROR STEP", kind = "Special", startup = 8, active = 8, recovery = 20,
+	hits = 2, hitInterval = 5, damage = 44, guardDamage = 12, hitstun = 26, blockstun = 14, hitstop = 10, multiHitstop = 4,
+	push = 10, blockPush = 16, lunge = 34, launch = 30,
+	hitbox = { near = 0.2, far = 3.8, low = 1.0, high = 6.0 }, heavy = true,
 })
--- KAZAN 鎖: the jailer's chains. The longest reach of the chains; CROCHET DU GEÔLIER (S + E) pulls.
+-- KAZAN 鎖: the jailer turned predator. Two steel claws, three long blades on each hand: rakes,
+-- crossed rends, rising talons, heavy maulings, both hands in turn. Pressure at short and middle
+-- range. SHACKLE HOOK (S + E): the claws catch the opponent and hold it a moment (the shackle).
 newKit("KAZAN", "Kazan", {
-	"LINK", "CHAIN BACKHAND", "SHACKLE", "IRON WHIP", "PADLOCK", "IRON LIFT", "BALL AND CHAIN",
-	"CHAIN WHIRL", "RISING CHAIN", "IRON ARC", "LINK STORM", "THOUSAND LINKS", "IRON NUT",
-	"SPINNING CHAIN", "JAILER'S MACE", "DEADBOLT", "LOW SHACKLE", "LOW LINK", "AIR CHAIN", "DOUBLE CHAIN",
-	"IRON BALL DROP", "TRACTION", "JAILER'S CHASE", "SENTENCE", "JAILER'S HOOK",
-	"HUNDRED CHAINS", "IRON PRISON", "鎖獄 · JUDGMENT OF CHAINS", "断罪 · FINAL VERDICT",
-}, { damage = 1.0, startup = 1, reach = 1.25, recovery = 1 }, {
-	KiBlast = { projectile = { speed = 42, life = 30, damage = 40, pull = 36, push = 0, hitstun = 26 } },
+	"RAKE", "BACKHAND RAKE", "CLAW JAB", "CROSS REND", "GUT CLAW", "RISING TALON", "TWIN GOUGE",
+	"CLAW CYCLONE", "SKY TALON", "CRESCENT REND", "PREDATOR RUSH", "THOUSAND CUTS", "FALLING TALON",
+	"SPINNING REND", "MAULER", "SKULL SPLITTER", "LOW REND", "ANKLE CLAW", "AIR RAKE", "AIR CROSS",
+	"TALON DIVE", "RISING CLAWS", "HUNTER'S CHASE", "EXECUTION", "SHACKLE HOOK",
+	"PREDATOR'S FEAST", "IRON FANGS", "鎖獄 · CLAW PRISON", "断罪 · FINAL VERDICT",
+}, { damage = 0.97, startup = -1, reach = 1.05, recovery = 0 }, {
+	-- SHACKLE HOOK: a lunge, the claws hook the body and hold it (bind) for a follow-up.
+	KiBlast = { projectile = false, startup = 13, active = 4, recovery = 28, damage = 46, guardDamage = 10,
+		hitstun = 20, blockstun = 14, hitstop = 10, push = 2, blockPush = 18, lunge = 18, bind = 34,
+		hitbox = { near = 0.2, far = 3.6, low = 1.2, high = 5.4 } },
 })
 -- KUREN 血: blood. Every special costs blood and hits harder; LANCE SANGUINE (S + E) is the fastest throw.
 newKit("KUREN", "Kuren", {
@@ -1178,19 +1194,26 @@ third("HIBIKI", {
 	Passive = { Type = "Tempo", Name = "TEMPO", Chain = 3, Window = 50, Duration = 240 },
 	GateTitle = { text = "絶響", sub = "LAST RESONANCE" },
 })
-third("MARION", {
-	Kanji = "糸", Role = "PUPPETS", Difficulty = 3, Energy = "E0304A", Light = "F0C8D0",
-	Description = "The puppeteer: long threads and a puppet. DOUBLE CONTROL: her techniques make the puppet strike from the other side. CROSSED THREADS (S + E) pins the opponent.",
-	Stats = { MaxHealth = 1250, WalkSpeed = 16.5, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
-	Passive = { Type = "Puppet", Name = "DOUBLE CONTROL", Cooldown = 300, Strike = "MarionPuppet" },
-	GateTitle = { text = "操人", sub = "FINAL ACT" },
-})
 third("KAZAN", {
-	Kanji = "鎖", Role = "CAPTURE", Difficulty = 2, Energy = "FFB04A", Light = "E0E0E8",
-	Description = "The jailer: chains with a very long reach. SHACKLED: 2 techniques landed and the opponent's next dash is cut in half. JAILER'S HOOK (S + E) pulls in.",
-	Stats = { MaxHealth = 1450, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 38 },
+	Kanji = "鎖", Role = "PRESSURE", Difficulty = 2, Energy = "FFB04A", Light = "E0E0E8",
+	Description = "The predator: two steel claws, three blades on each hand, relentless at short and middle range. SHACKLED: 2 techniques landed and the opponent's next dash is cut in half. SHACKLE HOOK (S + E) catches and holds.",
+	Stats = { MaxHealth = 1400, WalkSpeed = 17, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 42 },
 	Passive = { Type = "Shackle", Name = "SHACKLED", Hits = 2 },
 	GateTitle = { text = "鎖獄", sub = "JUDGMENT OF CHAINS" },
+})
+-- KUROEN 蝕 · THE EMPEROR OF THE ECLIPSE. Rushdown: superb pressure and mobility, classic
+-- defence, no invincible reversal (CRIMSON STEP is not one), ECLIPSE BREAKER punishable, and
+-- everything rests on DOMINATION (3 levels, earned by clean combos, lost when hit or idle):
+--   I   ÉVEIL      CRIMSON STEP becomes EMPEROR STEP (costs the level)
+--   II  SUPRÉMATIE a technique that hits can be cancelled into another (costs a level)
+--   III ÉCLIPSE    R on a blow that hits: ZERO ABSOLU: ECLIPSE (costs everything + 3 bars)
+-- No damage bonus at any level.
+third("KUROEN", {
+	Kanji = "蝕", Role = "RUSHDOWN", Difficulty = 3, Energy = "E0102E", Light = "FF6A7A",
+	Description = "The emperor of the eclipse: fists, elbows, knees and bursts of red and black ki. DOMINATION: clean combos raise it (3 levels), being hit or idle lowers it. I: EMPEROR STEP. II: techniques cancel into each other. III: R on a hit unleashes ZERO ABSOLU: ECLIPSE.",
+	Stats = { MaxHealth = 1350, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 46 },
+	Passive = { Type = "Domination", Name = "DOMINATION", Max = 3, ComboHits = 4, Idle = 360, Step = "KuroenEmperorStep" },
+	GateTitle = { text = "皇", sub = "EMPEROR'S GATE" },
 })
 third("KUREN", {
 	Kanji = "血", Role = "SACRIFICE", Difficulty = 3, Energy = "D0102E", Light = "FF8090",
@@ -1253,7 +1276,7 @@ kit("ASURA", {
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)
 MoveData.Kits = table.freeze(Kits)
 MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES",
-	"RAIJIN", "YUKINA", "VENOM", "GORAN", "ASTER", "HIBIKI", "MARION", "KAZAN", "KUREN", "SYLVA", "ELIAN", "NOVA" })
+	"RAIJIN", "YUKINA", "VENOM", "GORAN", "ASTER", "HIBIKI", "KAZAN", "KUREN", "SYLVA", "ELIAN", "NOVA", "KUROEN" })
 
 -- KAI's tables, kept for code written before the kits.
 MoveData.Starters = Kits.KAI.Starters
@@ -1272,7 +1295,7 @@ moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
 moveKit.TaroChampion = "TARO"
 moveKit.HibecaresWall, moveKit.HibecaresCounter = "HIBECARES", "HIBECARES"
-moveKit.YukinaMirror, moveKit.GoranGrab, moveKit.MarionPuppet = "YUKINA", "GORAN", "MARION"
+moveKit.YukinaMirror, moveKit.GoranGrab, moveKit.KuroenEmperorStep = "YUKINA", "GORAN", "KUROEN"
 moveKit.ElianPulse, moveKit.NovaSentinel = "ELIAN", "NOVA"
 MoveData.MoveKit = table.freeze(moveKit)
 

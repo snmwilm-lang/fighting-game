@@ -931,10 +931,48 @@ local function weaponLine(kit, pose, skel, r6)
 end
 local BODIES = { KAI = { KAI }, AVATAR = { AVATAR }, R6 = { nil, r6Skeleton() } }
 
-test("the weapons in hand (SHIN's katana, RAIJIN's spear, YUKINA's fans) never go through the floor on the ground (R15)", function()
+test("KAZAN's claws: two hands, three long blades each; every rake really sweeps the blades (not a whip, not a punch)", function()
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	local spec = WeaponSpec.KAZAN
+	expect(spec and spec.pair and spec.hand ~= spec.pair.hand, "KAZAN has not two claws")
+	for _, claw in { spec, spec.pair } do
+		local blades = 0
+		for _, piece in claw.pieces do
+			if string.find(piece.name, "ClawBlade") then
+				blades += 1
+				expect(piece.size[3] >= 1.1, "a claw blade too short to read: " .. piece.size[3])
+			end
+		end
+		expect(blades == 3, "a claw has " .. blades .. " blades")
+	end
+	local anim = newAnimator(KAI)
+	anim.kit = "KAZAN"
+	local function tip(pose, spec2)
+		local r = anim:resolve(pose)
+		local parts = {}
+		for name, f in K.solve(KAI, r, anim:groundLift(r, 0)) do
+			if KAI.sizes[name] then parts[name] = { cframe = f, size = KAI.sizes[name] } end
+		end
+		local grip = WeaponKit.grip("KAZAN", parts, spec2)
+		local x, y, z = K.point(grip, 0, 0, spec2.tip)
+		return { x, y, z }
+	end
+	-- the rakes and the heavy blows: the leading claw's tip travels from the wind-up to the contact
+	for _, role in { "Jab", "Cross", "Kick", "Uppercut", "Smash", "Hammer", "KiFlurry" } do
+		local set = Poses[MoveData.Kits.KAZAN.Roles[role]]
+		local moved = 0
+		for _, spec2 in { spec, spec.pair } do
+			local a, b = tip(set.Startup, spec2), tip(set.Active, spec2)
+			moved = math.max(moved, math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2))
+		end
+		expect(moved > 1.2, string.format("KAZAN %s: the claws barely move (%.2f): no rake", role, moved))
+	end
+end)
+
+test("the weapons in hand (SHIN's katana, RAIJIN's spear, YUKINA's fans, KAZAN's claws) never go through the floor on the ground (R15)", function()
 	local WeaponSpec = require("../src/shared/WeaponSpec")
 	local anim = newAnimator(KAI)
-	for _, kit in { "SHIN", "RAIJIN", "YUKINA" } do
+	for _, kit in { "SHIN", "RAIJIN", "YUKINA", "KAZAN" } do
 		anim.kit = kit
 		for _, id in MoveData.Kits[kit].Roles do
 			for _, phase in { "Startup", "Active", "Active2", "Recovery" } do

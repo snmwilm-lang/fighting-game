@@ -1516,14 +1516,133 @@ test("HIBIKI TEMPO: 3 hits in rhythm, then her recoveries run twice as fast", fu
 	expect(fast < normal, string.format("TEMPO jab lasts %d ticks, without %d", fast, normal))
 end)
 
-test("MARION DOUBLE COMMANDE: her threads bind, and the puppet strikes from the other side", function()
-	local w = kitDuel("MARION", "KAI", 6)
+-- ===================================================================== KUROEN 蝕 (DOMINATION)
+local function kuroenWorld(gap)
+	local w = kitDuel("KUROEN", "KAI", gap or 2.6)
+	return w, w.fighters[1], w.fighters[2]
+end
+
+test("KUROEN DOMINATION: a clean combo of 4 raises it once per combo (max 3), a sloppy one never", function()
+	local w, k, d = kuroenWorld()
+	local jab = Moves[MoveData.Kits.KUROEN.Roles.Jab]
+	local function combo(clean, hits)
+		d.comboHits = 0
+		for _ = 1, hits do
+			k.chainClean = clean
+			PASSIVE.onHit(w, k, d, jab, nil, true, {})
+			d.comboHits += 1
+		end
+	end
+	combo(true, 3)
+	expect(k.domination == 0, "3 hits already raised DOMINATION")
+	combo(true, 8)
+	expect(k.domination == 1, "a long combo raised it more than once: " .. k.domination)
+	combo(false, 6)
+	expect(k.domination == 1, "a sloppy (spammed) combo raised it")
+	combo(true, 4); combo(true, 4); combo(true, 4)
+	expect(k.domination == 3, "DOMINATION goes past ÉCLIPSE (3): " .. k.domination)
+end)
+
+test("KUROEN DOMINATION fades: a combo taken costs a level, so do 6 s without landing a blow", function()
+	local w, k = kuroenWorld(2.4)
+	k.domination = 3
+	local events = run(w, 40, function(t) return { nil, input({ light = t == 1 }) } end)
+	expect(find(events, "Hit") ~= nil and k.domination == 2, "a combo taken did not cost exactly one level: " .. k.domination)
+	w = kuroenWorld(8)
+	k = w.fighters[1]
+	k.domination = 2
+	run(w, 350)
+	expect(k.domination == 2, "faded before 6 s")
+	run(w, 20)
+	expect(k.domination == 1, "did not fade after 6 s without a hit")
+end)
+
+test("KUROEN DOMINATION I: CRIMSON STEP becomes EMPEROR STEP and spends the level; CRIMSON STEP is never invincible", function()
+	local w, k = kuroenWorld(5)
+	local step = Moves[MoveData.Kits.KUROEN.Starters.Ground.Special]
+	expect(step.name == "CRIMSON STEP" and not step.invuln and step.recovery >= 28, "CRIMSON STEP is a free reversal or safe")
+	run(w, 2, function(t) return { input({ special = t == 1 }) } end)
+	expect(k.move == step.id, "no CRIMSON STEP at level 0")
+	w, k = kuroenWorld(5)
+	k.domination = 1
+	local events = run(w, 2, function(t) return { input({ special = t == 1 }) } end)
+	expect(k.move == "KuroenEmperorStep" and k.domination == 0, "level I did not give EMPEROR STEP (or did not spend it)")
+	expect(find(events, "Domination") ~= nil, "the spent level is not shown")
+end)
+
+test("KUROEN DOMINATION II: a technique that hits cancels into another (one level); III: R on a hit is ZERO ABSOLU", function()
+	local w, k = kuroenWorld(2.2)
+	k.domination = 3
+	local seen = {}
+	run(w, 60, function(t)
+		if k.move then seen[k.move] = true end
+		local onHit = k.move == "KuroenEmperorStep" and k.moveContact == "Hit"
+		return { input({ special = t == 1 or (onHit and t % 2 == 0) }) }
+	end)
+	expect(seen.KuroenEmperorStep, "no EMPEROR STEP")
+	expect(k.domination <= 1, "the SUPREMACY cancel did not happen / spend: " .. k.domination)
+	-- III
+	w, k = kuroenWorld(2.4)
+	k.domination, k.meter = 3, Config.MaxMeter
+	local awaken = MoveData.Kits.KUROEN.Ultimates.Awaken
+	run(w, 30, function(t)
+		local hit = k.move == MoveData.Kits.KUROEN.Starters.Ground.Light and k.moveContact == "Hit"
+		return { input({ light = t == 1, ultimate = hit }) }
+	end)
+	expect(w.cinematic ~= nil and w.cinematic.move == awaken or k.move == awaken, "ÉCLIPSE + R on a hit did not unleash ZERO ABSOLU")
+	expect(k.domination == 0, "ZERO ABSOLU did not spend the three levels")
+	-- below ÉCLIPSE, R is his EMPEROR RUSH
+	w, k = kuroenWorld(2.4)
+	k.domination, k.meter = 2, Config.MaxMeter
+	run(w, 30, function(t)
+		local hit = k.move == MoveData.Kits.KUROEN.Starters.Ground.Light and k.moveContact == "Hit"
+		return { input({ light = t == 1, ultimate = hit }) }
+	end)
+	expect(not (w.cinematic and w.cinematic.move == awaken), "ZERO ABSOLU without ÉCLIPSE")
+end)
+
+test("KUROEN DOMINATION is never a damage bonus; TYRANT'S FIST stops if its first blow is blocked", function()
+	local function jabDamage(level)
+		local w, k = kuroenWorld(2.4)
+		k.domination = level
+		local e = find(run(w, 20, function(t) return { input({ light = t == 1 }) } end), "Hit")
+		return e and e.damage
+	end
+	expect(jabDamage(0) and jabDamage(0) == jabDamage(3), "ÉCLIPSE changes the damage")
+	local fist = Moves[MoveData.Kits.KUROEN.Roles.KiFlurry]
+	expect(fist.confirm and fist.name == "TYRANT'S FIST", "TYRANT'S FIST has no confirm rule")
+	local w, k = kuroenWorld(2.4)
+	local blocked = run(w, 80, function(t)
+		if t == 1 then k.move, k.moveFrame, k.moveHits, k.moveContact, k.state, k.moveSerial = fist.id, 0, 0, nil, "Attack", k.moveSerial + 1 end
+		return { nil, input({ block = true }) }
+	end)
+	expect(count(blocked, "Block") == 1, "a blocked TYRANT'S FIST kept hitting: " .. count(blocked, "Block"))
+	w, k = kuroenWorld(2.4)
+	local landed = run(w, 80, function(t)
+		if t == 1 then k.move, k.moveFrame, k.moveHits, k.moveContact, k.state, k.moveSerial = fist.id, 0, 0, nil, "Attack", k.moveSerial + 1 end
+	end)
+	expect(count(landed, "Hit") >= 4, "a TYRANT'S FIST that lands does not go on: " .. count(landed, "Hit"))
+end)
+
+-- ===================================================================== KAZAN 鎖 (claws)
+test("KAZAN's claws: no whip reach any more (short and middle range); SHACKLE HOOK catches and holds", function()
+	local far = 0
+	for _, id in MoveData.Kits.KAZAN.Roles do
+		local m = Moves[id]
+		if m.hitbox and (m.kind or "Normal") == "Normal" then far = math.max(far, m.hitbox.far) end
+	end
+	local spear = 0
+	for _, id in MoveData.Kits.RAIJIN.Roles do
+		local m = Moves[id]
+		if m.hitbox and (m.kind or "Normal") == "Normal" then spear = math.max(spear, m.hitbox.far) end
+	end
+	expect(far < spear * 0.95 and far <= 4.9, string.format("KAZAN still reaches like a whip (%.2f)", far))
+	local hook = Moves[MoveData.Kits.KAZAN.Starters.Crouch.Special]
+	expect(hook.name == "SHACKLE HOOK" and not hook.projectile and hook.bind and hook.bind > hook.hitstun, "the hook does not catch")
+	local w = kitDuel("KAZAN", "KAI", 3.2)
 	local d = w.fighters[2]
-	local events = run(w, 80, crouchSpecial)
-	local puppet = find(events, "Puppet")
-	expect(puppet ~= nil, "the puppet did not come in")
-	expect(puppet and puppet.x > d.x, "the puppet did not come from the other side")
-	expect(count(events, "Hit") >= 2, "the puppet did not strike")
+	local events = run(w, 30, crouchSpecial)
+	expect(find(events, "Hit") ~= nil and d.stun >= hook.hitstun, "SHACKLE HOOK did not hold the target")
 end)
 
 test("KAZAN ENTRAVE: 2 chain techniques on the target cut its next dash in half", function()

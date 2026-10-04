@@ -712,43 +712,64 @@ BODIES.HIBIKI = {
 	end,
 }
 
--- MARION 糸: long grey hair, a black and red gothic battle dress with a layered skirt, rings
--- on every finger with glowing threads hanging from them.
-BODIES.MARION = {
+-- KUROEN 蝕: very muscular, dark skin; a big white mane with red streaks swept back; a torn
+-- sleeveless black jacket open on the chest, wide white trousers, black and red gauntlets.
+-- A few readable shapes (the mane, the white trousers, the red gauntlets): he stays himself
+-- in the middle of the effects. (His red and black aura is the client's, EffectsController.)
+BODIES.KUROEN = {
 	colors = function(pc, color)
-		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("Vest"), color("Vest"), color("Vest"), color("SkinTone")
-		pc.UpperLeg, pc.LowerLeg = color("Vest"), color("Pants")
+		pc.UpperTorso, pc.UpperArm, pc.LowerArm, pc.Hand = color("SkinTone"), color("SkinTone"), color("Wraps"), color("Wraps")
+		pc.UpperLeg, pc.LowerLeg = color("Pants"), color("Pants")
 	end,
 	head = function(ctx)
-		local o, hair = ctx.ornament, ctx.hair
-		o("Head", "HairCap", Vector3.new(1.2, 0.38, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "Bangs", Vector3.new(1.04, 0.4, 0.14), CFrame.new(0, 0.3, -0.55) * CFrame.Angles(math.rad(180), 0, 0), hair, "WedgePart")
-		ctx.tail("Head", "LongHair", Vector3.new(1.1, 2.6, 0.16), CFrame.new(0, -0.5, 0.6), hair)
-		o("Head", "Bow", Vector3.new(0.6, 0.3, 0.16), CFrame.new(-0.4, 0.62, -0.1) * CFrame.Angles(0, 0, 0.3), ctx.color("Sash"))
+		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
+		o("Head", "HairCap", Vector3.new(1.3, 0.46, 1.2), CFrame.new(0, 0.5, 0.1), hair)
+		-- the mane swept back: big wedges, red streaks
+		for i, f in { { -0.42, 1.0, -0.3 }, { -0.14, 1.3, -0.1 }, { 0.14, 1.3, 0.1 }, { 0.42, 1.0, 0.3 }, { 0, 1.15, 0, 0.7 } } do
+			o("Head", "Mane", Vector3.new(0.4, f[2], 1.0), CFrame.new(f[1], 0.55 + f[2] * 0.25, (f[4] or 0.35))
+				* CFrame.Angles(math.rad(-62), 0, f[3]), if i % 2 == 0 then tip else hair, "WedgePart")
+		end
+		for _, sign in { -1, 1 } do
+			o("Head", "SideMane", Vector3.new(0.26, 1.0, 0.9), CFrame.new(sign * 0.66, 0.05, 0.36) * CFrame.Angles(0.3, 0, sign * 0.1), hair, "WedgePart")
+		end
+		o("Head", "Streak", Vector3.new(0.18, 0.5, 0.9), CFrame.new(0.22, 0.75, 0.25) * CFrame.Angles(math.rad(-50), 0, 0), tip, "WedgePart")
 	end,
 	body = function(ctx)
-		local o, color = ctx.ornament, ctx.color
-		local energy = color("Energy")
-		o("UpperTorso", "Corset", Vector3.new(1.4, 0.9, 0.06), CFrame.new(0, -0.3, -0.51), color("Shirt"))
-		for i = -2, 2 do
-			o("UpperTorso", "Lace", Vector3.new(0.3, 0.04, 0.04), CFrame.new(0, -0.1 - (i + 2) * 0.16, -0.55), color("VestTrim"))
+		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
+		local skin, red = color("SkinTone"), color("VestTrim")
+		-- muscle: pecs and abs on the bare chest
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "Pec", Vector3.new(0.8, 0.5, 0.12), CFrame.new(sign * 0.4, 0.3, -0.52), skin)
+			o("UpperTorso", "Trap", Vector3.new(0.46, 0.3, 0.8), CFrame.new(sign * 0.5, 0.78, 0.05) * CFrame.Angles(0, 0, sign * -0.4), skin, "WedgePart")
 		end
-		o("UpperTorso", "Collar", Vector3.new(1.3, 0.3, 1.1), CFrame.new(0, 0.8, 0), color("VestTrim"))
-		for i, y in { 0.1, -0.3, -0.7 } do
-			o("LowerTorso", "Skirt" .. i, Vector3.new(2.0 + i * 0.25, 0.5, 1.2 + i * 0.2), CFrame.new(0, y, 0), if i == 2 then color("Shirt") else color("Vest"))
+		for row = 0, 2 do
+			o("UpperTorso", "AbLine" .. row, Vector3.new(0.5, 0.04, 0.04), CFrame.new(0, -0.15 - row * 0.2, -0.53), ink)
 		end
+		-- the torn sleeveless jacket, open on the chest (its two panels and a ragged hem)
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "JacketPanel", Vector3.new(0.5, 1.42, 1.06), CFrame.new(sign * 0.72, 0, 0.01), color("Vest"))
+			o("UpperTorso", "JacketEdge", Vector3.new(0.05, 1.42, 0.05), CFrame.new(sign * 0.48, 0, -0.53), red)
+			o("UpperTorso", "Tear", Vector3.new(0.3, 0.22, 0.06), CFrame.new(sign * 0.7, -0.66, -0.52) * CFrame.Angles(0, 0, sign * 0.5), color("Vest"), "WedgePart")
+		end
+		o("UpperTorso", "JacketBack", Vector3.new(1.94, 1.42, 0.08), CFrame.new(0, 0, 0.52), color("Vest"))
+		ctx.tail("UpperTorso", "Coattail", Vector3.new(1.6, 1.0, 0.06), CFrame.new(0, -1.0, 0.54), color("Vest"))
+		bareArms(ctx, nil, nil)
+		-- gauntlets: black plates, red knuckles and a red stripe
 		for _, side in { "Left", "Right" } do
-			for i = -1, 1 do
-				o(side .. "Hand", "FingerRing", Vector3.new(0.1, 0.06, 0.1), CFrame.new(i * 0.22, -0.3, -0.3), energy).Material = Enum.Material.Neon
-				ctx.tail(side .. "Hand", "Thread", Vector3.new(0.03, 1.4, 0.03), CFrame.new(i * 0.22, -0.34, -0.3), energy)
-			end
+			material(o(side .. "LowerArm", "Gauntlet", Vector3.new(0.82, 0.8, 0.86), CFrame.new(0, -0.05, 0), color("Wraps")), Enum.Material.Metal)
+			o(side .. "LowerArm", "GauntletStripe", Vector3.new(0.86, 0.1, 0.9), CFrame.new(0, 0.2, 0), red).Material = Enum.Material.Neon
+			o(side .. "Hand", "Knuckles", Vector3.new(0.82, 0.18, 0.24), CFrame.new(0, -0.1, -0.34), red).Material = Enum.Material.Metal
 		end
-		legs(ctx, { feet = "boots" })
+		o("LowerTorso", "Sash", Vector3.new(1.8, 0.34, 1.02), CFrame.new(0, 0.18, 0), red)
+		ctx.tail("LowerTorso", "SashTail", Vector3.new(0.28, 1.3, 0.06), CFrame.new(0.5, 0.1, -0.54) * CFrame.Angles(0, 0, 0.12), red)
+		legs(ctx, { wide = true, feet = "bare" })
 	end,
 }
 
--- KAZAN 鎖: short grey hair, amber eyes, a black combat suit with a high collar, and heavy
--- chains wound round both forearms, a padlock on the chest.
+-- KAZAN 鎖: the predator. Short grey hair, amber eyes, a black combat suit with a high collar,
+-- steel shoulder plates, the padlock of the jailer on the chest, and on each hand a steel
+-- gauntlet with three long claws (WeaponSpec.KAZAN: built with the weapons, so they follow
+-- the hands and are measured by the animation tests).
 BODIES.KAZAN = {
 	colors = function(pc, color)
 		pc.UpperTorso, pc.UpperArm, pc.LowerArm = color("Vest"), color("Vest"), color("Vest")
@@ -757,6 +778,8 @@ BODIES.KAZAN = {
 		spikes(ctx, { { -0.4, 0.6, -0.4, 0.1, -30 }, { -0.15, 0.7, -0.15, 0.15, -40 }, { 0.12, 0.7, 0.15, 0.15, -40 },
 			{ 0.4, 0.6, 0.4, 0.1, -30 } }, nil)
 		ctx.ornament("Head", "Collar", Vector3.new(1.16, 0.4, 1.08), CFrame.new(0, -0.44, 0.02), ctx.color("Vest"))
+		-- a predator's look: a steel half-mask over the mouth
+		material(ctx.ornament("Head", "JawGuard", Vector3.new(1.04, 0.36, 0.14), CFrame.new(0, -0.26, -0.55), ctx.color("Wraps")), Enum.Material.Metal)
 	end,
 	body = function(ctx)
 		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
@@ -767,11 +790,10 @@ BODIES.KAZAN = {
 		end
 		material(o("UpperTorso", "Padlock", Vector3.new(0.34, 0.36, 0.12), CFrame.new(0, 0.1, -0.58), color("Energy")), Enum.Material.Metal)
 		for _, side in { "Left", "Right" } do
-			for i = 0, 5 do
-				material(o(side .. "LowerArm", "ChainLink", Vector3.new(0.82, 0.12, 0.82), CFrame.new(0, 0.36 - i * 0.14, 0)
-					* CFrame.Angles(0, i * 0.5, (if i % 2 == 0 then 1 else -1) * 0.2), metal), Enum.Material.Metal)
-			end
-			ctx.tail(side .. "LowerArm", "ChainEnd", Vector3.new(0.14, 1.2, 0.14), CFrame.new(0, -0.4, 0.3), metal)
+			-- the claws' gauntlets: steel vambraces and knuckle plates (the blades are the weapon)
+			material(o(side .. "LowerArm", "Vambrace", Vector3.new(0.84, 0.86, 0.88), CFrame.new(0, -0.04, 0), metal), Enum.Material.Metal)
+			o(side .. "LowerArm", "VambraceRim", Vector3.new(0.88, 0.08, 0.92), CFrame.new(0, 0.38, 0), color("Energy"))
+			material(o(side .. "Hand", "KnucklePlate", Vector3.new(0.84, 0.3, 0.3), CFrame.new(0, -0.08, -0.3), metal), Enum.Material.Metal)
 		end
 		o("LowerTorso", "Belt", Vector3.new(1.76, 0.26, 1.0), CFrame.new(0, 0.2, 0), ink)
 		legs(ctx, { feet = "boots" })
@@ -1459,31 +1481,25 @@ function OUTFITS.HIBIKI(o)
 	o.piece("Head", "HeadbandArc", Vector3.new(head.X * 1.2, 0.14, 0.24), CFrame.new(0, head.Y * 0.56, 0), o.color("Shirt"))
 end
 
-function OUTFITS.MARION(o)
+function OUTFITS.KUROEN(o)
 	if o.block then return end -- (the block body draws all of it)
 	for _, side in SIDES do
-		local hand = o.size(side[1] .. "Hand")
-		for i = -1, 1 do
-			o.piece(side[1] .. "Hand", "FingerRing" .. i, Vector3.new(0.1, 0.06, 0.1), CFrame.new(i * hand.X * 0.3, -hand.Y * 0.3, -hand.Z * 0.3), o.energy).Material = Enum.Material.Neon
-			o.tail(side[1] .. "Hand", "Thread" .. i, Vector3.new(0.03, 1.4, 0.03), CFrame.new(i * hand.X * 0.3, -hand.Y * 0.34, -hand.Z * 0.3), o.energy)
-		end
+		local arm = o.size(side[1] .. "LowerArm")
+		o.piece(side[1] .. "LowerArm", "Gauntlet", Vector3.new(arm.X * 1.12, arm.Y * 0.8, arm.Z * 1.12), CFrame.new(0, -arm.Y * 0.05, 0),
+			Color3.fromHex("141016")).Material = Enum.Material.Metal
+		o.piece(side[1] .. "LowerArm", "GauntletStripe", Vector3.new(arm.X * 1.16, 0.1, arm.Z * 1.16), CFrame.new(0, arm.Y * 0.2, 0), o.main).Material = Enum.Material.Neon
 	end
-	if not o.block then
-		local head = o.size("Head")
-		o.piece("Head", "Bow", Vector3.new(0.6, 0.3, 0.16), CFrame.new(-head.X * 0.35, head.Y * 0.5, 0) * CFrame.Angles(0, 0, 0.3), o.main)
-	end
+	local waist = o.size("LowerTorso")
+	o.piece("LowerTorso", "Sash", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.4), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.15, 0), o.main)
 end
 
 function OUTFITS.KAZAN(o)
-	if o.block then return end -- (the block body draws all of it)
+	o.weapon(WeaponSpec.KAZAN) -- the two claws (block body and avatars alike)
+	if o.block then return end -- (the block body draws the rest)
 	local metal = o.second
 	for _, side in SIDES do
-		for i = 0, 4 do
-			local arm = o.size(side[1] .. "LowerArm")
-			o.piece(side[1] .. "LowerArm", "ChainLink" .. i, Vector3.new(arm.X * 1.16, 0.12, arm.Z * 1.16), CFrame.new(0, arm.Y * (0.36 - i * 0.16), 0)
-				* CFrame.Angles(0, i * 0.5, (if i % 2 == 0 then 1 else -1) * 0.2), metal).Material = Enum.Material.Metal
-		end
-		o.tail(side[1] .. "LowerArm", "ChainEnd", Vector3.new(0.14, 1.2, 0.14), CFrame.new(0, -o.size(side[1] .. "LowerArm").Y * 0.4, 0.3), metal)
+		local arm = o.size(side[1] .. "LowerArm")
+		o.piece(side[1] .. "LowerArm", "Vambrace", Vector3.new(arm.X * 1.14, arm.Y * 0.86, arm.Z * 1.14), CFrame.new(0, -arm.Y * 0.04, 0), metal).Material = Enum.Material.Metal
 	end
 	local chest = o.size("UpperTorso")
 	o.piece("UpperTorso", "Padlock", Vector3.new(0.34, 0.36, 0.12), CFrame.new(0, chest.Y * 0.05, -chest.Z * 0.58), o.energy).Material = Enum.Material.Metal
@@ -1595,7 +1611,7 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 			local partColor = if piece.color == "energy" then o.energy elseif piece.color == "trim" then color("VestTrim")
 				else Color3.fromHex(piece.color)
 			local p = o.piece(spec.hand, piece.name, Vector3.new(piece.size[1], piece.size[2], piece.size[3]),
-				grip * CFrame.new(0, piece.y or 0, piece.z or 0), partColor, piece.shape and Enum.PartType[piece.shape])
+				grip * CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0), partColor, piece.shape and Enum.PartType[piece.shape])
 			if piece.material then p.Material = Enum.Material[piece.material] end
 		end
 	end

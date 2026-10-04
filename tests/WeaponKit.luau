@@ -98,7 +98,7 @@ function WeaponKit.pieces(kit, parts, energy, flight, which)
 		grip = K.translation(at[1], at[2], at[3])
 	end
 	for _, p in spec.pieces do
-		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(0, p.y or 0, p.z or 0)), size = p.size,
+		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(p.x or 0, p.y or 0, p.z or 0)), size = p.size,
 			color = if p.color == "energy" then energy or "8FD8FF" elseif p.color == "trim" then "C9A227" else p.color })
 	end
 	if spec.pair and not which then

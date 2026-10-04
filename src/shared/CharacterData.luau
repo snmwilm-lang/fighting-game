@@ -11,8 +11,8 @@
 -- colours: Sash = main outfit colour (KAI sash, TARO gloves, ZEPHYR scarf, AKEMI mask),
 -- Wraps = second colour (bands, guards).
 local KANJI = { KAI = "開", TARO = "火", ZEPHYR = "風", AKEMI = "影", RYUKEN = "拳", SHIN = "流", DAICHA = "闇", HIBECARES = "崩",
-	ASURA = "阿", RAIJIN = "雷", YUKINA = "雪", VENOM = "毒", GORAN = "剛", ASTER = "星", HIBIKI = "響", MARION = "糸",
-	KAZAN = "鎖", KUREN = "血", SYLVA = "森", ELIAN = "癒", NOVA = "機" }
+	ASURA = "阿", RAIJIN = "雷", YUKINA = "雪", VENOM = "毒", GORAN = "剛", ASTER = "星", HIBIKI = "響",
+	KAZAN = "鎖", KUREN = "血", SYLVA = "森", ELIAN = "癒", NOVA = "機", KUROEN = "蝕" }
 
 local function style(kit, name, colors)
 	colors.Name = kit
@@ -203,8 +203,10 @@ local Skins = table.freeze({
 	["SINGULARITY"] = style("ASTER", "SINGULARITY", { Hair = "0A0A10", HairTip = "FF6A2A", SkinTone = "D0A080", Eyes = "FF6A2A", Vest = "0A0A10", VestTrim = "FF6A2A", Shirt = "14141C", Sash = "FF6A2A", Wraps = "1A1A24", Pants = "0A0A10", PantsShade = "050508", Shoes = "0A0A10", ShoeAccent = "FF6A2A", Sole = "050508", Energy = "FF7A3A", Shield = "B49CFF" }),
 	TECHNO = style("HIBIKI", "TECHNO", { Hair = "FF8AD0", HairTip = "FFFFFF", SkinTone = "F0C8B0", Eyes = "FF6FC8", Vest = "F4F4F8", VestTrim = "141418", Shirt = "141418", Sash = "FF6FC8", Wraps = "141418", Pants = "141418", PantsShade = "0C0C10", Shoes = "F4F4F8", ShoeAccent = "FF6FC8", Sole = "141418", Energy = "FF6FC8", Shield = "6FE0FF" }),
 	HARMONY = style("HIBIKI", "HARMONY", { Hair = "FFB0E0", HairTip = "FFE85A", SkinTone = "F0C8B0", Eyes = "6FE0FF", Vest = "2A1A3A", VestTrim = "6FE0FF", Shirt = "F4F4F8", Sash = "6FE0FF", Wraps = "F4F4F8", Pants = "2A1A3A", PantsShade = "1A1024", Shoes = "2A1A3A", ShoeAccent = "6FE0FF", Sole = "1A1024", Energy = "6FE0FF", Shield = "FF6FC8" }),
-	["THEATER"] = style("MARION", "THEATER", { Hair = "9A9AA4", HairTip = "E0304A", SkinTone = "EED4C8", Eyes = "E0304A", Vest = "141016", VestTrim = "E0304A", Shirt = "7A1020", Sash = "E0304A", Wraps = "141016", Pants = "141016", PantsShade = "0A080C", Shoes = "141016", ShoeAccent = "E0304A", Sole = "0A080C", Energy = "E0304A", Shield = "F0C8D0" }),
-	["FUNERAL"] = style("MARION", "FUNERAL", { Hair = "E8E8EC", HairTip = "8A8A94", SkinTone = "E0D0CC", Eyes = "B060FF", Vest = "0A0A0C", VestTrim = "E8E8EC", Shirt = "2A2A30", Sash = "B060FF", Wraps = "0A0A0C", Pants = "0A0A0C", PantsShade = "050506", Shoes = "0A0A0C", ShoeAccent = "E8E8EC", Sole = "050506", Energy = "C080FF", Shield = "E8E8EC" }),
+	-- KUROEN: dark skin, a big white mane with red streaks swept back, a torn sleeveless black
+	-- jacket, wide white trousers, black and red gauntlets, an aura of red and black.
+	["EMPEROR"] = style("KUROEN", "EMPEROR", { Hair = "F4F2EE", HairTip = "E0102E", SkinTone = "5C3826", Eyes = "FF2A3D", Vest = "0C0C0E", VestTrim = "E0102E", Shirt = "0C0C0E", Sash = "E0102E", Wraps = "141016", Pants = "EEEAE2", PantsShade = "BEB8AE", Shoes = "0C0C0E", ShoeAccent = "E0102E", Sole = "050506", Energy = "E0102E", Shield = "FF6A7A" }),
+	["BLOOD MOON"] = style("KUROEN", "BLOOD MOON", { Hair = "D8D0D0", HairTip = "8A0A1A", SkinTone = "4E2E20", Eyes = "FFB03A", Vest = "2A060E", VestTrim = "FFB03A", Shirt = "2A060E", Sash = "8A0A1A", Wraps = "2A060E", Pants = "1C1C20", PantsShade = "101014", Shoes = "2A060E", ShoeAccent = "FFB03A", Sole = "08080A", Energy = "FF4A2A", Shield = "FFB03A" }),
 	PRISONER = style("KAZAN", "PRISONER", { Hair = "8A8A90", HairTip = "5A5A60", SkinTone = "D8A888", Eyes = "FFB04A", Vest = "141418", VestTrim = "8A8A94", Shirt = "1C1C22", Sash = "8A8A94", Wraps = "5A5A64", Pants = "141418", PantsShade = "0C0C10", Shoes = "141418", ShoeAccent = "FFB04A", Sole = "0C0C10", Energy = "FFB04A", Shield = "E0E0E8" }),
 	["EXECUTIONER"] = style("KAZAN", "EXECUTIONER", { Hair = "1A1A1E", HairTip = "C8102E", SkinTone = "C8987A", Eyes = "FF4A3A", Vest = "2A0A10", VestTrim = "C8102E", Shirt = "141418", Sash = "C8102E", Wraps = "3A3A40", Pants = "1A1A1E", PantsShade = "0E0E12", Shoes = "1A1A1E", ShoeAccent = "C8102E", Sole = "0E0E12", Energy = "FF5A3A", Shield = "FFB04A" }),
 	["ROYAL BLOOD"] = style("KUREN", "ROYAL BLOOD", { Hair = "6A0A18", HairTip = "D0102E", SkinTone = "F2DCD4", Eyes = "D0102E", Vest = "4A0A18", VestTrim = "FFD23F", Shirt = "1A0A0E", Sash = "D0102E", Wraps = "2A0A10", Pants = "1A0A0E", PantsShade = "0E0508", Shoes = "1A0A0E", ShoeAccent = "FFD23F", Sole = "0E0508", Energy = "D0102E", Shield = "FFD23F" }),
@@ -249,12 +251,12 @@ local STYLE_ORDER = table.freeze({
 	GORAN = table.freeze({ "TITAN", "GLADIATOR" }),
 	ASTER = table.freeze({ "COSMOS", "SINGULARITY" }),
 	HIBIKI = table.freeze({ "TECHNO", "HARMONY" }),
-	MARION = table.freeze({ "THEATER", "FUNERAL" }),
 	KAZAN = table.freeze({ "PRISONER", "EXECUTIONER" }),
 	KUREN = table.freeze({ "ROYAL BLOOD", "FORBIDDEN" }),
 	SYLVA = table.freeze({ "WILD", "BLOSSOM" }),
 	ELIAN = table.freeze({ "CELESTIAL", "CORRUPTED" }),
 	NOVA = table.freeze({ "PROTOTYPE", "OMEGA" }),
+	KUROEN = table.freeze({ "EMPEROR", "BLOOD MOON" }),
 })
 
 local CharacterData = {

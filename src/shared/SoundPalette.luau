@@ -143,19 +143,17 @@ local MATERIALS = {
 		heavyHit = { { "boom", 0.4, 2.6, 0.25, "hall" }, { "tick", 0.6, 0.8 } },
 		projectile = { { "boom", 0.45, 2.6, 0.25, "hall" }, { "tick", 0.5, 1.2 } },
 	},
-	MARION = { -- threads snapping, wood knocking
-		swing = { { "wind", 0.35, 2.4, 0.1, "thin" } },
-		heavySwing = { { "wind", 0.5, 1.9, 0.18, "thin" } },
-		hit = { { "tick", 0.45, 1.5, nil, "echo" }, { "thud", 0.35, 2.2 } },
-		heavyHit = { { "tick", 0.65, 1.1, nil, "echo" }, { "thud", 0.6, 1.4 } },
-		projectile = { { "wind", 0.4, 2.4, 0.15, "thin" }, { "tick", 0.4, 1.8 } },
+	KUROEN = { -- the eclipse: gauntlets on bone, a dark boom in the hall under the big ones
+		swing = { { "wind", 0.4, 1.55, 0.14 } },
+		heavySwing = { { "wind", 0.6, 0.95, 0.28, "echo" } },
+		hit = { { "thud", 0.7, 1.35, nil, "hall" }, { "tick", 0.25, 0.9 } },
+		heavyHit = { { "thud", 1, 0.75, nil, "hall" }, { "boom", 0.35, 1.25, 0.4, "echo" } },
 	},
-	KAZAN = { -- iron chains
-		swing = { { "wind", 0.45, 1.1, 0.26 } },
-		heavySwing = { { "wind", 0.6, 0.8, 0.4 } },
-		hit = { { "tick", 0.6, 0.4, nil, "crunch" }, { "thud", 0.55, 1.2 } },
-		heavyHit = { { "tick", 0.8, 0.3, nil, "crunch" }, { "thud", 0.85, 0.8 } },
-		projectile = { { "tick", 0.6, 0.5, nil, "crunch" }, { "wind", 0.5, 1.6, 0.3 } },
+	KAZAN = { -- steel claws: a thin slicing whoosh, blades through the body
+		swing = { { "wind", 0.45, 2.1, 0.12, "thin" } },
+		heavySwing = { { "wind", 0.6, 1.4, 0.24, "thin" } },
+		hit = { { "tick", 0.55, 0.85, nil, "thin" }, { "thud", 0.5, 1.7 } },
+		heavyHit = { { "tick", 0.8, 0.6, nil, "crunch" }, { "thud", 0.85, 0.9 } },
 	},
 	KUREN = { -- blood: a wet, hollow hit
 		swing = { { "wind", 0.4, 1.6, 0.18 } },
@@ -222,7 +220,7 @@ local ACTIONS = {
 	Reflect = { { "tick", 0.7, 2.4 }, { "boom", 0.25, 2.4, 0.2 } }, -- MIROIR DE GLACE
 	Drone = { { "tick", 0.5, 2.2 }, { "wind", 0.3, 2.2, 0.15 } }, -- NOVA's sentinel takes off
 	Shackled = { { "tick", 0.6, 0.35, nil, "crunch" } }, -- KAZAN's chains bite
-	Puppet = { { "wind", 0.4, 2.2, 0.15, "thin" } }, -- MARION's puppet comes in
+	Domination = { { "boom", 0.45, 1.5, 0.35, "hall" }, { "tick", 0.5, 0.7 } }, -- KUROEN's DOMINATION rises or is spent
 	-- The fight's big moments.
 	Counter = { { "tick", 0.7, 0.8 }, { "boom", 0.35, 2.2, 0.2 } }, -- COUNTER HIT: a sharp crack on top
 	Revive = { { "boom", 1, 0.45, 1.6, "hall" }, { "thud", 1, 0.35 }, { "wind", 0.6, 0.4, 1.2, "echo" } }, -- ASURA rises

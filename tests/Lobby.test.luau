@@ -247,9 +247,12 @@ test("every fighter is good at something and pays for it, and no two play alike 
 		expect(not seen[key], name .. " plays like " .. tostring(seen[key]))
 		seen[key] = name
 	end
-	-- the roles read in the numbers: GORAN tanks, VENOM is fast, KAZAN reaches far, AKEMI moves
-	expect(ratings.GORAN.DEFENSE == 5 and ratings.VENOM.SPEED == 5 and ratings.KAZAN.RANGE == 5 and ratings.AKEMI.MOBILITY == 5,
+	-- the roles read in the numbers: GORAN tanks, VENOM is fast, RAIJIN reaches far, AKEMI moves; KAZAN's claws
+	-- press (fast, middle range: never a whip's reach); KUROEN rushes in (mobility) with a classic defence
+	expect(ratings.GORAN.DEFENSE == 5 and ratings.VENOM.SPEED == 5 and ratings.RAIJIN.RANGE == 5 and ratings.AKEMI.MOBILITY == 5,
 		"a fighter does not read like its role")
+	expect(ratings.KAZAN.SPEED >= 4 and ratings.KAZAN.RANGE <= 3, "KAZAN's claws do not read as pressure")
+	expect(ratings.KUROEN.MOBILITY >= 4 and ratings.KUROEN.DEFENSE <= 3 and ratings.KUROEN.SPEED >= 3, "KUROEN does not read as a rushdown")
 end)
 
 test("stages: six complete stages on the same ground, chosen in the menu or drawn, checked by the server", function()

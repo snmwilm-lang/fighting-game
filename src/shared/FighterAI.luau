@@ -362,7 +362,8 @@ function FighterAI:think(world, slot)
 		self.blockTicks, self.blockLow = 14, false
 	end
 	if recovered and dist < 5 and grounded then
-		if self:chance(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7) then
+		-- (only through an invincible special: KUROEN's CRIMSON STEP is not one, he must guard)
+		if groundSpecial and groundSpecial.invuln and self:chance(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7) then
 			input.special = true -- invincible RISING STRIKE through the pressure
 			return input
 		elseif self:chance(self.level.counter) then

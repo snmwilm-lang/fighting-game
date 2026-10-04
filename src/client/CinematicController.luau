@@ -46,7 +46,7 @@ local THEME_GRADES = {
 	titan = { TintColor = Color3.fromRGB(255, 190, 170), Contrast = 0.45, Saturation = -0.2, Brightness = -0.06 }, -- GORAN
 	cosmos = { TintColor = Color3.fromRGB(190, 180, 255), Contrast = 0.5, Saturation = 0.1, Brightness = -0.16 }, -- ASTER
 	sonic = { TintColor = Color3.fromRGB(255, 190, 235), Contrast = 0.35, Saturation = 0.3, Brightness = 0.02 }, -- HIBIKI
-	puppet = { TintColor = Color3.fromRGB(235, 200, 205), Contrast = 0.5, Saturation = -0.6, Brightness = -0.1 }, -- MARION
+	eclipse = { TintColor = Color3.fromRGB(255, 120, 130), Contrast = 0.65, Saturation = -0.45, Brightness = -0.24 }, -- KUROEN (the light goes out)
 	iron = { TintColor = Color3.fromRGB(225, 215, 195), Contrast = 0.45, Saturation = -0.7, Brightness = -0.08 }, -- KAZAN
 	blood = { TintColor = Color3.fromRGB(255, 150, 160), Contrast = 0.55, Saturation = -0.2, Brightness = -0.14 }, -- KUREN
 	wild = { TintColor = Color3.fromRGB(205, 245, 185), Contrast = 0.25, Saturation = 0.2, Brightness = 0 }, -- SYLVA
@@ -211,8 +211,8 @@ local THEME_FX = {
 	titanGrip = "crack", slamQuake = "quake", titanRing = "quakeRing",
 	gravityPull = "kiBeam", starCollapse = "eclipse", gravityWell = "orbs",
 	soundWave = "waves", soundRing = "tornadoRing", beatRing = "shockwave",
-	threads = "ropes", puppetBurst = "sparkBig", stageRing = "ring",
-	chainLine = "ropes", ironBurst = "scrap", prisonRing = "cage",
+	crimsonFist = "rageFist", eclipseBurst = "eclipse", eclipseSeal = "seal", -- KUROEN
+	clawRend = "cut", clawBurst = "crescentSmall", prisonRing = "cage", -- KAZAN's claws
 	bloodSpear = "kiBeam", bloodBloom = "crescentSmall", bloodPool = "waterspout",
 	vines = "wake", thornBurst = "thorns", roots = "roots",
 	lightRay = "lightning", lightPillar = "waterspout", haloRing = "ring",

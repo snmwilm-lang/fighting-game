@@ -37,7 +37,7 @@ local function newFighter(slot, c, kit, stanceId)
 		frost = 0, chilled = 0, chillScale = 1,
 		poison = 0, poisonTicks = 0, poisonDamage = 0, poisonInterval = 30,
 		massReady = false, tempoChain = 0, tempoLast = -999, tempo = 0,
-		puppetCooldown = 0, shackleHits = 0, shackled = false, secondWindUsed = false,
+		domination = 0, dominationIdle = 0, dominationGained = false, shackleHits = 0, shackled = false, secondWindUsed = false,
 		droneCharges = kit.Passive and kit.Passive.Type == "Engineering" and kit.Passive.Charges or 0, droneCharge = 0,
 		armorMove = -1,
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
@@ -406,6 +406,21 @@ local function chooseMove(world, f, grounded, crouching)
 			end
 		end
 	end
+	-- DOMINATION (KUROEN): its levels open ways of chaining, each spending itself (see PASSIVE).
+	local domination = kit.Passive and kit.Passive.Type == "Domination" and kit.Passive or nil
+	local spend = 0
+	if domination and f.domination > 0 and f.move then
+		local current = moves[f.move]
+		local onHit = f.moveContact == "Hit" and f.moveFrame > current.startup and not current.air and current.kind ~= "Ultimate"
+		if onHit and f.domination >= 3 and button == "Ultimate" then -- (instead of the EMPEROR RUSH)
+			-- III ÉCLIPSE: the exclusive finish, ZERO ABSOLU: ECLIPSE, on any blow that hits.
+			nextId, spend = ultimates.Awaken, 3
+			f.awakenStyle = kit.FullRoutes[1].name
+		elseif not nextId and onHit and f.domination >= 2 and button == "Special" and (current.kind == "Special" or current.kind == "Skill") then
+			-- II SUPRÉMATIE: a technique that hits cancels into another.
+			nextId, spend = (if crouching then starters.Crouch.Special else domination.Step), 1
+		end
+	end
 	if not nextId and f.move and f.moveContact and not head.judged then
 		-- The cancel window is open and this button continues nothing: wrong button.
 		head.judged = true
@@ -437,6 +452,10 @@ local function chooseMove(world, f, grounded, crouching)
 			nextId = starters.Air[button]
 		end
 	end
+	-- I ÉVEIL: the ground special becomes EMPEROR STEP (it spends the level).
+	if domination and spend == 0 and nextId == starters.Ground.Special and f.domination >= 1 then
+		nextId, spend = domination.Step, 1
+	end
 	local m = nextId and moves[nextId]
 	if m and m.meterCost and f.meter < m.meterCost then return nil end
 	if m and m.teleportRange then
@@ -449,6 +468,10 @@ local function chooseMove(world, f, grounded, crouching)
 		for _, p in world.projectiles do
 			if p.owner == f.slot then return nil end -- one ki blast on screen at a time
 		end
+	end
+	if spend > 0 then
+		f.domination = math.max(0, f.domination - spend)
+		f.dominationSpent = { level = f.domination, move = nextId }
 	end
 	return nextId, isLink
 end
@@ -673,6 +696,11 @@ local function stepFighter(world, f, input, events)
 	if nextId then
 		f.grace = nil
 		startMove(world, f, nextId, events, isLink)
+		if f.dominationSpent then
+			table.insert(events, { kind = "Domination", slot = f.slot, level = f.dominationSpent.level, spent = f.dominationSpent.move,
+				x = f.x, y = f.y + 4 })
+			f.dominationSpent = nil
+		end
 	end
 	-- Every press ages (BufferTicks), except while a connected attack is still hitting: a
 	-- press made once the hit lands waits for the last hit. Typing a route far ahead loses
@@ -855,6 +883,8 @@ local function hitboxActive(f, moves)
 	local m = moves[f.move]
 	if not m.hitbox or f.moveHits >= (m.hits or 1) then return nil end
 	if f.moveHits > 0 and f.moveFrame - f.lastHitFrame < m.hitInterval then return nil end
+	-- TYRANT'S FIST (move.confirm): the flurry only goes on if its first blow connected.
+	if m.confirm and f.moveHits == 0 and f.moveFrame > m.startup + (m.hitInterval or 2) then return nil end
 	if f.moveFrame > m.startup and f.moveFrame <= m.startup + m.active then return m end
 	return nil
 end
@@ -1047,8 +1077,13 @@ end
 	              deal Bonus more.
 	  Tempo       (HIBIKI TEMPO)           Chain hits, each within Window ticks of the last:
 	              recoveries run twice as fast for Duration ticks.
-	  Puppet      (MARION DOUBLE COMMANDE) her threads (FILS CROISÉS) bind the target, and the
-	              puppet strikes it from the other side (a second position), then Cooldown ticks.
+	  Domination  (KUROEN DOMINATION)      a combo of his reaching ComboHits hits, cleanly typed,
+	              raises it one level (once per combo, up to Max); Idle ticks without a hit,
+	              or a combo taken, lowers it one level. Never a damage bonus: each level
+	              opens a way of chaining (chooseMove), and these spend it:
+	                I   ÉVEIL      the ground special becomes Step (EMPEROR STEP), -1
+	                II  SUPRÉMATIE a technique that hits cancels into another one, -1
+	                III ÉCLIPSE    the ultimate on a hit is the Awakening (ZERO ABSOLU), -3
 	  Shackle     (KAZAN ENTRAVE)          Hits special or skill hits on the target: its next
 	              dash is cut in half.
 	  Pact        (KUREN PACTE ÉCARLATE)   each special or skill costs Cost of his maximum
@@ -1150,16 +1185,23 @@ function PASSIVE.onHit(world, a, d, m, source, firstHit, events)
 			d.shackleHits, d.shackled = 0, true
 			table.insert(events, { kind = "Shackled", slot = d.slot, x = d.x, y = d.y + 3 })
 		end
-	elseif kind == "Puppet" and source and m.bind and a.puppetCooldown == 0 then
-		-- The puppet comes in from the far side of the target: a strike from a second position.
-		a.puppetCooldown = passive.Cooldown
-		local data = world.moves[passive.Strike].projectile
-		local side = if d.x >= a.x then 1 else -1
-		world.nextProjectileId += 1
-		table.insert(world.projectiles, { id = world.nextProjectileId, owner = a.slot, data = data,
-			x = d.x + side * 5, y = d.y + data.height, oldX = d.x + side * 5, vx = -side * data.speed, life = data.life })
-		table.insert(events, { kind = "Puppet", slot = a.slot, x = d.x + side * 5, y = d.y + data.height })
+	elseif kind == "Domination" and not source then
+		a.dominationIdle = 0
+		if d.comboHits == 0 then a.dominationGained = false end -- (a new combo; counted before this hit)
+		if not a.dominationGained and d.comboHits + 1 >= passive.ComboHits and a.chainClean and a.domination < passive.Max then
+			a.dominationGained = true
+			a.domination += 1
+			table.insert(events, { kind = "Domination", slot = a.slot, level = a.domination, x = a.x, y = a.y + 4 })
+		end
 	end
+end
+
+-- KUROEN's DOMINATION: a combo taken (its first blow) or too long without landing one lowers it.
+function PASSIVE.dominationLoss(world, f, events, why)
+	if f.domination <= 0 then return end
+	f.domination -= 1
+	f.dominationIdle = 0
+	table.insert(events, { kind = "Domination", slot = f.slot, level = f.domination, lost = why, x = f.x, y = f.y + 4 })
 end
 
 -- A contact (hit or block) of a healing move: ELIAN.
@@ -1207,7 +1249,11 @@ end
 function PASSIVE.tick(world, f, events)
 	f.chilled = math.max(0, f.chilled - 1)
 	f.tempo = math.max(0, f.tempo - 1)
-	f.puppetCooldown = math.max(0, f.puppetCooldown - 1)
+	if f.domination > 0 and f.state ~= "KO" and not world.cinematic then
+		f.dominationIdle += 1
+		local passive = kitOf(world, f).Passive
+		if passive and f.dominationIdle >= (passive.Idle or 360) then PASSIVE.dominationLoss(world, f, events, "idle") end
+	end
 	if f.poisonTicks > 0 and f.state ~= "KO" then
 		f.poisonTicks -= 1
 		if f.poisonTicks % f.poisonInterval == 0 and f.hp > 1 then
@@ -1274,6 +1320,7 @@ local function applyHit(world, a, d, m, events, source)
 	if firstHit and not source then PASSIVE.heal(world, a, m, events) end
 	if canBlock(d, if source then source.x else a.x, m) then
 		if not source then a.moveContact = "Block" end
+		if m.confirm and not source then a.moveHits = m.hits or 1 end -- (blocked: the flurry stops there)
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
 		d.hp = math.max(math.min(d.hp, 1), d.hp - chip)
 		event.damage = chip
@@ -1331,6 +1378,8 @@ local function applyHit(world, a, d, m, events, source)
 		a.evadeCharge = math.max(1, a.evadeCharge - rage.HitRefund)
 	end
 	d.rage = 0
+	-- DOMINATION (KUROEN): a combo taken breaks his momentum (its first blow costs a level).
+	if d.comboHits == 0 and d.domination > 0 then PASSIVE.dominationLoss(world, d, events, "hit") end
 	d.comboHits += 1
 	d.comboDamage += damage
 	if m.kind ~= "Ultimate" then gainMeter(a, damage * c.MeterOnHit, c) end
@@ -1897,9 +1946,10 @@ function CombatSimulation.passiveLabel(world, f)
 	elseif kind == "Tempo" then
 		if f.tempo > 0 then return name .. " ♪ " .. math.ceil(f.tempo / 60) .. " s", true end
 		return name .. " " .. dots(if world.tick - f.tempoLast <= passive.Window then f.tempoChain else 0, passive.Chain), false
-	elseif kind == "Puppet" then
-		return if f.puppetCooldown <= 0 then name .. " ✓" else name .. " " .. math.ceil(f.puppetCooldown / 60) .. " s",
-			f.puppetCooldown <= 0
+	elseif kind == "Domination" then
+		local level = f.domination
+		local title = ({ "I · AWAKENING", "II · SUPREMACY", "III · ECLIPSE" })[level]
+		return name .. " " .. string.rep("◆", level) .. string.rep("◇", passive.Max - level) .. (if title then " " .. title else ""), level > 0
 	elseif kind == "Shackle" then
 		if foe and foe.shackled then return name .. " ⛓ DASH SHACKLED", true end
 		return name .. " " .. dots(foe and foe.shackleHits or 0, passive.Hits), false

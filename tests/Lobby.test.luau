@@ -488,4 +488,66 @@ test("anti-cheat: forged packets kick, a real player never does; no farming (sho
 	expect(AC.scaleRating(1000, 1016, 0.25) == 1004 and AC.scaleRating(1000, 984, 0.25) == 996, "the rating share is wrong")
 end)
 
+test("taunts: predefined only, a slot number of the saved wheel, 5 s server cooldown, two players at once, six saved, locked ones", function()
+	local Taunts = require("../src/shared/Taunts")
+	-- the list: the 12 asked, unique ids, nothing free-text
+	local seen = {}
+	for _, t in Taunts.LIST do
+		expect(not seen[t.id], "duplicate taunt id " .. t.id)
+		seen[t.id] = true
+		expect(type(t.text) == "string" and #t.text > 0 and #t.text <= 24, t.id .. ": text missing or too long for a bubble")
+	end
+	for _, text in { "EZ 😂", "BOZO 🤡", "TOO SLOW 💀", "CRY ABOUT IT 😭", "SKILL ISSUE", "BRO???", "YOU GOOD? 💀", "RUN IT BACK",
+		"NICE TRY", "LOL", "SIT DOWN", "WHAT WAS THAT?!" } do
+		local found = false
+		for _, t in Taunts.LIST do found = found or t.text == text end
+		expect(found, "missing taunt " .. text)
+	end
+	-- (7) the six equipped are kept as saved (order, no duplicate, unknown / locked dropped, defaults fill)
+	local profile = { wins = 0 }
+	local wheel = Taunts.sanitize({ "lol", "bozo", "lol", "hacked text", 42, "eclipse", "sitdown", "cry", "what", "ez", "slow" }, profile)
+	expect(#wheel == Taunts.SLOTS and wheel[1] == "lol" and wheel[2] == "bozo" and wheel[3] == "sitdown",
+		"the saved wheel is not kept as chosen: " .. table.concat(wheel, ","))
+	expect(not table.find(wheel, "eclipse"), "a locked taunt went on the wheel")
+	expect(#Taunts.sanitize(nil, profile) == Taunts.SLOTS, "an empty profile has no wheel")
+	expect(Taunts.unlocked("eclipse", { shinGrade = 1 }) and not Taunts.unlocked("eclipse", {}), "unlocks do not follow the profile")
+	-- (4) the cooldown, checked on the server's clock: spam is refused, forged slots too
+	local a, b = {}, {}
+	local mine = Taunts.sanitize(nil, profile)
+	expect(Taunts.request(a, mine, 1, 100) == "ez", "a taunt is refused")
+	local sent = 0
+	for t = 100.1, 104.9, 0.1 do if Taunts.request(a, mine, 2, t) then sent += 1 end end
+	expect(sent == 0, sent .. " taunts got through the 5 s cooldown")
+	expect(Taunts.request(a, mine, 2, 105) == "bozo", "the cooldown never ends")
+	for _, forged in { 0, 7, 1.5, -1, 0 / 0, math.huge, "1", { 1 } } do
+		local id, why = Taunts.request({}, mine, forged, 1000)
+		expect(id == nil and why == "malformed", "a forged slot was accepted: " .. tostring(forged))
+	end
+	-- (1) two players at the same moment: each has their own cooldown, both bubbles go out
+	expect(Taunts.request(b, mine, 3, 100) == "slow" and Taunts.request({}, mine, 4, 100) ~= nil, "two players cannot taunt at once")
+	expect(Taunts.cooldownLeft(100, 102) == 3 and Taunts.cooldownLeft(nil, 0) == 0, "the wheel's cooldown display is wrong")
+end)
+
+test("taunts never touch the fight: a taunt sent while attacking changes nothing in the simulation", function()
+	-- (2) the taunt travels in the input packet but never enters the simulation's input
+	local Config = require("../src/shared/CombatConfig")
+	local MoveData = require("../src/shared/MoveData")
+	local Sim = require("../src/shared/CombatSimulation")
+	local function play(withTaunt)
+		local w = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(w, "KAI", "TARO")
+		w.phase = "Fight"
+		w.fighters[1].x, w.fighters[2].x = -1.5, 1.5
+		for t = 1, 90 do
+			local i1 = Sim.neutralInput()
+			i1.light = t % 6 == 1
+			if withTaunt and t == 3 then i1.taunt = 2 end
+			Sim.step(w, { i1, Sim.neutralInput() })
+		end
+		local f, d = w.fighters[1], w.fighters[2]
+		return string.format("%.4f %.4f %d %d %s", f.x, d.x, f.hp, d.hp, tostring(f.move))
+	end
+	expect(play(false) == play(true), "a taunt changed the fight")
+end)
+
 T.finish()

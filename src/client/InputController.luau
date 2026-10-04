@@ -27,6 +27,8 @@ function InputController.start(remote)
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
 	local cinematicTick = nil -- function: the cinematic tick shown on screen (QTE lag compensation)
+	local tauntSlot = 0 -- QUICK TRASH TALK: the wheel slot (1..6) to send with the next packet
+	local lockSuspended = false -- (the taunt wheel needs the cursor a moment)
 	local function has(action)
 		for _, held in keys do if held == action then return true end end
 		return false
@@ -57,7 +59,7 @@ function InputController.start(remote)
 	RunService:BindToRenderStep("FightMouseLock", Enum.RenderPriority.Camera.Value + 2, function()
 		-- Only in a match: the menu always needs its cursor.
 		local inMatch = (Players.LocalPlayer:GetAttribute("MatchId") or 0) ~= 0
-		local lock = mouseLocked and inMatch
+		local lock = mouseLocked and inMatch and not lockSuspended
 		if lock then -- (the default camera scripts reset it: enforce every frame)
 			UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
 			UIS.MouseIconEnabled = false
@@ -215,7 +217,7 @@ function InputController.start(remote)
 		sinceAxis += dt
 		keepalive += dt
 		local axis, crouch, block = read()
-		local pulse = #presses > 0
+		local pulse = #presses > 0 or tauntSlot > 0
 		for _, pressed in pulses do pulse = pulse or pressed end
 		-- Pulses and button changes go out immediately; analog drift is capped at 30 Hz.
 		local axisChanged = math.abs(axis - previousAxis) > 0.02 and sinceAxis >= 1 / 30
@@ -226,7 +228,8 @@ function InputController.start(remote)
 				reset = pulses.reset, dummy = pulses.dummy, ultiConditions = pulses.ultiConditions,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
 				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0,
-				cinTick = cinematicTick and cinematicTick() or nil })
+				cinTick = cinematicTick and cinematicTick() or nil, taunt = if tauntSlot > 0 then tauntSlot else nil })
+			tauntSlot = 0
 			table.clear(presses)
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
 			for k in pulses do pulses[k] = false end
@@ -245,6 +248,9 @@ function InputController.start(remote)
 		nextFoeKit = function() pulses.foeKit = true end,
 		setStance = function(rank) pulses["stance" .. rank] = true end, -- TARO: 1 CLASSIQUE, 2 ESQUIVE
 		setCinematicTick = function(source) cinematicTick = source end,
+		-- QUICK TRASH TALK: send the taunt of wheel slot `slot` (the server picks the text).
+		taunt = function(slot) tauntSlot = slot end,
+		suspendMouseLock = function(on) lockSuspended = on end,
 		-- What is held right now (axis -1..1, crouch, block): the local fighter is drawn ahead
 		-- of the server by it (visual prediction, see the client's presentation loop).
 		held = function() return read() end, -- axis, crouch, block

@@ -18,6 +18,7 @@ local StageController = require(script.StageController)
 local ArenaBuilder = require(script.ArenaBuilder)
 local SoundController = require(script.SoundController)
 local MusicController = require(script.MusicController)
+local TauntController = require(script.TauntController)
 local HubController = require(script.HubController)
 local LanguageController = require(script.LanguageController)
 local MenuController = require(script.MenuController)
@@ -31,6 +32,7 @@ local input = InputController.start(remotes:WaitForChild("Input"))
 local cameraController = CameraController.new(Config)
 local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
+local taunts = TauntController.new(input) -- QUICK TRASH TALK: the wheel and the bubbles over the heads
 -- The stage: the default one in the menu, the match's own in a fight (Maps, attribute Map).
 local currentMap = nil
 local function buildStage()
@@ -55,7 +57,8 @@ local menuRemote = remotes:WaitForChild("Menu")
 local optionsApplied = false
 local function saveOptions()
 	optionsApplied = true -- (a choice made now wins over the profile arriving late)
-	menuRemote:FireServer({ action = "options", options = { optReduced = effects.reduced, optSound = sounds.enabled, optMusic = music.enabled } })
+	menuRemote:FireServer({ action = "options", options = { optReduced = effects.reduced, optSound = sounds.enabled, optMusic = music.enabled,
+		optTaunts = taunts.showOthers, tauntKey = taunts.key } })
 end
 local settings = {
 	effects = function()
@@ -77,6 +80,16 @@ local settings = {
 		menuRemote:FireServer({ action = "language", language = lang })
 	end,
 	languageState = function() return language:name() end,
+	-- QUICK TRASH TALK: the opponents' bubbles shown or hidden, the key of the wheel
+	taunts = function() taunts:setShowOthers(not taunts.showOthers); saveOptions() end,
+	tauntsState = function() return if taunts.showOthers then "SHOWN" else "HIDDEN" end,
+	tauntKey = function()
+		local keys = require(Shared.Taunts).KEYS
+		taunts:setKey(keys[(table.find(keys, taunts.key) or 0) % #keys + 1])
+		saveOptions()
+	end,
+	tauntKeyState = function() return taunts.key end,
+	onTaunts = function(list) taunts:setWheel(list) end,
 	onLanguage = function(lang) language:set(lang) end,
 	-- (the saved options, applied once when the profile arrives)
 	onOptions = function(o)
@@ -88,6 +101,8 @@ local settings = {
 		end
 		if typeof(o.optSound) == "boolean" and o.optSound ~= sounds.enabled then sounds:setEnabled(o.optSound) end
 		if typeof(o.optMusic) == "boolean" and o.optMusic ~= music.enabled then music:setEnabled(o.optMusic) end
+		if typeof(o.optTaunts) == "boolean" then taunts:setShowOthers(o.optTaunts) end
+		if typeof(o.tauntKey) == "string" then taunts:setKey(o.tauntKey) end
 	end,
 }
 local menu = MenuController.new(menuRemote, hub, settings) -- main menu (lobby)
@@ -260,6 +275,7 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	for _, event in batch do
 		effects:onEvent(event, displayed, rigs)
 		sounds:onEvent(event)
+		taunts:onEvent(event, rigs)
 		if event.kind == "Fight" then
 			music:sting("FIGHT")
 		elseif event.kind == "RoundEnd" and event.reason == "KO" then
@@ -361,6 +377,11 @@ end
 
 RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.Value + 1, function(dt)
 	music:update(musicState())
+	local inCinematic = cinematic.active == true
+	if inCinematic ~= taunts.hiddenByCinematic then
+		taunts.hiddenByCinematic = inCinematic
+		taunts:setCinematic(inCinematic)
+	end
 	if currentMatch == 0 then
 		updateHero(dt, os.clock())
 		return

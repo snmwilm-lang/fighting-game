@@ -25,6 +25,7 @@ local Maps = require(Shared.Maps)
 local FighterAI = require(Shared.FighterAI)
 local AnimationController = require(script.Parent.AnimationController)
 local CurrencyIcons = require(script.Parent.CurrencyIcons)
+local Taunts = require(Shared.Taunts)
 local Theme = require(script.Parent.MenuTheme)
 
 local WHITE = Color3.fromHex("F5F5F7")
@@ -147,6 +148,7 @@ function MenuController.new(remote, hub, settings)
 	self.pages.ranking = self:buildRanking()
 	self.pages.settings = self:buildSettings()
 	self.pages.achievements = self:buildAchievements()
+	self.pages.taunts = self:buildTaunts()
 	self:buildBottom()
 	-- Toast (errors, results).
 	self.toast = label(root, { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 88),
@@ -179,6 +181,11 @@ function MenuController.new(remote, hub, settings)
 			self.status = packet
 			if packet.language and self.settings.onLanguage then self.settings.onLanguage(packet.language) end
 			if packet.options and self.settings.onOptions then self.settings.onOptions(packet.options) end
+			if packet.taunts then
+				self.tauntWheel = packet.taunts
+				if self.settings.onTaunts then self.settings.onTaunts(packet.taunts) end
+				if self.page == "taunts" then self:refreshTaunts() end
+			end
 			self:refreshProfile()
 			if packet.state == "queue" then
 				if self.page ~= "search" then self.searchStart = os.clock() end
@@ -269,11 +276,13 @@ function MenuController:buildNav()
 		{ "ranking", "RANKING", "CLIMB THE RANKS", "位" },
 		{ "players", "PLAYERS", "CHALLENGE · INVITE A FRIEND (H)", "友" },
 		{ "achievements", "ACHIEVEMENTS", "WHAT TO WIN · WHERE · YOUR PROGRESS", "誉" },
+		{ "taunts", "TAUNTS", "YOUR 6 TRASH TALKS · EZ, BOZO…", "煽" },
 		{ "settings", "SETTINGS", "EFFECTS · SOUND · MUSIC · LANGUAGE", "設" },
 	}
+	local step = if #entries > 6 then 78 else 88 -- (seven entries: a little tighter, same height)
 	for i, entry in entries do
-		local b = new("TextButton", { Name = "Nav_" .. entry[1], Position = UDim2.fromOffset(0, (i - 1) * 88),
-			Size = UDim2.fromOffset(360, 78), Rotation = -1.4, BackgroundColor3 = Color3.new(1, 1, 1),
+		local b = new("TextButton", { Name = "Nav_" .. entry[1], Position = UDim2.fromOffset(0, (i - 1) * step),
+			Size = UDim2.fromOffset(360, step - 10), Rotation = -1.4, BackgroundColor3 = Color3.new(1, 1, 1),
 			AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, nav)
 		local wash = gradient(b, Theme.RAISED, Theme.INK, 0)
 		local edge = Theme.edge(b)
@@ -884,34 +893,123 @@ function MenuController:refreshAchievements()
 	end
 end
 
+-- TAUNTS: the six taunts of the fight's wheel. Pick a slot, then a taunt (a taunt already
+-- on the wheel swaps places). Locked ones say how to earn them. Saved with the profile.
+function MenuController:buildTaunts()
+	local page = rightPage(self, "TAUNTS", Theme.RED)
+	Theme.heading(page, "TAUNTS", Theme.RED, "Pick a slot, then a taunt. In a fight: the wheel opens with its key (SETTINGS, V by default) or the 💬 button on mobile.")
+	self.tauntSlot = 1
+	self.tauntSlotButtons = {}
+	for i = 1, Taunts.SLOTS do
+		local column, row = (i - 1) % 3, (i - 1) // 3
+		local b = Theme.button(page, { Name = "TauntSlot" .. i, Position = UDim2.fromOffset(22 + column * 174, 120 + row * 48),
+			Size = UDim2.fromOffset(166, 40), Text = "", Font = DISPLAY, TextSize = 18 }, Theme.GOLD)
+		b.Activated:Connect(function()
+			self.tauntSlot = i
+			self:refreshTaunts()
+		end)
+		self.tauntSlotButtons[i] = b
+	end
+	Theme.rule(page, UDim2.fromOffset(22, 222), UDim2.new(1, -44, 0, 1), Theme.LINE, 0.3)
+	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 232), Size = UDim2.new(1, -44, 1, -246), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Theme.RED, CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
+	new("UIGridLayout", { CellSize = UDim2.fromOffset(166, 52), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	self.tauntCells = {}
+	for _, taunt in Taunts.LIST do
+		local cell = Theme.button(list, { Name = "Taunt_" .. taunt.id, LayoutOrder = taunt.order, Text = "" }, Theme.RED)
+		local text = label(cell, { Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -36, 0, 26), Font = DISPLAY, TextSize = 20,
+			Text = taunt.text, TextColor3 = Theme.WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+		local note = label(cell, { Position = UDim2.fromOffset(10, 30), Size = UDim2.new(1, -16, 0, 16), Font = BODY_FONT, TextSize = 9,
+			Text = "", TextColor3 = Theme.MUTED, TextTruncate = Enum.TextTruncate.AtEnd })
+		local badge = label(cell, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(20, 20),
+			BackgroundTransparency = 0, BackgroundColor3 = Theme.RED, Font = UI_FONT, TextSize = 11, Text = "",
+			TextColor3 = Theme.WHITE, TextXAlignment = Enum.TextXAlignment.Center })
+		cell.Activated:Connect(function() self:equipTaunt(taunt.id) end)
+		self.tauntCells[taunt.id] = { cell = cell, text = text, note = note, badge = badge }
+	end
+	return page
+end
+
+function MenuController:currentTaunts()
+	local wheel = {}
+	for i, id in self.tauntWheel or Taunts.DEFAULT do wheel[i] = id end
+	return wheel
+end
+
+function MenuController:equipTaunt(id)
+	if not Taunts.unlocked(id, self.status) then
+		local taunt = Taunts.BY_ID[id]
+		self:flash("LOCKED · " .. (taunt and taunt.unlock and taunt.unlock.how or ""), Theme.MUTED)
+		return
+	end
+	local wheel = self:currentTaunts()
+	local slot = self.tauntSlot or 1
+	local already = table.find(wheel, id)
+	if already then wheel[already] = wheel[slot] end -- (already on the wheel: the two swap)
+	wheel[slot] = id
+	self.tauntWheel = wheel
+	self.tauntSlot = slot % Taunts.SLOTS + 1
+	self:refreshTaunts()
+	-- (one save once the clicks stop: the server takes a menu request every 0.5 s at most)
+	self.tauntSerial = (self.tauntSerial or 0) + 1
+	local serial = self.tauntSerial
+	task.delay(0.8, function()
+		if self.tauntSerial == serial then self.remote:FireServer({ action = "taunts", taunts = self.tauntWheel }) end
+	end)
+end
+
+function MenuController:refreshTaunts()
+	if not self.tauntCells then return end
+	local wheel = self:currentTaunts()
+	for i, b in self.tauntSlotButtons do
+		local taunt = Taunts.BY_ID[wheel[i] or ""]
+		b.Text = i .. "  " .. (if taunt then taunt.text else "—")
+		b.TextColor3 = if i == self.tauntSlot then Theme.GOLD else Theme.WHITE
+		local edge = b:FindFirstChildOfClass("UIStroke")
+		if edge then edge.Color, edge.Thickness = if i == self.tauntSlot then Theme.GOLD else Theme.LINE, if i == self.tauntSlot then 2 else 1 end
+	end
+	for id, c in self.tauntCells do
+		local taunt = Taunts.BY_ID[id]
+		local open = Taunts.unlocked(id, self.status)
+		local slot = table.find(wheel, id)
+		c.badge.Visible = slot ~= nil
+		c.badge.Text = if slot then tostring(slot) else ""
+		c.text.TextColor3 = if open then Theme.WHITE else Theme.MUTED
+		c.note.Text = if not open then "🔒 " .. taunt.unlock.how elseif slot then "ON THE WHEEL" else ""
+	end
+end
+
 function MenuController:buildSettings()
 	local page = rightPage(self, "SETTINGS", Theme.RED)
 	Theme.heading(page, "SETTINGS", Theme.RED)
 	local y = 92
+	self.settingRefresh = {}
 	for _, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
-		{ "language", "LANGUAGE" } } do
+		{ "language", "LANGUAGE" }, { "taunts", "OPPONENT TAUNTS" }, { "tauntKey", "TAUNT WHEEL KEY (PC)" } } do
 		local key, name = entry[1], entry[2]
 		local b = Theme.button(page, { Name = "Setting_" .. key, Position = UDim2.fromOffset(22, y),
-			Size = UDim2.new(1, -44, 0, 62), Text = "" }, Theme.RED)
+			Size = UDim2.new(1, -44, 0, 52), Text = "" }, Theme.RED)
 		label(b, { Position = UDim2.fromOffset(16, 0), Size = UDim2.new(0.53, -16, 1, 0), Font = UI_FONT,
 			TextSize = 13, Text = name, TextColor3 = Theme.WHITE, TextWrapped = true })
 		local value = label(b, { Position = UDim2.new(0.53, 0, 0, 0), Size = UDim2.new(0.47, -42, 1, 0), Font = UI_FONT,
 			TextSize = 13, Text = "", TextColor3 = Theme.GOLD, TextXAlignment = Enum.TextXAlignment.Right, TextWrapped = true })
-		label(b, { Position = UDim2.new(1, -29, 0, 0), Size = UDim2.fromOffset(24, 62), Font = BODY_FONT,
+		label(b, { Position = UDim2.new(1, -29, 0, 0), Size = UDim2.fromOffset(24, 52), Font = BODY_FONT,
 			TextSize = 24, Text = "›", TextColor3 = Theme.MUTED })
 		local function refresh()
 			local get = self.settings[key .. "State"]
 			value.Text = if get then get() else "—"
 		end
+		table.insert(self.settingRefresh, refresh)
 		b.Activated:Connect(function()
 			local toggle = self.settings[key]
 			if toggle then toggle() end
 			refresh()
 		end)
 		task.defer(refresh)
-		y += 72
+		y += 60
 	end
-	label(page, { Position = UDim2.fromOffset(22, y + 8), Size = UDim2.new(1, -44, 0, 64), Font = BODY_FONT, TextSize = 12,
+	label(page, { Position = UDim2.fromOffset(22, y + 4), Size = UDim2.new(1, -44, 0, 30), Font = BODY_FONT, TextSize = 11,
 		TextWrapped = true, TextColor3 = Theme.MUTED, TextYAlignment = Enum.TextYAlignment.Top,
 		Text = "In a fight: P or ◀ MENU to come back here. Full controls: COMBOS button in a fight, or the README." })
 	return page
@@ -1023,6 +1121,10 @@ function MenuController:open(page)
 		self:showKitInfo(self.status.hero or "KAI")
 	elseif page == "achievements" then
 		self:refreshAchievements()
+	elseif page == "taunts" then
+		self:refreshTaunts()
+	elseif page == "settings" then
+		for _, refresh in self.settingRefresh or {} do refresh() end
 	else
 		self.bigKanji.Text = "開"
 	end

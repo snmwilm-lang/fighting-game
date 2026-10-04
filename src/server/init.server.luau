@@ -34,6 +34,7 @@ local Matchmaker = require(script.Matchmaker)
 local SaveQueue = require(script.SaveQueue)
 local GlobalQueue = require(script.GlobalQueue)
 local AntiCheat = require(script.AntiCheat)
+local Taunts = require(Shared.Taunts)
 local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
 local arrivedForCrossMatch -- (defined with the cross-server search)
 
@@ -84,6 +85,8 @@ local function defaultProfile()
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
+		optTaunts = true, tauntKey = "V", -- SETTINGS: the opponents' taunts shown, the key of the taunt wheel
+		taunts = table.clone(Taunts.DEFAULT), -- TAUNTS: the 6 on the wheel (ids, Taunts.LIST)
 		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
 		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0, achShinGrade = 0 }
 end
@@ -133,6 +136,7 @@ local function loadProfile(player, client)
 					if type(data.achSeason) ~= "number" then client.profile.achSeason = 0 end -- (saved before the seasons)
 					GameModes.achievementSeason(client.profile)
 				end
+				client.profile.taunts = Taunts.sanitize(client.profile.taunts, client.profile)
 				SaveQueue.loaded(saves, player.UserId)
 				SaveQueue.boardChanged(saves, player.UserId, math.floor(client.profile.rating)) -- (already on the board)
 				client.profileLoaded = true
@@ -573,7 +577,9 @@ function menuStatus(player)
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest, coins = profile.coins or 0,
 		-- (only once the saved profile is in: the defaults must not be applied in its place)
 		options = if not store or SaveQueue.isLoaded(saves, player.UserId)
-			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic } else nil,
+			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic,
+				optTaunts = profile.optTaunts, tauntKey = profile.tauntKey } else nil,
+		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -936,7 +942,7 @@ end)
 -- { action = "start", request = { mode, team, level, queue } } · { action = "cancel" } (leave
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
-	start = true, cancel = true, leave = true }
+	start = true, cancel = true, leave = true, taunts = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -968,10 +974,18 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		-- SETTINGS › EFFECTS / SOUND / MUSIC, kept with the profile (booleans only).
 		local o = packet.options
 		if typeof(o) == "table" and client.profile then
-			for _, key in { "optReduced", "optSound", "optMusic" } do
+			for _, key in { "optReduced", "optSound", "optMusic", "optTaunts" } do
 				if typeof(o[key]) == "boolean" then client.profile[key] = o[key] end
 			end
+			if typeof(o.tauntKey) == "string" and table.find(Taunts.KEYS, o.tauntKey) then client.profile.tauntKey = o.tauntKey end
 			saveProfile(player, client)
+		end
+	elseif action == "taunts" then
+		-- TAUNTS: the 6 taunts of the wheel (only known, unlocked ones are kept: Taunts.sanitize).
+		if client.profile then
+			client.profile.taunts = Taunts.sanitize(packet.taunts, client.profile)
+			saveProfile(player, client)
+			menuStatus(player)
 		end
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
@@ -1111,6 +1125,9 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	-- The cinematic tick the player saw (QTE lag compensation, bounded by the simulation).
 	local cinTick = packet.cinTick
 	if cinTick ~= nil and (not finite(cinTick) or cinTick < 0 or cinTick > 10000) then return suspect(player, "malformed") end
+	-- QUICK TRASH TALK: only a slot number of the player's saved wheel (never a text).
+	local taunt = packet.taunt
+	if taunt ~= nil and (not finite(taunt) or taunt % 1 ~= 0 or taunt < 0 or taunt > Taunts.SLOTS) then return suspect(player, "malformed") end
 	client.lastSeq = packet.seq
 	local slot = match.slots[client.slot]
 	if slot.owner ~= player then return end
@@ -1171,6 +1188,14 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	input.dash = input.dash or packet.dash
 	if stance and stance > 0 then input.stance = stance end -- TARO's style keys (1 / 2)
 	input.cinTick = if cinTick then math.floor(cinTick) else nil
+	-- A taunt: the slot's taunt of the saved wheel, once every Taunts.COOLDOWN s (server
+	-- clock), shown to everyone in the match as a bubble (an event out of the simulation:
+	-- it never touches the fight).
+	if taunt and taunt > 0 and client.profile then
+		client.tauntState = client.tauntState or {}
+		local id = Taunts.request(client.tauntState, client.profile.taunts, taunt, now)
+		if id then table.insert(match.pendingDebug, { kind = "Taunt", slot = client.slot, id = id, tick = world.tick }) end
+	end
 	-- Attack presses keep their count and order (see PressQueue): one per tick.
 	PressQueue.push(slot.presses, packet.presses)
 	slot.lastInput = now

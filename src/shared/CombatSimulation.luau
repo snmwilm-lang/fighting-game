@@ -36,7 +36,7 @@ local function newFighter(slot, c, kit, stanceId)
 		charge = 0, overcharged = false, reachMove = -1, reachScale = 1, bonusMove = -1, bonusScale = 1,
 		frost = 0, chilled = 0, chillScale = 1,
 		poison = 0, poisonTicks = 0, poisonDamage = 0, poisonInterval = 30,
-		massReady = false, tempoChain = 0, tempoLast = -999, tempo = 0,
+		massReady = false, tempoChain = 0, tempoLast = -999, tempo = 0, tempoReadyAt = 0,
 		domination = kit.Passive and kit.Passive.Type == "Domination" and kit.Passive.Start or 0, dominationIdle = 0, dominationGained = false, shackleHits = 0, shackled = false, secondWindUsed = false,
 		droneCharges = kit.Passive and kit.Passive.Type == "Engineering" and kit.Passive.Charges or 0, droneCharge = 0,
 		armorMove = -1,
@@ -1076,7 +1076,8 @@ end
 	  Mass        (ASTER MASSE VARIABLE)   a special or skill hit makes the next air attack
 	              deal Bonus more.
 	  Tempo       (HIBIKI TEMPO)           Chain hits, each within Window ticks of the last:
-	              recoveries run twice as fast for Duration ticks.
+	              recoveries run twice as fast for Duration ticks. No new chain counts while it
+	              runs nor for Cooldown ticks after it (never chained forever).
 	  Domination  (KUROEN DOMINATION)      a combo of his reaching ComboHits hits, cleanly typed,
 	              raises it one level (once per combo, up to Max); Idle ticks without a hit,
 	              or a combo taken, lowers it one level. Never a damage bonus: each level
@@ -1172,11 +1173,12 @@ function PASSIVE.onHit(world, a, d, m, source, firstHit, events)
 		d.poisonTicks, d.poisonDamage, d.poisonInterval = passive.Duration, passive.PerCharge, passive.Interval
 	elseif kind == "Mass" and firstHit and PASSIVE.special(m) then
 		a.massReady = true
-	elseif kind == "Tempo" and firstHit then
+	elseif kind == "Tempo" and firstHit and world.tick >= a.tempoReadyAt then
 		a.tempoChain = if world.tick - a.tempoLast <= passive.Window then a.tempoChain + 1 else 1
 		a.tempoLast = world.tick
 		if a.tempoChain >= passive.Chain then
 			a.tempoChain, a.tempo = 0, passive.Duration
+			a.tempoReadyAt = world.tick + passive.Duration + (passive.Cooldown or 0)
 			table.insert(events, { kind = "PassiveReady", slot = a.slot, name = passive.Name })
 		end
 	elseif kind == "Shackle" and firstHit and PASSIVE.special(m) then

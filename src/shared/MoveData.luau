@@ -1194,7 +1194,7 @@ third("HIBIKI", {
 	Kanji = "響", Role = "RHYTHM", Difficulty = 3, Energy = "FF6FC8", Light = "FFD0EE",
 	Description = "The resonance: sound and rhythm, very fast. TEMPO: 3 hits on the beat and her recoveries go twice as fast for 4 s. SONIC WAVE (S + E) pushes away.",
 	Stats = { MaxHealth = 1250, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
-	Passive = { Type = "Tempo", Name = "TEMPO", Chain = 3, Window = 50, Duration = 240 },
+	Passive = { Type = "Tempo", Name = "TEMPO", Chain = 3, Window = 50, Duration = 240, Cooldown = 300 },
 	GateTitle = { text = "絶響", sub = "LAST RESONANCE" },
 })
 third("KAZAN", {

@@ -4662,7 +4662,7 @@ GEN.add("HIBIKI", {
 -- sky, he strikes out of the dark (ÉVEIL: his ÉCLIPSE finish, DOMINATION III); a storm of fists
 -- (PORTE); the last blow under the eclipse (FATAL). Short: no ultimate drags on.
 GEN.add("KUROEN", {
-	turn = { ["eveil-approach"] = 30, ["eveil-blows-a"] = 30, ["eveil-final"] = 30, ["fatal-spin"] = 30, ["fatal-take"] = 30, ["gate-backturn"] = 30, ["gate-draw"] = 30 },
+	turn = { ["eveil-approach"] = 30, ["eveil-blows-a"] = 30, ["eveil-final"] = 30, ["fatal-spin"] = 30, ["fatal-take"] = -30, ["gate-backturn"] = 30, ["gate-draw"] = 30 },
 	open = { rush = "target", awaken = "levitate", gate = "backturn", fatal = "eyes" },
 	finish = { rush = "flourish", awaken = "pin", gate = "slowmo", fatal = "hover" },
 	id = "kuroen", grade = "eclipse", kanji = "蝕", pose = "Roar", rest = "StandTall", seed = 7, step = 5, quake = true,
@@ -4676,6 +4676,7 @@ GEN.add("KUROEN", {
 -- (ÉVEIL); he circles the target faster than the eye (PORTE); a pillar of light from the sky
 -- (FATAL).
 GEN.add("KUROEN SHIN", {
+	turn = { ["rush-storm"] = -30, ["rush-charge"] = -30, ["gate-bow"] = -30 },
 	open = { rush = "storm", awaken = "clones", gate = "meditate", fatal = "emerge" },
 	finish = { rush = "blowaway", awaken = "echo", gate = "bow", fatal = "skyward" },
 	id = "trueemperor", grade = "divine", kanji = "真", pose = "Levitate", rest = "StandTall", seed = 3, step = 7,

@@ -1526,6 +1526,27 @@ test("HIBIKI TEMPO: 3 hits in rhythm, then her recoveries run twice as fast", fu
 	expect(fast < normal, string.format("TEMPO jab lasts %d ticks, without %d", fast, normal))
 end)
 
+test("HIBIKI TEMPO: no new chain while it runs nor during its cooldown", function()
+	local w = kitDuel("HIBIKI", "KAI", 3)
+	local a, d = w.fighters[1], w.fighters[2]
+	local passive = MoveData.Kits.HIBIKI.Passive
+	local function chain()
+		for _ = 1, passive.Chain do
+			PASSIVE.onHit(w, a, d, Moves.HibikiJab, nil, true, {})
+			w.tick += 20
+		end
+	end
+	chain()
+	expect(a.tempo > 0, "TEMPO did not start")
+	local started = a.tempoReadyAt
+	a.tempo = 0
+	chain()
+	expect(a.tempo == 0 and a.tempoReadyAt == started, "TEMPO restarted during its cooldown")
+	w.tick = a.tempoReadyAt
+	chain()
+	expect(a.tempo > 0, "TEMPO never came back after its cooldown")
+end)
+
 -- ===================================================================== KUROEN 蝕 (DOMINATION)
 local function kuroenWorld(gap)
 	local w = kitDuel("KUROEN", "KAI", gap or 2.6)

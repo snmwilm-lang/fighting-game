@@ -121,6 +121,7 @@ Locale.FR = {
 	["KUROEN past every limit: DOMINATION born at ECLIPSE and never lost, DIVINE INSTINCT evades your blows and strikes back, a dash that passes through blows, divine strength. Beat him to earn KUROEN's DIVINE ECLIPSE style."] = "KUROEN au-delà de toute limite : DOMINATION née en ÉCLIPSE et jamais perdue, l'INSTINCT DIVIN esquive tes coups et contre-attaque, un dash qui traverse les coups, une force divine. Bats-le pour gagner le style ÉCLIPSE DIVINE de KUROEN.",
 	["BURST!"] = "BURST !",
 	["DIVINE INSTINCT"] = "INSTINCT DIVIN",
+	["BURST READY"] = "BURST PRÊT",
 	["KUROEN past every limit"] = "KUROEN au-delà de toute limite",
 	["Reward: KUROEN's DIVINE ECLIPSE style"] = "Récompense : le style ÉCLIPSE DIVINE de KUROEN",
 	["KUROEN SHIN WAS BEYOND YOU · TRY AGAIN"] = "KUROEN SHIN ÉTAIT HORS DE PORTÉE · RÉESSAIE",

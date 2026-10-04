@@ -1972,7 +1972,24 @@ function CombatSimulation.passiveGauge(world, f)
 end
 
 -- The HUD line of the third sheet's passives (nil for the others, drawn by the HUD itself).
+local passiveText
+-- The passive gauge, plus a boss's own windows (read them to beat him): ASURA's BURST (ready
+-- or seconds left), KUROEN SHIN's DIVINE INSTINCT (charge ready or not).
 function CombatSimulation.passiveLabel(world, f)
+	local text, lit = passiveText(world, f)
+	if f.stats.Burst then
+		text = (if text then text .. " · " else "") .. (if f.burstCooldown == 0 then "BURST READY"
+			else "BURST " .. math.ceil(f.burstCooldown / 60) .. " s")
+	end
+	if f.stats.AutoEvade then
+		local ready = f.evadeCharges > 0
+		text = (if text then text .. " · " else "") .. "DIVINE INSTINCT " .. (if ready then "●" else math.ceil(f.evadeCharge / 60) .. " s")
+		lit = lit or ready
+	end
+	return text, lit
+end
+
+function passiveText(world, f)
 	local passive = kitOf(world, f).Passive
 	if not passive then return nil end
 	local foe = world.fighters[3 - f.slot]

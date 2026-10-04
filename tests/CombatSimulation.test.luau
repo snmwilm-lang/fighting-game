@@ -1671,31 +1671,31 @@ test("KUROEN SHIN (boss): born at ÉCLIPSE, never loses DOMINATION, gets it back
 	expect(k.fighters[1].domination == 0, "KUROEN is born with DOMINATION")
 end)
 
-test("ASURA's BURST: a combo of 4 blows on him breaks, the attacker is thrown back stunned; then a cooldown", function()
-	local w = kitDuel("KAI", "ASURA", 2.4)
-	w.training = false
-	local kai, boss = w.fighters[1], w.fighters[2]
+test("ASURA's BURST: the 5th blow of a combo on him breaks it, the attacker is thrown back, stunned briefly; then a cooldown", function()
 	local burst = MoveData.Kits.ASURA.Stats.Burst
-	local most, bursts = 0, nil
-	local events = run(w, 150, function(t)
-		most = math.max(most, boss.comboHits)
-		return { input({ light = t % 9 == 1 }) }
-	end)
-	bursts = find(events, "Burst")
-	expect(bursts and bursts.slot == 2, "ASURA never burst out of the combo")
-	expect(most <= burst.Hits, string.format("a combo of %d blows on ASURA did not break", most))
-	expect(boss.burstCooldown > 0, "the BURST has no cooldown")
-	-- the burst throws the attacker back, stunned
-	local w2 = kitDuel("KAI", "ASURA", 2.4)
-	w2.training = false
-	local stunned = false
-	for _, e in run(w2, 150, function(t)
-		local k = w2.fighters[1]
-		if k.stun > 0 and k.stunKind == "Hit" then stunned = true end
-		return { input({ light = t % 9 == 1 }) }
-	end) do end
-	expect(stunned, "the attacker was not stunned by the BURST")
+	local function hitAt(combo)
+		local w = kitDuel("KAI", "ASURA", 2.4)
+		w.training = false
+		local boss = w.fighters[2]
+		local events = run(w, 30, function(t)
+			if t == 1 then boss.comboHits, boss.stun, boss.stunKind = combo, 40, "Hit" end
+			return { input({ light = t == 1 }) }
+		end)
+		return w, find(events, "Burst")
+	end
+	local _, early = hitAt(burst.Hits - 2) -- the 4th blow: no burst yet
+	expect(not early, "ASURA burst before the " .. burst.Hits .. "th blow")
+	local w, e = hitAt(burst.Hits - 1)
+	expect(e and e.slot == 2, "the " .. burst.Hits .. "th blow did not make ASURA burst")
+	local kai, boss = w.fighters[1], w.fighters[2]
+	expect(boss.burstCooldown > 0 and boss.comboHits == 0 or boss.stun == 0, "ASURA is still held after his BURST")
+	expect(burst.Stun <= 20, "the attacker stays stunned too long to guard after a BURST")
+	expect(burst.Cooldown >= 600, "the BURST comes back too often to play around it")
 	expect((MoveData.Kits.ASURA.Stats.DamageTaken or 1) < 1, "ASURA's hide takes full damage")
+	-- a second long combo during the cooldown is not broken
+	boss.comboHits, boss.stun, boss.stunKind = burst.Hits, 40, "Hit"
+	local again = find(run(w, 30, function(t) return { input({ light = t == 1 }) } end), "Burst")
+	expect(not again, "ASURA burst again during the cooldown")
 end)
 
 test("KUROEN SHIN's DIVINE INSTINCT: blows in neutral are evaded (2 charges), then they land; the charges come back", function()

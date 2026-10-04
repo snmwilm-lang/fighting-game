@@ -51,13 +51,18 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
   libres de droits, posées par Wilhem dans Studio (`ReplicatedStorage › Audio › Music`, slots
   MENU, BATTLE, arènes, ASURA, WRATH, VICTORY, DEFEAT, avec repli vers un slot plus général) et
   des sons (`Audio › SFX`, par action ou par perso). Mode d'emploi : `docs/AUDIO.md`.
-- **ASURA encore plus dur** (les testeurs le battaient en une quinzaine d'essais) :
-  - BURST : un combo de 4 coups sur lui casse ; il se libère, invincible un instant, et l'attaquant est repoussé, sonné (temps de recharge de 7 s) ;
-  - il subit 15 % de dégâts en moins et frappe à ×1,45 ;
+- **ASURA encore plus dur, mais battable** (les testeurs le battaient en une quinzaine d'essais) :
+  - BURST : le 5e coup d'un combo sur lui le casse ; il se libère et l'attaquant est repoussé. Le BURST se recharge en 10 s, la jauge l'affiche (« BURST PRÊT » / secondes restantes), et l'attaquant peut garder juste après ;
+  - il subit 10 % de dégâts en moins et frappe à ×1,4 ;
   - sa seconde vie le remet à 60 % de sa vie, avec une vitesse ×1,3.
-- **KUROEN SHIN, broken à sa façon** : INSTINCT DIVIN (`Stats.AutoEvade`). Les coups qui
-  l'atteignent en neutre sont esquivés (2 charges, une revient toutes les 6 s) et il réapparaît
-  dans le dos de l'attaquant pour frapper. Il subit 15 % de dégâts en moins et frappe à ×1,55.
+- **KUROEN SHIN, broken à sa façon** : INSTINCT DIVIN (`Stats.AutoEvade`). Le premier coup qui
+  l'atteint en neutre est esquivé (1 charge, qui revient en 8 s, visible sur sa jauge) et il
+  réapparaît dans le dos de l'attaquant. Il faut donc l'appâter, puis frapper. Il subit 10 % de
+  dégâts en moins et frappe à ×1,45.
+- Les ultimes passent toujours (ni BURST ni esquive contre un ultime) : c'est la voie pour
+  battre les boss. Mesure : `tests/BossTeamReport.luau`. L'IA LEGEND, même en équipe de 3,
+  perd 18 fois sur 18, mais elle perdait déjà 18 fois sur 18 contre l'ancien ASURA que les
+  testeurs battaient : ce chiffre ne dit pas ce qu'un humain peut faire.
 - **Monnaies** :
   - barre du menu PIÈCES / CRISTAUX / RANG avec des sprites dessinés (`client/CurrencyIcons`). Les PNG de `assets/icons` remplacent ces dessins dès que leurs ID sont mis dans `CurrencyIcons.IMAGES` ;
   - le serveur donne les PIÈCES : 40 par victoire, 15 par défaite, 10 par vague de SURVIE, 60 par boss battu ;

@@ -1264,12 +1264,13 @@ kit("ASURA", {
 	-- ExtraArms: every grounded blow of his that lands is followed by the second pair of arms
 	-- (that share again as damage, a longer stun); blocked, it crushes the guard harder.
 	-- NoCounter: never caught by a COUNTER HIT (a boss reads you, you do not read him).
-	-- Burst: a combo of 4 blows on him breaks (he flares free, the attacker is thrown back,
+	-- Burst: a combo of 5 blows on him breaks (he flares free, the attacker is thrown back,
 	-- stunned): no loop, no long combo, every opening is worth a few blows only.
-	-- DamageTaken: his hide takes 15 % less from every blow.
-	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 44, DamageDealt = 1.45,
-		GuardDamageTaken = 0.5, Bulk = 1.2, Reach = 1.25, ExtraArms = 0.35, NoCounter = true, DamageTaken = 0.85,
-		Burst = { Hits = 4, Cooldown = 420, Invuln = 24, Stun = 30, Push = 42 },
+	-- DamageTaken: his hide takes 10 % less from every blow. (The BURST comes back every
+	-- 10 s and shows on his gauge: a player who reads it beats him with short punishes.)
+	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 44, DamageDealt = 1.4,
+		GuardDamageTaken = 0.5, Bulk = 1.2, Reach = 1.25, ExtraArms = 0.35, NoCounter = true, DamageTaken = 0.9,
+		Burst = { Hits = 5, Cooldown = 600, Invuln = 16, Stun = 16, Push = 40 },
 		-- (the second life only brings him back to half health, but there he is a monster:
 		-- every grounded blow armored, hits half as hard again, much faster)
 		SecondLife = { Health = 0.6, DamageDealt = 1.5, Speed = 1.3, RiseTicks = 50, Armor = true } },
@@ -1296,10 +1297,10 @@ do
 		Description = "KUROEN past every limit: DOMINATION born at ECLIPSE and never lost, DIVINE INSTINCT evades your blows and strikes back, a dash that passes through blows, divine strength. Beat him to earn KUROEN's DIVINE ECLIPSE style.",
 		Roles = table.clone(base.Roles),
 		-- AutoEvade (DIVINE INSTINCT, his own way of being broken): a blow that reaches him in
-		-- neutral is evaded (2 charges, back every 6 s) and he reappears behind the attacker.
+		-- neutral is evaded (1 charge, back every 8 s: bait it, then strike) and he reappears behind the attacker.
 		Stats = { MaxHealth = 3000, WalkSpeed = 20, AirSpeed = 16, JumpVelocity = 47, DashSpeed = 54, DashInvuln = 8,
-			DamageDealt = 1.55, GuardDamageTaken = 0.5, Reach = 1.1, NoCounter = true, DamageTaken = 0.85,
-			AutoEvade = { Charges = 2, Cooldown = 360, Invuln = 14, Recovery = 16, Slide = 24, CounterWindow = 16,
+			DamageDealt = 1.45, GuardDamageTaken = 0.5, Reach = 1.1, NoCounter = true, DamageTaken = 0.9,
+			AutoEvade = { Charges = 1, Cooldown = 480, Invuln = 14, Recovery = 16, Slide = 24, CounterWindow = 16,
 				CounterGap = 2.4, CounterCost = 0 } },
 		Passive = { Type = "Domination", Name = "TRUE DOMINATION", Max = 3, ComboHits = 3, Idle = 99999, Step = "KuroenEmperorStep",
 			Start = 3, Regen = 240, NoLoss = true },

@@ -30,9 +30,18 @@ local function material(kit)
 end
 
 function SoundController.new()
-	local self = setmetatable({ enabled = true, templates = {}, buses = {}, last = {}, steps = {} }, SoundController)
+	local self = setmetatable({ enabled = true, templates = {}, buses = {}, last = {}, steps = {}, custom = {} }, SoundController)
+	-- Wilhem's own sounds (SoundPalette.CUSTOM), found by the list they replace.
+	for key, list in ACTIONS do
+		if Palette.CUSTOM[key] then self.custom[list] = Palette.CUSTOM[key] end
+	end
+	for kit, own in MATERIALS do
+		for part, list in own do
+			if type(list) == "table" and Palette.CUSTOM[kit .. "." .. part] then self.custom[list] = Palette.CUSTOM[kit .. "." .. part] end
+		end
+	end
 	local group = Instance.new("SoundGroup")
-	group.Name, group.Volume = "FightSFX", 0.8
+	group.Name, group.Volume = "FightSFX", 0.65
 	group.Parent = SoundService
 	self.group = group
 	for name, effects in BUSES do
@@ -91,6 +100,18 @@ function SoundController:watchButtons(gui)
 end
 
 function SoundController:playAll(list, scale)
+	local custom = list and self.custom[list]
+	if custom then
+		-- (Wilhem's own uploaded sound for this action or material: SoundPalette.CUSTOM)
+		if not self.enabled then return end
+		local sound = Instance.new("Sound")
+		sound.SoundId, sound.Volume, sound.SoundGroup = custom, 0.7 * (scale or 1), self.group
+		sound.Parent = self.group
+		sound:Play()
+		sound.Ended:Once(function() sound:Destroy() end)
+		task.delay(6, function() if sound.Parent then sound:Destroy() end end)
+		return
+	end
 	for _, spec in list or {} do self:play(spec, scale) end
 end
 

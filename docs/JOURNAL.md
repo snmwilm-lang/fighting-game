@@ -76,7 +76,7 @@ Audit du roster (19 kits + KUROEN) :
 - corrigé : `invuln = false` / `projectile = false` dans une surcharge de kit faisaient planter `isInvulnerable` ; c'est normalisé dans `move()` ;
 - cinématiques : la prise du FATAL de KUROEN et la RUSH / la PORTE de KUROEN SHIN cachaient une main ; c'est réorienté (`turn`).
 
-Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits KITS_N, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : BAL_LINE.
+Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
 nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité

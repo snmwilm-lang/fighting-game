@@ -107,7 +107,8 @@ Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40,
 
 **Cheveux remodelés** (`RigBuilder.luau`) :
 - nouveaux outils : `spike` (pointe en blocs qui s'affinent sur les 4 côtés, puis une pointe en double biseau, pointue sous tous les angles), `lock` (mèche courbée et effilée, en segments), `fringe` (frange) ;
-- KAI, RYUKEN (flammes à pointes rouges, base pleine), ZEPHYR (mèches couchées par le vent), HIBECARES (sauvage sous le bandeau), ASTER, ELIAN (coiffé en arrière), HIBIKI (carré sous le casque), KUREN (mèche sur l'œil), KUROEN et KUROEN SHIN (crinière), NOVA, SYLVA, YUKINA, et tous les persos à `spikes()` (ASURA, RAIJIN, VENOM, KAZAN) ;
+- KAI, RYUKEN (flammes à pointes rouges, base pleine), HIBECARES (sauvage sous le bandeau), ASTER, ELIAN (coiffé en arrière), HIBIKI (carré sous le casque), KUREN (mèche sur l'œil), KUROEN et KUROEN SHIN (crinière), NOVA, SYLVA, YUKINA, et tous les persos à `spikes()` (ASURA, RAIJIN, VENOM, KAZAN) ;
+- ZEPHYR garde sa coiffure d'origine (plaques au vent) : Wilhem aimait son style.
 - pièces par corps : KAI 115 → 176, les autres +15 à +60 (deux blocs par pointe au lieu de trois pour rester léger) ;
 - outils : `python3 tools/rigcheck.py heads heads.png` fait des gros plans des têtes (face, profil, dos). La planche dessine enfin les WedgePart en coins (avant : des cubes). Le nom « KUROEN SHIN » cassait le rendu, c'est corrigé ;
 - menu : le grand kanji en filigrane ne s'affiche plus que sur la sélection des persos (dans le lobby, il restait par-dessus le héros).

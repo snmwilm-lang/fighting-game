@@ -268,19 +268,15 @@ BODIES.ZEPHYR = {
 	head = function(ctx)
 		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
 		o("Head", "HairCap", Vector3.new(1.2, 0.36, 1.12), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "HairBack", Vector3.new(1.16, 0.6, 0.24), CFrame.new(0, 0.22, 0.46), hair)
-		-- Locks streaming back, swept by the wind: rooted on the crown, nearly level, curling.
-		for i, l in { { -0.36, 0.56, 86, -16, 1.15 }, { -0.12, 0.62, 82, -5, 1.5, true }, { 0.12, 0.6, 84, 5, 1.45 },
-			{ 0.36, 0.54, 88, 16, 1.1 }, { 0, 0.4, 104, 0, 1.25 }, { -0.3, 0.32, 108, -20, 0.95 }, { 0.3, 0.32, 108, 20, 0.95, true } } do
-			lockAt(ctx, "WindLock", l[1], l[2], 0.12, l[3], l[4], l[5], 0.4, 0.32, hair,
-				{ segments = 3, curl = math.rad(3), tip = if l[6] then tip else nil })
+		-- Long locks streaming back (to the side of the attack: the wind).
+		for i, y in { 0.62, 0.42, 0.22 } do
+			o("Head", "WindLock", Vector3.new(0.9 - i * 0.12, 0.2, 1.3 + i * 0.25),
+				CFrame.new(0, y, 0.55 + i * 0.12) * CFrame.Angles(math.rad(14 - i * 6), 0, 0), if i == 1 then tip else hair, "WedgePart")
 		end
-		-- (the fringe blown to one side, the sideburns flat against the temples)
-		lockAt(ctx, "Fringe", -0.2, 0.52, -0.5, 180 + 10, 52, 0.75, 0.3, 0.14, hair, { segments = 2, curl = math.rad(6) })
-		lockAt(ctx, "Fringe", 0.1, 0.52, -0.5, 180 + 10, 40, 0.6, 0.26, 0.14, tip, { segments = 2 })
 		for _, sign in { -1, 1 } do
-			o("Head", "SideSweep", Vector3.new(0.12, 0.42, 0.62), CFrame.new(sign * 0.58, 0.22, 0.12) * CFrame.Angles(math.rad(-12), 0, 0), hair)
+			o("Head", "SideSweep", Vector3.new(0.12, 0.45, 0.8), CFrame.new(sign * 0.58, 0.18, 0.15) * CFrame.Angles(0, 0, sign * -0.1), hair)
 		end
+		o("Head", "Fringe", Vector3.new(0.9, 0.22, 0.14), CFrame.new(0.05, 0.42, -0.54) * CFrame.Angles(0, 0, -0.12), hair)
 	end,
 	body = function(ctx)
 		local o, color, ink = ctx.ornament, ctx.color, ctx.ink

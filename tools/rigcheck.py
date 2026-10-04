@@ -104,7 +104,7 @@ for _, kit in KITS do
 		if not ok6 then fail(kit .. " " .. style .. " R6 outfit: " .. tostring(err6)) end
 		check(r6, kit .. " " .. style .. " R6")
 		-- An R15 avatar: the KAI block body stands in for its parts.
-		CharacterData[1] = CharacterData.Skins.CLASSIQUE
+		CharacterData[1] = CharacterData.Skins.CLASSIC
 		local r15 = RigBuilder.build(1, nil)
 		CharacterData[1] = CharacterData.Skins[style]
 		local ok15, err15 = pcall(RigBuilder.applyKit, r15, 1)
@@ -161,7 +161,7 @@ local function jointsCheck(label, model, expected)
 	if RigReader.ensureJoints(model) ~= 0 then fail(label .. ": joints rebuilt twice") end
 	if mode == "check" then print("ok   " .. label) end
 end
-CharacterData[1] = CharacterData.Skins.CLASSIQUE
+CharacterData[1] = CharacterData.Skins.CLASSIC
 jointsCheck("R15 with AnimationConstraints + rig attachments", upgraded(RigBuilder.build(1, nil), true), 15)
 jointsCheck("R15 with AnimationConstraints, no rig attachment", upgraded(RigBuilder.build(1, nil), false), 15)
 jointsCheck("R15 already in Motor6D", RigBuilder.build(1, nil), 0)

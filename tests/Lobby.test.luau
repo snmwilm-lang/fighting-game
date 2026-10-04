@@ -284,4 +284,24 @@ test("stages: six complete stages on the same ground, chosen in the menu or draw
 		"an unknown stage is accepted")
 end)
 
+test("every fighter wears its own styles: each style of its list exists and is its own (never KAI's by mistake)", function()
+	local CharacterData = require("../src/shared/CharacterData")
+	local kits = table.clone(MoveData.KitOrder)
+	table.insert(kits, "ASURA")
+	for _, kit in kits do
+		local order = CharacterData.StyleOrder[kit]
+		expect(order ~= nil and #order >= 1, kit .. " has no styles")
+		for _, name in order or {} do
+			local style = CharacterData.Skins[name]
+			expect(style ~= nil, kit .. "'s style " .. name .. " does not exist")
+			expect(style == nil or style.Kit == kit, kit .. "'s style " .. name .. " is " .. tostring(style and style.Kit) .. "'s")
+		end
+		local first = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
+		expect(first and first.Kit == kit, kit .. " starts in someone else's look")
+	end
+	for name, style in CharacterData.Skins do
+		expect(style.Skin == name, "the style " .. name .. " is filed under another name (" .. tostring(style.Skin) .. ")")
+	end
+end)
+
 T.finish()

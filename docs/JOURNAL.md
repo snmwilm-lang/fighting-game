@@ -54,6 +54,11 @@ leurs défauts, presque parfait en main, make it cool » ; « prépare différen
   et PC), un en-tête fixe, la liste des joueurs qui défile et un pied fixe avec un grand
   bouton INVITE A FRIEND toujours visible ; elle se remplit dès l'ouverture. Le bouton doré
   « PLAYERS ON THE SERVER » n'apparaît plus qu'en combat (le menu a son bouton PLAYERS).
+- **Bug corrigé (urgent) : beaucoup de persos portaient le skin de KAI.** En passant le jeu en
+  anglais, les noms des styles avaient été traduits (« BRASIER » → « BLAZE »…) mais pas 17 clés
+  de la table des styles (`CharacterData`) : le style par défaut de 12 persos était introuvable
+  et le jeu retombait sur KAI. Clés réalignées, outil `rigcheck` mis à jour, nouveau test
+  (Lobby) : chaque style de chaque perso existe, est bien le sien, et rangé sous son nom.
 - Version 0.16.0.
 
 Tests : CombatSimulation 112, FighterAI 12, CinematicDirector 832, Animation 39, Kits KITS_LINE, PressQueue 4,

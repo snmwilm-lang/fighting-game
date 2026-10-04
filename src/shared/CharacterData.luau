@@ -69,7 +69,7 @@ local Skins = table.freeze({
 	}),
 	-- TARO 火: orange gloves, gold trunks and black boots (BRASIER), white and gold champion
 	-- (CHAMPION). Shirt = his towel. Never KAI's black / red / white.
-	BRASIER = style("TARO", "BLAZE", {
+	BLAZE = style("TARO", "BLAZE", {
 		Hair = "2B1A12", HairTip = "FF7A1A", SkinTone = "C98A62", Eyes = "B8420E",
 		Vest = "2B1A12", VestTrim = "FFC22E", Shirt = "F2EEE6",
 		Sash = "F0601A", Wraps = "FFC22E",
@@ -86,7 +86,7 @@ local Skins = table.freeze({
 		Energy = "FFB21A", Shield = "FF6A1A",
 	}),
 	-- ZEPHYR 風: teal scarf (AZUR), storm grey and white (TEMPÊTE).
-	AZUR = style("ZEPHYR", "AZURE", {
+	AZURE = style("ZEPHYR", "AZURE", {
 		Hair = "E8F4F2", HairTip = "5FE0D0", SkinTone = "E3B08F", Eyes = "1E9A8E",
 		Vest = "1E5E66", VestTrim = "5FE0D0", Shirt = "E8F4F2",
 		Sash = "2BB8A8", Wraps = "E8F4F2",
@@ -103,7 +103,7 @@ local Skins = table.freeze({
 		Energy = "9FD8FF", Shield = "6E7BFF",
 	}),
 	-- AKEMI 影: black and violet (OMBRE), black and crimson (LUNE ROUGE).
-	OMBRE = style("AKEMI", "SHADOW", {
+	SHADOW = style("AKEMI", "SHADOW", {
 		Hair = "0E0A14", HairTip = "8A3CFF", SkinTone = "D8B09A", Eyes = "8A3CFF",
 		Vest = "14101C", VestTrim = "8A3CFF", Shirt = "1E1828",
 		Sash = "1E1828", Wraps = "8A3CFF",
@@ -138,7 +138,7 @@ local Skins = table.freeze({
 		Energy = "FF4A2A", Shield = "FFD0A0",
 	}),
 	-- SHIN 流: navy coat, blue edge, silver blade (COURANT); black and steel (ACIER).
-	COURANT = style("SHIN", "CURRENT", {
+	CURRENT = style("SHIN", "CURRENT", {
 		Hair = "141A2E", HairTip = "3D9BFF", SkinTone = "E3B08F", Eyes = "2E8BFF",
 		Vest = "18223F", VestTrim = "3D9BFF", Shirt = "E4ECF7",
 		Sash = "3D9BFF", Wraps = "C8D4E8",
@@ -146,7 +146,7 @@ local Skins = table.freeze({
 		Shoes = "1B2238", ShoeAccent = "3D9BFF", Sole = "0C1020",
 		Energy = "4DA8FF", Shield = "C8F0FF",
 	}),
-	ACIER = style("SHIN", "STEEL", {
+	STEEL = style("SHIN", "STEEL", {
 		Hair = "D6DCE8", HairTip = "6FD8FF", SkinTone = "D9A07F", Eyes = "6FD8FF",
 		Vest = "1C1C22", VestTrim = "B8C4D8", Shirt = "2A2A32",
 		Sash = "B8C4D8", Wraps = "1C1C22",
@@ -191,31 +191,31 @@ local Skins = table.freeze({
 		Energy = "FFD23F", Shield = "FFE9B0",
 	}),
 	-- Wilhem's third sheet: two styles each.
-	TONNERRE = style("RAIJIN", "THUNDERSTORM", { Hair = "F2F2F5", HairTip = "FFE85A", SkinTone = "E0A884", Eyes = "FFE85A", Vest = "141418", VestTrim = "FFE85A", Shirt = "141418", Sash = "FFE85A", Wraps = "2A2A33", Pants = "1C1C22", PantsShade = "101014", Shoes = "1C1C22", ShoeAccent = "FFE85A", Sole = "101014", Energy = "FFE85A", Shield = "8FD8FF" }),
-	DIVIN = style("RAIJIN", "DIVINE", { Hair = "FFFFFF", HairTip = "8FD8FF", SkinTone = "E8B898", Eyes = "8FD8FF", Vest = "F2F0EA", VestTrim = "FFD23F", Shirt = "F2F0EA", Sash = "FFD23F", Wraps = "FFFFFF", Pants = "E6E0D4", PantsShade = "C8C0B0", Shoes = "F2F0EA", ShoeAccent = "8FD8FF", Sole = "C8C0B0", Energy = "8FD8FF", Shield = "FFE85A" }),
-	HIVER = style("YUKINA", "WINTER", { Hair = "D8E2EE", HairTip = "9FE6FF", SkinTone = "F2D2C2", Eyes = "3D9BFF", Vest = "F4F8FC", VestTrim = "9FE6FF", Shirt = "F4F8FC", Sash = "6FC8F0", Wraps = "DCEFFA", Pants = "E8F2FA", PantsShade = "BCD8EA", Shoes = "F4F8FC", ShoeAccent = "9FE6FF", Sole = "BCD8EA", Energy = "9FE6FF", Shield = "FFFFFF" }),
+	THUNDERSTORM = style("RAIJIN", "THUNDERSTORM", { Hair = "F2F2F5", HairTip = "FFE85A", SkinTone = "E0A884", Eyes = "FFE85A", Vest = "141418", VestTrim = "FFE85A", Shirt = "141418", Sash = "FFE85A", Wraps = "2A2A33", Pants = "1C1C22", PantsShade = "101014", Shoes = "1C1C22", ShoeAccent = "FFE85A", Sole = "101014", Energy = "FFE85A", Shield = "8FD8FF" }),
+	DIVINE = style("RAIJIN", "DIVINE", { Hair = "FFFFFF", HairTip = "8FD8FF", SkinTone = "E8B898", Eyes = "8FD8FF", Vest = "F2F0EA", VestTrim = "FFD23F", Shirt = "F2F0EA", Sash = "FFD23F", Wraps = "FFFFFF", Pants = "E6E0D4", PantsShade = "C8C0B0", Shoes = "F2F0EA", ShoeAccent = "8FD8FF", Sole = "C8C0B0", Energy = "8FD8FF", Shield = "FFE85A" }),
+	WINTER = style("YUKINA", "WINTER", { Hair = "D8E2EE", HairTip = "9FE6FF", SkinTone = "F2D2C2", Eyes = "3D9BFF", Vest = "F4F8FC", VestTrim = "9FE6FF", Shirt = "F4F8FC", Sash = "6FC8F0", Wraps = "DCEFFA", Pants = "E8F2FA", PantsShade = "BCD8EA", Shoes = "F4F8FC", ShoeAccent = "9FE6FF", Sole = "BCD8EA", Energy = "9FE6FF", Shield = "FFFFFF" }),
 	["EMPRESS"] = style("YUKINA", "EMPRESS", { Hair = "C8CCD8", HairTip = "FFFFFF", SkinTone = "F0D0C0", Eyes = "6FC8F0", Vest = "1E2A4A", VestTrim = "C8E8FF", Shirt = "1E2A4A", Sash = "C8E8FF", Wraps = "3A4A70", Pants = "1A2440", PantsShade = "10182A", Shoes = "1E2A4A", ShoeAccent = "C8E8FF", Sole = "10182A", Energy = "C8F0FF", Shield = "6FC8F0" }),
-	TOXIQUE = style("VENOM", "TOXIC", { Hair = "5A2A8A", HairTip = "7CFF4A", SkinTone = "C8A890", Eyes = "7CFF4A", Vest = "141216", VestTrim = "7CFF4A", Shirt = "2A2430", Sash = "7CFF4A", Wraps = "3A3440", Pants = "16141A", PantsShade = "0E0C10", Shoes = "16141A", ShoeAccent = "7CFF4A", Sole = "0E0C10", Energy = "7CFF4A", Shield = "B060FF" }),
+	TOXIC = style("VENOM", "TOXIC", { Hair = "5A2A8A", HairTip = "7CFF4A", SkinTone = "C8A890", Eyes = "7CFF4A", Vest = "141216", VestTrim = "7CFF4A", Shirt = "2A2430", Sash = "7CFF4A", Wraps = "3A3440", Pants = "16141A", PantsShade = "0E0C10", Shoes = "16141A", ShoeAccent = "7CFF4A", Sole = "0E0C10", Energy = "7CFF4A", Shield = "B060FF" }),
 	MUTATION = style("VENOM", "MUTATION", { Hair = "2A3A1A", HairTip = "C8FF4A", SkinTone = "9AB08A", Eyes = "FFE85A", Vest = "2A3A20", VestTrim = "B060FF", Shirt = "1A2414", Sash = "B060FF", Wraps = "3A4A30", Pants = "1A2414", PantsShade = "10180C", Shoes = "1A2414", ShoeAccent = "B060FF", Sole = "10180C", Energy = "B8FF5A", Shield = "B060FF" }),
 	TITAN = style("GORAN", "TITAN", { Hair = "141210", HairTip = "2A2420", SkinTone = "B98060", Eyes = "5A3A2A", Vest = "C8102E", VestTrim = "141418", Shirt = "B98060", Sash = "141418", Wraps = "E8E0D4", Pants = "141418", PantsShade = "0C0C10", Shoes = "C8102E", ShoeAccent = "141418", Sole = "0C0C10", Energy = "FF4A3A", Shield = "FFB0A0" }),
-	GLADIATEUR = style("GORAN", "GLADIATOR", { Hair = "2A1A10", HairTip = "5A3A20", SkinTone = "A87050", Eyes = "3A2A1A", Vest = "8A6A3A", VestTrim = "FFD23F", Shirt = "A87050", Sash = "FFD23F", Wraps = "8A6A3A", Pants = "5A4028", PantsShade = "3A2818", Shoes = "5A4028", ShoeAccent = "FFD23F", Sole = "2A1C10", Energy = "FFB03A", Shield = "FFD23F" }),
+	GLADIATOR = style("GORAN", "GLADIATOR", { Hair = "2A1A10", HairTip = "5A3A20", SkinTone = "A87050", Eyes = "3A2A1A", Vest = "8A6A3A", VestTrim = "FFD23F", Shirt = "A87050", Sash = "FFD23F", Wraps = "8A6A3A", Pants = "5A4028", PantsShade = "3A2818", Shoes = "5A4028", ShoeAccent = "FFD23F", Sole = "2A1C10", Energy = "FFB03A", Shield = "FFD23F" }),
 	COSMOS = style("ASTER", "COSMOS", { Hair = "D8D8E4", HairTip = "B49CFF", SkinTone = "E0B494", Eyes = "B49CFF", Vest = "10101C", VestTrim = "B49CFF", Shirt = "1A1A2A", Sash = "6A5ACF", Wraps = "2A2A40", Pants = "10101C", PantsShade = "08080E", Shoes = "10101C", ShoeAccent = "B49CFF", Sole = "08080E", Energy = "B49CFF", Shield = "E8E0FF" }),
 	["SINGULARITY"] = style("ASTER", "SINGULARITY", { Hair = "0A0A10", HairTip = "FF6A2A", SkinTone = "D0A080", Eyes = "FF6A2A", Vest = "0A0A10", VestTrim = "FF6A2A", Shirt = "14141C", Sash = "FF6A2A", Wraps = "1A1A24", Pants = "0A0A10", PantsShade = "050508", Shoes = "0A0A10", ShoeAccent = "FF6A2A", Sole = "050508", Energy = "FF7A3A", Shield = "B49CFF" }),
 	TECHNO = style("HIBIKI", "TECHNO", { Hair = "FF8AD0", HairTip = "FFFFFF", SkinTone = "F0C8B0", Eyes = "FF6FC8", Vest = "F4F4F8", VestTrim = "141418", Shirt = "141418", Sash = "FF6FC8", Wraps = "141418", Pants = "141418", PantsShade = "0C0C10", Shoes = "F4F4F8", ShoeAccent = "FF6FC8", Sole = "141418", Energy = "FF6FC8", Shield = "6FE0FF" }),
-	HARMONIE = style("HIBIKI", "HARMONY", { Hair = "FFB0E0", HairTip = "FFE85A", SkinTone = "F0C8B0", Eyes = "6FE0FF", Vest = "2A1A3A", VestTrim = "6FE0FF", Shirt = "F4F4F8", Sash = "6FE0FF", Wraps = "F4F4F8", Pants = "2A1A3A", PantsShade = "1A1024", Shoes = "2A1A3A", ShoeAccent = "6FE0FF", Sole = "1A1024", Energy = "6FE0FF", Shield = "FF6FC8" }),
+	HARMONY = style("HIBIKI", "HARMONY", { Hair = "FFB0E0", HairTip = "FFE85A", SkinTone = "F0C8B0", Eyes = "6FE0FF", Vest = "2A1A3A", VestTrim = "6FE0FF", Shirt = "F4F4F8", Sash = "6FE0FF", Wraps = "F4F4F8", Pants = "2A1A3A", PantsShade = "1A1024", Shoes = "2A1A3A", ShoeAccent = "6FE0FF", Sole = "1A1024", Energy = "6FE0FF", Shield = "FF6FC8" }),
 	["THEATER"] = style("MARION", "THEATER", { Hair = "9A9AA4", HairTip = "E0304A", SkinTone = "EED4C8", Eyes = "E0304A", Vest = "141016", VestTrim = "E0304A", Shirt = "7A1020", Sash = "E0304A", Wraps = "141016", Pants = "141016", PantsShade = "0A080C", Shoes = "141016", ShoeAccent = "E0304A", Sole = "0A080C", Energy = "E0304A", Shield = "F0C8D0" }),
 	["FUNERAL"] = style("MARION", "FUNERAL", { Hair = "E8E8EC", HairTip = "8A8A94", SkinTone = "E0D0CC", Eyes = "B060FF", Vest = "0A0A0C", VestTrim = "E8E8EC", Shirt = "2A2A30", Sash = "B060FF", Wraps = "0A0A0C", Pants = "0A0A0C", PantsShade = "050506", Shoes = "0A0A0C", ShoeAccent = "E8E8EC", Sole = "050506", Energy = "C080FF", Shield = "E8E8EC" }),
-	PRISONNIER = style("KAZAN", "PRISONER", { Hair = "8A8A90", HairTip = "5A5A60", SkinTone = "D8A888", Eyes = "FFB04A", Vest = "141418", VestTrim = "8A8A94", Shirt = "1C1C22", Sash = "8A8A94", Wraps = "5A5A64", Pants = "141418", PantsShade = "0C0C10", Shoes = "141418", ShoeAccent = "FFB04A", Sole = "0C0C10", Energy = "FFB04A", Shield = "E0E0E8" }),
+	PRISONER = style("KAZAN", "PRISONER", { Hair = "8A8A90", HairTip = "5A5A60", SkinTone = "D8A888", Eyes = "FFB04A", Vest = "141418", VestTrim = "8A8A94", Shirt = "1C1C22", Sash = "8A8A94", Wraps = "5A5A64", Pants = "141418", PantsShade = "0C0C10", Shoes = "141418", ShoeAccent = "FFB04A", Sole = "0C0C10", Energy = "FFB04A", Shield = "E0E0E8" }),
 	["EXECUTIONER"] = style("KAZAN", "EXECUTIONER", { Hair = "1A1A1E", HairTip = "C8102E", SkinTone = "C8987A", Eyes = "FF4A3A", Vest = "2A0A10", VestTrim = "C8102E", Shirt = "141418", Sash = "C8102E", Wraps = "3A3A40", Pants = "1A1A1E", PantsShade = "0E0E12", Shoes = "1A1A1E", ShoeAccent = "C8102E", Sole = "0E0E12", Energy = "FF5A3A", Shield = "FFB04A" }),
 	["ROYAL BLOOD"] = style("KUREN", "ROYAL BLOOD", { Hair = "6A0A18", HairTip = "D0102E", SkinTone = "F2DCD4", Eyes = "D0102E", Vest = "4A0A18", VestTrim = "FFD23F", Shirt = "1A0A0E", Sash = "D0102E", Wraps = "2A0A10", Pants = "1A0A0E", PantsShade = "0E0508", Shoes = "1A0A0E", ShoeAccent = "FFD23F", Sole = "0E0508", Energy = "D0102E", Shield = "FFD23F" }),
-	INTERDIT = style("KUREN", "FORBIDDEN", { Hair = "1A0A0E", HairTip = "FF2A3D", SkinTone = "E8D4D0", Eyes = "FF2A3D", Vest = "0E0A0C", VestTrim = "FF2A3D", Shirt = "2A0A10", Sash = "FF2A3D", Wraps = "0E0A0C", Pants = "0E0A0C", PantsShade = "060406", Shoes = "0E0A0C", ShoeAccent = "FF2A3D", Sole = "060406", Energy = "FF2A4A", Shield = "8A0A1A" }),
-	SAUVAGE = style("SYLVA", "WILD", { Hair = "3A8A3A", HairTip = "8AD84A", SkinTone = "D8A884", Eyes = "4AD86A", Vest = "5A3A20", VestTrim = "1E8A4A", Shirt = "2A5A2A", Sash = "1E8A4A", Wraps = "6A4A28", Pants = "4A3018", PantsShade = "2E1E10", Shoes = "3A2814", ShoeAccent = "4AD86A", Sole = "2E1E10", Energy = "4AD86A", Shield = "C8F0A0" }),
-	FLORAISON = style("SYLVA", "BLOSSOM", { Hair = "5AB85A", HairTip = "FF8AC8", SkinTone = "E0B494", Eyes = "FF8AC8", Vest = "EAF4E0", VestTrim = "FF8AC8", Shirt = "5AB85A", Sash = "FF8AC8", Wraps = "EAF4E0", Pants = "3A7A3A", PantsShade = "2A5A2A", Shoes = "EAF4E0", ShoeAccent = "FF8AC8", Sole = "2A5A2A", Energy = "8AF08A", Shield = "FF8AC8" }),
+	FORBIDDEN = style("KUREN", "FORBIDDEN", { Hair = "1A0A0E", HairTip = "FF2A3D", SkinTone = "E8D4D0", Eyes = "FF2A3D", Vest = "0E0A0C", VestTrim = "FF2A3D", Shirt = "2A0A10", Sash = "FF2A3D", Wraps = "0E0A0C", Pants = "0E0A0C", PantsShade = "060406", Shoes = "0E0A0C", ShoeAccent = "FF2A3D", Sole = "060406", Energy = "FF2A4A", Shield = "8A0A1A" }),
+	WILD = style("SYLVA", "WILD", { Hair = "3A8A3A", HairTip = "8AD84A", SkinTone = "D8A884", Eyes = "4AD86A", Vest = "5A3A20", VestTrim = "1E8A4A", Shirt = "2A5A2A", Sash = "1E8A4A", Wraps = "6A4A28", Pants = "4A3018", PantsShade = "2E1E10", Shoes = "3A2814", ShoeAccent = "4AD86A", Sole = "2E1E10", Energy = "4AD86A", Shield = "C8F0A0" }),
+	BLOSSOM = style("SYLVA", "BLOSSOM", { Hair = "5AB85A", HairTip = "FF8AC8", SkinTone = "E0B494", Eyes = "FF8AC8", Vest = "EAF4E0", VestTrim = "FF8AC8", Shirt = "5AB85A", Sash = "FF8AC8", Wraps = "EAF4E0", Pants = "3A7A3A", PantsShade = "2A5A2A", Shoes = "EAF4E0", ShoeAccent = "FF8AC8", Sole = "2A5A2A", Energy = "8AF08A", Shield = "FF8AC8" }),
 	["CELESTIAL"] = style("ELIAN", "CELESTIAL", { Hair = "F0D888", HairTip = "FFFFFF", SkinTone = "EEC4A4", Eyes = "3AD8C8", Vest = "F6F4EE", VestTrim = "FFD23F", Shirt = "FFFFFF", Sash = "FFD23F", Wraps = "F6F4EE", Pants = "EAE4D8", PantsShade = "CCC4B4", Shoes = "F6F4EE", ShoeAccent = "3AD8C8", Sole = "CCC4B4", Energy = "FFE9A0", Shield = "3AD8C8" }),
-	CORROMPU = style("ELIAN", "CORRUPTED", { Hair = "3A3428", HairTip = "B060FF", SkinTone = "D0B8A8", Eyes = "B060FF", Vest = "1A1620", VestTrim = "B060FF", Shirt = "2A2430", Sash = "B060FF", Wraps = "1A1620", Pants = "1A1620", PantsShade = "0E0C12", Shoes = "1A1620", ShoeAccent = "B060FF", Sole = "0E0C12", Energy = "C080FF", Shield = "3AD8C8" }),
+	CORRUPTED = style("ELIAN", "CORRUPTED", { Hair = "3A3428", HairTip = "B060FF", SkinTone = "D0B8A8", Eyes = "B060FF", Vest = "1A1620", VestTrim = "B060FF", Shirt = "2A2430", Sash = "B060FF", Wraps = "1A1620", Pants = "1A1620", PantsShade = "0E0C12", Shoes = "1A1620", ShoeAccent = "B060FF", Sole = "0E0C12", Energy = "C080FF", Shield = "3AD8C8" }),
 	PROTOTYPE = style("NOVA", "PROTOTYPE", { Hair = "D0D4DC", HairTip = "FF8A2A", SkinTone = "E8BC9C", Eyes = "FF8A2A", Vest = "16161C", VestTrim = "FF8A2A", Shirt = "2A2A33", Sash = "FF8A2A", Wraps = "5A5A66", Pants = "1C1C22", PantsShade = "101014", Shoes = "1C1C22", ShoeAccent = "FF8A2A", Sole = "101014", Energy = "FF8A2A", Shield = "6FE0FF" }),
 	OMEGA = style("NOVA", "OMEGA", { Hair = "F4F4F8", HairTip = "6FE0FF", SkinTone = "E8BC9C", Eyes = "6FE0FF", Vest = "E8ECF2", VestTrim = "6FE0FF", Shirt = "1C1C22", Sash = "6FE0FF", Wraps = "8A8A96", Pants = "E8ECF2", PantsShade = "B8BCC4", Shoes = "1C1C22", ShoeAccent = "6FE0FF", Sole = "E8ECF2", Energy = "6FE0FF", Shield = "FF8A2A" }),
-	RUINES = style("HIBECARES", "RUINS", {
+	RUINS = style("HIBECARES", "RUINS", {
 		Hair = "2A1E16", HairTip = "FF8A1A", SkinTone = "C98F6E", Eyes = "FF6A1A",
 		Vest = "6A5A4A", VestTrim = "C8102E", Shirt = "6A5A4A",
 		Sash = "C8102E", Wraps = "8A8070",

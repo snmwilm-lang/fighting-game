@@ -697,7 +697,7 @@ newKit("VENOM", "Venom", {
 	"HEAVY CLAW", "CRUSH", "CREEPING REAP", "LOW CLAW", "AIR CLAW", "DOUBLE CLAW",
 	"PREDATOR DIVE", "VENOM LEAP", "HUNT", "LAST BITE", "TOXIC MIST",
 	"FATAL BITE", "EPIDEMIC", "毒王 · VENOM KING", "蝕 · TOTAL CORROSION",
-}, { damage = 0.9, startup = -1, reach = 0.95, recovery = -3 }, {
+}, { damage = 0.9, startup = -1, reach = 0.95, recovery = -1 }, {
 	KiBlast = { startup = 10, projectile = { speed = 10, life = 130, damage = 36, halfWidth = 1.8, halfHeight = 1.8, hitstun = 18,
 		push = 4, guardDamage = 8 } },
 })

@@ -402,4 +402,42 @@ test("saves: never an unloaded profile, one write per player every 7 s at most, 
 	expect(not SaveQueue.isLoaded(q, 1), "a player who left is kept")
 end)
 
+test("cross-server RANKED: one initiator per pair, same size, close ratings, atomic claim, fresh entries; session lock", function()
+	local G = require("../src/server/GlobalQueue")
+	local now = 1000
+	local a = G.entry(1, 1200, 1, "jobA", now - 20, { "KAI" }, now)
+	local b = G.entry(2, 1250, 1, "jobB", now - 10, { "TARO" }, now)
+	local far = G.entry(3, 1900, 1, "jobC", now - 10, { "SHIN" }, now)
+	local trio = G.entry(4, 1210, 3, "jobD", now - 10, { "KAI", "TARO", "SHIN" }, now)
+	local list = { a, b, far, trio }
+	expect(G.pick(a, list, now) == b, "the closest opponent of the same size is not picked")
+	expect(G.pick(b, list, now) == nil, "both servers would claim the same pair (b waited less: a initiates)")
+	expect(G.pick(trio, list, now) == nil, "a team of 3 meets a single fighter")
+	-- the claim is atomic: the second one fails
+	local claimed = G.claim(b, "code1", "jobA", now)
+	expect(claimed and claimed.claim.code == "code1", "the claim did not take")
+	expect(G.claim(claimed, "code2", "jobZ", now) == nil, "an entry was claimed twice")
+	expect(G.pick(a, { a, claimed }, now) == nil, "a claimed entry is picked again")
+	-- a stale entry (its server stopped refreshing it) is ignored
+	local stale = G.entry(5, 1201, 1, "jobE", now - 100, { "KAI" }, now - G.STALE - 1)
+	expect(G.pick(a, { a, stale }, now) == nil, "a stale entry is picked")
+	-- the window widens with the wait: nobody waits forever
+	local early = G.entry(6, 1200, 1, "jobF", now - 1, { "KAI" }, now)
+	local gapped = G.entry(7, 1600, 1, "jobG", now, { "KAI" }, now)
+	expect(G.pick(early, { early, gapped }, now) == nil, "a 400-point gap meets at once")
+	early.since, gapped.since = now - 30, now - 29
+	expect(G.pick(early, { early, gapped }, now) == gapped, "the window never widens")
+	-- the reserved server waits for both, gives up after the timeout
+	local pending = { expect = { 1, 2 }, created = now }
+	expect(not G.arrival(pending, 1, now) and G.arrival(pending, 2, now + 3), "the match starts before both arrived")
+	expect(G.expired({ expect = { 1, 2 }, created = now }, now + G.ARRIVE_TIMEOUT + 1), "a reserved server waits forever")
+	-- session lock: another server's fresh lock blocks, a stale one or our own does not
+	expect(G.canLock(nil, "jobA", now) and G.canLock({ rating = 1 }, "jobA", now), "a fresh profile cannot be locked")
+	expect(not G.canLock({ _session = { job = "jobB", t = now - 5 } }, "jobA", now), "two servers hold the same profile")
+	expect(G.canLock({ _session = { job = "jobB", t = now - G.LOCK_TTL - 1 } }, "jobA", now), "a crashed server's lock is never taken over")
+	expect(G.canLock({ _session = { job = "jobA", t = now - 5 } }, "jobA", now), "a server is locked out of its own profile")
+	local stamped = G.stamp({ rating = 1 }, "jobA", now, false)
+	expect(stamped._session.job == "jobA" and G.stamp({ rating = 1 }, "jobA", now, true)._session == nil, "the lock is not written or released")
+end)
+
 T.finish()

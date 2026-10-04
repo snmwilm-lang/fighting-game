@@ -105,7 +105,13 @@ Audit du roster (19 kits + KUROEN) :
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
-Prochaine étape grande échelle : matchmaking entre serveurs (MemoryStoreService + TeleportService) pour le CLASSÉ, et verrou de session sur les profils.
+**CLASSÉ entre serveurs + verrou de session** (`src/server/GlobalQueue.luau`, pur, testé dans Lobby) :
+- un joueur CLASSÉ sans adversaire sur son serveur après 6 s est publié dans une file mondiale (MemoryStore, triée par note, rafraîchie toutes les 10 s, périmée après 30 s) ;
+- chaque serveur cherche pour ses propres joueurs publiés, seulement s'il est « l'initiateur » de la paire (celui qui attend depuis le plus longtemps). Une paire n'est donc jamais réclamée par deux serveurs ;
+- l'adversaire choisi a la même taille d'équipe et la note la plus proche, dans la fenêtre qui s'élargit avec l'attente ;
+- la réservation de l'adversaire est atomique, puis un serveur privé est réservé et les deux joueurs y sont téléportés. Le match CLASSÉ démarre quand les deux sont là et que leurs profils sont chargés. Au bout de 40 s sans l'adversaire : message « relance la recherche » ;
+- verrou de session : le profil sauvegardé porte le serveur qui le tient (`_session`). Un autre serveur attend qu'il soit libéré : au départ du joueur, ou au bout de 60 s si le serveur est tombé. Plus de doubles écritures lors d'une téléportation.
+- Ça ne marche que dans le jeu publié (MemoryStore, téléportation). Dans Studio, la recherche reste sur le serveur. Non testé dans Roblox.
 
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
 nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité

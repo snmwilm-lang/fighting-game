@@ -16,6 +16,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local DataStoreService = game:GetService("DataStoreService")
+local MemoryStoreService = game:GetService("MemoryStoreService")
+local TeleportService = game:GetService("TeleportService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
@@ -30,6 +32,9 @@ local RigBuilder = require(script.RigBuilder)
 local Lobby = require(script.Lobby)
 local Matchmaker = require(script.Matchmaker)
 local SaveQueue = require(script.SaveQueue)
+local GlobalQueue = require(script.GlobalQueue)
+local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
+local arrivedForCrossMatch -- (defined with the cross-server search)
 
 Players.CharacterAutoLoads = false
 -- (the stages are built by each client: Maps, client/ArenaBuilder)
@@ -85,11 +90,27 @@ local function loadProfile(player, client)
 	client.profile = defaultProfile()
 	if not store then return end
 	task.spawn(function()
-		-- (a DataStore hiccup is retried; a profile that never loads is never written over)
-		for attempt = 1, SaveQueue.LOAD_TRIES do
-			local ok, data = pcall(store.GetAsync, store, "joueur_" .. player.UserId)
+		-- (a DataStore hiccup is retried; a profile that never loads is never written over; a
+		-- profile another server still holds (the player just came from it) is waited for:
+		-- the session lock, GlobalQueue.canLock)
+		local attempt, waited = 0, 0
+		while attempt < SaveQueue.LOAD_TRIES do
+			local data, locked = nil, false
+			local ok = pcall(store.UpdateAsync, store, "joueur_" .. player.UserId, function(old)
+				if not GlobalQueue.canLock(old, JOB, os.time()) then
+					locked = true
+					return nil -- (nothing written: still the other server's)
+				end
+				locked, data = false, old
+				return GlobalQueue.stamp(if type(old) == "table" then old else {}, JOB, os.time(), false)
+			end)
 			if clients[player] ~= client then return end
-			if ok then
+			if ok and locked and waited < GlobalQueue.LOCK_TTL + 5 then
+				waited += GlobalQueue.LOCK_RETRY
+				task.wait(GlobalQueue.LOCK_RETRY)
+				continue
+			end
+			if ok and not locked then
 				if type(data) == "table" then
 					for k, v in defaultProfile() do
 						if type(data[k]) == type(v) then client.profile[k] = data[k] end
@@ -104,6 +125,7 @@ local function loadProfile(player, client)
 				if type(data) == "table" then client.onProfileLoaded() end
 				return
 			end
+			attempt += 1
 			task.wait(SaveQueue.retryDelay(attempt))
 		end
 		client.profileLoaded = true
@@ -120,15 +142,28 @@ do
 end
 -- One write of a profile (UpdateAsync, safe if another server touched it), then the board
 -- only when the rating changed. Yields: called in its own thread.
-local function writeProfile(player, client)
+local function writeProfile(player, client, release)
 	local id = player.UserId
-	local data = table.clone(client.profile)
+	local profile = table.clone(client.profile)
 	SaveQueue.writing(saves, id, os.clock())
-	local ok = pcall(store.UpdateAsync, store, "joueur_" .. id, function() return data end)
+	local lost = false
+	local ok = pcall(store.UpdateAsync, store, "joueur_" .. id, function(old)
+		-- (only while this server holds the session lock; `release` lets it go: leaving)
+		if not GlobalQueue.canLock(old, JOB, os.time()) then
+			lost = true
+			return nil
+		end
+		return GlobalQueue.stamp(profile, JOB, os.time(), release)
+	end)
 	if not ok then
 		SaveQueue.failed(saves, id, os.clock())
 		return false
 	end
+	if lost then
+		warn("[FightingGame] profile " .. id .. " is held by another server: not written")
+		return false
+	end
+	local data = profile
 	local rating = math.floor(data.rating)
 	if board and SaveQueue.boardChanged(saves, id, rating) then pcall(board.SetAsync, board, tostring(id), rating) end
 	return true
@@ -634,6 +669,156 @@ task.spawn(function()
 	folder.Parent = ReplicatedStorage
 end)
 
+-- ===================================================================== cross-server RANKED
+--[[
+	RANKED across every server (GlobalQueue decides, tests: Lobby): a RANKED player who found
+	nobody here for GlobalQueue.PUBLISH_AFTER s is published in a MemoryStore sorted map
+	(sorted by rating). Every 2 s this server looks for an opponent for its published
+	players (as the pair's initiator only), claims it atomically, reserves a server and
+	teleports its player there; the opponent's server sees the claim and sends its own. The
+	reserved server starts the RANKED match when both arrived. Published game only: in Studio
+	the calls fail (pcall) and the search stays on this server.
+]]
+local rankedMap = nil
+do
+	local ok, result = pcall(MemoryStoreService.GetSortedMap, MemoryStoreService, "RankedQueue_v1")
+	if ok then rankedMap = result end
+end
+local published = {} -- user id -> { entry, refreshed }
+local crossPending = {} -- reserved server: code -> { expect, created, started }
+
+local function unpublish(id)
+	if published[id] and rankedMap then
+		task.spawn(function() pcall(rankedMap.RemoveAsync, rankedMap, tostring(id)) end)
+	end
+	published[id] = nil
+end
+
+local function teleportToMatch(player, code, partner)
+	local client = clients[player]
+	if not client then return end
+	Matchmaker.leave(matchmaker, player.UserId)
+	client.queue = nil
+	unpublish(player.UserId)
+	local data = { cross = { code = code, expect = { player.UserId, partner }, team = client.team } }
+	local ok = pcall(TeleportService.TeleportToPrivateServer, TeleportService, game.PlaceId, code, { player }, nil, data)
+	if not ok then
+		menuRemote:FireClient(player, { error = "THE OPPONENT'S SERVER COULD NOT BE REACHED" })
+		menuStatus(player)
+	end
+end
+
+local function crossStep()
+	if not rankedMap then return end
+	local now = os.time()
+	-- publish / refresh this server's RANKED players who waited long enough
+	for player, client in clients do
+		local id = player.UserId
+		if client.queue == "RANKED" and client.queueSince and now - client.queueSince >= GlobalQueue.PUBLISH_AFTER then
+			local p = published[id]
+			if not p or now - p.refreshed >= GlobalQueue.REFRESH then
+				local entry = GlobalQueue.entry(id, client.profile.rating, #client.team, JOB, client.queueSince, client.team, now)
+				local ok = pcall(rankedMap.SetAsync, rankedMap, tostring(id), entry, GlobalQueue.STALE + 10, math.floor(entry.rating))
+				if ok then published[id] = { entry = entry, refreshed = now } end
+			end
+		elseif published[id] then
+			unpublish(id) -- (found a local opponent, cancelled, left the menu)
+		end
+	end
+	for id, p in published do
+		local player = Players:GetPlayerByUserId(id)
+		if not player or not clients[player] or clients[player].queue ~= "RANKED" then
+			unpublish(id) -- (left, cancelled, or already paired on this server)
+			continue
+		end
+		-- 1. did another server claim us? then go to its reserved server
+		local okMine, mine = pcall(rankedMap.GetAsync, rankedMap, tostring(id))
+		if okMine and type(mine) == "table" and mine.claim and mine.claim.by ~= JOB then
+			teleportToMatch(player, mine.claim.code, mine.claim.partner)
+			continue
+		end
+		-- 2. else, as the initiator, look for an opponent near our rating
+		local me = p.entry
+		local reach = GlobalQueue.window(now - me.since)
+		local okRange, items = pcall(rankedMap.GetRangeAsync, rankedMap, Enum.SortDirection.Ascending, 100,
+			{ sortKey = math.floor(me.rating - reach - 1) }, { sortKey = math.floor(me.rating + reach + 1) })
+		if not okRange then continue end
+		local entries = {}
+		for _, item in items do
+			if type(item.value) == "table" and item.value.job ~= JOB then table.insert(entries, item.value) end
+		end
+		local other = GlobalQueue.pick(me, entries, now)
+		if other then
+			local okCode, code = pcall(TeleportService.ReserveServer, TeleportService, game.PlaceId)
+			if okCode and code then
+				local claimed = nil
+				pcall(rankedMap.UpdateAsync, rankedMap, tostring(other.id), function(current)
+					claimed = GlobalQueue.claim(current, code, JOB, os.time(), id)
+					return claimed
+				end, GlobalQueue.STALE + 10)
+				if claimed then
+					teleportToMatch(player, code, other.id)
+				end
+			end
+		end
+	end
+end
+task.spawn(function()
+	while true do
+		task.wait(2)
+		local ok, err = pcall(crossStep)
+		if not ok then warn("[FightingGame] cross-server search: " .. tostring(err)) end
+	end
+end)
+
+-- The reserved server: a player arriving for a cross-server match waits for the other one.
+arrivedForCrossMatch = function(player, client)
+	local okJoin, join = pcall(player.GetJoinData, player)
+	local data = okJoin and type(join) == "table" and type(join.TeleportData) == "table" and join.TeleportData.cross
+	if type(data) ~= "table" or game.PrivateServerId == "" or type(data.code) ~= "string" or type(data.expect) ~= "table" then return end
+	local request = GameModes.validate({ mode = "VERSUS_CPU", team = data.team, level = 1 }, MoveData.KitOrder)
+	if request then client.team = request.team end
+	local pending = crossPending[data.code]
+	if not pending then
+		local expect = {}
+		for _, id in data.expect do
+			if typeof(id) == "number" then table.insert(expect, id) end
+		end
+		pending = { expect = expect, created = os.clock() }
+		crossPending[data.code] = pending
+	end
+	if GlobalQueue.arrival(pending, player.UserId, os.clock()) and not pending.started then
+		pending.started = true
+		task.spawn(function()
+			-- (both profiles in first: the rating at stake must be the saved one)
+			local a, b = Players:GetPlayerByUserId(pending.expect[1]), Players:GetPlayerByUserId(pending.expect[2])
+			local started = os.clock()
+			while a and b and clients[a] and clients[b] and not (clients[a].profileLoaded and clients[b].profileLoaded)
+				and os.clock() - started < 20 do
+				task.wait(0.5)
+			end
+			if a and b and clients[a] and clients[b] then startVersus(a, b, "RANKED") end
+		end)
+	end
+end
+task.spawn(function()
+	while true do
+		task.wait(5)
+		for code, pending in crossPending do
+			if not pending.started and GlobalQueue.expired(pending, os.clock()) then
+				crossPending[code] = nil
+				for id in pending.arrived or {} do
+					local p = Players:GetPlayerByUserId(id)
+					if p and clients[p] then
+						menuRemote:FireClient(p, { error = "YOUR OPPONENT DID NOT ARRIVE: search again" })
+						menuStatus(p)
+					end
+				end
+			end
+		end
+	end
+end)
+
 local function joined(player)
 	if clients[player] then return end
 	local client = {
@@ -646,6 +831,7 @@ local function joined(player)
 		buildHero(player)
 		menuStatus(player)
 	end
+	arrivedForCrossMatch(player, client)
 	loadProfile(player, client)
 	buildHero(player)
 	player:SetAttribute("Avatar", false) -- the block model of the kit; APPARENCE: avatar R15
@@ -663,9 +849,9 @@ Players.PlayerRemoving:Connect(function(player)
 		Matchmaker.leave(matchmaker, player.UserId)
 		unseat(player)
 		-- (the last write, right away; then the queue forgets the player)
-		if store and client.profile and SaveQueue.isLoaded(saves, player.UserId) and SaveQueue.isDirty(saves, player.UserId) then
+		if store and client.profile and SaveQueue.isLoaded(saves, player.UserId) then
 			task.spawn(function()
-				writeProfile(player, client)
+				writeProfile(player, client, true) -- (the last write releases the session lock)
 				SaveQueue.forget(saves, player.UserId)
 			end)
 		else
@@ -770,6 +956,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		client.team = request.team
 		if request.mode == "VERSUS" then
 			client.queue = request.queue
+			client.queueSince = os.time() -- (the cross-server search publishes after a while)
 			local rating = client.profile and client.profile.rating or Matchmaker.START_RATING
 			Matchmaker.enqueue(matchmaker, player.UserId, request.queue, rating, now, #request.team)
 			menuStatus(player)
@@ -1219,10 +1406,10 @@ game:BindToClose(function()
 	if not store then return end
 	local pending = 0
 	for player, client in clients do
-		if client.profile and SaveQueue.isLoaded(saves, player.UserId) and SaveQueue.isDirty(saves, player.UserId) then
+		if client.profile and SaveQueue.isLoaded(saves, player.UserId) then
 			pending += 1
 			task.spawn(function()
-				writeProfile(player, client)
+				writeProfile(player, client, true)
 				pending -= 1
 			end)
 		end

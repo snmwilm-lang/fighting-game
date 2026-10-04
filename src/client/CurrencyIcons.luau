@@ -3,12 +3,18 @@
 	without any uploaded image: COINS a gold coin stamped 金, CRYSTALS a violet gem, RANK a red
 	chevron badge, TICKETS a torn ticket. The same designs exist as images in
 	assets/icons/currency_*.png (tools/currency_icons.py): once Wilhem uploads them, their ids
-	go in IMAGES below and the image is shown instead. No id is ever invented.
+	go in IMAGES below and the image is shown instead (they are: Wilhem's uploads). No id is ever invented.
 ]]
 local CurrencyIcons = {}
 
--- kind -> "rbxassetid://..." of the uploaded assets/icons/currency_<kind>.png (empty: drawn).
-CurrencyIcons.IMAGES = {}
+-- kind -> "rbxassetid://..." of the uploaded assets/icons/currency_<kind>.png (missing: drawn).
+-- (uploaded by Wilhem to Roblox, his ids)
+CurrencyIcons.IMAGES = {
+	coins = "rbxassetid://94413834656149",
+	crystals = "rbxassetid://117266491886576",
+	rank = "rbxassetid://131891284883773",
+	tickets = "rbxassetid://128432100049492",
+}
 
 CurrencyIcons.COLORS = {
 	coins = Color3.fromHex("FFC83D"),

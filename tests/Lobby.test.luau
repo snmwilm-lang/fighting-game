@@ -360,6 +360,12 @@ test("currencies: coins earned by playing (the winner more), crystals from achie
 	expect(wallet.coins == profile.coins and wallet.rank == 1234, "the wallet does not read the profile")
 	expect(done > 0 and wallet.crystals == done * GameModes.CRYSTALS_PER_ACHIEVEMENT, "crystals do not follow the achievements")
 	expect(GameModes.wallet(nil).coins == 0, "an empty profile breaks the wallet")
+	-- the reward chips (a number inside) read in French too
+	local Locale = require("../src/shared/Locale")
+	for en, fr in { ["WIN +" .. c.win] = "VICTOIRE +" .. c.win, ["+" .. c.survivalWin .. " / OPPONENT"] = "+" .. c.survivalWin .. " / ADVERSAIRE",
+		["ELO POINTS"] = "POINTS ELO" } do
+		expect(Locale.translate(en, "FR") == fr, en .. " -> " .. Locale.translate(en, "FR"))
+	end
 end)
 
 T.finish()

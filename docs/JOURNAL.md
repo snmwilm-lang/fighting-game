@@ -77,6 +77,7 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
   - chaque carte de mode affiche ce qu'elle rapporte (sprite et montant), chaque succès ses cristaux ;
   - après un match, « +40 [pièce] » sort du portefeuille (le serveur envoie le gain avec le résultat).
 - **Poses du menu** : le héros du lobby et les aperçus de la sélection prennent la garde propre à chaque perso, au lieu de la pose de victoire commune (bras levés). Le héros du lobby ne recevait pas son kit et prenait la garde de KAI.
+- Pastilles de récompense traduites en français (« WIN +40 » → « VICTOIRE +40 », « +10 / OPPONENT » → « +10 / ADVERSAIRE », « POINTS ELO »), avec un test.
 - **Correctif** : à la sélection, un commentaire avalait `BackgroundTransparency` et `Ambient` du ViewportFrame des aperçus.
 - Version 0.17.0.
 

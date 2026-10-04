@@ -343,11 +343,28 @@ local hero = { model = nil, animation = nil, since = 0 }
 local function updateHero(dt, now)
 	local holder = folder:FindFirstChild("Lobby_" .. player.UserId)
 	local model = holder and holder:FindFirstChild("Hero")
-	if not model or not model:FindFirstChild("HumanoidRootPart") then return end
+	if not model or not model:FindFirstChild("HumanoidRootPart") or not model:FindFirstChild("Head") then return end
 	if hero.model ~= model then
+		-- A new favourite: the server rebuilt the hero. Wait for its whole skeleton (15 joints
+		-- on the block body / R15, 6 on R6) before animating it: read too early, the missing
+		-- joints stayed in their bind pose (the "broken pose" of the menu).
+		local motors = 0
+		for _, d in model:GetDescendants() do
+			if d:IsA("Motor6D") then motors += 1 end
+		end
+		local needed = if RigReader.rigType(model) == "R6" then 6 else 15
+		if motors < needed then
+			hero.waitingSince = hero.waitingSince or now
+			if now - hero.waitingSince < 2 or RigReader.ensureJoints(model) == 0 then return end
+		end
+		hero.waitingSince = nil
 		local ok, animation = pcall(AnimationController.new, model)
 		if not ok then return end
-		hero.model, hero.animation, hero.since = model, animation, now
+		hero.model, hero.animation, hero.since, hero.readAt = model, animation, now, now
+	elseif not hero.animation.complete and now - (hero.readAt or now) > 0.25 then
+		-- (its parts were still replicating: read the skeleton again)
+		local ok, animation = pcall(AnimationController.new, model)
+		if ok then hero.animation, hero.readAt = animation, now end
 	end
 	-- (its own guard: every fighter stands its own way, never the shared arms-up victory pose)
 	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = model:GetAttribute("Kit") }

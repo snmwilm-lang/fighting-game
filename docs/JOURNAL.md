@@ -105,6 +105,11 @@ Audit du roster (19 kits + KUROEN) :
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
+**Détails du corps et pose du favori** :
+- tous les corps du modèle de base : poings avec jointures et pouce, bout de chaussure, genoux, à la couleur du membre (gant, pantalon, chaussure). La silhouette carrée est gardée, sans épaules arrondies (Wilhem aime le style carré) ;
+- pose du favori dans le menu : quand le favori change, le serveur reconstruit le héros du lobby, et le client l'animait parfois avant que toutes ses articulations soient arrivées (pose cassée). Il attend maintenant le squelette complet (15 articulations, 6 en R6) et le relit s'il était incomplet, comme les persos en combat ;
+- outil : `python3 tools/rigcheck.py bodies bodies.png` montre les corps entiers (face et dos).
+
 **Cheveux remodelés** (`RigBuilder.luau`) :
 - nouveaux outils : `spike` (pointe en blocs qui s'affinent sur les 4 côtés, puis une pointe en double biseau, pointue sous tous les angles), `lock` (mèche courbée et effilée, en segments), `fringe` (frange) ;
 - KAI, RYUKEN (flammes à pointes rouges, base pleine), HIBECARES (sauvage sous le bandeau), ASTER, ELIAN (coiffé en arrière), HIBIKI (carré sous le casque), KUREN (mèche sur l'œil), KUROEN et KUROEN SHIN (crinière), NOVA, SYLVA, YUKINA, et tous les persos à `spikes()` (ASURA, RAIJIN, VENOM, KAZAN) ;

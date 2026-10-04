@@ -119,6 +119,11 @@ for _, kit in KITS do
 			emit(models, kit .. "-face", { -3.4, 3.6, -8.6 }, head)
 			emit(models, kit .. "-side", { -9.2, 3.3, 0.4 }, head)
 			emit(models, kit .. "-back", { 4.4, 3.8, 7.8 }, head)
+		elseif mode == "bodies" and i == 1 then
+			-- The block body alone, full height: front three-quarter and back three-quarter.
+			local models = { { model = block, dx = 0 } }
+			emit(models, kit .. "-front", { -6.2, 0.9, -15.5 }, { 0, -0.2, 0 })
+			emit(models, kit .. "-back", { 5.4, 1.0, 12.6 }, { 0, -0.1, 0 })
 		elseif mode == "render" and i == 1 then
 			local models = { { model = block, dx = -1.7 }, { model = r6, dx = 1.7 } }
 			emit(models, kit .. "-front", { -6, 1.4, -18 })
@@ -214,7 +219,7 @@ if __name__ == '__main__':
         text = run('check')
         print(text, end='')
         sys.exit(1 if 'FAIL' in text else 0)
-    text = run('heads' if mode == 'heads' else 'render')
+    text = run(mode if mode in ('heads', 'bodies') else 'render')
     target = sys.argv[2] if len(sys.argv) > 2 else 'rigs.png'
     story = target + '.txt'
     with open(story, 'w') as f:

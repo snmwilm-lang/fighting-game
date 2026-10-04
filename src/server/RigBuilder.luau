@@ -1274,6 +1274,19 @@ function RigBuilder.build(slot, parent, data)
 	-- Another kit: its outfit over the block body (gloves, scarf, hood...).
 	-- (TARO's body draws its own kanji, a tattoo; the others carry it on the back)
 	if data.Kit ~= "KAI" then RigBuilder.applyKit(model, slot, data.Kit == "TARO", true, data) end
+	-- DETAILS (every fighter of the block model, after its outfit): fists with knuckles and a
+	-- thumb, a toe cap on the shoes, kneecaps; the square silhouette is kept (Wilhem: no
+	-- rounded shoulders). Each piece takes the colour the outfit gave its limb, so it reads as
+	-- the same glove, trouser or shoe.
+	local function tone(name) return parts[name].Color end
+	for _, sign in { -1, 1 } do
+		local side = if sign < 0 then "Left" else "Right"
+		local hand, leg, foot = side .. "Hand", side .. "LowerLeg", side .. "Foot"
+		ornament(hand, "Knuckles", Vector3.new(0.78, 0.18, 0.5), CFrame.new(0, -0.24, -0.18), tone(hand))
+		ornament(hand, "Thumb", Vector3.new(0.16, 0.34, 0.3), CFrame.new(-sign * 0.38, -0.04, -0.2), tone(hand))
+		ornament(foot, "ToeCap", Vector3.new(0.76, 0.3, 0.36), CFrame.new(0, -0.06, -0.72) * CFrame.Angles(0, math.pi, 0), tone(foot), "WedgePart")
+		ornament(leg, "Kneecap", Vector3.new(0.5, 0.36, 0.12), CFrame.new(0, 0.42, -0.46), tone(leg))
+	end
 	model:SetAttribute("Kit", data.Kit)
 	model:SetAttribute("Skin", data.Skin)
 	model.PrimaryPart, model.Parent = root, parent

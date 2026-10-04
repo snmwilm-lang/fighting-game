@@ -34,8 +34,9 @@ return table.freeze({
 	BlockDamageRatio = 0.08, -- the guard reduces damage, it does not cancel it
 	-- COUNTER HIT: a blow that lands while the target is still starting its own attack
 	-- (outside a combo) hits harder, stuns longer and freezes longer: reading the opponent pays.
-	-- (only slow blows can be caught: a jab traded against a jab is not a read)
-	CounterDamage = 1.2, CounterHitstun = 8, CounterHitstop = 4, CounterMinStartup = 8,
+	-- (only slow blows thrown fresh can be caught: a jab traded against a jab is not a read,
+	-- and the next blow of a string is never a counter hit)
+	CounterDamage = 1.15, CounterHitstun = 6, CounterHitstop = 3, CounterMinStartup = 10,
 	GuardRegenDelayTicks = 12,
 	GuardRegenPerTick = 0.6,
 	LightGuardWear = 0.5, -- light chain hits (guard damage 12 or less) wear the guard at half rate

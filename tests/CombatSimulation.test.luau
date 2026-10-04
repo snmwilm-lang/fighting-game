@@ -1542,6 +1542,35 @@ test("COUNTER HIT: a blow that catches the opponent starting its own attack hits
 	expect(counter and counter.counter == true, "no counter hit on a startup")
 	expect(plain and not plain.counter, "a counter hit on a neutral opponent")
 	expect(counter.damage > plain.damage, string.format("counter %d, plain %d", counter.damage, plain.damage))
+	expect(counter.damage <= plain.damage * 1.2, "a counter hit worth more than a read")
+end)
+
+test("COUNTER HIT is a read, never a cheat: not on a string's next blow, not on a jab, never inside a combo", function()
+	local function caught(setup)
+		local world = Sim.newWorld(Config, MoveData, false)
+		world.phase = "Fight"
+		local a, d = world.fighters[1], world.fighters[2]
+		a.x, d.x = -1.5, 1.5
+		local i2 = Sim.neutralInput()
+		if setup == "jab" then i2.light = true else i2.heavy = true end
+		Sim.step(world, { Sim.neutralInput(), i2 })
+		if setup == "link" then d.moveFresh = false end -- (the heavy as the next blow of a string)
+		local i1 = Sim.neutralInput()
+		i1.light = true
+		for _ = 1, 30 do
+			for _, e in Sim.step(world, { i1, Sim.neutralInput() }) do
+				if e.kind == "Hit" and e.attacker == 1 then return e end
+			end
+			i1 = Sim.neutralInput()
+		end
+		return nil
+	end
+	local fresh = caught("fresh")
+	expect(fresh and fresh.counter, "a fresh slow blow read and caught is not a counter hit")
+	local link = caught("link")
+	expect(link == nil or not link.counter, "the next blow of a string was counter-hit (it would break combos)")
+	local jab = caught("jab")
+	expect(jab == nil or not jab.counter, "a jab trade gave a counter hit")
 end)
 
 T.finish()

@@ -35,9 +35,12 @@ leurs défauts, presque parfait en main, make it cool » ; « prépare différen
     est le meilleur quelque part et paie ailleurs, et deux persos n'ont jamais le même
     profil (test) ; ZEPHYR (1 350 PV, coups longs à récupérer), KUREN (moins mobile, un peu
     plus fort) et MARION (1 250 PV) retouchés ; TARO et AKEMI inchangés ;
-  - **COUNTER HIT** : toucher un coup lent (8 images de démarrage ou plus) pendant son
-    démarrage fait +20 % de dégâts, étourdit plus longtemps, fige plus fort, « COUNTER! » ;
-    le CPU LÉGENDE s'en sert aussi ; l'IA d'ASURA est un peu plus vive. Tests.
+  - **COUNTER HIT** (une lecture, jamais un cadeau — Wilhem : « ça ne doit pas casser les
+    combos, ça doit arriver quand tu lis bien le jeu ») : seulement sur un coup lent (10 images
+    de démarrage ou plus) lancé à froid depuis le neutre — jamais sur le coup suivant d'un
+    enchaînement, jamais sur un jab, jamais pendant un combo ni sur une invincibilité ;
+    +15 % de dégâts, un peu plus d'étourdissement, « COUNTER! ». Le CPU LÉGENDE s'en sert
+    aussi ; l'IA d'ASURA est un peu plus vive. Tests.
 - **6 maps** (`src/shared/Maps.luau`, construites côté client par `src/client/ArenaBuilder.luau`) :
   SCARLET TEMPLE (le temple), FROZEN LAKE (lac gelé, pins, aurore, neige), NEON ROOFTOP
   (toit d'une ville, enseignes néon, pluie), VOLCANO FORGE (basalte, rivière et chutes de
@@ -52,7 +55,10 @@ leurs défauts, presque parfait en main, make it cool » ; « prépare différen
   façon. La fenêtre passe au-dessus du menu (ordre 30), avec un fond assombri qui bloque les
   clics vers le menu (un clic dessus la ferme), une taille relative à l'écran bornée (mobile
   et PC), un en-tête fixe, la liste des joueurs qui défile et un pied fixe avec un grand
-  bouton INVITE A FRIEND toujours visible ; elle se remplit dès l'ouverture. Le bouton doré
+  bouton INVITE A FRIEND toujours visible ; elle se remplit dès l'ouverture ; elle reste dans
+  la zone sûre de l'écran (jamais sous la barre Roblox ni l'encoche d'un téléphone). Calcul de
+  la disposition : 1920×1080, 1366×768, 1024×768, 844×390 et 667×375 → fenêtre entière et
+  bouton INVITE visible partout. Le bouton doré
   « PLAYERS ON THE SERVER » n'apparaît plus qu'en combat (le menu a son bouton PLAYERS).
 - **Bug corrigé (urgent) : beaucoup de persos portaient le skin de KAI.** En passant le jeu en
   anglais, les noms des styles avaient été traduits (« BRASIER » → « BLAZE »…) mais pas 17 clés

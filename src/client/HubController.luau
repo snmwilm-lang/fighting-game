@@ -48,8 +48,9 @@ function HubController.new(remote)
 	-- Above the main menu (DisplayOrder 20) and the mobile controls (10): this window opens
 	-- from the menu (PLAYERS, CHALLENGE A FRIEND) and must be drawn and clicked on top of it.
 	-- (It was at 8: hidden under the full-screen menu, which also took its clicks.)
-	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 30, IgnoreGuiInset = true,
-		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
+	-- (inside the safe area: never under Roblox's top bar or a phone's notch)
+	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 30, IgnoreGuiInset = false,
+		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
 	self.gui = gui
 	-- HUB MULTI button, top right, big and gold, during a match (the menu has its own PLAYERS
 	-- button); the H key opens / closes the hub too.

@@ -264,6 +264,8 @@ local function startMove(world, f, id, events, isLink)
 		f.dirtyStart = false
 	end
 	f.moveSerial += 1
+	-- (a fresh attack, thrown from neutral; a link of a string never is: see COUNTER HIT)
+	f.moveFresh = not isLink
 	if m.teleport then
 		-- DAICHA's TÉLÉPORTATION: reappears `teleport` studs behind the opponent, facing them.
 		local foe = world.fighters[3 - f.slot]
@@ -1255,11 +1257,13 @@ local function applyHit(world, a, d, m, events, source)
 	end
 
 	if not source then a.moveContact = "Hit" end
-	-- COUNTER HIT: caught starting its own attack, outside a combo (not by a projectile or
-	-- an ultimate).
+	-- COUNTER HIT: a read, never a free reward. Only a slow attack thrown fresh from neutral
+	-- (never a link of the opponent's string: a combo is never broken by it), caught during
+	-- its wind-up, outside any combo, by a blow (not a projectile, not an ultimate).
 	local theirs = d.move and world.moves[d.move]
-	local counter = theirs ~= nil and d.state == "Attack" and d.moveFrame <= theirs.startup and d.comboHits == 0 and not source
-		and m.kind ~= "Ultimate" and theirs.kind ~= "Ultimate" and firstHit and theirs.startup >= (c.CounterMinStartup or 0)
+	local counter = theirs ~= nil and d.state == "Attack" and d.moveFresh == true and d.moveFrame <= theirs.startup
+		and d.comboHits == 0 and a.comboHits == 0 and not source and firstHit
+		and m.kind ~= "Ultimate" and theirs.kind ~= "Ultimate" and not theirs.invuln and theirs.startup >= (c.CounterMinStartup or 0)
 	local bonus, tip = passiveBonus(world, a, d, m, source)
 	bonus *= PASSIVE.bonus(world, a, m, source)
 	if counter then

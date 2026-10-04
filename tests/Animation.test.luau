@@ -1170,6 +1170,10 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 		"Launched", "Knockdown", "GetUp", "Dashing", "Cinematic", "KO" } do
 		table.insert(views, { state = state })
 	end
+	-- the scenes of his ultimates (staged poses) and a staged blow without frame data
+	for pose in FourArms.SCENE do table.insert(views, { state = "Idle", pose = pose }) end
+	for _, pose in { "Roar", "Victory", "DownFace" } do table.insert(views, { state = "Idle", pose = pose }) end
+	table.insert(views, { state = "Attack", move = "StagedBlow" })
 	local ids = { "AsuraGatling" }
 	for _, id in MoveData.Kits.ASURA.Roles do table.insert(ids, id) end
 	for _, id in ids do
@@ -1186,7 +1190,7 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 					if k > 1 then -- (the shoulder itself sits against the flank)
 						local point = { a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u }
 						local hit = inside(point)
-						expect(not hit, string.format("%s %s frame %s: the %s arm goes through the %s", view.state, tostring(view.move),
+						expect(not hit, string.format("%s %s %s frame %s: the %s arm goes through the %s", view.state, tostring(view.pose), tostring(view.move),
 							tostring(view.moveFrame), side, tostring(hit)))
 					end
 				end
@@ -1201,6 +1205,17 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 	for side, arm in guard do
 		expect(arm.fist[2] > arm.elbow[2] + 0.4 and math.abs(arm.fist[1]) > 2, side .. ": the guard is not raised out to the side")
 	end
+	-- In his ultimates the extra arms play the scene, never a frozen guard: standing tall they
+	-- hang low, the power gathering spreads them wide, arms crossed they cross in front.
+	local tall, flare, crossed = asuraArms({ state = "Idle", pose = "StandTall" }, 0), asuraArms({ state = "Idle", pose = "Kiai" }, 0),
+		asuraArms({ state = "Idle", pose = "ArmsCrossed" }, 0)
+	for side, arm in tall do
+		expect(arm.fist[2] < guard[side].fist[2] - 1.5, side .. ": standing tall, the extra arm keeps its fighting guard")
+		expect(math.abs(flare[side].fist[1]) > math.abs(guard[side].fist[1]) + 0.3, side .. ": the kiai does not spread the extra arms")
+		expect(math.abs(crossed[side].fist[1]) < 1.2 and crossed[side].fist[3] < -0.8, side .. ": arms crossed, the extra pair does not cross in front")
+	end
+	local f1, f2 = asuraArms({ state = "Attack", move = "StagedBlow" }, 0), asuraArms({ state = "Attack", move = "StagedBlow" }, 0.1)
+	expect(math.abs(f1.Left.fist[3] - f2.Left.fist[3]) > 0.2, "a staged blow leaves the extra arms still")
 	-- An attack: the lead extra fist ends far in front (-Z) at the end of the active frames.
 	local smash = MoveData.Moves.Smash
 	local hit = asuraArms({ state = "Attack", move = "Smash", moveFrame = smash.startup + smash.active + 2 }, 0)

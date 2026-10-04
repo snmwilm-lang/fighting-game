@@ -53,7 +53,24 @@ local KEYS = {
 	run = { -10, 0, 44, 70, 0 },
 	-- Victory / taunt: all raised to the sky.
 	sky = { 168, 0, 30, 14, 0 },
+	-- The scenes of his ultimates (CinematicDirector poses): standing tall, the arms hang
+	-- loose and heavy at his sides; arms crossed, the extra pair crosses under the first; the
+	-- power gathering (kiai), spread wide like a deity's halo; kneeling, fists on the ground.
+	proud = { 8, 0, 34, 26, 0 },
+	crossed = { 80, 20, 45, 120, -80 },
+	flare = { 22, 0, 96, 30, 0 },
+	kneel = { 34, 0, 22, 30, 0 },
 }
+
+-- Staged poses of a scene -> the extra arms' key (others: the guard).
+local SCENE = {
+	StandTall = "proud", Idle = "proud", Walking = "run", Dash = "run",
+	ArmsCrossed = "crossed",
+	Kiai = "flare", WindGather = "flare", Levitate = "flare", Colossus = "flare", KiBeamDown = "flare",
+	Kneel = "kneel",
+	Launched = "hit",
+}
+FourArms.SCENE = SCENE
 FourArms.KEYS = KEYS
 
 local function mix(a, b, t)
@@ -80,9 +97,19 @@ local function arm(view, now, moves, side)
 		return mix(KEYS.sky, KEYS.guardHigh, 0.15 + 0.15 * breathe)
 	end
 	if LYING[state] or view.pose == "DownFace" then return KEYS.limp end
+	local scene = view.pose and SCENE[view.pose]
+	if scene then
+		-- (alive: a slow sway, each arm on its own rhythm)
+		return mix(KEYS[scene], KEYS.guardHigh, if scene == "flare" then 0.12 + 0.1 * breathe else 0.04 + 0.04 * breathe)
+	end
 	if HIT[state] then return KEYS.hit end
 	if BLOCK[state] then return KEYS.block end
 	local m = view.move and moves and moves[view.move]
+	if state == "Attack" and not m then
+		-- A blow staged by a scene without frame data: a flurry, the two arms out of phase.
+		local beat = (now * 5 + (if side < 0 then 0 else 0.5)) % 1
+		return mix(KEYS.draw, KEYS.strike, if beat < 0.4 then smooth(beat / 0.4) else 1 - smooth((beat - 0.4) / 0.6))
+	end
 	if state == "Attack" and m then
 		local frame = view.moveFrame or 0
 		if view.move == "AsuraGatling" then

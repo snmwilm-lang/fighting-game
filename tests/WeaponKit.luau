@@ -6,6 +6,7 @@ local K = require("../src/shared/Kinematics")
 local WeaponSpec = require("../src/shared/WeaponSpec")
 local OrbFlight = require("../src/shared/OrbFlight")
 local MoveData = require("../src/shared/MoveData")
+local FourArms = require("../src/shared/FourArms")
 
 local ROLE_OF = {}
 for _, kit in MoveData.Kits do
@@ -45,7 +46,32 @@ end
 
 -- The weapon's pieces: { name, cframe, size, color (hex) }. A flying weapon needs the view
 -- and the time (`flight` = { view, time }); without them it is drawn in the hand.
+-- ASURA's second pair of arms, posed as the client poses them (RigBuilder.addFourArms,
+-- AnimationController:swingFourArms, without its easing): { name, cframe, size, color }.
+function WeaponKit.fourArms(parts, view, time)
+	local torso = parts.UpperTorso or parts.Torso
+	if not torso then return {} end
+	local spec, out = FourArms.SPEC, {}
+	local scale = torso.size[1] / 2
+	local upper, fore, w = spec.upper * scale, spec.fore * scale, 0.62 * scale
+	local arms = FourArms.pose(view, time, MoveData.Moves)
+	for name, a in arms do
+		local side = if name == "Left" then -1 else 1
+		local pitch, yaw, roll, bend, twist = FourArms.angles(side, a)
+		local c0 = K.mul(K.mul(K.mul(K.mul(K.translation(side * spec.shoulder.x * scale, spec.shoulder.y * scale, spec.shoulder.z * scale),
+			K.angles(0, math.rad(yaw), 0)), K.angles(math.rad(pitch), 0, 0)), K.angles(0, 0, math.rad(roll))), K.angles(0, math.rad(twist), 0))
+		local arm = K.mul(K.mul(torso.cframe, c0), K.translation(0, -upper / 2, 0))
+		local forearm = K.mul(K.mul(K.mul(arm, K.translation(0, -upper / 2, 0)), K.angles(math.rad(bend), 0, 0)), K.translation(0, -fore / 2, 0))
+		table.insert(out, { name = "AsuraArm" .. name, cframe = arm, size = { w, upper, w }, color = "8A5A44" })
+		table.insert(out, { name = "AsuraForearm" .. name, cframe = forearm, size = { w * 0.92, fore, w * 0.92 }, color = "8A5A44" })
+		table.insert(out, { name = "AsuraFist" .. name, cframe = K.mul(forearm, K.translation(0, -fore / 2 - 0.3 * scale, 0)),
+			size = { 0.76 * scale, 0.76 * scale, 0.76 * scale }, color = "C8A040" })
+	end
+	return out
+end
+
 function WeaponKit.pieces(kit, parts, energy, flight, which)
+	if kit == "ASURA" and flight and not which then return WeaponKit.fourArms(parts, flight.view, flight.time) end
 	local grip, spec = WeaponKit.grip(kit, parts, which)
 	local out = {}
 	if not grip then return out end

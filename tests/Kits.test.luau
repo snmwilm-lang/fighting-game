@@ -518,56 +518,32 @@ test("sounds: only the client's own sounds, one material per kit (its own hits),
 	end
 end)
 
-test("music: every stage, the menu and ASURA have their own theme, built only from the client's sounds, louder by layers", function()
+test("music: real tracks only, a slot for the menu, every stage, the bosses, and fallbacks to silence", function()
 	local Music = require("../src/shared/Music")
 	local Maps = require("../src/shared/Maps")
-	local function valid(n, label)
-		expect(Palette.FILES[n.file], label .. " plays an unknown sound " .. tostring(n.file))
-		expect(n.volume > 0 and n.volume <= 1, label .. ": volume out of range " .. n.volume)
-		expect(n.speed >= 0.2 and n.speed <= 3.2, label .. ": pitch out of range " .. n.speed)
-		expect(n.bus == nil or Palette.BUSES[n.bus], label .. " goes through an unknown bus")
-	end
-	local themes = { "MENU", "ASURA", "WRATH" }
+	expect(Music.step == nil and Music.VOICES == nil, "the generated music is still there")
 	for _, map in Maps.LIST do
-		table.insert(themes, map.id)
-		expect(Music.themeFor({ inMatch = true, map = map.id }) == map.id, map.id .. " has no theme of its own")
+		expect(Music.themeFor({ inMatch = true, map = map.id }) == map.id, map.id .. " has no slot of its own")
+		expect(Music.BY_ID[map.id].fallback == "BATTLE", map.id .. " does not fall back on BATTLE")
 	end
-	local fingerprints = {}
-	for _, id in themes do
-		local theme = Music.THEMES[id]
-		expect(theme, id .. ": no theme")
-		local count, print = { 0, 0, 0 }, {}
-		for step = 1, 64 do
-			for level = 1, 3 do
-				local notes = Music.step(id, level, step)
-				count[level] += #notes
-				for _, n in notes do valid(n, id) end
-				if level == 3 then table.insert(print, #notes) end
-			end
-		end
-		expect(count[1] > 0 and count[2] > count[1] and count[3] > count[2], id .. ": the layers do not build up")
-		local key = theme.tempo .. theme.scale .. table.concat(print, "")
-		expect(not fingerprints[key], id .. " sounds like " .. tostring(fingerprints[key]))
-		fingerprints[key] = id
+	expect(Music.themeFor({ inMatch = false }) == "MENU", "no menu slot")
+	expect(Music.themeFor({ inMatch = true, map = "NEON", boss = true }) == "ASURA", "the bosses have no slot")
+	expect(Music.themeFor({ inMatch = true, boss = true, wrath = true }) == "WRATH", "the SECOND LIFE has no slot")
+	expect(Music.themeFor({ inMatch = true, map = "NOWHERE" }) == "BATTLE", "an unknown stage has no music")
+	-- fallbacks: WRATH -> ASURA -> BATTLE; nothing at all is silence
+	local function only(...)
+		local set = {}
+		for _, id in { ... } do set[id] = true end
+		return function(id) return set[id] == true end
 	end
-	-- the theme follows the game; the music rises when a fighter is close to the end
-	expect(Music.themeFor({ inMatch = false }) == "MENU", "no menu theme")
-	expect(Music.themeFor({ inMatch = true, map = "NEON", boss = true }) == "ASURA", "ASURA has no theme")
-	expect(Music.themeFor({ inMatch = true, boss = true, wrath = true }) == "WRATH", "the SECOND LIFE has no theme")
-	expect(Music.intensity({ phase = "Fight", hp = { 0.8, 0.9 } }) == 2 and Music.intensity({ phase = "Fight", hp = { 0.2, 0.9 } }) == 3
-		and Music.intensity({ phase = "Intro", hp = { 1, 1 } }) == 1 and Music.intensity({ phase = "Fight", hp = { 1, 1 }, deciding = true }) == 3,
-		"the intensity does not follow the fight")
-	expect(Music.THEMES.WRATH.tempo > Music.THEMES.ASURA.tempo, "the SECOND LIFE is not faster")
-	for name in Music.STINGERS do
-		local n = 0
-		for i = 1, 16 do
-			for _, note in Music.stinger(name, "TEMPLE", i) do valid(note, name); n += 1 end
-		end
-		expect(n > 0, name .. " stinger plays nothing")
-	end
-	-- a scale degree past the scale is an octave up
-	expect(math.abs(Music.pitch("majorPenta", 6, 1) - 2) < 1e-9, "degree 6 of a 5-note scale is not the octave")
-	expect(next(Music.CUSTOM) == nil, "a custom music id was invented")
+	expect(Music.resolve("WRATH", only("BATTLE")) == "BATTLE", "the SECOND LIFE does not fall back on BATTLE")
+	expect(Music.resolve("WRATH", only("ASURA", "BATTLE")) == "ASURA", "the SECOND LIFE does not fall back on ASURA first")
+	expect(Music.resolve("TEMPLE", only("TEMPLE", "BATTLE")) == "TEMPLE", "a stage's own track is not played")
+	expect(Music.resolve("MENU", only("BATTLE")) == nil, "the menu borrows the fight music")
+	expect(Music.resolve("TEMPLE", only()) == nil, "no track is not silence")
+	expect(Music.volume({ cinematic = true }) < Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "the music does not step back under a cinematic")
+	expect(Music.volume({ phase = "Fight", hp = { 0.2, 0.9 } }) > Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "a clutch moment does not raise it")
+	expect(next(Music.CUSTOM) == nil and next(Palette.CUSTOM) == nil, "an audio id was invented")
 end)
 
 test("SHIN: the tip of the blade (end of the reach) deals more", function()

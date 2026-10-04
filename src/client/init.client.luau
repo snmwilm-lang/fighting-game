@@ -46,7 +46,7 @@ player:GetAttributeChangedSignal("Map"):Connect(function()
 	stage:setArena(buildStage())
 end)
 local sounds = SoundController.new()
-local music = MusicController.new() -- the in-game music (shared/Music: the stage's theme, ASURA's...)
+local music = MusicController.new() -- the in-game music: real tracks from ReplicatedStorage › Audio › Music (docs/AUDIO.md)
 local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 local language = LanguageController.new() -- SETTINGS › LANGUAGE (Auto / English / Français)
 local menuRemote = remotes:WaitForChild("Menu")
@@ -325,7 +325,7 @@ end
 
 local fps = 60
 -- What the music follows: the menu or the stage, ASURA and his SECOND LIFE, the health left,
--- the deciding round, the cinematics (Music.themeFor / Music.intensity).
+-- the deciding round, the cinematics (Music.themeFor / Music.volume).
 local function musicState()
 	local state = { inMatch = currentMatch ~= 0 and world ~= nil, map = currentMap, cinematic = cinematic.active }
 	if not state.inMatch then return state end

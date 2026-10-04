@@ -17,7 +17,8 @@
 ]]
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
-local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MoveData = require(Shared:WaitForChild("MoveData"))
 local Palette = require(Shared:WaitForChild("SoundPalette"))
 local FILES, BUSES, MATERIALS, ACTIONS = Palette.FILES, Palette.BUSES, Palette.MATERIALS, Palette.ACTIONS
@@ -30,14 +31,17 @@ local function material(kit)
 end
 
 function SoundController.new()
-	local self = setmetatable({ enabled = true, templates = {}, buses = {}, last = {}, steps = {}, custom = {} }, SoundController)
-	-- Wilhem's own sounds (SoundPalette.CUSTOM), found by the list they replace.
+	local self = setmetatable({ enabled = true, templates = {}, buses = {}, last = {}, steps = {} }, SoundController)
+	-- Wilhem's own royalty-free sounds, found by the list they replace (docs/AUDIO.md): a Sound
+	-- in ReplicatedStorage › Audio › SFX named after the action ("Block", "KO"...), the kit's
+	-- part ("KAI.hit") or the part for every kit ("hit"), or an id in SoundPalette.CUSTOM.
+	self.keys = {}
 	for key, list in ACTIONS do
-		if Palette.CUSTOM[key] then self.custom[list] = Palette.CUSTOM[key] end
+		self.keys[list] = { key }
 	end
 	for kit, own in MATERIALS do
 		for part, list in own do
-			if type(list) == "table" and Palette.CUSTOM[kit .. "." .. part] then self.custom[list] = Palette.CUSTOM[kit .. "." .. part] end
+			if type(list) == "table" then self.keys[list] = { kit .. "." .. part, part } end
 		end
 	end
 	local group = Instance.new("SoundGroup")
@@ -99,13 +103,33 @@ function SoundController:watchButtons(gui)
 	gui.DescendantAdded:Connect(hook)
 end
 
+-- The replacement of a sound list: a Sound of the Audio › SFX folder, or a CUSTOM id.
+function SoundController:custom(list)
+	local keys = list and self.keys[list]
+	if not keys then return nil end
+	local audio = ReplicatedStorage:FindFirstChild("Audio")
+	local folder = audio and audio:FindFirstChild("SFX")
+	for _, key in keys do
+		local sound = folder and folder:FindFirstChild(key)
+		if sound and sound:IsA("Sound") and sound.SoundId ~= "" then return sound end
+		if Palette.CUSTOM[key] then return Palette.CUSTOM[key] end
+	end
+	return nil
+end
+
 function SoundController:playAll(list, scale)
-	local custom = list and self.custom[list]
+	local custom = self:custom(list)
 	if custom then
-		-- (Wilhem's own uploaded sound for this action or material: SoundPalette.CUSTOM)
 		if not self.enabled then return end
-		local sound = Instance.new("Sound")
-		sound.SoundId, sound.Volume, sound.SoundGroup = custom, 0.7 * (scale or 1), self.group
+		local sound
+		if typeof(custom) == "Instance" then
+			sound = custom:Clone()
+			sound.Volume = (if custom.Volume > 0 then custom.Volume else 0.7) * (scale or 1)
+		else
+			sound = Instance.new("Sound")
+			sound.SoundId, sound.Volume = custom, 0.7 * (scale or 1)
+		end
+		sound.Looped, sound.SoundGroup = false, self.group
 		sound.Parent = self.group
 		sound:Play()
 		sound.Ended:Once(function() sound:Destroy() end)

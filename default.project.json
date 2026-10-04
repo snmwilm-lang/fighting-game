@@ -12,6 +12,18 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+      "Audio": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "Music": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        },
+        "SFX": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        }
       }
     },
 

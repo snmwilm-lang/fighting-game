@@ -15,9 +15,9 @@
 	answer with the invincible reversal or the fastest jab; against zoning they jump over the
 	projectiles; their guard leans to the height the opponent uses most.
 ]]
--- Without an invincible reversal (KUROEN), getting up means guarding first: the poke back
--- comes this much less often.
-local COUNTER_NO_REVERSAL = 0
+-- Without an invincible reversal (KUROEN), getting up means guarding first: the better the
+-- guard of the level, the rarer the poke back ((1 - block)^1.1: HARD 34 %, LEGEND 10 %).
+local function counterNoReversal(level) return (1 - level.block) ^ 1.1 end
 
 local FighterAI = {}
 
@@ -370,7 +370,7 @@ function FighterAI:think(world, slot)
 		if groundSpecial and groundSpecial.invuln and self:chance(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7) then
 			input.special = true -- invincible RISING STRIKE through the pressure
 			return input
-		elseif self:chance(self.level.counter * (if groundSpecial and not groundSpecial.invuln and not self.level.varied then COUNTER_NO_REVERSAL else 1)) then
+		elseif self:chance(self.level.counter * (if groundSpecial and not groundSpecial.invuln and not self.level.varied then counterNoReversal(self.level) else 1)) then
 			self.blockTicks = 0
 			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade) -- poke back right away (fast jab first)
 			self.plan = { self.plan[1] == "R" and "L" or self.plan[1], table.unpack(self.plan, 2) }

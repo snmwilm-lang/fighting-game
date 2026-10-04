@@ -39,6 +39,9 @@
 local MoveData = {}
 
 local function move(data)
+	-- (an override can take a field away from the role it derives from: `false` means none)
+	if data.invuln == false then data.invuln = nil end
+	if data.projectile == false then data.projectile = nil end
 	if data.hitbox then data.hitbox = table.freeze(data.hitbox) end
 	if data.projectile then
 		local p = data.projectile

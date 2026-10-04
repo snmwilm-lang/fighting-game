@@ -6,6 +6,7 @@
 	grip's -Z axis. Built by the server (RigBuilder), drawn by the pose sheets and
 	storyboards, and measured by the animation tests (a cut must really sweep the blade).
 	`r6Grip` replaces `grip` on an R6 body, whose hand is the end of a rigid arm.
+	`pair`: a second weapon in the other hand (YUKINA's two fans).
 ]]
 local WeaponSpec = {}
 
@@ -38,5 +39,38 @@ WeaponSpec.DAICHA = {
 	},
 	base = 0, tip = 0, -- the orb is a point: its centre
 }
+
+-- RAIJIN's spear, held a third of the way down the shaft in the right hand: the butt behind
+-- the fist, the steel head far ahead, its edge glowing with lightning.
+WeaponSpec.RAIJIN = {
+	hand = "RightHand",
+	grip = { y = -0.1, z = -0.1, tilt = -20 },
+	r6Grip = { y = -0.3, z = -0.15, tilt = -78 },
+	pieces = {
+		{ name = "Shaft", size = { 0.16, 0.16, 5.4 }, z = -1.0, color = "2A2A33", material = "Metal" },
+		{ name = "Butt", size = { 0.24, 0.24, 0.26 }, z = 1.8, color = "trim", material = "Metal" },
+		{ name = "Collar", size = { 0.26, 0.26, 0.16 }, z = -3.62, color = "trim", material = "Metal" },
+		{ name = "Head", size = { 0.1, 0.38, 0.95 }, z = -4.15, color = "D6DCE8", material = "Metal" },
+		{ name = "Edge", size = { 0.11, 0.06, 0.85 }, y = 0.2, z = -4.1, color = "energy", material = "Neon" },
+	},
+	base = -3.6, tip = -4.6,
+}
+
+-- YUKINA's fans of ice, one in each hand, opened on the line of the hand.
+local function fan(hand)
+	return {
+		hand = hand,
+		grip = { y = -0.15, z = -0.1, tilt = -20 },
+		r6Grip = { y = -0.35, z = -0.15, tilt = -78 },
+		pieces = {
+			{ name = "FanSpine", size = { 0.08, 0.08, 1.15 }, z = -0.55, color = "E8F2FA", material = "Metal" },
+			{ name = "FanLeaf", size = { 0.05, 1.1, 1.0 }, y = 0.3, z = -0.65, color = "energy", material = "Glass" },
+			{ name = "FanEdge", size = { 0.06, 0.06, 1.0 }, y = 0.85, z = -0.65, color = "FFFFFF", material = "Neon" },
+		},
+		base = -0.15, tip = -1.15,
+	}
+end
+WeaponSpec.YUKINA = fan("RightHand")
+WeaponSpec.YUKINA.pair = fan("LeftHand")
 
 return WeaponSpec

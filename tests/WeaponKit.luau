@@ -24,9 +24,10 @@ local function hand(parts, name)
 	return K.mul(arm.cframe, K.translation(0, arm.size[2] * -0.42, 0)), { arm.size[1], arm.size[2] * 0.16, arm.size[3] }, true
 end
 
--- The grip frame of `kit`'s weapon (nil for a kit without one) and its spec.
-function WeaponKit.grip(kit, parts)
-	local spec = WeaponSpec[kit]
+-- The grip frame of `kit`'s weapon (nil for a kit without one) and its spec (`spec` given:
+-- that weapon, e.g. the second of a pair).
+function WeaponKit.grip(kit, parts, spec)
+	spec = spec or WeaponSpec[kit]
 	if not spec then return nil, nil end
 	local frame, size, r6 = hand(parts, spec.hand)
 	if not frame then return nil, nil end
@@ -44,8 +45,8 @@ end
 
 -- The weapon's pieces: { name, cframe, size, color (hex) }. A flying weapon needs the view
 -- and the time (`flight` = { view, time }); without them it is drawn in the hand.
-function WeaponKit.pieces(kit, parts, energy, flight)
-	local grip, spec = WeaponKit.grip(kit, parts)
+function WeaponKit.pieces(kit, parts, energy, flight, which)
+	local grip, spec = WeaponKit.grip(kit, parts, which)
 	local out = {}
 	if not grip then return out end
 	if spec.flies and flight then
@@ -73,6 +74,12 @@ function WeaponKit.pieces(kit, parts, energy, flight)
 	for _, p in spec.pieces do
 		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(0, p.y or 0, p.z or 0)), size = p.size,
 			color = if p.color == "energy" then energy or "8FD8FF" elseif p.color == "trim" then "C9A227" else p.color })
+	end
+	if spec.pair and not which then
+		for _, piece in WeaponKit.pieces(kit, parts, energy, flight, spec.pair) do
+			piece.name ..= "2"
+			table.insert(out, piece)
+		end
 	end
 	return out
 end

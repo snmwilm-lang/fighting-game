@@ -118,7 +118,7 @@ pièces : KAI bandeau, ceinture et bandages ; TARO gants de boxe, short, ceintur
 champion et serviette au cou ; ZEPHYR longue écharpe au vent, protège-tibias ; AKEMI capuche, masque et
 brassards ; RYUKEN bandages et gantelet fissuré qui luit ; SHIN katana et fourreau, col ;
 DAICHA sphère d'ombre à la main, obi ; HIBECARES poings de pierre, chaînes, bandeau ;
-RAIJIN la lance dans le dos, éclairs sur les bras ; YUKINA obi et éventails de cristal ;
+RAIJIN la lance en main, éclairs sur les bras ; YUKINA obi et un éventail de cristal dans chaque main ;
 VENOM masque respiratoire, griffes vertes ; GORAN ceinture de catcheur, genouillères ; ASTER
 anneaux autour des bras ; HIBIKI casque audio, amplis aux gants ; MARION bagues et fils qui
 luisent ; KAZAN chaînes aux avant-bras, cadenas ; KUREN marques écarlates ; SYLVA gantelets

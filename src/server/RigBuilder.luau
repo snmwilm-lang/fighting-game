@@ -519,10 +519,7 @@ BODIES.RAIJIN = {
 			glowLines(ctx, side .. "UpperArm", { { 0.06, 0.6, 0, 0, -0.44, 0.5 }, { 0.06, 0.4, 0.12, -0.3, -0.44, -0.6 } }, energy)
 			glowLines(ctx, side .. "LowerArm", { { 0.06, 0.5, 0, 0.1, -0.36, -0.5 }, { 0.06, 0.4, 0.08, -0.25, -0.36, 0.6 } }, energy)
 		end
-		-- The spear across the back: shaft, steel head with its glowing edge.
-		material(o("UpperTorso", "SpearShaft", Vector3.new(0.14, 4.4, 0.14), CFrame.new(0, 0.2, 0.62) * CFrame.Angles(0, 0, 0.7), color("Wraps")), Enum.Material.Metal)
-		material(o("UpperTorso", "SpearHead", Vector3.new(0.3, 0.9, 0.08), CFrame.new(-1.62, 1.92, 0.62) * CFrame.Angles(0, 0, 0.7), Color3.fromHex("D6DCE8")), Enum.Material.Metal)
-		o("UpperTorso", "SpearEdge", Vector3.new(0.06, 0.8, 0.1), CFrame.new(-1.56, 1.98, 0.62) * CFrame.Angles(0, 0, 0.7), energy).Material = Enum.Material.Neon
+		-- (the spear is in his hand: WeaponSpec.RAIJIN, OUTFITS.RAIJIN)
 		o("LowerTorso", "Belt", Vector3.new(1.76, 0.22, 1.0), CFrame.new(0, 0.2, 0), color("Sash"))
 		legs(ctx, { feet = "boots" })
 	end,
@@ -558,11 +555,7 @@ BODIES.YUKINA = {
 		o("LowerTorso", "Obi", Vector3.new(1.84, 0.5, 1.06), CFrame.new(0, 0.12, 0), color("Sash"))
 		o("LowerTorso", "ObiCord", Vector3.new(1.86, 0.06, 1.08), CFrame.new(0, 0.12, 0), color("Wraps"))
 		o("LowerTorso", "ObiBow", Vector3.new(1.0, 0.5, 0.3), CFrame.new(0, 0.16, 0.66), color("Sash"))
-		-- The two fans, folded, crossed at the left hip.
-		for i, a in { 0.5, -0.2 } do
-			local fan = o("LowerTorso", "Fan" .. i, Vector3.new(0.2, 1.2, 0.12), CFrame.new(-0.9, 0.0, -0.2 + i * 0.12) * CFrame.Angles(0, 0, a), color("Energy"))
-			fan.Material, fan.Transparency = Enum.Material.Glass, 0.15
-		end
+		-- (the fans are in her hands: WeaponSpec.YUKINA, OUTFITS.YUKINA)
 		o("UpperTorso", "Hem", Vector3.new(1.96, 0.3, 1.04), CFrame.new(0, -0.66, 0), color("Vest"))
 		legs(ctx, { wide = true, feet = "tabi" })
 		o("UpperTorso", "Fold", Vector3.new(0.04, 0.5, 0.04), CFrame.new(0.3, -0.3, -0.51), ink)
@@ -1386,28 +1379,21 @@ function OUTFITS.ASURA(o)
 end
 
 function OUTFITS.RAIJIN(o)
-	if o.block then return end -- (the block body draws all of it)
-	local chest = o.size("UpperTorso")
-	o.piece("UpperTorso", "SpearShaft", Vector3.new(0.14, 4.4, 0.14), CFrame.new(0, chest.Y * 0.1, chest.Z * 0.62) * CFrame.Angles(0, 0, 0.7), o.second).Material = Enum.Material.Metal
-	o.piece("UpperTorso", "SpearHead", Vector3.new(0.3, 0.9, 0.08), CFrame.new(-1.62, chest.Y * 0.1 + 1.72, chest.Z * 0.62) * CFrame.Angles(0, 0, 0.7), Color3.fromHex("D6DCE8")).Material = Enum.Material.Metal
+	o.weapon(WeaponSpec.RAIJIN)
+	if o.block then return end -- (the block body draws the rest)
 	for _, side in SIDES do
 		local arm = o.size(side[1] .. "LowerArm")
 		o.piece(side[1] .. "LowerArm", "Bolt", Vector3.new(0.06, arm.Y * 0.7, 0.04), CFrame.new(0, 0, -arm.Z * 0.56) * CFrame.Angles(0, 0, 0.4), o.energy).Material = Enum.Material.Neon
 	end
-	if not o.block then band(o, "LowerTorso", "Belt", 0.22, 0.2, o.main, 1.08) end
+	band(o, "LowerTorso", "Belt", 0.22, 0.2, o.main, 1.08)
 end
 
 function OUTFITS.YUKINA(o)
-	if o.block then return end -- (the block body draws all of it)
+	o.weapon(WeaponSpec.YUKINA)
+	if o.block then return end -- (the block body draws the rest)
 	local waist = o.size("LowerTorso")
-	if not o.block then
-		o.piece("LowerTorso", "Obi", Vector3.new(waist.X * 1.1, math.max(0.4, waist.Y * 0.5), waist.Z * 1.14), CFrame.new(0, waist.Y * 0.1, 0), o.main)
-		o.piece("LowerTorso", "ObiBow", Vector3.new(waist.X * 0.6, 0.5, 0.3), CFrame.new(0, waist.Y * 0.14, waist.Z * 0.66), o.main)
-	end
-	for i, a in { 0.5, -0.2 } do
-		local fan = o.piece("LowerTorso", "Fan" .. i, Vector3.new(0.2, 1.2, 0.12), CFrame.new(-waist.X * 0.5, 0, -0.2 + i * 0.12) * CFrame.Angles(0, 0, a), o.energy)
-		fan.Material, fan.Transparency = Enum.Material.Glass, 0.15
-	end
+	o.piece("LowerTorso", "Obi", Vector3.new(waist.X * 1.1, math.max(0.4, waist.Y * 0.5), waist.Z * 1.14), CFrame.new(0, waist.Y * 0.1, 0), o.main)
+	o.piece("LowerTorso", "ObiBow", Vector3.new(waist.X * 0.6, 0.5, 0.3), CFrame.new(0, waist.Y * 0.14, waist.Z * 0.66), o.main)
 end
 
 function OUTFITS.VENOM(o)
@@ -1586,8 +1572,10 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 		p.Parent = model
 		return p
 	end
-	-- A held weapon (WeaponSpec): its pieces placed at the grip, in the hand.
+	-- A held weapon (WeaponSpec): its pieces placed at the grip, in the hand (and its pair in
+	-- the other hand).
 	function o.weapon(spec)
+		if spec.pair then o.weapon(spec.pair) end
 		local hand = o.size(spec.hand)
 		local g = if model:FindFirstChild(spec.hand) then spec.grip else spec.r6Grip or spec.grip
 		local grip = CFrame.new(0, hand.Y * g.y, g.z) * CFrame.Angles(math.rad(g.tilt), 0, 0)
@@ -1662,7 +1650,7 @@ function RigBuilder.addFourArms(model, data)
 	local guard = FourArms.pose({ state = "Idle" }, 0, nil)
 	for _, side in { -1, 1 } do
 		local name = if side < 0 then "Left" else "Right"
-		local pitch, yaw, roll, bend = FourArms.angles(side, guard[name])
+		local pitch, yaw, roll, bend, twist = FourArms.angles(side, guard[name])
 		local w = 0.5 * scale
 		local upper = piece("AsuraArm" .. name, Vector3.new(w, upperLength, w), skin)
 		local fore = piece("AsuraForearm" .. name, Vector3.new(w * 0.92, foreLength, w * 0.92), skin)
@@ -1670,6 +1658,7 @@ function RigBuilder.addFourArms(model, data)
 		shoulder.Name, shoulder.Part0, shoulder.Part1 = "Asura" .. name, torso, upper
 		shoulder.C0 = CFrame.new(side * spec.shoulder.x * scale, spec.shoulder.y * scale, spec.shoulder.z * scale)
 			* CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0) * CFrame.Angles(0, 0, math.rad(roll))
+			* CFrame.Angles(0, math.rad(twist), 0)
 		shoulder.C1 = CFrame.new(0, upperLength / 2, 0)
 		upper.CFrame = torso.CFrame * shoulder.C0 * shoulder.C1:Inverse()
 		shoulder.Parent = torso

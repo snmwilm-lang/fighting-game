@@ -126,6 +126,7 @@ local MATERIALS = {
 		heavySwing = { { "wind", 0.7, 0.5, 0.45 } },
 		hit = { { "thud", 0.95, 0.6, nil, "crunch" } },
 		heavyHit = { { "boom", 0.6, 0.9, 0.6, "crunch" }, { "thud", 1, 0.45 } },
+		projectile = { { "boom", 0.5, 0.55, 0.55, "crunch" }, { "wind", 0.45, 0.5, 0.4 } }, -- the shockwave rolling on the mat
 		steps = 0.9,
 	},
 	ASTER = { -- gravity: a hollow boom

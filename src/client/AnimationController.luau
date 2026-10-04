@@ -79,11 +79,12 @@ function AnimationController:swingFourArms(view, dt, now)
 				-- (the build already turned them into their guard: start from the bare joint)
 				local guard = FourArms.pose({ state = "Idle" }, 0, nil)[name]
 				local side = if name == "Left" then -1 else 1
-				local pitch, yaw, roll, bend = FourArms.angles(side, guard)
+				local pitch, yaw, roll, bend, twist = FourArms.angles(side, guard)
 				local turn = CFrame.Angles(0, rad(yaw), 0) * CFrame.Angles(rad(pitch), 0, 0) * CFrame.Angles(0, 0, rad(roll))
+					* CFrame.Angles(0, rad(twist), 0)
 				self.fourArms[name] = { shoulder = shoulder, elbow = elbow, side = side,
 					shoulderBase = shoulder.C0 * turn:Inverse(), elbowBase = elbow.C0 * CFrame.Angles(rad(bend), 0, 0):Inverse(),
-					angles = { guard[1], guard[2], guard[3], guard[4] } }
+					angles = { guard[1], guard[2], guard[3], guard[4], guard[5] or 0 } }
 			end
 		end
 	end
@@ -93,9 +94,11 @@ function AnimationController:swingFourArms(view, dt, now)
 	local follow = 1 - math.exp(-(if fast then 30 else 12) * dt)
 	for name, info in self.fourArms do
 		local a, goal = info.angles, target[name]
-		for i = 1, 4 do a[i] += (goal[i] - a[i]) * follow end
-		local pitch, yaw, roll, bend = FourArms.angles(info.side, a)
+		for i = 1, 5 do a[i] += ((goal[i] or 0) - a[i]) * follow end
+		local pitch, yaw, roll, bend, twist = FourArms.angles(info.side, a)
+		-- (the same order as FourArms.solve, which the tests check: roll, pitch, yaw; twist innermost)
 		info.shoulder.C0 = info.shoulderBase * CFrame.Angles(0, rad(yaw), 0) * CFrame.Angles(rad(pitch), 0, 0) * CFrame.Angles(0, 0, rad(roll))
+			* CFrame.Angles(0, rad(twist), 0)
 		info.elbow.C0 = info.elbowBase * CFrame.Angles(rad(bend), 0, 0)
 	end
 end

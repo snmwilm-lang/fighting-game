@@ -989,7 +989,7 @@ function KIT.ZEPHYR.Awaken(ctx, frame, a, d, tick, dir, color)
 		d.hitstop = if tick - data.Hits[k] < 4 then 1 else 0
 		arc(frame, "dragon-kick" .. k, v(cx, d.y + 3, 0.4), 2.3, k * 50, k * 50 + 160, color, 0.6, dir)
 		table.insert(frame.fx, { key = "dragon-wind", kind = "dragonHelix", pos = v(cx, 0, 0), color = color })
-		frame.shot = frameOn("zephyr-dragon-climb", dir, { a, d }, { yaw = lerp(30, -30, progress(tick, data.Hits[1], last + 4)),
+		frame.shot = frameOn("zephyr-dragon-climb", dir, { a, d }, { yaw = lerp(50, -10, progress(tick, data.Hits[1], last + 4)),
 			pitch = -12, fill = 0.7, fov = 54, focus = P(D, "UpperTorso") })
 	elseif tick < 145 then
 		local q = progress(tick, last + 4, 145)
@@ -1618,7 +1618,7 @@ function KIT.RYUKEN.Gate(ctx, frame, a, d, tick, dir)
 		a.moveFrame = moves[flurry].startup + 1 + (tick // 2 % 2) * (moves[flurry].hitInterval or 2)
 		d.state = "Blockstun"
 		if tick % 3 == 0 then spark(frame, "round-guard" .. tick, v(cx - dir * 0.6, 3.6 + (tick % 5) * 0.15, 0.5), color, 0.8) end
-		frame.shot = frameOn("ryuken-round-guard", dir, { a, d }, { yaw = 64, pitch = 2, fill = 0.9, fov = 36, band = "bust",
+		frame.shot = frameOn("ryuken-round-guard", dir, { a, d }, { yaw = 48, pitch = 2, fill = 0.9, fov = 36, band = "bust",
 			focus = P(D, "UpperTorso") })
 	elseif tick < data.PromptTicks[1] - 14 then
 		-- The guard breaks: the liver, then the uppercut.
@@ -2610,7 +2610,7 @@ function FATAL.TARO(ctx, frame, a, d, tick, dir)
 		a.x, a.facing = cx - dir * 3, dir
 		attack(a, moves, role(ctx, "Finale"), false)
 		frame.grade.mono = tick >= Pr - 4
-		frame.shot = frameOn("taro-cloche-cock", dir, { a }, { yaw = 36, pitch = -10, fill = lerp(0.75, 0.9, progress(tick, 110, F)), fov = 32,
+		frame.shot = frameOn("taro-cloche-cock", dir, { a }, { yaw = -40, pitch = -10, fill = lerp(0.75, 0.9, progress(tick, 110, F)), fov = 32,
 			band = "bust", focus = P(A, "Head") })
 	elseif tick < F + 26 then
 		local p = progress(tick, F, F + 26)
@@ -2726,7 +2726,7 @@ function FATAL.AKEMI(ctx, frame, a, d, tick, dir)
 		if (tick - 30) % 20 == 0 then
 			table.insert(frame.fx, { key = "instant-copy" .. k, kind = "afterimage", slot = A, color = color, life = 2.2 })
 		end
-		frame.shot = frameOn("akemi-instant-orbit", dir, { a, d }, { yaw = lerp(-20, 60, p), pitch = 10, fill = 0.7, fov = 40,
+		frame.shot = frameOn("akemi-instant-orbit", dir, { a, d }, { yaw = lerp(-10, 50, p), pitch = 10, fill = 0.7, fov = 40,
 			focus = P(D, "UpperTorso") })
 	elseif tick < F then
 		a.x, a.z, a.lookDir, a.facing, a.pose = cx + dir * 3.4, nil, nil, dir, "Sheathe"
@@ -2802,7 +2802,7 @@ function FATAL.RYUKEN(ctx, frame, a, d, tick, dir)
 		if tick % 8 == 0 then table.insert(frame.fx, { key = "monde-steam" .. tick, kind = "smoke", pos = v(a.x + dir * 0.9, 3.2, 0.4) }) end
 		d.x = wall
 		FATAL.fall(cin, d, tick, F + 26, 0.5)
-		frame.shot = frameOn("ryuken-monde-after", dir, { a, d }, { yaw = -20, pitch = 2, fill = 0.5, fov = 40, focus = P(A, "UpperTorso") })
+		frame.shot = frameOn("ryuken-monde-after", dir, { a, d }, { yaw = 10, pitch = 2, fill = 0.5, fov = 40, focus = P(A, "UpperTorso") })
 		FATAL.title(ctx, frame, tick, F, color)
 	end
 end
@@ -3354,6 +3354,15 @@ function GEN.name(T, ult, name)
 	return T.id .. "-" .. ult .. "-" .. name
 end
 
+-- Every generated shot goes through here: a kit can turn one of its shots (`turn`, keyed by
+-- the shot's name without the kit's id, e.g. ["gate-advance"] = 30) where its own poses
+-- would hide one hand behind the other from the preset angle.
+function GEN.frame(T, name, dir, subjects, o)
+	local turn = T.turn and T.turn[name:sub(#T.id + 2)]
+	if turn then o.yaw = (o.yaw or 0) + turn end
+	return frameOn(name, dir, subjects, o)
+end
+
 -- A two-shot of the attacker and the target, preset `i` of the theme's walk. The camera
 -- looks at the fighter on its side of the pair (never through the other one).
 -- Is the line from the camera to `view`'s chest clear of `other`'s body?
@@ -3383,7 +3392,7 @@ function GEN.two(ctx, T, ult, name, dir, a, d, i, o)
 	for _, swing in { 0, 30, -30, 60, -60 } do
 		local yaw = p[1] + swing
 		for _, pick in { { D, d, a }, { A, a, d } } do
-			last = frameOn(GEN.name(T, ult, name), dir, { a, d }, { yaw = yaw, pitch = p[2], fill = o.fill or p[3], fov = p[4],
+			last = GEN.frame(T, GEN.name(T, ult, name), dir, { a, d }, { yaw = yaw, pitch = p[2], fill = o.fill or p[3], fov = p[4],
 				roll = o.roll, focus = P(pick[1], "UpperTorso") })
 			if GEN.seen(last, pick[2], pick[3]) then return last end
 		end
@@ -3395,7 +3404,7 @@ end
 function GEN.solo(T, name, dir, view, slot, i, o)
 	local p = GEN.SOLO[(T.seed + i) % #GEN.SOLO + 1]
 	o = o or {}
-	return frameOn(name, dir, { view }, { yaw = p[1], pitch = p[2], fill = o.fill or p[3], fov = p[4], band = p[5],
+	return GEN.frame(T, name, dir, { view }, { yaw = p[1], pitch = p[2], fill = o.fill or p[3], fov = p[4], band = p[5],
 		focus = P(slot, if p[5] == "bust" then "Head" else "UpperTorso") })
 end
 
@@ -3645,13 +3654,13 @@ function GEN.Gate(T)
 			d.state = "Idle"
 			GEN.fx(frame, T, "ground", "gate-world", nil, v((far + cx) / 2, 0, 0), color, { radius = 9, count = 14, life = 3 })
 			if T.quake and tick < 6 then frame.quake = 1 end
-			frame.shot = frameOn(GEN.name(T, "gate", "far"), dir, { a, d, { point = true, x = (far + cx) / 2, y = 6, z = -9 } },
+			frame.shot = GEN.frame(T, GEN.name(T, "gate", "far"), dir, { a, d, { point = true, x = (far + cx) / 2, y = 6, z = -9 } },
 				{ yaw = 8 - T.seed, pitch = 6, fill = 0.42, fov = 40, focus = P(A, "UpperTorso") })
 		elseif tick < 70 then
 			local p = progress(tick, 30, 70)
 			a.x, a.facing, a.pose = far, dir, T.rest
 			if tick >= 44 then GEN.fx(frame, T, "burst", "gate-aura", v(a.x, 0, 0), v(a.x, 3, 0), color) end
-			frame.shot = frameOn(GEN.name(T, "gate", "arena"), dir, { a, d }, { yaw = lerp(-44, 20, p), pitch = -16, fill = 0.66, fov = 48,
+			frame.shot = GEN.frame(T, GEN.name(T, "gate", "arena"), dir, { a, d }, { yaw = lerp(-44, 20, p), pitch = -16, fill = 0.66, fov = 48,
 				focus = P(A, "Head") })
 		elseif tick < data.Hits[1] - 6 then
 			local p = progress(tick, 70, data.Hits[1] - 6)
@@ -3822,11 +3831,11 @@ GEN.add("ASURA", {
 
 -- Wilhem's third sheet. Each kit: its grade, its own effects, its archetype for each ultimate.
 -- RAIJIN 雷: the spear strikes from every side in a storm of bolts (R), the thunder's judgment
--- drags the target in (ÉVEIL), the divine wrath lifts it to the storm (PORTE), the sentence
+-- circles the target (ÉVEIL), the divine wrath lifts it to the storm (PORTE), the sentence
 -- falls from the sky (FATAL).
 GEN.add("RAIJIN", {
 	id = "raijin", grade = "storm", kanji = "雷", pose = "StandTall", rest = "StandTall", seed = 0, step = 11,
-	rush = "lunge", awaken = "pull", gate = "juggle", fatal = "zone",
+	rush = "lunge", awaken = "orbit", gate = "juggle", fatal = "zone",
 	blows = { "Elbow", "Cross", "SpinKick", "Kick", "Uppercut", "Smash" },
 	fx = { line = "spearBolt", burst = "thunderBurst", ground = "stormRing" },
 })
@@ -3841,13 +3850,14 @@ GEN.add("YUKINA", {
 -- VENOM 毒: the predator circles (R), pounces from every side (ÉVEIL), the epidemic spreads
 -- from afar (PORTE), the last bite (FATAL).
 GEN.add("VENOM", {
-	id = "venom", grade = "toxic", kanji = "毒", pose = "Roar", rest = "StandTall", seed = 3, step = 11,
+	id = "venom", grade = "toxic", kanji = "毒", pose = "Roar", rest = "StandTall", seed = 14, step = 11,
 	rush = "orbit", awaken = "lunge", gate = "zone", fatal = "lunge",
 	blows = { "Jab", "Cross", "Elbow", "BodyBlow", "Uppercut", "SpinKick" },
 	fx = { line = "venomClaw", burst = "venomCloud", ground = "toxicPool" },
 })
 -- GORAN 剛: suplexes from side to side (R, ÉVEIL, FATAL), the titan's fall from the sky (PORTE).
 GEN.add("GORAN", {
+	turn = { ["gate-blows"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-blows-c"] = -30 },
 	id = "goran", grade = "titan", kanji = "剛", pose = "Colossus", rest = "StandTall", seed = 4, step = 7, quake = true,
 	rush = "grapple", awaken = "grapple", gate = "juggle", fatal = "grapple",
 	blows = { "BodyBlow", "Hammer", "Smash", "Uppercut", "Elbow" },
@@ -3856,6 +3866,7 @@ GEN.add("GORAN", {
 -- ASTER 星: the target floats up, higher at every blow (R, FATAL); he orbits it (ÉVEIL); the
 -- event horizon pulls it in (PORTE).
 GEN.add("ASTER", {
+	turn = { ["eveil-blows-b"] = -30, ["gate-advance"] = 30 },
 	id = "aster", grade = "cosmos", kanji = "星", pose = "Levitate", rest = "StandTall", seed = 5, step = 5,
 	rush = "juggle", awaken = "orbit", gate = "pull", fatal = "juggle",
 	blows = { "PalmStrike", "AirKick", "Uppercut", "AirKick2", "Smash" },
@@ -3864,6 +3875,7 @@ GEN.add("ASTER", {
 -- HIBIKI 響: waves of sound from afar (R, PORTE), she dances to the rhythm (ÉVEIL), the
 -- silence drags the target in (FATAL).
 GEN.add("HIBIKI", {
+	turn = { ["eveil-crown"] = 30, ["gate-blows"] = 30, ["rush-blows-a"] = -30 },
 	id = "hibiki", grade = "sonic", kanji = "響", pose = "Kiai", rest = "StandTall", seed = 6, step = 7,
 	rush = "zone", awaken = "orbit", gate = "zone", fatal = "pull",
 	blows = { "Kick", "SpinKick", "Jab", "Cross", "Sweep" },
@@ -3872,6 +3884,7 @@ GEN.add("HIBIKI", {
 -- MARION 糸: the threads from afar (R), the puppets drag the target (ÉVEIL, FATAL), the ball of
 -- the puppets around it (PORTE).
 GEN.add("MARION", {
+	turn = { ["eveil-approach"] = 30, ["fatal-walk"] = 30, ["gate-draw"] = 30, ["gate-far"] = -30 },
 	id = "marion", grade = "puppet", kanji = "糸", pose = "WindGather", rest = "StandTall", seed = 7, step = 5,
 	rush = "zone", awaken = "pull", gate = "orbit", fatal = "pull",
 	blows = { "PalmStrike", "Jab", "Cross", "SpinKick" },
@@ -3880,6 +3893,7 @@ GEN.add("MARION", {
 -- KAZAN 鎖: the chains drag the target in (R, PORTE), the jailer seizes and slams (ÉVEIL,
 -- FATAL).
 GEN.add("KAZAN", {
+	turn = { ["gate-advance"] = 30 },
 	id = "kazan", grade = "iron", kanji = "鎖", pose = "Roar", rest = "StandTall", seed = 8, step = 11,
 	rush = "pull", awaken = "grapple", gate = "pull", fatal = "grapple",
 	blows = { "Cross", "Hammer", "Smash", "Elbow" },
@@ -3888,6 +3902,7 @@ GEN.add("KAZAN", {
 -- KUREN 血: blood lances from every side (R, FATAL), scarlet rain from afar (ÉVEIL), the blood
 -- throne lifts the target (PORTE).
 GEN.add("KUREN", {
+	turn = { ["eveil-approach"] = 30, ["fatal-blow"] = 30, ["fatal-walk"] = 30 },
 	id = "kuren", grade = "blood", kanji = "血", pose = "KiBeamDown", rest = "StandTall", seed = 9, step = 7,
 	rush = "lunge", awaken = "zone", gate = "juggle", fatal = "lunge",
 	blows = { "Cross", "Elbow", "Uppercut", "SpinKick", "PalmStrike" },
@@ -3896,6 +3911,7 @@ GEN.add("KUREN", {
 -- SYLVA 森: the vines drag the prey (R, FATAL), the hunt around it (ÉVEIL), the hostile forest
 -- from afar (PORTE).
 GEN.add("SYLVA", {
+	turn = { ["eveil-blows-a"] = 30, ["eveil-final"] = -30, ["fatal-take"] = 30, ["gate-blows"] = -30, ["gate-far"] = -30 },
 	id = "sylva", grade = "wild", kanji = "森", pose = "WindGather", rest = "StandTall", seed = 10, step = 5,
 	rush = "pull", awaken = "orbit", gate = "zone", fatal = "pull",
 	blows = { "Kick", "SpinKick", "Cross", "Sweep", "AirKick" },
@@ -3904,6 +3920,8 @@ GEN.add("SYLVA", {
 -- ELIAN 癒: the light drags the target (R), lifts it to the sky (ÉVEIL, FATAL), pillars of
 -- light from afar (PORTE).
 GEN.add("ELIAN", {
+	turn = { ["eveil-blows-a"] = 30, ["fatal-take"] = 30, ["gate-advance"] = 30, ["gate-draw"] = 30, ["rush-blows-a"] = 30,
+		["rush-blows-b"] = -30, ["rush-open"] = 30 },
 	id = "elian", grade = "holy", kanji = "癒", pose = "Kiai", rest = "StandTall", seed = 11, step = 7,
 	rush = "pull", awaken = "juggle", gate = "zone", fatal = "juggle",
 	blows = { "PalmStrike", "Uppercut", "Cross", "Smash" },
@@ -3912,6 +3930,7 @@ GEN.add("ELIAN", {
 -- NOVA 機: the drones fire from afar (R, FATAL), the gauntlets strike from every side (ÉVEIL),
 -- the mechanical army lifts the target (PORTE).
 GEN.add("NOVA", {
+	turn = { ["eveil-crown"] = -30, ["eveil-end"] = 30, ["fatal-eyes"] = 30, ["rush-blows-a"] = 30 },
 	id = "nova", grade = "tech", kanji = "機", pose = "ArmsCrossed", rest = "StandTall", seed = 2, step = 11,
 	rush = "zone", awaken = "lunge", gate = "juggle", fatal = "zone",
 	blows = { "Jab", "Cross", "BodyBlow", "Smash", "Uppercut" },

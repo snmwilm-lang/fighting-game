@@ -1,5 +1,66 @@
 # Journal du projet — état à transmettre
 
+## Version 0.15.1 — 4 octobre 2026
+
+Demandes de Wilhem : « travaille les 4 bras d'ASURA, c'est dégueulasse ; chaque perso est
+censé avoir sa propre animation, prends le temps de faire du bon taf » ; « prends tout ton
+temps pour toutes tes animations » ; « chaque animation est obligatoirement différente » ;
+« tu as géré les animations des armes ? » ; l'écran de sélection façon Street Fighter IV.
+
+- **Les quatre bras d'ASURA refaits** (`src/shared/FourArms.luau`, module pur testé) : chaque
+  bras du bas a un bras, un avant-bras et un poing articulés à l'épaule et au coude (deux
+  Motor6D, `RigBuilder.addFourArms`), une garde levée façon statue, des frappes, les pistons
+  décalés de la GATLING, le blocage et les réactions. Le client applique maintenant aussi la
+  torsion de l'avant-bras (`AnimationController`, même ordre que `FourArms.solve`, que vérifient
+  les tests : les bras ne traversent jamais le torse ni la tête). La GATLING d'ASURA a ses
+  propres poses (elle reprenait celles de TARO).
+- **Les 12 nouveaux persos ont leurs propres animations** : chacun de leurs 29 coups a ses
+  poses (lance, éventails, griffes, prises, gravité, rythme, fils, chaînes, sang, lianes,
+  lumière, gantelets), sur leur propre garde.
+- **Armes en main** : la lance de RAIJIN et les deux éventails de YUKINA sont tenus en main
+  (`WeaponSpec.RAIJIN`, `WeaponSpec.YUKINA` avec sa paire), sur le corps en blocs comme sur un
+  avatar ; les coups balaient vraiment avec l'arme ; les planches `PoseSheet` les dessinent.
+  Nouveau test : aucune arme en main (katana, lance, éventails) ne traverse le sol pendant un
+  coup au sol (des lames de SHIN s'y enfonçaient : ESTOC, BRISE-GARDE, ENVOL, FENDOIR…).
+- **Chaque animation est différente** : les 8 premiers persos empruntaient encore 43 poses
+  de KAI (TARO, ZEPHYR, AKEMI, RYUKEN) et rejouaient leur finisher dans leurs ultimes ;
+  RYUKEN portait les coups de boxe de TARO. Chacun a maintenant ses propres coups, dans son
+  style : TARO (crochet au foie, uppercut court, shovel hook, haymaker, uppercut céleste,
+  dernière cloche…), ZEPHYR (circulaire, retourné, coup de pied arrière, ciseaux, hélicoptère,
+  hache, salto arrière, grand écart…), AKEMI (roue, vrille, talon furtif, fauche, marque,
+  instant volé dans le dos…), RYUKEN en bagarreur (lariat, coup de tête, dropkick, revers
+  tournant, genou en clinch, piétinement, marteaux), et des ultimes propres à KAI, SHIN,
+  DAICHA, HIBECARES. Les appels et récupérations restés communs (une mise en garde partagée
+  par les ultimes d'un perso) deviennent les leurs à partir du coup : anticipation à l'appel,
+  continuité du geste à la récupération (`PoseLibrary`, fin du fichier, jambes intactes).
+  Nouveau test : aucun coup des 20 persos n'emprunte les poses de son rôle et aucune pose
+  clé n'est partagée entre deux coups (`Poses.signature`).
+- Son : GORAN a son bruit d'onde de choc (sa technique à distance n'en avait pas).
+- Cadrages : le test « les deux mains se lisent dans chaque plan » ne montrait que le premier
+  plan fautif ; un script les a tous listés. Les plans où une main en cachait une autre sont
+  réorientés (`frameOn`) : DERNIÈRE CLOCHE de TARO, DRAGON ASCENDANT de ZEPHYR, INSTANT VOLÉ
+  d'AKEMI, DERNIER ROUND et POING DU MONDE de RYUKEN, VENOM (angles), RAIJIN (ÉVEIL : il tourne
+  autour de sa cible) ; et 9 des 12 nouveaux (GORAN, ASTER, HIBIKI, MARION, KAZAN, KUREN,
+  SYLVA, ELIAN, NOVA) ont un réglage d'angle par plan (`turn` dans `GEN.add`, appliqué par
+  `GEN.frame` à tous les plans générés).
+- Version 0.15.1.
+
+Tests : CombatSimulation 109, FighterAI 12, CinematicDirector 830, Animation 37 (3 nouveaux :
+chaque coup a sa propre animation, aucune arme sous le sol, les finishers et ultimes ajoutés
+au test « jamais deux poings collés »), Kits 128 (son de GORAN), PressQueue 4, Fuzz 2,
+Cinematography 296 (le dernier réglage de GORAN vérifié sur GORAN seul), Lobby 11 ;
+`rigcheck` : tous les corps se construisent ; `AnimQuality` : pas d'à-coup anormal. **Rien essayé dans Studio.**
+
+Équilibrage : aucune vie, aucun dégât ni aucune vitesse retouchés (seulement des poses) : les
+chiffres de la 0.15.0 restent valables.
+
+### Problèmes ouverts / prochaine étape
+
+- Juger dans Studio les nouvelles animations (surtout RYUKEN, ZEPHYR et les ultimes), la lance
+  et les éventails tenus en main, les quatre bras d'ASURA.
+- TARO reste à 65,1 % au niveau 4 (non retouché à la demande de Wilhem).
+- File d'attente commune à tous les serveurs (MemoryStore + téléportation).
+
 ## Version 0.15.0 — 4 octobre 2026
 
 Demandes de Wilhem : « fais ASURA, les combats 2-3 en ligne, des plus grands serveurs » ;

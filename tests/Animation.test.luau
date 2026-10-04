@@ -477,18 +477,26 @@ test("each kit fights in its style: TARO only punches, ZEPHYR only kicks", funct
 	end
 end)
 
-test("weapon kits never borrow KAI's punches or kicks (SHIN's blade, DAICHA's shadow, HIBECARES's stone; AKEMI's hands)", function()
-	-- AKEMI keeps KAI's kicks for her kicks (salto, heel, sweep, low kick, flying knee, axe, palms).
-	local AKEMI_KICKS = { Kick = true, SpinKick = true, Sweep = true, LowKick = true, ThunderHeel = true, CrescentMoon = true,
-		KiChase = true, Hammer = true, PalmStrike = true }
-	for _, kit in { "SHIN", "DAICHA", "HIBECARES", "AKEMI" } do
+test("every move of every kit has its own animation: nothing borrowed, no key pose shared (Wilhem: obligatoirement différente)", function()
+	local seen = {}
+	for _, kit in MoveData.KitOrder do
 		for role, id in MoveData.Kits[kit].Roles do
-			if not (kit == "AKEMI" and AKEMI_KICKS[role]) then
-				expect(Poses[id] ~= nil, kit .. " " .. id .. " (" .. role .. ") uses KAI's poses")
-				expect(Poses.STRIKE[id] ~= nil, kit .. " " .. id .. " has no strike limbs")
+			local set = Poses[id]
+			expect(set ~= nil, kit .. " " .. id .. " (" .. role .. ") borrows its role's poses")
+			expect(Poses.STRIKE[id] ~= nil, kit .. " " .. id .. " has no strike limbs")
+			for _, phase in { "Startup", "Active", "Active2", "Recovery" } do
+				local pose = set and set[phase]
+				if pose then
+					local key = Poses.signature(pose)
+					local who = kit .. " " .. id .. "." .. phase
+					expect(seen[key] == nil or seen[key] == who, who .. " is the same pose as " .. tostring(seen[key]))
+					seen[key] = seen[key] or who
+				end
 			end
 		end
 	end
+	-- (ASURA's gatling too: the boss does not wear TARO's)
+	expect(Poses.AsuraGatling ~= Poses.TaroGatling and Poses.AsuraGatling.Active ~= Poses.TaroGatling.Active, "ASURA wears TARO's gatling")
 end)
 
 test("each kit has its own stance, guard and run", function()
@@ -878,6 +886,33 @@ local function weaponLine(kit, pose, skel, r6)
 end
 local BODIES = { KAI = { KAI }, AVATAR = { AVATAR }, R6 = { nil, r6Skeleton() } }
 
+test("the weapons in hand (SHIN's katana, RAIJIN's spear, YUKINA's fans) never go through the floor on the ground (R15)", function()
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	local anim = newAnimator(KAI)
+	for _, kit in { "SHIN", "RAIJIN", "YUKINA" } do
+		anim.kit = kit
+		for _, id in MoveData.Kits[kit].Roles do
+			for _, phase in { "Startup", "Active", "Active2", "Recovery" } do
+				local pose = Poses[id][phase]
+				if pose and not MoveData.Moves[id].air and ((pose.Ground and pose.Ground[1]) or 1) > 0.5 then
+					local r = anim:resolve(pose)
+					local parts = {}
+					for name, f in K.solve(KAI, r, anim:groundLift(r, 0)) do
+						if KAI.sizes[name] then parts[name] = { cframe = f, size = KAI.sizes[name] } end
+					end
+					for _, spec in { WeaponSpec[kit], WeaponSpec[kit].pair } do
+						local grip = WeaponKit.grip(kit, parts, spec)
+						for _, z in { spec.base, spec.tip } do
+							local _, y = K.point(grip, 0, 0, z)
+							expect(y - KAI.floor > -0.05, string.format("%s %s.%s: the weapon is %.2f under the floor", kit, id, phase, KAI.floor - y))
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
 test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15, avatar, R6)", function()
 	local RISING = { ShinRising = true, ShinSkyCut = true } -- rising cuts end with the blade high
 	for label, body in BODIES do
@@ -917,8 +952,9 @@ test("KAI's ki beam from the sky: bent over, both arms driven down at the target
 end)
 
 test("finishers and ultimates strike with one fist, the other pulled back: never two fists glued together (R15, avatar)", function()
-	local ids = { "Finale", "Awakening", "TaroAwakening", "RyukenAwakening", "DaichaRush", "DaichaAwakening", "DaichaGate",
-		"DaichaPush", "DaichaThrow", "DaichaFinale" }
+	local ids = { "Finale", "Awakening", "Fatal", "TaroAwakening", "TaroFinale", "TaroFatal", "RyukenAwakening", "RyukenFatal",
+		"RyukenRush", "DaichaRush", "DaichaAwakening", "DaichaGate", "DaichaPush", "DaichaThrow", "DaichaFinale", "DaichaFatal",
+		"AkemiFatal", "AkemiAwakening", "ShinRush", "HibecaresFatal", "HibecaresGate" }
 	for label, skel in { R15 = KAI, avatar = AVATAR } do
 		for _, id in ids do
 			local m = MoveData.Moves[id]

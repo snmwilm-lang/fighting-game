@@ -453,6 +453,7 @@ function MenuController:buildSelect()
 	local page = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 78), Size = UDim2.new(1, 0, 1, -78),
 		BackgroundColor3 = DARKRED, BorderSizePixel = 0, ZIndex = 5 }, self.root)
 	gradient(page, Color3.fromHex("6A0A16"), INK, 0)
+	Theme.ink(page, Theme.RED, 0.93) -- (the same speed lines as the menu's cards)
 	self.selectTitle = label(page, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(560, 40),
 		Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
 	stroke(self.selectTitle, 2, INK)
@@ -460,8 +461,8 @@ function MenuController:buildSelect()
 	self.p2 = self:selectSide(page, false)
 	-- The column of portraits, the VS emblem above it.
 	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(440, 630),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 6 }, page)
-	stroke(column, 2, Color3.fromHex("3A0A10"))
+		BackgroundColor3 = Theme.INK, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 6 }, page)
+	Theme.rule(column, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 3), Theme.RED)
 	local vs = label(column, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(160, 64), Font = DISPLAY,
 		TextScaled = true, Text = "VS", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8 })
 	stroke(vs, 3, RED)
@@ -503,8 +504,9 @@ function MenuController:buildSelect()
 	self.kitInfoStroke = stroke(column, 3, RED)
 	-- Options and buttons along the bottom.
 	local options = new("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -56, 0, 172),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 6 }, page)
-	corner(options, 8)
+		BackgroundColor3 = Theme.INK, BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 6 }, page)
+	Theme.edge(options)
+	Theme.rule(options, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 2), Theme.RED)
 	self.teamLine = self:optionLine(options, 6, "TEAM", function(step)
 		if not self.mode.team then return end
 		self.teamSize = math.clamp(self.teamSize + step, 1, GameModes.MAX_TEAM)
@@ -528,27 +530,23 @@ function MenuController:buildSelect()
 	end)
 	self.teamSlots = label(options, { Position = UDim2.fromOffset(10, 134), Size = UDim2.new(0.6, 0, 0, 30), Font = DISPLAY, TextSize = 26,
 		Text = "", TextColor3 = WHITE, ZIndex = 7 })
-	self.goButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(250, 64),
-		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 40, Text = "FIGHT!", TextColor3 = WHITE, ZIndex = 7 }, options)
-	corner(self.goButton, 8)
-	stroke(self.goButton, 3, GOLD)
+	self.goButton = Theme.button(options, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(250, 64),
+		BackgroundColor3 = Theme.RED, Font = DISPLAY, TextSize = 40, Text = "FIGHT!", ZIndex = 7 }, Theme.GOLD)
+	Theme.ink(self.goButton, Theme.WHITE, 0.85)
 	self.goButton.Activated:Connect(function() self:start() end)
-	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -280, 0.5, 0), Size = UDim2.fromOffset(130, 44),
-		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 16, Text = "◀ BACK", TextColor3 = WHITE, ZIndex = 7 }, options)
-	corner(back, 8)
-	stroke(back, 2, GREY)
+	local back = Theme.button(options, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -280, 0.5, 0), Size = UDim2.fromOffset(130, 44),
+		Font = UI_FONT, TextSize = 16, Text = "◀ BACK", ZIndex = 7 })
 	back.Activated:Connect(function() self:back() end)
 	return page
 end
 
 function MenuController:optionLine(parent, y, name, change)
 	local line = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(0.6, 0, 0, 38), ZIndex = 6 }, parent)
-	local caption = label(line, { Size = UDim2.fromOffset(130, 38), Font = UI_FONT, TextSize = 16, Text = name, TextColor3 = GREY, ZIndex = 7 })
+	local caption = label(line, { Position = UDim2.fromOffset(16, 0), Size = UDim2.fromOffset(114, 38), Font = UI_FONT, TextSize = 14, Text = name,
+		TextColor3 = Theme.MUTED, ZIndex = 7 })
 	local function arrow(text, x, step)
-		local b = new("TextButton", { Position = UDim2.fromOffset(x, 3), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = PANEL,
-			Font = UI_FONT, TextSize = 18, Text = text, TextColor3 = GOLD, ZIndex = 7 }, line)
-		corner(b, 6)
-		stroke(b, 2, GOLD)
+		local b = Theme.button(line, { Position = UDim2.fromOffset(x, 3), Size = UDim2.fromOffset(32, 32),
+			Font = UI_FONT, TextSize = 18, Text = text, TextColor3 = Theme.GOLD, ZIndex = 7 }, Theme.GOLD)
 		b.Activated:Connect(function()
 			change(step)
 			self:refreshSelect()

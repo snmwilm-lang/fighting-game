@@ -1,0 +1,729 @@
+-- Offline tests of the eight kits (KAI, TARO, ZEPHYR, AKEMI, RYUKEN, SHIN, DAICHA, HIBECARES).
+-- Run from the repository root:
+--   luau tests/Kits.test.luau
+local Config = require("../src/shared/CombatConfig")
+local MoveData = require("../src/shared/MoveData")
+local Sim = require("../src/shared/CombatSimulation")
+local Palette = require("../src/shared/SoundPalette")
+local T = require("./TestKit")
+local test, expect, input = T.test, T.expect, T.input
+local Moves, Kits = MoveData.Moves, MoveData.Kits
+
+local function kitWorld(kit, foe, gap, training)
+	local world = Sim.newWorld(Config, MoveData, if training == nil then true else training)
+	Sim.setKits(world, kit, foe or "KAI")
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = -gap / 2, gap / 2
+	return world
+end
+
+local function run(world, ticks, inputs)
+	local all = {}
+	for t = 1, ticks do
+		local i = if type(inputs) == "function" then inputs(t) else inputs
+		for _, e in Sim.step(world, { (i and i[1]) or Sim.neutralInput(), (i and i[2]) or Sim.neutralInput() }) do
+			e.tick = t
+			table.insert(all, e)
+		end
+	end
+	return all
+end
+
+local function find(events, kind)
+	for _, e in events do if e.kind == kind then return e end end
+	return nil
+end
+
+local function count(events, kind)
+	local n = 0
+	for _, e in events do if e.kind == kind then n += 1 end end
+	return n
+end
+
+local function compactRoute(events)
+	local list = {}
+	for _, e in events do
+		if e.kind == "Hit" and not e.cinematic and list[#list] ~= e.move then table.insert(list, e.move) end
+	end
+	return table.concat(list, ",")
+end
+
+local function split(keys)
+	local list = {}
+	for k in keys:gmatch("%S") do
+		if k ~= "↑" then table.insert(list, k) end
+	end
+	return list
+end
+
+-- Plays keys like a player with rhythm: each press `reaction` ticks after the current move
+-- connected (all its hits out). Optional: keep the meter full, answer the rhythm prompts.
+local function play(world, keys, options)
+	options = options or {}
+	local events, step, pressedFor, waited = {}, 1, nil, 0
+	for _ = 1, options.ticks or 700 do
+		local a = world.fighters[1]
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		local ready = step == 1 or (a.move and a.moveContact and key ~= pressedFor
+			and a.moveHits >= (Moves[a.move].hits or 1))
+		if keys[step] and ready then
+			waited += 1
+			if waited > (options.reaction or 0) then
+				local k = keys[step]
+				if k == "L" then i.light = true elseif k == "R" then i.heavy = true else i.ultimate = true end
+				pressedFor, step, waited = key, step + 1, 0
+			end
+		end
+		if options.meter and step <= #keys then a.meter = Config.MaxMeter end
+		if world.cinematic and options.prompts then
+			local state = world.cinematic
+			local prompt = state.prompts[state.nextPrompt]
+			if prompt and state.tick + 1 == prompt.tick then
+				if prompt.button == "Light" then i.light = true
+				elseif prompt.button == "Heavy" then i.heavy = true else i.ultimate = true end
+			end
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+	end
+	return events
+end
+
+-- Puts TARO (slot) in a stance, as the 1 / 2 keys do.
+local function stance(world, slot, id)
+	local f = world.fighters[slot]
+	f.stance, f.stats = id, Kits[f.kit].Stances[id].Stats
+	return world
+end
+local function esquive(world, slot) return stance(world, slot, "ESQUIVE") end
+
+print("Kits")
+
+test("the twenty kits exist, with their own moves for every role", function()
+	expect(#MoveData.KitOrder == 20, "kit count")
+	for _, name in MoveData.KitOrder do
+		local kit = Kits[name]
+		expect(kit and kit.Stats.MaxHealth > 0, name .. " has no stats")
+		for role, id in kit.Roles do
+			expect(Moves[id], name .. ": role " .. role .. " has no move " .. tostring(id))
+			if name ~= "KAI" then expect(id ~= role, name .. " reuses KAI's move " .. role) end
+		end
+		for _, kind in { "Rush", "Awaken", "Gate" } do
+			local id = kit.Ultimates[kind]
+			expect(MoveData.Cinematics[id] and MoveData.Cinematics[id].Type == kind, name .. " has no " .. kind .. " cinematic")
+		end
+	end
+end)
+
+for _, name in MoveData.KitOrder do
+	test(name .. ": every 6-press route connects (reaction 4-14 ticks, two distances)", function()
+		for _, route in Kits[name].FullRoutes do
+			for _, reaction in { 4, 14 } do
+				for _, gap in { 3, 4.4 } do
+					local world = kitWorld(name, "KAI", gap)
+					local events = play(world, split(route.keys), { reaction = reaction, ticks = 500 })
+					expect(compactRoute(events) == table.concat(route.moves, ","),
+						string.format("%s %s dropped (reaction %d, gap %.1f): %s", name, route.name, reaction, gap, compactRoute(events)))
+				end
+			end
+		end
+	end)
+
+	test(name .. ": a combo launches high only once (later launchers just keep the target up)", function()
+		for _, route in Kits[name].FullRoutes do
+			local world = kitWorld(name, "KAI", 3)
+			local d = world.fighters[2]
+			local highLaunches, lastVy = 0, 0
+			local keys = split(route.keys)
+			-- Replay the route and watch the target's vertical speed jump up.
+			local step, pressedFor = 1, nil
+			for _ = 1, 500 do
+				local a = world.fighters[1]
+				local i = input()
+				local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+				if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor and a.moveHits >= (Moves[a.move].hits or 1))) then
+					if keys[step] == "L" then i.light = true else i.heavy = true end
+					pressedFor, step = key, step + 1
+				end
+				Sim.step(world, { i, Sim.neutralInput() })
+				if d.vy - lastVy > Config.RelaunchVelocity + 2 and d.vy > Config.RelaunchVelocity + 2 then highLaunches += 1 end
+				lastVy = d.vy
+			end
+			expect(highLaunches <= 1, string.format("%s %s launches high %d times", name, route.name, highLaunches))
+		end
+	end)
+
+	test(name .. ": every short route and skill connects", function()
+		for _, route in Kits[name].Routes do
+			if not route.keys:find("↑") then
+				local world = kitWorld(name, "KAI", 3)
+				local events = play(world, split(route.keys), { reaction = 6, ticks = 400 })
+				expect(compactRoute(events) == table.concat(route.moves, ","),
+					string.format("%s %s: %s", name, route.name, compactRoute(events)))
+				if route.name:find("★") then
+					expect(find(events, "Skill") ~= nil, name .. " " .. route.name .. ": no skill announced")
+				end
+			end
+		end
+	end)
+
+	test(name .. ": the three ultimates (R alone, clean route + right click, clean route + R)", function()
+		local kit = Kits[name]
+		local rush = kitWorld(name, "KAI", 3, false)
+		rush.fighters[1].meter = Config.MaxMeter
+		local e1 = play(rush, { "L", "L", "U" }, { ticks = 400 })
+		local s1 = find(e1, "CinematicStart")
+		expect(s1 and s1.move == kit.Ultimates.Rush, name .. ": no rush cinematic")
+		for _, route in kit.FullRoutes do
+			for _, last in { "R", "U" } do
+				local world = kitWorld(name, "KAI", 3, false)
+				local keys = split(route.keys)
+				keys[6] = last
+				local events = play(world, keys, { meter = true, prompts = true, ticks = 900 })
+				local start = find(events, "CinematicStart")
+				local expected = if last == "R" then kit.Ultimates.Awaken else kit.Ultimates.Gate
+				expect(start and start.move == expected and start.style == route.name,
+					string.format("%s %s + %s: %s (%s)", name, route.name, last, tostring(start and start.move), compactRoute(events)))
+			end
+		end
+	end)
+
+	test(name .. ": the lab plays its three cinematics", function()
+		for _, kind in { "Rush", "Awaken", "Gate" } do
+			local world = kitWorld(name, "KAI", 6, false)
+			local events = Sim.debugCinematic(world, 1, kind, Kits[name].FullRoutes[1].name, nil)
+			expect(world.cinematic and world.cinematic.move == Kits[name].Ultimates[kind], name .. " lab " .. kind)
+			local _ = events
+			for _ = 1, 600 do
+				Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+				if not world.cinematic then break end
+			end
+			expect(world.cinematic == nil, name .. " " .. kind .. " cinematic never ended")
+		end
+	end)
+end
+
+test("stats: health, walk speed and jump height differ per kit", function()
+	local hp, speed, jump = {}, {}, {}
+	for _, name in MoveData.KitOrder do
+		local world = kitWorld(name, "KAI", 20)
+		local a = world.fighters[1]
+		hp[name] = a.hp
+		local x0 = a.x
+		run(world, 30, { input({ axis = 1 }) })
+		speed[name] = a.x - x0
+		local top = 0
+		run(world, 60, function(t)
+			top = math.max(top, a.y)
+			return { input({ jump = t == 1 }) }
+		end)
+		jump[name] = top
+	end
+	expect(hp.TARO > hp.KAI and hp.KAI > hp.ZEPHYR and hp.ZEPHYR > hp.AKEMI, "health order")
+	expect(speed.AKEMI > speed.KAI and speed.ZEPHYR > speed.KAI and speed.TARO < speed.KAI, "walk speed order")
+	expect(jump.ZEPHYR > jump.KAI and jump.TARO < jump.KAI, "jump order")
+end)
+
+test("difficulty: every kit is rated 1 (simple) to 3 (technical), all three levels exist", function()
+	local seen = {}
+	for _, name in MoveData.KitOrder do
+		local level = Kits[name].Difficulty
+		expect(level == 1 or level == 2 or level == 3, name .. " has no difficulty from 1 to 3")
+		seen[level] = true
+	end
+	expect(seen[1] and seen[2] and seen[3], "the roster needs simple, medium and technical kits")
+	expect(Kits.KAI.Difficulty == 1, "KAI, the first kit, must stay simple to pick up")
+end)
+
+test("ZEPHYR outranges KAI and TARO from the same distance", function()
+	local function lands(name, gap)
+		local world = kitWorld(name, "KAI", gap)
+		return count(run(world, 30, function(t) return { input({ light = t == 1 }) } end), "Hit") > 0
+	end
+	expect(lands("ZEPHYR", 5.4), "ZEPHYR's front kick does not reach")
+	expect(not lands("KAI", 5.4) and not lands("TARO", 5.4), "punches reach as far as kicks")
+end)
+
+test("TARO: the guard takes less damage (garde de fer)", function()
+	local function guardAfter(name)
+		local world = kitWorld("KAI", name, 3)
+		run(world, 40, function(t) return { input({ heavy = t == 1 }), input({ block = true }) } end)
+		return world.fighters[2].guard
+	end
+	expect(guardAfter("TARO") > guardAfter("KAI"), "TARO's guard is not tougher")
+end)
+
+test("TARO: PARADE (crouch + E) counters a standing attack", function()
+	local world = esquive(kitWorld("KAI", "TARO", 3), 2)
+	local events = run(world, 60, function(t)
+		-- FRAPPE LOURDE winds up 13 ticks: the parry, pressed at tick 6, catches it.
+		return { input({ heavy = t == 1 }), input({ crouch = t <= 7, special = t == 6 }) }
+	end)
+	expect(find(events, "Parry") ~= nil, "no parry")
+	local hit = find(events, "Hit")
+	expect(hit and hit.move == "TaroCounter" and hit.defender == 1, "the counter did not land")
+	expect(world.fighters[2].hp == world.fighters[2].maxHp, "TARO took damage through the parry")
+end)
+
+test("TARO: a low attack beats the parry, and a whiffed parry can be punished", function()
+	local low = esquive(kitWorld("KAI", "TARO", 3), 2)
+	local e1 = run(low, 40, function(t)
+		return { input({ crouch = t <= 2, light = t == 2 }), input({ crouch = t <= 3, special = t == 1 }) }
+	end)
+	expect(find(e1, "Parry") == nil and find(e1, "Hit") ~= nil, "the low kick was parried")
+	local whiff = esquive(kitWorld("KAI", "TARO", 3), 2)
+	local e2 = run(whiff, 60, function(t)
+		return { input({ light = t == 24 }), input({ crouch = t <= 3, special = t == 1 }) }
+	end)
+	local hit = find(e2, "Hit")
+	expect(hit and hit.attacker == 1, "the parry recovery was not punishable")
+end)
+
+test("TARO: the forward dash slips attacks (slip + ki), lows too, and he takes the lead", function()
+	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local taro = world.fighters[2]
+	local events = run(world, 30, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(events, "Slip") ~= nil, "the jab was not slipped")
+	expect(find(events, "Hit") == nil and taro.hp == taro.maxHp, "the jab hit through the weave")
+	expect(taro.meter > 0, "slipping gave no ki")
+	local low = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local e2 = run(low, 30, function(t)
+		return { input({ crouch = t <= 3, light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(e2, "Slip") ~= nil and find(e2, "Hit") == nil, "a low attack hit TARO during his slip")
+	-- After a slip the attacker is off balance: TARO's jab right after lands first.
+	local lead = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local slipped, tarohit, kaihit = false, false, false
+	for t = 1, 90 do
+		local tIn = input({ dash = t == 1, axis = -1, light = slipped and lead.fighters[2].hitstop == 0 })
+		for _, e in Sim.step(lead, { input({ heavy = t == 1 }), tIn }) do
+			if e.kind == "Slip" then slipped = true end
+			if e.kind == "Hit" and e.attacker == 2 and not kaihit then tarohit = true end
+			if e.kind == "Hit" and e.attacker == 1 and not tarohit then kaihit = true end
+		end
+	end
+	expect(slipped and tarohit and not kaihit, "TARO did not take the lead after his slip")
+	-- Only toward the opponent: a back dash is not a weave.
+	local back = esquive(kitWorld("KAI", "TARO", 4), 2)
+	run(back, 2, function() return { nil, input({ dash = true, axis = 1 }) } end)
+	expect(back.fighters[2].weaveTicks == 0 and back.fighters[2].dashTicks > 0, "the back dash weaves")
+	-- Not a KAI thing.
+	local kai = kitWorld("TARO", "KAI", 4)
+	run(kai, 2, function() return { nil, input({ dash = true, axis = -1 }) } end)
+	expect(kai.fighters[2].weaveTicks == 0, "KAI weaves")
+end)
+
+local function dempsey(keys, ticks)
+	local world = esquive(kitWorld("TARO", "KAI", 6), 1)
+	run(world, 3, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	local events = play(world, keys, { reaction = 3, ticks = ticks or 400 })
+	local hooks = {}
+	for _, e in events do
+		if e.kind == "Hit" and e.attacker == 1 then table.insert(hooks, e.move) end
+	end
+	return hooks, world, events
+end
+
+test("TARO: a slipped attack whiffs to its end; 3 slips at most, refilled over time", function()
+	local weave = MoveData.Kits.TARO.Stances.ESQUIVE.Weave
+	expect(weave.Charges == 3, "TARO should hold 3 slips")
+	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
+	local taro = world.fighters[2]
+	local events = run(world, 60, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(events, "Slip") ~= nil and find(events, "Hit") == nil, "the slipped jab hit afterwards")
+	expect(taro.slipCharges == weave.Charges - 1, "a slip did not use a charge")
+	-- No charge left: the weave does not slip any more.
+	local empty = esquive(kitWorld("KAI", "TARO", 4), 2)
+	empty.fighters[2].slipCharges, empty.fighters[2].slipCharge = 0, weave.Cooldown
+	local e2 = run(empty, 30, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 1, axis = -1 }) }
+	end)
+	expect(find(e2, "Slip") == nil and find(e2, "Hit") ~= nil, "slipped with no charge left")
+	run(empty, weave.Cooldown + 2, nil)
+	expect(empty.fighters[2].slipCharges >= 1, "the slips did not refill")
+end)
+
+test("TARO: DEMPSEY ROLL out of the weave: alternating hooks, then the finishing hook", function()
+	local hooks = dempsey({ "L", "L", "L", "L", "L", "L", "R" })
+	expect(table.concat(hooks, ",") == "TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyL,TaroDempseyR,TaroDempseyFinish",
+		"roll: " .. table.concat(hooks, ","))
+	-- Six hooks at most.
+	local capped = dempsey({ "L", "L", "L", "L", "L", "L", "L", "L" })
+	expect(#capped == 6, "the roll went on for " .. #capped .. " hooks")
+	-- R straight out of the weave: the finishing hook alone.
+	local finish, world = dempsey({ "R" }, 24)
+	expect(finish[1] == "TaroDempseyFinish", "R out of the weave: " .. tostring(finish[1]))
+	expect(world.fighters[2].launched, "the finishing hook did not send the target flying")
+	-- Without the weave, L is still the jab.
+	local plain = kitWorld("TARO", "KAI", 3)
+	local events = run(plain, 30, function(t) return { input({ light = t == 1 }) } end)
+	local hit = find(events, "Hit")
+	expect(hit and hit.move == "TaroJab", "a plain L is no longer the jab")
+end)
+
+test("TARO: each DEMPSEY hook ducks under a high attack at its start", function()
+	local world = esquive(kitWorld("KAI", "TARO", 3.4), 2)
+	local taro = world.fighters[2]
+	taro.dempseyWindow = 10 -- as right after the weave
+	local events = run(world, 20, function(t)
+		-- KAI's jab is out (ticks 6-8) during the first frames of TARO's hook (pressed at 4).
+		return { input({ light = t == 1 }), input({ light = t == 4 }) }
+	end)
+	expect(taro.move == nil or Moves[taro.move].dempsey, "TARO did not roll")
+	local slipped = find(events, "Slip")
+	local kaiHit = false
+	for _, e in events do if e.kind == "Hit" and e.defender == 2 then kaiHit = true end end
+	expect(slipped ~= nil and not kaiHit, "the jab hit TARO during the hook's start")
+end)
+
+test("TARO: two stances, CLASSIQUE (1 / &) and ESQUIVE (2 / é), switched in neutral", function()
+	local world = kitWorld("TARO", "KAI", 6)
+	local taro = world.fighters[1]
+	expect(taro.stance == "CLASSIQUE" and taro.stats.GuardDamageTaken == Kits.TARO.Stances.CLASSIQUE.Stats.GuardDamageTaken,
+		"TARO does not start as CLASSIQUE")
+	local events = run(world, 2, function(t) return { input({ stance = if t == 1 then 2 else 0 }) } end)
+	local e = find(events, "Stance")
+	expect(e and e.stance == "ESQUIVE" and taro.stance == "ESQUIVE", "key 2 did not switch to ESQUIVE")
+	expect(taro.stats.WalkSpeed == Kits.TARO.Stances.ESQUIVE.Stats.WalkSpeed, "the ESQUIVE stats are not used")
+	-- Cooldown, then back; never during an attack.
+	run(world, 2, function() return { input({ stance = 1 }) } end)
+	expect(taro.stance == "ESQUIVE", "switched again during the cooldown")
+	run(world, Config.StanceCooldownTicks + 2, function(t) return { input({ stance = if t == Config.StanceCooldownTicks + 1 then 1 else 0 }) } end)
+	expect(taro.stance == "CLASSIQUE", "key 1 did not switch back to CLASSIQUE")
+	run(world, Config.StanceCooldownTicks + 2)
+	run(world, 4, function(t) return { input({ light = t == 1, stance = if t == 3 then 2 else 0 }) } end)
+	expect(taro.stance == "CLASSIQUE", "switched in the middle of a jab")
+	-- The stance stays for the next round; other kits ignore the keys.
+	local versus = stance(kitWorld("TARO", "KAI", 3, false), 1, "ESQUIVE")
+	versus.fighters[2].hp = 1
+	run(versus, 60, function(t) return { input({ light = t == 1 }) } end)
+	run(versus, Config.KOTicks + Config.IntroTicks + 10)
+	expect(versus.fighters[2].hp == versus.fighters[2].maxHp, "no new round started")
+	expect(versus.fighters[1].stance == "ESQUIVE", "the stance was lost at the next round")
+	local kai = kitWorld("KAI", "TARO", 6)
+	local none = run(kai, 2, function() return { input({ stance = 2 }) } end)
+	expect(kai.fighters[1].stance == nil and find(none, "Stance") == nil, "KAI changed stance")
+end)
+
+test("TARO CLASSIQUE: iron guard, heavier punches, DROITE DU CHAMPION; no weave", function()
+	local function jab(id)
+		local world = stance(kitWorld("TARO", "KAI", 3), 1, id)
+		local events = run(world, 30, function(t) return { input({ light = t == 1 }) } end)
+		local hit = find(events, "Hit")
+		return hit and hit.damage or 0
+	end
+	expect(jab("CLASSIQUE") > jab("ESQUIVE"), "the classic boxer does not hit harder")
+	local function guardAfter(id)
+		local world = stance(kitWorld("KAI", "TARO", 3), 2, id)
+		run(world, 40, function(t) return { input({ heavy = t == 1 }), input({ block = true }) } end)
+		return world.fighters[2].guard
+	end
+	expect(guardAfter("CLASSIQUE") > guardAfter("ESQUIVE"), "the classic guard is not tougher")
+	local world = kitWorld("TARO", "KAI", 3)
+	local events = run(world, 40, function(t) return { input({ crouch = t <= 2, special = t == 1 }), input({ block = true }) } end)
+	local blocked = find(events, "Block")
+	expect(blocked and blocked.move == "TaroChampion", "crouch + E is not the DROITE DU CHAMPION")
+	expect(world.fighters[2].guard < Config.MaxGuard - 40, "the champion's right does not crush the guard")
+	local dash = kitWorld("TARO", "KAI", 6)
+	run(dash, 2, function() return { input({ dash = true, axis = 1 }) } end)
+	expect(dash.fighters[1].weaveTicks == 0, "the classic boxer weaves")
+	-- ESQUIVE keeps the parry on crouch + E.
+	local esq = esquive(kitWorld("TARO", "KAI", 3), 1)
+	run(esq, 2, function() return { input({ crouch = true, special = true }) } end)
+	expect(esq.fighters[1].move == "TaroParry", "crouch + E in ESQUIVE is not the parry")
+end)
+
+local function firstHit(world, inputs, ticks)
+	local events = run(world, ticks or 40, inputs)
+	for _, e in events do if e.kind == "Hit" then return e, events end end
+	return nil, events
+end
+
+test("RYUKEN: RAGE stacks on every hit landed and is lost when he is hit", function()
+	local calm = kitWorld("RYUKEN", "KAI", 3)
+	local base = firstHit(calm, function(t) return { input({ light = t == 1 }) } end)
+	expect(base and calm.fighters[1].rage == 1, "a landed jab gives no RAGE stack")
+	local angry = kitWorld("RYUKEN", "KAI", 3)
+	angry.fighters[1].rage = Kits.RYUKEN.Passive.Max
+	local hit = firstHit(angry, function(t) return { input({ light = t == 1 }) } end)
+	expect(hit.damage > base.damage * 1.2, string.format("full RAGE jab %d vs %d", hit.damage, base.damage))
+	expect(angry.fighters[1].rage == Kits.RYUKEN.Passive.Max, "RAGE went over its maximum")
+	local hurt = kitWorld("KAI", "RYUKEN", 3)
+	hurt.fighters[2].rage = 6
+	firstHit(hurt, function(t) return { input({ light = t == 1 }) } end)
+	expect(hurt.fighters[2].rage == 0, "RAGE kept after being hit")
+	local blocked = kitWorld("RYUKEN", "KAI", 3)
+	run(blocked, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
+	expect(blocked.fighters[1].rage == 0, "a blocked hit gave RAGE")
+end)
+
+test("the HUD gauge of each passive: VOILE D'OMBRE / OMBRE INVERSÉE recharge, RAGE stacks, none for the others", function()
+	local rage = kitWorld("RYUKEN", "KAI", 3)
+	expect(Sim.passiveGauge(rage, rage.fighters[1]) == 0, "RAGE gauge not empty at the start")
+	firstHit(rage, function(t) return { input({ light = t == 1 }) } end)
+	expect(Sim.passiveGauge(rage, rage.fighters[1]) == 1, "RAGE gauge does not count the stack")
+	local blink = kitWorld("DAICHA", "KAI", 3)
+	run(blink, 2, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(Sim.passiveGauge(blink, blink.fighters[1]) > 0, "OMBRE INVERSÉE gauge not recharging after the blink")
+	local evade = kitWorld("AKEMI", "KAI", 3)
+	evade.fighters[1].evadeCharge = 90
+	expect(Sim.passiveGauge(evade, evade.fighters[1]) == 90, "VOILE D'OMBRE gauge is not its recharge")
+	for _, name in { "SHIN", "HIBECARES", "KAI", "TARO", "ZEPHYR" } do
+		local world = kitWorld(name, "KAI", 3)
+		expect(Sim.passiveGauge(world, world.fighters[1]) == nil, name .. " shows a gauge it does not have")
+	end
+end)
+
+test("sounds: only the client's own sounds, one material per kit (its own hits), one sound per action", function()
+	local shipped = {}
+	for _, name in Palette.CLIENT_SOUNDS do shipped["rbxasset://sounds/" .. name] = true end
+	for name, file in Palette.FILES do
+		expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
+	end
+	local function check(list, label)
+		expect(type(list) == "table" and #list > 0, label .. " has no sound")
+		for _, spec in list or {} do
+			expect(Palette.FILES[spec[1]], label .. " plays an unknown sound " .. tostring(spec[1]))
+			expect(spec[2] > 0 and spec[2] <= 1 and spec[3] > 0.2 and spec[3] < 3, label .. ": volume / speed out of range")
+			expect(spec[5] == nil or Palette.BUSES[spec[5]], label .. " goes through an unknown bus " .. tostring(spec[5]))
+		end
+	end
+	local signatures = {}
+	for _, name in MoveData.KitOrder do
+		local own = Palette.MATERIALS[name]
+		expect(own, name .. " has no sound material")
+		for _, key in { "swing", "heavySwing", "hit", "heavyHit" } do check(own and own[key], name .. " " .. key) end
+		if own and own.projectile then check(own.projectile, name .. " projectile") end
+		local signature = own and own.hit[1][1] .. own.hit[1][3] .. tostring(own.hit[1][5])
+		expect(not signatures[signature], name .. " hits like " .. tostring(signatures[signature]))
+		signatures[signature] = name
+		-- a kit with a projectile special has its own projectile sound
+		for _, id in Kits[name].Roles do
+			if Moves[id].projectile and name ~= "KAI" then expect(own and own.projectile, name .. " has no projectile sound") end
+		end
+	end
+	for _, kind in { "Block", "GuardBreak", "Clash", "Parry", "Wall", "Evade", "Slip", "Blink", "Stance", "SuperFlash", "Skill",
+		"Prompt", "Perfect", "Graded", "SuperJump", "Bounce", "KO", "Cinematic", "Tip", "Knockdown", "GetUp", "Jump", "Land", "Dash" } do
+		check(Palette.ACTIONS[kind], "action " .. kind)
+	end
+end)
+
+test("SHIN: the tip of the blade (end of the reach) deals more", function()
+	local m = Moves[Kits.SHIN.Roles.Jab]
+	local close = kitWorld("SHIN", "KAI", 2.6)
+	local near = firstHit(close, function(t) return { input({ light = t == 1 }) } end)
+	local far = kitWorld("SHIN", "KAI", m.hitbox.far + Config.HurtHalfWidth - 0.15)
+	local tip = firstHit(far, function(t) return { input({ light = t == 1 }) } end)
+	expect(near and not near.tip, "a close hit counted as the tip")
+	expect(tip and tip.tip and tip.damage > near.damage, "the tip hit is not stronger")
+	expect(m.hitbox.far > Moves.Jab.hitbox.far * 1.15, "the sword does not reach further than a fist")
+end)
+
+test("DAICHA: OMBRE INVERSÉE blinks through, TÉLÉPORTATION reappears behind", function()
+	local world = kitWorld("DAICHA", "KAI", 3)
+	local d, foe = world.fighters[1], world.fighters[2]
+	local events = run(world, 4, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(find(events, "Blink") ~= nil and d.x > foe.x, "the dash did not cross to the other side")
+	expect(d.facing == -1, "DAICHA does not face the opponent after the blink")
+	local far = kitWorld("DAICHA", "KAI", 12)
+	local none = run(far, 4, function(t) return { input({ dash = t == 1, axis = 1 }) } end)
+	expect(find(none, "Blink") == nil and far.fighters[1].x < far.fighters[2].x, "blinked from far away")
+	local tele = kitWorld("DAICHA", "KAI", 6)
+	local hit, ev = firstHit(tele, function(t) return { input({ special = t == 1 }) } end, 50)
+	expect(find(ev, "Blink") ~= nil and tele.fighters[1].x > tele.fighters[2].x - 0.01, "the teleport did not go behind")
+	expect(hit and hit.move == "DaichaTeleport", "the teleport strike did not land")
+end)
+
+test("DAICHA: TÉLÉPORTATION is not spammable: too far, or again within 2 s, no teleport", function()
+	local far = kitWorld("DAICHA", "KAI", 12)
+	expect(find(run(far, 6, function(t) return { input({ special = t == 1 }) } end), "Blink") == nil, "teleported from 12 studs")
+	local world = kitWorld("DAICHA", "KAI", 6)
+	local events = run(world, 100, function(t) return { input({ special = t == 1 or t == 60 }) } end)
+	local blinks = 0
+	for _, e in events do if e.kind == "Blink" then blinks += 1 end end
+	expect(blinks == 1, string.format("%d teleports in 100 ticks", blinks))
+end)
+
+test("HIBECARES: ROI DES RUINES hits harder when hurt; MUR DE PIERRE takes half and hits back", function()
+	local fresh = kitWorld("HIBECARES", "KAI", 3)
+	local a = firstHit(fresh, function(t) return { input({ light = t == 1 }) } end)
+	local hurt = kitWorld("HIBECARES", "KAI", 3)
+	hurt.fighters[1].hp = math.floor(hurt.fighters[1].maxHp * 0.3)
+	local b = firstHit(hurt, function(t) return { input({ light = t == 1 }) } end)
+	expect(b.damage >= math.floor(a.damage * 1.25), string.format("hurt %d vs fresh %d", b.damage, a.damage))
+	-- The wall: KAI's FRAPPE LOURDE (13-tick wind-up) into MUR DE PIERRE.
+	local wall = kitWorld("KAI", "HIBECARES", 3)
+	local h = wall.fighters[2]
+	local events = run(wall, 70, function(t)
+		return { input({ heavy = t == 1 }), input({ crouch = t <= 8, special = t == 7 }) }
+	end)
+	local parry = find(events, "Parry")
+	expect(parry and parry.absorbed == math.floor(Moves.Smash.damage * 0.5 + 0.5), "the wall did not take half the blow")
+	expect(h.hp == h.maxHp - parry.absorbed, "wrong damage through the wall")
+	local counter = find(events, "Hit")
+	expect(counter and counter.move == "HibecaresCounter", "the wall did not hit back")
+	-- Lows too (unlike TARO's parry).
+	local low = kitWorld("KAI", "HIBECARES", 3)
+	local e2 = run(low, 40, function(t)
+		return { input({ crouch = t <= 6, light = t == 5 }), input({ crouch = t <= 3, special = t == 1 }) }
+	end)
+	expect(find(e2, "Parry") ~= nil, "the wall did not stop a low attack")
+end)
+
+test("AKEMI: VOILE D'OMBRE evades on its own (2 charges), then recharges", function()
+	local world = kitWorld("KAI", "AKEMI", 3)
+	local d = world.fighters[2]
+	local charges = Kits.AKEMI.Passive.Charges
+	for i = 1, charges do
+		world.fighters[1].x = d.x - 3
+		local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
+		expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "jab " .. i .. " was not evaded")
+	end
+	expect(d.hp == d.maxHp, "damage through the evade")
+	world.fighters[1].x = d.x - 3
+	local again = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
+	expect(find(again, "Hit") ~= nil, "evaded with no charge left")
+	run(world, Kits.AKEMI.Passive.Cooldown, nil)
+	world.fighters[1].x = d.x - 3
+	local later = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
+	expect(find(later, "Evade") ~= nil, "the passive did not recharge")
+end)
+
+test("AKEMI: right after an evade, a press brings her behind the attacker for a counter (½ bar of ki)", function()
+	-- Without the ki, no counter.
+	local broke = kitWorld("KAI", "AKEMI", 3)
+	broke.fighters[2].meter = Kits.AKEMI.Passive.CounterCost - 1
+	local evadedBroke, counterBroke = false, false
+	for t = 1, 60 do
+		for _, e in Sim.step(broke, { input({ light = t == 1 }), input({ light = evadedBroke }) }) do
+			if e.kind == "Evade" then evadedBroke = true end
+			if e.kind == "Blink" and e.counter then counterBroke = true end
+		end
+	end
+	expect(evadedBroke and not counterBroke, "countered without the ki")
+	local world = kitWorld("KAI", "AKEMI", 3)
+	local a, d = world.fighters[1], world.fighters[2]
+	d.meter = 100
+	local evaded, counter, hit = false, false, false
+	for t = 1, 60 do
+		local press = evaded and not counter
+		for _, e in Sim.step(world, { input({ light = t == 1 }), input({ light = press }) }) do
+			if e.kind == "Evade" then evaded = true end
+			if e.kind == "Blink" and e.counter then counter = true end
+			if e.kind == "Hit" and e.attacker == 2 then hit = true end
+		end
+	end
+	expect(evaded and counter, "no counter after the evade")
+	expect(d.meter <= 100 - Kits.AKEMI.Passive.CounterCost + 30, "the counter did not cost its ki")
+	expect(hit, "the counter did not hit the attacker")
+	expect((d.x - a.x) * a.facing < 0 or hit, "she did not come out behind the attacker")
+end)
+
+test("AKEMI: every hit she lands brings VOILE D'OMBRE back sooner (2 charges, 18 s each at most)", function()
+	expect(Kits.AKEMI.Passive.Charges >= 2 and Kits.AKEMI.Passive.Cooldown <= 18 * 60,
+		"VOILE D'OMBRE: fewer than 2 charges or more than 18 s per charge")
+	local world = kitWorld("AKEMI", "KAI", 3)
+	local a = world.fighters[1]
+	a.evadeCharges, a.evadeCharge = 0, 400
+	local events = run(world, 20, function(t) return { input({ light = t == 1 }) } end)
+	expect(find(events, "Hit") ~= nil, "AKEMI's jab did not land")
+	expect(a.evadeCharge <= 400 - Kits.AKEMI.Passive.HitRefund,
+		string.format("a hit did not shorten the recharge (%d left)", a.evadeCharge))
+end)
+
+test("AKEMI: no evade while guarding, in a combo or against an ultimate", function()
+	local guard = kitWorld("KAI", "AKEMI", 3)
+	local e1 = run(guard, 40, function(t) return { input({ light = t == 1 }), input({ block = true }) } end)
+	expect(find(e1, "Block") ~= nil and find(e1, "Evade") == nil, "a guarded hit was evaded")
+	local combo = kitWorld("KAI", "AKEMI", 3)
+	combo.fighters[2].evadeCharges, combo.fighters[2].evadeCharge = 0, 999
+	local e2 = play(combo, { "L", "L" }, { ticks = 60 })
+	expect(find(e2, "Evade") == nil, "evaded while recharging")
+	local ultimate = kitWorld("KAI", "AKEMI", 3)
+	ultimate.fighters[1].meter = Config.MaxMeter
+	local e3 = run(ultimate, 60, function(t) return { input({ ultimate = t == 1 }) } end)
+	expect(find(e3, "Evade") == nil and find(e3, "CinematicStart") ~= nil, "the ultimate was evaded")
+end)
+
+test("AKEMI: the dash slips through attacks", function()
+	local world = kitWorld("KAI", "AKEMI", 4)
+	world.fighters[2].evadeCharge = 999 -- passive spent: only the dash protects
+	local events = run(world, 30, function(t)
+		return { input({ light = t == 1 }), input({ dash = t == 4, axis = -1 }) }
+	end)
+	expect(find(events, "Hit") == nil, "the dash did not slip through the jab")
+end)
+
+test("ultimates (R and the coup fatal) aim at a jumping opponent instead of running under it", function()
+	for _, name in MoveData.KitOrder do
+		for _, button in { "ultimate", "fatal" } do
+			for _, jumpTick in { 1, 7, 13 } do -- the opponent at the top of its jump when it strikes
+				local world = kitWorld(name, "ZEPHYR", 3) -- (ZEPHYR jumps the highest)
+				local a, d = world.fighters[1], world.fighters[2]
+				a.x, d.x, a.meter, a.hp = 0, 2.6, 300, 300
+				local landed = false
+				for t = 1, 80 do
+					for _, e in Sim.step(world, { input({ [button] = t == 20 }), input({ jump = t == jumpTick }) }) do
+						if (e.kind == "Hit" or e.kind == "CinematicStart") and e.attacker == 1 then landed = true end
+					end
+				end
+				expect(landed, string.format("%s's %s misses an opponent who jumped at tick %d", name, button, jumpTick))
+			end
+		end
+	end
+end)
+
+test("a coup fatal cancelled from a combo connects, even after a hit that launches or pushes away", function()
+	for _, name in MoveData.KitOrder do
+		for _, route in { { "light", "light", "light", "heavy" }, { "light", "heavy" }, { "heavy", "heavy" } } do
+			local world = kitWorld(name, "KAI", 2.8)
+			local a = world.fighters[1]
+			a.meter = 300
+			local step, hitAt, guarding, landed, blocked = 1, nil, false, false, false
+			for t = 1, 260 do
+				local press = {}
+				if step <= #route and (t == 1 and step == 1 or (hitAt and t == hitAt + 1)) then
+					press[route[step]] = true
+					step, hitAt = step + 1, nil
+				elseif step > #route and hitAt and t == hitAt + 2 then
+					press.fatal = true
+				end
+				-- The defender guards as soon as it can (from the first hit on).
+				for _, e in Sim.step(world, { input(press), input({ block = guarding }) }) do
+					if e.kind == "Hit" and e.attacker == 1 then
+						guarding = true
+						local m = Moves[e.move]
+						if m.fatal then landed = true
+						elseif a.move and a.moveHits >= (Moves[a.move].hits or 1) then hitAt = t end
+					end
+					if e.kind == "CinematicStart" then landed = true end
+					if e.kind == "Block" and Moves[e.move].fatal then blocked = true end
+				end
+				if landed or blocked then break end
+			end
+			expect(landed and not blocked, string.format("%s: the coup fatal after %s did not connect", name, table.concat(route, " ")))
+		end
+	end
+end)
+
+test("balance: no kit wins more than 65 % or less than 35 % against the field (CPU vs CPU)", function()
+	local Balance = require("./BalanceKit")
+	for _, level in { 3, 4 } do
+		local matrix = Balance.matrix(level, 60) -- 30 matches per duel was within noise of the bounds
+		for _, a in MoveData.KitOrder do
+			local total, n = 0, 0
+			for _, b in MoveData.KitOrder do
+				if a ~= b then total += matrix[a][b]; n += 1 end
+			end
+			local average = total / n
+			expect(average > 0.35 and average < 0.65,
+				string.format("%s wins %d %% at level %d", a, math.floor(average * 100 + 0.5), level))
+		end
+	end
+end)
+
+T.finish()

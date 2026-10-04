@@ -6,3 +6,5 @@
 /*.rbxl.lock
 
 sourcemap.json
+__pycache__/
+tools/.rigcheck.luau

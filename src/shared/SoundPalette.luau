@@ -223,6 +223,13 @@ local ACTIONS = {
 	Drone = { { "tick", 0.5, 2.2 }, { "wind", 0.3, 2.2, 0.15 } }, -- NOVA's sentinel takes off
 	Shackled = { { "tick", 0.6, 0.35, nil, "crunch" } }, -- KAZAN's chains bite
 	Puppet = { { "wind", 0.4, 2.2, 0.15, "thin" } }, -- MARION's puppet comes in
+	-- The fight's big moments.
+	Counter = { { "tick", 0.7, 0.8 }, { "boom", 0.35, 2.2, 0.2 } }, -- COUNTER HIT: a sharp crack on top
+	Revive = { { "boom", 1, 0.45, 1.6, "hall" }, { "thud", 1, 0.35 }, { "wind", 0.6, 0.4, 1.2, "echo" } }, -- ASURA rises
+	RoundStart = { { "thud", 0.7, 0.6, nil, "hall" }, { "tick", 0.4, 1.4 } }, -- FIGHT!
+	-- The menus (buttons).
+	UiHover = { { "tick", 0.12, 2.4, 0.04 } },
+	UiClick = { { "tick", 0.3, 1.6, 0.06 }, { "thud", 0.18, 2.4 } },
 }
 
 Palette.FILES, Palette.BUSES, Palette.MATERIALS, Palette.ACTIONS = FILES, BUSES, MATERIALS, ACTIONS

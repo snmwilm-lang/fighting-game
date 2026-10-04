@@ -282,7 +282,7 @@ function MenuController:buildNav()
 		if self.hub then self.hub:setVisible(not self.hub.panel.Visible) end
 	end)
 	slanted(nav, 326, "ACHIEVEMENTS", "WHAT TO WIN · WHERE · YOUR PROGRESS", "誉").Activated:Connect(function() self:open("achievements") end)
-	slanted(nav, 400, "SETTINGS", "EFFECTS · SOUND · MOUSE · LANGUAGE", "設").Activated:Connect(function() self:open("settings") end)
+	slanted(nav, 400, "SETTINGS", "EFFECTS · SOUND · MUSIC · LANGUAGE", "設").Activated:Connect(function() self:open("settings") end)
 end
 
 -- ===================================================================== home: mode cards
@@ -827,7 +827,7 @@ function MenuController:refreshAchievements()
 end
 
 function MenuController:buildSettings()
-	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 430),
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 492),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
 	corner(page, 8)
 	stroke(page, 2, GREY)
@@ -835,7 +835,8 @@ function MenuController:buildSettings()
 		Text = "SETTINGS", TextColor3 = WHITE })
 	stroke(t, 1.5, RED)
 	local y = 70
-	for _, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "mouse", "MOUSE LOCKED (CTRL)" }, { "language", "LANGUAGE" } } do
+	for _, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
+		{ "language", "LANGUAGE" } } do
 		local key, name = entry[1], entry[2]
 		local b = new("TextButton", { Position = UDim2.fromOffset(16, y), Size = UDim2.new(1, -32, 0, 52), BackgroundColor3 = PANEL,
 			Font = UI_FONT, TextSize = 18, Text = name, TextColor3 = WHITE }, page)

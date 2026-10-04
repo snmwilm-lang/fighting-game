@@ -17,6 +17,7 @@ local CinematicController = require(script.CinematicController)
 local StageController = require(script.StageController)
 local ArenaBuilder = require(script.ArenaBuilder)
 local SoundController = require(script.SoundController)
+local MusicController = require(script.MusicController)
 local HubController = require(script.HubController)
 local LanguageController = require(script.LanguageController)
 local MenuController = require(script.MenuController)
@@ -45,6 +46,7 @@ player:GetAttributeChangedSignal("Map"):Connect(function()
 	stage:setArena(buildStage())
 end)
 local sounds = SoundController.new()
+local music = MusicController.new() -- the in-game music (shared/Music: the stage's theme, ASURA's...)
 local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 local language = LanguageController.new() -- SETTINGS › LANGUAGE (Auto / English / Français)
 local menuRemote = remotes:WaitForChild("Menu")
@@ -57,6 +59,8 @@ local settings = {
 	effectsState = function() return if effects.reduced then "REDUCED" else "FULL" end,
 	sound = function() sounds:setEnabled(not sounds.enabled) end,
 	soundState = function() return if sounds.enabled then "ON" else "OFF" end,
+	music = function() music:setEnabled(not music.enabled) end,
+	musicState = function() return if music.enabled then "ON" else "OFF" end,
 	mouse = function() input.toggleMouseLock() end,
 	mouseState = function() return if input.isMouseLocked() then "ON (in a fight)" else "OFF" end,
 	-- (applied at once on this screen, kept with the profile by the server)
@@ -69,6 +73,7 @@ local settings = {
 	onLanguage = function(lang) language:set(lang) end,
 }
 local menu = MenuController.new(menuRemote, hub, settings) -- main menu (lobby)
+sounds:watchButtons(menu.gui)
 hud.onMenu = menu:bindLeave()
 -- P: back to the main menu from a match (same as the HUD's ◀ MENU).
 game:GetService("UserInputService").InputBegan:Connect(function(key, processed)
@@ -237,6 +242,14 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 	for _, event in batch do
 		effects:onEvent(event, displayed, rigs)
 		sounds:onEvent(event)
+		if event.kind == "Fight" then
+			music:sting("FIGHT")
+		elseif event.kind == "RoundEnd" and event.reason == "KO" then
+			music:sting("KO")
+		elseif event.kind == "MatchEnd" then
+			local mine = player:GetAttribute("FighterSlot") or 0
+			if mine > 0 then music:sting(if event.winner == mine then "VICTORY" else "DEFEAT") end
+		end
 		if event.kind == "SuperFlash" then
 			cinematic:superFlash(event.attacker, event.move)
 		elseif event.kind == "Hit" and event.cinematic then
@@ -311,7 +324,25 @@ local function updateHero(dt, now)
 end
 
 local fps = 60
+-- What the music follows: the menu or the stage, ASURA and his SECOND LIFE, the health left,
+-- the deciding round, the cinematics (Music.themeFor / Music.intensity).
+local function musicState()
+	local state = { inMatch = currentMatch ~= 0 and world ~= nil, map = currentMap, cinematic = cinematic.active }
+	if not state.inMatch then return state end
+	state.phase, state.hp = world.phase, {}
+	local deciding = true
+	for i, f in world.fighters do
+		if f.kit == "ASURA" then state.boss = true end
+		if f.revived then state.wrath = true end
+		state.hp[i] = (f.hp or 0) / math.max(1, f.maxHp or 1)
+		if (f.wins or 0) < Config.RoundsToWin - 1 then deciding = false end
+	end
+	state.deciding = deciding and world.round ~= nil and world.round > 1
+	return state
+end
+
 RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.Value + 1, function(dt)
+	music:update(musicState())
 	if currentMatch == 0 then
 		updateHero(dt, os.clock())
 		return

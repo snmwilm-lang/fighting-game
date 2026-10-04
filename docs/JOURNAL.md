@@ -1,5 +1,61 @@
 # Journal du projet — état à transmettre
 
+## Version 0.16.1 — 4 octobre 2026
+
+Retours de Wilhem : « les bras d'ASURA quand il est en idle ou en animation d'ult » ; « une
+deuxième vie avec une aura noire » ; « la garde du bas est trop forte » ; « ASURA est encore
+trop simple pour les persos à longue allonge comme RAIJIN » ; « augmente l'IA d'ASURA, c'est un
+boss, presque sans limite » ; « la première vie, laisse-la comme ça, mais la deuxième il doit
+être tellement fort que ça doit seulement le remettre à mi-vie » ; « l'option succès doit
+montrer où les voir » ; « un maximum de taf sur les sons, les musiques in game ».
+
+- **Bras d'ASURA dans les ultimes** (`FourArms`) : la deuxième paire ne restait pas figée en
+  garde pendant les scènes (debout, bras croisés, kiai, à genoux, projeté) ni pendant les coups
+  mis en scène : elle joue maintenant chaque pose (clés `proud`, `crossed`, `flare`, `kneel`)
+  et une rafale sur les coups sans données. Les outils (planches, storyboards) dessinent
+  enfin ces bras (`tests/WeaponKit.luau`). Test Animation étendu (scènes, jamais à travers le
+  corps).
+- **SECONDE VIE d'ASURA** (`Stats.SecondLife`) : abattu une fois par match, il se relève à la
+  moitié de sa vie dans une **aura noire** (fumée noire, corps assombri, contour rouge sang ;
+  onde noire, « ASURA RISES AGAIN ») — et là c'est un monstre : tous ses coups au sol sont
+  blindés, dégâts ×1,5, vitesse ×1,25, musique WRATH. Le coup qui l'abat n'est pas annoncé
+  comme un K.O. ; le round continue. Tests (CombatSimulation).
+- **Contre l'allonge** : quatre bras portent 1,25× plus loin (`Stats.Reach`), son dash avant
+  encaisse un coup (COLÈRE D'ASURA), dash 44 ; l'IA du boss charge en dash seulement contre
+  un perso qui l'out-range (RAIJIN, SHIN, KAZAN, MARION, ZEPHYR, SYLVA).
+- **IA du boss** : réaction 1 image, garde basse parfaite, lit chaque garde basse (overhead)
+  et chaque saut, ne lâche jamais un combo, finit toujours en ultime. Réglée à la mesure
+  (`tests/BossReport.luau`) : **ASURA gagne 97 % contre l'IA LÉGENDE**, tous persos confondus
+  (30 matchs par perso ; RAIJIN 93 %+). Test FighterAI : le boss bat LÉGENDE, et ASURA bat
+  la lance de RAIJIN (≥ 5/6).
+- **Garde basse moins forte** : AVANT + R = l'**overhead** de chaque perso (son coup de
+  marteau), à bloquer debout seulement (comme l'overhead de Street Fighter ou le « dust » de
+  Guilty Gear) ; accroupi, la garde s'use 1,5× plus vite ; l'IA ouvre une garde basse avec
+  l'overhead. Affiché à la sélection. Tests (20 persos).
+- **SUCCÈS** : bouton ACHIEVEMENTS dans le menu (colonne de gauche) → page avec chaque succès,
+  **où le gagner** (le mode), la progression (ex. 12 / 50) et ✓ débloqué ; lus du profil
+  sauvegardé (`GameModes.ACHIEVEMENTS`, 12 succès). Test (Lobby).
+- **Musique in game** (`shared/Music.luau` pur + `client/MusicController.luau`) : aucun
+  fichier de musique n'est livré et aucun ID n'est inventé, donc un **séquenceur** joue la
+  musique avec les sons du client Roblox (taikos, grosse caisse, caisse claire, charleston,
+  pincements accordés à une gamme japonaise, basse, souffles, explosions ; réverbe et écho) :
+  un thème par map (TEMPLE gamme in, FROZEN hirajoshi, NEON 150 bpm, VOLCANO phrygien,
+  BAMBOO pentatonique majeure, SKY lydien), un thème MENU, ASURA, et WRATH (sa seconde vie,
+  164 bpm). Trois niveaux : calme (menu, intro), combat, tension (un perso sous 30 % ou le
+  round décisif) ; jingles FIGHT!, K.O., victoire, défaite ; baissée pendant les cinématiques.
+  Réglage MUSIC dans SETTINGS. `Music.CUSTOM` : Wilhem peut y mettre plus tard ses propres
+  musiques uploadées (un ID par thème), elles remplacent alors le séquenceur.
+- **Sons** : COUNTER HIT, la seconde vie, FIGHT!, et les boutons des menus (survol, clic).
+- Version 0.16.1.
+
+Tests : TESTS_LINE
+
+Problèmes ouverts : rien n'est vérifié dans Roblox Studio — à écouter en jeu : le volume et
+le rendu du séquenceur (les sons du client sont courts et peu nombreux : c'est une musique
+de percussions, pas un orchestre) ; l'aura noire ; la page SUCCÈS sur mobile. Prochaine
+étape : écouter, régler les volumes ; si Wilhem uploade ses musiques, les mettre dans
+`Music.CUSTOM`.
+
 ## Version 0.16.0 — 4 octobre 2026
 
 Retours de Wilhem : « passe tout le jeu en anglais ; avec la traduction Roblox ou un réglage

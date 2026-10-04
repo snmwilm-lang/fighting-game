@@ -79,6 +79,17 @@ function SoundController:play(spec, scale)
 	task.delay(4, function() if sound.Parent then sound:Destroy() end end)
 end
 
+-- The menus' buttons: a soft tick on hover, a click on press (every button of a screen gui).
+function SoundController:watchButtons(gui)
+	local function hook(object)
+		if not object:IsA("GuiButton") then return end
+		object.MouseEnter:Connect(function() self:playAll(ACTIONS.UiHover) end)
+		object.Activated:Connect(function() self:playAll(ACTIONS.UiClick) end)
+	end
+	for _, d in gui:GetDescendants() do hook(d) end
+	gui.DescendantAdded:Connect(hook)
+end
+
 function SoundController:playAll(list, scale)
 	for _, spec in list or {} do self:play(spec, scale) end
 end
@@ -97,6 +108,7 @@ function SoundController:onEvent(event)
 		local heavy = event.heavy or event.ko or event.cinematic
 		self:playAll(if heavy then own.heavyHit else own.hit)
 		if event.tip then self:playAll(ACTIONS.Tip) end
+		if event.counter then self:playAll(ACTIONS.Counter) end
 		if event.cinematic then self:playAll(ACTIONS.Cinematic) end
 		if event.ko then self:playAll(ACTIONS.KO) end
 	elseif kind == "Parry" then
@@ -112,6 +124,10 @@ function SoundController:onEvent(event)
 		or kind == "PassiveReady" or kind == "Chilled" or kind == "Poison" or kind == "Armor" or kind == "Heal"
 		or kind == "Reflect" or kind == "Drone" or kind == "Shackled" or kind == "Puppet" then
 		self:playAll(ACTIONS[kind])
+	elseif kind == "Revive" then
+		self:playAll(ACTIONS.Revive)
+	elseif kind == "Fight" then
+		self:playAll(ACTIONS.RoundStart)
 	elseif kind == "DroneShot" then
 		self:playAll(MATERIALS.NOVA.projectile)
 	end

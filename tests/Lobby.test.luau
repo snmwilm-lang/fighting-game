@@ -304,4 +304,27 @@ test("every fighter wears its own styles: each style of its list exists and is i
 	end
 end)
 
+test("achievements: each says where it is earned, reads the saved profile, and is in French", function()
+	local Locale = require("../src/shared/Locale")
+	local ids, modes = {}, {}
+	for _, mode in GameModes.List do modes[mode.name] = true end
+	for _, a in GameModes.ACHIEVEMENTS do
+		expect(not ids[a.id], "two achievements " .. a.id)
+		ids[a.id] = true
+		local mode = string.match(a.where, "^(.-) · RANKED$") or a.where
+		expect(modes[mode], a.name .. ": earned in an unknown mode " .. a.where)
+		expect(a.goal > 0 and type(a.stat) == "string", a.name .. ": no goal")
+		for _, text in { a.name, a.where, a.how } do
+			expect(Locale.translate(text, "FR") ~= text or Locale.SAME[text], a.name .. ": no French for " .. text)
+		end
+	end
+	local none, zero = GameModes.achievements({})
+	expect(zero == 0 and #none == #GameModes.ACHIEVEMENTS, "a new player has achievements")
+	local list, done = GameModes.achievements({ wins = 12, survivalBest = 5, asuraGrade = 2, asuraDamage = 80, rating = 1000 })
+	expect(done == 6, "wins 12, survival 5, ASURA beaten with 2: 6 achievements, got " .. done)
+	for _, a in list do
+		if a.id == "VETERAN" then expect(not a.done and a.value == 12 and a.goal == 50, "the progress is not shown") end
+	end
+end)
+
 T.finish()

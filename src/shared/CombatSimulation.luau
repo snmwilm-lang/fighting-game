@@ -13,6 +13,8 @@ local BUTTONS = { light = "Light", heavy = "Heavy", special = "Special", ultimat
 local BUTTON_ORDER = { "light", "heavy", "special", "ultimate", "fatal" }
 local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U", Fatal = "C" }
 
+local revive -- (SECOND LIFE, defined with the hitboxes)
+
 local function newFighter(slot, c, kit, stanceId)
 	local facing = if slot == 1 then 1 else -1
 	-- Kits with stances (TARO: CLASSIQUE / ESQUIVE) take the stance's stats.
@@ -72,6 +74,7 @@ local function resetFighters(world)
 			world.fighters[slot].meter = old.meter -- ki carries over between rounds
 			world.fighters[slot].latencyTicks = old.latencyTicks
 			world.fighters[slot].fatalUsed = old.fatalUsed -- the COUP FATAL is once per match
+			world.fighters[slot].revived = old.revived -- (and the SECOND LIFE)
 			-- Teams (relay): the fighter who stays in keeps the health it had left.
 			local carry = world.teams and world.teams[slot].carryHp
 			if carry and old.kit == world.kits[slot] then
@@ -423,6 +426,13 @@ local function chooseMove(world, f, grounded, crouching)
 		-- Neutral start (also when a late press is not a valid cancel of the finished move).
 		if grounded then
 			nextId = (if crouching then starters.Crouch else starters.Ground)[button]
+			-- Forward + R: the kit's overhead (its Hammer role), blocked standing only: what
+			-- opens a low guard.
+			local overhead = kit.Roles and kit.Roles.Hammer
+			if button == "Heavy" and head.forward and not crouching and overhead and moves[overhead]
+				and moves[overhead].guard == "High" then
+				nextId = overhead
+			end
 		elseif not f.airAttackUsed then
 			nextId = starters.Air[button]
 		end
@@ -492,7 +502,8 @@ local function stepFighter(world, f, input, events)
 				table.remove(f.buffer, 1)
 				f.chainClean, f.dirtyReason = false, "SPAM"
 			end
-			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, after = after })
+			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, after = after,
+				forward = input.axis * f.facing > 0.5 })
 		end
 	end
 	if pressed > 1 then
@@ -738,6 +749,7 @@ local function stepFighter(world, f, input, events)
 			table.insert(events, { kind = "ShackleDash", slot = f.slot, x = f.x, y = f.y + 2 })
 		end
 		f.dashInvuln = stats.DashInvuln or 0
+		f.dashArmor = f.dashDirection == f.facing -- (ASURA'S WRATH: his forward dash takes one hit)
 		f.dashCooldown = c.DashCooldownTicks
 		local weave = weaveOf(world, f)
 		local foe = world.fighters[3 - f.slot]
@@ -775,6 +787,7 @@ local function stepFighter(world, f, input, events)
 		f.state = "Crouching"
 	else
 		f.vx = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed) * slow
+			* (if f.revived and stats.SecondLife then stats.SecondLife.Speed or 1 else 1)
 		f.state = if math.abs(f.vx) > 0.05 then "Walking" else "Idle"
 	end
 	physics(f, c)
@@ -804,10 +817,28 @@ local function resolvePair(a, b, c, previousDelta)
 	end
 end
 
+-- SECOND LIFE (Stats.SecondLife: ASURA): the first time he falls, he gets back up, once per
+-- match, with { Health } of his health, wrapped in a black aura, hitting { DamageDealt } as
+-- hard and walking { Speed } as fast for the rest of the match.
+function CombatSimulation.canRevive(f)
+	return f.stats ~= nil and f.stats.SecondLife ~= nil and not f.revived
+end
+
+function revive(world, f, events) -- luacheck: ignore (forward-declared)
+	local life, c = f.stats.SecondLife, world.config
+	f.revived = true
+	f.hp = math.max(1, math.floor(f.maxHp * life.Health + 0.5))
+	f.state, f.knockdown = "Knockdown", c.KnockdownTicks + (life.RiseTicks or 0)
+	f.stun, f.stunKind, f.launched, f.vx, f.pushVx = 0, nil, false, 0, 0
+	f.guard, f.meter = c.MaxGuard, math.max(f.meter, c.MaxMeter or f.meter)
+	table.insert(events, { kind = "Revive", slot = f.slot, x = f.x, y = f.y + 3 })
+end
+
 function CombatSimulation.hitbox(f, m)
 	local hb = m.hitbox
 	-- (SURCHARGE, TERRITOIRE: this move reaches farther)
 	local far = if f.reachMove == f.moveSerial and f.move == m.id then hb.far * f.reachScale else hb.far
+	far *= f.stats and f.stats.Reach or 1 -- (ASURA: four arms reach farther)
 	local x1, x2 = f.x + f.facing * hb.near, f.x + f.facing * far
 	return math.min(x1, x2), math.max(x1, x2), f.y + hb.low, f.y + hb.high
 end
@@ -1149,8 +1180,20 @@ end
 function PASSIVE.armor(world, a, d, m, events)
 	local passive = kitOf(world, d).Passive
 	if not passive or passive.Type ~= "Anchor" or m.kind == "Ultimate" or not isGrounded(d) then return false end
+	if passive.DashArmor and d.dashArmor and d.dashTicks > 0 and not d.move then
+		-- ASURA'S WRATH: charging in (forward dash), he walks through one blow (a poke, a spear).
+		d.dashArmor = false
+		local damage = math.max(1, math.floor(m.damage * passive.Absorb + 0.5))
+		d.hp = math.max(1, d.hp - damage)
+		if a.slot ~= d.slot then a.moveHits = m.hits or 1 end
+		table.insert(events, { kind = "Armor", attacker = a.slot, defender = d.slot, damage = damage, x = d.x, y = d.y + 3.5 })
+		return true
+	end
 	local dm = d.move and world.moves[d.move]
-	if not dm or (dm.kind or "Normal") ~= "Normal" or dm.air or dm.damage < passive.Heavy then return false end
+	-- (SECOND LIFE with Armor: every grounded normal of his is armored, not only the heavies)
+	local life = d.revived and d.stats.SecondLife
+	local heavy = if life and life.Armor then 0 else passive.Heavy
+	if not dm or (dm.kind or "Normal") ~= "Normal" or dm.air or dm.damage < heavy then return false end
 	if d.moveFrame > dm.startup + dm.active or d.armorMove == d.moveSerial then return false end
 	d.armorMove = d.moveSerial
 	local damage = math.max(1, math.floor(m.damage * passive.Absorb + 0.5))
@@ -1236,6 +1279,8 @@ local function applyHit(world, a, d, m, events, source)
 		event.damage = chip
 		-- Light pokes (jab, cross...) wear the guard less: mashing does not break it.
 		local wear = if (m.kind or "Normal") == "Normal" and m.guardDamage <= 12 then c.LightGuardWear or 1 else 1
+		-- The low guard is not a free fortress: crouching, the guard wears faster.
+		if d.holdCrouch then wear *= c.CrouchGuardWear or 1 end
 		d.guard -= m.guardDamage * wear * (d.stats.GuardDamageTaken or 1)
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
@@ -1273,7 +1318,8 @@ local function applyHit(world, a, d, m, events, source)
 		event.counter = true
 		stop += c.CounterHitstop or 0
 	end
-	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
+	local wrath = if a.revived and a.stats.SecondLife then a.stats.SecondLife.DamageDealt or 1 else 1
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * wrath * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)
 	PASSIVE.onHit(world, a, d, m, source, firstHit, events)
 	event.tip = tip or nil
@@ -1357,7 +1403,7 @@ local function applyHit(world, a, d, m, events, source)
 		d.pushVx *= 1.6
 		if not source then a.hitstop = c.KOHitstop end
 		d.hitstop = c.KOHitstop
-		event.ko = true
+		event.ko = not CombatSimulation.canRevive(d)
 	elseif m.kind == "Ultimate" and not source then
 		a.hitstop, d.hitstop = 0, 0
 		startCinematic(world, a, d, events, m.id)
@@ -1678,7 +1724,16 @@ local function advancePhase(world, events)
 	elseif world.phase == "Fight" then
 		if world.cinematic then return end -- the round ends only once the cinematic is over
 		local a, b = world.fighters[1], world.fighters[2]
-		if a.hp <= 0 or b.hp <= 0 then
+		local rising = false
+		for _, f in { a, b } do
+			if f.hp <= 0 and CombatSimulation.canRevive(f) then
+				rising = true
+				if f.y <= 0 and f.vy <= 0 and f.hitstop == 0 then revive(world, f, events) end
+			end
+		end
+		if rising then
+			-- (a second life on its way: the round goes on)
+		elseif a.hp <= 0 or b.hp <= 0 then
 			endRound(world, events, "KO")
 		elseif not world.training then
 			world.timerTicks = math.max(0, world.timerTicks - 1)

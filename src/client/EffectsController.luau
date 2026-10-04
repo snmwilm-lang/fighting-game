@@ -723,8 +723,36 @@ function EffectsController:attachRig(slot, rig)
 	rig.aura = aura
 end
 
+-- ASURA's SECOND LIFE: risen again, wrapped in a black aura for the rest of the match (black
+-- smoke rising off the body, the body darkened, a blood-red outline). Cosmetic only.
+function EffectsController:blackAura(rig)
+	local torso = rig.model:FindFirstChild("UpperTorso") or rig.model:FindFirstChild("Torso")
+	if not torso then return false end
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "BlackAura"
+	smoke.Color = ColorSequence.new(Color3.fromHex("000000"), Color3.fromHex("2A0A1E"))
+	smoke.LightEmission, smoke.LightInfluence = 0, 0
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 3.2) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Lifetime = NumberRange.new(0.7, 1.2)
+	smoke.Speed = NumberRange.new(3, 6)
+	smoke.SpreadAngle = Vector2.new(25, 25)
+	smoke.Acceleration = Vector3.new(0, 6, 0)
+	smoke.Rate = if self.reduced then 14 else 40
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.Parent = torso
+	local outline = rig.model:FindFirstChild("InkOutline")
+	if outline then
+		outline.FillColor, outline.OutlineColor = Color3.fromHex("000000"), Color3.fromHex("B0102A")
+		outline.FillTransparency = 0.55
+		rig.model:SetAttribute("BaseFill", 0.55)
+	end
+	return true
+end
+
 -- Per-frame presentation driven by the interpolated fighter views.
 function EffectsController:update(slot, view, rig, previous, now)
+	if view.revived and not rig.blackAura then rig.blackAura = self:blackAura(rig) end
 	local color = self:energy(slot)
 	local phase = if view.state == "Attack" and MoveData.Moves[view.move]
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
@@ -892,6 +920,13 @@ function EffectsController:onEvent(event, views, rigs)
 		elseif event.kind == "Armor" and rigs[slot] then
 			self:flash(rigs[slot])
 		end
+		return
+	elseif event.kind == "Revive" then
+		-- SECOND LIFE: a black shockwave where he rises.
+		local position = Vector3.new(event.x or 0, event.y or 3, 0)
+		self:spark(position, Color3.fromHex("B0102A"), 2.4)
+		self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 5, 0, 360, Color3.fromHex("1A0010"), math.pi / 2, 1)
+		self.camera:shake(if self.reduced then 0.3 else 0.8, 0.5)
 		return
 	elseif event.kind == "Projectile" then
 		local v = views[event.attacker]

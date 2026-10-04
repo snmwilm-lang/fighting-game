@@ -255,6 +255,24 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 		end
 	end
 	expect(wins >= 4, "the boss AI won only " .. wins .. " of 6 against LÉGENDE")
+	-- ASURA himself (second life, armored charge) against long reach played by LÉGENDE: a boss
+	local spear = 0
+	for seed = 1, 6 do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, "ASURA", "RAIJIN")
+		local brains = { FighterAI.new("ASURA", seed), FighterAI.new(4, seed * 7 + 3) }
+		for _ = 1, 60 * 60 * 6 do
+			local over = false
+			for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do
+				if e.kind == "MatchEnd" then
+					if e.winner == 1 then spear += 1 end
+					over = true
+				end
+			end
+			if over then break end
+		end
+	end
+	expect(spear >= 5, "ASURA won only " .. spear .. " of 6 against RAIJIN's spear")
 end)
 
 test("the same seed replays the same fight", function()

@@ -933,7 +933,11 @@ function HUD:onEvent(event, world)
 	elseif event.kind == "Chilled" then
 		self:callout(event.slot, "FROZEN! −20 % SPEED")
 	elseif event.kind == "Armor" then
-		self:callout(event.defender, "ANCHOR! −" .. event.damage)
+		local kit = MoveData.Kits[CharacterData[event.defender].Kit]
+		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ANCHOR") .. "! −" .. event.damage)
+	elseif event.kind == "Revive" then
+		self:callout(event.slot, "SECOND LIFE!")
+		self:announceText("ASURA RISES AGAIN", "SECOND LIFE · BLACK AURA", Color3.fromHex("B0102A"), 1.2, 1.6)
 	elseif event.kind == "Heal" then
 		self:callout(event.slot, "+" .. event.amount .. " HP")
 	elseif event.kind == "Reflect" then

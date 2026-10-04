@@ -1229,15 +1229,21 @@ third("NOVA", {
 kit("ASURA", {
 	Kanji = "阿", Role = "BOSS", Boss = true,
 	Difficulty = 3,
-	Description = "A four-armed KAI, out of the Gate of Heaven. Massive: he hits far harder, his heavy blows go through yours and he never lets go. E: FOUR-ARMED GATLING.",
+	Description = "A four-armed KAI, out of the Gate of Heaven. Massive: he hits far harder, his heavy blows go through yours and he never lets go. Felled once, he rises again in a black aura, stronger still. E: FOUR-ARMED GATLING.",
 	Roles = table.clone(KAI_ROLES),
 	Starters = { Ground = { Special = "AsuraGatling" } },
 	-- (Bulk: as tall as the others but massive: wider to hit)
-	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40, DamageDealt = 1.35,
-		GuardDamageTaken = 0.6, Bulk = 1.2 },
+	-- Reach: his four arms strike farther (a spear does not keep him out). SecondLife: the first
+	-- time he falls he rises again in a black aura (once per match), harder and faster.
+	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 44, DamageDealt = 1.35,
+		GuardDamageTaken = 0.6, Bulk = 1.2, Reach = 1.25,
+		-- (the second life only brings him back to half health, but there he is a monster:
+		-- every grounded blow armored, hits half as hard again, much faster)
+		SecondLife = { Health = 0.5, DamageDealt = 1.5, Speed = 1.25, RiseTicks = 50, Armor = true } },
 	-- ASURA'S WRATH: his heavy grounded normals (Kick, Spin Kick, Hammer, Smash) take one hit
-	-- without flinching (GORAN's armor rule).
-	Passive = { Type = "Anchor", Name = "ASURA'S WRATH", Heavy = 80, Absorb = 1 },
+	-- without flinching (GORAN's armor rule), and so does his forward dash: he charges through
+	-- a poke or a spear.
+	Passive = { Type = "Anchor", Name = "ASURA'S WRATH", Heavy = 80, Absorb = 1, DashArmor = true },
 	RouteNames = { "CHAIN", "LAUNCHER", "LIVER", "WALL", "AXE KICK", "SWEEP", "TORNADO", "GUST", "DRAGON", "THUNDER", "MOON" },
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "阿修羅", sub = "WRATH OF THE FOUR ARMS" },

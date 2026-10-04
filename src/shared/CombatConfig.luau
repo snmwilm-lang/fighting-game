@@ -39,6 +39,7 @@ return table.freeze({
 	CounterDamage = 1.15, CounterHitstun = 6, CounterHitstop = 3, CounterMinStartup = 10,
 	GuardRegenDelayTicks = 12,
 	GuardRegenPerTick = 0.6,
+	CrouchGuardWear = 1.5, -- a crouching guard wears 1.5x as fast (the low guard is not a fortress)
 	LightGuardWear = 0.5, -- light chain hits (guard damage 12 or less) wear the guard at half rate
 	GuardCancelTicks = 8, -- after guarding, for this long a jab comes out faster...
 	GuardCancelStartup = 3, -- ...in this many frames of wind-up

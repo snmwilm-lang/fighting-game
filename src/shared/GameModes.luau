@@ -106,6 +106,37 @@ function GameModes.challengeGrade(won, fighters, hpLeft)
 	return grade, GameModes.CHALLENGE_TITLES[grade], true
 end
 
+-- ACHIEVEMENTS (menu › ACHIEVEMENTS): each one says where it is earned (the mode) and is
+-- read from the player's saved profile (the server's menu status): { stat, goal }.
+GameModes.ACHIEVEMENTS = {
+	{ id = "FIRST_WIN", name = "FIRST WIN", where = "1 VS 1 · PLAYER", how = "Win a match against a player.", stat = "wins", goal = 1 },
+	{ id = "SEASONED", name = "SEASONED", where = "1 VS 1 · PLAYER", how = "Win 10 matches against players.", stat = "wins", goal = 10 },
+	{ id = "VETERAN", name = "VETERAN", where = "1 VS 1 · PLAYER", how = "Win 50 matches against players.", stat = "wins", goal = 50 },
+	{ id = "RISING", name = "RISING STAR", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1300 points.", stat = "rating", goal = 1300 },
+	{ id = "LEGEND", name = "LEGEND OF THE RING", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1700 points.", stat = "rating", goal = 1700 },
+	{ id = "SURVIVOR", name = "SURVIVOR", where = "SURVIVAL", how = "Beat 5 opponents in a row.", stat = "survivalBest", goal = 5 },
+	{ id = "UNBREAKABLE", name = "UNBREAKABLE", where = "SURVIVAL", how = "Beat 15 opponents in a row.", stat = "survivalBest", goal = 15 },
+	{ id = "GATE", name = "FACE THE GATE", where = "CHALLENGE · ASURA", how = "Take half of ASURA's health.", stat = "asuraDamage", goal = 50 },
+	{ id = "SLAYER", name = "ASURA SLAYER", where = "CHALLENGE · ASURA", how = "Beat ASURA (a team of 3 is enough). Reward: KAI's AWAKENED style.",
+		stat = "asuraGrade", goal = 1 },
+	{ id = "BREAKER", name = "ARM BREAKER", where = "CHALLENGE · ASURA", how = "Beat ASURA with 2 fighters or fewer.", stat = "asuraGrade", goal = 2 },
+	{ id = "EQUAL", name = "ASURA'S EQUAL", where = "CHALLENGE · ASURA", how = "Beat ASURA alone.", stat = "asuraGrade", goal = 3 },
+	{ id = "ASURA", name = "ASURA", where = "CHALLENGE · ASURA", how = "Beat ASURA alone with half your health left.", stat = "asuraGrade", goal = 4 },
+}
+
+-- The achievements as a player sees them: { name, where, how, done, value, goal }, and the
+-- number unlocked. `status`: the menu status (wins, rating, survivalBest, asuraGrade...).
+function GameModes.achievements(status)
+	local out, done = {}, 0
+	for _, a in GameModes.ACHIEVEMENTS do
+		local value = tonumber(status and status[a.stat]) or 0
+		local ok = value >= a.goal
+		if ok then done += 1 end
+		table.insert(out, { id = a.id, name = a.name, where = a.where, how = a.how, done = ok, value = math.min(value, a.goal), goal = a.goal })
+	end
+	return out, done
+end
+
 --[[
 	What a fighter is good and bad at, for the fighter select (from the real data, so it
 	never lies): POWER (damage of its blows), SPEED (startup + recovery of its ground blows),

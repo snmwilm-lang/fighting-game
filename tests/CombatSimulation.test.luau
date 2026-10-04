@@ -1388,6 +1388,33 @@ test("GORAN ANCRAGE: a heavy blow on the ground takes a hit without flinching; h
 	expect(find(ge, "Hit") ~= nil and find(ge, "Block") == nil, "ÉTREINTE DU TITAN was blocked")
 end)
 
+test("the low guard is not a fortress: forward + R is an overhead, and crouching the guard wears faster", function()
+	for _, kitName in MoveData.KitOrder do
+		local w = kitDuel(kitName, "KAI", 3)
+		local d = w.fighters[2]
+		local events = run(w, 50, function(t) return { input({ heavy = t == 1, axis = 1 }), input({ block = true, crouch = true }) } end)
+		local hit, blocked = find(events, "Hit"), find(events, "Block")
+		expect(w.fighters[1].move == nil or Moves[w.fighters[1].move] ~= nil, kitName)
+		expect(hit ~= nil and blocked == nil, kitName .. ": forward + R was blocked crouching (no overhead)")
+		-- standing, the same overhead is blocked
+		local w2 = kitDuel(kitName, "KAI", 3)
+		local e2 = run(w2, 50, function(t) return { input({ heavy = t == 1, axis = 1 }), input({ block = true }) } end)
+		expect(find(e2, "Block") ~= nil and find(e2, "Hit") == nil, kitName .. ": the overhead cannot be blocked standing")
+	end
+	-- a plain R (no direction) stays the kit's neutral heavy
+	local w = kitDuel("KAI", "KAI", 3)
+	run(w, 2, function(t) return { input({ heavy = t == 1 }) } end)
+	expect(w.fighters[1].move == MoveData.Kits.KAI.Starters.Ground.Heavy, "R alone no longer gives the neutral heavy")
+	-- the same blocked blow costs more guard crouching than standing
+	local function wear(crouch)
+		local wd = kitDuel("KAI", "KAI", 2.6)
+		local g = wd.fighters[2]
+		run(wd, 40, function(t) return { input({ heavy = t == 1 }), input({ block = true, crouch = crouch }) } end)
+		return Config.MaxGuard - g.guard
+	end
+	expect(wear(true) > wear(false) * 1.3, "crouching, the guard does not wear faster")
+end)
+
 test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors his heavies only", function()
 	local w = kitDuel("ASURA", "KAI", 3)
 	local a, k = w.fighters[1], w.fighters[2]
@@ -1404,6 +1431,49 @@ test("ASURA is massive, not taller: a wider body, the same height and reach; ASU
 	end
 	expect(armored("Smash"), "ASURA'S WRATH did not armor the Smash")
 	expect(not armored("Jab"), "ASURA'S WRATH armored a jab (too cheap)")
+end)
+
+test("ASURA's SECOND LIFE: felled once, he rises in a black aura (half health, harder, faster), once per match", function()
+	local w = kitDuel("KAI", "ASURA", 3)
+	w.training = false
+	local boss = w.fighters[2]
+	boss.hp = 1
+	local events = run(w, 30, function(t) return { input({ heavy = t == 1 }) } end)
+	local ko = find(events, "Hit")
+	expect(ko and not ko.ko, "the felling blow was announced as a K.O.")
+	events = run(w, 400)
+	expect(find(events, "Revive") ~= nil, "ASURA did not rise again")
+	expect(find(events, "RoundEnd") == nil and w.phase == "Fight", "the round ended on his first fall")
+	expect(boss.revived and boss.hp >= boss.maxHp * 0.45, "the second life is not half his health")
+	expect(boss.state ~= "KO", "he stays down")
+	-- risen, every grounded blow of his is armored, even a jab (he was a boss, he is a monster)
+	boss.state, boss.move, boss.moveFrame, boss.moveSerial, boss.armorMove, boss.knockdown, boss.getUp = "Attack", "Jab", 1, 99, nil, 0, 0
+	expect(PASSIVE.armor(w, w.fighters[1], boss, Moves.Jab, {}), "risen, his jab is not armored")
+	boss.state, boss.move = "Idle", nil
+	-- the second fall is the real one
+	boss.hp = 1
+	boss.wakeInvuln = 0
+	local last = run(w, 200, function(t) return { input({ heavy = t == 1 }) } end)
+	expect(find(last, "Revive") == nil, "a third life")
+	expect(boss.hp <= 0, "the second fall did not fell him")
+	-- kits without it fall at once
+	local k = kitDuel("ASURA", "KAI", 3)
+	expect(not Sim.canRevive(k.fighters[2]) and Sim.canRevive(k.fighters[1]), "SECOND LIFE is not ASURA's alone")
+end)
+
+test("ASURA against long reach: four arms reach farther, his forward dash charges through one blow", function()
+	local w = kitDuel("ASURA", "KAI", 3)
+	local a, k = w.fighters[1], w.fighters[2]
+	local m = Moves.Jab
+	local _, far = Sim.hitbox(a, m)
+	k.facing = 1
+	local _, kfar = Sim.hitbox(k, m)
+	expect(far - a.x > (kfar - k.x) * 1.2, "ASURA's blows do not reach farther")
+	-- dash in, poked: he takes the hit without flinching (once)
+	local d = kitDuel("KAI", "ASURA", 4)
+	local boss = d.fighters[2]
+	local events = run(d, 30, function(t) return { input({ light = t == 3 }), input({ dash = t == 1, axis = -1 }) } end)
+	expect(find(events, "Armor") ~= nil and boss.stun == 0, "ASURA's dash was stopped by a poke")
 end)
 
 test("ASTER MASSE VARIABLE: a technique that lands charges the next air attack (+30 %)", function()

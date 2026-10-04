@@ -55,11 +55,34 @@ local function neutral()
 	}
 end
 
--- The CHALLENGE boss (ASURA): LÉGENDE's reads, faster still, never drops a combo, always
--- ends on its ultimates and reverses pressure more often. Not one of the menu's levels.
-FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 3, block = 0.95, lowBlock = 0.97, combo = 1, aggression = 0.88,
-	antiAir = 0.97, punish = 1, reversal = 0.6, counter = 0.95, zoning = 0.5, full = 0.85, promptSpread = 1, decision = 4,
-	ultimate = 1, read = 1, routes = { "hard" } })
+-- The CHALLENGE boss (ASURA): a boss, almost without limits (Wilhem: « il doit être vraiment
+-- sans limite presque »): reacts in 1 frame, blocks nearly everything high and low, reads
+-- every low guard (overhead) and every jump, never drops a combo, always ends on his
+-- ultimates, reverses pressure, and charges in (an armored dash) instead of walking into a
+-- spear. Not one of the menu's levels.
+FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 1, block = 0.95, lowBlock = 1, combo = 1, aggression = 0.93,
+	antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
+	ultimate = 1, read = 1, charge = true, routes = { "hard" } })
+
+-- Does the opponent outreach this fighter (a spear, a sword, long legs)? Its longest neutral
+-- button against ours (the boss charges in only then: walking in, it eats the pokes).
+function FighterAI:outranged(world, slot)
+	local cache = self.reachCache
+	local foe = world.fighters[3 - slot]
+	if cache and cache.kit == foe.kit then return cache.value end
+	local function reach(f)
+		local best = 0
+		local kit = world.moveData.Kits[f.kit]
+		for _, button in { "Light", "Heavy" } do
+			local m = kit and world.moves[kit.Starters.Ground[button]]
+			if m and m.hitbox then best = math.max(best, m.hitbox.far) end
+		end
+		return best
+	end
+	local value = reach(foe) >= 4.6
+	self.reachCache = { kit = foe.kit, value = value }
+	return value
+end
 
 -- levelIndex: 1 (FACILE) to 4 (LÉGENDE), or "ASURA" (the boss).
 function FighterAI.new(levelIndex, seed)
@@ -508,6 +531,9 @@ function FighterAI:think(world, slot)
 		elseif intent == "attack" then
 			if dist > 4.2 then
 				input.axis = toward
+				if self.level.charge and self:outranged(world, slot) and grounded and me.dashTicks == 0 and me.dashCooldown == 0 and dist < 14 then
+					input.dash = true
+				end
 			else
 				self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
 				if pressing > 0.5 and self.plan[1] ~= "L" and not self.plan.weave then
@@ -533,8 +559,17 @@ function FighterAI:think(world, slot)
 			self.plan.weave = false
 		elseif dist > 4.4 then
 			input.axis = toward
+			if self.level.charge and self:outranged(world, slot) and grounded and me.dashTicks == 0 and me.dashCooldown == 0 and dist < 14 then
+				input.dash = true -- (the boss charges in: his dash takes a blow)
+			end
 		else
+			if read > 0 and seen.crouching and not self.plan.crouch and not self.plan.overhead and self:chance(read) then
+				-- A low guard read: open it with the overhead (forward + R), then its follow-up.
+				self.plan = { "R", "L", overhead = true }
+				self.planLength = 2
+			end
 			input.crouch = self.plan.crouch == true
+			if self.plan.overhead then input.axis = toward end
 			self:press(input, self.plan[1])
 		end
 	end

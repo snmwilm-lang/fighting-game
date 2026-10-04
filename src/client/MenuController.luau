@@ -149,6 +149,7 @@ function MenuController.new(remote, hub, settings)
 	self.pages.characters = self:buildCharacters()
 	self.pages.ranking = self:buildRanking()
 	self.pages.settings = self:buildSettings()
+	self.pages.achievements = self:buildAchievements()
 	self:buildBottom()
 	-- Toast (errors, results).
 	self.toast = label(root, { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84),
@@ -252,17 +253,17 @@ end
 
 -- A big slanted button (left column, like the mock-up).
 local function slanted(parent, y, title, sub, kanji, primary)
-	local b = new("TextButton", { Position = UDim2.fromOffset(0, y), Size = UDim2.fromOffset(370, if primary then 96 else 76),
+	local b = new("TextButton", { Position = UDim2.fromOffset(0, y), Size = UDim2.fromOffset(370, if primary then 96 else 68),
 		BackgroundColor3 = if primary then RED else PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0, Rotation = -2.5 }, parent)
 	if primary then gradient(b, Color3.fromHex("FF2A3D"), Color3.fromHex("8C0716"), 0) else gradient(b, PANEL2, INK, 0) end
 	stroke(b, 2, if primary then Color3.fromHex("FF5A6A") else Color3.fromHex("33333D"))
 	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -46, 0.5, 0), Size = UDim2.fromOffset(90, 90), Font = Enum.Font.GothamBlack,
 		TextScaled = true, Text = kanji, TextColor3 = if primary then Color3.fromHex("5A0712") else Color3.fromHex("2E2E38"),
 		TextXAlignment = Enum.TextXAlignment.Center })
-	local t = label(b, { Position = UDim2.fromOffset(20, if primary then 8 else 6), Size = UDim2.fromOffset(280, if primary then 52 else 40),
+	local t = label(b, { Position = UDim2.fromOffset(20, if primary then 8 else 5), Size = UDim2.fromOffset(280, if primary then 52 else 36),
 		Font = DISPLAY, TextScaled = true, Text = title, TextColor3 = WHITE })
 	stroke(t, 1.5, INK)
-	label(b, { Position = UDim2.fromOffset(22, if primary then 62 else 48), Size = UDim2.fromOffset(300, 18), Font = UI_FONT, TextSize = 12,
+	label(b, { Position = UDim2.fromOffset(22, if primary then 62 else 43), Size = UDim2.fromOffset(300, 18), Font = UI_FONT, TextSize = 12,
 		Text = sub, TextColor3 = if primary then WHITE else GREY })
 	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 40), Font = UI_FONT,
 		TextSize = 26, Text = "›", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center })
@@ -272,15 +273,16 @@ local function slanted(parent, y, title, sub, kanji, primary)
 end
 
 function MenuController:buildNav()
-	local nav = new("Frame", { Position = UDim2.fromOffset(40, 96), Size = UDim2.fromOffset(380, 460), BackgroundTransparency = 1 }, self.root)
+	local nav = new("Frame", { Position = UDim2.fromOffset(40, 96), Size = UDim2.fromOffset(380, 472), BackgroundTransparency = 1 }, self.root)
 	self.nav = nav
 	slanted(nav, 0, "PLAY", "FIGHT ONLINE OR AGAINST THE CPU", "戦", true).Activated:Connect(function() self:open("home") end)
-	slanted(nav, 108, "FIGHTERS", "THE " .. #MoveData.KitOrder .. " FIGHTERS · YOUR FAVORITE", "人").Activated:Connect(function() self:open("characters") end)
-	slanted(nav, 194, "RANKING", "CLIMB THE RANKS", "位").Activated:Connect(function() self:open("ranking") end)
-	slanted(nav, 280, "PLAYERS", "CHALLENGE · INVITE A FRIEND (H)", "友").Activated:Connect(function()
+	slanted(nav, 104, "FIGHTERS", "THE " .. #MoveData.KitOrder .. " FIGHTERS · YOUR FAVORITE", "人").Activated:Connect(function() self:open("characters") end)
+	slanted(nav, 178, "RANKING", "CLIMB THE RANKS", "位").Activated:Connect(function() self:open("ranking") end)
+	slanted(nav, 252, "PLAYERS", "CHALLENGE · INVITE A FRIEND (H)", "友").Activated:Connect(function()
 		if self.hub then self.hub:setVisible(not self.hub.panel.Visible) end
 	end)
-	slanted(nav, 366, "SETTINGS", "EFFECTS · SOUND · MOUSE · LANGUAGE", "設").Activated:Connect(function() self:open("settings") end)
+	slanted(nav, 326, "ACHIEVEMENTS", "WHAT TO WIN · WHERE · YOUR PROGRESS", "誉").Activated:Connect(function() self:open("achievements") end)
+	slanted(nav, 400, "SETTINGS", "EFFECTS · SOUND · MOUSE · LANGUAGE", "設").Activated:Connect(function() self:open("settings") end)
 end
 
 -- ===================================================================== home: mode cards
@@ -597,6 +599,7 @@ function MenuController:refreshSelect()
 	local u = kit.Ultimates
 	self.kitText.Text = kit.Description .. "\n\nHealth " .. kit.Stats.MaxHealth .. (if kit.Passive then " · passive " .. kit.Passive.Name else "")
 		.. (if crouch then "\nS + E: " .. crouch.name else "")
+		.. "\nFORWARD + R: OVERHEAD (blocked standing only)"
 		.. "\nR: " .. MoveData.Moves[u.Rush].name .. " · AWAKENING: " .. MoveData.Moves[u.Awaken].name
 		.. "\nGATE: " .. MoveData.Moves[u.Gate].name .. (if u.Fatal then " · FATAL: " .. MoveData.Moves[u.Fatal].name else "")
 	local rating = self.ratings[name]
@@ -776,6 +779,53 @@ function MenuController:refreshRanking()
 	end
 end
 
+-- ACHIEVEMENTS: every achievement, where it is earned and the progress (GameModes.achievements,
+-- from the saved profile the server sends with the menu status).
+function MenuController:buildAchievements()
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(560, 500),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
+	corner(page, 8)
+	stroke(page, 2, GOLD)
+	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
+		Text = "ACHIEVEMENTS", TextColor3 = GOLD })
+	stroke(t, 1.5, INK)
+	self.achievementsCount = label(page, { Position = UDim2.fromOffset(16, 56), Size = UDim2.new(1, -32, 0, 22), Font = UI_FONT, TextSize = 15,
+		Text = "", TextColor3 = WHITE })
+	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(16, 86), Size = UDim2.new(1, -32, 1, -96), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
+	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	self.achievementsList = list
+	return page
+end
+
+function MenuController:refreshAchievements()
+	local list = self.achievementsList
+	if not list then return end
+	for _, child in list:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	local entries, done = GameModes.achievements(self.status or {})
+	self.achievementsCount.Text = done .. " / " .. #entries .. " UNLOCKED"
+	for i, a in entries do
+		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, -10, 0, 62), BackgroundColor3 = if a.done then DARKRED else PANEL,
+			BorderSizePixel = 0 }, list)
+		corner(row, 6)
+		stroke(row, 1.5, if a.done then GOLD else Color3.fromHex("33333D"))
+		label(row, { Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(40, 62), Font = DISPLAY, TextSize = 30,
+			Text = if a.done then "✓" else "🔒", TextColor3 = if a.done then GOLD else GREY, TextXAlignment = Enum.TextXAlignment.Center })
+		label(row, { Position = UDim2.fromOffset(56, 4), Size = UDim2.new(1, -170, 0, 22), Font = UI_FONT, TextSize = 16, Text = a.name,
+			TextColor3 = if a.done then GOLD else WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { Position = UDim2.fromOffset(56, 26), Size = UDim2.new(1, -170, 0, 32), Font = BODY_FONT, TextSize = 12, TextWrapped = true,
+			Text = a.how, TextColor3 = Color3.fromHex("D8D8E0"), TextYAlignment = Enum.TextYAlignment.Top })
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(150, 18), Font = UI_FONT,
+			TextSize = 11, Text = a.where, TextColor3 = VIOLET, TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 30), Size = UDim2.fromOffset(110, 22), Font = UI_FONT,
+			TextSize = 14, Text = if a.done then "UNLOCKED" else a.value .. " / " .. a.goal, TextColor3 = if a.done then GOLD else GREY,
+			TextXAlignment = Enum.TextXAlignment.Right })
+	end
+end
+
 function MenuController:buildSettings()
 	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 430),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
@@ -898,6 +948,8 @@ function MenuController:open(page)
 		self:refreshRanking()
 	elseif page == "characters" then
 		self:showKitInfo(self.status.hero or "KAI")
+	elseif page == "achievements" then
+		self:refreshAchievements()
 	else
 		self.bigKanji.Text = "開"
 	end
@@ -959,6 +1011,7 @@ function MenuController:refreshProfile()
 		edge.Thickness = if name == s.hero then 3 else 2
 	end
 	if self.page == "ranking" then self:refreshRanking() end
+	if self.page == "achievements" then self:refreshAchievements() end
 end
 
 function MenuController:flash(text, color)

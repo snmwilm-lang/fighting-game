@@ -105,6 +105,12 @@ Audit du roster (19 kits + KUROEN) :
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
+**UI de GPT intégrée** (autorisée par Wilhem) :
+- fusion à 3 sources de son `MenuController`, `HubController` et `MenuTheme` (nouveau) avec notre version : son style partout (barre du haut, navigation, cartes, pages, zones sûres mobiles) ;
+- gardé de notre côté : le portefeuille avec les icônes de monnaie dans sa carte profil, REJOUER, la dernière équipe retenue, les réglages sauvegardés, le défi KUROEN SHIN (cartes resserrées pour 4 modes), les cristaux sur ses lignes de succès ;
+- icônes de monnaie : le dessin reste sous l'image et n'est masqué qu'une fois l'image vraiment chargée (avant, une image en modération laissait un carré vide) ;
+- les pastilles « WIN +40 » des cartes sont retirées (trop présentes).
+
 **Anti-triche** (`src/server/AntiCheat.luau`, pur, testé dans Lobby). Le serveur jugeait déjà seul les coups, la vie et les K.O., mesurait lui-même le ping et bornait la compensation de latence ; les joueurs n'ont pas de personnage physique. En plus :
 - score de suspicion : un paquet que le vrai client n'envoie jamais (types ou valeurs impossibles, action inconnue, numéro de séquence qui recule, flood grossier de plus de 120 paquets rejetés en une seconde) ajoute des points, qui s'effacent avec le temps. À 100 points : expulsion, avec une ligne dans la console serveur. Un vrai joueur n'en approche jamais (un client à 144 Hz qui martèle reste loin du seuil ; le bouton CINE LAB hors entraînement n'est pas puni) ;
 - anti-farm :

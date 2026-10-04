@@ -1111,6 +1111,7 @@ Locale.FR = {
 
 -- The names written the same way in both languages (a test checks every text is known).
 Locale.SAME = {
+	["K.O."] = true,
 	["ASURA"] = true,
 	["KUROEN SHIN"] = true,
 	["CHALLENGE · KUROEN SHIN"] = true,

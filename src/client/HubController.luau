@@ -7,12 +7,13 @@
 local Players = game:GetService("Players")
 local SocialService = game:GetService("SocialService")
 local UserInputService = game:GetService("UserInputService")
+local Theme = require(script.Parent.MenuTheme)
 
-local WHITE = Color3.fromHex("F5F5F7")
+local WHITE = Theme.WHITE
 local INK = Color3.fromHex("0B0B0E")
-local RED = Color3.fromHex("E0102B")
-local GOLD = Color3.fromHex("FFD23F")
-local GREY = Color3.fromHex("8A8A94")
+local RED = Theme.RED
+local GOLD = Theme.GOLD
+local GREY = Theme.MUTED
 local DISPLAY = Enum.Font.Bangers
 local UI_FONT = Enum.Font.GothamBlack
 
@@ -38,7 +39,10 @@ local function button(parent, text, color, props)
 		Size = UDim2.fromOffset(120, 28),
 	}, parent)
 	for k, v in props or {} do b[k] = v end
-	stroke(b, 1.5, color or RED)
+	b.BorderSizePixel = 0
+	b.AutoButtonColor = false
+	Theme.edge(b, color or RED)
+	Theme.feedback(b)
 	return b
 end
 
@@ -71,19 +75,19 @@ function HubController.new(remote)
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.84), ZIndex = 2,
 	}, gui)
 	new("UISizeConstraint", { MaxSize = Vector2.new(560, 640), MinSize = Vector2.new(280, 260) }, panel)
-	new("UICorner", { CornerRadius = UDim.new(0, 10) }, panel)
-	stroke(panel, 3, GOLD)
+	Theme.surface(panel, RED)
 	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8),
 		PaddingBottom = UDim.new(0, 10) }, panel)
 	self.panel = panel
 	local title = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -56, 0, 44), Font = DISPLAY, TextScaled = true,
-		TextColor3 = GOLD, Text = "PLAYERS ON THE SERVER · CHALLENGES", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 }, panel)
+		TextColor3 = WHITE, Text = "PLAYERS ON THE SERVER · CHALLENGES", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 }, panel)
 	new("UITextSizeConstraint", { MaxTextSize = 34 }, title)
 	-- A big red close button, easy to see and to hit.
 	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(44, 44),
 		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "✕", TextColor3 = WHITE, AutoButtonColor = true, ZIndex = 3 }, panel)
-	new("UICorner", { CornerRadius = UDim.new(0, 8) }, close)
-	stroke(close, 2, WHITE)
+	close.BorderSizePixel = 0
+	Theme.edge(close, RED)
+	Theme.feedback(close)
 	close.Activated:Connect(function() self:setVisible(false) end)
 	self.stateLabel = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 34),
 		Font = UI_FONT, TextSize = 13, TextColor3 = WHITE, TextWrapped = true, Text = "", TextXAlignment = Enum.TextXAlignment.Left,
@@ -95,7 +99,8 @@ function HubController.new(remote)
 	local footer = new("Frame", { Name = "Footer", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
 		Size = UDim2.new(1, 0, 0, 90), ZIndex = 3 }, panel)
 	local invite = button(footer, "INVITE A FRIEND", GOLD, { Size = UDim2.new(1, 0, 0, 48), TextSize = 20, TextColor3 = GOLD, ZIndex = 4 })
-	new("UICorner", { CornerRadius = UDim.new(0, 8) }, invite)
+	invite.BackgroundColor3 = RED
+	invite.TextColor3 = WHITE
 	invite.Activated:Connect(function()
 		if not self:invite() then
 			invite.Text = "NOT AVAILABLE HERE"
@@ -114,10 +119,10 @@ function HubController.new(remote)
 	-- Incoming challenge banner.
 	local banner = new("Frame", {
 		Name = "Challenge", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.fromOffset(420, 96), ZIndex = 6,
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.new(0.92, 0, 0, 132), ZIndex = 6,
 	}, gui)
-	new("UISizeConstraint", { MaxSize = Vector2.new(420, 96) }, banner)
-	stroke(banner, 3, GOLD)
+	new("UISizeConstraint", { MaxSize = Vector2.new(420, 132) }, banner)
+	Theme.surface(banner, GOLD)
 	self.bannerText = new("TextLabel", {
 		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 40), Position = UDim2.fromOffset(8, 6),
 		Font = DISPLAY, TextSize = 30, TextColor3 = GOLD, TextScaled = true, Text = "",
@@ -126,8 +131,8 @@ function HubController.new(remote)
 		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 14), Position = UDim2.fromOffset(8, 44),
 		Font = UI_FONT, TextSize = 11, TextColor3 = GREY, Text = "",
 	}, banner)
-	self.acceptButton = button(banner, "ACCEPT", GOLD, { Position = UDim2.new(0.5, -128, 0, 60), Size = UDim2.fromOffset(120, 28) })
-	self.declineButton = button(banner, "DECLINE", RED, { Position = UDim2.new(0.5, 8, 0, 60), Size = UDim2.fromOffset(120, 28) })
+	self.acceptButton = button(banner, "ACCEPT", GOLD, { Position = UDim2.new(0, 12, 0, 76), Size = UDim2.new(0.5, -18, 0, 44) })
+	self.declineButton = button(banner, "DECLINE", RED, { Position = UDim2.new(0.5, 6, 0, 76), Size = UDim2.new(0.5, -18, 0, 44) })
 	self.acceptButton.Activated:Connect(function()
 		if self.shownChallenge then self.remote:FireServer("accept", self.shownChallenge) end
 	end)
@@ -205,6 +210,7 @@ end
 
 -- Opens / closes the window (built at once, before the server's next status arrives).
 function HubController:setVisible(visible)
+	Theme.reset(self.panel)
 	self.panel.Visible, self.backdrop.Visible = visible, visible
 	if visible then self:render() end
 end
@@ -241,10 +247,13 @@ function HubController:render()
 	self.stateLabel.Text = if mine and mine.slot > 0 then (if opponent then "YOU ARE FIGHTING " .. opponent else "YOU ARE IN A FIGHT")
 		else "CHALLENGE a player: they ACCEPT, the 1 vs 1 starts (with the team picked in the menu)"
 	for _, p in self.status do
-		local row = line({ Size = UDim2.new(1, -8, 0, 32) })
+		local row = line({ Size = UDim2.new(1, -8, 0, 52) })
+		row.BackgroundTransparency = 0
+		row.BackgroundColor3 = Theme.PANEL
+		Theme.rule(row, UDim2.new(0, 0, 1, -1), UDim2.new(1, 0, 0, 1), Theme.LINE, 0.4)
 		local state = p.where or (if p.slot > 0 then "IN A FIGHT" else "IN THE MENU")
 		new("TextLabel", {
-			BackgroundTransparency = 1, Size = UDim2.new(1, -130, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
+			BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -142, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
 			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
 			Text = (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
 		}, row)
@@ -253,7 +262,7 @@ function HubController:render()
 			local sent = mine and mine.sent == p.id
 			local label = if challengedMe then "ACCEPT" elseif sent then "CHALLENGE SENT" else "CHALLENGE"
 			local b = button(row, label, if challengedMe then GOLD else RED, {
-				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(120, 28), ZIndex = 4,
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(120, 36), ZIndex = 4,
 				AutoButtonColor = not sent, TextColor3 = if sent then GREY else WHITE,
 			})
 			b.Activated:Connect(function()

@@ -36,7 +36,9 @@ def parse(path):
         elif f[0] == 'PART' and frames:
             nums = list(map(float, f[3:18]))
             # optional 19th field: the part's own colour (hex), else the slot palette
-            frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False, hexc(f[18]) if len(f) > 18 else None))
+            # optional 20th field: the shape (W = WedgePart, else a block)
+            frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False, hexc(f[18]) if len(f) > 18 else None,
+                                        f[19] if len(f) > 19 else 'B'))
         elif f[0] == 'FX' and frames:
             frames[-1]['fx'].append({'kind': f[1], 'age': int(f[2]), 'pos': tuple(map(float, f[3:6])),
                 'from': tuple(map(float, f[6:9])), 'to': tuple(map(float, f[9:12])), 'radius': float(f[12]),
@@ -88,7 +90,9 @@ def render_frame(fr, label):
         if len(pts) > 1: d.line(pts, fill=(110,80,70,120))
     # floor edge of the fighting deck
     faces = []
-    for slot, name, t, size, ghost, own in fr['parts']:
+    for part in fr['parts']:
+        slot, name, t, size, ghost, own = part[:6]
+        shape = part[6] if len(part) > 6 else 'B'
         px, py, pz = t[0], t[1], t[2]
         R = [[t[3],t[4],t[5]],[t[6],t[7],t[8]],[t[9],t[10],t[11]]]
         hx, hy, hz = size[0]/2, size[1]/2, size[2]/2
@@ -97,6 +101,9 @@ def render_frame(fr, label):
             for sy in (-1,1):
                 for sz in (-1,1):
                     lx, ly, lz = sx*hx, sy*hy, sz*hz
+                    # a WedgePart: its top front edge comes down to the bottom (the slope rises
+                    # from the front-bottom edge to the back-top edge, as in Roblox)
+                    if shape == 'W' and sy > 0 and sz < 0: ly = -hy
                     corners.append((px+R[0][0]*lx+R[0][1]*ly+R[0][2]*lz, py+R[1][0]*lx+R[1][1]*ly+R[1][2]*lz,
                                     pz+R[2][0]*lx+R[2][1]*ly+R[2][2]*lz))
         idx = lambda sx,sy,sz: ((sx>0)*4+(sy>0)*2+(sz>0))

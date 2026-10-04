@@ -68,18 +68,19 @@ end
 
 local function fmt(n) return string.format("%.3f", n) end
 local tick = 0
-local function emit(models, label, cam)
+local function emit(models, label, cam, target)
 	tick += 1
-	print(string.format("FRAME %d %s 30 0 000000 0 -", tick, label))
-	print(string.format("CAM %s %s %s 0 0.2 0", fmt(cam[1]), fmt(cam[2]), fmt(cam[3])))
+	print(string.format("FRAME %d %s 30 0 000000 0 -", tick, (string.gsub(label, " ", "_"))))
+	target = target or { 0, 0.2, 0 }
+	print(string.format("CAM %s %s %s %s %s %s", fmt(cam[1]), fmt(cam[2]), fmt(cam[3]), fmt(target[1]), fmt(target[2]), fmt(target[3])))
 	for slot, entry in models do
 		for _, p in Mock.parts(entry.model) do
 			if (p.Transparency or 0) < 0.95 then
 				local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = p.CFrame:GetComponents()
-				print(string.format("PART %d %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
+				print(string.format("PART %d %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
 					slot, p.Name:gsub(" ", "_"), fmt(x + entry.dx), fmt(y), fmt(z),
 					fmt(r00), fmt(r01), fmt(r02), fmt(r10), fmt(r11), fmt(r12), fmt(r20), fmt(r21), fmt(r22),
-					fmt(p.Size.X), fmt(p.Size.Y), fmt(p.Size.Z), p.Color.hex))
+					fmt(p.Size.X), fmt(p.Size.Y), fmt(p.Size.Z), p.Color.hex, if p.ClassName == "WedgePart" then "W" else "B"))
 			end
 		end
 	end
@@ -111,7 +112,14 @@ for _, kit in KITS do
 		if not ok15 then fail(kit .. " " .. style .. " R15 outfit: " .. tostring(err15)) end
 		if mode == "check" then
 			print(string.format("ok   %s %s: block %d parts", kit, style, n))
-		elseif i == 1 then
+		elseif mode == "heads" and i == 1 then
+			-- Close-ups of the head (hair): front three-quarter, side, back three-quarter.
+			local models = { { model = block, dx = 0 } }
+			local head = { 0, 3.0, 0 }
+			emit(models, kit .. "-face", { -3.4, 3.6, -8.6 }, head)
+			emit(models, kit .. "-side", { -9.2, 3.3, 0.4 }, head)
+			emit(models, kit .. "-back", { 4.4, 3.8, 7.8 }, head)
+		elseif mode == "render" and i == 1 then
 			local models = { { model = block, dx = -1.7 }, { model = r6, dx = 1.7 } }
 			emit(models, kit .. "-front", { -6, 1.4, -18 })
 			emit(models, kit .. "-back", { 6, 1.8, 18 })
@@ -206,7 +214,7 @@ if __name__ == '__main__':
         text = run('check')
         print(text, end='')
         sys.exit(1 if 'FAIL' in text else 0)
-    text = run('render')
+    text = run('heads' if mode == 'heads' else 'render')
     target = sys.argv[2] if len(sys.argv) > 2 else 'rigs.png'
     story = target + '.txt'
     with open(story, 'w') as f:

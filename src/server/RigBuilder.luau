@@ -119,6 +119,79 @@ end
 	shape), tail(part, name, size, pivot, color) for a swaying strip, color(key), ink, white,
 	skin, hair, hairTip. Offsets are relative to the bind pose of the part (front is -Z).
 ]]
+--[[
+	HAIR. A lock is drawn like an anime lock: `segments` boxes that thin and curl from a root
+	on the scalp, then a point made of two wedges back to back (it tapers on both faces, not a
+	flat blade). `root` is a CFrame in the head's space whose +Y is the lock's direction.
+	opts: segments (2-4), curl (radians per segment around X: + bends toward the back),
+	sway (around Z), twist (around Y), tip (colour of the last segment and the point).
+]]
+local function lock(ctx, name, root, length, width, depth, colour, opts)
+	opts = opts or {}
+	local o = ctx.ornament
+	local n = opts.segments or 3
+	local seg = length / (n + 0.9)
+	local cf = root
+	for i = 1, n do
+		local t = (i - 1) / n
+		local last = i == n
+		o("Head", name, Vector3.new(width * (1 - 0.42 * t), seg * 1.14, depth * (1 - 0.38 * t)),
+			cf * CFrame.new(0, seg / 2, 0), if last and opts.tip then opts.tip else colour)
+		cf = cf * CFrame.new(0, seg, 0) * CFrame.Angles(opts.curl or 0, opts.twist or 0, opts.sway or 0)
+	end
+	local tipW, tipD, tipL = width * 0.5, depth * 0.62, seg * 1.6
+	for _, side in { 1, -1 } do
+		-- (a wedge's slope runs up to its back edge: one faces back, its mirror faces front)
+		o("Head", name .. "Point", Vector3.new(tipW, tipL, tipD / 2),
+			cf * CFrame.new(0, tipL / 2 - seg * 0.08, -side * tipD / 4) * CFrame.Angles(0, if side == 1 then 0 else math.pi, 0),
+			opts.tip or colour, "WedgePart")
+	end
+end
+
+-- A pointed spike (spiky anime hair), in the game's blocky style: two blocks that narrow
+-- on all four sides, then a small double-wedge point. It reads pointed from every angle (two
+-- crossed blades would only make a cross).
+local function spike(ctx, name, root, length, base, colour, tip)
+	local o = ctx.ornament
+	local steps = { { 1.0, 0.42 }, { 0.56, 0.36 } } -- (width share, length share: two blocks keep the rig light)
+	local y = 0
+	for i, st in steps do
+		local h = length * st[2]
+		o("Head", name, Vector3.new(base * st[1], h * 1.08, base * st[1]), root * CFrame.new(0, y + h / 2, 0),
+			if i == #steps and tip then tip else colour)
+		y += h
+	end
+	local point, w = length * 0.3, base * 0.34
+	for _, side in { 1, -1 } do
+		o("Head", name .. "Point", Vector3.new(w, point, w / 2),
+			root * CFrame.new(0, y + point / 2 - 0.02, -side * w / 4) * CFrame.Angles(0, if side == 1 then 0 else math.pi, 0),
+			tip or colour, "WedgePart")
+	end
+end
+
+-- A spike rooted at (x, y, z), `back` degrees tipped toward the back, `out` degrees leaning
+-- outward (+ to the right).
+local function spikeAt(ctx, name, x, y, z, back, out, length, base, colour, tip)
+	spike(ctx, name, CFrame.new(x, y, z) * CFrame.Angles(math.rad(back), 0, math.rad(-out)), length, base, colour, tip)
+end
+
+-- A lock rooted at (x, y, z) on the head, pointing with the given angles (degrees): `pitch`
+-- tips it back (+) or forward (-), `roll` leans it outward (+ to the right).
+local function lockAt(ctx, name, x, y, z, pitch, roll, length, width, depth, colour, opts)
+	lock(ctx, name, CFrame.new(x, y, z) * CFrame.Angles(math.rad(pitch), 0, math.rad(-roll)), length, width, depth, colour, opts)
+end
+
+-- A fringe: short locks hanging over the brow, from x = -0.4 to 0.4 (`n` of them), each a
+-- little longer in the middle; `slant` leans them all to one side (degrees).
+local function fringe(ctx, n, length, colour, tip, slant)
+	for i = 1, n do
+		local t = (i - 1) / math.max(1, n - 1)
+		local x = -0.4 + 0.8 * t
+		spikeAt(ctx, "Fringe", x, 0.5, -0.5, 180 + 14, (t - 0.5) * 24 + (slant or 0), length * (0.8 + 0.3 * math.sin(t * math.pi)),
+			0.28, colour, if tip and i == math.ceil(n / 2) then tip else nil)
+	end
+end
+
 local BODIES = {}
 
 local function material(p, mat)
@@ -195,15 +268,19 @@ BODIES.ZEPHYR = {
 	head = function(ctx)
 		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
 		o("Head", "HairCap", Vector3.new(1.2, 0.36, 1.12), CFrame.new(0, 0.5, 0.06), hair)
-		-- Long locks streaming back (to the side of the attack: the wind).
-		for i, y in { 0.62, 0.42, 0.22 } do
-			o("Head", "WindLock", Vector3.new(0.9 - i * 0.12, 0.2, 1.3 + i * 0.25),
-				CFrame.new(0, y, 0.55 + i * 0.12) * CFrame.Angles(math.rad(14 - i * 6), 0, 0), if i == 1 then tip else hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.6, 0.24), CFrame.new(0, 0.22, 0.46), hair)
+		-- Locks streaming back, swept by the wind: rooted on the crown, nearly level, curling.
+		for i, l in { { -0.36, 0.56, 86, -16, 1.15 }, { -0.12, 0.62, 82, -5, 1.5, true }, { 0.12, 0.6, 84, 5, 1.45 },
+			{ 0.36, 0.54, 88, 16, 1.1 }, { 0, 0.4, 104, 0, 1.25 }, { -0.3, 0.32, 108, -20, 0.95 }, { 0.3, 0.32, 108, 20, 0.95, true } } do
+			lockAt(ctx, "WindLock", l[1], l[2], 0.12, l[3], l[4], l[5], 0.4, 0.32, hair,
+				{ segments = 3, curl = math.rad(3), tip = if l[6] then tip else nil })
 		end
+		-- (the fringe blown to one side, the sideburns flat against the temples)
+		lockAt(ctx, "Fringe", -0.2, 0.52, -0.5, 180 + 10, 52, 0.75, 0.3, 0.14, hair, { segments = 2, curl = math.rad(6) })
+		lockAt(ctx, "Fringe", 0.1, 0.52, -0.5, 180 + 10, 40, 0.6, 0.26, 0.14, tip, { segments = 2 })
 		for _, sign in { -1, 1 } do
-			o("Head", "SideSweep", Vector3.new(0.12, 0.45, 0.8), CFrame.new(sign * 0.58, 0.18, 0.15) * CFrame.Angles(0, 0, sign * -0.1), hair)
+			o("Head", "SideSweep", Vector3.new(0.12, 0.42, 0.62), CFrame.new(sign * 0.58, 0.22, 0.12) * CFrame.Angles(math.rad(-12), 0, 0), hair)
 		end
-		o("Head", "Fringe", Vector3.new(0.9, 0.22, 0.14), CFrame.new(0.05, 0.42, -0.54) * CFrame.Angles(0, 0, -0.12), hair)
 	end,
 	body = function(ctx)
 		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
@@ -266,17 +343,17 @@ BODIES.RYUKEN = {
 	head = function(ctx)
 		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
 		o("Head", "HairCap", Vector3.new(1.24, 0.4, 1.14), CFrame.new(0, 0.5, 0.04), hair)
-		local flames = {
-			{ x = -0.42, h = 1.3, tilt = -0.5, z = 0.1, lean = -20 }, { x = -0.22, h = 1.7, tilt = -0.25, z = 0, lean = -28 },
-			{ x = 0, h = 2.0, tilt = 0, z = 0.12, lean = -34 }, { x = 0.22, h = 1.75, tilt = 0.25, z = 0, lean = -28 },
-			{ x = 0.42, h = 1.35, tilt = 0.5, z = 0.1, lean = -20 }, { x = 0, h = 1.2, tilt = 0, z = 0.48, lean = -60 },
-		}
-		for i, f in flames do
-			o("Head", "HairFlame", Vector3.new(0.32, f.h, 0.9),
-				CFrame.new(f.x, 0.6 + f.h / 2.4, f.z) * CFrame.Angles(math.rad(f.lean), 0, f.tilt), if i % 2 == 0 then tip else hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.2, 0.62, 0.26), CFrame.new(0, 0.22, 0.46), hair)
+		-- Hair standing up like flames: tall points straight up, a little back, red at the tips.
+		for i, f in { { -0.42, 0.06, -28, 1.3, 12 }, { -0.22, -0.08, -12, 1.75, 6 }, { 0, 0.06, 0, 2.05, 14 },
+			{ 0.22, -0.08, 12, 1.8, 6 }, { 0.42, 0.06, 28, 1.35, 12 }, { -0.18, 0.32, -10, 1.5, 40 }, { 0.18, 0.32, 10, 1.45, 40 },
+			{ 0, 0.38, 0, 1.3, 60 } } do
+			spikeAt(ctx, "HairFlame", f[1], 0.5, f[2], f[5], f[3], f[4], 0.62, hair, if i % 2 == 1 then tip else nil)
 		end
-		for i, x in { -0.36, -0.1, 0.18, 0.4 } do
-			o("Head", "Fringe", Vector3.new(0.24, 0.42, 0.12), CFrame.new(x, 0.3, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 2.5) * 0.2), hair, "WedgePart")
+		-- (the base of the flames is one mass: no gaps between the points like fingers)
+		o("Head", "HairMass", Vector3.new(1.14, 0.55, 0.96), CFrame.new(0, 0.82, 0.08) * CFrame.Angles(math.rad(10), 0, 0), hair)
+		for i, x in { -0.36, -0.12, 0.14, 0.38 } do
+			spikeAt(ctx, "Fringe", x, 0.5, -0.5, 180 + 12, (i - 2.5) * 14, 0.55, 0.24, hair)
 		end
 		o("Head", "Scar", Vector3.new(0.5, 0.05, 0.04), CFrame.new(0, -0.02, -0.56) * CFrame.Angles(0, 0, 0.35), ctx.color("Wraps"))
 	end,
@@ -389,13 +466,19 @@ BODIES.HIBECARES = {
 	head = function(ctx)
 		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
 		o("Head", "HairCap", Vector3.new(1.3, 0.44, 1.2), CFrame.new(0, 0.5, 0.06), hair)
-		for i = 1, 7 do
-			local a = (i - 4) * 0.4
-			o("Head", "WildHair", Vector3.new(0.38, 0.8 + (i % 3) * 0.2, 0.7),
-				CFrame.new(math.sin(a) * 0.55, 0.62 + math.cos(a) * 0.2, 0.1) * CFrame.Angles(math.rad(-25), 0, a * 1.1), if i == 4 then tip else hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.26, 0.8, 0.3), CFrame.new(0, 0.12, 0.48), hair)
+		-- Wild hair: thick short points every which way above the headband, a shaggy mane
+		-- falling over the nape and the ears.
+		for i, w in { { -0.44, 0.0, -58, 0.85, 10 }, { -0.26, -0.1, -30, 1.0, -4 }, { -0.06, 0.08, -8, 1.15, 22 },
+			{ 0.16, -0.06, 16, 1.05, 4 }, { 0.36, 0.06, 40, 0.95, 18 }, { 0.48, 0.12, 66, 0.8, 30 }, { -0.2, 0.34, -24, 0.95, 70 },
+			{ 0.2, 0.34, 22, 0.95, 74 } } do
+			spikeAt(ctx, "WildHair", w[1], 0.48, w[2], w[5], w[3], w[4], 0.56, hair, if i == 4 then tip else nil)
+		end
+		for _, m in { { -0.5, -30 }, { -0.2, -10 }, { 0.14, 10 }, { 0.46, 30 } } do
+			spikeAt(ctx, "Shag", m[1], 0.24, 0.46, 180 - 28, m[2], 0.8, 0.4, hair)
 		end
 		for _, sign in { -1, 1 } do
-			o("Head", "Shag", Vector3.new(0.2, 0.7, 0.8), CFrame.new(sign * 0.62, -0.05, 0.12) * CFrame.Angles(0, 0, sign * 0.15), hair)
+			spikeAt(ctx, "Shag", sign * 0.6, 0.2, 0.0, 180, sign * -14, 0.6, 0.3, hair)
 		end
 		local band = ctx.color("Sash")
 		o("Head", "Headband", Vector3.new(1.18, 0.2, 1.1), CFrame.new(0, 0.26, 0), band)
@@ -441,9 +524,13 @@ BODIES.TARO = {
 local function spikes(ctx, list, tipEvery)
 	local o = ctx.ornament
 	o("Head", "HairCap", Vector3.new(1.24, 0.4, 1.14), CFrame.new(0, 0.5, 0.04), ctx.hair)
+	o("Head", "HairBack", Vector3.new(1.2, 0.7, 0.3), CFrame.new(0, 0.2, 0.45), ctx.hair)
 	for i, f in list do
-		o("Head", "HairSpike", Vector3.new(0.32, f[2], 0.9), CFrame.new(f[1], 0.6 + f[2] / 2.4, f[4] or 0.08)
-			* CFrame.Angles(math.rad(f[5] or -20), 0, f[3]), if tipEvery and i % tipEvery == 0 then ctx.hairTip else ctx.hair, "WedgePart")
+		-- (each a pointed spike from the scalp, fanned out a little more than the list says and
+		-- tipped back by its `lean`)
+		local lean = f[5] or -20
+		spike(ctx, "HairSpike", CFrame.new(f[1] * 0.92, 0.48, (f[4] or 0.08) * 0.8) * CFrame.Angles(math.rad(-lean), 0, f[3] * 1.25),
+			f[2] + 0.2, 0.46, ctx.hair, if tipEvery and i % tipEvery == 0 then ctx.hairTip else nil)
 	end
 end
 
@@ -547,9 +634,10 @@ BODIES.YUKINA = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.2, 0.36, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "Bangs", Vector3.new(1.0, 0.34, 0.14), CFrame.new(0, 0.32, -0.54) * CFrame.Angles(math.rad(180), 0, 0), hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.8, 0.24), CFrame.new(0, 0.14, 0.47), hair)
+		fringe(ctx, 5, 0.55, hair)
 		for _, sign in { -1, 1 } do
-			o("Head", "SideLock", Vector3.new(0.16, 1.2, 0.3), CFrame.new(sign * 0.58, -0.3, -0.2), hair)
+			lockAt(ctx, "SideLock", sign * 0.58, 0.3, -0.18, 180 + 4, sign * -6, 1.5, 0.2, 0.3, hair, { segments = 3, curl = math.rad(-3) })
 		end
 		ctx.tail("Head", "LongHair", Vector3.new(1.0, 2.4, 0.16), CFrame.new(0, -0.5, 0.6), hair)
 		local pin = o("Head", "HairPin", Vector3.new(0.3, 0.3, 0.1), CFrame.new(0.4, 0.5, -0.3) * CFrame.Angles(0, 0, 0.78), ctx.hairTip)
@@ -651,9 +739,12 @@ BODIES.ASTER = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.22, 0.4, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		for i, x in { -0.4, -0.13, 0.14, 0.4 } do
-			o("Head", "Fringe", Vector3.new(0.3, 0.6, 0.12), CFrame.new(x, 0.2, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 2.5) * 0.12),
-				if i == 2 then ctx.hairTip else hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.6, 0.24), CFrame.new(0, 0.22, 0.47), hair)
+		-- (untidy hair floating up a little: his gravity plays with it)
+		fringe(ctx, 4, 0.65, hair, ctx.hairTip, 6)
+		for _, c in { { -0.34, 0.1, -30, 0.85, 30 }, { -0.1, -0.04, -8, 1.0, 20 }, { 0.16, 0.06, 14, 0.95, 32 }, { 0.38, 0.0, 36, 0.8, 24 },
+			{ 0.0, 0.3, 0, 0.9, 64 } } do
+			spikeAt(ctx, "HairSpike", c[1], 0.5, c[2], c[5], c[3], c[4], 0.46, hair)
 		end
 		ctx.tail("Head", "BackHair", Vector3.new(0.9, 1.0, 0.14), CFrame.new(0, -0.2, 0.6), hair)
 	end,
@@ -687,9 +778,14 @@ BODIES.HIBIKI = {
 	end,
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
-		o("Head", "HairCap", Vector3.new(1.22, 0.4, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "Bob", Vector3.new(1.26, 0.7, 1.18), CFrame.new(0, 0.1, 0.1), hair)
-		o("Head", "Bangs", Vector3.new(1.0, 0.36, 0.14), CFrame.new(-0.05, 0.3, -0.55) * CFrame.Angles(math.rad(180), 0, -0.2), ctx.hairTip, "WedgePart")
+		o("Head", "HairCap", Vector3.new(1.24, 0.44, 1.16), CFrame.new(0, 0.5, 0.06), hair)
+		o("Head", "HairBack", Vector3.new(1.2, 0.72, 0.26), CFrame.new(0, 0.12, 0.48), hair)
+		-- A bob: a straight-cut fringe (pink tip), locks falling to the jaw all around.
+		fringe(ctx, 5, 0.5, hair, ctx.hairTip, -4)
+		for _, l in { { -0.6, -0.1, -4 }, { 0.6, -0.1, 4 }, { -0.36, 0.48, -14 }, { 0, 0.5, 0 }, { 0.36, 0.48, 14 } } do
+			lockAt(ctx, "Bob", l[1], 0.36, l[2], 180 - (if l[2] > 0 then 18 else 0), l[3], 0.95, 0.34, 0.34, hair,
+				{ segments = 2, curl = math.rad(if l[2] > 0 then 10 else -6), tip = ctx.hairTip })
+		end
 		for _, sign in { -1, 1 } do
 			local cup = ctx.shaped("Head", "EarCup", Vector3.new(0.3, 0.7, 0.7), CFrame.new(sign * 0.68, 0, 0.04) * CFrame.Angles(0, 0, 0),
 				ctx.color("Shirt"), Enum.PartType.Cylinder)
@@ -724,15 +820,20 @@ BODIES.KUROEN = {
 	head = function(ctx)
 		local o, hair, tip = ctx.ornament, ctx.hair, ctx.hairTip
 		o("Head", "HairCap", Vector3.new(1.3, 0.46, 1.2), CFrame.new(0, 0.5, 0.1), hair)
-		-- the mane swept back: big wedges, red streaks
-		for i, f in { { -0.42, 1.0, -0.3 }, { -0.14, 1.3, -0.1 }, { 0.14, 1.3, 0.1 }, { 0.42, 1.0, 0.3 }, { 0, 1.15, 0, 0.7 } } do
-			o("Head", "Mane", Vector3.new(0.4, f[2], 1.0), CFrame.new(f[1], 0.55 + f[2] * 0.25, (f[4] or 0.35))
-				* CFrame.Angles(math.rad(-62), 0, f[3]), if i % 2 == 0 then tip else hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.26, 0.9, 0.3), CFrame.new(0, 0.1, 0.5), hair)
+		-- A wild mane: swept-back points over the crown, heavy points falling down the back
+		-- and over the shoulders, one red streak.
+		for _, m in { { -0.4, 0.02, -24, 1.15, 52 }, { -0.16, -0.08, -8, 1.4, 44 }, { 0.12, -0.06, 8, 1.4, 46, true },
+			{ 0.38, 0.04, 24, 1.15, 54 }, { 0, 0.3, 0, 1.3, 78 } } do
+			spikeAt(ctx, "Mane", m[1], 0.5, m[2], m[5], m[3], m[4], 0.56, hair, if m[6] then tip else nil)
+		end
+		for _, m in { { -0.5, -34, 1.2 }, { -0.2, -12, 1.45 }, { 0.16, 12, 1.4 }, { 0.48, 32, 1.2 } } do
+			spikeAt(ctx, "BackMane", m[1], 0.3, 0.46, 180 - 30, m[2], m[3], 0.5, hair)
 		end
 		for _, sign in { -1, 1 } do
-			o("Head", "SideMane", Vector3.new(0.26, 1.0, 0.9), CFrame.new(sign * 0.66, 0.05, 0.36) * CFrame.Angles(0.3, 0, sign * 0.1), hair, "WedgePart")
+			spikeAt(ctx, "SideMane", sign * 0.62, 0.22, 0.2, 180 - 12, sign * -18, 1.0, 0.36, hair)
 		end
-		o("Head", "Streak", Vector3.new(0.18, 0.5, 0.9), CFrame.new(0.22, 0.75, 0.25) * CFrame.Angles(math.rad(-50), 0, 0), tip, "WedgePart")
+		fringe(ctx, 3, 0.5, hair)
 	end,
 	body = function(ctx)
 		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
@@ -809,7 +910,13 @@ BODIES.KUREN = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.22, 0.4, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "SweptBang", Vector3.new(0.7, 0.8, 0.14), CFrame.new(0.2, 0.1, -0.56) * CFrame.Angles(math.rad(180), 0, -0.3), hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.7, 0.24), CFrame.new(0, 0.16, 0.47), hair)
+		-- A long bang swept over one eye, layered locks behind.
+		lockAt(ctx, "SweptBang", -0.1, 0.52, -0.5, 180 + 6, -30, 1.0, 0.42, 0.16, hair, { segments = 3, curl = math.rad(4) })
+		lockAt(ctx, "SweptBang", 0.18, 0.52, -0.5, 180 + 8, -22, 0.85, 0.32, 0.14, ctx.hairTip, { segments = 2 })
+		for _, l in { { -0.4, -20 }, { 0, 0 }, { 0.4, 20 } } do
+			lockAt(ctx, "BackLock", l[1], 0.42, 0.42, 180 - 22, l[2], 1.0, 0.36, 0.28, hair, { segments = 2, curl = math.rad(8) })
+		end
 		ctx.tail("Head", "BackHair", Vector3.new(0.9, 1.1, 0.14), CFrame.new(0, -0.2, 0.6), ctx.hairTip)
 	end,
 	body = function(ctx)
@@ -840,7 +947,8 @@ BODIES.SYLVA = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.2, 0.38, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "Bangs", Vector3.new(0.9, 0.3, 0.14), CFrame.new(0, 0.34, -0.55) * CFrame.Angles(math.rad(180), 0, 0.1), hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.7, 0.24), CFrame.new(0, 0.16, 0.47), hair)
+		fringe(ctx, 4, 0.5, hair, nil, 8)
 		for i = 0, 3 do -- the braid, bead after bead
 			ctx.shaped("Head", "Braid", Vector3.new(0.34 - i * 0.04, 0.34 - i * 0.04, 0.34 - i * 0.04), CFrame.new(0.3, -0.3 - i * 0.3, 0.5), hair, Enum.PartType.Ball)
 		end
@@ -873,9 +981,14 @@ BODIES.ELIAN = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.22, 0.42, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		for i, x in { -0.35, -0.1, 0.15, 0.38 } do
-			o("Head", "Fringe", Vector3.new(0.28, 0.42, 0.12), CFrame.new(x, 0.28, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 2.5) * 0.15), hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.62, 0.24), CFrame.new(0, 0.2, 0.47), hair)
+		-- Neat hair combed back from the brow in soft layered locks, two locks on the forehead.
+		for _, l in { { -0.36, -0.36, -14, 0.95 }, { -0.12, -0.4, -4, 1.1 }, { 0.12, -0.4, 4, 1.1 }, { 0.36, -0.36, 14, 0.95 },
+			{ -0.22, -0.1, -10, 1.0 }, { 0.22, -0.1, 10, 1.0 } } do
+			lockAt(ctx, "SweptLock", l[1], 0.6, l[2], 72, l[3], l[4], 0.32, 0.26, hair, { segments = 3, curl = math.rad(10) })
 		end
+		lockAt(ctx, "Fringe", 0.18, 0.5, -0.52, 180 + 12, 18, 0.6, 0.18, 0.14, hair, { segments = 2 })
+		lockAt(ctx, "Fringe", -0.26, 0.5, -0.52, 180 + 12, -14, 0.5, 0.16, 0.14, hair, { segments = 2 })
 	end,
 	body = function(ctx)
 		local o, color = ctx.ornament, ctx.color
@@ -905,7 +1018,12 @@ BODIES.NOVA = {
 	head = function(ctx)
 		local o, hair = ctx.ornament, ctx.hair
 		o("Head", "HairCap", Vector3.new(1.22, 0.4, 1.14), CFrame.new(0, 0.5, 0.06), hair)
-		o("Head", "SideCut", Vector3.new(0.8, 0.4, 0.14), CFrame.new(-0.15, 0.32, -0.55) * CFrame.Angles(math.rad(180), 0, -0.3), hair, "WedgePart")
+		o("Head", "HairBack", Vector3.new(1.16, 0.5, 0.24), CFrame.new(0, 0.26, 0.47), hair)
+		-- Short spiky top over the goggles' strap, a side-swept lock.
+		for _, c in { { -0.3, 0.06, -26, 0.75, 30 }, { -0.08, -0.06, -8, 0.9, 22 }, { 0.14, 0.04, 12, 0.85, 34 }, { 0.36, 0.1, 30, 0.7, 40 } } do
+			spikeAt(ctx, "HairSpike", c[1], 0.52, c[2], c[5], c[3], c[4], 0.42, hair)
+		end
+		lockAt(ctx, "SideCut", -0.2, 0.52, -0.5, 180 + 8, -34, 0.7, 0.4, 0.14, hair, { segments = 2 })
 		local goggles = o("Head", "Goggles", Vector3.new(1.0, 0.24, 0.1), CFrame.new(0, 0.42, -0.55), ctx.color("Energy"))
 		goggles.Material, goggles.Transparency = Enum.Material.Glass, 0.1
 		o("Head", "GoggleStrap", Vector3.new(1.18, 0.12, 1.1), CFrame.new(0, 0.42, 0), ctx.ink)
@@ -1022,9 +1140,9 @@ function RigBuilder.build(slot, parent, data)
 		ornament("Head", "Brow", Vector3.new(0.38, 0.08, 0.05),
 			CFrame.new(sign * 0.24, 0.22, -0.53) * CFrame.Angles(0, 0, sign * 0.34), ink)
 		if not custom then -- (KAI's side locks; the other kits have their own hair)
-			ornament("Head", "SideLock", Vector3.new(0.16, 0.8, 0.55), CFrame.new(sign * 0.6, 0.02, -0.12), hair)
-			ornament("Head", "SideSpike", Vector3.new(0.18, 0.55, 0.5),
-				CFrame.new(sign * 0.62, -0.42, -0.1) * CFrame.Angles(math.rad(180), 0, sign * 0.25), hair, "WedgePart")
+			ornament("Head", "SideLock", Vector3.new(0.14, 0.56, 0.52), CFrame.new(sign * 0.6, 0.18, -0.1), hair)
+			lockAt({ ornament = ornament }, "SideSpike", sign * 0.6, 0.0, -0.14, 180, sign * -10, 0.62, 0.14, 0.36, hair,
+				{ segments = 2, curl = math.rad(6) })
 		end
 	end
 	ornament("Head", "Nose", Vector3.new(0.12, 0.14, 0.12), CFrame.new(0, -0.1, -0.54) * CFrame.Angles(math.rad(180), 0, 0), skin, "WedgePart")
@@ -1042,28 +1160,24 @@ function RigBuilder.build(slot, parent, data)
 	if custom then
 		custom.head(ctx)
 	else
-	-- Messy spiky black hair with red highlights: cap, fringe, crown and back spikes.
-	ornament("Head", "HairCap", Vector3.new(1.24, 0.42, 1.14), CFrame.new(0, 0.48, 0.04), hair)
-	for i, x in { -0.42, -0.2, 0.02, 0.24, 0.44 } do
-		ornament("Head", "Fringe", Vector3.new(0.26, 0.5 + (i % 2) * 0.15, 0.12),
-			CFrame.new(x, 0.26 - (i % 2) * 0.06, -0.56) * CFrame.Angles(math.rad(180), 0, (i - 3) * 0.22),
-			if i == 2 then hairTip else hair, "WedgePart")
+	-- Messy spiky black hair with red highlights: a cap that hugs the skull, a fringe of short
+	-- locks over the brow, a crown of tall tapered spikes, locks falling at the nape.
+	ornament("Head", "HairCap", Vector3.new(1.22, 0.4, 1.14), CFrame.new(0, 0.5, 0.04), hair)
+	ornament("Head", "HairBack", Vector3.new(1.18, 0.78, 0.26), CFrame.new(0, 0.18, 0.46), hair)
+	for i, x in { -0.4, -0.18, 0.04, 0.26, 0.44 } do
+		spikeAt(ctx, "Fringe", x, 0.5, -0.5, 180 + 14, (i - 3) * 12, 0.55 + (i % 2) * 0.18, 0.26, hair, if i == 2 then hairTip else nil)
 	end
+	-- (x, z, outward lean, length, back tilt, red tip): a fan, the tallest in the middle-back
 	local crown = {
-		{ x = -0.48, h = 0.8, tilt = -0.55, z = 0.1, tip = false },
-		{ x = -0.3, h = 1.15, tilt = -0.3, z = 0.0, tip = true },
-		{ x = -0.08, h = 1.4, tilt = -0.08, z = 0.18, tip = false },
-		{ x = 0.12, h = 1.55, tilt = 0.05, z = -0.05, tip = false },
-		{ x = 0.32, h = 1.2, tilt = 0.28, z = 0.1, tip = true },
-		{ x = 0.5, h = 0.85, tilt = 0.55, z = 0.05, tip = false },
+		{ -0.44, 0.04, -44, 1.0, 22 }, { -0.28, -0.12, -24, 1.3, 14, true }, { -0.1, 0.06, -8, 1.55, 30 },
+		{ 0.12, -0.08, 8, 1.6, 20 }, { 0.3, 0.06, 26, 1.3, 30, true }, { 0.44, 0.0, 44, 1.0, 20 },
+		{ 0.0, 0.32, 0, 1.4, 62 }, { -0.3, 0.3, -22, 1.15, 66 }, { 0.3, 0.3, 22, 1.15, 66, true },
 	}
-	for _, sp in crown do
-		ornament("Head", "HairSpike", Vector3.new(0.3, sp.h, 1.15),
-			CFrame.new(sp.x, 0.62 + sp.h / 2, sp.z + 0.12) * CFrame.Angles(0, 0, sp.tilt), if sp.tip then hairTip else hair, "WedgePart")
+	for _, c in crown do
+		spikeAt(ctx, "HairSpike", c[1], 0.5, c[2], c[5], c[3], c[4], 0.5, hair, if c[6] then hairTip else nil)
 	end
-	for i, sign in { -1, 0, 1 } do
-		ornament("Head", "BackSpike", Vector3.new(0.34, 1 - math.abs(sign) * 0.15, 0.85),
-			CFrame.new(sign * 0.32, 0.12 - i * 0.03, 0.72) * CFrame.Angles(math.rad(-118), 0, sign * 0.35), hair, "WedgePart")
+	for _, b in { { -0.34, -26 }, { 0, 0 }, { 0.34, 26 } } do
+		spikeAt(ctx, "BackSpike", b[1], 0.3, 0.42, 180 - 40, b[2], 0.95, 0.42, hair)
 	end
 	end
 

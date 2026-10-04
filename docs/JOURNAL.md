@@ -105,6 +105,13 @@ Audit du roster (19 kits + KUROEN) :
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
+**Cheveux remodelés** (`RigBuilder.luau`) :
+- nouveaux outils : `spike` (pointe en blocs qui s'affinent sur les 4 côtés, puis une pointe en double biseau, pointue sous tous les angles), `lock` (mèche courbée et effilée, en segments), `fringe` (frange) ;
+- KAI, RYUKEN (flammes à pointes rouges, base pleine), ZEPHYR (mèches couchées par le vent), HIBECARES (sauvage sous le bandeau), ASTER, ELIAN (coiffé en arrière), HIBIKI (carré sous le casque), KUREN (mèche sur l'œil), KUROEN et KUROEN SHIN (crinière), NOVA, SYLVA, YUKINA, et tous les persos à `spikes()` (ASURA, RAIJIN, VENOM, KAZAN) ;
+- pièces par corps : KAI 115 → 176, les autres +15 à +60 (deux blocs par pointe au lieu de trois pour rester léger) ;
+- outils : `python3 tools/rigcheck.py heads heads.png` fait des gros plans des têtes (face, profil, dos). La planche dessine enfin les WedgePart en coins (avant : des cubes). Le nom « KUROEN SHIN » cassait le rendu, c'est corrigé ;
+- menu : le grand kanji en filigrane ne s'affiche plus que sur la sélection des persos (dans le lobby, il restait par-dessus le héros).
+
 **QUICK TRASH TALK, les provocations en combat** (`src/shared/Taunts.luau` pur et testé, `src/client/TauntController.luau`) :
 - 12 provocations prédéfinies (EZ 😂, BOZO 🤡, TOO SLOW 💀, CRY ABOUT IT 😭, SKILL ISSUE, BRO???, YOU GOOD? 💀, RUN IT BACK, NICE TRY, LOL, SIT DOWN, WHAT WAS THAT?!), plus 3 à débloquer pour montrer le système (battre ASURA, battre KUROEN SHIN, 25 victoires). Ajouter une provocation = une ligne dans `Taunts.LIST`. Aucun système payant ;
 - roue de 6 : touche V par défaut (au choix V / B / N / Y / X dans PARAMÈTRES), bouton 💬 sur mobile pendant les matchs. Elle se ferme au choix, sur la touche, sur Échap ou seule après 4 s. Elle n'avale aucune touche : bouger, garder et attaquer continuent, un clic hors de la roue reste une attaque, et la souris verrouillée est seulement libérée le temps de choisir ;

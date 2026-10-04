@@ -1081,6 +1081,8 @@ function MenuController:open(page)
 	end
 	self.page = page
 	for name, frame in self.pages do frame.Visible = name == page end
+	-- (the big ghost kanji only behind the fighter select: in the lobby it sat on the hero)
+	self.bigKanji.Visible = page == "select"
 	-- (the page settles in: a short zoom from slightly smaller)
 	local shown = self.pages[page]
 	if shown then

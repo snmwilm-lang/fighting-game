@@ -368,4 +368,38 @@ test("currencies: coins earned by playing (the winner more), crystals from achie
 	end
 end)
 
+test("saves: never an unloaded profile, one write per player every 7 s at most, batches, urgent on leave, board only on change", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local q = SaveQueue.new()
+	-- a profile that never loaded (DataStore down) is never written, even urgently
+	SaveQueue.mark(q, 1, 0)
+	expect(#SaveQueue.due(q, 100, false) == 0 and #SaveQueue.due(q, 100, true) == 0, "an unloaded profile would be written over")
+	SaveQueue.loaded(q, 1)
+	expect(SaveQueue.due(q, 100, false)[1] == 1, "a loaded dirty profile is not written")
+	SaveQueue.writing(q, 1, 100)
+	SaveQueue.mark(q, 1, 101)
+	expect(#SaveQueue.due(q, 103, false) == 0, "written twice within the gap (Roblox: 6 s per key)")
+	expect(SaveQueue.due(q, 100 + SaveQueue.MIN_GAP, false)[1] == 1, "not written after the gap")
+	expect(SaveQueue.due(q, 102, true)[1] == 1, "leaving does not write right away")
+	-- a failed write is retried
+	SaveQueue.writing(q, 1, 200)
+	SaveQueue.failed(q, 1, 200)
+	expect(SaveQueue.isDirty(q, 1), "a failed write is forgotten")
+	-- a full server: at most BATCH per flush, the oldest first
+	local big = SaveQueue.new()
+	for id = 1, 50 do
+		SaveQueue.loaded(big, id)
+		SaveQueue.mark(big, id, 1000 - id)
+	end
+	local batch = SaveQueue.due(big, 2000, false)
+	expect(#batch == SaveQueue.BATCH and batch[1] == 50, "a flush bursts past the budget or not the oldest first")
+	expect(#SaveQueue.due(big, 2000, true) == 50, "closing the server does not write everyone")
+	-- the leaderboard only when the rating changed
+	expect(SaveQueue.boardChanged(q, 1, 1000) and not SaveQueue.boardChanged(q, 1, 1000) and SaveQueue.boardChanged(q, 1, 1016),
+		"the leaderboard is written for nothing")
+	expect(SaveQueue.retryDelay(1) == 1 and SaveQueue.retryDelay(3) == 4, "load retries do not back off")
+	SaveQueue.forget(q, 1)
+	expect(not SaveQueue.isLoaded(q, 1), "a player who left is kept")
+end)
+
 T.finish()

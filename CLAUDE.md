@@ -27,7 +27,7 @@
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).
 - `src/server/Lobby.luau` (règles du hub), `src/server/Matchmaker.luau` (recherche, Elo) et
-  `src/shared/GameModes.luau` (modes du menu) restent purs aussi (tests : `Lobby.test.luau`). Après une retouche de
+  `src/shared/GameModes.luau` (modes du menu) et `src/server/SaveQueue.luau` (quand écrire les profils) restent purs aussi (tests : `Lobby.test.luau`). Après une retouche de
   `RigBuilder.luau` (corps, tenues), lancer `python3 tools/rigcheck.py check` (et
   `python3 tools/rigcheck.py render rigs.png` pour voir les persos).
 - La géométrie du rig KAI vit dans `RigSpec.luau` (utilisée par le RigBuilder et les tests) :

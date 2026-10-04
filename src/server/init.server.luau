@@ -29,6 +29,7 @@ local Maps = require(Shared.Maps)
 local RigBuilder = require(script.RigBuilder)
 local Lobby = require(script.Lobby)
 local Matchmaker = require(script.Matchmaker)
+local SaveQueue = require(script.SaveQueue)
 
 Players.CharacterAutoLoads = false
 -- (the stages are built by each client: Maps, client/ArenaBuilder)
@@ -75,24 +76,40 @@ local function defaultProfile()
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
+		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
 		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
 		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0, achShinGrade = 0 }
 end
+local saves = SaveQueue.new() -- when to write (SaveQueue: spacing, batches, never an unloaded profile)
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
 	if not store then return end
 	task.spawn(function()
-		local ok, data = pcall(store.GetAsync, store, "joueur_" .. player.UserId)
-		if ok and type(data) == "table" and clients[player] == client then
-			for k, v in defaultProfile() do
-				if type(data[k]) == type(v) then client.profile[k] = data[k] end
+		-- (a DataStore hiccup is retried; a profile that never loads is never written over)
+		for attempt = 1, SaveQueue.LOAD_TRIES do
+			local ok, data = pcall(store.GetAsync, store, "joueur_" .. player.UserId)
+			if clients[player] ~= client then return end
+			if ok then
+				if type(data) == "table" then
+					for k, v in defaultProfile() do
+						if type(data[k]) == type(v) then client.profile[k] = data[k] end
+					end
+					if not MoveData.Kits[client.profile.hero] then client.profile.hero = "KAI" end
+					if type(data.achSeason) ~= "number" then client.profile.achSeason = 0 end -- (saved before the seasons)
+					GameModes.achievementSeason(client.profile)
+				end
+				SaveQueue.loaded(saves, player.UserId)
+				SaveQueue.boardChanged(saves, player.UserId, math.floor(client.profile.rating)) -- (already on the board)
+				client.profileLoaded = true
+				if type(data) == "table" then client.onProfileLoaded() end
+				return
 			end
-			if not MoveData.Kits[client.profile.hero] then client.profile.hero = "KAI" end
-			if type(data.achSeason) ~= "number" then client.profile.achSeason = 0 end -- (saved before the seasons)
-			GameModes.achievementSeason(client.profile)
-			client.onProfileLoaded()
+			task.wait(SaveQueue.retryDelay(attempt))
 		end
 		client.profileLoaded = true
+		if clients[player] == client then
+			menuRemote:FireClient(player, { error = "SAVES UNAVAILABLE: this session will not be kept" })
+		end
 	end)
 end
 -- The ranking (CLASSEMENT): an ordered store of the ratings, read 10 at a time.
@@ -101,14 +118,39 @@ do
 	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Classement_v1")
 	if ok then board = result end
 end
-local function saveProfile(player, client)
-	if not store or not client.profile then return end
+-- One write of a profile (UpdateAsync, safe if another server touched it), then the board
+-- only when the rating changed. Yields: called in its own thread.
+local function writeProfile(player, client)
+	local id = player.UserId
 	local data = table.clone(client.profile)
-	task.spawn(function()
-		pcall(store.SetAsync, store, "joueur_" .. player.UserId, data)
-		if board then pcall(board.SetAsync, board, tostring(player.UserId), math.floor(data.rating)) end
-	end)
+	SaveQueue.writing(saves, id, os.clock())
+	local ok = pcall(store.UpdateAsync, store, "joueur_" .. id, function() return data end)
+	if not ok then
+		SaveQueue.failed(saves, id, os.clock())
+		return false
+	end
+	local rating = math.floor(data.rating)
+	if board and SaveQueue.boardChanged(saves, id, rating) then pcall(board.SetAsync, board, tostring(id), rating) end
+	return true
 end
+-- A change to keep: written by the next flush (urgent: now, when leaving or closing).
+local function saveProfile(player, client, urgent)
+	if not store or not client.profile then return end
+	SaveQueue.mark(saves, player.UserId, os.clock())
+	if urgent and SaveQueue.isLoaded(saves, player.UserId) then
+		task.spawn(writeProfile, player, client)
+	end
+end
+task.spawn(function()
+	while true do
+		task.wait(SaveQueue.FLUSH_PERIOD)
+		for _, id in SaveQueue.due(saves, os.clock(), false) do
+			local player = Players:GetPlayerByUserId(id)
+			local client = player and clients[player]
+			if client then task.spawn(writeProfile, player, client) end
+		end
+	end
+end)
 local boardCache, boardAt, nameCache = nil, -math.huge, {}
 local function topRatings()
 	if boardCache and os.clock() - boardAt < 60 then return boardCache end
@@ -463,6 +505,9 @@ function menuStatus(player)
 			return nil
 		end)(),
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest, coins = profile.coins or 0,
+		-- (only once the saved profile is in: the defaults must not be applied in its place)
+		options = if not store or SaveQueue.isLoaded(saves, player.UserId)
+			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic } else nil,
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -617,7 +662,15 @@ Players.PlayerRemoving:Connect(function(player)
 	if client then
 		Matchmaker.leave(matchmaker, player.UserId)
 		unseat(player)
-		saveProfile(player, client)
+		-- (the last write, right away; then the queue forgets the player)
+		if store and client.profile and SaveQueue.isLoaded(saves, player.UserId) and SaveQueue.isDirty(saves, player.UserId) then
+			task.spawn(function()
+				writeProfile(player, client)
+				SaveQueue.forget(saves, player.UserId)
+			end)
+		else
+			SaveQueue.forget(saves, player.UserId)
+		end
 		local holder = fightersFolder:FindFirstChild("Lobby_" .. player.UserId)
 		if holder then holder:Destroy() end
 	end
@@ -686,6 +739,15 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			client.profile.language = packet.language
 			saveProfile(player, client)
 			menuStatus(player)
+		end
+	elseif action == "options" then
+		-- SETTINGS › EFFECTS / SOUND / MUSIC, kept with the profile (booleans only).
+		local o = packet.options
+		if typeof(o) == "table" and client.profile then
+			for _, key in { "optReduced", "optSound", "optMusic" } do
+				if typeof(o[key]) == "boolean" then client.profile[key] = o[key] end
+			end
+			saveProfile(player, client)
 		end
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
@@ -1133,7 +1195,11 @@ local function stepMatch(match, dt)
 			eventsRemote:FireClient(player, batch)
 		end
 	end
-	if #batch > 0 or world.tick - match.lastSnapshot >= Config.TickRate / Config.SnapshotRate then
+	-- (a snapshot with the events, but never more than one every 2 ticks: 30 / s at most per
+	-- player, the events themselves leave right away above; a full server stays light)
+	local since = world.tick - match.lastSnapshot
+	if since < 0 then since = math.huge end -- (a new world restarts its ticks)
+	if (#batch > 0 and since >= 2) or since >= Config.TickRate / Config.SnapshotRate then
 		match.lastSnapshot = world.tick
 		for i, slot in match.slots do place(slot, world.fighters[i]) end
 		snapshot(match)
@@ -1146,3 +1212,21 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per server, opponent search, server-authoritative combat")
+
+-- The server closing (update, shutdown): every loaded profile is written before it goes
+-- (Roblox waits up to 30 s for this).
+game:BindToClose(function()
+	if not store then return end
+	local pending = 0
+	for player, client in clients do
+		if client.profile and SaveQueue.isLoaded(saves, player.UserId) and SaveQueue.isDirty(saves, player.UserId) then
+			pending += 1
+			task.spawn(function()
+				writeProfile(player, client)
+				pending -= 1
+			end)
+		end
+	end
+	local started = os.clock()
+	while pending > 0 and os.clock() - started < 25 do task.wait(0.2) end
+end)

@@ -221,6 +221,15 @@ function MenuController.new(remote, hub, settings)
 		TextColor3 = GOLD, Text = "", TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 30 })
 	corner(self.toast, 8)
 	stroke(self.toast, 3, GOLD)
+	-- PLAY AGAIN (after a solo match): the same request again, one click (or ENTER).
+	self.again = new("TextButton", { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 146),
+		Size = UDim2.fromOffset(260, 52), BackgroundColor3 = RED, Font = DISPLAY, TextSize = 32, Text = "▶ PLAY AGAIN",
+		TextColor3 = WHITE, AutoButtonColor = false, ZIndex = 30 }, root)
+	corner(self.again, 8)
+	gradient(self.again, Color3.fromHex("FF3A4C"), Color3.fromHex("8C0716"), 90)
+	stroke(self.again, 3, GOLD)
+	self.again.Activated:Connect(function() self:playAgain() end)
+	self.lastTeams = {} -- mode id -> the last team picked for it (the select remembers it)
 	self:open("home")
 
 	remote.OnClientEvent:Connect(function(packet)
@@ -235,6 +244,7 @@ function MenuController.new(remote, hub, settings)
 		else
 			self.status = packet
 			if packet.language and self.settings.onLanguage then self.settings.onLanguage(packet.language) end
+			if packet.options and self.settings.onOptions then self.settings.onOptions(packet.options) end
 			self:refreshProfile()
 			if packet.state == "queue" then
 				if self.page ~= "search" then self.searchStart = os.clock() end
@@ -793,10 +803,16 @@ function MenuController:choose(entry, teamSize)
 	if not mode or mode.locked then return end
 	self.mode = mode
 	self.teamSize = if mode.team then math.clamp(teamSize or self.teamSize, 1, GameModes.MAX_TEAM) else 1
-	-- The favourite fighter is preselected.
+	-- The last team picked for this mode, else the favourite fighter, is preselected.
 	local favourite = self.status.hero or "KAI"
-	self.team = { favourite }
-	self.kitIndex = table.find(MoveData.KitOrder, favourite) or 1
+	local last = self.lastTeams[mode.id]
+	if last and mode.team and not teamSize then self.teamSize = math.clamp(#last, 1, GameModes.MAX_TEAM) end
+	if last and #last <= self.teamSize then
+		self.team = table.clone(last)
+	else
+		self.team = { favourite }
+	end
+	self.kitIndex = table.find(MoveData.KitOrder, self.team[1]) or table.find(MoveData.KitOrder, favourite) or 1
 	if not mode.queue then self.queue = "NORMAL" end
 	self:open("select")
 end
@@ -814,10 +830,19 @@ function MenuController:start()
 		if self.hub then self.hub:setVisible(true) end
 		return
 	end
-	self.remote:FireServer({ action = "start", request = {
+	local request = {
 		mode = mode.id, team = team, level = if mode.level then self.level else nil, queue = if mode.queue then self.queue else nil,
 		map = if mode.queue then nil else (self.stage or "RANDOM"),
-	} })
+	}
+	self.lastTeams[mode.id] = table.clone(team)
+	self.lastRequest = if mode.queue then nil else request -- (online: a new search, not a replay)
+	self.remote:FireServer({ action = "start", request = request })
+end
+
+function MenuController:playAgain()
+	self.again.Visible = false
+	if not self.lastRequest or self.inMatch then return end
+	self.remote:FireServer({ action = "start", request = table.clone(self.lastRequest) })
 end
 
 -- ===================================================================== search
@@ -1104,6 +1129,10 @@ function MenuController:onKey(key)
 		self:back()
 		return
 	end
+	if self.again.Visible and (key == K.Return or key == K.ButtonA) then
+		self:playAgain()
+		return
+	end
 	if self.page ~= "select" then return end
 	local n = #MoveData.KitOrder
 	if key == K.Left or key == K.Q or key == K.A or key == K.DPadLeft then
@@ -1201,6 +1230,10 @@ end
 
 local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
+	if self.lastRequest and not packet.queue then
+		self.again.Visible = true
+		self.againUntil = os.clock() + 20
+	end
 	if packet.coins and packet.coins > 0 then
 		task.delay(0.4, function() self:reward("coins", packet.coins) end)
 	end
@@ -1251,6 +1284,7 @@ end
 
 function MenuController:frame(dt)
 	if self.toast.Visible and os.clock() > (self.toastUntil or 0) then self.toast.Visible = false end
+	if self.again.Visible and (os.clock() > (self.againUntil or 0) or self.page ~= "home") then self.again.Visible = false end
 	if self.inMatch then return end
 	if self.page == "select" then self:animatePreviews(dt or 1 / 60) end
 	if self.page == "search" then

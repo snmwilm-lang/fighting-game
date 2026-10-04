@@ -51,15 +51,22 @@ local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER
 local language = LanguageController.new() -- SETTINGS › LANGUAGE (Auto / English / Français)
 local menuRemote = remotes:WaitForChild("Menu")
 -- PARAMÈTRES of the main menu: the same switches as the HUD's.
+-- SETTINGS kept with the profile (server: action "options").
+local optionsApplied = false
+local function saveOptions()
+	optionsApplied = true -- (a choice made now wins over the profile arriving late)
+	menuRemote:FireServer({ action = "options", options = { optReduced = effects.reduced, optSound = sounds.enabled, optMusic = music.enabled } })
+end
 local settings = {
 	effects = function()
 		effects.reduced = not effects.reduced
 		hud:setEffectsReduced(effects.reduced)
+		saveOptions()
 	end,
 	effectsState = function() return if effects.reduced then "REDUCED" else "FULL" end,
-	sound = function() sounds:setEnabled(not sounds.enabled) end,
+	sound = function() sounds:setEnabled(not sounds.enabled); saveOptions() end,
 	soundState = function() return if sounds.enabled then "ON" else "OFF" end,
-	music = function() music:setEnabled(not music.enabled) end,
+	music = function() music:setEnabled(not music.enabled); saveOptions() end,
 	musicState = function() return if music.enabled then "ON" else "OFF" end,
 	mouse = function() input.toggleMouseLock() end,
 	mouseState = function() return if input.isMouseLocked() then "ON (in a fight)" else "OFF" end,
@@ -71,6 +78,17 @@ local settings = {
 	end,
 	languageState = function() return language:name() end,
 	onLanguage = function(lang) language:set(lang) end,
+	-- (the saved options, applied once when the profile arrives)
+	onOptions = function(o)
+		if optionsApplied or typeof(o) ~= "table" then return end
+		optionsApplied = true
+		if typeof(o.optReduced) == "boolean" and o.optReduced ~= effects.reduced then
+			effects.reduced = o.optReduced
+			hud:setEffectsReduced(effects.reduced)
+		end
+		if typeof(o.optSound) == "boolean" and o.optSound ~= sounds.enabled then sounds:setEnabled(o.optSound) end
+		if typeof(o.optMusic) == "boolean" and o.optMusic ~= music.enabled then music:setEnabled(o.optMusic) end
+	end,
 }
 local menu = MenuController.new(menuRemote, hub, settings) -- main menu (lobby)
 sounds:watchButtons(menu.gui)

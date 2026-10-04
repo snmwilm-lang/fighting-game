@@ -80,6 +80,20 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
 - Icônes de monnaie : Wilhem a uploadé les 4 PNG ; leurs ID sont dans `CurrencyIcons.IMAGES`, donc les vraies images remplacent les icônes dessinées.
 - Pastilles de récompense traduites en français (« WIN +40 » → « VICTOIRE +40 », « +10 / OPPONENT » → « +10 / ADVERSAIRE », « POINTS ELO »), avec un test.
 - **Correctif** : à la sélection, un commentaire avalait `BackgroundTransparency` et `Ambient` du ViewportFrame des aperçus.
+- **Grande échelle (des dizaines de milliers de joueurs sur beaucoup de serveurs)** :
+  - sauvegardes par `SaveQueue` (module pur, testé) :
+    - un profil jamais chargé (DataStore en panne) n'est jamais écrit : avant, il écrasait la vraie sauvegarde par un profil vide ;
+    - chargement réessayé 4 fois avec attente croissante ;
+    - `UpdateAsync` au lieu de `SetAsync` ;
+    - une écriture au plus toutes les 7 s par joueur (limite Roblox : 6 s par clé), au plus 8 écritures toutes les 15 s, les plus anciennes d'abord ;
+    - écriture immédiate au départ et à la fermeture du serveur (`BindToClose`, rien n'était sauvé avant) ;
+    - classement réécrit seulement quand la note change ;
+  - snapshots plafonnés à 30 par seconde par joueur (avant, jusqu'à 60 quand il y avait des événements) ;
+  - mesuré : un match coûte environ 11 µs par tick (simulation + IA), donc 50 matchs prennent environ 3 % du CPU d'un serveur.
+- **Confort** :
+  - REJOUER (ou ENTRÉE) après un match solo : même équipe, même niveau, même arène ;
+  - la sélection retient la dernière équipe de chaque mode ;
+  - les réglages EFFETS / SON / MUSIQUE sont gardés dans le profil.
 - Version 0.17.0.
 
 Audit du roster (19 kits + KUROEN) :
@@ -90,6 +104,8 @@ Audit du roster (19 kits + KUROEN) :
 - cinématiques : la prise du FATAL de KUROEN et la RUSH / la PORTE de KUROEN SHIN cachaient une main ; c'est réorienté (`turn`).
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
+
+Prochaine étape grande échelle : matchmaking entre serveurs (MemoryStoreService + TeleportService) pour le CLASSÉ, et verrou de session sur les profils.
 
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
 nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité

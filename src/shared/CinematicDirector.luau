@@ -3833,7 +3833,7 @@ GEN.add("RAIJIN", {
 -- YUKINA 雪: she waltzes round the target, fans of ice (R), shards from afar (ÉVEIL), the ice
 -- prison drags it in (PORTE), absolute zero from afar (FATAL).
 GEN.add("YUKINA", {
-	id = "yukina", grade = "frost", kanji = "雪", pose = "WindGather", rest = "StandTall", seed = 1, step = 5,
+	id = "yukina", grade = "frost", kanji = "雪", pose = "WindGather", rest = "StandTall", seed = 1, step = 11,
 	rush = "orbit", awaken = "zone", gate = "pull", fatal = "zone",
 	blows = { "SpinKick", "Kick", "Cross", "AirKick", "Elbow", "Sweep" },
 	fx = { line = "iceShard", burst = "frostBloom", ground = "iceGarden" },

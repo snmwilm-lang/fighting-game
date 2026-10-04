@@ -346,36 +346,71 @@ function MenuController:buildSubCards(title, entries)
 end
 
 -- ===================================================================== select
+--[[
+	Fighter select in the Street Fighter IV way (Wilhem's reference): the player's fighter large
+	on the left (its kanji as the portrait, its name in big brush letters, its badge), the
+	opponent on the right, and the column of portraits in the middle (4 wide), the VS emblem
+	above it; the options (team, level or queue) and COMBAT ! along the bottom.
+]]
+local SELECT_COLUMNS = 4
+
+-- One side of the screen: a huge ghost kanji (the "portrait"), the name, a badge and a line.
+function MenuController:selectSide(page, left)
+	local side = new("Frame", { Position = if left then UDim2.fromOffset(0, 0) else UDim2.new(0.66, 0, 0, 0),
+		Size = UDim2.new(0.34, 0, 1, -150), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6 }, page)
+	local portrait = label(side, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(if left then 0.42 else 0.58, 0.42),
+		Size = UDim2.fromScale(1.1, 0.95), Font = UI_FONT, TextScaled = true, Text = "", TextColor3 = WHITE,
+		TextTransparency = 0.15, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+	stroke(portrait, 6, INK)
+	local name = label(side, { AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = UDim2.new(if left then 0 else 1, if left then 28 else -28, 0.6, 0),
+		Size = UDim2.new(0.9, 0, 0, 110), Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = WHITE, Rotation = if left then -6 else 6,
+		TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, ZIndex = 8 })
+	stroke(name, 4, RED)
+	local badge = new("Frame", { AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = UDim2.new(if left then 0 else 1, if left then 40 else -40, 0.6, 118),
+		Size = UDim2.fromOffset(96, 64), BackgroundColor3 = RED, BorderSizePixel = 0, ZIndex = 8 }, side)
+	stroke(badge, 3, WHITE)
+	local badgeKanji = label(badge, { Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextScaled = true, Text = "", TextColor3 = WHITE,
+		TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 9 })
+	local role = label(side, { AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = UDim2.new(if left then 0 else 1, if left then 150 else -150, 0.6, 118),
+		Size = UDim2.new(0.62, 0, 0, 64), Font = UI_FONT, TextSize = 16, TextWrapped = true, Text = "", TextColor3 = GOLD,
+		TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, ZIndex = 8 })
+	return { portrait = portrait, name = name, badge = badge, badgeKanji = badgeKanji, role = role }
+end
+
 function MenuController:buildSelect()
-	local page = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84), Size = UDim2.new(1, -80, 1, -120),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0, ZIndex = 5 }, self.root)
-	corner(page, 10)
-	stroke(page, 2, RED)
-	self.selectTitle = label(page, { Position = UDim2.fromOffset(24, 10), Size = UDim2.new(1, -48, 0, 50), Font = DISPLAY, TextSize = 46,
-		Text = "", TextColor3 = WHITE, ZIndex = 6 })
-	-- (20 fighters: 5 columns, 4 rows)
-	local columns = 5
-	local rows = math.ceil(#MoveData.KitOrder / columns)
-	local grid = new("Frame", { Position = UDim2.fromOffset(24, 70), Size = UDim2.new(0.55, -24, 0, 380), BackgroundTransparency = 1, ZIndex = 6 }, page)
-	new("UIGridLayout", { CellSize = UDim2.new(1 / columns, -8, 1 / rows, -8), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local page = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64), Size = UDim2.new(1, 0, 1, -64),
+		BackgroundColor3 = DARKRED, BorderSizePixel = 0, ZIndex = 5 }, self.root)
+	gradient(page, Color3.fromHex("6A0A16"), INK, 0)
+	self.selectTitle = label(page, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(560, 40),
+		Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+	stroke(self.selectTitle, 2, INK)
+	self.p1 = self:selectSide(page, true)
+	self.p2 = self:selectSide(page, false)
+	-- The column of portraits, the VS emblem above it.
+	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(440, 630),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 6 }, page)
+	stroke(column, 2, Color3.fromHex("3A0A10"))
+	local vs = label(column, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(160, 64), Font = DISPLAY,
+		TextScaled = true, Text = "VS", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8 })
+	stroke(vs, 3, RED)
+	local grid = new("Frame", { Position = UDim2.fromOffset(10, 74), Size = UDim2.new(1, -20, 1, -84), BackgroundTransparency = 1, ZIndex = 6 }, column)
+	local rows = math.ceil(#MoveData.KitOrder / SELECT_COLUMNS)
+	new("UIGridLayout", { CellSize = UDim2.new(1 / SELECT_COLUMNS, -6, 1 / rows, -6), CellPadding = UDim2.fromOffset(6, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	self.kitCells = {}
 	for i, name in MoveData.KitOrder do
 		local kit = MoveData.Kits[name]
 		local color = kitColor(name)
-		local cell = new("TextButton", { LayoutOrder = i, BackgroundColor3 = PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 6 }, grid)
-		corner(cell, 6)
-		local edge = stroke(cell, 2, color)
-		gradient(cell, Color3.fromHex("1C1C24"), color:Lerp(INK, 0.55), 90)
-		label(cell, { Position = UDim2.fromScale(0, 0.04), Size = UDim2.fromScale(1, 0.56), Font = Enum.Font.GothamBlack, TextScaled = true,
-			Text = kit.Kanji, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
-		label(cell, { Position = UDim2.fromScale(0, 0.6), Size = UDim2.fromScale(1, 0.22), Font = DISPLAY, TextScaled = true, Text = name,
-			TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
-		label(cell, { Position = UDim2.fromScale(0, 0.82), Size = UDim2.fromScale(1, 0.14), Font = UI_FONT, TextScaled = true,
-			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
-			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
-		local pick = new("TextLabel", { BackgroundColor3 = RED, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4),
-			Size = UDim2.fromOffset(26, 26), Font = DISPLAY, TextSize = 20, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 8 }, cell)
-		corner(pick, 13)
+		local cell = new("TextButton", { LayoutOrder = i, BackgroundColor3 = PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 7 }, grid)
+		local edge = stroke(cell, 2, Color3.fromHex("5A3A20"))
+		gradient(cell, color:Lerp(INK, 0.35), INK, 90)
+		label(cell, { Position = UDim2.fromScale(0, 0.02), Size = UDim2.fromScale(1, 0.7), Font = UI_FONT, TextScaled = true,
+			Text = kit.Kanji, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8 })
+		label(cell, { Position = UDim2.fromScale(0.04, 0.72), Size = UDim2.fromScale(0.92, 0.24), Font = DISPLAY, TextScaled = true, Text = name,
+			TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8 })
+		local pick = new("TextLabel", { BackgroundColor3 = RED, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 2),
+			Size = UDim2.fromOffset(22, 22), Font = DISPLAY, TextSize = 18, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 9 }, cell)
+		corner(pick, 11)
 		cell.MouseEnter:Connect(function() self.kitIndex = i; self:refreshSelect() end)
 		cell.Activated:Connect(function()
 			self.kitIndex = i
@@ -383,25 +418,22 @@ function MenuController:buildSelect()
 		end)
 		self.kitCells[i] = { cell = cell, edge = edge, pick = pick, color = color }
 	end
-	-- Fighter details.
-	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 70), Size = UDim2.new(0.42, 0, 0, 380),
-		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 6 }, page)
-	corner(info, 8)
-	self.kitInfoStroke = stroke(info, 2, RED)
-	self.kitName = label(info, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 50), Font = DISPLAY, TextScaled = true,
-		Text = "", TextColor3 = WHITE, ZIndex = 7 })
-	self.kitRole = label(info, { Position = UDim2.fromOffset(16, 60), Size = UDim2.new(1, -32, 0, 22), Font = UI_FONT, TextSize = 16,
-		Text = "", TextColor3 = GOLD, ZIndex = 7 })
-	self.kitText = label(info, { Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100), Font = BODY_FONT, TextSize = 15,
-		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 7 })
-	-- Options and buttons.
-	local options = new("Frame", { Position = UDim2.fromOffset(24, 464), Size = UDim2.new(1, -48, 0, 130), BackgroundTransparency = 1, ZIndex = 6 }, page)
-	self.teamLine = self:optionLine(options, 0, "ÉQUIPE", function(step)
+	-- (the details of the fighter under the cursor, on its side)
+	self.kitName, self.kitRole = self.p1.name, self.p1.role
+	self.kitText = label(page, { Position = UDim2.fromOffset(28, 52), Size = UDim2.new(0.3, -28, 0, 150), Font = BODY_FONT, TextSize = 14,
+		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8 })
+	stroke(self.kitText, 1.5, INK)
+	self.kitInfoStroke = stroke(column, 3, RED)
+	-- Options and buttons along the bottom.
+	local options = new("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -56, 0, 130),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 6 }, page)
+	corner(options, 8)
+	self.teamLine = self:optionLine(options, 6, "ÉQUIPE", function(step)
 		if not self.mode.team then return end
 		self.teamSize = math.clamp(self.teamSize + step, 1, GameModes.MAX_TEAM)
 		while #self.team > self.teamSize do table.remove(self.team) end
 	end)
-	self.secondLine = self:optionLine(options, 44, "NIVEAU", function(step)
+	self.secondLine = self:optionLine(options, 48, "NIVEAU", function(step)
 		if self.mode.level then
 			self.level = math.clamp(self.level + step, 1, #LEVEL_NAMES)
 		elseif self.mode.queue then
@@ -410,14 +442,14 @@ function MenuController:buildSelect()
 			self.queue = order[(index - 1 + step) % #order + 1]
 		end
 	end)
-	self.teamSlots = label(options, { Position = UDim2.fromOffset(0, 92), Size = UDim2.new(0.6, 0, 0, 30), Font = DISPLAY, TextSize = 26,
+	self.teamSlots = label(options, { Position = UDim2.fromOffset(10, 92), Size = UDim2.new(0.6, 0, 0, 30), Font = DISPLAY, TextSize = 26,
 		Text = "", TextColor3 = WHITE, ZIndex = 7 })
-	self.goButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(250, 56),
-		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 36, Text = "COMBAT !", TextColor3 = WHITE, ZIndex = 7 }, options)
+	self.goButton = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(250, 64),
+		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 40, Text = "COMBAT !", TextColor3 = WHITE, ZIndex = 7 }, options)
 	corner(self.goButton, 8)
 	stroke(self.goButton, 3, GOLD)
 	self.goButton.Activated:Connect(function() self:start() end)
-	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -262, 0, 78), Size = UDim2.fromOffset(130, 42),
+	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -280, 0.5, 0), Size = UDim2.fromOffset(130, 44),
 		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 16, Text = "◀ RETOUR", TextColor3 = WHITE, ZIndex = 7 }, options)
 	corner(back, 8)
 	stroke(back, 2, GREY)
@@ -458,9 +490,21 @@ function MenuController:refreshSelect()
 		entry.pick.Visible = order ~= nil
 		entry.pick.Text = if order then tostring(order) else ""
 	end
-	self.kitName.Text = name .. " " .. kit.Kanji
+	local color = kitColor(name)
+	self.kitName.Text = name
+	self.p1.portrait.Text, self.p1.portrait.TextColor3 = kit.Kanji, color
+	self.p1.badge.BackgroundColor3, self.p1.badgeKanji.Text = color:Lerp(RED, 0.4), kit.Kanji
 	local level = kit.Difficulty or 2
 	self.kitRole.Text = kit.Role .. "  ·  " .. string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. ({ "SIMPLE", "MOYEN", "TECHNIQUE" })[level]
+	-- The other side: the opponent (unknown until the match: the CPU draws its team, the
+	-- search finds a player).
+	local foe = if mode.id == "CHALLENGE" then "ASURA" elseif mode.queue then "ADVERSAIRE" else "CPU"
+	self.p2.name.Text = foe
+	self.p2.portrait.Text = if foe == "ASURA" then "阿" else "？"
+	self.p2.portrait.TextColor3 = if foe == "ASURA" then GOLD else GREY
+	self.p2.badgeKanji.Text = if foe == "ASURA" then "阿" elseif mode.queue then "対" else "戦"
+	self.p2.badge.BackgroundColor3 = if foe == "ASURA" then Color3.fromHex("8A6A10") else Color3.fromHex("3A3A44")
+	self.p2.role.Text = if mode.level then "NIVEAU " .. LEVEL_NAMES[self.level] elseif mode.queue then QUEUES[self.queue] else ""
 	-- (the S + E of the sheet and the ultimates, so a new fighter can be read before it is picked)
 	local crouch = kit.Starters.Crouch.Special and MoveData.Moves[kit.Starters.Crouch.Special]
 	local u = kit.Ultimates
@@ -468,7 +512,7 @@ function MenuController:refreshSelect()
 		.. (if crouch then "\nS + E : " .. crouch.name else "")
 		.. "\nR : " .. MoveData.Moves[u.Rush].name .. " · ÉVEIL : " .. MoveData.Moves[u.Awaken].name
 		.. "\nPORTE : " .. MoveData.Moves[u.Gate].name .. (if u.Fatal then " · FATAL : " .. MoveData.Moves[u.Fatal].name else "")
-	self.kitInfoStroke.Color = kitColor(name)
+	self.kitInfoStroke.Color = color
 	self.bigKanji.Text = kit.Kanji
 	self.teamLine.frame.Visible = mode.team == true
 	self.teamLine.value.Text = self.teamSize .. (if self.teamSize > 1 then " PERSOS (RELAIS)" else " PERSO")

@@ -59,12 +59,16 @@ les modèles 3D de tout le monde » ; la capture du lobby (titre de K.O. resté 
   cinématique est fermée au changement de combat) ; la liste des joueurs de Roblox (en haut
   à droite) est masquée (notre liste : H) ; grille de sélection 5 × 4 ; MES PERSONNAGES
   défile ; NOUVEAUTÉS annonce les 12.
+- **Écran de sélection façon Street Fighter IV** (référence de Wilhem) : ton perso en grand à
+  gauche (son kanji en portrait, son nom en grosses lettres, son badge), l'adversaire à droite
+  (CPU, ADVERSAIRE ou ASURA), la colonne de portraits au milieu (4 × 5) sous l'emblème VS, les
+  options et COMBAT ! en bas. Pas d'image : aucun ID d'asset.
 - **Serveurs** : README, comment monter le nombre max. de joueurs (jusqu'à 100 par place).
 - Version 0.15.0.
 
 Tests : CombatSimulation 109 (13 nouveaux : un par passif, le miroir, les manches), FighterAI
 12, CinematicDirector 830 (les 20 persos + ASURA), Animation 35, Kits (voir plus bas),
-PressQueue 4, Fuzz 2, Cinematography 295 sur 296 (un plan de la rafale de YUKINA cache un poing derrière l'autre, à corriger), Lobby 11 ; Kits pas encore relancé sur les 20 persos ; `rigcheck` : tous les corps se
+PressQueue 4, Fuzz 2, Cinematography (plan de la rafale de YUKINA corrigé, suite relancée), Lobby 11 ; Kits pas encore relancé sur les 20 persos ; `rigcheck` : tous les corps se
 construisent (planche `rigcheck render` vérifiée). **Rien essayé dans Studio.**
 
 Équilibrage (CPU contre CPU, `luau tests/Balance.luau`, moyennes contre tout le plateau) :

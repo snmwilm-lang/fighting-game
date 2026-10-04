@@ -105,6 +105,14 @@ Audit du roster (19 kits + KUROEN) :
 
 Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits 129, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : KAI 53, TARO 61, ZEPHYR 42, AKEMI 42, RYUKEN 57, SHIN 39, DAICHA 47, HIBECARES 53, RAIJIN 45, YUKINA 49, VENOM 62, GORAN 53, ASTER 47, HIBIKI 57, KAZAN 47, KUREN 47, SYLVA 47, ELIAN 45, NOVA 48, KUROEN 59 (tous entre 35 et 65 %).
 
+**Anti-triche** (`src/server/AntiCheat.luau`, pur, testé dans Lobby). Le serveur jugeait déjà seul les coups, la vie et les K.O., mesurait lui-même le ping et bornait la compensation de latence ; les joueurs n'ont pas de personnage physique. En plus :
+- score de suspicion : un paquet que le vrai client n'envoie jamais (types ou valeurs impossibles, action inconnue, numéro de séquence qui recule, flood grossier de plus de 120 paquets rejetés en une seconde) ajoute des points, qui s'effacent avec le temps. À 100 points : expulsion, avec une ligne dans la console serveur. Un vrai joueur n'en approche jamais (un client à 144 Hz qui martèle reste loin du seuil ; le bouton CINE LAB hors entraînement n'est pas puni) ;
+- anti-farm :
+  - un match de moins de 25 s ne rapporte ni pièces, ni points, ni victoire (alt qui entre puis quitte) ;
+  - les mêmes deux joueurs : à partir du 4e match du jour, gains ×0,25 ; à partir du 8e, plus rien. Le compte est dans le profil, donc vu par tous les serveurs ;
+  - plafond de 2000 pièces par jour (matchs, survie, boss) ;
+  - l'Elo reste à somme nulle.
+
 **CLASSÉ entre serveurs + verrou de session** (`src/server/GlobalQueue.luau`, pur, testé dans Lobby) :
 - un joueur CLASSÉ sans adversaire sur son serveur après 6 s est publié dans une file mondiale (MemoryStore, triée par note, rafraîchie toutes les 10 s, périmée après 30 s) ;
 - chaque serveur cherche pour ses propres joueurs publiés, seulement s'il est « l'initiateur » de la paire (celui qui attend depuis le plus longtemps). Une paire n'est donc jamais réclamée par deux serveurs ;

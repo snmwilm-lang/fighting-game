@@ -33,6 +33,7 @@ local Lobby = require(script.Lobby)
 local Matchmaker = require(script.Matchmaker)
 local SaveQueue = require(script.SaveQueue)
 local GlobalQueue = require(script.GlobalQueue)
+local AntiCheat = require(script.AntiCheat)
 local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
 local arrivedForCrossMatch -- (defined with the cross-server search)
 
@@ -78,12 +79,25 @@ do
 end
 local function defaultProfile()
 	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI", coins = 0,
+		recentOpp = {}, coinDay = 0, coinToday = 0, -- (anti-cheat: today's opponents, the daily coin cap)
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
 		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
 		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0, achShinGrade = 0 }
+end
+-- ANTI-CHEAT: packets the real client never sends add suspicion; past AntiCheat.KICK the
+-- player is kicked (a server log line says why).
+local ac = AntiCheat.new()
+local function suspect(player, reason)
+	if AntiCheat.flag(ac, player.UserId, reason, os.clock()) then
+		local entry = ac.log[#ac.log]
+		local why = {}
+		for r, n in entry.reasons do table.insert(why, r .. " x" .. n) end
+		warn("[FightingGame] anti-cheat: kicked " .. player.Name .. " (" .. player.UserId .. "): " .. table.concat(why, ", "))
+		player:Kick("BREAKFRAMEZ: invalid data received from your game. / Données invalides reçues de ton jeu.")
+	end
 end
 local saves = SaveQueue.new() -- when to write (SaveQueue: spacing, batches, never an unloaded profile)
 local function loadProfile(player, client)
@@ -497,19 +511,36 @@ function endVersus(match, winnerSlot)
 	local ca, cb = a and clients[a], b and clients[b]
 	if not (ca and cb) then return end
 	local scoreA = if winnerSlot == 1 then 1 elseif winnerSlot == 2 then 0 else 0.5
-	if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
-	elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
-	-- COINS: everyone who plays earns some, the winner more
-	local gains = {
-		GameModes.addCoins(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw"),
-		GameModes.addCoins(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw"),
-	}
-	if winnerSlot == 1 or winnerSlot == 2 then
-		GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
+	-- ANTI-CHEAT (farming): a match too short, or the same two players again and again,
+	-- pays less or nothing; the coins have a daily cap (AntiCheat).
+	local seconds, now = match.world.tick / Config.TickRate, os.time()
+	local shareA = AntiCheat.share(ca.profile, b.UserId, seconds, now)
+	local shareB = AntiCheat.share(cb.profile, a.UserId, seconds, now)
+	local share = math.min(shareA.rating, shareB.rating) -- (the rating stays a zero-sum)
+	AntiCheat.record(ca.profile, b.UserId, now)
+	AntiCheat.record(cb.profile, a.UserId, now)
+	if share > 0 then
+		if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
+		elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
+		if winnerSlot == 1 or winnerSlot == 2 then
+			GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
+		end
 	end
+	-- COINS: everyone who plays earns some, the winner more
+	local function pay(profile, kind, part)
+		local gain = AntiCheat.capCoins(profile, math.floor(GameModes.COINS[kind] * part + 0.5), now)
+		profile.coins = (profile.coins or 0) + gain
+		return gain
+	end
+	local gains = {
+		pay(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw", shareA.coins),
+		pay(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw", shareB.coins),
+	}
 	local before = { ca.profile.rating, cb.profile.rating }
-	if match.queue == "RANKED" then
-		ca.profile.rating, cb.profile.rating = Matchmaker.elo(ca.profile.rating, cb.profile.rating, scoreA)
+	if match.queue == "RANKED" and share > 0 then
+		local newA, newB = Matchmaker.elo(ca.profile.rating, cb.profile.rating, scoreA)
+		ca.profile.rating = AntiCheat.scaleRating(before[1], newA, share)
+		cb.profile.rating = AntiCheat.scaleRating(before[2], newB, share)
 		GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
 		GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
 	end
@@ -844,6 +875,7 @@ local function joined(player)
 end
 Players.PlayerAdded:Connect(joined)
 Players.PlayerRemoving:Connect(function(player)
+	AntiCheat.forget(ac, player.UserId)
 	local client = clients[player]
 	if client then
 		Matchmaker.leave(matchmaker, player.UserId)
@@ -870,8 +902,9 @@ end)
 local HUB_ACTIONS = { challenge = true, accept = true, decline = true, hello = true }
 hubRemote.OnServerEvent:Connect(function(player, action, target)
 	local client = clients[player]
-	if not client or typeof(action) ~= "string" or not HUB_ACTIONS[action] then return end
-	if target ~= nil and (typeof(target) ~= "number" or target % 1 ~= 0) then return end
+	if not client then return end
+	if typeof(action) ~= "string" or not HUB_ACTIONS[action] then return suspect(player, "malformed") end
+	if target ~= nil and (typeof(target) ~= "number" or target % 1 ~= 0) then return suspect(player, "malformed") end
 	local now = os.clock()
 	if now - client.lastHub < 0.4 then return end
 	client.lastHub = now
@@ -902,9 +935,14 @@ end)
 -- ===================================================================== menu requests
 -- { action = "start", request = { mode, team, level, queue } } · { action = "cancel" } (leave
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
+local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
+	start = true, cancel = true, leave = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
-	if not client or typeof(packet) ~= "table" or typeof(packet.action) ~= "string" then return end
+	if not client then return end
+	if typeof(packet) ~= "table" or typeof(packet.action) ~= "string" or not MENU_ACTIONS[packet.action] then
+		return suspect(player, "malformed")
+	end
 	local now = os.clock()
 	if now - client.lastMenu < 0.5 then return end
 	client.lastMenu = now
@@ -1051,21 +1089,28 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	local now = os.clock()
 	client.tokens = math.min(60, client.tokens + (now - client.lastPacket) * 60)
 	client.lastPacket = now
-	if client.tokens < 1 then return end
+	if client.tokens < 1 then
+		client.drops = client.drops or {}
+		if AntiCheat.dropped(client.drops, now) then suspect(player, "flood") end
+		return
+	end
 	client.tokens -= 1
 	local match = client.match
-	if typeof(packet) ~= "table" or not match then return end
-	if not finite(packet.seq) or packet.seq % 1 ~= 0 or packet.seq <= client.lastSeq or packet.seq > 1e9 then return end
-	if not finite(packet.axis) or math.abs(packet.axis) > 1 then return end
+	-- (every check below fails only for a forged packet: the game's own client never sends it)
+	if typeof(packet) ~= "table" then return suspect(player, "malformed") end
+	if not match then return end
+	if not finite(packet.seq) or packet.seq % 1 ~= 0 or packet.seq > 1e9 then return suspect(player, "malformed") end
+	if packet.seq <= client.lastSeq then return suspect(player, "replay") end
+	if not finite(packet.axis) or math.abs(packet.axis) > 1 then return suspect(player, "malformed") end
 	for _, field in BOOLEAN_FIELDS do
-		if typeof(packet[field]) ~= "boolean" then return end
+		if typeof(packet[field]) ~= "boolean" then return suspect(player, "malformed") end
 	end
-	if not PressQueue.valid(packet.presses) then return end
+	if not PressQueue.valid(packet.presses) then return suspect(player, "malformed") end
 	local stance = packet.stance
-	if stance ~= nil and (not finite(stance) or stance % 1 ~= 0 or stance < 0 or stance > 2) then return end
+	if stance ~= nil and (not finite(stance) or stance % 1 ~= 0 or stance < 0 or stance > 2) then return suspect(player, "malformed") end
 	-- The cinematic tick the player saw (QTE lag compensation, bounded by the simulation).
 	local cinTick = packet.cinTick
-	if cinTick ~= nil and (not finite(cinTick) or cinTick < 0 or cinTick > 10000) then return end
+	if cinTick ~= nil and (not finite(cinTick) or cinTick < 0 or cinTick > 10000) then return suspect(player, "malformed") end
 	client.lastSeq = packet.seq
 	local slot = match.slots[client.slot]
 	if slot.owner ~= player then return end
@@ -1233,10 +1278,12 @@ end
 local DEBUG_TYPES = { Rush = true, Awaken = true, Gate = true, Fatal = true }
 debugRemote.OnServerEvent:Connect(function(player, kind, style, finish)
 	local client = clients[player]
-	local match = client and client.match
+	if not client then return end
+	if typeof(kind) ~= "string" or not DEBUG_TYPES[kind] or typeof(finish) ~= "boolean" then return suspect(player, "malformed") end
+	local match = client.match
+	-- (the CINE LAB button shows in every solo match: outside training the request is simply
+	-- refused, never held against the player)
 	if not match or match.mode ~= "TRAINING" or not isSolo(match) then return end
-	if typeof(kind) ~= "string" or not DEBUG_TYPES[kind] then return end
-	if typeof(finish) ~= "boolean" then return end
 	local world = match.world
 	local kit = Sim.kitOf(world, world.fighters[client.slot])
 	local known = false
@@ -1274,7 +1321,8 @@ local function followEvents(match, events)
 				local client = clients[owner]
 				local beaten = match.wave - 1
 				GameModes.achievementProgress(client.profile, { survival = beaten })
-				local gain = GameModes.addCoins(client.profile, "survivalWin", beaten)
+				local gain = AntiCheat.capCoins(client.profile, GameModes.COINS.survivalWin * beaten, os.time())
+				client.profile.coins = (client.profile.coins or 0) + gain
 				client.profile.survivalBest = math.max(client.profile.survivalBest, beaten)
 				saveProfile(owner, client) -- (the record and the achievements' counter)
 				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest, coins = gain })
@@ -1291,7 +1339,8 @@ local function followEvents(match, events)
 				local profile = client.profile
 				local newBest = grade > (profile.shinGrade or 0)
 				GameModes.achievementProgress(profile, { shinGrade = grade })
-				local gain = if grade >= 1 then GameModes.addCoins(profile, "boss") else 0
+				local gain = if grade >= 1 then AntiCheat.capCoins(profile, GameModes.COINS.boss, os.time()) else 0
+				profile.coins = (profile.coins or 0) + gain
 				if newBest then
 					profile.shinGrade = grade
 					profile.title = title or profile.title
@@ -1312,7 +1361,8 @@ local function followEvents(match, events)
 				local newBest = grade > profile.asuraGrade
 				profile.asuraDamage = math.max(profile.asuraDamage, math.floor(damage * 100 + 0.5))
 				GameModes.achievementProgress(profile, { asuraDamage = math.floor(damage * 100 + 0.5), asuraGrade = grade })
-				local gain = if grade >= 1 then GameModes.addCoins(profile, "boss") else 0
+				local gain = if grade >= 1 then AntiCheat.capCoins(profile, GameModes.COINS.boss, os.time()) else 0
+				profile.coins = (profile.coins or 0) + gain
 				if newBest then
 					profile.asuraGrade = grade
 					profile.title = title or profile.title

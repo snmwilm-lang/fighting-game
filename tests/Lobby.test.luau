@@ -440,4 +440,52 @@ test("cross-server RANKED: one initiator per pair, same size, close ratings, ato
 	expect(stamped._session.job == "jobA" and G.stamp({ rating = 1 }, "jobA", now, true)._session == nil, "the lock is not written or released")
 end)
 
+test("anti-cheat: forged packets kick, a real player never does; no farming (short matches, the same pair, daily cap)", function()
+	local AC = require("../src/server/AntiCheat")
+	local ac = AC.new()
+	-- forged packets: kicked after a few
+	local kicked = false
+	for i = 1, 5 do kicked = AC.flag(ac, 1, "malformed", i * 0.1) or kicked end
+	expect(kicked and #ac.log == 1, "five forged packets in a row do not kick")
+	-- a real player: a few dropped packets (a 144 Hz client mashing) never count as a flood
+	local drops, flooded = {}, false
+	for i = 1, 100 do flooded = AC.dropped(drops, 5 + i / 1000) or flooded end
+	expect(not flooded, "a hundred dropped packets in a second count as a flood")
+	for i = 1, 200 do flooded = AC.dropped(drops, 6 + i / 1000) or flooded end
+	expect(flooded, "a gross flood is not seen")
+	-- and a rare oddity now and then never adds up to a kick (the points fade)
+	local never = true
+	for t = 1, 3600 do
+		if t % 60 == 0 and AC.flag(ac, 2, "flood", t) then never = false end
+	end
+	expect(never and AC.score(ac, 2, 3600) < AC.KICK, "rare oddities over an hour kick a real player")
+	-- token bucket
+	local b = {}
+	local passed = 0
+	for i = 1, 100 do if AC.bucket(b, 0, 10, 20) then passed += 1 end end
+	expect(passed == 20 and AC.bucket(b, 1, 10, 20), "the bucket lets a burst through or never refills")
+	-- farming: a match too short pays nothing
+	local profile = {}
+	expect(AC.share(profile, 99, AC.MIN_MATCH - 1, 0).coins == 0, "a 10-second match pays")
+	-- the same opponent again and again: less, then nothing
+	local time = 1000000
+	for _ = 1, AC.REPEAT_SOFT do AC.record(profile, 99, time) end
+	local soft = AC.share(profile, 99, 60, time)
+	expect(soft.coins > 0 and soft.coins < 1 and soft.rating < 1, "the same pair keeps full gains")
+	for _ = AC.REPEAT_SOFT + 1, AC.REPEAT_HARD do AC.record(profile, 99, time) end
+	expect(AC.share(profile, 99, 60, time).rating == 0, "two alts farm rating forever")
+	expect(AC.share(profile, 99, 60, time + 86400).rating == 1, "the count never resets the next day")
+	expect(AC.share(profile, 42, 60, time).coins == 1, "another opponent is punished")
+	for id = 1, 50 do AC.record(profile, 1000 + id, time + id) end
+	local n = 0
+	for _ in profile.recentOpp do n += 1 end
+	expect(n <= AC.RECENT_LIMIT, "the opponent list grows without end")
+	-- daily coin cap
+	local p2 = {}
+	local got = 0
+	for _ = 1, 100 do got += AC.capCoins(p2, 40, time) end
+	expect(got == AC.DAILY_COINS and AC.capCoins(p2, 40, time + 86400) == 40, "the daily coin cap is wrong")
+	expect(AC.scaleRating(1000, 1016, 0.25) == 1004 and AC.scaleRating(1000, 984, 0.25) == 996, "the rating share is wrong")
+end)
+
 T.finish()

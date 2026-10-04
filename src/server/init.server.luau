@@ -423,8 +423,10 @@ function endVersus(match, winnerSlot)
 	if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
 	elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
 	-- COINS: everyone who plays earns some, the winner more
-	GameModes.addCoins(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw")
-	GameModes.addCoins(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw")
+	local gains = {
+		GameModes.addCoins(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw"),
+		GameModes.addCoins(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw"),
+	}
 	if winnerSlot == 1 or winnerSlot == 2 then
 		GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
 	end
@@ -440,7 +442,7 @@ function endVersus(match, winnerSlot)
 		menuRemote:FireClient(player, {
 			result = true, queue = match.queue, won = winnerSlot == i, draw = winnerSlot == 0,
 			rating = client.profile.rating, delta = client.profile.rating - before[i],
-			rank = Matchmaker.rankName(client.profile.rating),
+			rank = Matchmaker.rankName(client.profile.rating), coins = gains[i],
 		})
 	end
 end
@@ -1023,10 +1025,10 @@ local function followEvents(match, events)
 				local client = clients[owner]
 				local beaten = match.wave - 1
 				GameModes.achievementProgress(client.profile, { survival = beaten })
-				GameModes.addCoins(client.profile, "survivalWin", beaten)
+				local gain = GameModes.addCoins(client.profile, "survivalWin", beaten)
 				client.profile.survivalBest = math.max(client.profile.survivalBest, beaten)
 				saveProfile(owner, client) -- (the record and the achievements' counter)
-				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest })
+				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest, coins = gain })
 			elseif match.mode == "VERSUS" then
 				endVersus(match, event.winner)
 			elseif match.mode == "CHALLENGE_SHIN" and owner and clients[owner] then
@@ -1040,13 +1042,13 @@ local function followEvents(match, events)
 				local profile = client.profile
 				local newBest = grade > (profile.shinGrade or 0)
 				GameModes.achievementProgress(profile, { shinGrade = grade })
-				if grade >= 1 then GameModes.addCoins(profile, "boss") end
+				local gain = if grade >= 1 then GameModes.addCoins(profile, "boss") else 0
 				if newBest then
 					profile.shinGrade = grade
 					profile.title = title or profile.title
 				end
 				saveProfile(owner, client)
-				menuRemote:FireClient(owner, { result = true, challenge = true, boss = "KUROEN SHIN", won = won, grade = grade, title = title,
+				menuRemote:FireClient(owner, { result = true, challenge = true, boss = "KUROEN SHIN", coins = gain, won = won, grade = grade, title = title,
 					newBest = newBest, unlock = unlock })
 			elseif match.mode == "CHALLENGE" and owner and clients[owner] then
 				-- The reward depends on how ASURA was beaten (GameModes.challengeGrade).
@@ -1061,13 +1063,13 @@ local function followEvents(match, events)
 				local newBest = grade > profile.asuraGrade
 				profile.asuraDamage = math.max(profile.asuraDamage, math.floor(damage * 100 + 0.5))
 				GameModes.achievementProgress(profile, { asuraDamage = math.floor(damage * 100 + 0.5), asuraGrade = grade })
-				if grade >= 1 then GameModes.addCoins(profile, "boss") end
+				local gain = if grade >= 1 then GameModes.addCoins(profile, "boss") else 0
 				if newBest then
 					profile.asuraGrade = grade
 					profile.title = title or profile.title
 				end
 				saveProfile(owner, client)
-				menuRemote:FireClient(owner, { result = true, challenge = true, won = won, grade = grade, title = title,
+				menuRemote:FireClient(owner, { result = true, challenge = true, coins = gain, won = won, grade = grade, title = title,
 					newBest = newBest, unlock = unlock, damage = math.floor(damage * 100 + 0.5) })
 			end
 			if match.mode ~= "TRAINING" then

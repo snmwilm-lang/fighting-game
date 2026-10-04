@@ -122,6 +122,7 @@ Locale.FR = {
 	["BURST!"] = "BURST !",
 	["DIVINE INSTINCT"] = "INSTINCT DIVIN",
 	["BURST READY"] = "BURST PRÊT",
+	["ELO POINTS"] = "POINTS ELO",
 	["KUROEN past every limit"] = "KUROEN au-delà de toute limite",
 	["Reward: KUROEN's DIVINE ECLIPSE style"] = "Récompense : le style ÉCLIPSE DIVINE de KUROEN",
 	["KUROEN SHIN WAS BEYOND YOU · TRY AGAIN"] = "KUROEN SHIN ÉTAIT HORS DE PORTÉE · RÉESSAIE",

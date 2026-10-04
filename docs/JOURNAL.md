@@ -67,6 +67,17 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
   - barre du menu PIÈCES / CRISTAUX / RANG avec des sprites dessinés (`client/CurrencyIcons`). Les PNG de `assets/icons` remplacent ces dessins dès que leurs ID sont mis dans `CurrencyIcons.IMAGES` ;
   - le serveur donne les PIÈCES : 40 par victoire, 15 par défaite, 10 par vague de SURVIE, 60 par boss battu ;
   - les CRISTAUX valent 25 par succès débloqué.
+- **UI, grosse mise à niveau** (inspirée de la capture de Wilhem, code à nous) :
+  - onglets du haut lisibles, plus un onglet ACHIEVEMENTS ;
+  - ombres portées, reflets brillants, bandes de vitesse sur les cartes de mode ;
+  - boutons de gauche qui glissent au survol, avec une barre d'accent ;
+  - même cadre pour toutes les pages (en-tête à barre de couleur), podium or / argent / bronze dans le classement.
+- **Monnaies partout** :
+  - portefeuille plus grand dans la barre du haut ; le compteur défile jusqu'à la nouvelle valeur ;
+  - chaque carte de mode affiche ce qu'elle rapporte (sprite et montant), chaque succès ses cristaux ;
+  - après un match, « +40 [pièce] » sort du portefeuille (le serveur envoie le gain avec le résultat).
+- **Poses du menu** : le héros du lobby et les aperçus de la sélection prennent la garde propre à chaque perso, au lieu de la pose de victoire commune (bras levés). Le héros du lobby ne recevait pas son kit et prenait la garde de KAI.
+- **Correctif** : à la sélection, un commentaire avalait `BackgroundTransparency` et `Ambient` du ViewportFrame des aperçus.
 - Version 0.17.0.
 
 Audit du roster (19 kits + KUROEN) :

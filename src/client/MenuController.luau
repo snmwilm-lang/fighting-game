@@ -34,6 +34,7 @@ local RED = Color3.fromHex("E0102B")
 local DARKRED = Color3.fromHex("5A0712")
 local GOLD = Color3.fromHex("FFD23F")
 local GREY = Color3.fromHex("9A9AA6")
+local TAB_IDLE = Color3.fromHex("C9C9D4") -- (the tabs read on the black bar)
 local BLUE = Color3.fromHex("2F6BFF")
 local VIOLET = Color3.fromHex("8B3DFF")
 local DISPLAY = Enum.Font.Bangers
@@ -78,6 +79,67 @@ local function label(parent, props)
 	props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
 	return new("TextLabel", props, parent)
 end
+-- A soft drop shadow under a panel: a darker copy behind it (a sibling, the Sibling Z order
+-- draws children above their parent), following its position, rotation and visibility.
+local function shadow(gui, offset, transparency)
+	local s = Instance.new("Frame")
+	s.Name, s.BorderSizePixel = gui.Name .. "Shadow", 0
+	s.BackgroundColor3, s.BackgroundTransparency = Color3.new(0, 0, 0), transparency or 0.5
+	s.ZIndex = math.max(0, gui.ZIndex - 1)
+	local function follow()
+		s.AnchorPoint, s.Size, s.Rotation, s.Visible = gui.AnchorPoint, gui.Size, gui.Rotation, gui.Visible
+		s.Position = gui.Position + UDim2.fromOffset(offset or 6, offset or 6)
+	end
+	follow()
+	for _, property in { "Position", "Size", "Rotation", "Visible", "AnchorPoint" } do
+		gui:GetPropertyChangedSignal(property):Connect(follow)
+	end
+	local round = gui:FindFirstChildOfClass("UICorner")
+	if round then round:Clone().Parent = s end
+	s.Parent = gui.Parent
+	return s
+end
+-- A glossy highlight on the upper part of a panel (light from above).
+local function shine(gui, strength)
+	local g = Instance.new("Frame")
+	g.Name, g.BorderSizePixel, g.BackgroundColor3 = "Shine", 0, Color3.new(1, 1, 1)
+	g.Size, g.BackgroundTransparency, g.ZIndex = UDim2.fromScale(1, 0.5), 0, gui.ZIndex
+	local fade = Instance.new("UIGradient")
+	fade.Rotation = 90
+	fade.Transparency = NumberSequence.new(1 - (strength or 0.08), 1)
+	fade.Parent = g
+	local round = gui:FindFirstChildOfClass("UICorner")
+	if round then round:Clone().Parent = g end
+	g.Parent = gui
+	return g
+end
+-- The frame of a menu page: dark glass, a coloured edge, a header with an accent bar.
+local function pageFrame(parent, props)
+	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = props.size or UDim2.fromOffset(540, 500),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0 }, parent)
+	corner(page, 10)
+	gradient(page, Color3.fromHex("16161E"), Color3.fromHex("07070A"), 90)
+	stroke(page, 2, props.color, 0.15)
+	shine(page, 0.05)
+	local bar = new("Frame", { Position = UDim2.fromOffset(16, 16), Size = UDim2.fromOffset(6, 38), BackgroundColor3 = props.color,
+		BorderSizePixel = 0 }, page)
+	corner(bar, 3)
+	local t = label(page, { Position = UDim2.fromOffset(30, 8), Size = UDim2.new(1, -46, 0, 52), Font = DISPLAY, TextSize = 48,
+		Text = props.title, TextColor3 = props.titleColor or WHITE })
+	stroke(t, 2, INK)
+	return page
+end
+-- What a mode pays (shown on its card with the currency's sprite).
+local function rewardOf(entry)
+	local C = GameModes.COINS
+	if entry.queue == "RANKED" then return { kind = "rank", text = "ELO POINTS" } end
+	if entry.id == "VERSUS" and entry.queue == "FRIEND" then return nil end
+	if entry.id == "SURVIVAL" then return { kind = "coins", text = "+" .. C.survivalWin .. " / OPPONENT" } end
+	if entry.id == "CHALLENGE" or entry.id == "CHALLENGE_SHIN" then return { kind = "coins", text = "WIN +" .. C.boss } end
+	if entry.id == "VERSUS" or entry.id == "VERSUS_CPU" then return { kind = "coins", text = "WIN +" .. C.win } end
+	return nil
+end
+
 local function kitColor(kit)
 	local style = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
 	return Color3.fromHex(style and style.Energy or "E0102B")
@@ -197,11 +259,17 @@ end
 function MenuController:buildTopBar()
 	local bar = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = INK, BackgroundTransparency = 0.15, BorderSizePixel = 0 }, self.root)
 	gradient(bar, Color3.fromHex("000000"), Color3.fromHex("1A0508"), 0)
+	-- (a thin red line under the bar, brighter in the middle)
+	local line = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = RED, BorderSizePixel = 0 }, bar)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(0.5, 0.1),
+		NumberSequenceKeypoint.new(1, 0.9) }) }, line)
 	-- Logo: a slanted red brush stroke with the title.
 	local logo = new("Frame", { Position = UDim2.fromOffset(28, 6), Size = UDim2.fromOffset(230, 56), BackgroundTransparency = 1 }, bar)
 	local brush = new("Frame", { Position = UDim2.fromOffset(0, 10), Size = UDim2.fromOffset(150, 34), Rotation = -6,
 		BackgroundColor3 = RED, BorderSizePixel = 0 }, logo)
-	gradient(brush, RED, DARKRED, 0)
+	gradient(brush, Color3.fromHex("FF3A4C"), DARKRED, 0)
+	stroke(brush, 2, Color3.fromHex("FF8A96"), 0.4)
 	local title = label(logo, { Position = UDim2.fromOffset(6, 0), Size = UDim2.fromOffset(200, 50), Font = DISPLAY, TextSize = 46,
 		Text = "K.O. 開", TextColor3 = WHITE, Rotation = -6 })
 	stroke(title, 2, INK)
@@ -209,21 +277,29 @@ function MenuController:buildTopBar()
 		Text = "FIGHTING GAME", TextColor3 = WHITE, Rotation = -6 })
 	-- Tabs.
 	self.tabs = {}
-	local tabs = { { "PLAY", "home" }, { "FIGHTERS", "characters" }, { "RANKING", "ranking" }, { "SETTINGS", "settings" } }
+	local tabs = { { "PLAY", "home" }, { "FIGHTERS", "characters" }, { "RANKING", "ranking" }, { "ACHIEVEMENTS", "achievements" },
+		{ "SETTINGS", "settings" } }
 	for i, tab in tabs do
-		local b = new("TextButton", { Position = UDim2.fromOffset(280 + (i - 1) * 150, 0), Size = UDim2.fromOffset(146, 64),
-			BackgroundColor3 = DARKRED, BackgroundTransparency = 1, Font = UI_FONT, TextSize = 15, Text = tab[1], TextColor3 = GREY,
+		local b = new("TextButton", { Position = UDim2.fromOffset(276 + (i - 1) * 166, 8), Size = UDim2.fromOffset(160, 48),
+			BackgroundColor3 = DARKRED, BackgroundTransparency = 1, Font = UI_FONT, TextSize = 16, Text = tab[1], TextColor3 = TAB_IDLE,
 			AutoButtonColor = false, BorderSizePixel = 0 }, bar)
-		local underline = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 4),
-			BackgroundColor3 = RED, BorderSizePixel = 0, Visible = false }, b)
+		corner(b, 6)
+		gradient(b, Color3.fromHex("FF2A3D"), Color3.fromHex("6A0A16"), 90)
+		local underline = new("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.new(0.7, 0, 0, 4),
+			BackgroundColor3 = GOLD, BorderSizePixel = 0, Visible = false }, b)
+		corner(underline, 2)
+		b.MouseEnter:Connect(function() if not underline.Visible then b.TextColor3 = WHITE end end)
+		b.MouseLeave:Connect(function() if not underline.Visible then b.TextColor3 = TAB_IDLE end end)
 		b.Activated:Connect(function() self:open(tab[2]) end)
 		self.tabs[tab[2]] = { button = b, underline = underline }
 	end
 	-- Profile: Roblox headshot, name, rank, bar to the next rank, points.
 	local card = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 6), Size = UDim2.fromOffset(458, 52),
 		BackgroundColor3 = PANEL, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, bar)
-	corner(card, 6)
-	stroke(card, 1.5, Color3.fromHex("33333D"))
+	corner(card, 8)
+	gradient(card, Color3.fromHex("1C1C26"), Color3.fromHex("0C0C11"), 90)
+	stroke(card, 1.5, Color3.fromHex("3A3A48"))
+	shine(card, 0.06)
 	local face = new("ImageLabel", { Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(44, 44), BackgroundColor3 = DARKRED,
 		BorderSizePixel = 0 }, card)
 	corner(face, 4)
@@ -247,14 +323,20 @@ function MenuController:buildTopBar()
 	-- its sprite (CurrencyIcons).
 	self.wallet = {}
 	for i, kind in { "coins", "crystals", "rank" } do
+		local tint = CurrencyIcons.COLORS[kind]
 		local chip = new("Frame", { Position = UDim2.fromOffset(234 + (i - 1) * 74, 6), Size = UDim2.fromOffset(70, 40),
 			BackgroundColor3 = PANEL2, BorderSizePixel = 0, Name = "Wallet_" .. kind }, card)
-		corner(chip, 6)
-		stroke(chip, 1, CurrencyIcons.COLORS[kind]:Lerp(PANEL2, 0.55))
-		CurrencyIcons.make(kind, chip, 24, UDim2.fromOffset(4, 8))
-		self.wallet[kind] = label(chip, { Position = UDim2.fromOffset(30, 2), Size = UDim2.fromOffset(38, 36), Font = UI_FONT, TextSize = 13,
+		corner(chip, 8)
+		gradient(chip, tint:Lerp(INK, 0.72), Color3.fromHex("0C0C11"), 90)
+		stroke(chip, 1.5, tint:Lerp(PANEL2, 0.35))
+		shine(chip, 0.1)
+		CurrencyIcons.make(kind, chip, 26, UDim2.fromOffset(3, 7))
+		self.wallet[kind] = label(chip, { Position = UDim2.fromOffset(31, 2), Size = UDim2.fromOffset(37, 36), Font = UI_FONT, TextSize = 14,
 			Text = "0", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false })
+		self.walletChips = self.walletChips or {}
+		self.walletChips[kind] = chip
 	end
+	self.walletShown = {}
 end
 
 -- A big slanted button (left column, like the mock-up).
@@ -273,8 +355,21 @@ local function slanted(parent, y, title, sub, kanji, primary)
 		Text = sub, TextColor3 = if primary then WHITE else GREY })
 	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 40), Font = UI_FONT,
 		TextSize = 26, Text = "›", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center })
-	b.MouseEnter:Connect(function() b.Rotation = -1 end)
-	b.MouseLeave:Connect(function() b.Rotation = -2.5 end)
+	shine(b, if primary then 0.14 else 0.06)
+	local accent = new("Frame", { Size = UDim2.new(0, 5, 1, 0), BackgroundColor3 = if primary then GOLD else RED, BorderSizePixel = 0,
+		BackgroundTransparency = if primary then 0 else 1 }, b)
+	shadow(b, 6, 0.45)
+	local rest = b.Position
+	b.MouseEnter:Connect(function()
+		b.Rotation = -1
+		accent.BackgroundTransparency = 0
+		TweenService:Create(b, TweenInfo.new(0.14, Enum.EasingStyle.Quad), { Position = rest + UDim2.fromOffset(12, 0) }):Play()
+	end)
+	b.MouseLeave:Connect(function()
+		b.Rotation = -2.5
+		accent.BackgroundTransparency = if primary then 0 else 1
+		TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Position = rest }):Play()
+	end)
 	return b
 end
 
@@ -309,11 +404,38 @@ local function card(parent, props)
 		label(b, { Position = UDim2.fromOffset(18, (props.titleSize or 46) + 8 + (i - 1) * 20), Size = UDim2.new(1, -60, 0, 18),
 			Font = UI_FONT, TextSize = 13, Text = line, TextColor3 = Color3.fromHex("D8D8E0") })
 	end
-	local arrow = new("TextLabel", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(32, 32),
+	-- (speed stripes across the card, like a manga panel)
+	for i = 0, 3 do
+		new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.55 + i * 0.07, 0, 0.5, 0),
+			Size = UDim2.new(0, 10, 1.6, 0), Rotation = 28, BackgroundColor3 = props.color, BackgroundTransparency = 0.86 + i * 0.03,
+			BorderSizePixel = 0 }, b)
+	end
+	shine(b, 0.07)
+	local arrow = new("TextLabel", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(34, 34),
 		BackgroundColor3 = props.color, Font = UI_FONT, TextSize = 22, Text = "›", TextColor3 = WHITE }, b)
-	corner(arrow, 4)
-	b.MouseEnter:Connect(function() b.BackgroundColor3 = PANEL2 end)
-	b.MouseLeave:Connect(function() b.BackgroundColor3 = PANEL end)
+	corner(arrow, 6)
+	gradient(arrow, Color3.new(1, 1, 1), Color3.fromHex("8A8A9A"), 90)
+	-- What it pays (a coin, crystal or rank sprite and the amount), bottom-left.
+	if props.reward then
+		local tint = CurrencyIcons.COLORS[props.reward.kind]
+		local chip = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 14, 1, -10), Size = UDim2.fromOffset(160, 28),
+			BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, b)
+		corner(chip, 14)
+		stroke(chip, 1, tint, 0.3)
+		CurrencyIcons.make(props.reward.kind, chip, 20, UDim2.fromOffset(5, 4))
+		label(chip, { Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -34, 1, 0), Font = UI_FONT, TextSize = 12,
+			Text = props.reward.text, TextColor3 = tint })
+	end
+	local edge = b:FindFirstChildOfClass("UIStroke")
+	shadow(b, 6, 0.45)
+	b.MouseEnter:Connect(function()
+		b.BackgroundColor3 = PANEL2
+		if edge then edge.Transparency, edge.Thickness = 0, 3 end
+	end)
+	b.MouseLeave:Connect(function()
+		b.BackgroundColor3 = PANEL
+		if edge then edge.Transparency, edge.Thickness = 0.2, 2 end
+	end)
 	return b
 end
 
@@ -321,11 +443,13 @@ function MenuController:buildHome()
 	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
 		BackgroundTransparency = 1 }, self.root)
 	card(page, { position = UDim2.fromOffset(0, 0), size = UDim2.fromOffset(540, 160), color = RED, kanji = "対", title = "ONLINE MODE",
-		titleSize = 52, lines = { "RANKED FIGHTS", "NORMAL FIGHTS", "CHALLENGE A FRIEND ON THE SERVER" } }).Activated:Connect(function()
+		titleSize = 52, lines = { "RANKED FIGHTS", "NORMAL FIGHTS", "CHALLENGE A FRIEND ON THE SERVER" },
+		reward = rewardOf({ id = "VERSUS" }) }).Activated:Connect(function()
 		self:open("online")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 172), size = UDim2.fromOffset(540, 160), color = Color3.fromHex("C8C8D0"), kanji = "戦",
-		title = "SOLO MODE", titleSize = 52, lines = { "1 VS 1 · CPU", "SURVIVAL", "CHALLENGE · ASURA" } }).Activated:Connect(function()
+		title = "SOLO MODE", titleSize = 52, lines = { "1 VS 1 · CPU", "SURVIVAL", "CHALLENGE · ASURA" },
+		reward = rewardOf({ id = "VERSUS_CPU" }) }).Activated:Connect(function()
 		self:open("solo")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 344), size = UDim2.fromOffset(264, 150), color = BLUE, kanji = "隊", title = "TEAMS",
@@ -350,7 +474,7 @@ function MenuController:buildSubCards(title, entries)
 		local locked = false
 		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * step), size = UDim2.fromOffset(540, step - 12),
 			color = if locked then GREY else entry.color, kanji = entry.kanji, title = entry.title, titleSize = 42, kanjiSize = 120,
-			lines = entry.lines })
+			lines = entry.lines, reward = rewardOf(entry) })
 		b.Activated:Connect(function()
 			if locked then
 				self:flash("CHALLENGE · SOON", GREY)
@@ -388,10 +512,10 @@ function MenuController:selectSide(page, left)
 		Size = UDim2.fromScale(1.1, 0.95), Font = UI_FONT, TextScaled = true, Text = "", TextColor3 = WHITE,
 		TextTransparency = 0.15, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
 	stroke(portrait, 6, INK)
-	-- The fighter's own 3D model in its victory pose, in front of its ghost kanji (see
+	-- The fighter's own 3D model in its own guard, in front of its ghost kanji (see
 	-- MenuController:showPreview; the models are built by the server, KitPreviews).
 	local view = new("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(if left then 0.46 else 0.54, 0.31),
-		Size = UDim2.fromScale(1, 0.6), -- (above the name, which hid its legs) BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
+		Size = UDim2.fromScale(1, 0.6), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"), -- (above the name, which hid its legs)
 		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), ZIndex = 7 }, side)
 	local world = new("WorldModel", {}, view)
 	local camera = new("Camera", { FieldOfView = 26 }, view)
@@ -525,7 +649,7 @@ function MenuController:optionLine(parent, y, name, change)
 end
 
 -- The 3D model of `kit` on one side of the select screen (nil: none), posed every frame by
--- the real Animator in its victory pose, the kit's own. Cosmetic only.
+-- the real Animator in its own guard (the kit's stance). Cosmetic only.
 function MenuController:showPreview(side, kit)
 	if side.kit == kit and (side.model or not kit) then return end
 	if side.model then side.model:Destroy() end
@@ -564,8 +688,9 @@ end
 function MenuController:animatePreviews(dt)
 	for _, side in { self.p1, self.p2 } do
 		if side and side.animation then
-			local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = side.kit,
-				victory = os.clock() - side.born > 0.25 }
+			-- (its own guard, the kit's stance: every fighter stands its own way, never the shared
+			-- arms-up victory pose)
+			local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = side.kit }
 			pcall(side.animation.update, side.animation, view, nil, dt, os.clock(), 60, false)
 		end
 	end
@@ -714,13 +839,7 @@ end
 
 -- ===================================================================== characters, ranking, settings
 function MenuController:buildCharacters()
-	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
-	corner(page, 8)
-	stroke(page, 2, RED)
-	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
-		Text = "FIGHTERS", TextColor3 = WHITE })
-	stroke(t, 1.5, RED)
+	local page = pageFrame(self.root, { title = "FIGHTERS", color = RED })
 	self.galleryName = label(page, { Position = UDim2.fromOffset(16, 58), Size = UDim2.new(1, -32, 0, 30), Font = DISPLAY, TextSize = 30,
 		Text = "", TextColor3 = GOLD })
 	self.galleryText = label(page, { Position = UDim2.fromOffset(16, 92), Size = UDim2.new(1, -32, 0, 250), Font = BODY_FONT, TextSize = 15,
@@ -743,13 +862,7 @@ function MenuController:showKitInfo(name)
 end
 
 function MenuController:buildRanking()
-	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
-	corner(page, 8)
-	stroke(page, 2, GOLD)
-	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
-		Text = "RANKING", TextColor3 = GOLD })
-	stroke(t, 1.5, INK)
+	local page = pageFrame(self.root, { title = "RANKING", color = GOLD, titleColor = GOLD })
 	self.rankingMine = label(page, { Position = UDim2.fromOffset(16, 56), Size = UDim2.new(1, -32, 0, 24), Font = UI_FONT, TextSize = 15,
 		Text = "", TextColor3 = WHITE })
 	self.rankingList = new("Frame", { Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100), BackgroundTransparency = 1 }, page)
@@ -775,9 +888,12 @@ function MenuController:refreshRanking()
 		return
 	end
 	for i, e in entries do
-		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = if i <= 3 then DARKRED else PANEL,
+		local medal = ({ GOLD, Color3.fromHex("D8D8E8"), Color3.fromHex("D08A4A") })[i]
+		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = PANEL,
 			BorderSizePixel = 0 }, list)
-		corner(row, 4)
+		corner(row, 6)
+		gradient(row, (medal or PANEL2):Lerp(INK, if medal then 0.6 else 0.2), Color3.fromHex("0C0C11"), 0)
+		if medal then stroke(row, 1.5, medal, 0.3) end
 		label(row, { Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(40, 34), Font = DISPLAY, TextSize = 24, Text = "#" .. e.rank,
 			TextColor3 = if i == 1 then GOLD else WHITE })
 		label(row, { Position = UDim2.fromOffset(60, 0), Size = UDim2.new(1, -230, 1, 0), Font = UI_FONT, TextSize = 15, Text = e.name,
@@ -790,13 +906,7 @@ end
 -- ACHIEVEMENTS: every achievement, where it is earned and the progress (GameModes.achievements,
 -- from the saved profile the server sends with the menu status).
 function MenuController:buildAchievements()
-	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(560, 500),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
-	corner(page, 8)
-	stroke(page, 2, GOLD)
-	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
-		Text = "ACHIEVEMENTS", TextColor3 = GOLD })
-	stroke(t, 1.5, INK)
+	local page = pageFrame(self.root, { title = "ACHIEVEMENTS", color = GOLD, titleColor = GOLD, size = UDim2.fromOffset(560, 500) })
 	self.achievementsCount = label(page, { Position = UDim2.fromOffset(16, 56), Size = UDim2.new(1, -32, 0, 22), Font = UI_FONT, TextSize = 15,
 		Text = "", TextColor3 = WHITE })
 	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(16, 86), Size = UDim2.new(1, -32, 1, -96), BackgroundTransparency = 1,
@@ -828,28 +938,34 @@ function MenuController:refreshAchievements()
 			Text = a.how, TextColor3 = Color3.fromHex("D8D8E0"), TextYAlignment = Enum.TextYAlignment.Top })
 		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(150, 18), Font = UI_FONT,
 			TextSize = 11, Text = a.where, TextColor3 = VIOLET, TextXAlignment = Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd })
-		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 30), Size = UDim2.fromOffset(110, 22), Font = UI_FONT,
-			TextSize = 14, Text = if a.done then "UNLOCKED" else a.value .. " / " .. a.goal, TextColor3 = if a.done then GOLD else GREY,
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -40, 0, 34), Size = UDim2.fromOffset(84, 22), Font = UI_FONT,
+			TextSize = 13, Text = if a.done then "UNLOCKED" else a.value .. " / " .. a.goal, TextColor3 = if a.done then GOLD else GREY,
 			TextXAlignment = Enum.TextXAlignment.Right })
+		-- (what it pays: crystals, faded until it is unlocked)
+		local gem = CurrencyIcons.make("crystals", row, 22, UDim2.new(1, -32, 0, 34))
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -128, 0, 34), Size = UDim2.fromOffset(40, 22), Font = UI_FONT,
+			TextSize = 12, Text = "+" .. GameModes.CRYSTALS_PER_ACHIEVEMENT, TextColor3 = CurrencyIcons.COLORS.crystals,
+			TextXAlignment = Enum.TextXAlignment.Right })
+		if not a.done then
+			for _, d in gem:GetDescendants() do
+				if d:IsA("GuiObject") then d.BackgroundTransparency = math.max(d.BackgroundTransparency, 0.55) end
+			end
+		end
 	end
 end
 
 function MenuController:buildSettings()
-	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 492),
-		BackgroundColor3 = INK, BackgroundTransparency = 0.2, BorderSizePixel = 0 }, self.root)
-	corner(page, 8)
-	stroke(page, 2, GREY)
-	local t = label(page, { Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 46), Font = DISPLAY, TextSize = 44,
-		Text = "SETTINGS", TextColor3 = WHITE })
-	stroke(t, 1.5, RED)
+	local page = pageFrame(self.root, { title = "SETTINGS", color = GREY, size = UDim2.fromOffset(540, 492) })
 	local y = 70
 	for _, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
 		{ "language", "LANGUAGE" } } do
 		local key, name = entry[1], entry[2]
 		local b = new("TextButton", { Position = UDim2.fromOffset(16, y), Size = UDim2.new(1, -32, 0, 52), BackgroundColor3 = PANEL,
-			Font = UI_FONT, TextSize = 18, Text = name, TextColor3 = WHITE }, page)
-		corner(b, 6)
-		stroke(b, 2, Color3.fromHex("33333D"))
+			Font = UI_FONT, TextSize = 18, Text = name, TextColor3 = WHITE, AutoButtonColor = false }, page)
+		corner(b, 8)
+		gradient(b, PANEL2, Color3.fromHex("0C0C11"), 90)
+		stroke(b, 1.5, Color3.fromHex("3A3A48"))
+		shine(b, 0.05)
 		local function refresh()
 			local get = self.settings[key .. "State"]
 			b.Text = name .. ": " .. (if get then get() else "—")
@@ -872,9 +988,12 @@ end
 function MenuController:buildBottom()
 	local news = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 28, 1, -14), Size = UDim2.fromOffset(640, 168),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)
-	corner(news, 6)
-	stroke(news, 1.5, Color3.fromHex("2A2A33"))
-	label(news, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 26, Text = "WHAT'S NEW", TextColor3 = WHITE })
+	corner(news, 8)
+	gradient(news, Color3.fromHex("15151C"), Color3.fromHex("07070A"), 90)
+	stroke(news, 1.5, Color3.fromHex("3A3A48"))
+	new("Frame", { Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = RED, BorderSizePixel = 0 }, news)
+	label(news, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 28, Text = "WHAT'S NEW", TextColor3 = WHITE })
+	shadow(news, 6, 0.5)
 	self.bottomNews = news
 	for i, item in NEWS do
 		local x = 14 + (i - 1) * 154
@@ -887,13 +1006,17 @@ function MenuController:buildBottom()
 			TextScaled = true, Text = item.kanji, TextColor3 = WHITE, TextTransparency = 0.25, TextXAlignment = Enum.TextXAlignment.Center })
 		label(tile, { Position = UDim2.fromOffset(8, 70), Size = UDim2.fromOffset(130, 14), Font = UI_FONT, TextSize = 10, Text = item.tag, TextColor3 = GREY })
 		label(tile, { Position = UDim2.fromOffset(8, 86), Size = UDim2.fromOffset(130, 26), Font = DISPLAY, TextScaled = true, Text = item.title, TextColor3 = WHITE })
+		shine(tile, 0.1)
 	end
 	-- MES PERSONNAGES: every fighter (a strip that scrolls); a click makes one the favourite (the lobby hero).
 	local roster = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -14), Size = UDim2.fromOffset(700, 168),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)
-	corner(roster, 6)
-	stroke(roster, 1.5, Color3.fromHex("2A2A33"))
-	label(roster, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 26, Text = "MY FIGHTERS", TextColor3 = WHITE })
+	corner(roster, 8)
+	gradient(roster, Color3.fromHex("15151C"), Color3.fromHex("07070A"), 90)
+	stroke(roster, 1.5, Color3.fromHex("3A3A48"))
+	new("Frame", { Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = RED, BorderSizePixel = 0 }, roster)
+	label(roster, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 28, Text = "MY FIGHTERS", TextColor3 = WHITE })
+	shadow(roster, 6, 0.5)
 	self.bottomRoster = roster
 	self.rosterTiles = {}
 	local strip = new("ScrollingFrame", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 0, 128), BackgroundTransparency = 1,
@@ -914,6 +1037,7 @@ function MenuController:buildBottom()
 		label(tile, { Position = UDim2.fromOffset(0, 94), Size = UDim2.fromOffset(78, 16), Font = UI_FONT, TextSize = 11,
 			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
 			TextXAlignment = Enum.TextXAlignment.Center })
+		shine(tile, 0.08)
 		tile.MouseEnter:Connect(function() self:showKitInfo(name) end)
 		tile.Activated:Connect(function()
 			self.remote:FireServer({ action = "hero", kit = name })
@@ -946,8 +1070,8 @@ function MenuController:open(page)
 	for name, entry in self.tabs do
 		local active = name == tab
 		entry.underline.Visible = active
-		entry.button.TextColor3 = if active then WHITE else GREY
-		entry.button.BackgroundTransparency = if active then 0.2 else 1
+		entry.button.TextColor3 = if active then WHITE else TAB_IDLE
+		entry.button.BackgroundTransparency = if active then 0.05 else 1
 	end
 	if page == "select" then
 		self.selectTitle.Text = self.mode.name .. " · PICK " .. (if self.mode.team then "YOUR TEAM" else "YOUR FIGHTER")
@@ -1009,11 +1133,9 @@ function MenuController:refreshProfile()
 		if s.rating >= min then floor = min end
 	end
 	self.profileBar.Size = UDim2.fromScale(if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1, 1)
+	-- The wallet rolls up to its new values (a coin gain counts up, the chip pulses).
 	local wallet = GameModes.wallet(s)
-	local function short(n) return if n >= 10000 then string.format("%.1fk", n / 1000) else tostring(n) end
-	self.wallet.coins.Text = short(wallet.coins)
-	self.wallet.crystals.Text = short(wallet.crystals)
-	self.wallet.rank.Text = short(wallet.rank)
+	for _, kind in { "coins", "crystals", "rank" } do self:rollWallet(kind, wallet[kind]) end
 	self.profileRank.Text ..= " · " .. (s.wins or 0) .. " W"
 	if s.title and s.title ~= "" then
 		self.profileRank.Text = "« " .. s.title .. " » · " .. self.profileRank.Text
@@ -1027,6 +1149,51 @@ function MenuController:refreshProfile()
 	if self.page == "achievements" then self:refreshAchievements() end
 end
 
+local function short(n) return if n >= 10000 then string.format("%.1fk", n / 1000) else tostring(math.floor(n + 0.5)) end
+
+function MenuController:rollWallet(kind, value)
+	local from = self.walletShown[kind]
+	self.walletShown[kind] = value
+	local text = self.wallet[kind]
+	if from == nil or from == value then
+		text.Text = short(value)
+		return
+	end
+	local counter = Instance.new("NumberValue")
+	counter.Value = from
+	counter.Changed:Connect(function(v) text.Text = short(v) end)
+	local tween = TweenService:Create(counter, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = value })
+	tween.Completed:Once(function() text.Text = short(value); counter:Destroy() end)
+	tween:Play()
+	local chip = self.walletChips[kind]
+	local pulse = chip:FindFirstChild("Pulse") or new("UIScale", { Name = "Pulse" }, chip)
+	pulse.Scale = 1.18
+	TweenService:Create(pulse, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+end
+
+-- A reward pops out of the wallet: the currency's sprite and "+N", rising and fading.
+function MenuController:reward(kind, amount)
+	if not amount or amount <= 0 then return end
+	local chip = self.walletChips[kind]
+	if not chip then return end
+	local pop = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 6), Size = UDim2.fromOffset(110, 40),
+		BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0, ZIndex = 40 }, chip)
+	corner(pop, 20)
+	stroke(pop, 2, CurrencyIcons.COLORS[kind])
+	local icon = CurrencyIcons.make(kind, pop, 30, UDim2.fromOffset(6, 5))
+	icon.ZIndex = 41
+	local text = label(pop, { Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -44, 1, 0), Font = DISPLAY, TextSize = 28,
+		Text = "+" .. amount, TextColor3 = CurrencyIcons.COLORS[kind], ZIndex = 41 })
+	stroke(text, 1.5, INK)
+	local scale = new("UIScale", { Scale = 0.4 }, pop)
+	TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(1.6, function()
+		TweenService:Create(pop, TweenInfo.new(0.6), { Position = UDim2.new(0.5, 0, 1, 40), BackgroundTransparency = 1 }):Play()
+		TweenService:Create(text, TweenInfo.new(0.6), { TextTransparency = 1 }):Play()
+		task.delay(0.65, function() pop:Destroy() end)
+	end)
+end
+
 function MenuController:flash(text, color)
 	self.toast.Text, self.toast.TextColor3, self.toast.Visible = text, color or GOLD, true
 	self.toastUntil = os.clock() + 2.5
@@ -1034,6 +1201,9 @@ end
 
 local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
+	if packet.coins and packet.coins > 0 then
+		task.delay(0.4, function() self:reward("coins", packet.coins) end)
+	end
 	if packet.challenge then
 		if packet.boss == "KUROEN SHIN" then
 			if packet.won then

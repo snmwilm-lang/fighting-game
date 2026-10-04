@@ -304,7 +304,7 @@ local function findRig(slot)
 	return cached
 end
 
--- The lobby hero (main menu): the favourite fighter, in its victory pose, then on guard.
+-- The lobby hero (main menu): the favourite fighter, on its own guard.
 local hero = { model = nil, animation = nil, since = 0 }
 local function updateHero(dt, now)
 	local holder = folder:FindFirstChild("Lobby_" .. player.UserId)
@@ -315,8 +315,8 @@ local function updateHero(dt, now)
 		if not ok then return end
 		hero.model, hero.animation, hero.since = model, animation, now
 	end
-	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0,
-		victory = now - hero.since < 3.5 }
+	-- (its own guard: every fighter stands its own way, never the shared arms-up victory pose)
+	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = model:GetAttribute("Kit") }
 	hero.animation:update(view, { x = 6, y = 0, state = "Idle" }, dt, now, hud.poseRate, false)
 	local pos = Vector3.new(0, hero.animation.rootHeight, Config.PlaneZ)
 	-- Turned three-quarters toward the camera, like the cover art.

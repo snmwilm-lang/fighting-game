@@ -1204,6 +1204,9 @@ Poses.Kits.HIBIKI = thirdKit({ root = { 12, -0.32 }, waist = { -8, 12 }, neck = 
 -- the jaw, the chest turned to the camera (a predator sure of himself, not a guard).
 Poses.Kits.KUROEN = thirdKit({ root = { 16, -0.42 }, waist = { -20, 26 }, neck = { 16, -22 }, lead = { 94, -26, 112 },
 	rear = { 46, 34, 132 }, step = { -0.85, 0.82, 8 }, run = { -16, -20 }, win = { 172, 40, 18 } })
+-- KUROEN SHIN (boss): beyond the fight, upright and calm, hands low and open (no guard to keep).
+Poses.Kits["KUROEN SHIN"] = thirdKit({ root = { 10, -0.18 }, waist = { -2, 8 }, neck = { -4, -8 }, lead = { 36, -12, 34 },
+	rear = { 26, 22, 46 }, step = { -0.55, 0.6, 6 }, run = { -22, -26 }, win = { 176, 176, 8 } })
 -- KAZAN: the predator crouched forward, both claws spread out to the sides, ready to rake.
 Poses.Kits.KAZAN = thirdKit({ root = { 22, -0.55 }, waist = { -16, 16 }, neck = { 14, -14 }, lead = { 78, -34, 70 },
 	rear = { 64, 40, 84 }, step = { -0.9, 0.85, 10 }, run = { -16, -22 }, win = { 150, 150, 50 } })

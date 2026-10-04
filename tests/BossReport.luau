@@ -1,17 +1,18 @@
 -- Boss report (not a test): ASURA with the boss AI against every kit played by LÉGENDE.
---   luau tests/BossReport.luau -a [matches]
+--   luau tests/BossReport.luau -a [matches] [BOSS]   (ASURA or "KUROEN SHIN")
 local Config = require("../src/shared/CombatConfig")
 local MoveData = require("../src/shared/MoveData")
 local Sim = require("../src/shared/CombatSimulation")
 local FighterAI = require("../src/shared/FighterAI")
 local args = { ... }
 local matches = tonumber(args[1]) or 10
+local BOSS = args[2] or "ASURA"
 local total = 0
 for _, kit in MoveData.KitOrder do
 	local wins = 0
 	for n = 1, matches do
 		local world = Sim.newWorld(Config, MoveData, false)
-		Sim.setKits(world, "ASURA", kit)
+		Sim.setKits(world, BOSS, kit)
 		local brains = { FighterAI.new("ASURA", n * 31), FighterAI.new(4, n * 7 + 3) }
 		for _ = 1, 60 * 60 * 6 do
 			local done = false
@@ -25,6 +26,6 @@ for _, kit in MoveData.KitOrder do
 		end
 	end
 	total += wins
-	print(string.format("ASURA vs %-10s %3d%%", kit, math.floor(wins / matches * 100 + 0.5)))
+	print(string.format("%s vs %-10s %3d%%", BOSS, kit, math.floor(wins / matches * 100 + 0.5)))
 end
-print(string.format("ASURA overall %d%%", math.floor(total / (matches * #MoveData.KitOrder) * 100 + 0.5)))
+print(string.format("%s overall %d%%", BOSS, math.floor(total / (matches * #MoveData.KitOrder) * 100 + 0.5)))

@@ -86,10 +86,10 @@ local LEVEL_NAMES = {}
 for i, level in FighterAI.Levels do LEVEL_NAMES[i] = level.name end
 local QUEUES = { NORMAL = "NORMAL · no points", RANKED = "RANKED · points and rank", FRIEND = "FRIEND · challenge a player on the server" }
 local NEWS = {
-	{ tag = "12 NEW", title = "RAIJIN, YUKINA…", color = RED, kanji = "雷" },
+	{ tag = "NEW", title = "KUROEN · KAZAN'S CLAWS", color = RED, kanji = "蝕" },
 	{ tag = "TEAMS", title = "1, 2 OR 3 FIGHTERS", color = VIOLET, kanji = "隊" },
 	{ tag = "ONLINE", title = "RANKED MATCHES", color = GOLD, kanji = "位" },
-	{ tag = "BOSS", title = "CHALLENGE ASURA", color = GOLD, kanji = "阿" },
+	{ tag = "BOSS", title = "KUROEN SHIN", color = GOLD, kanji = "真" },
 }
 
 function MenuController.new(remote, hub, settings)
@@ -138,6 +138,7 @@ function MenuController.new(remote, hub, settings)
 		{ id = "VERSUS_CPU", title = "1 VS 1 · CPU", lines = { "You against the CPU", "1, 2 or 3 fighters (tag)", "EASY → LEGEND" }, color = RED, kanji = "戦" },
 		{ id = "SURVIVAL", title = "SURVIVAL", lines = { "Opponents one after another", "Stronger and stronger", "Beat your record" }, color = DARKRED, kanji = "生" },
 		{ id = "CHALLENGE", title = "CHALLENGE · ASURA", lines = { "The four-armed KAI", "1 to 3 fighters against him", "Your victory decides your reward" }, color = GOLD, kanji = "阿" },
+		{ id = "CHALLENGE_SHIN", title = "CHALLENGE · KUROEN SHIN", lines = { "KUROEN past every limit", "Reward: KUROEN's DIVINE ECLIPSE style" }, color = WHITE, kanji = "真" },
 	})
 	self.pages.online = self:buildSubCards("ONLINE MODE", {
 		{ id = "VERSUS", queue = "RANKED", title = "RANKED FIGHT", lines = { "Elo points and rank", "An opponent at your level" }, color = GOLD, kanji = "位" },
@@ -339,9 +340,10 @@ function MenuController:buildSubCards(title, entries)
 		BackgroundTransparency = 1 }, self.root)
 	local t = label(page, { Size = UDim2.new(1, 0, 0, 50), Font = DISPLAY, TextSize = 48, Text = title, TextColor3 = WHITE })
 	stroke(t, 2, RED)
+	local step = if #entries > 3 then 106 else 132 -- (four modes: tighter cards)
 	for i, entry in entries do
 		local locked = false
-		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * 132), size = UDim2.fromOffset(540, 120),
+		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * step), size = UDim2.fromOffset(540, step - 12),
 			color = if locked then GREY else entry.color, kanji = entry.kanji, title = entry.title, titleSize = 42, kanjiSize = 120,
 			lines = entry.lines })
 		b.Activated:Connect(function()
@@ -356,7 +358,7 @@ function MenuController:buildSubCards(title, entries)
 			end
 		end)
 	end
-	local back = new("TextButton", { Position = UDim2.fromOffset(0, 60 + #entries * 132), Size = UDim2.fromOffset(150, 40),
+	local back = new("TextButton", { Position = UDim2.fromOffset(0, 60 + #entries * step), Size = UDim2.fromOffset(150, 40),
 		BackgroundColor3 = PANEL, Font = UI_FONT, TextSize = 15, Text = "◀ BACK", TextColor3 = WHITE }, page)
 	corner(back, 6)
 	stroke(back, 2, GREY)
@@ -585,14 +587,15 @@ function MenuController:refreshSelect()
 	self.kitRole.Text = kit.Role .. "  ·  " .. string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. ({ "SIMPLE", "MEDIUM", "TECHNICAL" })[level]
 	-- The other side: the opponent (unknown until the match: the CPU draws its team, the
 	-- search finds a player).
-	local foe = if mode.id == "CHALLENGE" then "ASURA" elseif mode.queue then "OPPONENT" else "CPU"
+	local bossKit = mode.boss and MoveData.Kits[mode.boss]
+	local foe = if bossKit then mode.boss elseif mode.queue then "OPPONENT" else "CPU"
 	self.p2.name.Text = foe
 	self:showPreview(self.p1, name)
-	self:showPreview(self.p2, if foe == "ASURA" then "ASURA" else nil)
-	self.p2.portrait.Text = if foe == "ASURA" then "阿" else "？"
-	self.p2.portrait.TextColor3 = if foe == "ASURA" then GOLD else GREY
-	self.p2.badgeKanji.Text = if foe == "ASURA" then "阿" elseif mode.queue then "対" else "戦"
-	self.p2.badge.BackgroundColor3 = if foe == "ASURA" then Color3.fromHex("8A6A10") else Color3.fromHex("3A3A44")
+	self:showPreview(self.p2, if bossKit then mode.boss else nil)
+	self.p2.portrait.Text = if bossKit then bossKit.Kanji else "？"
+	self.p2.portrait.TextColor3 = if bossKit then GOLD else GREY
+	self.p2.badgeKanji.Text = if bossKit then bossKit.Kanji elseif mode.queue then "対" else "戦"
+	self.p2.badge.BackgroundColor3 = if bossKit then Color3.fromHex("8A6A10") else Color3.fromHex("3A3A44")
 	self.p2.role.Text = if mode.level then "LEVEL " .. LEVEL_NAMES[self.level] elseif mode.queue then QUEUES[self.queue] else ""
 	-- (the S + E of the sheet and the ultimates, so a new fighter can be read before it is picked)
 	local crouch = kit.Starters.Crouch.Special and MoveData.Moves[kit.Starters.Crouch.Special]
@@ -1023,7 +1026,13 @@ end
 local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
 	if packet.challenge then
-		if packet.won then
+		if packet.boss == "KUROEN SHIN" then
+			if packet.won then
+				self:flash("KUROEN SHIN DEFEATED · RANK " .. GRADE_NAMES[packet.grade] .. " · KUROEN'S DIVINE ECLIPSE STYLE UNLOCKED", GOLD)
+			else
+				self:flash("KUROEN SHIN WAS BEYOND YOU · TRY AGAIN", RED)
+			end
+		elseif packet.won then
 			self:flash("ASURA DEFEATED · RANK " .. GRADE_NAMES[packet.grade] .. " · TITLE \" " .. (packet.title or "") .. " »"
 				.. (if packet.unlock then " · AWAKENED KAI STYLE" else ""), GOLD)
 		else

@@ -1415,7 +1415,7 @@ test("the low guard is not a fortress: forward + R is an overhead, and crouching
 	expect(wear(true) > wear(false) * 1.3, "crouching, the guard does not wear faster")
 end)
 
-test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors his heavies only", function()
+test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors every grounded blow, four arms, no counter hit", function()
 	local w = kitDuel("ASURA", "KAI", 3)
 	local a, k = w.fighters[1], w.fighters[2]
 	local al, ar, ab, at = Sim.hurtbox(a, Config)
@@ -1430,7 +1430,17 @@ test("ASURA is massive, not taller: a wider body, the same height and reach; ASU
 		return PASSIVE.armor(w, k, a, Moves.Jab, {})
 	end
 	expect(armored("Smash"), "ASURA'S WRATH did not armor the Smash")
-	expect(not armored("Jab"), "ASURA'S WRATH armored a jab (too cheap)")
+	expect(armored("Jab"), "ASURA'S WRATH does not armor every grounded blow (a boss, Wilhem: much stronger)")
+	expect(not armored("AirKick"), "ASURA'S WRATH armors in the air")
+	-- the four arms: a blow of his that lands is followed by the second pair (more damage)
+	local function jabHit(kit)
+		local w2 = kitDuel(kit, "KAI", 2.4)
+		return find(run(w2, 20, function(t) return { input({ light = t == 1 }) } end), "Hit")
+	end
+	local ah, kh = jabHit("ASURA"), jabHit("KAI")
+	expect(ah and kh and ah.arms and ah.damage > kh.damage * 1.6, "ASURA's second pair of arms does not follow his blows")
+	-- a boss is never caught by a COUNTER HIT
+	expect(MoveData.Kits.ASURA.Stats.NoCounter, "ASURA can be counter-hit")
 end)
 
 test("ASURA's SECOND LIFE: felled once, he rises in a black aura (half health, harder, faster), once per match", function()
@@ -1622,6 +1632,22 @@ test("KUROEN DOMINATION is never a damage bonus; TYRANT'S FIST stops if its firs
 		if t == 1 then k.move, k.moveFrame, k.moveHits, k.moveContact, k.state, k.moveSerial = fist.id, 0, 0, nil, "Attack", k.moveSerial + 1 end
 	end)
 	expect(count(landed, "Hit") >= 4, "a TYRANT'S FIST that lands does not go on: " .. count(landed, "Hit"))
+end)
+
+test("KUROEN SHIN (boss): born at ÉCLIPSE, never loses DOMINATION, gets it back by itself; KUROEN's moves stay KUROEN's", function()
+	local w = kitDuel("KUROEN SHIN", "KAI", 2.4)
+	local boss = w.fighters[1]
+	expect(boss.domination == 3, "KUROEN SHIN is not born at ÉCLIPSE")
+	run(w, 40, function(t) return { nil, input({ light = t == 1 }) } end)
+	expect(boss.domination == 3, "KUROEN SHIN lost DOMINATION when hit")
+	boss.domination = 0
+	run(w, 250)
+	expect(boss.domination >= 1, "KUROEN SHIN's DOMINATION does not come back")
+	expect(MoveData.MoveKit[MoveData.Kits["KUROEN SHIN"].Roles.Jab] == "KUROEN", "the boss took KUROEN's moves away")
+	expect(not table.find(MoveData.KitOrder, "KUROEN SHIN"), "KUROEN SHIN is selectable")
+	-- the normal KUROEN starts at 0
+	local k = kitDuel("KUROEN", "KAI", 3)
+	expect(k.fighters[1].domination == 0, "KUROEN is born with DOMINATION")
 end)
 
 -- ===================================================================== KAZAN 鎖 (claws)

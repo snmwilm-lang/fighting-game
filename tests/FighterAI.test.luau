@@ -273,6 +273,24 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 		end
 	end
 	expect(spear >= 5, "ASURA won only " .. spear .. " of 6 against RAIJIN's spear")
+	-- KUROEN SHIN, the second boss: broken (Wilhem: like Gogeta)
+	local shin = 0
+	for seed = 1, 6 do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, "KUROEN SHIN", MoveData.KitOrder[seed * 3 % #MoveData.KitOrder + 1])
+		local brains = { FighterAI.new("ASURA", seed), FighterAI.new(4, seed * 7 + 3) }
+		for _ = 1, 60 * 60 * 6 do
+			local over = false
+			for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do
+				if e.kind == "MatchEnd" then
+					if e.winner == 1 then shin += 1 end
+					over = true
+				end
+			end
+			if over then break end
+		end
+	end
+	expect(shin >= 5, "KUROEN SHIN won only " .. shin .. " of 6 against LÉGENDE")
 end)
 
 test("the same seed replays the same fight", function()

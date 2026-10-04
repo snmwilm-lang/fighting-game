@@ -23,7 +23,10 @@ GameModes.List = {
 		description = "Dummy, CPU, combo trainer, ultimate conditions.", team = false },
 	{ id = "CHALLENGE", name = "CHALLENGE · ASURA", kanji = "阿",
 		description = "ASURA, a four-armed KAI, out of the Gate of Heaven. Bring 1 to 3 fighters. Your victory decides your reward.",
-		team = true },
+		team = true, boss = "ASURA", grade = "asuraGrade" },
+	{ id = "CHALLENGE_SHIN", name = "CHALLENGE · KUROEN SHIN", kanji = "真",
+		description = "KUROEN past every limit, born at ECLIPSE. Bring 1 to 3 fighters. Beat him to earn KUROEN's DIVINE ECLIPSE style.",
+		team = true, boss = "KUROEN SHIN", grade = "shinGrade" },
 }
 
 GameModes.QUEUES = { NORMAL = true, RANKED = true }
@@ -97,6 +100,7 @@ end
 -- Returns grade (0 none, 1 C, 2 B, 3 A, 4 S), the title earned, and whether KAI's ÉVEILLÉ
 -- style is unlocked (any win).
 GameModes.CHALLENGE_TITLES = { "ASURA SLAYER", "ARM BREAKER", "ASURA'S EQUAL", "ASURA" }
+GameModes.SHIN_TITLES = { "GOD SLAYER", "ECLIPSE BREAKER", "TRUE EMPEROR'S EQUAL", "TRUE EMPEROR" }
 function GameModes.challengeGrade(won, fighters, hpLeft)
 	if not won then return 0, nil, false end
 	local grade = 1 -- C: beaten with a team of 3
@@ -122,13 +126,16 @@ GameModes.ACHIEVEMENTS = {
 	{ id = "BREAKER", name = "ARM BREAKER", where = "CHALLENGE · ASURA", how = "Beat ASURA with 2 fighters or fewer.", stat = "achAsuraGrade", goal = 2 },
 	{ id = "EQUAL", name = "ASURA'S EQUAL", where = "CHALLENGE · ASURA", how = "Beat ASURA alone.", stat = "achAsuraGrade", goal = 3 },
 	{ id = "ASURA", name = "ASURA", where = "CHALLENGE · ASURA", how = "Beat ASURA alone with half your health left.", stat = "achAsuraGrade", goal = 4 },
+	{ id = "GODSLAYER", name = "GOD SLAYER", where = "CHALLENGE · KUROEN SHIN", how = "Beat KUROEN SHIN. Reward: KUROEN's DIVINE ECLIPSE style.",
+		stat = "achShinGrade", goal = 1 },
+	{ id = "TRUEEMPEROR", name = "TRUE EMPEROR", where = "CHALLENGE · KUROEN SHIN", how = "Beat KUROEN SHIN alone.", stat = "achShinGrade", goal = 3 },
 }
 
 -- The achievements count from their own counters (ach...), not from the ranking or the
 -- rewards: a new SEASON resets every player's achievements (Wilhem: "reset les achievements
 -- pour tout le monde") without touching their points, wins, titles or unlocked styles.
 GameModes.ACHIEVEMENT_SEASON = 2
-GameModes.ACHIEVEMENT_COUNTERS = { "achWins", "achRating", "achSurvival", "achAsuraDamage", "achAsuraGrade" }
+GameModes.ACHIEVEMENT_COUNTERS = { "achWins", "achRating", "achSurvival", "achAsuraDamage", "achAsuraGrade", "achShinGrade" }
 
 -- A profile from an older season (or none): its achievement counters start again from zero.
 -- Returns true if it was reset.
@@ -148,6 +155,7 @@ function GameModes.achievementProgress(profile, what)
 	if what.survival then profile.achSurvival = math.max(profile.achSurvival, what.survival) end
 	if what.asuraDamage then profile.achAsuraDamage = math.max(profile.achAsuraDamage, what.asuraDamage) end
 	if what.asuraGrade then profile.achAsuraGrade = math.max(profile.achAsuraGrade, what.asuraGrade) end
+	if what.shinGrade then profile.achShinGrade = math.max(profile.achShinGrade or 0, what.shinGrade) end
 end
 
 -- The achievements as a player sees them: { name, where, how, done, value, goal }, and the

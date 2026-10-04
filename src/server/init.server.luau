@@ -73,9 +73,10 @@ end
 local function defaultProfile()
 	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI",
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
+		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
-		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0 }
+		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0, achShinGrade = 0 }
 end
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
@@ -385,10 +386,10 @@ local function startSolo(player, request)
 		match.dummyMode = 1
 	elseif mode == "VERSUS_CPU" then
 		Sim.setLineup(world, request.team, GameModes.cpuTeam(#request.team, MoveData.KitOrder, randomStart()))
-	elseif mode == "CHALLENGE" then
-		-- ASURA, the four-armed boss, against a team of 1 to 3.
+	elseif GameModes.find(mode).boss then
+		-- A boss (ASURA, KUROEN SHIN) against a team of 1 to 3, with the boss's brain.
 		match.level = "ASURA"
-		Sim.setTeams(world, request.team, { "ASURA" })
+		Sim.setTeams(world, request.team, { GameModes.find(mode).boss })
 	elseif mode == "SURVIVAL" then
 		match.wave, match.seed = 1, randomStart()
 		local kit, level = GameModes.survivalOpponent(1, MoveData.KitOrder, match.seed)
@@ -459,7 +460,8 @@ function menuStatus(player)
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest,
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
-		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade,
+		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
+		shinGrade = profile.shinGrade,
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
 			local n = 0
@@ -478,7 +480,8 @@ local function hubStatus()
 		entry.slot = if client and client.match then client.slot else 0
 		entry.where = if not client then "?"
 			elseif client.match then (if client.match.mode == "VERSUS" then "IN A FIGHT" elseif client.match.mode == "TRAINING" then "TRAINING"
-				elseif client.match.mode == "CHALLENGE" then "VS ASURA" else "VS THE CPU")
+				elseif GameModes.find(client.match.mode) and GameModes.find(client.match.mode).boss then "VS " .. GameModes.find(client.match.mode).boss
+				else "VS THE CPU")
 			elseif client.queue then "SEARCHING" else "IN THE MENU"
 	end
 	return list
@@ -564,6 +567,7 @@ task.spawn(function()
 	folder.Name = "KitPreviews"
 	local names = table.clone(MoveData.KitOrder)
 	table.insert(names, "ASURA")
+	table.insert(names, "KUROEN SHIN")
 	for _, name in names do
 		local ok, model = pcall(RigBuilder.build, 1, nil, CharacterData.Skins[CharacterData.defaultStyle(name, nil)])
 		if ok and model then
@@ -842,11 +846,12 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		-- Next colour style of the kit; the other slot keeps a different one.
 		client.lastSkin = now
 		local mine, other = client.slot, 3 - client.slot
-		-- (Styles to earn, like KAI's ÉVEILLÉ, are skipped until won: CHALLENGE ASURA.)
+		-- (Styles to earn, KAI's ÉVEILLÉ and KUROEN's DIVINE, are skipped until won: the CHALLENGES.)
 		local name = match.characters[mine].Skin
 		for _ = 1, 8 do
 			name = CharacterData.nextSkin(name, match.characters[other].Skin)
-			if not CharacterData.LOCKED[name] or (client.profile and client.profile.asuraGrade >= 1) then break end
+			local lock = CharacterData.LOCKED[name]
+			if not lock or (client.profile and (client.profile[lock] or 0) >= 1) then break end
 		end
 		match.characters[mine] = CharacterData.Skins[name]
 		rebuildSlot(match, mine)
@@ -882,7 +887,7 @@ local function roster(match)
 		local name = if slot.owner then slot.owner.DisplayName
 			elseif match.mode == "TRAINING" then "DUMMY · " .. DUMMY_MODES[match.dummyMode].name
 			elseif match.mode == "SURVIVAL" then "CPU · WAVE " .. match.wave
-			elseif match.mode == "CHALLENGE" then "ASURA · BOSS"
+			elseif GameModes.find(match.mode) and GameModes.find(match.mode).boss then GameModes.find(match.mode).boss .. " · BOSS"
 			else "CPU · " .. (FighterAI.Levels[match.level or 1] or FighterAI.Levels[1]).name
 		list[i] = {
 			owner = if slot.owner then slot.owner.UserId else 0, player = name,
@@ -1020,6 +1025,24 @@ local function followEvents(match, events)
 				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest })
 			elseif match.mode == "VERSUS" then
 				endVersus(match, event.winner)
+			elseif match.mode == "CHALLENGE_SHIN" and owner and clients[owner] then
+				-- KUROEN SHIN: the grade (team size, health left), KUROEN's DIVINE style once beaten.
+				local client = clients[owner]
+				local team = world.teams and world.teams[1]
+				local mine = world.fighters[1]
+				local won = event.winner == 1
+				local grade, _, unlock = GameModes.challengeGrade(won, team and #team.kits or 1, math.max(0, mine.hp) / mine.maxHp)
+				local title = if grade > 0 then GameModes.SHIN_TITLES[grade] else nil
+				local profile = client.profile
+				local newBest = grade > (profile.shinGrade or 0)
+				GameModes.achievementProgress(profile, { shinGrade = grade })
+				if newBest then
+					profile.shinGrade = grade
+					profile.title = title or profile.title
+				end
+				saveProfile(owner, client)
+				menuRemote:FireClient(owner, { result = true, challenge = true, boss = "KUROEN SHIN", won = won, grade = grade, title = title,
+					newBest = newBest, unlock = unlock })
 			elseif match.mode == "CHALLENGE" and owner and clients[owner] then
 				-- The reward depends on how ASURA was beaten (GameModes.challengeGrade).
 				local client = clients[owner]

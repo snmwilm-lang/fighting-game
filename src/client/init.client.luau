@@ -332,7 +332,7 @@ local function musicState()
 	state.phase, state.hp = world.phase, {}
 	local deciding = true
 	for i, f in world.fighters do
-		if f.kit == "ASURA" then state.boss = true end
+		if f.kit == "ASURA" or f.kit == "KUROEN SHIN" then state.boss = true end
 		if f.revived then state.wrath = true end
 		state.hp[i] = (f.hp or 0) / math.max(1, f.maxHp or 1)
 		if (f.wins or 0) < Config.RoundsToWin - 1 then deciding = false end

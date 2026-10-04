@@ -974,6 +974,8 @@ function EffectsController:onEvent(event, views, rigs)
 	if event.kind == "Hit" or event.kind == "Block" or event.kind == "GuardBreak" then
 		local attackerColor = self:energy(event.attacker)
 		local position = Vector3.new(event.x, event.y, 0)
+		-- ASURA's second pair of arms follows the blow: a second, golden impact just above.
+		if event.arms then self:spark(position + Vector3.new(0, 0.7, 0), Color3.fromHex("FFD23F"), 1.3) end
 		local m = MoveData.Moves[event.move]
 		local shakeScale = if self.reduced then 0.4 else 1
 		if event.kind == "Hit" then

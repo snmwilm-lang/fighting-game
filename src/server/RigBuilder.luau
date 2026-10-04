@@ -1493,6 +1493,10 @@ function OUTFITS.KUROEN(o)
 	o.piece("LowerTorso", "Sash", Vector3.new(waist.X * 1.08, math.max(0.3, waist.Y * 0.4), waist.Z * 1.12), CFrame.new(0, waist.Y * 0.15, 0), o.main)
 end
 
+-- KUROEN SHIN (boss) is KUROEN's body in his divine colours.
+BODIES["KUROEN SHIN"] = BODIES.KUROEN
+OUTFITS["KUROEN SHIN"] = OUTFITS.KUROEN
+
 function OUTFITS.KAZAN(o)
 	o.weapon(WeaponSpec.KAZAN) -- the two claws (block body and avatars alike)
 	if o.block then return end -- (the block body draws the rest)

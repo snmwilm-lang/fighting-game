@@ -4671,6 +4671,20 @@ GEN.add("KUROEN", {
 	fx = { line = "crimsonFist", burst = "eclipseBurst", ground = "eclipseSeal" },
 })
 
+-- KUROEN SHIN 真 (boss): the true emperor, white and gold. Instant: he is behind you before you
+-- see him. The target dragged in from afar (R); a storm of fists from every side, afterimages
+-- (ÉVEIL); he circles the target faster than the eye (PORTE); a pillar of light from the sky
+-- (FATAL).
+GEN.add("KUROEN SHIN", {
+	open = { rush = "storm", awaken = "clones", gate = "meditate", fatal = "emerge" },
+	finish = { rush = "blowaway", awaken = "echo", gate = "bow", fatal = "skyward" },
+	id = "trueemperor", grade = "divine", kanji = "真", pose = "Levitate", rest = "StandTall", seed = 3, step = 7,
+	rush = "pull", awaken = "gatling", gate = "orbit", fatal = "pillar",
+	blows = { "PalmStrike", "Uppercut", "Hammer", "Smash", "BodyBlow" },
+	fx = { line = "divineFist", burst = "divineHalo", ground = "divineSeal" },
+	names = { Rush = "真 · DIVINE EMPEROR RUSH", Awaken = "真 · ZERO ABSOLU: TRUE ECLIPSE", Fatal = "真 · ETERNAL ECLIPSE" },
+})
+
 -- KAZAN 鎖: the predator circles the prey and rakes it at every pass (R); the claws seize it and
 -- slam it (ÉVEIL); held still in the shackle while the claws work (PORTE); hooked and dragged
 -- in (FATAL).

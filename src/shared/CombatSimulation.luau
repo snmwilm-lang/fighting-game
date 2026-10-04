@@ -37,7 +37,7 @@ local function newFighter(slot, c, kit, stanceId)
 		frost = 0, chilled = 0, chillScale = 1,
 		poison = 0, poisonTicks = 0, poisonDamage = 0, poisonInterval = 30,
 		massReady = false, tempoChain = 0, tempoLast = -999, tempo = 0,
-		domination = 0, dominationIdle = 0, dominationGained = false, shackleHits = 0, shackled = false, secondWindUsed = false,
+		domination = kit.Passive and kit.Passive.Type == "Domination" and kit.Passive.Start or 0, dominationIdle = 0, dominationGained = false, shackleHits = 0, shackled = false, secondWindUsed = false,
 		droneCharges = kit.Passive and kit.Passive.Type == "Engineering" and kit.Passive.Charges or 0, droneCharge = 0,
 		armorMove = -1,
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
@@ -1199,6 +1199,8 @@ end
 -- KUROEN's DOMINATION: a combo taken (its first blow) or too long without landing one lowers it.
 function PASSIVE.dominationLoss(world, f, events, why)
 	if f.domination <= 0 then return end
+	local own = kitOf(world, f).Passive
+	if own and own.NoLoss then return end -- (KUROEN SHIN: never lost)
 	f.domination -= 1
 	f.dominationIdle = 0
 	table.insert(events, { kind = "Domination", slot = f.slot, level = f.domination, lost = why, x = f.x, y = f.y + 4 })
@@ -1253,6 +1255,15 @@ function PASSIVE.tick(world, f, events)
 		f.dominationIdle += 1
 		local passive = kitOf(world, f).Passive
 		if passive and f.dominationIdle >= (passive.Idle or 360) then PASSIVE.dominationLoss(world, f, events, "idle") end
+	end
+	-- (KUROEN SHIN: DOMINATION comes back by itself, a level every Regen ticks)
+	local own = kitOf(world, f).Passive
+	if own and own.Type == "Domination" and own.Regen and f.domination < own.Max and f.state ~= "KO" and not world.cinematic then
+		f.dominationRegen = (f.dominationRegen or 0) + 1
+		if f.dominationRegen >= own.Regen then
+			f.dominationRegen, f.domination = 0, f.domination + 1
+			table.insert(events, { kind = "Domination", slot = f.slot, level = f.domination, x = f.x, y = f.y + 4 })
+		end
 	end
 	if f.poisonTicks > 0 and f.state ~= "KO" then
 		f.poisonTicks -= 1
@@ -1328,6 +1339,7 @@ local function applyHit(world, a, d, m, events, source)
 		local wear = if (m.kind or "Normal") == "Normal" and m.guardDamage <= 12 then c.LightGuardWear or 1 else 1
 		-- The low guard is not a free fortress: crouching, the guard wears faster.
 		if d.holdCrouch then wear *= c.CrouchGuardWear or 1 end
+		if a.stats.ExtraArms and not source then wear *= 1.5 end -- (four arms on one guard)
 		d.guard -= m.guardDamage * wear * (d.stats.GuardDamageTaken or 1)
 		d.guardRegenDelay = c.GuardRegenDelayTicks
 		d.blocking = true
@@ -1355,7 +1367,7 @@ local function applyHit(world, a, d, m, events, source)
 	-- (never a link of the opponent's string: a combo is never broken by it), caught during
 	-- its wind-up, outside any combo, by a blow (not a projectile, not an ultimate).
 	local theirs = d.move and world.moves[d.move]
-	local counter = theirs ~= nil and d.state == "Attack" and d.moveFresh == true and d.moveFrame <= theirs.startup
+	local counter = theirs ~= nil and not (d.stats and d.stats.NoCounter) and d.state == "Attack" and d.moveFresh == true and d.moveFrame <= theirs.startup
 		and d.comboHits == 0 and a.comboHits == 0 and not source and firstHit
 		and m.kind ~= "Ultimate" and theirs.kind ~= "Ultimate" and not theirs.invuln and theirs.startup >= (c.CounterMinStartup or 0)
 	local bonus, tip = passiveBonus(world, a, d, m, source)
@@ -1366,7 +1378,10 @@ local function applyHit(world, a, d, m, events, source)
 		stop += c.CounterHitstop or 0
 	end
 	local wrath = if a.revived and a.stats.SecondLife then a.stats.SecondLife.DamageDealt or 1 else 1
-	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * wrath * bonus + 0.5))
+	-- ASURA's four arms (Stats.ExtraArms): a grounded blow that lands is followed by the second pair.
+	local arms = if a.stats.ExtraArms and not source and (m.kind or "Normal") == "Normal" and not m.air then 1 + a.stats.ExtraArms else 1
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * wrath * arms * bonus + 0.5))
+	if arms > 1 then event.arms = true end
 	d.hp = math.max(0, d.hp - damage)
 	PASSIVE.onHit(world, a, d, m, source, firstHit, events)
 	event.tip = tip or nil

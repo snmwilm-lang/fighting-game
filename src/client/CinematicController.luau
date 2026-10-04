@@ -46,6 +46,7 @@ local THEME_GRADES = {
 	titan = { TintColor = Color3.fromRGB(255, 190, 170), Contrast = 0.45, Saturation = -0.2, Brightness = -0.06 }, -- GORAN
 	cosmos = { TintColor = Color3.fromRGB(190, 180, 255), Contrast = 0.5, Saturation = 0.1, Brightness = -0.16 }, -- ASTER
 	sonic = { TintColor = Color3.fromRGB(255, 190, 235), Contrast = 0.35, Saturation = 0.3, Brightness = 0.02 }, -- HIBIKI
+	divine = { TintColor = Color3.fromRGB(255, 245, 210), Contrast = 0.3, Saturation = -0.15, Brightness = 0.14 }, -- KUROEN SHIN (white and gold)
 	eclipse = { TintColor = Color3.fromRGB(255, 120, 130), Contrast = 0.65, Saturation = -0.45, Brightness = -0.24 }, -- KUROEN (the light goes out)
 	iron = { TintColor = Color3.fromRGB(225, 215, 195), Contrast = 0.45, Saturation = -0.7, Brightness = -0.08 }, -- KAZAN
 	blood = { TintColor = Color3.fromRGB(255, 150, 160), Contrast = 0.55, Saturation = -0.2, Brightness = -0.14 }, -- KUREN
@@ -212,6 +213,7 @@ local THEME_FX = {
 	gravityPull = "kiBeam", starCollapse = "eclipse", gravityWell = "orbs",
 	soundWave = "waves", soundRing = "tornadoRing", beatRing = "shockwave",
 	crimsonFist = "rageFist", eclipseBurst = "eclipse", eclipseSeal = "seal", -- KUROEN
+	divineFist = "rageFist", divineHalo = "dragonHelix", divineSeal = "seal", -- KUROEN SHIN
 	clawRend = "cut", clawBurst = "crescentSmall", prisonRing = "cage", -- KAZAN's claws
 	bloodSpear = "kiBeam", bloodBloom = "crescentSmall", bloodPool = "waterspout",
 	vines = "wake", thornBurst = "thorns", roots = "roots",

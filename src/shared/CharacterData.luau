@@ -12,7 +12,7 @@
 -- Wraps = second colour (bands, guards).
 local KANJI = { KAI = "開", TARO = "火", ZEPHYR = "風", AKEMI = "影", RYUKEN = "拳", SHIN = "流", DAICHA = "闇", HIBECARES = "崩",
 	ASURA = "阿", RAIJIN = "雷", YUKINA = "雪", VENOM = "毒", GORAN = "剛", ASTER = "星", HIBIKI = "響",
-	KAZAN = "鎖", KUREN = "血", SYLVA = "森", ELIAN = "癒", NOVA = "機", KUROEN = "蝕" }
+	KAZAN = "鎖", KUREN = "血", SYLVA = "森", ELIAN = "癒", NOVA = "機", KUROEN = "蝕", ["KUROEN SHIN"] = "真" }
 
 local function style(kit, name, colors)
 	colors.Name = kit
@@ -206,6 +206,10 @@ local Skins = table.freeze({
 	-- KUROEN: dark skin, a big white mane with red streaks swept back, a torn sleeveless black
 	-- jacket, wide white trousers, black and red gauntlets, an aura of red and black.
 	["EMPEROR"] = style("KUROEN", "EMPEROR", { Hair = "F4F2EE", HairTip = "E0102E", SkinTone = "5C3826", Eyes = "FF2A3D", Vest = "0C0C0E", VestTrim = "E0102E", Shirt = "0C0C0E", Sash = "E0102E", Wraps = "141016", Pants = "EEEAE2", PantsShade = "BEB8AE", Shoes = "0C0C0E", ShoeAccent = "E0102E", Sole = "050506", Energy = "E0102E", Shield = "FF6A7A" }),
+	-- KUROEN SHIN (boss): his hair gone white-gold, a white and gold aura, the eclipse turned to
+	-- light. DIVINE ECLIPSE: the same look for KUROEN himself, won by beating him (CHALLENGE · KUROEN SHIN).
+	["TRUE EMPEROR"] = style("KUROEN SHIN", "TRUE EMPEROR", { Hair = "FFFFFF", HairTip = "FFD23F", SkinTone = "5C3826", Eyes = "FFD23F", Vest = "F4F0E6", VestTrim = "FFD23F", Shirt = "F4F0E6", Sash = "FFD23F", Wraps = "F4F0E6", Pants = "141418", PantsShade = "0C0C10", Shoes = "F4F0E6", ShoeAccent = "FFD23F", Sole = "0C0C10", Energy = "FFE9A0", Shield = "FFFFFF" }),
+	["DIVINE ECLIPSE"] = style("KUROEN", "DIVINE ECLIPSE", { Hair = "FFFFFF", HairTip = "FFD23F", SkinTone = "5C3826", Eyes = "FFD23F", Vest = "F4F0E6", VestTrim = "FFD23F", Shirt = "F4F0E6", Sash = "FFD23F", Wraps = "F4F0E6", Pants = "141418", PantsShade = "0C0C10", Shoes = "F4F0E6", ShoeAccent = "FFD23F", Sole = "0C0C10", Energy = "FFE9A0", Shield = "FFFFFF" }),
 	["BLOOD MOON"] = style("KUROEN", "BLOOD MOON", { Hair = "D8D0D0", HairTip = "8A0A1A", SkinTone = "4E2E20", Eyes = "FFB03A", Vest = "2A060E", VestTrim = "FFB03A", Shirt = "2A060E", Sash = "8A0A1A", Wraps = "2A060E", Pants = "1C1C20", PantsShade = "101014", Shoes = "2A060E", ShoeAccent = "FFB03A", Sole = "08080A", Energy = "FF4A2A", Shield = "FFB03A" }),
 	PRISONER = style("KAZAN", "PRISONER", { Hair = "8A8A90", HairTip = "5A5A60", SkinTone = "D8A888", Eyes = "FFB04A", Vest = "141418", VestTrim = "8A8A94", Shirt = "1C1C22", Sash = "8A8A94", Wraps = "5A5A64", Pants = "141418", PantsShade = "0C0C10", Shoes = "141418", ShoeAccent = "FFB04A", Sole = "0C0C10", Energy = "FFB04A", Shield = "E0E0E8" }),
 	["EXECUTIONER"] = style("KAZAN", "EXECUTIONER", { Hair = "1A1A1E", HairTip = "C8102E", SkinTone = "C8987A", Eyes = "FF4A3A", Vest = "2A0A10", VestTrim = "C8102E", Shirt = "141418", Sash = "C8102E", Wraps = "3A3A40", Pants = "1A1A1E", PantsShade = "0E0E12", Shoes = "1A1A1E", ShoeAccent = "C8102E", Sole = "0E0E12", Energy = "FF5A3A", Shield = "FFB04A" }),
@@ -256,7 +260,8 @@ local STYLE_ORDER = table.freeze({
 	SYLVA = table.freeze({ "WILD", "BLOSSOM" }),
 	ELIAN = table.freeze({ "CELESTIAL", "CORRUPTED" }),
 	NOVA = table.freeze({ "PROTOTYPE", "OMEGA" }),
-	KUROEN = table.freeze({ "EMPEROR", "BLOOD MOON" }),
+	KUROEN = table.freeze({ "EMPEROR", "BLOOD MOON", "DIVINE ECLIPSE" }), -- (DIVINE ECLIPSE: won against KUROEN SHIN)
+	["KUROEN SHIN"] = table.freeze({ "TRUE EMPEROR" }),
 })
 
 local CharacterData = {
@@ -267,7 +272,8 @@ local CharacterData = {
 	Skins.NIGHT, -- slot 2
 }
 
-CharacterData.LOCKED = table.freeze({ ["AWAKENED"] = true }) -- styles to earn (the server checks)
+-- Styles to earn (the server checks): the profile field that must be at least 1.
+CharacterData.LOCKED = table.freeze({ ["AWAKENED"] = "asuraGrade", ["DIVINE ECLIPSE"] = "shinGrade" })
 
 -- Next style of the same kit, skipping `avoid` (the opponent's style).
 function CharacterData.nextSkin(current, avoid)

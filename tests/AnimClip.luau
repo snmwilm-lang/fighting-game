@@ -3,7 +3,8 @@
 -- frame every STEP ticks. Writes frames for tools/storyboard.py, which makes an animated GIF:
 --   luau tests/AnimClip.luau -a KIT [SCRIPT] [POSERATE] [STEP] [ZOOM] > clip.txt
 --   python3 tools/storyboard.py clip.txt clip.gif
--- SCRIPT: showcase (default), combo, heavy, moves, routes, walk, hit (KIT is the one hit).
+-- SCRIPT: showcase (default), combo, heavy, moves, routes, walk, hit (KIT is the one hit), or a
+-- route of L and R (e.g. LLRRLR: pressed from close, each key once the blow before has hit).
 -- POSERATE: poses per second (15 by default, 60 = FLUIDE).
 local Config = require("../src/shared/CombatConfig")
 local ClipKit = require("./ClipKit")

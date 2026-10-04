@@ -525,4 +525,19 @@ test("every rush (R) is staged its own way: own effects, own way of fighting", f
 	expect(staging.HIBECARES.shaken >= 8, string.format("the deck shakes on only %d of HIBECARES' blows", staging.HIBECARES.shaken))
 end)
 
+test("every themed kit's four ultimates are staged four different ways, and no two kits share one (Wilhem: toutes différentes)", function()
+	local seen = { rush = {}, awaken = {}, gate = {}, fatal = {} }
+	for name, theme in Director.THEMES do
+		local mine = {}
+		for kind, owners in seen do
+			local style = theme[kind]
+			expect(style ~= nil, name .. " has no " .. kind .. " staging")
+			expect(not owners[style], string.format("%s and %s stage their %s the same way (%s)", name, tostring(owners[style]), kind, tostring(style)))
+			owners[style] = name
+			expect(not mine[style], string.format("%s stages two ultimates the same way (%s)", name, tostring(style)))
+			mine[style] = true
+		end
+	end
+end)
+
 T.finish()

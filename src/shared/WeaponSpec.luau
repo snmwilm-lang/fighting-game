@@ -50,7 +50,7 @@ WeaponSpec.RAIJIN = {
 		{ name = "Shaft", size = { 0.16, 0.16, 5.4 }, z = -1.0, color = "2A2A33", material = "Metal" },
 		{ name = "Butt", size = { 0.24, 0.24, 0.26 }, z = 1.8, color = "trim", material = "Metal" },
 		{ name = "Collar", size = { 0.26, 0.26, 0.16 }, z = -3.62, color = "trim", material = "Metal" },
-		{ name = "Head", size = { 0.1, 0.38, 0.95 }, z = -4.15, color = "D6DCE8", material = "Metal" },
+		{ name = "SpearHead", size = { 0.1, 0.38, 0.95 }, z = -4.15, color = "D6DCE8", material = "Metal" },
 		{ name = "Edge", size = { 0.11, 0.06, 0.85 }, y = 0.2, z = -4.1, color = "energy", material = "Neon" },
 	},
 	base = -3.6, tip = -4.6,

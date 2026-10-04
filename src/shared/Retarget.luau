@@ -119,7 +119,8 @@ end
 --[[
 	pose: the virtual R15 pose from the Animator (degrees). Returns the C0 of every R6 joint
 	(12-number arrays, Motor6D.C0 components) and the grounding lift already included in the
-	RootJoint C0. `altitude` is the fighter's height above the floor.
+	RootJoint C0, then the R6 parts and the virtual R15 parts in the same space (a weapon is
+	held by the virtual hand, wrist included: see AnimationController, WeaponKit). `altitude` is the fighter's height above the floor.
 ]]
 function Retarget.solve(rt, pose, altitude)
 	local kin, r6, virtual = rt.kin, rt.r6, rt.virtual
@@ -274,7 +275,7 @@ function Retarget.solve(rt, pose, altitude)
 	local rootC0 = kin.mul(torso, kin.inverse(root.c1inv))
 	rootC0[2] += lift
 	c0.RootJoint = rootC0
-	return c0, lift, parts
+	return c0, lift, parts, v
 end
 
 return Retarget

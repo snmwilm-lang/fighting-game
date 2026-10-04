@@ -55,12 +55,19 @@ end
 ]]
 function ClipKit.play(kitName, scriptName, poseRate, onTick)
 	local script = ClipKit.SCRIPTS[scriptName] or ClipKit.SCRIPTS.showcase
+	-- A route ("LLRRLR"): from close, each key pressed like a player, once the blow before has hit.
+	local route = if scriptName:match("^[LR]+$") then {} else nil
+	if route then
+		for c in scriptName:gmatch("[LR]") do table.insert(route, c) end
+		script = { { 300 } }
+	end
+	local step, pressedFor = 1, nil
 	local victim = scriptName == "hit"
 	local world = Sim.newWorld(Config, MoveData, true)
 	local attacker, defender = 1, 2
 	Sim.setKits(world, if victim then "KAI" else kitName, if victim then kitName else "KAI")
 	world.phase = "Fight"
-	world.fighters[1].x, world.fighters[2].x = -3.2, 3.2
+	world.fighters[1].x, world.fighters[2].x = -3.2, if route then -0.2 else 3.2
 	local anims, headings = {}, {}
 	for i = 1, 2 do
 		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
@@ -74,6 +81,15 @@ function ClipKit.play(kitName, scriptName, poseRate, onTick)
 			input.crouch = s.crouch or false
 			input.block = s.block or false
 			if s.press and t == 1 then input[s.press] = true end
+			if route then
+				local a = world.fighters[attacker]
+				local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+				if route[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor
+					and a.moveHits >= (MoveData.Moves[a.move].hits or 1))) then
+					input[if route[step] == "L" then "light" else "heavy"] = true
+					pressedFor, step = key, step + 1
+				end
+			end
 			local inputs = { Sim.neutralInput(), Sim.neutralInput() }
 			inputs[attacker] = input
 			Sim.step(world, inputs)

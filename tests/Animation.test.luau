@@ -872,9 +872,12 @@ local function weaponLine(kit, pose, skel, r6)
 	local parts = {}
 	if r6 then
 		local rt = Retarget.new(K, r6)
-		local _, _, solved = Retarget.solve(rt, r6Animator(rt):resolve(pose), 0)
+		local _, _, solved, virtual = Retarget.solve(rt, r6Animator(rt):resolve(pose), 0)
 		for name, f in solved do
 			if r6.sizes[name] then parts[name] = { cframe = f, size = r6.sizes[name] } end
+		end
+		for _, side in { "LeftHand", "RightHand" } do
+			parts["@" .. side] = { cframe = virtual[side], size = rt.virtual.sizes[side] }
 		end
 	else
 		for name, f in K.solve(skel, newAnimator(skel):resolve(pose), 0) do
@@ -908,6 +911,51 @@ test("the weapons in hand (SHIN's katana, RAIJIN's spear, YUKINA's fans) never g
 						end
 					end
 				end
+			end
+		end
+	end
+end)
+
+test("RAIJIN fights with a spear: both hands on the shaft, thrusts driven straight and far (R15)", function()
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	local spec = WeaponSpec.RAIJIN
+	local anim = newAnimator(KAI)
+	anim.kit = "RAIJIN"
+	local function hold(pose)
+		local r = anim:resolve(pose)
+		local parts = {}
+		for name, f in K.solve(KAI, r, anim:groundLift(r, 0)) do
+			if KAI.sizes[name] then parts[name] = { cframe = f, size = KAI.sizes[name] } end
+		end
+		local grip = WeaponKit.grip("RAIJIN", parts, spec)
+		local gx, gy, gz = K.point(grip, 0, 0, 0)
+		local tx, ty, tz = K.point(grip, 0, 0, spec.tip)
+		local dx, dy, dz = tx - gx, ty - gy, tz - gz
+		local len = math.sqrt(dx * dx + dy * dy + dz * dz)
+		dx, dy, dz = dx / len, dy / len, dz / len
+		local h = parts.LeftHand.cframe
+		local u = math.clamp((h[1] - gx) * dx + (h[2] - gy) * dy + (h[3] - gz) * dz, 0.4, 2.8)
+		local off = math.sqrt((gx + dx * u - h[1]) ^ 2 + (gy + dy * u - h[2]) ^ 2 + (gz + dz * u - h[3]) ^ 2)
+		return { tip = { tx, ty, tz }, yaw = math.deg(math.atan2(dx, -dz)), left = off }
+	end
+	-- The thrusts: the tip goes far ahead, straight at the target, from a drawn-back spear.
+	for _, role in { "Jab", "BodyBlow", "Smash", "PalmStrike", "KiFlurry", "LowKick" } do
+		local id = MoveData.Kits.RAIJIN.Roles[role]
+		local s, a = hold(Poses[id].Startup), hold(Poses[id].Active)
+		expect(-a.tip[3] > 5.8, string.format("%s: the thrust only reaches %.1f studs", id, -a.tip[3]))
+		expect(math.abs(a.yaw) < 18, string.format("%s: the thrust goes off to the side (%.0f°)", id, a.yaw))
+		expect(s.tip[3] - a.tip[3] > 2.2, string.format("%s: the tip only travels %.1f studs forward", id, s.tip[3] - a.tip[3]))
+	end
+	-- Both hands on the shaft (the throws and the raised spear of the ultimates aside).
+	local ONE = { Finale = { Active = true, Recovery = true }, KiBlast = true, Fatal = true,
+		KaienRush = { Startup = true }, Awakening = { Startup = true }, Kaiten = { Startup = true } }
+	for role, id in MoveData.Kits.RAIJIN.Roles do
+		for _, key in { "Startup", "Active", "Active2" } do
+			local pose = Poses[id][key]
+			local one = ONE[role] == true or (type(ONE[role]) == "table" and ONE[role][key])
+			if pose and not one then
+				local h = hold(pose)
+				expect(h.left < 0.45, string.format("%s.%s: the left hand is %.2f off the shaft", id, key, h.left))
 			end
 		end
 	end
@@ -1087,7 +1135,7 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 					local t = k / 10
 					local a, b = if t <= 0.5 then arm.shoulder else arm.elbow, if t <= 0.5 then arm.elbow else arm.fist
 					local u = if t <= 0.5 then t * 2 else t * 2 - 1
-					if k > 1 then -- (the shoulder itself sits on the back)
+					if k > 1 then -- (the shoulder itself sits against the flank)
 						local point = { a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u }
 						local hit = inside(point)
 						expect(not hit, string.format("%s %s frame %s: the %s arm goes through the %s", view.state, tostring(view.move),
@@ -1097,6 +1145,9 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 			end
 		end
 	end
+	-- The extra shoulders come out of the flanks, under the real ones (not out of the back).
+	local spec, half = FourArms.SPEC.shoulder, RigSpec.KAI.parts.UpperTorso.size[1] / 2
+	expect(spec.x * half > half and math.abs(spec.z) < 0.25 and spec.y < 0, "the extra arms do not come out of the flanks")
 	-- Guard: both fists up, out at the sides, above their elbows.
 	local guard = asuraArms({ state = "Idle" }, 0)
 	for side, arm in guard do

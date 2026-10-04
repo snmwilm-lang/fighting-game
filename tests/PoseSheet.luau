@@ -110,11 +110,15 @@ for _, case in cases do
 		local poseB, liftB = anims[2]:step(r15View, otherB, 1 / 60, t / 60, 60, false)
 		if t == case.show then
 			shown = { r6View, r15View }
-			local _, lift, solved = Retarget.solve(rt, pose, view.y)
+			local _, lift, solved, virtual = Retarget.solve(rt, pose, view.y)
 			local root = rootFrame(r6View.x, view.y, -r6.floor + lift)
 			for name, f in solved do
 				local size = r6.sizes[name]
 				if size then parts[1][name] = { cframe = K.mul(root, f), size = size } end
+			end
+			-- (the weapon is held by the virtual R15 hand, as in the game)
+			for _, side in { "LeftHand", "RightHand" } do
+				parts[1]["@" .. side] = { cframe = K.mul(root, virtual[side]), size = rt.virtual.sizes[side] }
 			end
 			local solvedB = K.solve(R15, poseB, liftB)
 			local rootB = rootFrame(r15View.x, view.y, Config.RootHeight)
@@ -130,6 +134,7 @@ for _, case in cases do
 	print(string.format("CAM %s %s %s 0 3 0", fmt(cx), fmt(cy), fmt(cz)))
 	for slot = 1, 2 do
 		for name, part in parts[slot] do
+			if name:sub(1, 1) == "@" then continue end
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s", slot, (name:gsub(" ", "_")), table.concat(out, " "),

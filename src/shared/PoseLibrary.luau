@@ -1881,6 +1881,163 @@ do
 	-- SENTENCE CÉLESTE: one throw from far back, the body twisted round.
 	Poses.RaijinFatal = ultimate(raised, finisher(S, spear(176, 60, 80, -10, { 40, -60, 40 }),
 		spear(120, -10, 0, nil, { -40, -50, 60 })))
+	-- Both hands on the shaft: the arms of every key are solved offline (tests/SpearFit.luau,
+	-- which finds the arms that lay the spear on the line of the blow, the left hand riding the
+	-- shaft ahead of the right one): { right shoulder rx, rz, elbow, wrist, left shoulder rx, rz,
+	-- elbow } (no left arm: the spear in the right hand only, thrown or raised); the
+	-- recoveries ease half way back to the stance's hold.
+	local HOLD = {
+		AirKick = {
+			Startup = { -29, -66, 25, 40, 21, 45, 28 },
+			Active = { 11, -64, 75, -77, 61, 19, 18 },
+		},
+		AirKick2 = {
+			Startup = { 88, -75, 85, 25, 145, 65, 16 },
+			Active = { 101, -61, 8, -75, 59, -10, 73 },
+		},
+		AirSmash = {
+			Startup = { 51, -56, 84, -54, 104, 40, 13 },
+			Active = { 6, -67, 60, -40, 63, 23, 15 },
+		},
+		Awakening = {
+			Startup = { 110, 0, 0, 0 },
+			Active = { -10, -70, 131, -76, 66, 60, 0 },
+		},
+		BodyBlow = {
+			Startup = { -7, -32, 0, 24, 11, 36, 1 },
+			Active = { 60, -40, 39, -80, 76, 25, 4 },
+		},
+		CrescentMoon = {
+			Active2 = { 65, -42, 5, -76, 59, 19, 3 },
+			Startup = { -4, -65, 25, 40, 28, 49, 50 },
+			Active = { 30, -51, 0, 20, 73, 21, 0 },
+		},
+		Cross = {
+			Startup = { -14, -71, 34, 36, 45, 46, 20 },
+			Active = { 123, -79, 10, -76, 116, -55, 9 },
+		},
+		DragonFist = {
+			Startup = { -7, -25, 0, 38, 13, 43, 0 },
+			Active = { 35, -51, 9, 33, 63, 35, 35 },
+			Active2 = { 94, -45, 3, 0, 119, 20, 1 },
+		},
+		DragonTornado = {
+			Startup = { 33, -59, 13, -22, 46, 3, 43 },
+			Active = { 55, -51, 0, -50, 41, 4, 34 },
+			Active2 = { 55, -51, 0, -50, 41, 4, 34 },
+		},
+		Elbow = {
+			Startup = { -22, -70, 38, 40, 50, 50, 0 },
+			Active = { 96, -36, 110, 40, 168, 78, 0 },
+		},
+		Fatal = {
+			Startup = { 70, 25, 0, 30 },
+			Active = { 53, 53, 1, -24 },
+		},
+		Finale = {
+			Startup = { -21, 78, 45, 39, 79, 44, 1 },
+			Active = { 113, 31, 0, -64 },
+		},
+		Hammer = {
+			Startup = { 68, -37, 0, 36, 93, 36, 1 },
+			Active = { -1, -64, 78, -79, 54, 20, 10 },
+		},
+		Jab = {
+			Startup = { -26, -65, 28, 40, 9, 49, 45 },
+			Active = { 45, -44, 40, -64, 66, 24, 8 },
+		},
+		KaienRush = {
+			Startup = { 80, -57, 0, 15 },
+			Active = { 26, -62, 95, -65, 74, 44, 28 },
+		},
+		Kaiten = {
+			Startup = { 70, 15, 0, 28 },
+			Active = { 18, -49, 78, -80, 65, 33, 0 },
+		},
+		KiBlast = {
+			Startup = { -56, 15, 33, 40 },
+			Active = { -10, 66, 139, -70 },
+		},
+		KiChase = {
+			Startup = { -21, -36, 21, 40, 5, 44, 13 },
+			Active = { 23, -67, 98, -67, 70, 44, 33 },
+		},
+		KiFlurry = {
+			Startup = { -15, -22, 0, 40, 5, 45, 1 },
+			Active = { -4, -71, 124, -64, 63, 60, 13 },
+			Active2 = { 38, -61, 0, -12, 34, 0, 65 },
+		},
+		Kick = {
+			Startup = { -15, -80, 75, 0, 50, 49, 18 },
+			Active = { -2, -59, 74, -27, 59, 40, 3 },
+		},
+		LowKick = {
+			Startup = { -34, -62, 40, 40, 34, 51, 1 },
+			Active = { 73, -42, 25, -80, 79, 20, 5 },
+		},
+		PalmStrike = {
+			Startup = { -31, -51, 28, 40, -5, 49, 40 },
+			Active = { 53, -34, 55, -80, 80, 33, 0 },
+		},
+		Rising = {
+			Startup = { -30, -66, 25, 40, 20, 45, 28 },
+			Active = { 60, -39, 5, 40, 83, 40, 16 },
+		},
+		RisingWind = {
+			Startup = { 5, -87, 89, 24, 81, 65, 0 },
+			Active = { 153, -86, 88, 38, 180, 74, 41 },
+			Active2 = { 48, -72, 0, -67, 16, -42, 33 },
+		},
+		Smash = {
+			Startup = { -22, 76, 95, -11, 80, 35, 0 },
+			Active = { 11, -62, 118, -79, 80, 53, 3 },
+		},
+		SpinKick = {
+			Startup = { 145, -62, 48, 35, 168, 58, 54 },
+			Active = { 108, -61, 1, -72, 71, -16, 50 },
+		},
+		Sweep = {
+			Startup = { 96, -69, 83, 40, 168, 70, 0 },
+			Active = { 50, -79, 1, -67, 35, -55, 10 },
+		},
+		ThunderHeel = {
+			Startup = { 80, -55, 0, 35, 98, 33, 53 },
+			Active = { 139, -47, 150, 31, 46, 83, 0 },
+		},
+		Uppercut = {
+			Startup = { -16, -62, 28, 25, 46, 35, 4 },
+			Active = { 9, 15, 138, -52, 109, 70, 0 },
+		},
+	}
+	local KIT_HOLD = {
+			Crouch = { -19, -64, 29, 40, 20, 49, 40 },
+			Victory = { 140, 0, 0, -40 },
+			STANCE = { -27, -75, 44, 20, 14, 45, 49 },
+			CrouchBlock = { 6, -90, 88, 40, 9, 81, 53 },
+			Block = { -45, -90, 85, 3, 1, 60, 43 },
+	}
+	local function hold(a)
+		return arms({ a[1], a[2], a[3], a[4] }, a[5] and { a[5], a[6], a[7], 0 } or nil)
+	end
+	-- The recovery eases from the blow back to the stance's hold (half way).
+	local function between(a, b)
+		local out = {}
+		for i = 1, 7 do out[i] = if a[i] and b[i] then (a[i] + b[i]) / 2 else b[i] end
+		return out
+	end
+	for role, keys in HOLD do
+		local set = Poses["Raijin" .. role]
+		keys.Recovery = keys.Recovery or between(keys.Active2 or keys.Active, KIT_HOLD.STANCE)
+		for key, a in keys do
+			if set[key] then set[key] = merge(set[key], hold(a)) end
+		end
+	end
+	-- His own stance, guard, crouch and victory hold the spear the same way.
+	local kit = KITS.RAIJIN
+	for key, a in KIT_HOLD do kit[key] = merge(kit[key], hold(a)) end
+	kit.Idle = { kit.STANCE, merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 } }) }
+	kit.RunUpper = merge(kit.RunUpper, hold(KIT_HOLD.STANCE))
+	kit.BackUpper = merge(kit.BackUpper, hold(KIT_HOLD.Block))
 	strike("Raijin", { Jab = R_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,
 		DragonTornado = R_, DragonFist = R_, CrescentMoon = R_, RisingWind = R_, KiFlurry = R_, ThunderHeel = R_, SpinKick = R_,
 		Smash = R_, Hammer = R_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = R_, AirSmash = R_, Rising = R_, KiChase = R_,

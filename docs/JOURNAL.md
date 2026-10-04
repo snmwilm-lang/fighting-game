@@ -1,5 +1,74 @@
 # Journal du projet — état à transmettre
 
+## Version 0.15.2 — 4 octobre 2026
+
+Retours de Wilhem : « RAIJIN a une lance, pas une épée, fais-le taper réellement » ; « L L R R
+L R a disparu avec plusieurs persos » ; « mets par défaut le modèle classique, R6 et R15 en
+option, et affiche les modèles 3D avec une pose pendant la sélection » ; « amélioration globale
+de l'UI » ; « les deux autres bras d'ASURA sortent des côtés normalement » ; « les cinématiques
+doivent aussi être toutes différentes et cohérentes ».
+
+- **RAIJIN se bat à la lance** : les deux mains sur la hampe (la gauche devant la droite), des
+  estocs droits sur l'adversaire qui vont loin (6 à 9 studs de pointe), des coups de hampe et
+  des balayages à plat, des coups montants et plongeants. Les angles des bras de chaque pose
+  clé sont trouvés hors ligne par `tests/SpearFit.luau` (il cherche les bras qui posent la
+  lance sur la ligne du coup, main gauche sur la hampe) et rangés dans `PoseLibrary` (table
+  `HOLD` de RAIJIN, sa garde, son accroupi, sa victoire). Nouveau test (Animation) : les
+  estocs partent droit, loin, d'une lance ramenée en arrière, et la main gauche tient la hampe.
+- **Armes d'un avatar R6** : le bras R6 n'a pas de poignet ; la lance, le katana et les
+  éventails suivent maintenant la main du corps R15 virtuel, poignet compris
+  (`Retarget.solve` rend aussi les parties virtuelles ; `AnimationController` pilote les
+  soudures des pièces de l'arme ; planches et tests font pareil). La pointe de la lance ne
+  s'appelle plus « Head » (même nom que la tête du perso).
+- **Bras d'ASURA** : la deuxième paire sort maintenant des flancs, sous les vraies épaules
+  (plus du dos) ; test : les épaules sont sur les côtés et les bras ne traversent jamais le corps.
+- **Combos qui « disparaissaient »** : le combo et l'ultime marchent (simulation : L L R R L R
+  passe ses 8 coups chez les 20 persos, `ClipKit` sait maintenant jouer une route comme un
+  joueur : `luau tests/AnimClip.luau -a KIT LLRRLR`). Cause probable : le panneau COMBOS ne
+  défilait pas ; avec les noms de coups longs des nouveaux persos, les routes complètes
+  (dont L L R R L R) passaient sous le bas de l'écran. Le panneau défile, et les routes
+  complètes sont en tête, avec leurs premiers coups.
+- **Sélection** : le perso en blocs (modèle classique) est l'apparence par défaut ; APPARENCE
+  passe ensuite à l'avatar R15 puis R6. L'écran de sélection montre le **modèle 3D** du perso
+  (et d'ASURA en face en mode défi) dans sa **pose de victoire**, animée par le vrai Animator
+  (le serveur prépare les modèles : `ReplicatedStorage.KitPreviews`).
+- **Interface** : chaque bouton du menu grossit un peu au survol et s'enfonce au clic ; les
+  pages arrivent avec un petit zoom ; les boutons du combat ont des coins arrondis et
+  réagissent au survol ; les panneaux COMBOS et LABO défilent.
+- **Cinématiques toutes différentes** : ASURA et les 12 persos de la troisième planche
+  partageaient 7 façons de se battre ; 10 nouvelles mises en scène s'y ajoutent
+  (`CinematicDirector`, `GEN.strike`), chacune liée à une arme ou un pouvoir :
+  - estocs de lance qui avancent d'un pas à chaque coup ;
+  - cible figée par la glace ou un sceau de lumière ;
+  - traque sortie de l'ombre (devant, puis derrière) ;
+  - rythme (la cible saute sur chaque temps) ;
+  - pantin tiré d'un côté à l'autre par ses fils ;
+  - cible qui tourne au bout d'une chaîne ;
+  - pluie venue du ciel ;
+  - racines qui soulèvent ;
+  - piliers de lumière ;
+  - tirs croisés de tous les côtés.
+  Chaque perso a 4 ultimes mis en scène de 4 façons différentes, et deux persos n'ont jamais
+  la même pour le même ultime (nouveau test, CinematicDirector). Exemples :
+  - RAIJIN : estocs / foudre du ciel / piliers d'éclairs / coups de tous côtés ;
+  - KAZAN : tourne au bout de la chaîne / crochet lancé droit / saisie / attire.
+  Les angles des plans sont réglés pour chaque perso (`turn`).
+- Version 0.15.2.
+
+Tests : CombatSimulation 109, FighterAI 12, CinematicDirector 831 (nouveau : mises en scène toutes
+différentes), Animation 38 (nouveau : la lance de RAIJIN ; les bras d'ASURA sur les flancs),
+Kits 128, PressQueue 4, Fuzz 2, Cinematography 296 (les derniers réglages d'angle de GORAN et
+RAIJIN vérifiés sur eux seuls), Lobby 11 ; `rigcheck` : tous les corps se construisent.
+Équilibrage inchangé (aucune vie, dégât ni vitesse touchés). **Rien essayé dans Studio.**
+
+### Problèmes ouverts / prochaine étape
+
+- Juger dans Studio l'aperçu 3D de la sélection, la lance de RAIJIN (corps en blocs et avatar
+  R6), les bras d'ASURA, les nouvelles cinématiques.
+- Les cinématiques des 12 suivent toujours le même déroulé (ouverture, rafale, charge, coup
+  final) ; seule la façon de se battre change : une ouverture et une fin propres à chacun
+  seraient la suite.
+
 ## Version 0.15.1 — 4 octobre 2026
 
 Demandes de Wilhem : « travaille les 4 bras d'ASURA, c'est dégueulasse ; chaque perso est

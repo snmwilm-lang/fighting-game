@@ -19,10 +19,11 @@
 ]]
 local FourArms = {}
 
--- The extra shoulders: out of the back, under and behind the real ones (x is a multiple of
--- the torso's half width, so it fits any body; y and z in studs, scaled the same way).
+-- The extra shoulders: out of his flanks, on each side of the ribs under the real shoulders
+-- (Wilhem: "ils sortent des côtés"); x is a multiple of the torso's half width, so it fits any
+-- body; y and z in studs, scaled the same way.
 FourArms.SPEC = {
-	shoulder = { x = 1.06, y = -0.45, z = 0.74 },
+	shoulder = { x = 1.1, y = -0.55, z = 0.05 },
 	upper = 1.2, -- shoulder to elbow
 	fore = 0.95, -- elbow to the centre of the fist
 }

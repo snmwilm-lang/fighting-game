@@ -520,11 +520,35 @@ local function buildHero(player)
 	end)
 end
 
+-- The fighter select shows each fighter's own 3D model, posed by the client (MenuController):
+-- one body per kit in its first style (and ASURA's), built once at start in
+-- ReplicatedStorage.KitPreviews. Cosmetic only.
+task.spawn(function()
+	local folder = Instance.new("Folder")
+	folder.Name = "KitPreviews"
+	local names = table.clone(MoveData.KitOrder)
+	table.insert(names, "ASURA")
+	for _, name in names do
+		local ok, model = pcall(RigBuilder.build, 1, nil, CharacterData.Skins[CharacterData.defaultStyle(name, nil)])
+		if ok and model then
+			model.Name = name
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") then d.CastShadow = false end
+			end
+			model.Parent = folder
+		else
+			warn("[FightingGame] Aperçu de " .. name .. " impossible : " .. tostring(model))
+		end
+		task.wait()
+	end
+	folder.Parent = ReplicatedStorage
+end)
+
 local function joined(player)
 	if clients[player] then return end
 	local client = {
 		tokens = 60, lastPacket = os.clock(), lastReset = -math.huge, lastDummy = -math.huge,
-		lastAvatar = -math.huge, lastSeq = 0, avatar = true, rig = nil, lastHub = -math.huge, lastMenu = -math.huge,
+		lastAvatar = -math.huge, lastSeq = 0, avatar = false, rig = nil, lastHub = -math.huge, lastMenu = -math.huge,
 		team = { "KAI" },
 	}
 	clients[player] = client
@@ -534,7 +558,7 @@ local function joined(player)
 	end
 	loadProfile(player, client)
 	buildHero(player)
-	player:SetAttribute("Avatar", true)
+	player:SetAttribute("Avatar", false) -- the block model of the kit; APPARENCE: avatar R15, R6
 	player:SetAttribute("FighterSlot", 0)
 	player:SetAttribute("MatchId", 0)
 	Lobby.join(lobby, player.UserId, player.DisplayName)
@@ -784,7 +808,7 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		rebuildSlot(match, mine)
 	end
 	if packet.avatar and now - client.lastAvatar > 2 then
-		-- APPARENCE: avatar R15 -> avatar R6 -> block model -> avatar R15...
+		-- APPARENCE: block model (the default) -> avatar R15 -> avatar R6 -> block model...
 		client.lastAvatar = now
 		if not client.avatar then
 			client.avatar, client.rig = true, "R15"

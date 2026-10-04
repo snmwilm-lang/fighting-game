@@ -23,6 +23,10 @@ local function new(className, props, parent)
 	return i
 end
 
+local function corner(gui, radius)
+	return new("UICorner", { CornerRadius = UDim.new(0, radius or 6) }, gui)
+end
+
 local function stroke(parent, thickness, color)
 	return new("UIStroke", { Thickness = thickness, Color = color or INK, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual }, parent)
 end
@@ -222,6 +226,10 @@ function HUD.new(config)
 			Font = UI_FONT, TextSize = 11, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
 		}, gui)
 		stroke(b, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		corner(b, 4)
+		local scale = new("UIScale", {}, b)
+		b.MouseEnter:Connect(function() tween(scale, 0.1, { Scale = 1.06 }) end)
+		b.MouseLeave:Connect(function() tween(scale, 0.12, { Scale = 1 }) end)
 		b.Activated:Connect(callback)
 		x += width + 8
 		return b
@@ -315,10 +323,13 @@ function HUD.new(config)
 	self.trainerBoxes = {}
 
 	-- Combo routes panel and training lab, filled for the local kit (see HUD:setKit).
+	-- (they scroll: a long list never runs off the bottom of the screen and hides its last lines)
 	local function panel(name, width, position)
-		local frame = new("Frame", {
+		local frame = new("ScrollingFrame", {
 			Name = name, Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.1, BorderSizePixel = 0,
-			Size = UDim2.fromOffset(width, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = position,
+			Size = UDim2.new(0, width, 1, -panelY - 48), Position = position, CanvasSize = UDim2.new(),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollingDirection = Enum.ScrollingDirection.Y,
+			ScrollBarImageColor3 = RED,
 		}, gui)
 		stroke(frame, 2, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }, frame)
@@ -557,14 +568,18 @@ function HUD:fillCombos()
 		{ kit.Description, GREY },
 		{ "COMBOS  ·  L = clic gauche, R = clic droit", RED },
 	}
+	-- The full routes first (the 6-press combos that open the ultimates), then the short ones.
+	table.insert(lines, { "ROUTES COMPLÈTES (6 appuis, fin : " .. moveName(kit, "KiChase") .. " > " .. moveName(kit, "Finale") .. ")", RED })
+	for _, route in kit.FullRoutes do
+		local names = {}
+		for i = 1, math.min(4, #route.moves) do table.insert(names, MoveData.Moves[route.moves[i]].name) end
+		table.insert(lines, { route.keys .. "  →  " .. route.name .. "  (" .. table.concat(names, " > ") .. "…)", WHITE })
+	end
+	table.insert(lines, { "COMBOS COURTS", RED })
 	for _, route in kit.Routes do
 		local names = {}
 		for _, id in route.moves do table.insert(names, MoveData.Moves[id].name) end
 		table.insert(lines, { route.keys .. "  →  " .. table.concat(names, " > "), WHITE })
-	end
-	table.insert(lines, { "ROUTES COMPLÈTES (6 appuis, fin : " .. moveName(kit, "KiChase") .. " > " .. moveName(kit, "Finale") .. ")", RED })
-	for _, route in kit.FullRoutes do
-		table.insert(lines, { route.keys .. "  →  " .. route.name, WHITE })
 	end
 	table.insert(lines, { "RYTHME : chaque appui APRÈS la sortie du coup d'avant. Tapé trop tôt, le combo continue mais n'est plus PROPRE (pas d'ultime). Garde, saut ou dash annulent les coups en attente.", GOLD })
 	table.insert(lines, { "3 ULTIMES (route PROPRE seulement)", GOLD })

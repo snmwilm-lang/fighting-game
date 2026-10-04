@@ -1618,7 +1618,7 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 	if data.Kit == "ASURA" then RigBuilder.addFourArms(model, data) end
 end
 
--- ASURA's second pair of arms, out of his back under the first: on each side an upper arm (a
+-- ASURA's second pair of arms, out of his flanks under the first: on each side an upper arm (a
 -- gold armlet), a forearm (wraps and a gold bangle) and a wrapped fist, on two joints: the
 -- shoulder (Motor6D AsuraLeft / AsuraRight, on the torso) and the elbow (AsuraLeftElbow /
 -- AsuraRightElbow). Their geometry comes from FourArms.SPEC, scaled to the torso; the client

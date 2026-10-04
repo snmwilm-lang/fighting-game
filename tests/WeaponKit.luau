@@ -17,7 +17,7 @@ local WeaponKit = {}
 local R6_HANDS = { RightHand = "Right Arm", LeftHand = "Left Arm" }
 
 local function hand(parts, name)
-	local p = parts[name]
+	local p = parts[name] or parts["@" .. name] -- (@: the virtual R15 hand of an R6 body, see Retarget)
 	if p then return p.cframe, p.size, false end
 	local arm = R6_HANDS[name] and (parts[R6_HANDS[name]] or parts[(R6_HANDS[name]:gsub(" ", "_"))])
 	if not arm then return nil, nil end

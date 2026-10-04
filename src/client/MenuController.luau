@@ -15,12 +15,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local GameModes = require(Shared.GameModes)
 local FighterAI = require(Shared.FighterAI)
+local AnimationController = require(script.Parent.AnimationController)
 
 local WHITE = Color3.fromHex("F5F5F7")
 local INK = Color3.fromHex("08080B")
@@ -39,10 +41,23 @@ local BODY_FONT = Enum.Font.GothamBold
 local MenuController = {}
 MenuController.__index = MenuController
 
+-- Every button answers the hand: it grows a little under the cursor and sinks when pressed.
+local function juice(button)
+	local scale = Instance.new("UIScale")
+	scale.Parent = button
+	local function to(value, time)
+		TweenService:Create(scale, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = value }):Play()
+	end
+	button.MouseEnter:Connect(function() to(1.05, 0.12) end)
+	button.MouseLeave:Connect(function() to(1, 0.15) end)
+	button.MouseButton1Down:Connect(function() to(0.95, 0.06) end)
+	button.MouseButton1Up:Connect(function() to(1.05, 0.1) end)
+end
 local function new(className, props, parent)
 	local i = Instance.new(className)
 	for k, v in props do i[k] = v end
 	i.Parent = parent
+	if className == "TextButton" then juice(i) end
 	return i
 end
 local function stroke(gui, thickness, color, transparency)
@@ -362,6 +377,14 @@ function MenuController:selectSide(page, left)
 		Size = UDim2.fromScale(1.1, 0.95), Font = UI_FONT, TextScaled = true, Text = "", TextColor3 = WHITE,
 		TextTransparency = 0.15, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
 	stroke(portrait, 6, INK)
+	-- The fighter's own 3D model in its victory pose, in front of its ghost kanji (see
+	-- MenuController:showPreview; the models are built by the server, KitPreviews).
+	local view = new("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(if left then 0.46 else 0.54, 0.4),
+		Size = UDim2.fromScale(1, 0.86), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
+		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), ZIndex = 7 }, side)
+	local world = new("WorldModel", {}, view)
+	local camera = new("Camera", { FieldOfView = 26 }, view)
+	view.CurrentCamera = camera
 	local name = label(side, { AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = UDim2.new(if left then 0 else 1, if left then 28 else -28, 0.6, 0),
 		Size = UDim2.new(0.9, 0, 0, 110), Font = DISPLAY, TextScaled = true, Text = "", TextColor3 = WHITE, Rotation = if left then -6 else 6,
 		TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, ZIndex = 8 })
@@ -374,7 +397,8 @@ function MenuController:selectSide(page, left)
 	local role = label(side, { AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = UDim2.new(if left then 0 else 1, if left then 150 else -150, 0.6, 118),
 		Size = UDim2.new(0.62, 0, 0, 64), Font = UI_FONT, TextSize = 16, TextWrapped = true, Text = "", TextColor3 = GOLD,
 		TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, ZIndex = 8 })
-	return { portrait = portrait, name = name, badge = badge, badgeKanji = badgeKanji, role = role }
+	return { portrait = portrait, name = name, badge = badge, badgeKanji = badgeKanji, role = role, view = view, world = world,
+		camera = camera, left = left }
 end
 
 function MenuController:buildSelect()
@@ -477,6 +501,42 @@ function MenuController:optionLine(parent, y, name, change)
 	return { frame = line, value = value, label = caption, change = change }
 end
 
+-- The 3D model of `kit` on one side of the select screen (nil: none), posed every frame by
+-- the real Animator in its victory pose, the kit's own. Cosmetic only.
+function MenuController:showPreview(side, kit)
+	if side.kit == kit and (side.model or not kit) then return end
+	if side.model then side.model:Destroy() end
+	side.model, side.animation, side.kit = nil, nil, kit
+	side.portrait.TextTransparency = if kit then 0.7 else 0.15
+	local folder = ReplicatedStorage:FindFirstChild("KitPreviews")
+	local source = kit and folder and folder:FindFirstChild(kit)
+	if not source then return end
+	local model = source:Clone()
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		model:Destroy()
+		return
+	end
+	-- Turned three quarters toward the screen's middle (the rig faces -Z).
+	root.Anchored = true
+	root.CFrame = CFrame.new(0, 3, 0) * CFrame.Angles(0, math.rad(if side.left then 25 else -25), 0)
+	model.Parent = side.world
+	local ok, animation = pcall(AnimationController.new, model)
+	side.model, side.animation = model, if ok then animation else nil
+	side.born = os.clock()
+	side.camera.CFrame = CFrame.lookAt(Vector3.new(0, 3.4, -15.5), Vector3.new(0, 3.1, 0))
+end
+
+function MenuController:animatePreviews(dt)
+	for _, side in { self.p1, self.p2 } do
+		if side and side.animation then
+			local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = side.kit,
+				victory = os.clock() - side.born > 0.25 }
+			pcall(side.animation.update, side.animation, view, nil, dt, os.clock(), 60, false)
+		end
+	end
+end
+
 function MenuController:refreshSelect()
 	local mode = self.mode
 	if not mode then return end
@@ -500,6 +560,8 @@ function MenuController:refreshSelect()
 	-- search finds a player).
 	local foe = if mode.id == "CHALLENGE" then "ASURA" elseif mode.queue then "ADVERSAIRE" else "CPU"
 	self.p2.name.Text = foe
+	self:showPreview(self.p1, name)
+	self:showPreview(self.p2, if foe == "ASURA" then "ASURA" else nil)
 	self.p2.portrait.Text = if foe == "ASURA" then "阿" else "？"
 	self.p2.portrait.TextColor3 = if foe == "ASURA" then GOLD else GREY
 	self.p2.badgeKanji.Text = if foe == "ASURA" then "阿" elseif mode.queue then "対" else "戦"
@@ -768,6 +830,13 @@ function MenuController:open(page)
 	end
 	self.page = page
 	for name, frame in self.pages do frame.Visible = name == page end
+	-- (the page settles in: a short zoom from slightly smaller)
+	local shown = self.pages[page]
+	if shown then
+		local scale = shown:FindFirstChild("PageScale") or new("UIScale", { Name = "PageScale" }, shown)
+		scale.Scale = 0.96
+		TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
 	local overlay = page == "select" or page == "search"
 	self.nav.Visible = not overlay
 	self.bottomNews.Visible = not overlay
@@ -896,9 +965,10 @@ function MenuController:bindLeave()
 	return function() self:leave() end
 end
 
-function MenuController:frame()
+function MenuController:frame(dt)
 	if self.toast.Visible and os.clock() > (self.toastUntil or 0) then self.toast.Visible = false end
 	if self.inMatch then return end
+	if self.page == "select" then self:animatePreviews(dt or 1 / 60) end
 	if self.page == "search" then
 		local s = self.status
 		local waited = math.floor(os.clock() - self.searchStart)

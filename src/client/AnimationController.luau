@@ -19,6 +19,7 @@ local PoseLibrary = require(Shared.PoseLibrary)
 local Animator = require(Shared.Animator)
 local Retarget = require(Shared.Retarget)
 local FourArms = require(Shared.FourArms)
+local WeaponSpec = require(Shared.WeaponSpec)
 
 local rad = math.rad
 
@@ -45,6 +46,31 @@ function AnimationController.new(model)
 		poses = PoseLibrary, moves = MoveData.Moves, kin = Kinematics, config = Config, skeleton = animated,
 		kits = MoveData.Kits, moveKit = MoveData.MoveKit,
 	})
+	-- R6: a held weapon (katana, spear, fans) follows the virtual R15 hand, wrist included,
+	-- instead of the rigid R6 arm: its pieces' welds are driven every frame (see update).
+	local spec = WeaponSpec[model:GetAttribute("Kit") or ""]
+	if self.retarget and spec and not spec.flies then
+		self.weapons = {}
+		for _, held in { spec, spec.pair } do
+			local armName = if held.hand == "LeftHand" then "Left Arm" else "Right Arm"
+			local arm = model:FindFirstChild(armName)
+			if arm then
+				for _, piece in held.pieces do
+					for _, p in model:GetChildren() do
+						local link = p.Name == piece.name and p:IsA("BasePart") and p:FindFirstChildOfClass("WeldConstraint")
+						if link and link.Part0 == arm then
+							link:Destroy()
+							local weld = Instance.new("Weld")
+							weld.Part0, weld.Part1, weld.C0 = arm, p, arm.CFrame:ToObjectSpace(p.CFrame)
+							weld.Parent = p
+							table.insert(self.weapons, { weld = weld, spec = held, arm = armName,
+								offset = CFrame.new(0, piece.y or 0, piece.z or 0) })
+						end
+					end
+				end
+			end
+		end
+	end
 	-- Root height that rests the bind pose's feet on the floor, measured on this body.
 	self.rootHeight = if self.retarget then -skeleton.floor else self.animator.rootHeight
 	-- Cloth tails (sash, headband) hang from Welds named TailJoint (see RigBuilder).
@@ -107,10 +133,19 @@ function AnimationController:update(view, other, dt, now, poseRate, cinematic)
 	local pose, lift = self.animator:step(view, other, dt, now, poseRate, cinematic)
 	self:swingFourArms(view, dt, now)
 	if self.retarget then
-		local c0 = Retarget.solve(self.retarget, pose, view.y or 0)
+		local c0, _, parts, virtual = Retarget.solve(self.retarget, pose, view.y or 0)
 		for name, info in self.joints do
 			local value = c0[name]
 			if value then info.joint.C0 = CFrame.new(table.unpack(value)) end
+		end
+		for _, held in self.weapons or {} do
+			local hand, arm = virtual[held.spec.hand], parts[held.arm]
+			if hand and arm then
+				local size, g = self.retarget.virtual.sizes[held.spec.hand], held.spec.grip
+				local grip = Kinematics.mul(Kinematics.mul(hand, Kinematics.translation(0, size[2] * g.y, g.z)),
+					Kinematics.angles(rad(g.tilt), 0, 0))
+				held.weld.C0 = CFrame.new(table.unpack(Kinematics.mul(Kinematics.inverse(arm), grip))) * held.offset
+			end
 		end
 		self:swayTails(dt, now)
 		return

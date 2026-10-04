@@ -47,9 +47,14 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
   n'est pas invincible ; cadrages des cinématiques KUROEN / KAZAN.
 - Version 0.17.0.
 
-AUDIT_LINE
+Audit du roster (19 kits + KUROEN) :
+- l'esquive de TARO et celle d'AKEMI couvrent bien les coups à plusieurs touches (tout le coup est raté) ;
+- le serveur reste l'autorité et limite le débit des entrées ;
+- corrigé : le TEMPO de HIBIKI pouvait se relancer sans fin tant qu'il tournait. Désormais, aucune nouvelle chaîne ne compte pendant le TEMPO, ni pendant 300 ticks après (`Cooldown`) ; un test le vérifie ;
+- corrigé : `invuln = false` / `projectile = false` dans une surcharge de kit faisaient planter `isInvulnerable` ; c'est normalisé dans `move()` ;
+- cinématiques : la prise du FATAL de KUROEN et la RUSH / la PORTE de KUROEN SHIN cachaient une main ; c'est réorienté (`turn`).
 
-Tests : TESTS_LINE
+Tests : CombatSimulation 124, FighterAI 13, CinematicDirector 871, Animation 40, Kits KITS_N, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 17 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : BAL_LINE.
 
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
 nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité

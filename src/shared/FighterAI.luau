@@ -15,6 +15,10 @@
 	answer with the invincible reversal or the fastest jab; against zoning they jump over the
 	projectiles; their guard leans to the height the opponent uses most.
 ]]
+-- Without an invincible reversal (KUROEN), getting up means guarding first: the poke back
+-- comes this much less often.
+local COUNTER_NO_REVERSAL = 0
+
 local FighterAI = {}
 
 -- L = light, R = heavy, E = special, U = ultimate, J = jump cancel. `crouch` starts crouching.
@@ -366,12 +370,12 @@ function FighterAI:think(world, slot)
 		if groundSpecial and groundSpecial.invuln and self:chance(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7) then
 			input.special = true -- invincible RISING STRIKE through the pressure
 			return input
-		elseif self:chance(self.level.counter) then
+		elseif self:chance(self.level.counter * (if groundSpecial and not groundSpecial.invuln and not self.level.varied then COUNTER_NO_REVERSAL else 1)) then
 			self.blockTicks = 0
 			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade) -- poke back right away (fast jab first)
 			self.plan = { self.plan[1] == "R" and "L" or self.plan[1], table.unpack(self.plan, 2) }
 			self.planLength = math.min(self.planLength, #self.plan)
-		elseif self:chance(self.level.block * 0.6) then
+		elseif self:chance(self.level.block * (if groundSpecial and not groundSpecial.invuln then 1 else 0.6)) then
 			self.blockTicks = 10
 			self.blockLow = seen.guard == "Low"
 		end

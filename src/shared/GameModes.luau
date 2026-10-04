@@ -171,6 +171,22 @@ function GameModes.achievements(status)
 	return out, done
 end
 
+-- Currencies (the bar of the menu, sprites: client/CurrencyIcons). COINS are earned by
+-- playing (the server adds them, never the client); CRYSTALS come from the achievements
+-- (CRYSTALS_PER_ACHIEVEMENT each one unlocked); RANK is the rating.
+GameModes.COINS = { win = 40, loss = 15, draw = 20, survivalWin = 10, boss = 60 }
+GameModes.CRYSTALS_PER_ACHIEVEMENT = 25
+function GameModes.addCoins(profile, kind, count)
+	local gain = (GameModes.COINS[kind] or 0) * (count or 1)
+	profile.coins = math.max(0, (tonumber(profile.coins) or 0) + gain)
+	return gain
+end
+function GameModes.wallet(status)
+	local _, done = GameModes.achievements(status)
+	return { coins = tonumber(status and status.coins) or 0, crystals = done * GameModes.CRYSTALS_PER_ACHIEVEMENT,
+		rank = tonumber(status and status.rating) or 0 }
+end
+
 --[[
 	What a fighter is good and bad at, for the fighter select (from the real data, so it
 	never lies): POWER (damage of its blows), SPEED (startup + recovery of its ground blows),

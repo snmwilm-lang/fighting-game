@@ -1671,6 +1671,54 @@ test("KUROEN SHIN (boss): born at ÉCLIPSE, never loses DOMINATION, gets it back
 	expect(k.fighters[1].domination == 0, "KUROEN is born with DOMINATION")
 end)
 
+test("ASURA's BURST: a combo of 4 blows on him breaks, the attacker is thrown back stunned; then a cooldown", function()
+	local w = kitDuel("KAI", "ASURA", 2.4)
+	w.training = false
+	local kai, boss = w.fighters[1], w.fighters[2]
+	local burst = MoveData.Kits.ASURA.Stats.Burst
+	local most, bursts = 0, nil
+	local events = run(w, 150, function(t)
+		most = math.max(most, boss.comboHits)
+		return { input({ light = t % 9 == 1 }) }
+	end)
+	bursts = find(events, "Burst")
+	expect(bursts and bursts.slot == 2, "ASURA never burst out of the combo")
+	expect(most <= burst.Hits, string.format("a combo of %d blows on ASURA did not break", most))
+	expect(boss.burstCooldown > 0, "the BURST has no cooldown")
+	-- the burst throws the attacker back, stunned
+	local w2 = kitDuel("KAI", "ASURA", 2.4)
+	w2.training = false
+	local stunned = false
+	for _, e in run(w2, 150, function(t)
+		local k = w2.fighters[1]
+		if k.stun > 0 and k.stunKind == "Hit" then stunned = true end
+		return { input({ light = t % 9 == 1 }) }
+	end) do end
+	expect(stunned, "the attacker was not stunned by the BURST")
+	expect((MoveData.Kits.ASURA.Stats.DamageTaken or 1) < 1, "ASURA's hide takes full damage")
+end)
+
+test("KUROEN SHIN's DIVINE INSTINCT: blows in neutral are evaded (2 charges), then they land; the charges come back", function()
+	local w = kitDuel("KAI", "KUROEN SHIN", 2.4)
+	w.training = false
+	local boss = w.fighters[2]
+	local spec = MoveData.Kits["KUROEN SHIN"].Stats.AutoEvade
+	expect(spec and boss.evadeCharges == spec.Charges, "KUROEN SHIN has no DIVINE INSTINCT")
+	local evades, hit = 0, nil
+	for round = 1, 3 do
+		w.fighters[1].x, boss.x = -1.2, 1.2
+		local events = run(w, 60, function(t) return { input({ light = t == 1 }) } end)
+		for _, e in events do
+			if e.kind == "Evade" and e.defender == 2 then evades += 1 end
+			if e.kind == "Hit" and e.defender == 2 and round == 3 then hit = e end
+		end
+	end
+	expect(evades == spec.Charges, string.format("%d evades instead of %d", evades, spec.Charges))
+	expect(hit, "the blow after the charges were spent did not land")
+	run(w, spec.Cooldown * spec.Charges + 10)
+	expect(boss.evadeCharges == spec.Charges, "the DIVINE INSTINCT charges did not come back")
+end)
+
 -- ===================================================================== KAZAN 鎖 (claws)
 test("KAZAN's claws: no whip reach any more (short and middle range); SHACKLE HOOK catches and holds", function()
 	local far = 0

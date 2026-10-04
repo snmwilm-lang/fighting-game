@@ -71,7 +71,7 @@ do
 	if ok then store = result end
 end
 local function defaultProfile()
-	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI",
+	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI", coins = 0,
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
@@ -422,6 +422,9 @@ function endVersus(match, winnerSlot)
 	local scoreA = if winnerSlot == 1 then 1 elseif winnerSlot == 2 then 0 else 0.5
 	if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
 	elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
+	-- COINS: everyone who plays earns some, the winner more
+	GameModes.addCoins(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw")
+	GameModes.addCoins(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw")
 	if winnerSlot == 1 or winnerSlot == 2 then
 		GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
 	end
@@ -457,7 +460,7 @@ function menuStatus(player)
 			end
 			return nil
 		end)(),
-		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest,
+		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest, coins = profile.coins or 0,
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -1020,6 +1023,7 @@ local function followEvents(match, events)
 				local client = clients[owner]
 				local beaten = match.wave - 1
 				GameModes.achievementProgress(client.profile, { survival = beaten })
+				GameModes.addCoins(client.profile, "survivalWin", beaten)
 				client.profile.survivalBest = math.max(client.profile.survivalBest, beaten)
 				saveProfile(owner, client) -- (the record and the achievements' counter)
 				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest })
@@ -1036,6 +1040,7 @@ local function followEvents(match, events)
 				local profile = client.profile
 				local newBest = grade > (profile.shinGrade or 0)
 				GameModes.achievementProgress(profile, { shinGrade = grade })
+				if grade >= 1 then GameModes.addCoins(profile, "boss") end
 				if newBest then
 					profile.shinGrade = grade
 					profile.title = title or profile.title
@@ -1056,6 +1061,7 @@ local function followEvents(match, events)
 				local newBest = grade > profile.asuraGrade
 				profile.asuraDamage = math.max(profile.asuraDamage, math.floor(damage * 100 + 0.5))
 				GameModes.achievementProgress(profile, { asuraDamage = math.floor(damage * 100 + 0.5), asuraGrade = grade })
+				if grade >= 1 then GameModes.addCoins(profile, "boss") end
 				if newBest then
 					profile.asuraGrade = grade
 					profile.title = title or profile.title

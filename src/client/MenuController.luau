@@ -24,6 +24,7 @@ local GameModes = require(Shared.GameModes)
 local Maps = require(Shared.Maps)
 local FighterAI = require(Shared.FighterAI)
 local AnimationController = require(script.Parent.AnimationController)
+local CurrencyIcons = require(script.Parent.CurrencyIcons)
 
 local WHITE = Color3.fromHex("F5F5F7")
 local INK = Color3.fromHex("08080B")
@@ -219,7 +220,7 @@ function MenuController:buildTopBar()
 		self.tabs[tab[2]] = { button = b, underline = underline }
 	end
 	-- Profile: Roblox headshot, name, rank, bar to the next rank, points.
-	local card = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 6), Size = UDim2.fromOffset(420, 52),
+	local card = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 6), Size = UDim2.fromOffset(458, 52),
 		BackgroundColor3 = PANEL, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, bar)
 	corner(card, 6)
 	stroke(card, 1.5, Color3.fromHex("33333D"))
@@ -242,14 +243,18 @@ function MenuController:buildTopBar()
 	corner(track, 3)
 	self.profileBar = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = GOLD, BorderSizePixel = 0 }, track)
 	corner(self.profileBar, 3)
-	local points = new("Frame", { Position = UDim2.fromOffset(240, 6), Size = UDim2.fromOffset(84, 40), BackgroundColor3 = PANEL2, BorderSizePixel = 0 }, card)
-	corner(points, 6)
-	label(points, { Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(20, 36), Font = UI_FONT, TextSize = 18, Text = "◆", TextColor3 = GOLD })
-	self.profilePoints = label(points, { Position = UDim2.fromOffset(26, 2), Size = UDim2.fromOffset(56, 36), Font = UI_FONT, TextSize = 15, Text = "1000", TextColor3 = WHITE })
-	local wins = new("Frame", { Position = UDim2.fromOffset(330, 6), Size = UDim2.fromOffset(84, 40), BackgroundColor3 = PANEL2, BorderSizePixel = 0 }, card)
-	corner(wins, 6)
-	label(wins, { Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(20, 36), Font = UI_FONT, TextSize = 18, Text = "✦", TextColor3 = VIOLET })
-	self.profileWins = label(wins, { Position = UDim2.fromOffset(26, 2), Size = UDim2.fromOffset(56, 36), Font = UI_FONT, TextSize = 13, Text = "0 W", TextColor3 = WHITE })
+	-- The currencies (GameModes.wallet): COINS, CRYSTALS (achievements), RANK points, each with
+	-- its sprite (CurrencyIcons).
+	self.wallet = {}
+	for i, kind in { "coins", "crystals", "rank" } do
+		local chip = new("Frame", { Position = UDim2.fromOffset(234 + (i - 1) * 74, 6), Size = UDim2.fromOffset(70, 40),
+			BackgroundColor3 = PANEL2, BorderSizePixel = 0, Name = "Wallet_" .. kind }, card)
+		corner(chip, 6)
+		stroke(chip, 1, CurrencyIcons.COLORS[kind]:Lerp(PANEL2, 0.55))
+		CurrencyIcons.make(kind, chip, 24, UDim2.fromOffset(4, 8))
+		self.wallet[kind] = label(chip, { Position = UDim2.fromOffset(30, 2), Size = UDim2.fromOffset(38, 36), Font = UI_FONT, TextSize = 13,
+			Text = "0", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false })
+	end
 end
 
 -- A big slanted button (left column, like the mock-up).
@@ -1004,8 +1009,12 @@ function MenuController:refreshProfile()
 		if s.rating >= min then floor = min end
 	end
 	self.profileBar.Size = UDim2.fromScale(if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1, 1)
-	self.profilePoints.Text = tostring(s.rating)
-	self.profileWins.Text = (s.wins or 0) .. " W"
+	local wallet = GameModes.wallet(s)
+	local function short(n) return if n >= 10000 then string.format("%.1fk", n / 1000) else tostring(n) end
+	self.wallet.coins.Text = short(wallet.coins)
+	self.wallet.crystals.Text = short(wallet.crystals)
+	self.wallet.rank.Text = short(wallet.rank)
+	self.profileRank.Text ..= " · " .. (s.wins or 0) .. " W"
 	if s.title and s.title ~= "" then
 		self.profileRank.Text = "« " .. s.title .. " » · " .. self.profileRank.Text
 		self.profileRank.TextColor3 = GOLD

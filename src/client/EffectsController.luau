@@ -959,6 +959,13 @@ function EffectsController:onEvent(event, views, rigs)
 			self:flash(rigs[slot])
 		end
 		return
+	elseif event.kind == "Burst" then
+		-- BOSS BURST: a golden shockwave throws the attacker off the combo.
+		local position = Vector3.new(event.x or 0, event.y or 3, 0)
+		self:spark(position, Color3.fromHex("FFD23F"), 2)
+		self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 4, 0, 360, Color3.fromHex("FF7A2A"), math.pi / 2, 0.6)
+		self.camera:shake(if self.reduced then 0.2 else 0.5, 0.3)
+		return
 	elseif event.kind == "Revive" then
 		-- SECOND LIFE: a black shockwave where he rises.
 		local position = Vector3.new(event.x or 0, event.y or 3, 0)

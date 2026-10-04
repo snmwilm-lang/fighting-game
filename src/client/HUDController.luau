@@ -915,7 +915,11 @@ function HUD:onEvent(event, world)
 		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TELEPORT") .. "!")
 	elseif event.kind == "Evade" then
 		local kit = MoveData.Kits[CharacterData[event.defender].Kit]
-		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "DODGE") .. "!")
+		local name = if kit and kit.Stats and kit.Stats.AutoEvade then "DIVINE INSTINCT"
+			elseif kit and kit.Passive then kit.Passive.Name else "DODGE"
+		self:callout(event.defender, name .. "!")
+	elseif event.kind == "Burst" then
+		self:callout(event.slot, "BURST!")
 	elseif event.kind == "Slip" then
 		self:callout(event.defender, "DODGE!")
 		self:slowMotion(0.45) -- black and white for the slow-down

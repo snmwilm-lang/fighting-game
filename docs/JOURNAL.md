@@ -45,6 +45,23 @@ Sauvegarde avant la mise à jour : commit `56471c4` (branche poussée ; tag loca
 - **Correctifs** : un champ retiré par un kit (`invuln = false`, `projectile = false`) faisait
   planter la simulation (normalisé dans `move()`) ; l'IA n'utilise plus un « reversal » qui
   n'est pas invincible ; cadrages des cinématiques KUROEN / KAZAN.
+- **KUROEN** : son IA, sans revers invincible, garde au relevé au lieu de contre-attaquer au
+  jab (la riposte dépend de la garde du niveau : `(1 - block)^1.1`). Il passait de 93 % à environ 40-58 %.
+- **Musique et sons** : la musique générée est supprimée. Le jeu ne joue que de vraies pistes
+  libres de droits, posées par Wilhem dans Studio (`ReplicatedStorage › Audio › Music`, slots
+  MENU, BATTLE, arènes, ASURA, WRATH, VICTORY, DEFEAT, avec repli vers un slot plus général) et
+  des sons (`Audio › SFX`, par action ou par perso). Mode d'emploi : `docs/AUDIO.md`.
+- **ASURA encore plus dur** (les testeurs le battaient en une quinzaine d'essais) :
+  - BURST : un combo de 4 coups sur lui casse ; il se libère, invincible un instant, et l'attaquant est repoussé, sonné (temps de recharge de 7 s) ;
+  - il subit 15 % de dégâts en moins et frappe à ×1,45 ;
+  - sa seconde vie le remet à 60 % de sa vie, avec une vitesse ×1,3.
+- **KUROEN SHIN, broken à sa façon** : INSTINCT DIVIN (`Stats.AutoEvade`). Les coups qui
+  l'atteignent en neutre sont esquivés (2 charges, une revient toutes les 6 s) et il réapparaît
+  dans le dos de l'attaquant pour frapper. Il subit 15 % de dégâts en moins et frappe à ×1,55.
+- **Monnaies** :
+  - barre du menu PIÈCES / CRISTAUX / RANG avec des sprites dessinés (`client/CurrencyIcons`). Les PNG de `assets/icons` remplacent ces dessins dès que leurs ID sont mis dans `CurrencyIcons.IMAGES` ;
+  - le serveur donne les PIÈCES : 40 par victoire, 15 par défaite, 10 par vague de SURVIE, 60 par boss battu ;
+  - les CRISTAUX valent 25 par succès débloqué.
 - Version 0.17.0.
 
 Audit du roster (19 kits + KUROEN) :
@@ -54,7 +71,7 @@ Audit du roster (19 kits + KUROEN) :
 - corrigé : `invuln = false` / `projectile = false` dans une surcharge de kit faisaient planter `isInvulnerable` ; c'est normalisé dans `move()` ;
 - cinématiques : la prise du FATAL de KUROEN et la RUSH / la PORTE de KUROEN SHIN cachaient une main ; c'est réorienté (`turn`).
 
-Tests : CombatSimulation 124, FighterAI 13, CinematicDirector 871, Animation 40, Kits KITS_N, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 17 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : BAL_LINE.
+Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40, Kits KITS_N, PressQueue 4, Fuzz 2, Cinematography 310, Lobby 18 (tout passe). Équilibrage CPU contre CPU (`Balance -a 4 120`) : BAL_LINE.
 
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
 nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité

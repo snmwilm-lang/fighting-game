@@ -346,4 +346,20 @@ test("achievements: each says where it is earned, reads the saved profile, and i
 	expect(legacy.achWins == 0 and legacy.achSeason == GameModes.ACHIEVEMENT_SEASON, "an old save is not reset")
 end)
 
+test("currencies: coins earned by playing (the winner more), crystals from achievements, rank from the rating", function()
+	local profile = { rating = 1234 }
+	GameModes.addCoins(profile, "win")
+	GameModes.addCoins(profile, "loss")
+	GameModes.addCoins(profile, "survivalWin", 3)
+	local c = GameModes.COINS
+	expect(profile.coins == c.win + c.loss + c.survivalWin * 3, "coins badly counted: " .. tostring(profile.coins))
+	expect(c.win > c.draw and c.draw > c.loss and c.loss > 0, "the winner does not earn more (or a loss earns nothing)")
+	local status = { coins = profile.coins, rating = 1234, achWins = 9999 }
+	local _, done = GameModes.achievements(status)
+	local wallet = GameModes.wallet(status)
+	expect(wallet.coins == profile.coins and wallet.rank == 1234, "the wallet does not read the profile")
+	expect(done > 0 and wallet.crystals == done * GameModes.CRYSTALS_PER_ACHIEVEMENT, "crystals do not follow the achievements")
+	expect(GameModes.wallet(nil).coins == 0, "an empty profile breaks the wallet")
+end)
+
 T.finish()

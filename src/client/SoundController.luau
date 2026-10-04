@@ -171,6 +171,8 @@ function SoundController:onEvent(event)
 		self:playAll(ACTIONS[kind])
 	elseif kind == "Revive" then
 		self:playAll(ACTIONS.Revive)
+	elseif kind == "Burst" then
+		self:playAll(ACTIONS.GuardBreak)
 	elseif kind == "Fight" then
 		self:playAll(ACTIONS.RoundStart)
 	elseif kind == "DroneShot" then

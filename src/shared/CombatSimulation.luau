@@ -25,7 +25,8 @@ local function newFighter(slot, c, kit, stanceId)
 		kit = kit.Name, stats = stats, maxHp = stats.MaxHealth,
 		stance = stance and stance.Id, stanceCooldown = 0,
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
-		evadeCharges = kit.Passive and kit.Passive.Charges or 0, evadeCounter = 0, evadeFrom = nil,
+		evadeCharges = kit.Passive and kit.Passive.Charges or stats.AutoEvade and stats.AutoEvade.Charges or 0,
+		evadeCounter = 0, evadeFrom = nil, burstCooldown = 0,
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1, teleportReady = 0,
 		slipCharges = 3, slipCharge = 0, -- boxer's slips ready (see Weave.Charges) and the refill timer
@@ -159,6 +160,14 @@ local function kitOf(world, f)
 	return world.moveData.Kits[f.kit]
 end
 CombatSimulation.kitOf = kitOf
+-- The evade a fighter has: AKEMI's VOILE D'OMBRE (passive) or a boss's (Stats.AutoEvade:
+-- KUROEN SHIN's DIVINE INSTINCT), the same rules.
+local function evadeOf(world, f)
+	local passive = kitOf(world, f).Passive
+	if passive and passive.Type == "Evade" then return passive end
+	return f.stats.AutoEvade
+end
+CombatSimulation.evadeOf = evadeOf
 local PASSIVE = {} -- the passives of Wilhem's third sheet (defined with applyHit below)
 
 -- The fighter's stance (TARO: CLASSIQUE / ESQUIVE), nil for a kit without stances; its
@@ -493,7 +502,7 @@ local function stepFighter(world, f, input, events)
 	-- reappears behind the attacker (still in its whiffed attack) and strikes.
 	if f.evadeCounter > 0 and f.stunKind == "Evade" and f.hitstop == 0 and (input.light or input.heavy) then
 		local a = world.fighters[f.evadeFrom or (3 - f.slot)]
-		local passive = kitOf(world, f).Passive
+		local passive = evadeOf(world, f)
 		if a and a.state ~= "KO" and passive and f.meter >= (passive.CounterCost or 0) then
 			f.meter -= passive.CounterCost or 0 -- like DBFZ's follow-ups, the counter costs ki
 			local lo, hi = c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5
@@ -551,8 +560,8 @@ local function stepFighter(world, f, input, events)
 		f.guardWindow = math.max(0, f.guardWindow - 1)
 	end
 	-- VOILE D'OMBRE: the charges come back one after the other.
-	local evadePassive = kitOf(world, f).Passive
-	if evadePassive and evadePassive.Type == "Evade" and f.evadeCharges < (evadePassive.Charges or 1) then
+	local evadePassive = evadeOf(world, f)
+	if evadePassive and f.evadeCharges < (evadePassive.Charges or 1) then
 		f.evadeCharge = math.max(0, f.evadeCharge - 1)
 		if f.evadeCharge == 0 then
 			f.evadeCharges += 1
@@ -573,6 +582,7 @@ local function stepFighter(world, f, input, events)
 	end
 	f.evadeCounter = math.max(0, f.evadeCounter - 1)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
+	f.burstCooldown = math.max(0, f.burstCooldown - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
 	if f.getUp == 0 then f.wakeInvuln = math.max(0, f.wakeInvuln - 1) end
 	f.weaveTicks = math.max(0, f.weaveTicks - 1)
@@ -1019,8 +1029,8 @@ end
 -- guarding), the next hit is evaded: the fighter slips back, invulnerable for a moment, and
 -- the attack whiffs.
 local function tryEvade(world, a, d, m, events, source)
-	local passive = kitOf(world, d).Passive
-	if not passive or passive.Type ~= "Evade" or d.evadeCharges <= 0 or m.kind == "Ultimate" then return false end
+	local passive = evadeOf(world, d)
+	if not passive or d.evadeCharges <= 0 or m.kind == "Ultimate" then return false end
 	-- Only from neutral: not in the middle of an own attack, not already hit or down.
 	if d.move or d.stun > 0 or d.launched or d.knockdown > 0 or d.getUp > 0 or d.state == "KO" then return false end
 	local sourceX = if source then source.x else a.x
@@ -1382,7 +1392,8 @@ local function applyHit(world, a, d, m, events, source)
 	local wrath = if a.revived and a.stats.SecondLife then a.stats.SecondLife.DamageDealt or 1 else 1
 	-- ASURA's four arms (Stats.ExtraArms): a grounded blow that lands is followed by the second pair.
 	local arms = if a.stats.ExtraArms and not source and (m.kind or "Normal") == "Normal" and not m.air then 1 + a.stats.ExtraArms else 1
-	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * wrath * arms * bonus + 0.5))
+	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * (d.stats.DamageTaken or 1)
+		* wrath * arms * bonus + 0.5))
 	if arms > 1 then event.arms = true end
 	d.hp = math.max(0, d.hp - damage)
 	PASSIVE.onHit(world, a, d, m, source, firstHit, events)
@@ -1475,6 +1486,23 @@ local function applyHit(world, a, d, m, events, source)
 		startCinematic(world, a, d, events, m.id)
 	end
 	table.insert(events, event)
+	-- BOSS BURST (Stats.Burst, ASURA): a combo of Hits blows on him breaks. He flares free,
+	-- untouchable a moment, and the attacker is thrown back, stunned: a boss is never looped.
+	local burst = d.stats.Burst
+	if burst and d.state ~= "KO" and d.comboHits >= burst.Hits and d.burstCooldown == 0 and m.kind ~= "Ultimate"
+		and not world.cinematic then
+		local dir = if a.x >= d.x then 1 else -1
+		d.burstCooldown = burst.Cooldown
+		d.stun, d.stunKind, d.launched, d.pendingBounce, d.wallBounce = 0, nil, false, false, false
+		d.juggle, d.hitstop, d.evadeInvuln = 0, 0, burst.Invuln
+		if not source then
+			a.move, a.moveContact, a.dashTicks = nil, nil, 0
+			a.stun, a.stunKind, a.hitstop = burst.Stun, "Hit", 0
+			a.pushVx = dir * burst.Push
+			table.clear(a.buffer)
+		end
+		table.insert(events, { kind = "Burst", slot = d.slot, x = d.x, y = d.y + 3 })
+	end
 end
 
 -- Ki blasts: swept against the opponent's hurtbox each tick, clash with enemy blasts.

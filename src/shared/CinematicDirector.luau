@@ -3621,6 +3621,716 @@ function GEN.square(ctx, a, cx, dir, style)
 	a.x, a.y, a.z, a.facing, a.lookDir = GEN.place(ctx, cx - dir * GEN.reach(style)), 0, 0, dir, nil
 end
 
+-- ---------------------------------------------------------------- OUVERTURES ET FINS
+--[[
+	Wilhem: « une ouverture et une fin propres à chacun... tous différentes ». Each themed kit
+	opens and closes each of its four ultimates its own way (`open` / `finish`, one entry per
+	ultimate): no two kits share an opening or an ending of the same ultimate, and a kit never
+	repeats one (tests/CinematicDirector.test.luau). Twenty of each, all painted with the kit's
+	own effects, poses and colour:
+	  openings  descend (falls from the sky), emerge (rises out of the floor), backturn (back to
+	            the target, turns round), stride (walks in, feet first), kneel (rises from one
+	            knee), blink (in the target's face, then away), charge (runs in, skids), levitate,
+	            meditate (arms crossed, eyes open), slam (strikes the floor), spin, silhouette
+	            (black and white, then colour), gather (the power converges on it), target (the
+	            target looks round for it), leap (a great jump in), kata (shadow-boxes), path (its
+	            mark runs to the target), clones (afterimages close in), eyes (a close-up on the
+	            face pulls back), storm (its effects rain on the arena first);
+	  endings   crater (from the air, the target driven into the floor), passthrough (through the
+	            target, which falls a beat later), skyward (sent high, watched falling),
+	            blowaway (blown across the arena), pin (slammed down, stood over), turnaway
+	            (turns its back and leaves), vanish (gone, then back at a distance), hover (floats
+	            above the fallen target), stomp, bow, orbit (the camera circles the victor),
+	            freeze (the impact frame held in black and white), rain (its effects pour on the
+	            fallen target), walkpast, echo (the blow resounds three more times), bounce (the
+	            target bounces twice), flourish (a last kata), seal (its kanji sealed on the
+	            target), exit (walks out of the frame, the target left alone), slowmo.
+]]
+GEN.OPEN, GEN.END = {}, {}
+
+-- One opening or ending scene: the shared values of the archetypes.
+function GEN.scene(ctx, frame, T, a, d, tick, dir, ult, kind)
+	local cin = ctx.cin
+	return { ctx = ctx, frame = frame, T = T, a = a, d = d, tick = tick, dir = dir, ult = ult, kind = kind,
+		cx = center(ctx, d), color = ctx.characters[cin.attacker].Energy, A = cin.attacker, D = cin.defender,
+		data = ctx.moveData.Cinematics[cin.move], cin = cin }
+end
+
+function GEN.shot(I, part, subjects, o)
+	return GEN.frame(I.T, GEN.name(I.T, I.ult, part), I.dir, subjects, o)
+end
+
+local function spot(x, y, z)
+	return { point = true, x = x, y = y, z = z or 0 }
+end
+
+-- The attacker standing at x, facing the target.
+function GEN.stand(I, x, pose)
+	local a = I.a
+	a.x, a.y, a.z, a.facing, a.lookDir, a.state, a.vx = x, 0, 0, I.dir, nil, "Idle", 0
+	a.pose = pose
+end
+
+-- ---------------------------------------------------------------- openings
+-- (I, p: 0..1 over the opening, home: where the attacker stands when it ends)
+
+function GEN.OPEN.descend(I, p, home)
+	local a, T = I.a, I.T
+	local q = math.min(1, p / 0.55)
+	GEN.stand(I, home, if q < 1 then "Levitate" elseif p < 0.78 then "Kneel" else T.pose)
+	a.y = 12 * (1 - q) ^ 2
+	if q >= 1 then
+		if p < 0.64 then I.frame.quake = 0.9 end
+		GEN.fx(I.frame, T, "ground", I.ult .. "-land", nil, v(home, 0, 0), I.color, { radius = 3, life = 1.4 })
+		GEN.fx(I.frame, T, "burst", I.ult .. "-land-burst", v(home, 6, 0), v(home, 0.5, 0), I.color)
+	else
+		GEN.fx(I.frame, T, "line", I.ult .. "-fall", v(home, 16, 0), v(home, 1, 0), I.color, { life = 0.5 })
+	end
+	I.frame.shot = GEN.shot(I, "descend", { a, spot(home, 0.5) }, { yaw = 22, pitch = -16, fill = 0.72, fov = 46,
+		focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.emerge(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, T.pose)
+	a.y = lerp(-5.8, 0, smooth(math.min(1, p / 0.6)))
+	GEN.fx(I.frame, T, "ground", I.ult .. "-pool", nil, v(home, 0, 0), I.color, { radius = 2.6, life = 2 })
+	if p >= 0.6 then GEN.fx(I.frame, T, "burst", I.ult .. "-out", v(home, 0, 0), v(home, 3, 0), I.color) end
+	I.frame.shot = GEN.shot(I, "emerge", { a, spot(home, 0.4) }, { yaw = -24, pitch = 10, fill = 0.7, fov = 42,
+		focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.backturn(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	local turn = smooth(math.clamp((p - 0.4) / 0.35, 0, 1))
+	GEN.stand(I, home, if turn < 1 then T.rest else T.pose)
+	local angle = math.pi * (1 - turn) -- pi: its back to the target; it turns round facing the camera
+	a.lookDir = v(dir * math.cos(angle), 0, math.sin(angle))
+	if turn >= 1 then GEN.fx(I.frame, T, "burst", I.ult .. "-turn", v(home, 0, 0), v(home, 3, 0), I.color) end
+	I.frame.shot = GEN.shot(I, "backturn", { a }, { yaw = 48, pitch = 2, fill = 0.9, fov = 36, band = "bust",
+		focus = P(I.A, "Head") })
+end
+
+function GEN.OPEN.stride(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	local from = GEN.place(I.ctx, home - dir * 4)
+	local q = math.min(1, p / 0.8)
+	GEN.stand(I, lerp(from, home, q), T.pose)
+	if q < 1 then a.state, a.vx, a.pose = "Walking", dir * 2, nil end
+	local stepN = math.floor(q * 5)
+	GEN.fx(I.frame, T, "ground", I.ult .. "-step" .. stepN, nil, v(a.x, 0, 0), I.color, { radius = 0.9, count = 3, life = 0.8 })
+	if p < 0.5 and I.long then
+		I.frame.shot = GEN.shot(I, "stride-steps", { a }, { yaw = -20, pitch = -4, fill = 0.85, fov = 40, band = "waist",
+			focus = P(I.A, "UpperTorso") })
+	else
+		I.frame.shot = GEN.shot(I, "stride", { a, I.d }, { yaw = -34, pitch = 6, fill = 0.66, fov = 42, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.OPEN.kneel(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, if p < 0.55 then "Kneel" elseif p < 0.72 then T.rest else T.pose)
+	GEN.fx(I.frame, T, "ground", I.ult .. "-kneel", nil, v(home, 0, 0), I.color, { radius = 2.2, life = 1.6 })
+	if p >= 0.55 then GEN.fx(I.frame, T, "burst", I.ult .. "-rise", v(home, 0, 0), v(home, 3, 0), I.color) end
+	I.frame.shot = GEN.shot(I, "kneel", { a }, { yaw = -16, pitch = if p < 0.55 then 24 else -14, fill = 0.82, fov = 40,
+		focus = P(I.A, "Head") })
+end
+
+function GEN.OPEN.blink(I, p, home)
+	local a, T, dir, cx = I.a, I.T, I.dir, I.cx
+	if p < 0.45 then
+		-- an afterimage in the target's face
+		GEN.stand(I, GEN.place(I.ctx, cx - dir * 1.2), T.pose)
+		a.z, a.ghost = -1.4, true
+		GEN.fx(I.frame, T, "burst", I.ult .. "-blink-in", v(a.x, 3, -1.4), v(a.x, 3, -1.4), I.color)
+	else
+		GEN.stand(I, home, T.pose)
+		a.ghost = p < 0.55
+		GEN.fx(I.frame, T, "burst", I.ult .. "-blink-out", v(home, 3, 0), v(home, 3, 0), I.color)
+	end
+	I.frame.shot = GEN.shot(I, "blink", { a, I.d }, { yaw = 30, pitch = 4, fill = 0.7, fov = 40, focus = P(I.D, "Head") })
+end
+
+function GEN.OPEN.charge(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	local from = GEN.place(I.ctx, home - dir * 10)
+	local q = math.min(1, p / 0.62)
+	GEN.stand(I, lerp(from, home, 1 - (1 - q) ^ 2), if q < 1 then "Dash" else T.pose)
+	if q < 1 then
+		I.frame.speedLines = I.color
+	elseif p < 0.8 then
+		GEN.fx(I.frame, T, "ground", I.ult .. "-skid", nil, v(home, 0, 0), I.color, { radius = 1.8, life = 1 })
+		if p < 0.7 then I.frame.quake = 0.4 end
+	end
+	I.frame.shot = GEN.shot(I, "charge", { a, I.d }, { yaw = -40, pitch = 4, fill = 0.62, fov = 46, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.levitate(I, p, home)
+	local a, T = I.a, I.T
+	local up = math.sin(math.min(1, p / 0.85) * math.pi)
+	GEN.stand(I, home, if up > 0.15 then "Levitate" else T.pose)
+	a.y = up * 2.4 + math.sin(I.tick * 0.2) * 0.12 * up
+	I.frame.aura = I.A
+	GEN.fx(I.frame, T, "ground", I.ult .. "-float", nil, v(home, 0, 0), I.color, { radius = 2, life = 2 })
+	I.frame.shot = GEN.shot(I, "levitate", { a, spot(home, 0.5) }, { yaw = 28, pitch = -22, fill = 0.74, fov = 44,
+		focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.meditate(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, if p < 0.6 then "ArmsCrossed" else T.pose)
+	if p >= 0.6 then
+		GEN.fx(I.frame, T, "burst", I.ult .. "-wake", v(home, 0, 0), v(home, 4, 0), I.color, { scale = 1.6 })
+		I.frame.aura = I.A
+	end
+	I.frame.shot = GEN.shot(I, "meditate", { a }, { yaw = -10, pitch = 0, fill = 0.95, fov = 30,
+		band = "bust", focus = P(I.A, "Head") })
+end
+
+function GEN.OPEN.slam(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, if p < 0.3 then T.rest elseif p >= 0.75 then T.pose else nil)
+	if p >= 0.3 and p < 0.75 then attack(a, I.ctx.moveData.Moves, role(I.ctx, "Hammer"), p >= 0.42 and p < 0.6) end
+	if p >= 0.45 then
+		if p < 0.55 then I.frame.quake = 1.2 end
+		GEN.fx(I.frame, T, "ground", I.ult .. "-slam", nil, v(home + I.dir, 0, 0), I.color, { radius = 4, count = 10, life = 1.6 })
+		GEN.fx(I.frame, T, "burst", I.ult .. "-slam-burst", v(home + I.dir, 3, 0), v(home + I.dir, 0.3, 0), I.color)
+	end
+	I.frame.shot = GEN.shot(I, "slam", { a, spot(home + I.dir * 2, 0.3) }, { yaw = 36, pitch = -8, fill = 0.7, fov = 44,
+		focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.spin(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	local q = math.min(1, p / 0.7)
+	GEN.stand(I, home, if q < 1 then "WindGather" else T.pose)
+	local angle = smooth(q) * math.pi * 4
+	a.lookDir = v(dir * math.cos(angle), 0, math.sin(angle))
+	local k = math.floor(q * 6)
+	local around2 = k * 1.05
+	GEN.fx(I.frame, T, "line", I.ult .. "-spin" .. k, v(home + math.cos(around2) * 2.5, 1 + k * 0.5, -math.abs(math.sin(around2)) * 2.5),
+		v(home, 2.5, 0), I.color, { life = 0.4 })
+	I.frame.shot = GEN.shot(I, "spin", { a }, { yaw = lerp(-40, 30, p), pitch = 8, fill = 0.8, fov = 40, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.silhouette(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, if p < 0.55 then T.rest else T.pose)
+	I.frame.grade.mono = p < 0.55
+	if p >= 0.55 then GEN.fx(I.frame, T, "burst", I.ult .. "-colour", v(home, 0, 0), v(home, 3, 0), I.color, { scale = 2 }) end
+	if p < 0.55 and I.long then
+		I.frame.shot = GEN.shot(I, "silhouette-wide", { a, I.d }, { yaw = 6, pitch = 2, fill = 0.48, fov = 38, focus = P(I.A, "UpperTorso") })
+	else
+		I.frame.shot = GEN.shot(I, "silhouette", { a }, { yaw = -26, pitch = -12, fill = 0.88, fov = 38, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.OPEN.gather(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, T.pose)
+	I.frame.aura = I.A
+	local k = math.floor(p * 8)
+	if p < 0.75 then
+		local angle = k * 0.8
+		GEN.fx(I.frame, T, "line", I.ult .. "-gather" .. k, v(home + math.cos(angle) * 5, 1 + (k % 3) * 2.5, -math.abs(math.sin(angle)) * 5),
+			v(home, 3, 0), I.color, { life = 0.5 })
+	else
+		GEN.fx(I.frame, T, "burst", I.ult .. "-gathered", v(home, 0, 0), v(home, 3, 0), I.color, { scale = 2 })
+	end
+	I.frame.shot = GEN.shot(I, "gather", { a }, { yaw = 14, pitch = 18, fill = lerp(0.7, 0.9, p), fov = 46, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.target(I, p, home)
+	local a, d, T, dir = I.a, I.d, I.T, I.dir
+	if p < 0.55 then
+		-- The target alone, looking round for it.
+		vanish(a)
+		d.state, d.pose = "Idle", nil
+		local look = math.sin(p * 18)
+		d.lookDir = v(-dir * math.cos(look * 0.9), 0, math.sin(look * 0.9))
+		I.frame.shot = GEN.shot(I, "target", { d }, { yaw = -30, pitch = 4, fill = 0.9, fov = 36, band = "bust", focus = P(I.D, "Head") })
+	else
+		GEN.stand(I, home, T.pose)
+		a.ghost = p < 0.62
+		d.lookDir = nil
+		GEN.fx(I.frame, T, "burst", I.ult .. "-here", v(home, 3, 0), v(home, 3, 0), I.color)
+		I.frame.shot = GEN.shot(I, "target-found", { a, d }, { yaw = 40, pitch = 6, fill = 0.7, fov = 42, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.OPEN.leap(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	local from = GEN.place(I.ctx, home - dir * 9)
+	local q = math.min(1, p / 0.65)
+	GEN.stand(I, lerp(from, home, q), if q < 1 then "Levitate" elseif p < 0.8 then "Kneel" else T.pose)
+	a.y = math.sin(q * math.pi) * 7
+	if q >= 1 and p < 0.72 then
+		I.frame.quake = 0.8
+		GEN.fx(I.frame, T, "ground", I.ult .. "-leap", nil, v(home, 0, 0), I.color, { radius = 3, life = 1.4 })
+	end
+	I.frame.shot = GEN.shot(I, "leap", { a, spot(home, 0.3), spot(from, 0.3) }, { yaw = -8, pitch = -6, fill = 0.66, fov = 46,
+		focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.kata(I, p, home)
+	local a, T = I.a, I.T
+	local seq = { "Jab", "Cross", "Kick", "Elbow", "SpinKick" }
+	local k = math.floor(p * 6) + 1
+	GEN.stand(I, home, if k > #seq then T.pose else nil)
+	if k <= #seq then
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, seq[k]), (p * 6) % 1 > 0.4)
+		GEN.fx(I.frame, T, "line", I.ult .. "-kata" .. k, v(home, 3, 0), v(home + I.dir * 2, 3, 0), I.color, { life = 0.3 })
+	end
+	I.frame.shot = GEN.shot(I, "kata", { a }, { yaw = -36, pitch = 6, fill = 0.82, fov = 40, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.path(I, p, home)
+	local a, T, dir, cx = I.a, I.T, I.dir, I.cx
+	GEN.stand(I, home, T.pose)
+	local k = math.floor(math.min(1, p / 0.8) * 5)
+	local x = lerp(home, cx, k / 5)
+	GEN.fx(I.frame, T, "ground", I.ult .. "-path" .. k, nil, v(x, 0, 0), I.color, { radius = 1.2, count = 4, life = 1.6 })
+	if k >= 5 then GEN.fx(I.frame, T, "burst", I.ult .. "-path-end", v(cx, 0, 0), v(cx, 3, 0), I.color) end
+	I.frame.shot = GEN.shot(I, "path", { a, I.d }, { yaw = 4, pitch = 42, fill = 0.66, fov = 44, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.clones(I, p, home)
+	local a, T, dir = I.a, I.T, I.dir
+	GEN.stand(I, home, T.pose)
+	local q = math.min(1, p / 0.7)
+	for i = 1, 4 do
+		local angle = i * 1.4 + 0.3
+		local r = lerp(6, 0.3, q)
+		GEN.fx(I.frame, T, "burst", I.ult .. "-clone" .. i .. "-" .. math.floor(q * 4),
+			v(home + math.cos(angle) * r, 3, -math.abs(math.sin(angle)) * r), v(home + math.cos(angle) * r, 3, -math.abs(math.sin(angle)) * r),
+			I.color, { scale = 0.7 })
+	end
+	a.ghost = q < 1
+	I.frame.shot = GEN.shot(I, "clones", { a, spot(home - dir * 3, 2, -3), spot(home + dir * 3, 2, -3) }, { yaw = 10, pitch = 14,
+		fill = 0.7, fov = 44, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.OPEN.eyes(I, p, home)
+	local a, T = I.a, I.T
+	GEN.stand(I, home, T.pose)
+	if p >= 0.5 then I.frame.aura = I.A end
+	I.frame.shot = GEN.shot(I, "eyes", { a }, { yaw = -6, pitch = 0, fill = lerp(1.0, 0.7, smooth(p)), fov = lerp(24, 40, smooth(p)),
+		band = if p < 0.5 then "bust" else "full", focus = P(I.A, "Head") })
+end
+
+function GEN.OPEN.storm(I, p, home)
+	local a, T, cx = I.a, I.T, I.cx
+	GEN.stand(I, home, if p < 0.7 then T.rest else T.pose)
+	if I.tick % 4 == 0 and p < 0.85 then
+		local n = (I.tick * 7) % 13
+		local x = lerp(home, cx, n / 12) + (n % 3 - 1)
+		GEN.fx(I.frame, T, "line", I.ult .. "-storm" .. I.tick, v(x, 10, -2 - n % 3), v(x, 0, -1 - n % 2), I.color, { life = 0.6 })
+	end
+	I.frame.shot = GEN.shot(I, "storm", { a, I.d, spot((home + cx) / 2, 7, -2) }, { yaw = -14, pitch = -4, fill = 0.56, fov = 46,
+		focus = P(I.A, "UpperTorso") })
+end
+
+-- ---------------------------------------------------------------- endings
+-- The blow (tick F .. F + I.B), then what follows. I.blow: the move of the blow; I.push and
+-- I.lift: where the default blow sends the target; I.blowShot / I.preset: its shot.
+
+-- How the target lies once it is over: face down, or on one knee when a COUP FATAL did not kill.
+function GEN.lie(I, x)
+	local d = I.d
+	d.x, d.y = x, 0
+	if I.kind == "Fatal" and not I.cin.finish then
+		d.pose, d.lookDir = "Kneel", nil
+	else
+		d.pose, d.lookDir = "DownFace", v(0, 0, -1)
+	end
+end
+
+-- The usual blow: squared up, the target thrown back in an arc.
+function GEN.blow(I, e, o)
+	o = o or {}
+	local ctx, a, d, T, dir, cx = I.ctx, I.a, I.d, I.T, I.dir, I.cx
+	GEN.square(ctx, a, cx, dir, I.style)
+	attack(a, ctx.moveData.Moves, role(ctx, o.move or I.blow), true)
+	local push, lift = o.push or I.push, o.lift or I.lift
+	d.x, d.y, d.pose = cx + dir * push * smooth(e), math.sin(math.min(1, e / 0.9) * math.pi) * lift, "Launched"
+	if e < 0.5 then impact(I.frame, T.id .. "-" .. I.ult .. "-final", v(cx, 3, 0.6), I.color, I.impact) end
+	GEN.fx(I.frame, T, "burst", I.ult .. "-burst", v(a.x, 3, 0), v(cx, 3, 0), I.color, { scale = I.burst })
+	if I.q < 5 then I.frame.quake = if T.quake then I.quake * 1.5 else I.quake end
+	if not o.noShot then I.frame.shot = GEN.two(ctx, T, I.ult, I.blowShot, dir, a, d, I.preset) end
+end
+
+-- The attacker squared up and resting after the blow, the target down where it was thrown.
+function GEN.settle(I, pose)
+	GEN.square(I.ctx, I.a, I.cx, I.dir, I.style)
+	I.a.pose = pose or I.T.rest
+	GEN.lie(I, I.cx + I.dir * I.push)
+end
+
+function GEN.END.crater(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then
+		GEN.square(I.ctx, a, cx, dir, I.style)
+		a.x = GEN.place(I.ctx, cx - dir * lerp(GEN.reach(I.style), 1.6, e))
+		a.y = math.sin(math.min(1, e / 0.7) * math.pi) * 4.5 + (if e < 0.35 then e * 4 else 0)
+		a.ghost = true
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, "Hammer"), e >= 0.4)
+		if e < 0.45 then
+			d.x, d.y, d.pose = cx, 0, nil
+		else
+			GEN.lie(I, cx)
+			d.pose = "DownFace"
+			if e < 0.6 then I.frame.quake = 1.8 end
+			impact(I.frame, T.id .. "-" .. I.ult .. "-crater", v(cx, 0.5, 0.4), I.color, I.impact)
+			GEN.fx(I.frame, T, "ground", I.ult .. "-crater", nil, v(cx, 0, 0), I.color, { radius = 4.5, count = 12, life = 2.5 })
+			GEN.fx(I.frame, T, "burst", I.ult .. "-burst", v(a.x, a.y + 3, 0), v(cx, 0.5, 0), I.color, { scale = I.burst })
+		end
+		I.frame.shot = GEN.two(I.ctx, T, I.ult, I.blowShot, dir, a, d, I.preset)
+	else
+		GEN.stand(I, GEN.place(I.ctx, cx - dir * 3), if e < 0.35 then "Kneel" else T.rest)
+		GEN.lie(I, cx)
+		I.frame.shot = GEN.shot(I, "crater", { a, d }, { yaw = 10, pitch = 64, fill = 0.6, fov = 44, focus = P(I.D, "UpperTorso") })
+	end
+end
+
+function GEN.END.passthrough(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	local beyond = GEN.place(I.ctx, cx + dir * 3.4)
+	if not after then
+		local q = math.min(1, e / 0.4)
+		GEN.stand(I, lerp(GEN.place(I.ctx, cx - dir * GEN.reach(I.style)), beyond, smooth(q)), nil)
+		a.ghost = q < 1
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, I.blow), q < 1)
+		if q < 1 then I.frame.speedLines = I.color end
+		GEN.fx(I.frame, T, "line", I.ult .. "-through", v(cx - dir * 3, 3, 0), v(beyond, 3, 0), I.color, { life = 0.8 })
+		d.x, d.y, d.state, d.pose = cx, 0, "Hitstun", nil
+		-- (from the side: the dash crosses the frame instead of piling the bodies up)
+		I.frame.shot = GEN.shot(I, "passthrough-dash", { d, spot(cx - dir * 3, 3), spot(beyond, 3) }, { yaw = -6, pitch = 4, fill = 0.62,
+			fov = 42, focus = P(I.D, "UpperTorso") })
+	else
+		GEN.stand(I, beyond, T.rest)
+		a.lookDir = v(dir, 0, 0.25)
+		-- The target stands a beat, then the blow lands all at once.
+		if e < 0.3 then
+			d.x, d.y, d.state, d.pose = cx, 0, "Hitstun", nil
+		else
+			if e < 0.4 then
+				impact(I.frame, T.id .. "-" .. I.ult .. "-late", v(cx, 3, 0.6), I.color, I.impact)
+				GEN.fx(I.frame, T, "burst", I.ult .. "-burst", v(cx, 3, 0), v(cx, 3, 0), I.color, { scale = I.burst })
+				I.frame.quake = I.quake
+			end
+			GEN.lie(I, cx)
+		end
+		I.frame.shot = GEN.shot(I, "passthrough", { a, d }, { yaw = 52, pitch = 4, fill = 0.7, fov = 40, focus = P(I.A, "Head") })
+	end
+end
+
+function GEN.END.skyward(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then
+		GEN.blow(I, e, { move = "Uppercut", push = 0.4, lift = 0, noShot = true })
+		d.y = e * 6
+		I.frame.shot = GEN.two(I.ctx, T, I.ult, I.blowShot, dir, a, d, I.preset)
+	else
+		GEN.settle(I, T.pose)
+		local up = 6 + math.sin(math.min(1, e / 0.75) * math.pi) * 3
+		if e < 0.75 then
+			d.x, d.y, d.pose = cx + dir * 0.4, up * (1 - e / 0.75) + (if e < 0.4 then e * 4 else 0), "Launched"
+		else
+			GEN.lie(I, cx + dir * 0.4)
+			if e < 0.85 then I.frame.quake = I.quake end
+		end
+		I.frame.shot = GEN.shot(I, "skyward", { a, d, spot(cx, 9) }, { yaw = -20, pitch = -28, fill = 0.66, fov = 48,
+			focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.END.blowaway(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	local far = GEN.place(I.ctx, cx + dir * 7)
+	if not after then
+		GEN.blow(I, e, { push = 0, lift = 0, noShot = true })
+		d.x, d.y, d.pose = lerp(cx, far, 1 - (1 - e) ^ 2), math.sin(e * math.pi) * 1.4, "Launched"
+		GEN.fx(I.frame, T, "line", I.ult .. "-away", v(cx, 3, 0), v(far, 2, 0), I.color, { life = 0.6 })
+		I.frame.shot = GEN.shot(I, "blowaway", { a, d, spot(far, 1) }, { yaw = -10, pitch = 6, fill = 0.6, fov = 46,
+			focus = P(I.D, "UpperTorso") })
+	else
+		GEN.square(I.ctx, a, cx, dir, I.style)
+		a.pose = T.pose
+		GEN.lie(I, far)
+		GEN.fx(I.frame, T, "ground", I.ult .. "-skid", nil, v(far, 0, 0), I.color, { radius = 2, life = 2 })
+		I.frame.shot = GEN.shot(I, "blowaway-far", { a, d }, { yaw = -24, pitch = 10, fill = 0.48, fov = 40, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.END.pin(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then
+		GEN.square(I.ctx, a, cx, dir, I.style)
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, "Hammer"), true)
+		if e < 0.35 then
+			d.x, d.y, d.pose = cx, lerp(1.5, 0, e / 0.35), "Launched"
+		else
+			GEN.lie(I, cx)
+			d.pose = "DownFace"
+			if e < 0.5 then
+				I.frame.quake = I.quake * 1.4
+				impact(I.frame, T.id .. "-" .. I.ult .. "-pin", v(cx, 0.6, 0.4), I.color, I.impact)
+				GEN.fx(I.frame, T, "burst", I.ult .. "-burst", v(a.x, 3, 0), v(cx, 0.6, 0), I.color, { scale = I.burst })
+			end
+		end
+		I.frame.shot = GEN.two(I.ctx, T, I.ult, I.blowShot, dir, a, d, I.preset)
+	else
+		GEN.stand(I, GEN.place(I.ctx, cx - dir * 2.2), T.pose)
+		a.lookDir = v(dir, 0, 0)
+		GEN.lie(I, cx)
+		GEN.fx(I.frame, T, "ground", I.ult .. "-pinned", nil, v(cx, 0, 0), I.color, { radius = 2.4, life = 3 })
+		I.frame.shot = GEN.shot(I, "pin", { a, d }, { yaw = -30, pitch = 50, fill = 0.66, fov = 42, focus = P(I.A, "Head") })
+	end
+end
+
+function GEN.END.turnaway(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	local start = GEN.place(I.ctx, cx - dir * GEN.reach(I.style))
+	local q = math.clamp((e - 0.2) / 0.7, 0, 1)
+	GEN.stand(I, GEN.place(I.ctx, start - dir * 3 * q), T.rest)
+	a.lookDir, a.facing = v(-dir, 0, 0), -dir
+	if q > 0 and q < 1 then a.state, a.vx = "Walking", -dir * 2 end
+	GEN.lie(I, cx + dir * I.push)
+	I.frame.shot = GEN.shot(I, "turnaway", { a, d }, { yaw = -50, pitch = 2, fill = 0.66, fov = 38, focus = P(I.A, "Head") })
+end
+
+function GEN.END.vanish(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.lie(I, cx + dir * I.push)
+	if e < 0.6 then
+		if e < 0.12 then
+			GEN.square(I.ctx, a, cx, dir, I.style)
+			a.pose = T.rest
+			GEN.fx(I.frame, T, "burst", I.ult .. "-gone", v(a.x, 3, 0), v(a.x, 3, 0), I.color, { scale = 1.6 })
+		else
+			vanish(a)
+		end
+		I.frame.shot = GEN.shot(I, "vanish", { d }, { yaw = 20, pitch = 30, fill = 0.7, fov = 40, focus = P(I.D, "UpperTorso") })
+	else
+		GEN.stand(I, GEN.place(I.ctx, cx - dir * 6), T.pose)
+		a.ghost = e < 0.68
+		GEN.fx(I.frame, T, "burst", I.ult .. "-back", v(a.x, 3, 0), v(a.x, 3, 0), I.color)
+		I.frame.shot = GEN.shot(I, "vanish-back", { a, d }, { yaw = -30, pitch = 8, fill = 0.6, fov = 40, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+function GEN.END.hover(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, "Levitate")
+	a.y = smooth(math.min(1, e / 0.5)) * 3 + math.sin(I.tick * 0.2) * 0.1
+	I.frame.aura = I.A
+	GEN.fx(I.frame, T, "ground", I.ult .. "-under", nil, v(d.x, 0, 0), I.color, { radius = 2.6, life = 3 })
+	I.frame.shot = GEN.shot(I, "hover", { a, d }, { yaw = 30, pitch = -18, fill = 0.66, fov = 44, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.END.stomp(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	local x = cx + dir * I.push
+	GEN.lie(I, x)
+	local q = math.min(1, e / 0.35)
+	GEN.stand(I, lerp(GEN.place(I.ctx, cx - dir * GEN.reach(I.style)), GEN.place(I.ctx, x - dir * 2.4), q), if e > 0.7 then T.pose else nil)
+	if q < 1 then
+		a.state, a.vx = "Walking", dir * 2
+	elseif e <= 0.7 then
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, "Hammer"), e > 0.45)
+		if e > 0.45 and e < 0.55 then
+			I.frame.quake = I.quake * 1.5
+			GEN.fx(I.frame, T, "ground", I.ult .. "-stomp", nil, v(x, 0, 0), I.color, { radius = 3.5, count = 10, life = 2 })
+		end
+	end
+	I.frame.shot = GEN.shot(I, "stomp", { a, d }, { yaw = 26, pitch = -10, fill = 0.66, fov = 44, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.END.bow(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, if e < 0.25 then T.rest elseif e < 0.7 then "Kneel" else "StandTall")
+	I.frame.shot = GEN.shot(I, "bow", { a, d }, { yaw = -36, pitch = 6, fill = 0.62, fov = 38, focus = P(I.A, "Head") })
+end
+
+function GEN.END.orbit(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, T.pose)
+	GEN.fx(I.frame, T, "ground", I.ult .. "-orbit", nil, v(a.x, 0, 0), I.color, { radius = 2.2, life = 3 })
+	I.frame.shot = GEN.shot(I, "orbit", { a }, { yaw = lerp(-70, 50, e), pitch = 10, fill = 0.86, fov = 40, focus = P(I.A, "Head") })
+end
+
+function GEN.END.freeze(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then
+		-- The impact frame held, in black and white.
+		local held = if e < 0.15 then e else 0.15
+		GEN.blow(I, held)
+		I.frame.grade.mono = e >= 0.15
+		I.frame.shot = GEN.two(I.ctx, T, I.ult, I.blowShot, dir, a, d, I.preset)
+	else
+		GEN.square(I.ctx, a, cx, dir, I.style)
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, I.blow), e < 0.3)
+		if e < 0.3 then
+			local q = e / 0.3
+			d.x, d.y, d.pose = cx + dir * I.push * q, math.sin((0.15 + q * 0.85) * math.pi) * I.lift, "Launched"
+		else
+			GEN.lie(I, cx + dir * I.push)
+			a.pose = T.rest
+		end
+		I.frame.shot = GEN.shot(I, "freeze", { a, d }, { yaw = 34, pitch = 12, fill = 0.66, fov = 40, focus = P(I.D, "UpperTorso") })
+	end
+end
+
+function GEN.END.rain(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, if e < 0.75 then "Kiai" else T.rest)
+	if I.tick % 3 == 0 and e < 0.75 then
+		local n = (I.tick * 5) % 7
+		GEN.fx(I.frame, T, "line", I.ult .. "-rain" .. I.tick, v(d.x + (n - 3) * 0.5, 10, -1), v(d.x + (n - 3) * 0.3, 0.3, 0), I.color,
+			{ life = 0.5 })
+	end
+	I.frame.shot = GEN.shot(I, "rain", { a, d, spot(d.x, 8, -1) }, { yaw = 12, pitch = 24, fill = 0.58, fov = 46, focus = P(I.D, "UpperTorso") })
+end
+
+function GEN.END.walkpast(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	local x = cx + dir * I.push
+	GEN.lie(I, x)
+	local q = math.min(1, e / 0.8)
+	GEN.stand(I, lerp(GEN.place(I.ctx, cx - dir * GEN.reach(I.style)), GEN.place(I.ctx, x + dir * 3.5), q), T.rest)
+	a.z = -2 * math.sin(q * math.pi)
+	if q < 1 then a.state, a.vx = "Walking", dir * 2 end
+	I.frame.shot = GEN.shot(I, "walkpast", { a, d }, { yaw = -16, pitch = 8, fill = 0.62, fov = 40, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.END.echo(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, T.pose)
+	-- The blow resounds three more times on the target.
+	local k = math.floor(e * 4)
+	if k >= 1 and k <= 3 and (e * 4) % 1 < 0.3 then
+		impact(I.frame, T.id .. "-" .. I.ult .. "-echo" .. k, v(d.x, 1, 0.4), I.color, I.impact * 0.6)
+		I.frame.quake = I.quake * 0.6
+		d.y = 0.4
+	end
+	I.frame.shot = GEN.shot(I, "echo", { a, d }, { yaw = 40, pitch = 18, fill = 0.64, fov = 42, focus = P(I.D, "UpperTorso") })
+end
+
+function GEN.END.bounce(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, T.pose)
+	local x = cx + dir * I.push
+	if e < 0.6 then
+		-- Twice off the floor, lower each time.
+		local q = e / 0.6
+		local hop = if q < 0.6 then math.sin(q / 0.6 * math.pi) * 2.2 else math.sin((q - 0.6) / 0.4 * math.pi) * 0.9
+		d.x, d.y, d.pose = x + dir * q * 1.2, hop, "Launched"
+		if hop < 0.15 then I.frame.quake = I.quake * 0.8 end
+	else
+		GEN.lie(I, x + dir * 1.2)
+	end
+	I.frame.shot = GEN.shot(I, "bounce", { a, d }, { yaw = -28, pitch = 4, fill = 0.6, fov = 42, focus = P(I.D, "UpperTorso") })
+end
+
+function GEN.END.flourish(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, nil)
+	local seq = { "SpinKick", "Kick", "PalmStrike" }
+	local k = math.floor(e * 4) + 1
+	if k <= #seq then
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, seq[k]), (e * 4) % 1 > 0.4)
+	else
+		a.pose = T.pose
+	end
+	I.frame.shot = GEN.shot(I, "flourish", { a }, { yaw = 30, pitch = 4, fill = 0.82, fov = 40, focus = P(I.A, "UpperTorso") })
+end
+
+function GEN.END.seal(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	GEN.settle(I, T.pose)
+	if e >= 0.2 then
+		table.insert(I.frame.fx, { key = T.id .. "-" .. I.ult .. "-seal", kind = "kanjiSeal", pos = v(d.x, 0.06, 0), color = I.color,
+			text = T.kanji, keep = true })
+	end
+	I.frame.shot = GEN.shot(I, "seal", { a, d }, { yaw = 6, pitch = 58, fill = 0.62, fov = 44, focus = P(I.D, "UpperTorso") })
+end
+
+function GEN.END.exit(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then return GEN.blow(I, e) end
+	local x = cx + dir * I.push
+	GEN.lie(I, x)
+	if e < 0.55 then
+		local start = GEN.place(I.ctx, cx - dir * GEN.reach(I.style))
+		GEN.stand(I, start, T.rest)
+		a.z = 3 * smooth(e / 0.55)
+		a.lookDir = v(0, 0, 1)
+		a.state, a.vx = "Walking", 0
+		I.frame.shot = GEN.shot(I, "exit", { a, d }, { yaw = -8, pitch = 6, fill = 0.6, fov = 40, focus = P(I.A, "Head") })
+	else
+		vanish(a)
+		I.frame.shot = GEN.shot(I, "exit-alone", { d }, { yaw = 24, pitch = 14, fill = 0.66, fov = 38, focus = P(I.D, "UpperTorso") })
+	end
+end
+
+function GEN.END.slowmo(I, e, after)
+	local a, d, T, dir, cx = I.a, I.d, I.T, I.dir, I.cx
+	if not after then
+		-- the blow at a quarter speed, in silence
+		GEN.blow(I, e * 0.3)
+		I.frame.speedLines = I.color
+		I.frame.shot = GEN.two(I.ctx, T, I.ult, I.blowShot, dir, a, d, I.preset, { fill = lerp(0.7, 0.9, e) })
+	else
+		GEN.square(I.ctx, a, cx, dir, I.style)
+		attack(a, I.ctx.moveData.Moves, role(I.ctx, I.blow), e < 0.25)
+		if e < 0.3 then
+			local q = 0.3 + e / 0.3 * 0.7
+			d.x, d.y, d.pose = cx + dir * I.push * smooth(q), math.sin(q * math.pi) * I.lift, "Launched"
+			if e < 0.08 then I.frame.quake = I.quake * 1.4 end
+		else
+			GEN.lie(I, cx + dir * I.push)
+			a.pose = T.pose
+		end
+		I.frame.shot = GEN.shot(I, "slowmo", { a, d }, { yaw = -44, pitch = 10, fill = 0.62, fov = 40, focus = P(I.A, "UpperTorso") })
+	end
+end
+
+-- Plays the theme's ending of an ultimate from its final tick F: the blow (B ticks), then the
+-- rest. o: blow, push, lift, blowShot, preset, impact, burst, quake.
+function GEN.ending(ctx, frame, T, a, d, tick, dir, ult, kind, F, o)
+	local I = GEN.scene(ctx, frame, T, a, d, tick, dir, ult, kind)
+	for k, value in o do I[k] = value end
+	I.style = T[string.lower(kind)]
+	I.q = tick - F
+	local style = T.finish[string.lower(kind)]
+	if tick < F + I.B then
+		GEN.END[style](I, progress(tick, F, F + I.B), false)
+	else
+		I.long = I.data.Length - F - I.B >= 30
+		GEN.END[style](I, progress(tick, F + I.B, I.data.Length), true)
+	end
+end
+
+-- Plays the theme's opening of an ultimate over ticks [0, to): home is where the attacker
+-- stands when the next part begins.
+function GEN.opening(ctx, frame, T, a, d, tick, dir, ult, kind, to, home)
+	local I = GEN.scene(ctx, frame, T, a, d, tick, dir, ult, kind)
+	I.long = to >= 40
+	GEN.OPEN[T.open[string.lower(kind)]](I, progress(tick, 0, to), home)
+end
+
 -- ---------------------------------------------------------------- R
 
 function GEN.Rush(T)
@@ -3636,13 +4346,9 @@ function GEN.Rush(T)
 		local k = hitsBefore(H, tick)
 		local beat = if k > 0 then tick - H[k] else 0
 		if tick < H[1] then
-			-- The signature pose, at a distance; its ground mark under the feet.
-			GEN.square(ctx, a, cx, dir, style)
-			a.x, a.pose = GEN.place(ctx, cx - dir * (GEN.reach(style) + 1.5)), T.pose
+			-- The kit's own opening.
 			d.x, d.state = cx, "Hitstun"
-			GEN.fx(frame, T, "ground", "rush-mark", nil, v(a.x, 0, 0), color, { radius = 2.2, life = 1.4 })
-			if T.quake and tick < 4 then frame.quake = 0.8 end
-			frame.shot = GEN.solo(T, GEN.name(T, "rush", "open"), dir, a, A, 0)
+			GEN.opening(ctx, frame, T, a, d, tick, dir, "rush", "Rush", H[1], GEN.place(ctx, cx - dir * (GEN.reach(style) + 1.5)))
 		elseif tick < H[#H] + 4 then
 			GEN.strike(ctx, frame, T, style, a, d, k, beat, tick, cx, dir, color, "rush")
 			local part = if k <= 4 then "a" elseif k <= 8 then "b" else "c"
@@ -3656,20 +4362,10 @@ function GEN.Rush(T)
 			d.x, d.state, d.y = cx, "Hitstun", 0
 			GEN.fx(frame, T, "ground", "rush-charge", nil, v(a.x, 0, 0), color, { radius = 1.6 })
 			frame.shot = GEN.two(ctx, T, "rush", "charge", dir, a, d, 4, { fill = lerp(0.72, 0.86, p) })
-		elseif tick < F + 16 then
-			GEN.square(ctx, a, cx, dir, style)
-			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
-			local p = progress(tick, F, F + 16)
-			d.x, d.y, d.pose = cx + dir * 1.2 * p, math.sin(p * math.pi) * 2.2, "Launched"
-			impact(frame, T.id .. "-rush-final", v(cx, 3, 0.6), color, 3)
-			GEN.fx(frame, T, "burst", "rush-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2 })
-			if tick < F + 5 then frame.quake = if T.quake then 1.4 else 0.6 end
-			frame.shot = GEN.two(ctx, T, "rush", "final", dir, a, d, 5)
 		else
-			GEN.square(ctx, a, cx, dir, style)
-			a.pose = T.rest
-			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.2, 0, "DownFace", v(0, 0, -1)
-			frame.shot = GEN.solo(T, GEN.name(T, "rush", "after"), dir, a, A, 1)
+			-- The kit's own ending.
+			GEN.ending(ctx, frame, T, a, d, tick, dir, "rush", "Rush", F, { B = 16, blow = "Finale", push = 1.2, lift = 2.2,
+				blowShot = "final", preset = 5, impact = 3, burst = 2, quake = 0.6 })
 		end
 	end
 end
@@ -3687,19 +4383,10 @@ function GEN.Awaken(T)
 		frame.grade.crimson, frame.grade[T.grade] = false, true
 		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
 		local k = hitsBefore(H, tick)
-		if tick < 24 then
-			frame.kanjiBack = T.kanji
-			GEN.square(ctx, a, cx, dir, style)
-			a.x, a.pose = GEN.place(ctx, cx - dir * 6.5), T.pose
-			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "crown"), dir, a, A, 1, { fill = 1.0 })
-		elseif tick < 48 then
-			-- The power rises: its ring on the floor, its burst around the attacker.
-			GEN.square(ctx, a, cx, dir, style)
-			a.x, a.pose = GEN.place(ctx, cx - dir * 6.5), T.rest
-			GEN.fx(frame, T, "ground", "eveil-ring", nil, v(a.x, 0, 0), color, { radius = 3, life = 1.6 })
-			if tick >= 36 then GEN.fx(frame, T, "burst", "eveil-aura", v(a.x, 0, 0), v(a.x, 3, 0), color) end
-			frame.aura = A
-			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "rise"), dir, a, A, 2)
+		if tick < 48 then
+			-- The kit's own opening, its kanji behind it at first.
+			if tick < 24 then frame.kanjiBack = T.kanji end
+			GEN.opening(ctx, frame, T, a, d, tick, dir, "eveil", "Awaken", 48, GEN.place(ctx, cx - dir * 6.5))
 		elseif tick < H[1] then
 			local p = progress(tick, 48, H[1])
 			a.x, a.facing, a.z, a.state, a.vx = lerp(GEN.place(ctx, cx - dir * 6.5), GEN.place(ctx, cx - dir * GEN.reach(style)), smooth(p)),
@@ -3720,22 +4407,13 @@ function GEN.Awaken(T)
 			d.y, d.pose = 1.6 + math.sin(p * math.pi) * 1.2, "Launched"
 			GEN.fx(frame, T, "ground", "eveil-hold", nil, v(cx, 0, 0), color, { radius = 2.6 })
 			frame.shot = GEN.two(ctx, T, "eveil", "hold", dir, a, d, 9, { fill = lerp(0.66, 0.82, p) })
-		elseif tick < F + 16 then
-			GEN.square(ctx, a, cx, dir, style)
-			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
-			local p = progress(tick, F, F + 16)
-			d.x, d.y, d.pose = cx + dir * 1.6 * p, 2 * (1 - p), "Launched"
-			impact(frame, T.id .. "-eveil-final", v(cx, 3, 0.6), color, 3.4)
-			GEN.fx(frame, T, "burst", "eveil-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.4 })
-			GEN.fx(frame, T, "ground", "eveil-world", nil, v(cx, 0, 0), color, { radius = 4.5, count = 10 })
-			if tick < F + 5 then frame.quake = if T.quake then 1.6 else 0.8 end
-			frame.shot = GEN.two(ctx, T, "eveil", "final", dir, a, d, 10)
 		else
-			GEN.square(ctx, a, cx, dir, style)
-			a.pose = T.pose
-			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.6, 0, "DownFace", v(0, 0, -1)
-			frame.title = { text = GEN.moveName(ctx, T, "Awaken"), color = color, sub = T.kanji .. " · " .. kitOf(ctx).Name }
-			frame.shot = GEN.solo(T, GEN.name(T, "eveil", "end"), dir, a, A, 3)
+			if tick < F + 16 then GEN.fx(frame, T, "ground", "eveil-world", nil, v(cx, 0, 0), color, { radius = 4.5, count = 10 }) end
+			GEN.ending(ctx, frame, T, a, d, tick, dir, "eveil", "Awaken", F, { B = 16, blow = "Finale", push = 1.6, lift = 2,
+				blowShot = "final", preset = 10, impact = 3.4, burst = 2.4, quake = 0.8 })
+			if tick >= F + 16 then
+				frame.title = { text = GEN.moveName(ctx, T, "Awaken"), color = color, sub = T.kanji .. " · " .. kitOf(ctx).Name }
+			end
 		end
 	end
 end
@@ -3754,20 +4432,13 @@ function GEN.Gate(T)
 		frame.grade[T.grade] = true
 		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
 		local far = GEN.place(ctx, cx - dir * 4.4)
-		if tick < 30 then
-			-- Far away: the theme takes the whole arena.
-			a.x, a.facing, a.pose = far, dir, T.pose
+		if tick < 70 then
+			-- The theme takes the whole arena, then the kit's own opening.
 			d.state = "Idle"
-			GEN.fx(frame, T, "ground", "gate-world", nil, v((far + cx) / 2, 0, 0), color, { radius = 9, count = 14, life = 3 })
-			if T.quake and tick < 6 then frame.quake = 1 end
-			frame.shot = GEN.frame(T, GEN.name(T, "gate", "far"), dir, { a, d, { point = true, x = (far + cx) / 2, y = 6, z = -9 } },
-				{ yaw = 8 - T.seed, pitch = 6, fill = 0.42, fov = 40, focus = P(A, "UpperTorso") })
-		elseif tick < 70 then
-			local p = progress(tick, 30, 70)
-			a.x, a.facing, a.pose = far, dir, T.rest
-			if tick >= 44 then GEN.fx(frame, T, "burst", "gate-aura", v(a.x, 0, 0), v(a.x, 3, 0), color) end
-			frame.shot = GEN.frame(T, GEN.name(T, "gate", "arena"), dir, { a, d }, { yaw = lerp(-44, 20, p), pitch = -16, fill = 0.66, fov = 48,
-				focus = P(A, "Head") })
+			if tick < 30 then
+				GEN.fx(frame, T, "ground", "gate-world", nil, v((far + cx) / 2, 0, 0), color, { radius = 9, count = 14, life = 3 })
+			end
+			GEN.opening(ctx, frame, T, a, d, tick, dir, "gate", "Gate", 70, far)
 		elseif tick < data.Hits[1] - 6 then
 			local p = progress(tick, 70, data.Hits[1] - 6)
 			a.x, a.facing, a.state, a.vx = lerp(far, GEN.place(ctx, cx - dir * GEN.reach(style)), p), dir, "Walking", dir * 2
@@ -3793,23 +4464,14 @@ function GEN.Gate(T)
 			frame.grade.mono = tick >= data.PromptTicks[1] - 4
 			frame.shot = GEN.two(ctx, T, "gate", "draw", dir, a, d, 4, { fill = lerp(0.78, 0.94,
 				progress(tick, data.PromptTicks[1] - 6, F)) })
-		elseif tick < F + 22 then
-			GEN.square(ctx, a, cx, dir, style)
-			attack(a, ctx.moveData.Moves, role(ctx, "Smash"), true)
-			local p = progress(tick, F, F + 22)
-			d.x, d.y, d.pose = cx + dir * 1.4 * smooth(p), math.sin(p * math.pi) * 2.6, "Launched"
-			impact(frame, T.id .. "-gate-break", v(cx, 3, 0.6), color, 3.8)
-			GEN.fx(frame, T, "burst", "gate-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.6 })
-			GEN.fx(frame, T, "ground", "gate-break", nil, v(cx, 0, 0), color, { radius = 6, count = 12 })
-			if tick < F + 6 then frame.quake = if T.quake then 2 else 1 end
-			frame.shot = GEN.two(ctx, T, "gate", "break", dir, a, d, 5)
 		else
-			GEN.square(ctx, a, cx, dir, style)
-			a.pose = T.pose
-			d.x, d.y, d.pose, d.lookDir = cx + dir * 1.4, 0, "DownFace", v(0, 0, -1)
-			local t = kitOf(ctx).GateTitle
-			frame.title = { text = t.text, color = color, sub = t.sub }
-			frame.shot = GEN.solo(T, GEN.name(T, "gate", "throne"), dir, a, A, 4)
+			if tick < F + 22 then GEN.fx(frame, T, "ground", "gate-break", nil, v(cx, 0, 0), color, { radius = 6, count = 12 }) end
+			GEN.ending(ctx, frame, T, a, d, tick, dir, "gate", "Gate", F, { B = 22, blow = "Smash", push = 1.4, lift = 2.6,
+				blowShot = "break", preset = 5, impact = 3.8, burst = 2.6, quake = 1 })
+			if tick >= F + 22 then
+				local t = kitOf(ctx).GateTitle
+				frame.title = { text = t.text, color = color, sub = t.sub }
+			end
 		end
 	end
 end
@@ -3827,16 +4489,12 @@ function GEN.Fatal(T)
 		local style = T.fatal
 		frame.grade[T.grade] = true
 		if tick < F then d.x, d.y, d.state = cx, 0, "Hitstun" end
-		if tick < 36 then
-			local p = progress(tick, 0, 36)
-			a.x, a.facing, a.z, a.state, a.vx = GEN.place(ctx, lerp(cx - dir * 8, cx - dir * 5.5, p)), dir, 0, "Walking", dir * 2
+		if tick < 70 then
+			-- The kit's own opening, over its burning seal; the world turns crimson.
 			table.insert(frame.fx, { key = T.id .. "-fatal-seal", kind = "kanjiSeal", pos = v(cx - dir * 6.5, 0.06, 0), color = color,
 				text = T.kanji, keep = true })
-			frame.shot = GEN.two(ctx, T, "fatal", "walk", dir, a, d, 6)
-		elseif tick < 70 then
-			a.x, a.facing, a.pose = GEN.place(ctx, cx - dir * 5.5), dir, T.pose
-			frame.grade.crimson = true
-			frame.shot = GEN.solo(T, GEN.name(T, "fatal", "eyes"), dir, a, A, 3, { fill = 1.0 })
+			frame.grade.crimson = tick >= 40
+			GEN.opening(ctx, frame, T, a, d, tick, dir, "fatal", "Fatal", 70, GEN.place(ctx, cx - dir * 5.5))
 		elseif tick < 104 then
 			-- Three blows of its own way of fighting: the target is taken.
 			local hits = { 74, 84, 94 }
@@ -3855,22 +4513,9 @@ function GEN.Fatal(T)
 			GEN.fx(frame, T, "ground", "fatal-draw", nil, v(a.x, 0, 0), color, { radius = 2 })
 			frame.speedLines = if tick >= 130 then color else nil
 			frame.shot = GEN.two(ctx, T, "fatal", "draw", dir, a, d, 8, { fill = lerp(0.74, 0.92, progress(tick, 104, F)) })
-		elseif tick < F + 24 then
-			GEN.square(ctx, a, cx, dir, style)
-			attack(a, ctx.moveData.Moves, role(ctx, "Finale"), true)
-			impact(frame, T.id .. "-fatal-blow", v(cx, 3, 0.6), color, 3.4)
-			GEN.fx(frame, T, "burst", "fatal-burst", v(a.x, 3, 0), v(cx, 3, 0), color, { scale = 2.6 })
-			if tick < F + 6 then frame.quake = if T.quake then 1.6 else 0.8 end
-			d.x = cx + dir * 0.6
-			FATAL.fall(cin, d, tick, F, 1.8)
-			frame.shot = GEN.two(ctx, T, "fatal", "blow", dir, a, d, 9)
 		else
-			GEN.square(ctx, a, cx, dir, style)
-			a.pose = T.rest
-			d.x = cx + dir * 0.6
-			FATAL.fall(cin, d, tick, F, 1.8)
-			GEN.fx(frame, T, "ground", "fatal-after", nil, v(d.x, 0, 0), color, { radius = 2.6, life = 3 })
-			frame.shot = GEN.two(ctx, T, "fatal", "after", dir, a, d, 10, { fill = 0.5 })
+			GEN.ending(ctx, frame, T, a, d, tick, dir, "fatal", "Fatal", F, { B = 24, blow = "Finale", push = 0.6, lift = 1.8,
+				blowShot = "blow", preset = 9, impact = 3.4, burst = 2.6, quake = 0.8 })
 			if tick >= F + FATAL_TITLE then
 				local name = GEN.moveName(ctx, T, "Fatal")
 				frame.title = if cin.finish then { text = "K.O.", color = color, sub = name } else { text = name, color = color, sub = "COUP FATAL" }
@@ -3922,11 +4567,14 @@ function GEN.add(name, T)
 	KO[name] = GEN.KO(T)
 end
 Director.THEMES = GEN.THEMES
+Director.OPEN, Director.END = GEN.OPEN, GEN.END
 -- ASURA 阿: KAI out of the Gate of Heaven with four arms. A gatling of four fists (R), the target
 -- thrown up higher at every blow (ÉVEIL), swung round at the end of his arms (PORTE), seized and
 -- crushed (FATAL). Black and gold grade; golden fists of ki, a halo of four arms, a burning seal.
 GEN.add("ASURA", {
-	turn = { ["eveil-blows-b"] = 30 },
+	turn = { ["eveil-blows-b"] = 30, ["eveil-meditate"] = 30, ["fatal-blow"] = 30, ["fatal-stride"] = 30 },
+	open = { rush = "slam", awaken = "meditate", gate = "silhouette", fatal = "stride" },
+	finish = { rush = "stomp", awaken = "crater", gate = "blowaway", fatal = "pin" },
 	id = "asura", grade = "asura", kanji = "阿", pose = "Roar", rest = "StandTall", seed = 2, step = 5, quake = true,
 	rush = "gatling", awaken = "juggle", gate = "swing", fatal = "grapple",
 	blows = { "Cross", "Uppercut", "Hammer", "Smash", "BodyBlow", "SpinKick", "Elbow" },
@@ -3939,7 +4587,9 @@ GEN.add("ASURA", {
 -- storm strikes down from above (ÉVEIL); pillars of lightning called on the target (PORTE);
 -- the sentence from every side (FATAL).
 GEN.add("RAIJIN", {
-	turn = { ["fatal-take"] = 30 },
+	turn = { ["fatal-take"] = 30, ["gate-charge"] = -30 },
+	open = { rush = "descend", awaken = "gather", gate = "charge", fatal = "backturn" },
+	finish = { rush = "passthrough", awaken = "skyward", gate = "rain", fatal = "turnaway" },
 	id = "raijin", grade = "storm", kanji = "雷", pose = "StandTall", rest = "StandTall", seed = 0, step = 11,
 	rush = "thrust", awaken = "rain", gate = "pillar", fatal = "lunge",
 	blows = { "Elbow", "Cross", "SpinKick", "Kick", "Uppercut", "Smash" },
@@ -3949,7 +4599,9 @@ GEN.add("RAIJIN", {
 -- YUKINA 雪: the target frozen still while she flows round it (R); ice shards from afar
 -- (ÉVEIL); the frozen puppet jerked on its threads of frost (PORTE); the last waltz (FATAL).
 GEN.add("YUKINA", {
-	turn = { ["rush-blows-a"] = 30 },
+	turn = { ["fatal-storm"] = 30, ["gate-walkpast"] = -30, ["rush-blows-a"] = 30, ["rush-freeze"] = 30 },
+	open = { rush = "spin", awaken = "kneel", gate = "levitate", fatal = "storm" },
+	finish = { rush = "freeze", awaken = "orbit", gate = "walkpast", fatal = "bow" },
 	id = "yukina", grade = "frost", kanji = "雪", pose = "WindGather", rest = "StandTall", seed = 1, step = 11,
 	rush = "freeze", awaken = "zone", gate = "dance", fatal = "orbit",
 	blows = { "SpinKick", "Kick", "Cross", "AirKick", "Elbow", "Sweep" },
@@ -3959,6 +4611,9 @@ GEN.add("YUKINA", {
 -- VENOM 毒: the predator out of the shadows, in front, behind (R); the poisoned target
 -- staggering like a puppet (ÉVEIL); the pounce from every side (PORTE); acid rain (FATAL).
 GEN.add("VENOM", {
+	turn = { ["eveil-target"] = -30, ["gate-blink"] = 30, ["rush-vanish-back"] = 30 },
+	open = { rush = "emerge", awaken = "target", gate = "blink", fatal = "silhouette" },
+	finish = { rush = "vanish", awaken = "turnaway", gate = "passthrough", fatal = "rain" },
 	id = "venom", grade = "toxic", kanji = "毒", pose = "Roar", rest = "StandTall", seed = 14, step = 11,
 	rush = "stalk", awaken = "dance", gate = "lunge", fatal = "rain",
 	blows = { "Jab", "Cross", "Elbow", "BodyBlow", "Uppercut", "SpinKick" },
@@ -3968,7 +4623,9 @@ GEN.add("VENOM", {
 -- GORAN 剛: suplexes from side to side (R); the stomps make the ring jump (ÉVEIL); thrown to the
 -- sky (PORTE); the giant swing (FATAL).
 GEN.add("GORAN", {
-	turn = { ["gate-blows"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-blows-c"] = -30 },
+	turn = { ["gate-blows"] = 30, ["gate-leap"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-blows-c"] = -30, ["rush-charge"] = 30 },
+	open = { rush = "charge", awaken = "slam", gate = "leap", fatal = "kneel" },
+	finish = { rush = "crater", awaken = "stomp", gate = "bounce", fatal = "blowaway" },
 	id = "goran", grade = "titan", kanji = "剛", pose = "Colossus", rest = "StandTall", seed = 4, step = 7, quake = true,
 	rush = "grapple", awaken = "beat", gate = "juggle", fatal = "swing",
 	blows = { "BodyBlow", "Hammer", "Smash", "Uppercut", "Elbow" },
@@ -3978,7 +4635,9 @@ GEN.add("GORAN", {
 -- ASTER 星: the target floats up, higher at every blow (R); he orbits it (ÉVEIL); the event
 -- horizon pulls it in (PORTE); falling stars from every side (FATAL).
 GEN.add("ASTER", {
-	turn = { ["eveil-blows-b"] = -30, ["fatal-take"] = -30, ["gate-advance"] = 30 },
+	turn = { ["eveil-blows-b"] = -30, ["fatal-meditate"] = 30, ["fatal-take"] = -30, ["gate-advance"] = 30 },
+	open = { rush = "levitate", awaken = "descend", gate = "gather", fatal = "meditate" },
+	finish = { rush = "skyward", awaken = "hover", gate = "orbit", fatal = "crater" },
 	id = "aster", grade = "cosmos", kanji = "星", pose = "Levitate", rest = "StandTall", seed = 5, step = 5,
 	rush = "juggle", awaken = "orbit", gate = "pull", fatal = "crossfire",
 	blows = { "PalmStrike", "AirKick", "Uppercut", "AirKick2", "Smash" },
@@ -3988,7 +4647,9 @@ GEN.add("ASTER", {
 -- HIBIKI 響: the target hops on her beat (R); waves of sound from every side (ÉVEIL); the
 -- wall of sound from afar (PORTE); the last dance on her rhythm (FATAL).
 GEN.add("HIBIKI", {
-	turn = { ["eveil-crown"] = 30, ["gate-blows"] = 30, ["rush-blows-c"] = 30 },
+	turn = { ["eveil-freeze"] = 30, ["fatal-charge"] = 30, ["fatal-walkpast"] = -30, ["gate-blows"] = 30, ["rush-blows-c"] = 30 },
+	open = { rush = "kata", awaken = "spin", gate = "slam", fatal = "charge" },
+	finish = { rush = "echo", awaken = "freeze", gate = "stomp", fatal = "walkpast" },
 	id = "hibiki", grade = "sonic", kanji = "響", pose = "Kiai", rest = "StandTall", seed = 6, step = 7,
 	rush = "beat", awaken = "crossfire", gate = "zone", fatal = "dance",
 	blows = { "Kick", "SpinKick", "Jab", "Cross", "Sweep" },
@@ -3998,7 +4659,9 @@ GEN.add("HIBIKI", {
 -- MARION 糸: the puppet dances on its threads (R); swung round at the end of them (ÉVEIL); the
 -- ball of the puppets around it (PORTE); lifted higher and higher (FATAL).
 GEN.add("MARION", {
-	turn = { ["eveil-approach"] = 30, ["eveil-blows-a"] = 30, ["fatal-walk"] = 30, ["gate-draw"] = 30, ["gate-far"] = -30 },
+	turn = { ["eveil-approach"] = 30, ["eveil-blows-a"] = 30, ["eveil-final"] = 30, ["fatal-spin"] = 30, ["fatal-take"] = 30, ["gate-backturn"] = 30, ["gate-draw"] = 30 },
+	open = { rush = "target", awaken = "levitate", gate = "backturn", fatal = "spin" },
+	finish = { rush = "flourish", awaken = "pin", gate = "vanish", fatal = "hover" },
 	id = "marion", grade = "puppet", kanji = "糸", pose = "WindGather", rest = "StandTall", seed = 7, step = 5,
 	rush = "dance", awaken = "swing", gate = "orbit", fatal = "juggle",
 	blows = { "PalmStrike", "Jab", "Cross", "SpinKick" },
@@ -4008,7 +4671,9 @@ GEN.add("MARION", {
 -- KAZAN 鎖: the target swung round on the chain (R); the chain's hook thrown straight (ÉVEIL);
 -- seized and slammed (PORTE); dragged in on the chains (FATAL).
 GEN.add("KAZAN", {
-	turn = { ["gate-advance"] = 30 },
+	turn = { ["eveil-blows-b"] = 30, ["eveil-charge"] = 30, ["gate-advance"] = 30, ["gate-break"] = -30, ["gate-target"] = -55, ["gate-target-found"] = 30, ["rush-stride"] = 30 },
+	open = { rush = "stride", awaken = "charge", gate = "target", fatal = "slam" },
+	finish = { rush = "pin", awaken = "blowaway", gate = "crater", fatal = "stomp" },
 	id = "kazan", grade = "iron", kanji = "鎖", pose = "Roar", rest = "StandTall", seed = 8, step = 11,
 	rush = "swing", awaken = "thrust", gate = "grapple", fatal = "pull",
 	blows = { "Cross", "Hammer", "Smash", "Elbow" },
@@ -4018,7 +4683,9 @@ GEN.add("KAZAN", {
 -- KUREN 血: blood rains on the target (R); lances from every side (ÉVEIL); the vampire out of
 -- the dark (PORTE); one lance straight through (FATAL).
 GEN.add("KUREN", {
-	turn = { ["eveil-approach"] = 30, ["fatal-blow"] = 30, ["fatal-walk"] = 30, ["rush-blows-c"] = 30 },
+	open = { rush = "blink", awaken = "emerge", gate = "path", fatal = "descend" },
+	finish = { rush = "rain", awaken = "vanish", gate = "turnaway", fatal = "passthrough" },
+	turn = { ["eveil-approach"] = 30, ["fatal-blow"] = 30, ["rush-blows-c"] = 30 },
 	id = "kuren", grade = "blood", kanji = "血", pose = "KiBeamDown", rest = "StandTall", seed = 9, step = 7,
 	rush = "rain", awaken = "lunge", gate = "stalk", fatal = "thrust",
 	blows = { "Cross", "Elbow", "Uppercut", "SpinKick", "PalmStrike" },
@@ -4028,7 +4695,9 @@ GEN.add("KUREN", {
 -- SYLVA 森: the roots lift the prey (R); the vines drag it in (ÉVEIL); thorns from every side
 -- (PORTE); the huntress out of the leaves (FATAL).
 GEN.add("SYLVA", {
-	turn = { ["eveil-blows-a"] = 30, ["eveil-final"] = -30, ["gate-blows"] = 30, ["gate-far"] = -30 },
+	turn = { ["eveil-blows-a"] = 30, ["eveil-final"] = -30, ["fatal-target"] = -55, ["gate-blows"] = 30, ["rush-walkpast"] = 30 },
+	open = { rush = "path", awaken = "backturn", gate = "emerge", fatal = "target" },
+	finish = { rush = "walkpast", awaken = "rain", gate = "skyward", fatal = "exit" },
 	id = "sylva", grade = "wild", kanji = "森", pose = "WindGather", rest = "StandTall", seed = 10, step = 5,
 	rush = "roots", awaken = "pull", gate = "crossfire", fatal = "stalk",
 	blows = { "Kick", "SpinKick", "Cross", "Sweep", "AirKick" },
@@ -4038,7 +4707,9 @@ GEN.add("SYLVA", {
 -- ELIAN 癒: pillars of light on the target (R); held still by a seal of light (ÉVEIL); the
 -- chime of the light, the target hopping on it (PORTE); the light from afar (FATAL).
 GEN.add("ELIAN", {
-	turn = { ["gate-draw"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-open"] = 30 },
+	turn = { ["eveil-silhouette"] = 30, ["fatal-orbit"] = -30, ["gate-draw"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-meditate"] = 30 },
+	open = { rush = "meditate", awaken = "silhouette", gate = "descend", fatal = "levitate" },
+	finish = { rush = "hover", awaken = "bow", gate = "seal", fatal = "orbit" },
 	id = "elian", grade = "holy", kanji = "癒", pose = "Kiai", rest = "StandTall", seed = 11, step = 7,
 	rush = "pillar", awaken = "freeze", gate = "beat", fatal = "zone",
 	blows = { "PalmStrike", "Uppercut", "Cross", "Smash" },
@@ -4048,7 +4719,9 @@ GEN.add("ELIAN", {
 -- NOVA 機: the drones fire from every side (R); an orbital beam (ÉVEIL); a barrage from the sky
 -- (PORTE); the gauntlets' machine-gun (FATAL).
 GEN.add("NOVA", {
-	turn = { ["eveil-crown"] = -30, ["eveil-end"] = 30, ["fatal-eyes"] = 30, ["rush-blows-b"] = 30 },
+	turn = { ["eveil-eyes"] = 30, ["fatal-slowmo"] = -30, ["gate-storm"] = 30, ["rush-blows-b"] = 30 },
+	open = { rush = "clones", awaken = "eyes", gate = "storm", fatal = "blink" },
+	finish = { rush = "orbit", awaken = "passthrough", gate = "hover", fatal = "slowmo" },
 	id = "nova", grade = "tech", kanji = "機", pose = "ArmsCrossed", rest = "StandTall", seed = 2, step = 11,
 	rush = "crossfire", awaken = "pillar", gate = "rain", fatal = "gatling",
 	blows = { "Jab", "Cross", "BodyBlow", "Smash", "Uppercut" },

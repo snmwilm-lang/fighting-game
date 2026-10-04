@@ -105,6 +105,10 @@ function HubController.new(remote)
 		local first = not self.received
 		self.received = true
 		self.status, self.seconds = packet.players or {}, packet.seconds or 30
+		-- (a big server sends a short view: arrivals and departures are only announced while
+		-- everyone fits in it)
+		self.total = packet.total or #self.status
+		if self.total > #self.status then first = true end
 		local me, arrived = Players.LocalPlayer.UserId, nil
 		for _, p in self.status do
 			if p.id ~= me and before[p.id] == nil then arrived = p end
@@ -161,7 +165,7 @@ function HubController:render()
 		if p.id == me then mine = p end
 		if p.slot > 0 then fighting += 1 end
 	end
-	self.toggle.Text = "JOUEURS DU SERVEUR (H) · " .. #self.status
+	self.toggle.Text = "JOUEURS DU SERVEUR (H) · " .. (self.total or #self.status)
 	for _, child in self.panel:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
 	end

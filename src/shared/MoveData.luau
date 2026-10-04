@@ -128,8 +128,10 @@ local KAI = {
 		startup = 7, active = 12, recovery = 28, hits = 3, hitInterval = 4,
 		damage = 40, guardDamage = 12, hitstun = 30, blockstun = 14, hitstop = 14,
 		multiHitstop = 4, holdVy = 6, multiPush = 1,
-		push = 4, blockPush = 18, lunge = 14, launch = 40, track = true,
-		hitbox = { near = 0, far = 3.6, low = 0.5, high = 11.5 },
+		-- Rises with the launched target, then the last blow spikes it into the floor: it
+		-- bounces back up (once per combo) for the chase and the finisher.
+		push = 4, blockPush = 18, lunge = 14, launch = -55, track = true, rise = true, groundBounce = true,
+		hitbox = { near = 0, far = 3.6, low = -1, high = 7 },
 		heavy = true,
 		cancels = { Light = "KiChase" },
 	},
@@ -254,7 +256,7 @@ local KAI = {
 		id = "Finale", name = "COUP DE GRÂCE", kind = "Skill", skill = true,
 		startup = 8, active = 4, recovery = 30,
 		damage = 110, guardDamage = 30, hitstun = 34, blockstun = 18, hitstop = 16,
-		push = 40, blockPush = 22, lunge = 14, launch = 30, knockdown = true,
+		push = 40, blockPush = 22, lunge = 14, launch = 30, knockdown = true, rise = true,
 		hitbox = { near = 0, far = 4.6, low = -1, high = 9 },
 		heavy = true,
 	},

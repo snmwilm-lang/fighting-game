@@ -206,15 +206,15 @@ end
 local THEME_FX = {
 	asuraFist = "rageFist", asuraHalo = "dragonHelix", asuraSeal = "seal",
 	spearBolt = "lightning", thunderBurst = "lightningCrown", stormRing = "ring",
-	iceShard = "windBlade", frostBloom = "crescentSmall", iceGarden = "rocks",
+	iceShard = "windBlade", frostBloom = "crescentSmall", iceGarden = "ice",
 	venomClaw = "cut", venomCloud = "smoke", toxicPool = "orbs",
-	titanGrip = "crack", slamQuake = "quake", titanRing = "rocks",
+	titanGrip = "crack", slamQuake = "quake", titanRing = "quakeRing",
 	gravityPull = "kiBeam", starCollapse = "eclipse", gravityWell = "orbs",
 	soundWave = "waves", soundRing = "tornadoRing", beatRing = "shockwave",
 	threads = "ropes", puppetBurst = "sparkBig", stageRing = "ring",
-	chainLine = "ropes", ironBurst = "debris", prisonRing = "rocks",
+	chainLine = "ropes", ironBurst = "scrap", prisonRing = "cage",
 	bloodSpear = "kiBeam", bloodBloom = "crescentSmall", bloodPool = "waterspout",
-	vines = "wake", thornBurst = "debris", roots = "rocks",
+	vines = "wake", thornBurst = "thorns", roots = "roots",
 	lightRay = "lightning", lightPillar = "waterspout", haloRing = "ring",
 	droneShot = "orbDart", dronePulse = "shockwave", droneRing = "orbs",
 }
@@ -235,6 +235,23 @@ function CinematicController:themed(kind, r, color)
 	elseif renderer == "windBlade" then fx:windBlade(from or pos, to or pos, color, 0, r.scale or 1)
 	elseif renderer == "crescentSmall" then fx:arc(pos, 2.2 * (r.scale or 1), -60, 240, color, 0, 1) fx:spark(pos, color, 1.6)
 	elseif renderer == "rocks" then return fx:rocks(Vector3.new(pos.X, 0, pos.Z), r.radius or 2.4, r.count or 6, color, r.life)
+	-- Each kit's own matter, never HIBECARES' stone: YUKINA's ice, SYLVA's roots, KAZAN's cage.
+	elseif renderer == "ice" then return fx:rocks(Vector3.new(pos.X, 0, pos.Z), r.radius or 2.4, r.count or 6, color, r.life, "ice")
+	elseif renderer == "roots" then return fx:rocks(Vector3.new(pos.X, 0, pos.Z), r.radius or 2.4, r.count or 6, color, r.life, "wood")
+	elseif renderer == "cage" then
+		return fx:rocks(Vector3.new(pos.X, 0, pos.Z), r.radius or 2.4, (r.count or 6) + 4, color, r.life, "iron")
+	elseif renderer == "quakeRing" then
+		-- GORAN: the ring's deck cracks in a star under his weight (no pillars).
+		local base = Vector3.new(pos.X, 0.05, pos.Z)
+		for i = 1, 6 do
+			local angle = i / 6 * math.pi * 2 + 0.3
+			fx:crack(base, base + Vector3.new(math.cos(angle), 0, math.sin(angle) * 0.6) * (r.radius or 2.4) * 1.4, color)
+		end
+		fx:shockwave(Vector3.new(pos.X, 0, pos.Z), color)
+		fx:dust(pos.X, 0, 1)
+		fx:dust(pos.X, 0, -1)
+	elseif renderer == "thorns" then fx:debris(pos, color, r.scale or 1, "thorn")
+	elseif renderer == "scrap" then fx:debris(pos, color, r.scale or 1, "iron")
 	elseif renderer == "cut" then fx:cut(from or pos, to or pos, color)
 	elseif renderer == "smoke" then fx:smoke(pos) fx:spark(pos, color, 1.4)
 	elseif renderer == "orbs" then

@@ -204,11 +204,11 @@ local function swapModel(match, i, model)
 	place(slot, match.world.fighters[i])
 end
 
--- The avatar body type of a player: the one they picked in APPARENCE, else the one of their
--- Roblox account (read once, may yield).
+-- The avatar body type of a player: always R15 (Wilhem: « on jouera sans [le R6] »). The R6
+-- path of the RigBuilder stays for tools and tests, but the menu no longer offers it.
 local function rigOf(player, client)
-	if not client.rig then
-		client.rig = RigBuilder.preferredRig(player)
+	if client.rig ~= "R15" then
+		client.rig = "R15"
 		player:SetAttribute("AvatarRig", client.rig)
 	end
 	return client.rig
@@ -468,8 +468,15 @@ local function hubStatus()
 	end
 	return list
 end
-local lastHubKey = nil
-local function broadcastHub(force)
+-- The hub screens: each player gets its own short view (Lobby.view: itself, its challenges,
+-- then the others, at most Lobby.VIEW_LIMIT names) instead of every name on the server, and
+-- the updates are gathered: at most one send every HUB_PERIOD seconds however many players
+-- act at once (a full server stays linear, not players x players).
+local HUB_PERIOD = 0.5
+local lastHubKey, hubDirty, lastHubSend = nil, false, -math.huge
+local function flushHub(force)
+	hubDirty = false
+	lastHubSend = os.clock()
 	local list = hubStatus()
 	local parts = {}
 	for _, e in list do
@@ -478,8 +485,22 @@ local function broadcastHub(force)
 	local key = table.concat(parts, "|")
 	if key == lastHubKey and not force then return end -- (nothing changed: no redraw on every client)
 	lastHubKey = key
-	hubRemote:FireAllClients({ players = list, seconds = Lobby.CHALLENGE_SECONDS })
+	local byId = Lobby.index(list)
+	for player in clients do
+		local view, total = Lobby.view(list, player.UserId, nil, byId)
+		hubRemote:FireClient(player, { players = view, total = total, seconds = Lobby.CHALLENGE_SECONDS })
+	end
 end
+local function broadcastHub(force)
+	hubDirty = true
+	if force or os.clock() - lastHubSend >= HUB_PERIOD then flushHub(force) end
+end
+task.spawn(function()
+	while true do
+		task.wait(HUB_PERIOD)
+		if hubDirty then flushHub(false) end
+	end
+end)
 
 -- ===================================================================== lobby hero
 -- The player's favourite fighter stands in the middle of the stage behind the main menu
@@ -558,7 +579,7 @@ local function joined(player)
 	end
 	loadProfile(player, client)
 	buildHero(player)
-	player:SetAttribute("Avatar", false) -- the block model of the kit; APPARENCE: avatar R15, R6
+	player:SetAttribute("Avatar", false) -- the block model of the kit; APPARENCE: avatar R15
 	player:SetAttribute("FighterSlot", 0)
 	player:SetAttribute("MatchId", 0)
 	Lobby.join(lobby, player.UserId, player.DisplayName)
@@ -593,7 +614,8 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 	client.lastHub = now
 	local id = player.UserId
 	if action == "hello" then
-		hubRemote:FireClient(player, { players = hubStatus(), seconds = Lobby.CHALLENGE_SECONDS })
+		local view, total = Lobby.view(hubStatus(), player.UserId)
+		hubRemote:FireClient(player, { players = view, total = total, seconds = Lobby.CHALLENGE_SECONDS })
 		return
 	end
 	local ok
@@ -808,15 +830,9 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		rebuildSlot(match, mine)
 	end
 	if packet.avatar and now - client.lastAvatar > 2 then
-		-- APPARENCE: block model (the default) -> avatar R15 -> avatar R6 -> block model...
+		-- APPARENCE: block model (the default) <-> avatar R15 (no more R6).
 		client.lastAvatar = now
-		if not client.avatar then
-			client.avatar, client.rig = true, "R15"
-		elseif client.rig ~= "R6" then
-			client.rig = "R6"
-		else
-			client.avatar = false
-		end
+		client.avatar, client.rig = not client.avatar, "R15"
 		player:SetAttribute("Avatar", client.avatar)
 		player:SetAttribute("AvatarRig", client.rig)
 		rebuildSlot(match, client.slot)

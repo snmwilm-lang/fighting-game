@@ -127,17 +127,55 @@ end
 -- What the hub screens show: every player with their slot and the challenges they sent and
 -- received ({ id, name, slot, challenged = { ids it challenged }, from = { ids challenging it } }).
 function Lobby.status(lobby)
+	-- (the challenges received, gathered once: linear in players + challenges)
+	local received = {}
+	for from, c in lobby.challenges do
+		received[c.to] = received[c.to] or {}
+		table.insert(received[c.to], from)
+	end
 	local list = {}
 	for _, id in lobby.order do
-		local entry = { id = id, name = lobby.players[id].name, slot = slotOf(lobby, id), sent = nil, from = {} }
+		local entry = { id = id, name = lobby.players[id].name, slot = slotOf(lobby, id), sent = nil, from = received[id] or {} }
+		table.sort(entry.from)
 		local c = lobby.challenges[id]
 		if c then entry.sent = c.to end
-		for from, other in lobby.challenges do
-			if other.to == id then table.insert(entry.from, from) end
-		end
 		table.insert(list, entry)
 	end
 	return list
+end
+
+-- What one player's hub screen gets: itself, whoever it challenged or is challenged by,
+-- then the others in arrival order, at most `limit` entries (a server of hundreds never sends
+-- every name to everyone). Returns the list and how many players there are in all.
+Lobby.VIEW_LIMIT = 40
+-- id -> entry of a status list (built once per broadcast, shared by every view).
+function Lobby.index(list)
+	local byId = {}
+	for _, e in list do byId[e.id] = e end
+	return byId
+end
+function Lobby.view(list, id, limit, byId)
+	limit = limit or Lobby.VIEW_LIMIT
+	byId = byId or Lobby.index(list)
+	local out, wanted = {}, {}
+	local function add(e)
+		if e and not wanted[e.id] and #out < limit then
+			wanted[e.id] = true
+			table.insert(out, e)
+		end
+	end
+	local mine = byId[id]
+	if mine then
+		add(mine)
+		add(mine.sent and byId[mine.sent])
+		for _, from in mine.from do add(byId[from]) end
+	end
+	-- (then the first arrivals: a scan that stops as soon as the view is full)
+	for _, e in list do
+		if #out >= limit then break end
+		add(e)
+	end
+	return out, #list
 end
 
 return Lobby

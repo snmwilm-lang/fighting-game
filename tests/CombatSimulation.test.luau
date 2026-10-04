@@ -300,6 +300,34 @@ for _, route in MoveData.FullRoutes do
 	end)
 end
 
+test("launch, rise, spike, bounce, pick up: L L R R L R reads like an anime combo (Wilhem's TARO example)", function()
+	-- The launcher sends the target up; the rising strike carries the attacker up with it and
+	-- spikes it into the floor; it bounces; the chase dives onto it; the finisher sends it
+	-- away. Every blow lands close to the target (never from far below it).
+	local world = closeWorld(3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local keys, step, pressedFor = { "L", "L", "R", "R", "L", "R" }, 1, nil
+	local risen, bounced, worst = 0, false, 0
+	for _ = 1, 400 do
+		local i = input()
+		local key = a.move and (a.move .. tostring(a.moveContact ~= nil))
+		if keys[step] and (step == 1 or (a.move and a.moveContact and key ~= pressedFor and a.moveHits >= (Moves[a.move].hits or 1))) then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			pressedFor, step = key, step + 1
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
+			if e.kind == "Hit" and (e.move == "DragonFist" or e.move == "KiChase" or e.move == "Finale") then
+				worst = math.max(worst, math.abs(d.y - a.y))
+			end
+		end
+		if a.move == "DragonFist" then risen = math.max(risen, a.y) end
+		if d.justBounced or d.bounced then bounced = true end
+	end
+	expect(risen > 2, string.format("the rising strike stays on the floor (%.1f)", risen))
+	expect(bounced, "the spike never bounces the target off the floor")
+	expect(worst < 3.6, string.format("a blow lands %.1f studs above or below its target", worst))
+end)
+
 -- Plays a full route cleanly (one press per link, after its hits) and keeps the meter full
 -- until the 6th press; `mash` adds a spam press in the middle of the route.
 local function playEarned(world, keys, options)
@@ -1472,6 +1500,20 @@ test("NOVA SENTINELLE: a drone fires three times on its own; 2 drones, back over
 	a.droneCharges, a.droneCharge = 0, 600
 	local empty = run(w, 30, crouchSpecial)
 	expect(find(empty, "Drone") == nil and find(empty, "PassiveEmpty") ~= nil, "a drone came out with no charge left")
+end)
+
+test("a target left launched on the floor with no speed (after a cinematic, a spike) lands at once, never hangs", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	world.phase = "Fight"
+	local d = world.fighters[2]
+	d.launched, d.y, d.vy = true, 0, 0
+	Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	expect(not d.launched and d.state == "Knockdown", "still " .. d.state)
+	-- spiked on the floor with a bounce pending: it bounces
+	d.knockdown, d.getUp, d.state = 0, 0, "Idle"
+	d.launched, d.y, d.vy, d.pendingBounce = true, 0, -30, true
+	Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	expect(d.launched and d.vy > 0, "no bounce")
 end)
 
 T.finish()

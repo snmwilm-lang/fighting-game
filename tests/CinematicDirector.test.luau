@@ -540,4 +540,30 @@ test("every themed kit's four ultimates are staged four different ways, and no t
 	end
 end)
 
+test("every themed kit opens and ends each ultimate its own way: no opening or ending shared, all twenty of each used", function()
+	for _, field in { { "open", Director.OPEN }, { "finish", Director.END } } do
+		local seen = { rush = {}, awaken = {}, gate = {}, fatal = {} }
+		local used = {}
+		for name, theme in Director.THEMES do
+			local table_ = theme[field[1]]
+			expect(table_ ~= nil, name .. " has no " .. field[1])
+			local mine = {}
+			for kind, owners in seen do
+				local style = table_ and table_[kind]
+				expect(style ~= nil and field[2][style] ~= nil, string.format("%s: unknown %s for %s (%s)", name, field[1], kind, tostring(style)))
+				expect(not owners[style], string.format("%s and %s share the %s of their %s (%s)", name, tostring(owners[style]), field[1], kind,
+					tostring(style)))
+				expect(not mine[style], string.format("%s uses the %s %s twice", name, field[1], tostring(style)))
+				owners[style], mine[style], used[style] = name, true, true
+			end
+		end
+		local count, total = 0, 0
+		for style in field[2] do
+			total += 1
+			if used[style] then count += 1 end
+		end
+		expect(total >= 20 and count == total, string.format("%s: %d of %d used", field[1], count, total))
+	end
+end)
+
 T.finish()

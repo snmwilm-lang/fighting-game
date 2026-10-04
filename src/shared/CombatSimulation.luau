@@ -574,7 +574,9 @@ local function stepFighter(world, f, input, events)
 	end
 	if f.launched then
 		f.vx, f.state = 0, "Launched"
-		if physics(f, c) then
+		-- (already lying on the deck with no speed up, e.g. spiked on the floor or set down by a
+		-- cinematic: it lands now instead of hanging in Launched)
+		if physics(f, c) or (f.y <= 0 and f.vy <= 0) then
 			if f.pendingBounce then
 				f.pendingBounce, f.bounced = false, true
 				f.vy = c.GroundBounceVelocity
@@ -686,6 +688,17 @@ local function stepFighter(world, f, input, events)
 			f.vx = if steering then math.clamp(gap * 10, -m.lunge, m.lunge) elseif grounded then 0 else f.vx * 0.9
 		elseif grounded and not m.air then
 			f.vx = if f.moveFrame <= m.startup + m.active then f.facing * m.lunge else 0
+		end
+		if m.rise or m.homing then
+			-- A rising strike, a chase or a finisher on a target in the air: the attacker keeps
+			-- to its height (up with it, the super dash of the anime fighters, or diving onto
+			-- it when it was spiked to the floor) until its blows are out, instead of hitting
+			-- it from far below or above.
+			local target = world.fighters[3 - f.slot]
+			if (target.launched or target.y > 0.5 or not grounded) and f.moveFrame <= m.startup + m.active
+				and f.moveHits < (m.hits or 1) then
+				f.vy = math.clamp((target.y - 0.6 - f.y) * 9, -40, 44)
+			end
 		end
 		f.state = "Attack"
 		if m.projectile and not f.projectileSpawned and f.moveFrame == m.startup + 1 then
@@ -1274,6 +1287,11 @@ local function applyHit(world, a, d, m, events, source)
 			d.vy = math.max(d.vy, m.holdVy or 8)
 			d.launched = true
 		end
+	elseif m.groundBounce and d.bounced and m.rise then
+		-- The rising strike's spike when the one floor bounce of the combo is spent: it keeps
+		-- the target up instead (for the chase), never slams it out of the combo.
+		d.vy = math.max(d.vy, c.RelaunchVelocity)
+		d.launched = true
 	elseif m.groundBounce and not d.bounced then
 		if airborne then
 			-- Spiked toward the floor, bounces back up on landing.

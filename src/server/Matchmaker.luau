@@ -59,36 +59,66 @@ local function window(entry, now)
 	return math.min(Matchmaker.MAX_WINDOW, Matchmaker.BASE_WINDOW + Matchmaker.WIDEN_PER_SECOND * (now - entry.since))
 end
 
--- Pairs as many players as the rules allow; the paired players leave the queue.
+-- Pairs as many players as the rules allow; the paired players leave the queue. The longest
+-- wait goes first. NORMAL: with the next player waiting (same team size). CLASSÉ: with the
+-- closest rating inside both windows, found by walking out from its place in the list sorted
+-- by rating (O(n log n): thousands of players waiting stay cheap).
 function Matchmaker.pair(mm, now)
 	local pairs = {}
-	for _, queue in { "NORMAL", "RANKED" } do
-		local list = {}
-		for id, entry in mm.waiting do
-			if entry.queue == queue then table.insert(list, { id = id, entry = entry }) end
-		end
+	-- one list per queue and team size
+	local groups = {}
+	for id, entry in mm.waiting do
+		local key = entry.queue .. "/" .. entry.size
+		groups[key] = groups[key] or { queue = entry.queue, list = {} }
+		table.insert(groups[key].list, { id = id, entry = entry })
+	end
+	local keys = {}
+	for key in groups do table.insert(keys, key) end
+	table.sort(keys) -- (a fixed order: the same queue always pairs the same way)
+	for _, key in keys do
+		local queue, list = groups[key].queue, groups[key].list
 		table.sort(list, function(x, y) return x.entry.order < y.entry.order end) -- longest wait first
 		local taken = {}
-		for i, x in list do
-			if not taken[x.id] then
-				local best, bestGap = nil, math.huge
-				for j = i + 1, #list do
-					local y = list[j]
-					if not taken[y.id] and y.entry.size == x.entry.size then
-						local gap = math.abs(x.entry.rating - y.entry.rating)
-						if queue == "NORMAL" then
-							best, bestGap = y, 0
-							break
-						end
-						if gap <= math.min(window(x.entry, now), window(y.entry, now)) and gap < bestGap then
-							best, bestGap = y, gap
+		local function match(x, y)
+			taken[x.id], taken[y.id] = true, true
+			mm.waiting[x.id], mm.waiting[y.id] = nil, nil
+			table.insert(pairs, { a = x.id, b = y.id, queue = queue })
+		end
+		if queue ~= "RANKED" then
+			local first = nil
+			for _, x in list do
+				if first then
+					match(first, x)
+					first = nil
+				else
+					first = x
+				end
+			end
+		else
+			local byRating = table.clone(list)
+			table.sort(byRating, function(x, y)
+				if x.entry.rating ~= y.entry.rating then return x.entry.rating < y.entry.rating end
+				return x.entry.order < y.entry.order
+			end)
+			for i, x in byRating do x.at = i end
+			for _, x in list do
+				if not taken[x.id] then
+					local reach = window(x.entry, now)
+					local best, bestGap = nil, math.huge
+					for _, step in { -1, 1 } do
+						local j = x.at + step
+						while byRating[j] do
+							local y = byRating[j]
+							local gap = math.abs(x.entry.rating - y.entry.rating)
+							if gap > reach or gap >= bestGap then break end
+							if not taken[y.id] and gap <= window(y.entry, now) then
+								best, bestGap = y, gap
+								break
+							end
+							j += step
 						end
 					end
-				end
-				if best then
-					taken[x.id], taken[best.id] = true, true
-					mm.waiting[x.id], mm.waiting[best.id] = nil, nil
-					table.insert(pairs, { a = x.id, b = best.id, queue = queue })
+					if best then match(x, best) end
 				end
 			end
 		end

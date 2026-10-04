@@ -379,8 +379,8 @@ function MenuController:selectSide(page, left)
 	stroke(portrait, 6, INK)
 	-- The fighter's own 3D model in its victory pose, in front of its ghost kanji (see
 	-- MenuController:showPreview; the models are built by the server, KitPreviews).
-	local view = new("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(if left then 0.46 else 0.54, 0.4),
-		Size = UDim2.fromScale(1, 0.86), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
+	local view = new("ViewportFrame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(if left then 0.46 else 0.54, 0.31),
+		Size = UDim2.fromScale(1, 0.6), -- (above the name, which hid its legs) BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
 		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), ZIndex = 7 }, side)
 	local world = new("WorldModel", {}, view)
 	local camera = new("Camera", { FieldOfView = 26 }, view)
@@ -517,14 +517,25 @@ function MenuController:showPreview(side, kit)
 		model:Destroy()
 		return
 	end
-	-- Turned three quarters toward the screen's middle (the rig faces -Z).
+	-- Turned three quarters toward the screen's middle (the rig faces -Z), its feet on the
+	-- floor: the root at the height measured on this body (GORAN and ASURA are taller than
+	-- KAI, a fixed height sank them into the floor and floated the small ones).
 	root.Anchored = true
-	root.CFrame = CFrame.new(0, 3, 0) * CFrame.Angles(0, math.rad(if side.left then 25 else -25), 0)
 	model.Parent = side.world
 	local ok, animation = pcall(AnimationController.new, model)
 	side.model, side.animation = model, if ok then animation else nil
+	local height = if ok and animation.rootHeight then animation.rootHeight else 3
+	local turn = CFrame.Angles(0, math.rad(if side.left then 25 else -25), 0)
+	root.CFrame = CFrame.new(0, height, 0) * turn
+	if ok then pcall(animation.update, animation, { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0,
+		kit = kit }, nil, 1 / 60, os.clock(), 60, false) end
 	side.born = os.clock()
-	side.camera.CFrame = CFrame.lookAt(Vector3.new(0, 3.4, -15.5), Vector3.new(0, 3.1, 0))
+	-- The camera fits the whole body (weapon and extra arms included), whatever its size.
+	local _, size = model:GetBoundingBox()
+	local top = math.max(size.Y, 5.5)
+	local middle = Vector3.new(0, top / 2, 0)
+	local distance = (top / 2) / math.tan(math.rad(side.camera.FieldOfView / 2)) / 0.82 + size.Z / 2
+	side.camera.CFrame = CFrame.lookAt(middle + Vector3.new(0, 0.3, -distance), middle)
 end
 
 function MenuController:animatePreviews(dt)

@@ -1,5 +1,72 @@
 # Journal du projet — état à transmettre
 
+## Version 0.15.3 — 4 octobre 2026
+
+Retours de Wilhem : « le souci des combos, c'est injouable… TARO doit pouvoir faire un
+uppercut qui fait décoller, un crochet vers le bas qui l'emmène au sol, l'adversaire rebondit…
+prends un maximum d'exemples sur internet » ; « au pire supprime le R6 » ; « une ouverture et
+une fin propres à chacun, toutes différentes… fais-en beaucoup plus, t'es libre » ; « pourquoi
+tous les persos qui invoquent une matière invoquent de la pierre » ; « dans la sélection des
+persos, petits problèmes avec les modèles » ; « teste avec 1000 à 10000 personnes » ; « audit,
+review, bugs à régler ».
+
+- **Combos à l'anime** (modèle : DBZ FighterZ, Marvel vs Capcom, le « bound » de Tekken —
+  lanceur, on suit en l'air, coup vers le bas, rebond au sol une fois par combo, on ramasse,
+  coup final). L L R R L R chez les 20 persos : l'uppercut fait décoller, le coup suivant
+  (rôle DragonFist) **monte avec la cible** puis la **plante au sol** ; elle **rebondit** ;
+  la poursuite plonge sur le rebond et le coup final la retrouve en l'air (`rise`, `homing`
+  dans `CombatSimulation` : l'attaquant suit la hauteur de la cible pendant ses coups). Si le
+  rebond est déjà pris, le coup garde la cible en l'air au lieu de casser le combo. En l'air,
+  un coup « au sol » replie les jambes (`Animator`, AIR_TUCK) au lieu de rester debout dans
+  le vide. Tests : CombatSimulation (le combo de TARO, écarts de hauteur), Kits (un seul
+  lancer, au plus un rebond par route).
+- **Bug corrigé** (trouvé par le Fuzz) : une cible « en l'air » posée au sol sans vitesse
+  (après une cinématique, un spike au sol) restait bloquée en Launched ; elle atterrit
+  maintenant tout de suite (test).
+- **R6 retiré** du menu : APPARENCE alterne modèle en blocs ↔ avatar R15 (le code R6 reste
+  pour les outils).
+- **Ouvertures et fins des cinématiques** : 20 ouvertures et 20 fins (`GEN.OPEN`, `GEN.END`)
+  peintes avec les effets, les poses et la couleur de chaque perso. Chacun des 13 persos
+  thématiques a les siennes pour ses 4 ultimes, jamais les mêmes que les autres pour le même
+  ultime, et tout est utilisé (nouveau test). Ouvertures : descend du ciel, sort du sol, dos
+  tourné puis se retourne, entre à pas lents, se relève d'un genou, apparaît dans la face de
+  la cible, charge et dérape, lévite, méditation, frappe le sol, tourbillon, silhouette en noir
+  et blanc, l'énergie converge, la cible le cherche, grand saut, kata, sa marque court jusqu'à
+  la cible, clones, gros plan qui recule, tempête. Fins : cratère, traversée (la cible tombe
+  un temps après), envoyée au ciel, soufflée à l'autre bout, clouée au sol, lui tourne le
+  dos, disparaît, plane au-dessus, piétine, salue, la caméra tourne autour, image figée,
+  pluie sur la cible, passe à côté, écho du coup, rebonds, dernier kata, sceau, sort du
+  cadre, ralenti. Exemples : RAIJIN descend du ciel / traverse ; GORAN saute / fait rebondir ;
+  VENOM sort de l'ombre au sol / disparaît. Angles réglés pour les deux mains (`turn`).
+- **Matières** : YUKINA, SYLVA, KAZAN (et les épines, le fer) invoquaient les piliers de
+  pierre d'HIBECARES. Chacun a sa matière : glace (YUKINA), racines en bois (SYLVA), cage de
+  barreaux de fer (KAZAN), épines, éclats de métal ; GORAN fissure le ring au lieu de faire
+  sortir des rochers. La pierre reste à HIBECARES (et au sol que brise RYUKEN).
+- **Sélection** : chaque modèle est posé à sa vraie hauteur (avant, les grands persos
+  s'enfonçaient dans le sol et les petits flottaient), la caméra s'ajuste à sa taille (arme et
+  bras d'ASURA compris), et le nom ne cache plus ses jambes.
+- **Charge (1000 à 10000 joueurs)** : `luau tests/Load.luau -a 1000 5000 10000` (hors Roblox :
+  un serveur Roblox tient au plus quelques centaines de joueurs, des milliers se répartissent
+  sur plusieurs serveurs ; l'outil mesure ce que coûte le code d'un serveur). Deux points
+  coûtaient N² et sont corrigés :
+  - la recherche classée comparait tout le monde à tout le monde : elle trie par cote et
+    cherche le voisin le plus proche (10 000 en file : 0,3 ms) ;
+  - chaque joueur recevait le nom de tous les joueurs à chaque changement : chacun reçoit
+    une vue courte (lui, ses défis, puis 40 noms au plus), au plus deux envois par seconde
+    (vues pour 10 000 joueurs : 5,1 s → 83 ms ; 1000 : 7 ms).
+  Un combat coûte ~0,01 ms par tick (IA comprise). Test Lobby : 10 000 joueurs appariés
+  juste (même file, même taille d'équipe, écart de cote dans la fenêtre) et vues courtes.
+- Version 0.15.3.
+
+Tests : CombatSimulation 111, FighterAI 12, CinematicDirector 832 (nouveau : ouvertures et fins
+propres à chacun), Animation 38, Kits 128, PressQueue 4, Fuzz 2, Cinematography 296, Lobby 12
+(nouveau : 10 000 joueurs). Équilibrage : voir plus bas (en cours au moment du commit).
+
+Problèmes ouverts : rien n'est vérifié dans Roblox Studio (cadrages, matières, aperçus et
+charge réelle du réseau restent à voir en jeu) ; la taille max d'un serveur se règle dans les
+paramètres du jeu (pas dans le code). Prochaine étape : regarder en jeu les 20 ouvertures et
+fins et les combos rebond, ajuster ce qui se lit mal.
+
 ## Version 0.15.2 — 4 octobre 2026
 
 Retours de Wilhem : « RAIJIN a une lance, pas une épée, fais-le taper réellement » ; « L L R R

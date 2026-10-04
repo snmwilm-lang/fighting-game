@@ -154,4 +154,49 @@ test("CHALLENGE: the reward follows how ASURA was beaten", function()
 	expect(s == 4 and titleS == "ASURA", "alone with half the health left: grade S and the ASURA title")
 end)
 
+test("10000 players: the search pairs them fast and right, each hub view stays short and shows its challenges", function()
+	local mm = Matchmaker.new()
+	local seed = 7
+	local function rand()
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end
+	local info = {}
+	for id = 1, 10000 do
+		local queue = if id % 2 == 0 then "RANKED" else "NORMAL"
+		local rating, size = 500 + math.floor(rand() * 1500), 1 + id % 3
+		info[id] = { queue = queue, rating = rating, size = size }
+		Matchmaker.enqueue(mm, id, queue, rating, 0, size)
+	end
+	local t = os.clock()
+	local pairs = Matchmaker.pair(mm, 0)
+	expect(os.clock() - t < 1, string.format("pairing 10000 players took %.2f s", os.clock() - t))
+	local seen = {}
+	for _, p in pairs do
+		local a, b = info[p.a], info[p.b]
+		expect(not seen[p.a] and not seen[p.b], "a player paired twice")
+		seen[p.a], seen[p.b] = true, true
+		expect(a.queue == b.queue and a.size == b.size and a.queue == p.queue, "mixed queues or team sizes")
+		if p.queue == "RANKED" then
+			expect(math.abs(a.rating - b.rating) <= Matchmaker.BASE_WINDOW, "ranked gap over the window")
+		end
+	end
+	expect(#pairs > 4500, "only " .. #pairs .. " pairs")
+	-- hub views
+	local lobby = Lobby.new()
+	for id = 1, 10000 do Lobby.join(lobby, id, "P" .. id) end
+	Lobby.challenge(lobby, 9000, 9999, 0)
+	Lobby.challenge(lobby, 5, 9999, 0)
+	local list = Lobby.status(lobby)
+	local byId = Lobby.index(list)
+	local view, total = Lobby.view(list, 9999, nil, byId)
+	expect(total == 10000 and #view == Lobby.VIEW_LIMIT, "view of " .. #view .. " of " .. total)
+	local ids = {}
+	for _, e in view do ids[e.id] = true end
+	expect(ids[9999] and ids[9000] and ids[5], "the player or its challengers are missing from its view")
+	t = os.clock()
+	for id = 1, 10000 do Lobby.view(list, id, nil, byId) end
+	expect(os.clock() - t < 1, string.format("10000 views took %.2f s", os.clock() - t))
+end)
+
 T.finish()

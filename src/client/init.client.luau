@@ -391,4 +391,4 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
 end)
-print("[FightingGame] Client ready — 4 kits (T / G), combos (clics), garde F, spéciale E, ultime R, R15 / R6")
+print("[FightingGame] Client ready — 4 kits (T / G), combos (clics), garde F, spéciale E, ultime R, avatar R15")

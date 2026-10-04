@@ -672,6 +672,12 @@ function Animator:lookTarget(view, other)
 	return -math.sin(yaw) * dx, dy, -math.cos(yaw) * (view.facing or 1) * dx
 end
 
+-- The legs of a blow thrown in the air (see step): the lead knee up, the rear leg folded.
+local AIR_TUCK = {
+	LeftHip = { 72, 0, 0 }, LeftKnee = { -112, 0, 0 }, LeftAnkle = { 40, 0, 0 },
+	RightHip = { 38, 0, 0 }, RightKnee = { -76, 0, 0 }, RightAnkle = { 38, 0, 0 },
+}
+
 function Animator:step(view, other, dt, time, poseRate, cinematic)
 	local kin, skel, springs, tr = self.kin, self.skel, self.springs, self.track
 	self:observe(view, dt, other)
@@ -682,6 +688,19 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 		or view.state == "Blocking" or view.state == "CrouchBlocking") then
 		local w = (1 - easeOut(tr.landAge / 0.2)) * math.clamp(tr.landSpeed / 45, 0.35, 1)
 		target = lerpPose(target, self:resolve(self:base("Land")), w * 0.85)
+	end
+
+	-- A blow made for the floor, thrown in the air (the fighter carried up by a rising strike,
+	-- a chase or a finisher): the planted legs fold into a jump tuck, so he never stands on
+	-- nothing.
+	local altitude = view.y or 0
+	if view.state == "Attack" and altitude > 0.4 and (target.Ground and target.Ground[1] or 1) > 0.5 then
+		local w = clamp01((altitude - 0.4) / 1.2)
+		target = table.clone(target)
+		for joint, tuck in AIR_TUCK do
+			local from = target[joint] or { 0, 0, 0 }
+			target[joint] = { from[1] + (tuck[1] - from[1]) * w, from[2] * (1 - w), from[3] * (1 - w) }
+		end
 	end
 
 	-- Blend between families; steps inside a family are held (anime timing).

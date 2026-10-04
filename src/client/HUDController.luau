@@ -1100,8 +1100,7 @@ function HUD:update(world, views, fps, dt)
 		self.foeKitButton.Text = "ADVERSAIRE : " .. CharacterData[3 - localSlot].Kit .. " (G)"
 	end
 	local player = Players.LocalPlayer
-	local rig = player:GetAttribute("AvatarRig") or "R15"
-	self.avatarButton.Text = if player:GetAttribute("Avatar") then "APPARENCE : AVATAR " .. rig else "APPARENCE : MODÈLE"
+	self.avatarButton.Text = if player:GetAttribute("Avatar") then "APPARENCE : AVATAR" else "APPARENCE : MODÈLE"
 	-- Avatar loading feedback: the reason is shown when the avatar could not be used.
 	local avatarStatus = player:GetAttribute("AvatarStatus")
 	local kind, reason = string.match(tostring(avatarStatus or ""), "^([^|]*)|?(.*)$")

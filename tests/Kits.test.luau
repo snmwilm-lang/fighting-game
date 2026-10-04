@@ -129,11 +129,11 @@ for _, name in MoveData.KitOrder do
 		end
 	end)
 
-	test(name .. ": a combo launches high only once (later launchers just keep the target up)", function()
+	test(name .. ": a combo launches high only once (later launchers just keep the target up), bounces off the floor at most once", function()
 		for _, route in Kits[name].FullRoutes do
 			local world = kitWorld(name, "KAI", 3)
 			local d = world.fighters[2]
-			local highLaunches, lastVy = 0, 0
+			local highLaunches, bounces, lastVy, lastY = 0, 0, 0, 0
 			local keys = split(route.keys)
 			-- Replay the route and watch the target's vertical speed jump up.
 			local step, pressedFor = 1, nil
@@ -146,10 +146,15 @@ for _, name in MoveData.KitOrder do
 					pressedFor, step = key, step + 1
 				end
 				Sim.step(world, { i, Sim.neutralInput() })
-				if d.vy - lastVy > Config.RelaunchVelocity + 2 and d.vy > Config.RelaunchVelocity + 2 then highLaunches += 1 end
-				lastVy = d.vy
+				if d.vy - lastVy > Config.RelaunchVelocity + 2 and d.vy > Config.RelaunchVelocity + 2 then
+					-- A spike's ground bounce (Tekken's bound: the target was driven into the floor)
+					-- is not a launch; it is allowed once per combo.
+					if lastVy < 0 and lastY < 1.5 then bounces += 1 else highLaunches += 1 end
+				end
+				lastVy, lastY = d.vy, d.y
 			end
 			expect(highLaunches <= 1, string.format("%s %s launches high %d times", name, route.name, highLaunches))
+			expect(bounces <= 1, string.format("%s %s bounces off the floor %d times", name, route.name, bounces))
 		end
 	end)
 

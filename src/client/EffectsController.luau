@@ -1131,29 +1131,52 @@ function EffectsController:gateShatter(gate, color)
 	Debris:AddItem(gate, 3)
 end
 
--- HIBECARES: stone pillars bursting out of the floor on the far half of a ring around
--- `center` (the near half would hide the fighters). Returns the model for cleanup.
-function EffectsController:rocks(center, radius, count, color, life)
+-- What grows out of the floor: HIBECARES' stone only; the other kits raise their own matter
+-- (Wilhem: no stone where the power has nothing to do with it). thin / tall scale the
+-- pillars, tilt their lean (iron bars stand straight, roots twist).
+local MATTER = {
+	stone = { material = Enum.Material.Slate, color = Color3.fromHex("6E6258"), thin = 1, tall = 1, tilt = 1 },
+	ice = { material = Enum.Material.Ice, color = Color3.fromHex("BFE6FF"), thin = 0.55, tall = 1.25, tilt = 0.7, clear = 0.15 },
+	wood = { material = Enum.Material.Wood, color = Color3.fromHex("5A3B22"), thin = 0.42, tall = 1.1, tilt = 2.4 },
+	thorn = { material = Enum.Material.LeafyGrass, color = Color3.fromHex("3F6B2A"), thin = 0.3, tall = 0.9, tilt = 1.8 },
+	iron = { material = Enum.Material.Metal, color = Color3.fromHex("5A5F69"), thin = 0.26, tall = 1.4, tilt = 0 },
+}
+EffectsController.MATTER = MATTER
+
+local function shape(self, part, matter)
+	part.Material = matter.material
+	if matter.clear then part.Transparency = matter.clear end
+	if matter.material == Enum.Material.Ice then part.Reflectance = 0.2 end
+end
+
+-- Pillars of `matter` (stone by default: HIBECARES) bursting out of the floor on the far half
+-- of a ring around `center` (the near half would hide the fighters). Returns the model.
+function EffectsController:rocks(center, radius, count, color, life, matterName)
+	local matter = MATTER[matterName or "stone"] or MATTER.stone
 	local model = Instance.new("Model")
 	model.Name, model.Parent = "Rocks", self.folder
-	local stone = Color3.fromHex("6E6258")
+	local stone = matter.color
 	count = if self.reduced then math.max(3, count // 2) else count
 	for i = 1, count do
 		local angle = math.pi * (i - 0.5) / count
-		local height = 3 + ((i * 37) % 7) * 0.7
-		local width = 1.2 + ((i * 13) % 5) * 0.25
+		local height = (3 + ((i * 37) % 7) * 0.7) * matter.tall
+		local width = (1.2 + ((i * 13) % 5) * 0.25) * matter.thin
 		local base = center + Vector3.new(math.cos(angle) * radius, 0, -math.sin(angle) * radius)
-		local tilt = CFrame.Angles(math.rad((i * 17) % 21 - 10), math.rad(i * 47), math.rad((i * 29) % 19 - 9))
+		local lean = matter.tilt
+		local tilt = CFrame.Angles(math.rad(((i * 17) % 21 - 10) * lean), math.rad(i * 47), math.rad(((i * 29) % 19 - 9) * lean))
 		local final = CFrame.new(base + Vector3.new(0, height / 2 - 0.3, 0)) * tilt
 		local rock = self:part(Vector3.new(width, height, width * 0.9), final - Vector3.new(0, height, 0), stone)
-		rock.Material, rock.Parent = Enum.Material.Slate, model
+		shape(self, rock, matter)
+		rock.Parent = model
 		tween(rock, 0.25, { CFrame = final }, Enum.EasingStyle.Back)
 		local glow = self:part(Vector3.new(width * 1.6, 0.08, width * 1.6), CFrame.new(base + Vector3.new(0, 0.06, 0)), color)
 		glow.Transparency, glow.Parent = 0.3, model
 		tween(glow, 0.8, { Transparency = 1 })
 	end
-	self:dust(center.X, 0, 1)
-	self:dust(center.X, 0, -1)
+	if matter == MATTER.stone then
+		self:dust(center.X, 0, 1)
+		self:dust(center.X, 0, -1)
+	end
 	if life then self:sink(model, life) end
 	return model
 end
@@ -1172,20 +1195,22 @@ end
 
 -- HIBECARES: stone pillars erupting one after the other along a line of the floor (a quake
 -- running to the target), sinking back after `life` seconds.
-function EffectsController:rockLine(from, to, count, color, life)
+function EffectsController:rockLine(from, to, count, color, life, matterName)
+	local matter = MATTER[matterName or "stone"] or MATTER.stone
 	local model = Instance.new("Model")
 	model.Name, model.Parent = "RockLine", self.folder
-	local stone = Color3.fromHex("6E6258")
+	local stone = matter.color
 	for i = 1, count do
 		task.delay((i - 1) * 0.05, function()
 			if not model.Parent then return end
 			local base = from:Lerp(to, (i - 0.5) / count)
-			local height = 2 + 3.2 * i / count
-			local width = 1.1 + (i % 3) * 0.25
-			local final = CFrame.new(base + Vector3.new(0, height / 2 - 0.3, 0)) * CFrame.Angles(math.rad((i * 23) % 17 - 8), math.rad(i * 61),
-				math.rad((i * 31) % 15 - 7))
+			local height = (2 + 3.2 * i / count) * matter.tall
+			local width = (1.1 + (i % 3) * 0.25) * matter.thin
+			local final = CFrame.new(base + Vector3.new(0, height / 2 - 0.3, 0)) * CFrame.Angles(math.rad(((i * 23) % 17 - 8) * matter.tilt),
+				math.rad(i * 61), math.rad(((i * 31) % 15 - 7) * matter.tilt))
 			local rock = self:part(Vector3.new(width, height, width * 0.9), final - Vector3.new(0, height, 0), stone)
-			rock.Material, rock.Parent = Enum.Material.Slate, model
+			shape(self, rock, matter)
+			rock.Parent = model
 			tween(rock, 0.16, { CFrame = final }, Enum.EasingStyle.Back)
 			local glow = self:part(Vector3.new(width * 1.6, 0.08, width * 1.6), CFrame.new(base + Vector3.new(0, 0.06, 0)), color)
 			glow.Transparency, glow.Parent = 0.3, model
@@ -1393,16 +1418,19 @@ function EffectsController:waterspout(base, radius, height, color, life)
 	return model
 end
 
--- Chunks of stone flung out of the floor, a few glowing (client-side physics only).
-function EffectsController:debris(position, color, scale)
-	local stone = Color3.fromHex("7A6D62")
+-- Chunks flung out of the floor, a few glowing (client-side physics only): stone by default,
+-- else the kit's own matter (shards of ice, thorns, scraps of iron).
+function EffectsController:debris(position, color, scale, matterName)
+	local matter = MATTER[matterName or "stone"] or MATTER.stone
+	local stone = if matter == MATTER.stone then Color3.fromHex("7A6D62") else matter.color
 	for i = 1, if self.reduced then 4 else 9 do
 		local size = (0.35 + math.random() * 0.6) * scale
 		local spot = position + Vector3.new((math.random() - 0.5) * 2, 0.3, (math.random() - 0.5) * 1.2)
 		local glowing = i % 4 == 0
-		local chunk = self:part(Vector3.new(size, size * 0.8, size), CFrame.new(spot) * CFrame.Angles(math.random() * 6, math.random() * 6,
-			math.random() * 6), if glowing then color else stone)
-		chunk.Material = if glowing then Enum.Material.Neon else Enum.Material.Slate
+		local long = if matter == MATTER.stone then 0.8 else 2.2 -- shards and thorns are long and thin
+		local chunk = self:part(Vector3.new(size * matter.thin ^ 0.5, size * long, size * matter.thin ^ 0.5), CFrame.new(spot)
+			* CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6), if glowing then color else stone)
+		if glowing then chunk.Material = Enum.Material.Neon else shape(self, chunk, matter) end
 		chunk.Anchored = false
 		chunk.AssemblyLinearVelocity = Vector3.new((math.random() - 0.5) * 30, 18 + math.random() * 22, (math.random() - 0.5) * 12)
 			* math.sqrt(scale)

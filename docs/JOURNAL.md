@@ -78,8 +78,8 @@ leurs défauts, presque parfait en main, make it cool » ; « prépare différen
   même hauteur, armure sur ses lourds seulement), FighterAI (le boss bat toujours LÉGENDE).
 - Version 0.16.0.
 
-Tests : CombatSimulation 112, FighterAI 12, CinematicDirector 832, Animation 39, Kits KITS_LINE, PressQueue 4,
-Fuzz FUZZ_LINE, Cinematography 296, Lobby 15. BALANCE_LINE
+Tests : CombatSimulation 114, FighterAI 12, CinematicDirector 832, Animation 39, Kits KITS_LINE, PressQueue 4,
+Fuzz FUZZ_LINE, Cinematography 296, Lobby 15. Balance (LEGEND, 120 matchs par duel) : moyennes de 38 % (KAZAN) à 63 % (TARO, VENOM), tous les kits entre 35 et 65 %.
 
 Problèmes ouverts : rien n'est vérifié dans Roblox Studio (maps, réglage de langue, barres de
 la sélection à regarder en jeu) ; la traduction automatique de Roblox dépend du réglage du

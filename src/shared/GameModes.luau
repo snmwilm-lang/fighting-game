@@ -109,20 +109,46 @@ end
 -- ACHIEVEMENTS (menu › ACHIEVEMENTS): each one says where it is earned (the mode) and is
 -- read from the player's saved profile (the server's menu status): { stat, goal }.
 GameModes.ACHIEVEMENTS = {
-	{ id = "FIRST_WIN", name = "FIRST WIN", where = "1 VS 1 · PLAYER", how = "Win a match against a player.", stat = "wins", goal = 1 },
-	{ id = "SEASONED", name = "SEASONED", where = "1 VS 1 · PLAYER", how = "Win 10 matches against players.", stat = "wins", goal = 10 },
-	{ id = "VETERAN", name = "VETERAN", where = "1 VS 1 · PLAYER", how = "Win 50 matches against players.", stat = "wins", goal = 50 },
-	{ id = "RISING", name = "RISING STAR", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1300 points.", stat = "rating", goal = 1300 },
-	{ id = "LEGEND", name = "LEGEND OF THE RING", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1700 points.", stat = "rating", goal = 1700 },
-	{ id = "SURVIVOR", name = "SURVIVOR", where = "SURVIVAL", how = "Beat 5 opponents in a row.", stat = "survivalBest", goal = 5 },
-	{ id = "UNBREAKABLE", name = "UNBREAKABLE", where = "SURVIVAL", how = "Beat 15 opponents in a row.", stat = "survivalBest", goal = 15 },
-	{ id = "GATE", name = "FACE THE GATE", where = "CHALLENGE · ASURA", how = "Take half of ASURA's health.", stat = "asuraDamage", goal = 50 },
+	{ id = "FIRST_WIN", name = "FIRST WIN", where = "1 VS 1 · PLAYER", how = "Win a match against a player.", stat = "achWins", goal = 1 },
+	{ id = "SEASONED", name = "SEASONED", where = "1 VS 1 · PLAYER", how = "Win 10 matches against players.", stat = "achWins", goal = 10 },
+	{ id = "VETERAN", name = "VETERAN", where = "1 VS 1 · PLAYER", how = "Win 50 matches against players.", stat = "achWins", goal = 50 },
+	{ id = "RISING", name = "RISING STAR", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1300 points.", stat = "achRating", goal = 1300 },
+	{ id = "LEGEND", name = "LEGEND OF THE RING", where = "1 VS 1 · PLAYER · RANKED", how = "Reach 1700 points.", stat = "achRating", goal = 1700 },
+	{ id = "SURVIVOR", name = "SURVIVOR", where = "SURVIVAL", how = "Beat 5 opponents in a row.", stat = "achSurvival", goal = 5 },
+	{ id = "UNBREAKABLE", name = "UNBREAKABLE", where = "SURVIVAL", how = "Beat 15 opponents in a row.", stat = "achSurvival", goal = 15 },
+	{ id = "GATE", name = "FACE THE GATE", where = "CHALLENGE · ASURA", how = "Take half of ASURA's health.", stat = "achAsuraDamage", goal = 50 },
 	{ id = "SLAYER", name = "ASURA SLAYER", where = "CHALLENGE · ASURA", how = "Beat ASURA (a team of 3 is enough). Reward: KAI's AWAKENED style.",
-		stat = "asuraGrade", goal = 1 },
-	{ id = "BREAKER", name = "ARM BREAKER", where = "CHALLENGE · ASURA", how = "Beat ASURA with 2 fighters or fewer.", stat = "asuraGrade", goal = 2 },
-	{ id = "EQUAL", name = "ASURA'S EQUAL", where = "CHALLENGE · ASURA", how = "Beat ASURA alone.", stat = "asuraGrade", goal = 3 },
-	{ id = "ASURA", name = "ASURA", where = "CHALLENGE · ASURA", how = "Beat ASURA alone with half your health left.", stat = "asuraGrade", goal = 4 },
+		stat = "achAsuraGrade", goal = 1 },
+	{ id = "BREAKER", name = "ARM BREAKER", where = "CHALLENGE · ASURA", how = "Beat ASURA with 2 fighters or fewer.", stat = "achAsuraGrade", goal = 2 },
+	{ id = "EQUAL", name = "ASURA'S EQUAL", where = "CHALLENGE · ASURA", how = "Beat ASURA alone.", stat = "achAsuraGrade", goal = 3 },
+	{ id = "ASURA", name = "ASURA", where = "CHALLENGE · ASURA", how = "Beat ASURA alone with half your health left.", stat = "achAsuraGrade", goal = 4 },
 }
+
+-- The achievements count from their own counters (ach...), not from the ranking or the
+-- rewards: a new SEASON resets every player's achievements (Wilhem: "reset les achievements
+-- pour tout le monde") without touching their points, wins, titles or unlocked styles.
+GameModes.ACHIEVEMENT_SEASON = 2
+GameModes.ACHIEVEMENT_COUNTERS = { "achWins", "achRating", "achSurvival", "achAsuraDamage", "achAsuraGrade" }
+
+-- A profile from an older season (or none): its achievement counters start again from zero.
+-- Returns true if it was reset.
+function GameModes.achievementSeason(profile)
+	if profile.achSeason == GameModes.ACHIEVEMENT_SEASON then return false end
+	for _, key in GameModes.ACHIEVEMENT_COUNTERS do profile[key] = 0 end
+	profile.achSeason = GameModes.ACHIEVEMENT_SEASON
+	return true
+end
+
+-- The counters after something happened: { won = true }, { rating = n }, { survival = n },
+-- { asuraDamage = percent }, { asuraGrade = grade }.
+function GameModes.achievementProgress(profile, what)
+	GameModes.achievementSeason(profile)
+	if what.won then profile.achWins += 1 end
+	if what.rating then profile.achRating = math.max(profile.achRating, what.rating) end
+	if what.survival then profile.achSurvival = math.max(profile.achSurvival, what.survival) end
+	if what.asuraDamage then profile.achAsuraDamage = math.max(profile.achAsuraDamage, what.asuraDamage) end
+	if what.asuraGrade then profile.achAsuraGrade = math.max(profile.achAsuraGrade, what.asuraGrade) end
+end
 
 -- The achievements as a player sees them: { name, where, how, done, value, goal }, and the
 -- number unlocked. `status`: the menu status (wins, rating, survivalBest, asuraGrade...).

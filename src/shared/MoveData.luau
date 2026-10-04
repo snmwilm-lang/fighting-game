@@ -550,7 +550,7 @@ derive(SHIN, {
 	ShinLow = "LOW SLASH", ShinAirCut = "AIR SLASH", ShinAirCut2 = "DOUBLE SLASH", ShinDive = "BLADE DIVE",
 	ShinStep = "WIND STEP", ShinChase = "PURSUIT", ShinFinale = "FINAL CUT", ShinCurrent = "CUTTING CURRENT",
 	ShinRush = "DANCE OF CURRENTS", ShinAwakening = "ENDLESS STORM", ShinGate = "零 · ZERO HORIZON", ShinFatal = "一閃 · ISSEN",
-}, { damage = 1.18, startup = 0, reach = 1.22, recovery = 2 }, {
+}, { damage = 1.1, startup = 0, reach = 1.17, recovery = 3 }, { -- (nerfed: damage 1.18, reach 1.22, recovery +2 before)
 	ShinStep = { lunge = 34, invuln = { from = 1, to = 9 }, damage = 82, launch = 30 },
 	ShinBreaker = { guardDamage = 46 },
 	ShinCurrent = { startup = 10, projectile = { speed = 48, life = 40, damage = 50, halfHeight = 0.5, halfWidth = 1.4 } },
@@ -1085,7 +1085,7 @@ kit("SHIN", {
 	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
 	-- PRÉCISION: a hit whose target stands in the outer part of the blade's reach (beyond From
 	-- of it) deals Bonus more.
-	Passive = { Type = "Tip", Name = "PRECISION", From = 0.62, Bonus = 0.2 },
+	Passive = { Type = "Tip", Name = "PRECISION", From = 0.68, Bonus = 0.12 }, -- (nerfed: from 0.62, +20 %)
 	RouteNames = { "CHAIN", "LAUNCHER", "BREAKTHROUGH", "WALL", "CLEAVER", "REAPER", "CIRCLE", "STORM", "SKY", "FALL", "CRESCENT" },
 	FullRouteNames = { "CIRCLE", "STORM", "SKY", "FALL", "WALL", "CRESCENT" },
 	GateTitle = { text = "零", sub = "ZERO HORIZON" },

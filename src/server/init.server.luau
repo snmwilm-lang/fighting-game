@@ -73,7 +73,9 @@ end
 local function defaultProfile()
 	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI",
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
-		language = "AUTO" } -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
+		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
+		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
+		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0 }
 end
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
@@ -85,6 +87,8 @@ local function loadProfile(player, client)
 				if type(data[k]) == type(v) then client.profile[k] = data[k] end
 			end
 			if not MoveData.Kits[client.profile.hero] then client.profile.hero = "KAI" end
+			if type(data.achSeason) ~= "number" then client.profile.achSeason = 0 end -- (saved before the seasons)
+			GameModes.achievementSeason(client.profile)
 			client.onProfileLoaded()
 		end
 		client.profileLoaded = true
@@ -417,9 +421,14 @@ function endVersus(match, winnerSlot)
 	local scoreA = if winnerSlot == 1 then 1 elseif winnerSlot == 2 then 0 else 0.5
 	if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
 	elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
+	if winnerSlot == 1 or winnerSlot == 2 then
+		GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
+	end
 	local before = { ca.profile.rating, cb.profile.rating }
 	if match.queue == "RANKED" then
 		ca.profile.rating, cb.profile.rating = Matchmaker.elo(ca.profile.rating, cb.profile.rating, scoreA)
+		GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
+		GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
 	end
 	for i, player in { a, b } do
 		local client = clients[player]
@@ -449,6 +458,8 @@ function menuStatus(player)
 		end)(),
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest,
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
+		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
+		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade,
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
 			local n = 0
@@ -1002,10 +1013,9 @@ local function followEvents(match, events)
 			if match.mode == "SURVIVAL" and owner and clients[owner] then
 				local client = clients[owner]
 				local beaten = match.wave - 1
-				if beaten > client.profile.survivalBest then
-					client.profile.survivalBest = beaten
-					saveProfile(owner, client)
-				end
+				GameModes.achievementProgress(client.profile, { survival = beaten })
+				client.profile.survivalBest = math.max(client.profile.survivalBest, beaten)
+				saveProfile(owner, client) -- (the record and the achievements' counter)
 				menuRemote:FireClient(owner, { result = true, survival = beaten, best = client.profile.survivalBest })
 			elseif match.mode == "VERSUS" then
 				endVersus(match, event.winner)
@@ -1021,6 +1031,7 @@ local function followEvents(match, events)
 				local profile = client.profile
 				local newBest = grade > profile.asuraGrade
 				profile.asuraDamage = math.max(profile.asuraDamage, math.floor(damage * 100 + 0.5))
+				GameModes.achievementProgress(profile, { asuraDamage = math.floor(damage * 100 + 0.5), asuraGrade = grade })
 				if newBest then
 					profile.asuraGrade = grade
 					profile.title = title or profile.title

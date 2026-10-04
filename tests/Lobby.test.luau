@@ -320,11 +320,27 @@ test("achievements: each says where it is earned, reads the saved profile, and i
 	end
 	local none, zero = GameModes.achievements({})
 	expect(zero == 0 and #none == #GameModes.ACHIEVEMENTS, "a new player has achievements")
-	local list, done = GameModes.achievements({ wins = 12, survivalBest = 5, asuraGrade = 2, asuraDamage = 80, rating = 1000 })
+	local list, done = GameModes.achievements({ achWins = 12, achSurvival = 5, achAsuraGrade = 2, achAsuraDamage = 80, achRating = 1000 })
 	expect(done == 6, "wins 12, survival 5, ASURA beaten with 2: 6 achievements, got " .. done)
 	for _, a in list do
 		if a.id == "VETERAN" then expect(not a.done and a.value == 12 and a.goal == 50, "the progress is not shown") end
 	end
+	-- A new season resets every player's achievements, never their points, wins or rewards.
+	local old = { rating = 1800, wins = 70, asuraGrade = 4, title = "ASURA", achSeason = GameModes.ACHIEVEMENT_SEASON - 1,
+		achWins = 70, achRating = 1800, achSurvival = 20, achAsuraDamage = 100, achAsuraGrade = 4 }
+	expect(GameModes.achievementSeason(old), "an old season's profile was not reset")
+	local _, after = GameModes.achievements(old)
+	expect(after == 0, "achievements kept after the reset: " .. after)
+	expect(old.rating == 1800 and old.wins == 70 and old.asuraGrade == 4 and old.title == "ASURA", "the reset touched the points or rewards")
+	expect(not GameModes.achievementSeason(old), "reset twice in the same season")
+	GameModes.achievementProgress(old, { won = true })
+	GameModes.achievementProgress(old, { rating = 1310 })
+	local again
+	_, again = GameModes.achievements(old)
+	expect(again == 2, "after the reset, a win and 1310 points give FIRST WIN and RISING STAR, got " .. again)
+	local legacy = { wins = 5 } -- (saved before the seasons: no achSeason)
+	GameModes.achievementSeason(legacy)
+	expect(legacy.achWins == 0 and legacy.achSeason == GameModes.ACHIEVEMENT_SEASON, "an old save is not reset")
 end)
 
 T.finish()

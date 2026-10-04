@@ -103,12 +103,25 @@ end
 function CurrencyIcons.make(kind, parent, size, position)
 	local holder = new("Frame", { Size = UDim2.fromOffset(size, size), Position = position or UDim2.new(), BackgroundTransparency = 1,
 		Name = "Currency_" .. kind }, parent)
+	-- The drawn icon always, the uploaded image over it: an image still in moderation (or
+	-- refused) leaves the drawing visible instead of an empty square.
+	local drawn = Instance.new("Frame")
+	drawn.Name, drawn.Size, drawn.BackgroundTransparency = "Drawn", UDim2.fromScale(1, 1), 1
+	drawn.Parent = holder
+	if DRAW[kind] then DRAW[kind](drawn) end
 	local image = CurrencyIcons.IMAGES[kind]
 	if image then
-		new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = image,
-			ScaleType = Enum.ScaleType.Fit }, holder)
-	elseif DRAW[kind] then
-		DRAW[kind](holder)
+		local picture = new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = image,
+			ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1 }, holder)
+		-- (shown, and the drawing hidden, only once the image really loaded)
+		local function check()
+			if picture.IsLoaded then
+				picture.ImageTransparency = 0
+				drawn.Visible = false
+			end
+		end
+		picture:GetPropertyChangedSignal("IsLoaded"):Connect(check)
+		check()
 	end
 	return holder
 end

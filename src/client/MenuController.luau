@@ -129,17 +129,6 @@ local function pageFrame(parent, props)
 	stroke(t, 2, INK)
 	return page
 end
--- What a mode pays (shown on its card with the currency's sprite).
-local function rewardOf(entry)
-	local C = GameModes.COINS
-	if entry.queue == "RANKED" then return { kind = "rank", text = "ELO POINTS" } end
-	if entry.id == "VERSUS" and entry.queue == "FRIEND" then return nil end
-	if entry.id == "SURVIVAL" then return { kind = "coins", text = "+" .. C.survivalWin .. " / OPPONENT" } end
-	if entry.id == "CHALLENGE" or entry.id == "CHALLENGE_SHIN" then return { kind = "coins", text = "WIN +" .. C.boss } end
-	if entry.id == "VERSUS" or entry.id == "VERSUS_CPU" then return { kind = "coins", text = "WIN +" .. C.win } end
-	return nil
-end
-
 local function kitColor(kit)
 	local style = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
 	return Color3.fromHex(style and style.Energy or "E0102B")
@@ -453,13 +442,11 @@ function MenuController:buildHome()
 	local page = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -28, 0, 96), Size = UDim2.fromOffset(540, 500),
 		BackgroundTransparency = 1 }, self.root)
 	card(page, { position = UDim2.fromOffset(0, 0), size = UDim2.fromOffset(540, 160), color = RED, kanji = "対", title = "ONLINE MODE",
-		titleSize = 52, lines = { "RANKED FIGHTS", "NORMAL FIGHTS", "CHALLENGE A FRIEND ON THE SERVER" },
-		reward = rewardOf({ id = "VERSUS" }) }).Activated:Connect(function()
+		titleSize = 52, lines = { "RANKED FIGHTS", "NORMAL FIGHTS", "CHALLENGE A FRIEND ON THE SERVER" }, }).Activated:Connect(function()
 		self:open("online")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 172), size = UDim2.fromOffset(540, 160), color = Color3.fromHex("C8C8D0"), kanji = "戦",
-		title = "SOLO MODE", titleSize = 52, lines = { "1 VS 1 · CPU", "SURVIVAL", "CHALLENGE · ASURA" },
-		reward = rewardOf({ id = "VERSUS_CPU" }) }).Activated:Connect(function()
+		title = "SOLO MODE", titleSize = 52, lines = { "1 VS 1 · CPU", "SURVIVAL", "CHALLENGE · ASURA" }, }).Activated:Connect(function()
 		self:open("solo")
 	end)
 	card(page, { position = UDim2.fromOffset(0, 344), size = UDim2.fromOffset(264, 150), color = BLUE, kanji = "隊", title = "TEAMS",
@@ -484,7 +471,7 @@ function MenuController:buildSubCards(title, entries)
 		local locked = false
 		local b = card(page, { position = UDim2.fromOffset(0, 60 + (i - 1) * step), size = UDim2.fromOffset(540, step - 12),
 			color = if locked then GREY else entry.color, kanji = entry.kanji, title = entry.title, titleSize = 42, kanjiSize = 120,
-			lines = entry.lines, reward = rewardOf(entry) })
+			lines = entry.lines })
 		b.Activated:Connect(function()
 			if locked then
 				self:flash("CHALLENGE · SOON", GREY)

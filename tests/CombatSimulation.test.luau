@@ -1275,4 +1275,203 @@ test("versus line-ups: 1v1 is a best of three, 3v3 a relay won with three K.O. (
 	expect(finish and finish.winner == 1 and relay.fighters[1].wins == 3, "the fifth round did not end the 3v3 with three K.O.")
 end)
 
+-- ===================================================================== Wilhem's third sheet: the passives
+local function kitDuel(kit, other, gap)
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, kit, other or "KAI")
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = -gap / 2, gap / 2
+	world.fighters[1].facing, world.fighters[2].facing = 1, -1
+	return world
+end
+local PASSIVE = Sim.PASSIVE
+local function jab(t) return { input({ light = t == 1 }) } end
+local function special(t) return { input({ special = t == 1 }) } end
+local function crouchSpecial(t) return { input({ special = t == 1, crouch = t <= 3 }) } end
+
+test("RAIJIN SURCHARGE: 3 hits in a row charge the next technique (longer reach, more damage)", function()
+	local w = kitDuel("RAIJIN", "KAI", 3)
+	local a = w.fighters[1]
+	a.charge = 2
+	run(w, 30, jab)
+	expect(a.overcharged, "the third hit did not charge SURCHARGE")
+	local id = MoveData.Kits.RAIJIN.Starters.Ground.Special
+	w.fighters[2].x = a.x + 3
+	run(w, 2, special)
+	expect(a.move == id and a.reachMove == a.moveSerial, "the technique did not take the charge")
+	local _, far = Sim.hitbox(a, Moves[id])
+	expect(far - a.x > Moves[id].hitbox.far * 1.3, "the charged technique does not reach farther")
+	expect(not a.overcharged, "the charge was not spent")
+end)
+
+test("YUKINA GEL PROGRESSIF: 3 hits freeze the opponent (20 % slower)", function()
+	local w = kitDuel("YUKINA", "KAI", 3)
+	local d = w.fighters[2]
+	d.frost = 2
+	run(w, 40, jab)
+	expect(d.chilled > 0 and d.frost == 0, "the third stack did not slow")
+	local function walk(world)
+		local f = world.fighters[2]
+		f.stun, f.stunKind, f.state = 0, nil, "Idle"
+		local x0 = f.x
+		run(world, 20, { nil, input({ axis = 1 }) })
+		return f.x - x0
+	end
+	local cold = walk(w)
+	local warm = walk(kitDuel("YUKINA", "KAI", 3))
+	expect(cold < warm * 0.85, string.format("a frozen opponent walks %.2f, a warm one %.2f", cold, warm))
+end)
+
+test("YUKINA MIROIR DE GLACE: a projectile goes back to its thrower", function()
+	local w = kitDuel("YUKINA", "KAI", 9)
+	local events = run(w, 90, function(t)
+		return { input({ special = t == 8, crouch = t >= 6 and t <= 10 }), input({ special = t == 1, crouch = t <= 3 }) }
+	end)
+	expect(find(events, "Reflect") ~= nil, "the mirror did not send the blast back")
+	expect(w.fighters[2].hp < w.fighters[2].maxHp and w.fighters[1].hp == w.fighters[1].maxHp, "the thrower was not hit by its own blast")
+end)
+
+test("VENOM CONTAMINATION: techniques poison (up to 3 charges), the poison never kills", function()
+	local w = kitDuel("VENOM", "KAI", 3)
+	local d = w.fighters[2]
+	local events = run(w, 30, special)
+	expect(find(events, "Hit") and d.poison == 1, "the technique did not poison")
+	d.poison, d.hp = 3, 40
+	local later = run(w, 200)
+	expect(count(later, "Poison") >= 2, "the poison does not tick")
+	expect(d.hp == 1 and d.state ~= "KO", "the poison killed")
+	for _ = 1, 5 do PASSIVE.onHit(w, w.fighters[1], d, Moves[MoveData.Kits.VENOM.Starters.Ground.Special], nil, true, {}) end
+	expect(d.poison == 3, "more than 3 poison charges")
+end)
+
+test("GORAN ANCRAGE: a heavy blow on the ground takes a hit without flinching; his grabs go through the guard", function()
+	local w = kitDuel("GORAN", "KAI", 2.8)
+	local g = w.fighters[1]
+	local events = run(w, 40, function(t) return { input({ heavy = t == 1 }), input({ light = t == 2 }) } end)
+	expect(find(events, "Armor") ~= nil, "no armor on GORAN's heavy blow")
+	local hit = false
+	for _, e in events do
+		if e.kind == "Hit" and e.attacker == 1 then hit = true end
+	end
+	expect(hit, "GORAN's heavy blow was interrupted")
+	expect(g.hp < g.maxHp, "the armor took no damage at all")
+	local grab = kitDuel("GORAN", "KAI", 2.4)
+	local ge = run(grab, 40, function(t) return { input({ special = t == 1, crouch = t <= 3 }), input({ block = true }) } end)
+	expect(find(ge, "Hit") ~= nil and find(ge, "Block") == nil, "ÉTREINTE DU TITAN was blocked")
+end)
+
+test("ASTER MASSE VARIABLE: a technique that lands charges the next air attack (+30 %)", function()
+	local w = kitDuel("ASTER", "KAI", 3)
+	local a, d = w.fighters[1], w.fighters[2]
+	PASSIVE.onHit(w, a, d, Moves[MoveData.Kits.ASTER.Starters.Ground.Special], nil, true, {})
+	expect(a.massReady, "the technique did not charge MASSE VARIABLE")
+	expect(math.abs(PASSIVE.bonus(w, a, Moves.AsterAirKick, nil) - 1.3) < 1e-6, "no bonus on the air attack")
+	expect(not a.massReady and PASSIVE.bonus(w, a, Moves.AsterAirKick, nil) == 1, "the bonus was not spent")
+	expect(PASSIVE.bonus(w, a, Moves.AsterJab, nil) == 1, "a ground attack took the air bonus")
+end)
+
+test("ASTER ATTRACTION: the projectile pulls the target in", function()
+	local w = kitDuel("ASTER", "KAI", 8)
+	local d = w.fighters[2]
+	run(w, 40, crouchSpecial)
+	expect(d.hp < d.maxHp and d.x < 4, string.format("the target was not pulled (x %.1f)", d.x))
+end)
+
+test("HIBIKI TEMPO: 3 hits in rhythm, then her recoveries run twice as fast", function()
+	local w = kitDuel("HIBIKI", "KAI", 3)
+	local a, d = w.fighters[1], w.fighters[2]
+	for _ = 1, 3 do
+		PASSIVE.onHit(w, a, d, Moves.HibikiJab, nil, true, {})
+		w.tick += 20
+	end
+	expect(a.tempo > 0, "TEMPO did not start")
+	local function lasts(world)
+		local f = world.fighters[1]
+		world.fighters[2].x = 20
+		local n = 0
+		run(world, 1, jab)
+		while f.move and n < 200 do
+			run(world, 1)
+			n += 1
+		end
+		return n
+	end
+	local fast, normal = lasts(w), lasts(kitDuel("HIBIKI", "KAI", 3))
+	expect(fast < normal, string.format("TEMPO jab lasts %d ticks, without %d", fast, normal))
+end)
+
+test("MARION DOUBLE COMMANDE: her threads bind, and the puppet strikes from the other side", function()
+	local w = kitDuel("MARION", "KAI", 6)
+	local d = w.fighters[2]
+	local events = run(w, 80, crouchSpecial)
+	local puppet = find(events, "Puppet")
+	expect(puppet ~= nil, "the puppet did not come in")
+	expect(puppet and puppet.x > d.x, "the puppet did not come from the other side")
+	expect(count(events, "Hit") >= 2, "the puppet did not strike")
+end)
+
+test("KAZAN ENTRAVE: 2 chain techniques on the target cut its next dash in half", function()
+	local w = kitDuel("KAZAN", "KAI", 3)
+	local a, d = w.fighters[1], w.fighters[2]
+	local m = Moves[MoveData.Kits.KAZAN.Starters.Ground.Special]
+	PASSIVE.onHit(w, a, d, m, nil, true, {})
+	expect(not d.shackled, "one hit already shackles")
+	PASSIVE.onHit(w, a, d, m, nil, true, {})
+	expect(d.shackled, "two hits did not shackle")
+	local events = run(w, 2, function(t) return { nil, input({ dash = t == 1, axis = -1 }) } end)
+	expect(find(events, "ShackleDash") ~= nil and d.dashTicks <= math.ceil(Config.DashTicks / 2), "the dash was not cut")
+	expect(not d.shackled, "the shackle was not spent")
+end)
+
+test("KUREN PACTE ÉCARLATE: each technique costs 3 % of his health (never below 1) and hits 30 % harder", function()
+	local w = kitDuel("KUREN", "KAI", 3)
+	local a = w.fighters[1]
+	run(w, 2, special)
+	expect(a.hp == a.maxHp - math.floor(a.maxHp * 0.03), "the pact cost " .. (a.maxHp - a.hp))
+	expect(math.abs(PASSIVE.bonus(w, a, Moves[a.move], nil) - 1.3) < 1e-6, "no pact bonus on the technique")
+	local low = kitDuel("KUREN", "KAI", 3)
+	low.fighters[1].hp = 2
+	run(low, 2, special)
+	expect(low.fighters[1].hp == 1 and low.fighters[1].state ~= "KO", "the pact killed him")
+end)
+
+test("SYLVA RACINES VORACES: a trap on the floor slows and hurts; TERRITOIRE lengthens her reach", function()
+	local w = kitDuel("SYLVA", "KAI", 8)
+	local a, d = w.fighters[1], w.fighters[2]
+	run(w, 40, crouchSpecial)
+	local trap
+	for _, p in w.projectiles do if p.data.trap then trap = p end end
+	expect(trap ~= nil and trap.vx == 0, "no trap on the floor")
+	run(w, 1, jab)
+	expect(a.reachMove == a.moveSerial and a.reachScale > 1, "a trap nearby did not lengthen her reach")
+	local events = run(w, 120, { nil, input({ axis = -1 }) })
+	expect(find(events, "Hit") ~= nil and d.chilled > 0, "the trap did not catch the opponent")
+end)
+
+test("ELIAN IMPULSION VITALE heals; SECOND SOUFFLE: three times more once, under 30 %", function()
+	local w = kitDuel("ELIAN", "KAI", 2.8)
+	local a = w.fighters[1]
+	a.hp = a.maxHp - 200
+	run(w, 30, crouchSpecial)
+	expect(a.hp == a.maxHp - 200 + math.floor(a.maxHp * 0.04 + 0.5), "the pulse healed " .. (a.hp - (a.maxHp - 200)))
+	local low = kitDuel("ELIAN", "KAI", 2.8)
+	local e = low.fighters[1]
+	e.hp = math.floor(e.maxHp * 0.2)
+	local before = e.hp
+	run(low, 30, crouchSpecial)
+	expect(e.hp - before == math.floor(e.maxHp * 0.12 + 0.5) and e.secondWindUsed, "SECOND SOUFFLE did not triple the heal")
+end)
+
+test("NOVA SENTINELLE: a drone fires three times on its own; 2 drones, back over time", function()
+	local w = kitDuel("NOVA", "KAI", 8)
+	local a = w.fighters[1]
+	local events = run(w, 200, crouchSpecial)
+	expect(find(events, "Drone") ~= nil and a.droneCharges <= 1, "no drone sent")
+	expect(count(events, "DroneShot") == 3, "the drone fired " .. count(events, "DroneShot") .. " times")
+	expect(#w.drones == 0, "the drone stayed after its shots")
+	a.droneCharges, a.droneCharge = 0, 600
+	local empty = run(w, 30, crouchSpecial)
+	expect(find(empty, "Drone") == nil and find(empty, "PassiveEmpty") ~= nil, "a drone came out with no charge left")
+end)
+
 T.finish()

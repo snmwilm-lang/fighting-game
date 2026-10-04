@@ -912,6 +912,26 @@ function HUD:onEvent(event, world)
 				else "Garde de fer, coups plus lourds · S + E = DROITE DU CHAMPION"
 			self:announceText(event.name or event.stance, hint, Color3.fromHex("FFB21A"))
 		end
+	elseif event.kind == "PassiveReady" then
+		self:callout(event.slot, event.name .. " !")
+	elseif event.kind == "Chilled" then
+		self:callout(event.slot, "GELÉ ! −20 % VITESSE")
+	elseif event.kind == "Armor" then
+		self:callout(event.defender, "ANCRAGE ! −" .. event.damage)
+	elseif event.kind == "Heal" then
+		self:callout(event.slot, "+" .. event.amount .. " PV")
+	elseif event.kind == "Reflect" then
+		self:callout(event.slot, "MIROIR DE GLACE !")
+	elseif event.kind == "Shackled" then
+		self:callout(event.slot, "ENTRAVÉ ! DASH COUPÉ")
+	elseif event.kind == "Puppet" then
+		self:callout(event.slot, "DOUBLE COMMANDE !")
+	elseif event.kind == "Drone" then
+		self:callout(event.slot, "SENTINELLE !")
+	elseif event.kind == "PassiveEmpty" then
+		self:callout(event.slot, "PLUS DE DRONE")
+	elseif event.kind == "PassiveUsed" and event.cost then
+		self:callout(event.slot, "PACTE −" .. event.cost .. " PV")
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then
@@ -975,7 +995,11 @@ function HUD:update(world, views, fps, dt)
 			passive = { Type = "Evade", Name = "ESQUIVES", Charges = weave.Charges }
 		end
 		bar.passive.Visible = passive ~= nil
-		if passive then
+		if passive and view.passiveLabel then
+			-- The third sheet's passives: the simulation writes their line (Sim.passiveLabel).
+			bar.passive.Text = view.passiveLabel
+			bar.passive.TextTransparency = if view.passiveOn then 0 else 0.45
+		elseif passive then
 			local gauge = view.passive or 0
 			local label, ready
 			if passive.Type == "Rage" then

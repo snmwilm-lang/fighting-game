@@ -108,8 +108,12 @@ function SoundController:onEvent(event)
 	elseif kind == "GroundBounce" or kind == "WallBounce" then
 		self:playAll(ACTIONS.Bounce)
 	elseif kind == "Blink" or kind == "Block" or kind == "GuardBreak" or kind == "Clash" or kind == "Evade" or kind == "Slip"
-		or kind == "Stance" or kind == "SuperFlash" or kind == "Skill" or kind == "Prompt" or kind == "SuperJump" then
+		or kind == "Stance" or kind == "SuperFlash" or kind == "Skill" or kind == "Prompt" or kind == "SuperJump"
+		or kind == "PassiveReady" or kind == "Chilled" or kind == "Poison" or kind == "Armor" or kind == "Heal"
+		or kind == "Reflect" or kind == "Drone" or kind == "Shackled" or kind == "Puppet" then
 		self:playAll(ACTIONS[kind])
+	elseif kind == "DroneShot" then
+		self:playAll(MATERIALS.NOVA.projectile)
 	end
 end
 

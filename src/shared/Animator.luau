@@ -115,6 +115,11 @@ local IDLE_RHYTHM = {
 	KAI = { rate = 1.15, shift = 3 }, TARO = { rate = 1.9, shift = 4 }, TARO_CLASSIQUE = { rate = 1.4, shift = 3 },
 	ZEPHYR = { rate = 1.35, shift = 5 }, AKEMI = { rate = 0.8, shift = 3 }, RYUKEN = { rate = 1.0, shift = 2 },
 	SHIN = { rate = 0.55, shift = 1.5 }, DAICHA = { rate = 0.7, shift = 4 }, HIBECARES = { rate = 0.5, shift = 2.5 },
+	ASURA = { rate = 0.9, shift = 3 },
+	RAIJIN = { rate = 1.25, shift = 3 }, YUKINA = { rate = 0.65, shift = 2 }, VENOM = { rate = 1.5, shift = 5 },
+	GORAN = { rate = 0.55, shift = 3 }, ASTER = { rate = 0.45, shift = 2 }, HIBIKI = { rate = 2.0, shift = 4 },
+	MARION = { rate = 0.5, shift = 1.5 }, KAZAN = { rate = 0.9, shift = 3 }, KUREN = { rate = 0.75, shift = 2.5 },
+	SYLVA = { rate = 1.3, shift = 4 }, ELIAN = { rate = 0.6, shift = 1.5 }, NOVA = { rate = 1.1, shift = 3 },
 }
 Animator.IDLE_RHYTHM = IDLE_RHYTHM
 

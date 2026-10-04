@@ -42,7 +42,7 @@ ne voit que ce qui est à l'écran, avec son temps de réaction.
 En versus, on change de perso avant le premier coup du match ou une fois le match fini (le
 match repart à zéro) ; en solo, à tout moment.
 
-## Les 8 combattants
+## Les 20 combattants
 
 | Perso | Style | Vie | Points forts | Points faibles | S + E |
 |---|---|---|---|---|---|
@@ -54,10 +54,23 @@ match repart à zéro) ; en solo, à tout moment.
 | **SHIN 流** | **sabre** : vitesse, précision | 1450 | **la plus grande allonge** (+22 %), coupes rapides (dégâts +18 %), **PAS DU VENT**, passif **PRÉCISION** | encaisse peu ; moins fort collé à l'adversaire | COURANT TRANCHANT (projectile) |
 | **DAICHA 闇** | **zoning** : l'espace inversé | 1500 | **SPHÈRE INVERSÉE** lente et énorme, dégâts +25 %, **TÉLÉPORTATION** (réapparaît derrière), passif **OMBRE INVERSÉE** | marche lente, vie moyenne | SPHÈRE INVERSÉE (projectile lent) |
 | **HIBECARES 崩** | **endurance** : le roi des ruines | **1580** | **le plus de vie**, coups lourds (dégâts −10 %), garde solide, passif **ROI DES RUINES** | **le plus lent**, coups qui démarrent tard | **MUR DE PIERRE** : encaisse n'importe quel coup (même bas) à moitié, puis riposte |
+| **RAIJIN 雷** | **lance et foudre** | 1400 | grande allonge (+15 %), passif **SURCHARGE** | encaisse moyennement | LANCE FOUDROYANTE (projectile le plus rapide après celui de KUREN) |
+| **YUKINA 雪** | **glace et éventails** : contrôle | 1250 | passif **GEL PROGRESSIF** (ralentit), tourne autour de sa cible | fragile | **MIROIR DE GLACE** : renvoie un projectile à son lanceur |
+| **VENOM 毒** | **griffes et poison** : usure | 1350 | rapide, passif **CONTAMINATION** (poison qui ne tue jamais) | dégâts directs plus faibles (−10 %) | BRUME TOXIQUE (nuage lent) |
+| **GORAN 剛** | **lutte et projections** | **1700** | **le plus de vie**, saisies **imparables en garde**, passif **ANCRAGE** | **lent**, saut le plus bas | **ÉTREINTE DU TITAN** (saisie, ne marche pas sur un adversaire en l'air) |
+| **ASTER 星** | **gravité** : contrôle | 1300 | saut le plus haut, passif **MASSE VARIABLE** | moins fort au sol | ATTRACTION (attire l'adversaire) |
+| **HIBIKI 響** | **son et rythme** | 1250 | la plus rapide avec AKEMI, passif **TEMPO** | fragile, dégâts −6 % | ONDE SONIQUE (repousse loin) |
+| **MARION 糸** | **marionnettes et fils** | **1150** | allonge des fils (+20 %), passif **DOUBLE COMMANDE** | **la plus fragile** | FILS CROISÉS (immobilise, puis le pantin frappe de l'autre côté) |
+| **KAZAN 鎖** | **chaînes et capture** | 1450 | **la plus grande allonge** (+25 %), passif **ENTRAVE** | coups qui démarrent un peu tard | CROCHET DU GEÔLIER (attire) |
+| **KUREN 血** | **sang et sacrifice** | 1350 | dégâts +20 %, passif **PACTE ÉCARLATE** | ses techniques lui coûtent de la vie | LANCE SANGUINE (le projectile le plus rapide) |
+| **SYLVA 森** | **nature et pièges** | 1250 | pièges au sol, passif **TERRITOIRE** | fragile | **RACINES VORACES** (piège : ralentit et blesse) |
+| **ELIAN 癒** | **soutien et soins** | 1350 | se soigne, passif **SECOND SOUFFLE** | dégâts moyens | **IMPULSION VITALE** (repousse et soigne) |
+| **NOVA 機** | **technologie et drones** | 1300 | drones qui tirent seuls, passif **INGÉNIERIE** | moins forte au corps à corps | **SENTINELLE** (un drone tire 3 fois) |
 
 **Difficulté** (affichée dans le jeu) : ★☆☆ SIMPLE — KAI, RYUKEN, HIBECARES ; ★★☆ MOYEN —
-TARO, ZEPHYR, SHIN ; ★★★ TECHNIQUE — AKEMI, DAICHA. Tous équilibrés (CPU contre CPU : entre
-43 et 57 % de victoires).
+TARO, ZEPHYR, SHIN, RAIJIN, VENOM, GORAN, KAZAN, ELIAN ; ★★★ TECHNIQUE — AKEMI, DAICHA,
+YUKINA, ASTER, HIBIKI, MARION, KUREN, SYLVA, NOVA. Tous équilibrés (CPU contre CPU : entre
+35 et 65 % de victoires, chiffres dans `docs/JOURNAL.md`).
 
 **VOILE D'OMBRE** (passif d'AKEMI, façon Goku Ultra Instinct de FighterZ) : au neutre — sans
 attaquer, sans être déjà touchée, sans garder — le coup reçu est esquivé : AKEMI recule hors
@@ -77,16 +90,45 @@ Passifs des 4 nouveaux (jauge à côté de la barre de garde) :
 - **ROI DES RUINES** (HIBECARES) : plus il est blessé, plus il frappe fort (jusqu'à +30 %
   à 30 % de vie).
 
+Passifs des 12 de la troisième fiche (la ligne sous la barre de garde dit où ils en sont) :
+
+- **SURCHARGE** (RAIJIN) : 3 coups portés d'affilée chargent sa prochaine technique (allonge
+  ×1,35, +15 % de dégâts).
+- **GEL PROGRESSIF** (YUKINA) : chaque coup ajoute du givre ; à 3, l'adversaire est ralenti de
+  20 % pendant 3 s.
+- **CONTAMINATION** (VENOM) : ses techniques empoisonnent (jusqu'à 3 charges, 6 dégâts par
+  charge chaque demi-seconde pendant 3 s) ; le poison ne tue jamais.
+- **ANCRAGE** (GORAN) : ses gros coups au sol encaissent un coup sans être interrompus ; ses
+  saisies passent la garde.
+- **MASSE VARIABLE** (ASTER) : après une technique réussie, sa prochaine attaque aérienne fait
+  +30 %.
+- **TEMPO** (HIBIKI) : 3 coups en rythme et ses récupérations vont deux fois plus vite 4 s.
+- **DOUBLE COMMANDE** (MARION) : quand ses FILS CROISÉS immobilisent, le pantin frappe depuis
+  l'autre côté (toutes les 5 s).
+- **ENTRAVE** (KAZAN) : 2 techniques touchées, et le prochain dash adverse est coupé de moitié.
+- **PACTE ÉCARLATE** (KUREN) : chaque technique lui coûte 3 % de sa vie (jamais mortel) et
+  frappe 30 % plus fort.
+- **TERRITOIRE** (SYLVA) : avec un de ses pièges près d'elle, ses coups portent 20 % plus loin.
+- **SECOND SOUFFLE** (ELIAN) : sous 30 % de vie, son prochain soin est trois fois plus fort
+  (une fois par manche).
+- **INGÉNIERIE** (NOVA) : 2 drones d'avance, un qui revient toutes les 9 s.
+
 Chaque perso porte **sa tenue sur ton avatar Roblox** (R15 ou R6), taillée sur ses vraies
 pièces : KAI bandeau, ceinture et bandages ; TARO gants de boxe, short, ceinture de
 champion et serviette au cou ; ZEPHYR longue écharpe au vent, protège-tibias ; AKEMI capuche, masque et
 brassards ; RYUKEN bandages et gantelet fissuré qui luit ; SHIN katana et fourreau, col ;
-DAICHA sphère d'ombre à la main, obi ; HIBECARES poings de pierre, chaînes, bandeau. En modèle
+DAICHA sphère d'ombre à la main, obi ; HIBECARES poings de pierre, chaînes, bandeau ;
+RAIJIN la lance dans le dos, éclairs sur les bras ; YUKINA obi et éventails de cristal ;
+VENOM masque respiratoire, griffes vertes ; GORAN ceinture de catcheur, genouillères ; ASTER
+anneaux autour des bras ; HIBIKI casque audio, amplis aux gants ; MARION bagues et fils qui
+luisent ; KAZAN chaînes aux avant-bras, cadenas ; KUREN marques écarlates ; SYLVA gantelets
+d'écorce ; ELIAN brassards de lumière, croix ; NOVA gantelets mécaniques, lunettes, deux
+drones. ASURA (le boss) a son propre corps à quatre bras. En modèle
 en blocs, chaque perso a sa propre tête (coiffure) et son propre corps (vêtements). Kanji du perso dans le dos, 2 à 4 styles de couleurs chacun (bouton STYLE).
 
 ## Combos (L = clic gauche, R = clic droit)
 
-Les 8 persos ont **la même grammaire** : mêmes touches, mêmes effets, chacun avec ses
+Les 20 persos ont **la même grammaire** : mêmes touches, mêmes effets, chacun avec ses
 propres coups (bouton **COMBOS** en jeu : la liste du perso choisi). Pour KAI :
 
 | Touches | Enchaînement | Effet |
@@ -236,22 +278,29 @@ ton favori). RETOUR ARRIÈRE revient en arrière.
 | **1 CONTRE 1 · JOUEUR** | **NORMAL** (sans points), **CLASSÉ** (points Elo et rang : BRONZE, ARGENT, OR, PLATINE, DIAMANT, LÉGENDE) ou **AMI** (la liste des joueurs du serveur, DÉFIER / ACCEPTER). La recherche trouve un adversaire de niveau proche, puis élargit avec le temps. |
 | **SURVIE** | Un seul perso contre des adversaires à la chaîne, de plus en plus forts (LÉGENDE dès la 8ᵉ vague) ; ta vie ne remonte que de 20 % entre deux. Ton record est gardé. |
 | **ENTRAÎNEMENT** | Mannequin (immobile, garde, CPU ×4), entraîneur de combos, ULTIMES : ON, labo des cinématiques. |
-| **CHALLENGE** | ASURA, un KAI à quatre bras (bientôt). |
+| **CHALLENGE** | ASURA, un KAI à quatre bras (GATLING DES QUATRE BRAS, ses propres cinématiques), contre 1 à 3 de tes persos. Ta victoire décide de la récompense (titre, style ÉVEILLÉ de KAI). |
 
-**Sélection des persos** : la grille des 8 persos (★ difficulté) ; ENTRÉE ou clic pour
+**Sélection des persos** : la grille des 20 persos (★ difficulté) ; ENTRÉE ou clic pour
 prendre un perso (encore : le retirer), dans l'ordre de passage ; ÉQUIPE ◀ ▶ (1 à 3) ;
 NIVEAU CPU ou PARTIE ◀ ▶ ; ESPACE ou **COMBAT !**.
 
-**Équipes (relais, comme King of Fighters ; jusqu'à 3 persos comme FighterZ)** : un K.O.
-élimine le perso et fait entrer le suivant ; le gagnant reste, garde sa vie (+20 %) et son ki.
-L'équipe qui n'a plus personne perd. Sous la barre de vie : ✕ éliminé, ● en combat, ○ en attente.
+**Manches** : un 1 contre 1 se joue en **2 manches gagnantes** (deux losanges). **Équipes
+(relais, comme King of Fighters ; jusqu'à 3 persos comme FighterZ)** : un K.O. élimine le perso
+et fait entrer le suivant ; le gagnant reste, garde sa vie (+20 %) et son ki. L'équipe qui n'a
+plus personne perd : en 3v3, il faut 3 K.O. (trois losanges), le match peut durer 5 manches.
+Sous la barre de vie : ✕ éliminé, ● en combat, ○ en attente. En ligne, 2v2 et 3v3 ne
+rencontrent que des équipes de même taille.
 
 En combat : **◀ MENU** (ou **P**) pour revenir au menu ; quitter un 1 contre 1 le donne perdu
 à l'adversaire.
 
 **Beaucoup de joueurs** : un serveur fait tourner autant de combats que de paires de joueurs,
 tous en même temps (chacun ne voit que ses deux combattants). Roblox ouvre d'autres serveurs
-quand celui-ci est plein (nombre de joueurs par serveur : Paramètres du jeu > Places). Le
+quand celui-ci est plein. **Pour les plus grands serveurs** : dans Studio, **Paramètres du jeu
+> Places > (ta place) > Nombre max. de joueurs**, jusqu'à 100 (la limite de Roblox pour une
+place) ; la recherche d'adversaire (NORMAL, CLASSÉ, 2v2, 3v3) se fait entre les joueurs du même
+serveur, donc plus le serveur est grand, plus elle est rapide. (Une file commune à tous les
+serveurs demanderait MemoryStore et des téléportations : pas encore fait.) Le
 classement et le record de SURVIE sont sauvegardés (DataStore) : il faut publier le jeu et,
 pour les essayer dans Studio, activer **Paramètres du jeu > Sécurité > Accès aux services API**.
 

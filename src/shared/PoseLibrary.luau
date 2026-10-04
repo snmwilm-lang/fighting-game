@@ -1163,6 +1163,74 @@ Poses.Kits.HIBECARES = {
 	}, -0.4, 0.45, 0, 0, 16),
 }
 
+
+-- Wilhem's third sheet: each kit's stance, guard, run and victory from a few numbers.
+--   root: { yaw, height }, waist / neck: { pitch, yaw }, lead / rear: { shoulder pitch, shoulder
+--   roll, elbow } of the left (lead) and right (rear) arm, step: { front z, back z, spread },
+--   run: { lean, waist pitch }, win: { left shoulder, right shoulder, elbow } raised arms.
+local function thirdKit(k)
+	local stance = feet({
+		Root = { 0, k.root[1], 0, k.root[2], 0 }, Waist = { k.waist[1], k.waist[2], 0 }, Neck = { k.neck[1], k.neck[2], 0 },
+		LeftShoulder = { k.lead[1], 0, k.lead[2] }, LeftElbow = { k.lead[3], 0, 0 },
+		RightShoulder = { k.rear[1], 0, k.rear[2] }, RightElbow = { k.rear[3], 0, 0 },
+	}, k.step[1], k.step[2], 0, -10, k.step[3])
+	local crouch = feet(merge(stance, { Root = { 0, k.root[1], 0, -1.0, 0 }, Waist = { k.waist[1] - 14, k.waist[2], 0 } }),
+		k.step[1] * 0.8, k.step[2] * 0.9, 0, -12, k.step[3] + 2)
+	return {
+		STANCE = stance,
+		Idle = { stance, merge(stance, { Root = { 0, k.root[1], 0, k.root[2] - 0.08, 0 },
+			LeftShoulder = { k.lead[1] + 6, 0, k.lead[2] }, RightShoulder = { k.rear[1] + 4, 0, k.rear[2] } }) },
+		Crouch = crouch,
+		Block = feet(merge(stance, merge(GUARD_ARMS, { Root = { 0, k.root[1] * 0.5, 0, k.root[2] - 0.04, 0 } })),
+			k.step[1], k.step[2], 0, -10, k.step[3]),
+		CrouchBlock = merge(crouch, GUARD_ARMS),
+		RunUpper = upper(stance, { Root = { k.run[1], 0, 0, 0, 0 }, Waist = { k.run[2], k.waist[2] * 0.5, 0 } }),
+		BackUpper = upper(stance, merge(GUARD_ARMS, { Root = { 0, 0, 0, 0, 0 } })),
+		Victory = feet({
+			Root = { 0, 0, 0, -0.1, 0 }, Waist = { 6, 0, 0 }, Neck = { -10, 0, 0 },
+			LeftShoulder = { k.win[1], 0, -20 }, LeftElbow = { k.win[3], 0, 0 },
+			RightShoulder = { k.win[2], 0, 20 }, RightElbow = { k.win[3], 0, 0 },
+			Look = { 0 },
+		}, -0.3, 0.4, 0, 0, 8),
+	}
+end
+-- RAIJIN: spear stance, side-on, the rear hand high on the shaft.
+Poses.Kits.RAIJIN = thirdKit({ root = { 24, -0.42 }, waist = { -6, 20 }, neck = { 6, -20 }, lead = { 58, -6, 60 },
+	rear = { 96, -30, 110 }, step = { -0.95, 0.9, 7 }, run = { -12, -18 }, win = { 170, 40, 10 } })
+-- YUKINA: upright and graceful, both fans open at shoulder height.
+Poses.Kits.YUKINA = thirdKit({ root = { 10, -0.18 }, waist = { -2, 10 }, neck = { 0, -8 }, lead = { 62, -40, 50 },
+	rear = { 60, 40, 60 }, step = { -0.6, 0.55, 3 }, run = { -6, -8 }, win = { 120, 120, 30 } })
+-- VENOM: low, hunched, claws forward like a beast.
+Poses.Kits.VENOM = thirdKit({ root = { 16, -0.68 }, waist = { -30, 14 }, neck = { 28, -12 }, lead = { 76, 18, 50 },
+	rear = { 70, -18, 60 }, step = { -0.8, 0.85, 8 }, run = { -20, -30 }, win = { 60, 150, 90 } })
+-- GORAN: the wrestler's crouch, wide, arms open to seize.
+Poses.Kits.GORAN = thirdKit({ root = { 0, -0.6 }, waist = { -18, 4 }, neck = { 14, -4 }, lead = { 66, 40, 70 },
+	rear = { 62, -40, 74 }, step = { -0.6, 0.65, 15 }, run = { -8, -22 }, win = { 150, 150, 40 } })
+-- ASTER: almost weightless, one hand raised (the rings), the other low.
+Poses.Kits.ASTER = thirdKit({ root = { 8, -0.12 }, waist = { 0, 8 }, neck = { -2, -8 }, lead = { 56, -10, 50 },
+	rear = { 30, 20, 30 }, step = { -0.5, 0.55, 4 }, run = { -10, -6 }, win = { 175, 30, 0 } })
+-- HIBIKI: bouncing on her toes, fists near the headphones.
+Poses.Kits.HIBIKI = thirdKit({ root = { 12, -0.32 }, waist = { -8, 12 }, neck = { 8, -10 }, lead = { 96, 10, 120 },
+	rear = { 90, -14, 128 }, step = { -0.7, 0.7, 5 }, run = { -14, -12 }, win = { 165, 165, 20 } })
+-- MARION: still, hands raised like a puppeteer holding the threads.
+Poses.Kits.MARION = thirdKit({ root = { 6, -0.1 }, waist = { 2, 6 }, neck = { -4, -6 }, lead = { 74, -30, 80 },
+	rear = { 70, 30, 85 }, step = { -0.45, 0.5, 3 }, run = { -6, -4 }, win = { 140, 140, 60 } })
+-- KAZAN: chains wound round the fists, one arm drawn back to throw.
+Poses.Kits.KAZAN = thirdKit({ root = { 18, -0.45 }, waist = { -10, 16 }, neck = { 10, -14 }, lead = { 74, 6, 80 },
+	rear = { 40, -40, 100 }, step = { -0.8, 0.8, 8 }, run = { -10, -16 }, win = { 30, 170, 10 } })
+-- KUREN: one hand on the chest, the other open low (the blood ready to flow).
+Poses.Kits.KUREN = thirdKit({ root = { 14, -0.28 }, waist = { -4, 14 }, neck = { 4, -12 }, lead = { 40, -20, 30 },
+	rear = { 70, 30, 130 }, step = { -0.65, 0.7, 5 }, run = { -12, -10 }, win = { 30, 160, 20 } })
+-- SYLVA: the huntress crouched, ready to spring.
+Poses.Kits.SYLVA = thirdKit({ root = { 20, -0.7 }, waist = { -22, 16 }, neck = { 20, -14 }, lead = { 84, 0, 60 },
+	rear = { 50, -20, 90 }, step = { -1.0, 0.95, 9 }, run = { -18, -26 }, win = { 160, 60, 30 } })
+-- ELIAN: calm and open, palms forward.
+Poses.Kits.ELIAN = thirdKit({ root = { 4, -0.14 }, waist = { 0, 4 }, neck = { -2, -4 }, lead = { 46, 10, 60 },
+	rear = { 48, -10, 56 }, step = { -0.5, 0.5, 3 }, run = { -8, -6 }, win = { 120, 120, 10 } })
+-- NOVA: the gauntlets up like a brawler's, weight on the back leg.
+Poses.Kits.NOVA = thirdKit({ root = { 14, -0.36 }, waist = { -10, 14 }, neck = { 10, -12 }, lead = { 86, 4, 100 },
+	rear = { 70, -24, 120 }, step = { -0.75, 0.8, 6 }, run = { -12, -14 }, win = { 170, 90, 30 } })
+
 -- RYUKEN: the brawler's own blows; his "kick" roles are punches too (the boxer's poses).
 Poses.RyukenCharge = { -- CHARGE FRONTALE: shoulder first across the screen
 	Startup = feet(merge(RYUKEN, { Root = { 0, -30, 0, -0.85, 0.2 }, Waist = { -30, -30, 0 }, Neck = { 26, 20, 0 } }), -0.5, 0.9, 0, -14, 10),
@@ -1190,6 +1258,12 @@ end
 -- ASURA's GATLING DES QUATRE BRAS: the boxer's machine-gun straights (the extra pair of arms
 -- pistons on the client, AnimationController:swingFourArms).
 Poses.AsuraGatling = Poses.TaroGatling
+-- The crouch specials of the third sheet that are not roles: the role closest in gesture.
+Poses.YukinaMirror = Poses.KiBlast -- (both fans held out: the mirror)
+Poses.GoranGrab = Poses.BodyBlow
+Poses.ElianPulse = Poses.PalmStrike
+Poses.NovaSentinel = Poses.KiBlast
+Poses.MarionPuppet = Poses.KiBlast -- (only thrown by the passive; never played as a move)
 
 -- HIBECARES: heavy, wide swings of the stone fists.
 Poses.HibecaresStrike = {
@@ -1756,6 +1830,8 @@ Poses.STRIKE = {
 	TaroOverhand = { "RightHand" }, TaroDive = { "RightHand" }, TaroLowJab = { "LeftHand" },
 	TaroAirJab = { "LeftHand" }, TaroAirHook = { "RightHand" }, TaroMeteor = { "LeftHand", "RightHand" },
 	TaroTwinUpper = { "LeftHand", "RightHand" }, TaroGatling = { "LeftHand", "RightHand" }, AsuraGatling = { "LeftHand", "RightHand" },
+	YukinaMirror = { "LeftHand", "RightHand" }, GoranGrab = { "LeftHand", "RightHand" }, ElianPulse = { "RightHand" },
+	NovaSentinel = { "LeftHand", "RightHand" },
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },

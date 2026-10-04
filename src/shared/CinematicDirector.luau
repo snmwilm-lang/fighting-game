@@ -3356,13 +3356,39 @@ end
 
 -- A two-shot of the attacker and the target, preset `i` of the theme's walk. The camera
 -- looks at the fighter on its side of the pair (never through the other one).
+-- Is the line from the camera to `view`'s chest clear of `other`'s body?
+function GEN.seen(shot, view, other)
+	local cam = shot.from.position
+	if not cam then return true end
+	local fx, fy, fz = view.x, (view.y or 0) + 4, view.z or 0
+	local ox, oz = other.x, other.z or 0
+	for k = 1, 9 do
+		local t = k / 10
+		local px, py, pz = cam.x + (fx - cam.x) * t, cam.y + (fy - cam.y) * t, (cam.z or 0) + (fz - (cam.z or 0)) * t
+		local dx, dz = px - ox, pz - oz
+		local oy = other.y or 0
+		if py >= oy - 0.3 and py <= oy + 6 and dx * dx + dz * dz < 0.9 then return false end
+	end
+	return true
+end
+
 function GEN.two(ctx, T, ult, name, dir, a, d, i, o)
 	local p = GEN.ANGLES[(T.seed + i * T.step) % #GEN.ANGLES + 1]
-	local yaw = p[1]
-	local subject = if yaw >= 0 then ctx.cin.defender else ctx.cin.attacker
 	o = o or {}
-	return frameOn(GEN.name(T, ult, name), dir, { a, d }, { yaw = yaw, pitch = p[2], fill = o.fill or p[3], fov = p[4],
-		roll = o.roll, focus = P(subject, "UpperTorso") })
+	local A, D = ctx.cin.attacker, ctx.cin.defender
+	-- The preset's angle first, then swung round: the first framing whose subject (the
+	-- target, else the attacker) is not hidden behind the other body (fighters circling the
+	-- target come between it and the camera).
+	local last
+	for _, swing in { 0, 30, -30, 60, -60 } do
+		local yaw = p[1] + swing
+		for _, pick in { { D, d, a }, { A, a, d } } do
+			last = frameOn(GEN.name(T, ult, name), dir, { a, d }, { yaw = yaw, pitch = p[2], fill = o.fill or p[3], fov = p[4],
+				roll = o.roll, focus = P(pick[1], "UpperTorso") })
+			if GEN.seen(last, pick[2], pick[3]) then return last end
+		end
+	end
+	return last
 end
 
 -- A hero shot of one fighter (`slot`), preset `i`.
@@ -3791,6 +3817,105 @@ GEN.add("ASURA", {
 	blows = { "Cross", "Uppercut", "Hammer", "Smash", "BodyBlow", "SpinKick", "Elbow" },
 	fx = { line = "asuraFist", burst = "asuraHalo", ground = "asuraSeal" },
 	names = { Rush = "GATLING DES QUATRE BRAS", Awaken = "MILLE BRAS", Fatal = "阿修羅 · COLÈRE FINALE" },
+})
+
+
+-- Wilhem's third sheet. Each kit: its grade, its own effects, its archetype for each ultimate.
+-- RAIJIN 雷: the spear strikes from every side in a storm of bolts (R), the thunder's judgment
+-- drags the target in (ÉVEIL), the divine wrath lifts it to the storm (PORTE), the sentence
+-- falls from the sky (FATAL).
+GEN.add("RAIJIN", {
+	id = "raijin", grade = "storm", kanji = "雷", pose = "StandTall", rest = "StandTall", seed = 0, step = 11,
+	rush = "lunge", awaken = "pull", gate = "juggle", fatal = "zone",
+	blows = { "Elbow", "Cross", "SpinKick", "Kick", "Uppercut", "Smash" },
+	fx = { line = "spearBolt", burst = "thunderBurst", ground = "stormRing" },
+})
+-- YUKINA 雪: she waltzes round the target, fans of ice (R), shards from afar (ÉVEIL), the ice
+-- prison drags it in (PORTE), absolute zero from afar (FATAL).
+GEN.add("YUKINA", {
+	id = "yukina", grade = "frost", kanji = "雪", pose = "WindGather", rest = "StandTall", seed = 1, step = 5,
+	rush = "orbit", awaken = "zone", gate = "pull", fatal = "zone",
+	blows = { "SpinKick", "Kick", "Cross", "AirKick", "Elbow", "Sweep" },
+	fx = { line = "iceShard", burst = "frostBloom", ground = "iceGarden" },
+})
+-- VENOM 毒: the predator circles (R), pounces from every side (ÉVEIL), the epidemic spreads
+-- from afar (PORTE), the last bite (FATAL).
+GEN.add("VENOM", {
+	id = "venom", grade = "toxic", kanji = "毒", pose = "Roar", rest = "StandTall", seed = 3, step = 11,
+	rush = "orbit", awaken = "lunge", gate = "zone", fatal = "lunge",
+	blows = { "Jab", "Cross", "Elbow", "BodyBlow", "Uppercut", "SpinKick" },
+	fx = { line = "venomClaw", burst = "venomCloud", ground = "toxicPool" },
+})
+-- GORAN 剛: suplexes from side to side (R, ÉVEIL, FATAL), the titan's fall from the sky (PORTE).
+GEN.add("GORAN", {
+	id = "goran", grade = "titan", kanji = "剛", pose = "Colossus", rest = "StandTall", seed = 4, step = 7, quake = true,
+	rush = "grapple", awaken = "grapple", gate = "juggle", fatal = "grapple",
+	blows = { "BodyBlow", "Hammer", "Smash", "Uppercut", "Elbow" },
+	fx = { line = "titanGrip", burst = "slamQuake", ground = "titanRing" },
+})
+-- ASTER 星: the target floats up, higher at every blow (R, FATAL); he orbits it (ÉVEIL); the
+-- event horizon pulls it in (PORTE).
+GEN.add("ASTER", {
+	id = "aster", grade = "cosmos", kanji = "星", pose = "Levitate", rest = "StandTall", seed = 5, step = 5,
+	rush = "juggle", awaken = "orbit", gate = "pull", fatal = "juggle",
+	blows = { "PalmStrike", "AirKick", "Uppercut", "AirKick2", "Smash" },
+	fx = { line = "gravityPull", burst = "starCollapse", ground = "gravityWell" },
+})
+-- HIBIKI 響: waves of sound from afar (R, PORTE), she dances to the rhythm (ÉVEIL), the
+-- silence drags the target in (FATAL).
+GEN.add("HIBIKI", {
+	id = "hibiki", grade = "sonic", kanji = "響", pose = "Kiai", rest = "StandTall", seed = 6, step = 7,
+	rush = "zone", awaken = "orbit", gate = "zone", fatal = "pull",
+	blows = { "Kick", "SpinKick", "Jab", "Cross", "Sweep" },
+	fx = { line = "soundWave", burst = "soundRing", ground = "beatRing" },
+})
+-- MARION 糸: the threads from afar (R), the puppets drag the target (ÉVEIL, FATAL), the ball of
+-- the puppets around it (PORTE).
+GEN.add("MARION", {
+	id = "marion", grade = "puppet", kanji = "糸", pose = "WindGather", rest = "StandTall", seed = 7, step = 5,
+	rush = "zone", awaken = "pull", gate = "orbit", fatal = "pull",
+	blows = { "PalmStrike", "Jab", "Cross", "SpinKick" },
+	fx = { line = "threads", burst = "puppetBurst", ground = "stageRing" },
+})
+-- KAZAN 鎖: the chains drag the target in (R, PORTE), the jailer seizes and slams (ÉVEIL,
+-- FATAL).
+GEN.add("KAZAN", {
+	id = "kazan", grade = "iron", kanji = "鎖", pose = "Roar", rest = "StandTall", seed = 8, step = 11,
+	rush = "pull", awaken = "grapple", gate = "pull", fatal = "grapple",
+	blows = { "Cross", "Hammer", "Smash", "Elbow" },
+	fx = { line = "chainLine", burst = "ironBurst", ground = "prisonRing" },
+})
+-- KUREN 血: blood lances from every side (R, FATAL), scarlet rain from afar (ÉVEIL), the blood
+-- throne lifts the target (PORTE).
+GEN.add("KUREN", {
+	id = "kuren", grade = "blood", kanji = "血", pose = "KiBeamDown", rest = "StandTall", seed = 9, step = 7,
+	rush = "lunge", awaken = "zone", gate = "juggle", fatal = "lunge",
+	blows = { "Cross", "Elbow", "Uppercut", "SpinKick", "PalmStrike" },
+	fx = { line = "bloodSpear", burst = "bloodBloom", ground = "bloodPool" },
+})
+-- SYLVA 森: the vines drag the prey (R, FATAL), the hunt around it (ÉVEIL), the hostile forest
+-- from afar (PORTE).
+GEN.add("SYLVA", {
+	id = "sylva", grade = "wild", kanji = "森", pose = "WindGather", rest = "StandTall", seed = 10, step = 5,
+	rush = "pull", awaken = "orbit", gate = "zone", fatal = "pull",
+	blows = { "Kick", "SpinKick", "Cross", "Sweep", "AirKick" },
+	fx = { line = "vines", burst = "thornBurst", ground = "roots" },
+})
+-- ELIAN 癒: the light drags the target (R), lifts it to the sky (ÉVEIL, FATAL), pillars of
+-- light from afar (PORTE).
+GEN.add("ELIAN", {
+	id = "elian", grade = "holy", kanji = "癒", pose = "Kiai", rest = "StandTall", seed = 11, step = 7,
+	rush = "pull", awaken = "juggle", gate = "zone", fatal = "juggle",
+	blows = { "PalmStrike", "Uppercut", "Cross", "Smash" },
+	fx = { line = "lightRay", burst = "lightPillar", ground = "haloRing" },
+})
+-- NOVA 機: the drones fire from afar (R, FATAL), the gauntlets strike from every side (ÉVEIL),
+-- the mechanical army lifts the target (PORTE).
+GEN.add("NOVA", {
+	id = "nova", grade = "tech", kanji = "機", pose = "ArmsCrossed", rest = "StandTall", seed = 2, step = 11,
+	rush = "zone", awaken = "lunge", gate = "juggle", fatal = "zone",
+	blows = { "Jab", "Cross", "BodyBlow", "Smash", "Uppercut" },
+	fx = { line = "droneShot", burst = "dronePulse", ground = "droneRing" },
 })
 
 -- The K.O. scene of the winner's kit. `t` runs from 0 to KO_SCENE ticks.

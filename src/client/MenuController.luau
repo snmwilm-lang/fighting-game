@@ -70,7 +70,7 @@ local LEVEL_NAMES = {}
 for i, level in FighterAI.Levels do LEVEL_NAMES[i] = level.name end
 local QUEUES = { NORMAL = "NORMAL · sans points", RANKED = "CLASSÉ · points et rang", FRIEND = "AMI · défie un joueur du serveur" }
 local NEWS = {
-	{ tag = "NOUVEAU MODE", title = "SURVIE", color = RED, kanji = "生" },
+	{ tag = "12 NOUVEAUX", title = "RAIJIN, YUKINA…", color = RED, kanji = "雷" },
 	{ tag = "ÉQUIPES", title = "1, 2 OU 3 PERSOS", color = VIOLET, kanji = "隊" },
 	{ tag = "EN LIGNE", title = "PARTIES CLASSÉES", color = GOLD, kanji = "位" },
 	{ tag = "BOSS", title = "CHALLENGE ASURA", color = GOLD, kanji = "阿" },
@@ -353,8 +353,11 @@ function MenuController:buildSelect()
 	stroke(page, 2, RED)
 	self.selectTitle = label(page, { Position = UDim2.fromOffset(24, 10), Size = UDim2.new(1, -48, 0, 50), Font = DISPLAY, TextSize = 46,
 		Text = "", TextColor3 = WHITE, ZIndex = 6 })
-	local grid = new("Frame", { Position = UDim2.fromOffset(24, 70), Size = UDim2.new(0.55, -24, 0, 300), BackgroundTransparency = 1, ZIndex = 6 }, page)
-	new("UIGridLayout", { CellSize = UDim2.new(0.25, -10, 0.5, -10), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	-- (20 fighters: 5 columns, 4 rows)
+	local columns = 5
+	local rows = math.ceil(#MoveData.KitOrder / columns)
+	local grid = new("Frame", { Position = UDim2.fromOffset(24, 70), Size = UDim2.new(0.55, -24, 0, 380), BackgroundTransparency = 1, ZIndex = 6 }, page)
+	new("UIGridLayout", { CellSize = UDim2.new(1 / columns, -8, 1 / rows, -8), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
 	self.kitCells = {}
 	for i, name in MoveData.KitOrder do
 		local kit = MoveData.Kits[name]
@@ -381,7 +384,7 @@ function MenuController:buildSelect()
 		self.kitCells[i] = { cell = cell, edge = edge, pick = pick, color = color }
 	end
 	-- Fighter details.
-	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 70), Size = UDim2.new(0.42, 0, 0, 300),
+	local info = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 70), Size = UDim2.new(0.42, 0, 0, 380),
 		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 6 }, page)
 	corner(info, 8)
 	self.kitInfoStroke = stroke(info, 2, RED)
@@ -392,7 +395,7 @@ function MenuController:buildSelect()
 	self.kitText = label(info, { Position = UDim2.fromOffset(16, 90), Size = UDim2.new(1, -32, 1, -100), Font = BODY_FONT, TextSize = 15,
 		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 7 })
 	-- Options and buttons.
-	local options = new("Frame", { Position = UDim2.fromOffset(24, 384), Size = UDim2.new(1, -48, 0, 130), BackgroundTransparency = 1, ZIndex = 6 }, page)
+	local options = new("Frame", { Position = UDim2.fromOffset(24, 464), Size = UDim2.new(1, -48, 0, 130), BackgroundTransparency = 1, ZIndex = 6 }, page)
 	self.teamLine = self:optionLine(options, 0, "ÉQUIPE", function(step)
 		if not self.mode.team then return end
 		self.teamSize = math.clamp(self.teamSize + step, 1, GameModes.MAX_TEAM)
@@ -458,7 +461,13 @@ function MenuController:refreshSelect()
 	self.kitName.Text = name .. " " .. kit.Kanji
 	local level = kit.Difficulty or 2
 	self.kitRole.Text = kit.Role .. "  ·  " .. string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. ({ "SIMPLE", "MOYEN", "TECHNIQUE" })[level]
+	-- (the S + E of the sheet and the ultimates, so a new fighter can be read before it is picked)
+	local crouch = kit.Starters.Crouch.Special and MoveData.Moves[kit.Starters.Crouch.Special]
+	local u = kit.Ultimates
 	self.kitText.Text = kit.Description .. "\n\nVie " .. kit.Stats.MaxHealth .. (if kit.Passive then " · passif " .. kit.Passive.Name else "")
+		.. (if crouch then "\nS + E : " .. crouch.name else "")
+		.. "\nR : " .. MoveData.Moves[u.Rush].name .. " · ÉVEIL : " .. MoveData.Moves[u.Awaken].name
+		.. "\nPORTE : " .. MoveData.Moves[u.Gate].name .. (if u.Fatal then " · FATAL : " .. MoveData.Moves[u.Fatal].name else "")
 	self.kitInfoStroke.Color = kitColor(name)
 	self.bigKanji.Text = kit.Kanji
 	self.teamLine.frame.Visible = mode.team == true
@@ -672,7 +681,7 @@ function MenuController:buildBottom()
 		label(tile, { Position = UDim2.fromOffset(8, 70), Size = UDim2.fromOffset(130, 14), Font = UI_FONT, TextSize = 10, Text = item.tag, TextColor3 = GREY })
 		label(tile, { Position = UDim2.fromOffset(8, 86), Size = UDim2.fromOffset(130, 26), Font = DISPLAY, TextScaled = true, Text = item.title, TextColor3 = WHITE })
 	end
-	-- MES PERSONNAGES: the 8 fighters; a click makes one the favourite (the lobby hero).
+	-- MES PERSONNAGES: every fighter (a strip that scrolls); a click makes one the favourite (the lobby hero).
 	local roster = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -14), Size = UDim2.fromOffset(700, 168),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)
 	corner(roster, 6)
@@ -680,11 +689,14 @@ function MenuController:buildBottom()
 	label(roster, { Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 26, Text = "MES PERSONNAGES", TextColor3 = WHITE })
 	self.bottomRoster = roster
 	self.rosterTiles = {}
+	local strip = new("ScrollingFrame", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 0, 128), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.X, ScrollBarThickness = 4, ScrollBarImageColor3 = RED,
+		CanvasSize = UDim2.fromOffset(4 + #MoveData.KitOrder * 84, 0), ElasticBehavior = Enum.ElasticBehavior.Never }, roster)
 	for i, name in MoveData.KitOrder do
 		local kit = MoveData.Kits[name]
 		local color = kitColor(name)
-		local tile = new("TextButton", { Position = UDim2.fromOffset(14 + (i - 1) * 84, 38), Size = UDim2.fromOffset(78, 118), BackgroundColor3 = PANEL,
-			AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, roster)
+		local tile = new("TextButton", { Position = UDim2.fromOffset(4 + (i - 1) * 84, 2), Size = UDim2.fromOffset(78, 118), BackgroundColor3 = PANEL,
+			AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, strip)
 		corner(tile, 4)
 		gradient(tile, color:Lerp(INK, 0.3), INK, 90)
 		local edge = stroke(tile, 2, Color3.fromHex("33333D"))

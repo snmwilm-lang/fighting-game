@@ -29,6 +29,15 @@ local function newFighter(slot, c, kit, stanceId)
 		slipCharges = 3, slipCharge = 0, -- boxer's slips ready (see Weave.Charges) and the refill timer
 		latencyTicks = 0, -- one-way network latency of the player (set by the server), for fairness
 		rage = 0, -- RYUKEN's RAGE stacks (passive "Rage")
+		-- Wilhem's third sheet (see PASSIVE below): SURCHARGE, GEL, CONTAMINATION, MASSE, TEMPO,
+		-- DOUBLE COMMANDE, ENTRAVE, PACTE, SECOND SOUFFLE, INGÉNIERIE.
+		charge = 0, overcharged = false, reachMove = -1, reachScale = 1, bonusMove = -1, bonusScale = 1,
+		frost = 0, chilled = 0, chillScale = 1,
+		poison = 0, poisonTicks = 0, poisonDamage = 0, poisonInterval = 30,
+		massReady = false, tempoChain = 0, tempoLast = -999, tempo = 0,
+		puppetCooldown = 0, shackleHits = 0, shackled = false, secondWindUsed = false,
+		droneCharges = kit.Passive and kit.Passive.Type == "Engineering" and kit.Passive.Charges or 0, droneCharge = 0,
+		armorMove = -1,
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
@@ -76,6 +85,7 @@ local function resetFighters(world)
 	world.reason = nil
 	world.cinematic = nil
 	world.projectiles = {}
+	world.drones = {} -- NOVA's sentinels
 end
 
 function CombatSimulation.newWorld(config, moveData, training)
@@ -87,6 +97,7 @@ function CombatSimulation.newWorld(config, moveData, training)
 		epoch = 0,
 		tick = 0,
 		projectiles = {},
+		drones = {},
 		nextProjectileId = 0,
 		kits = { "KAI", "KAI" },
 	}
@@ -145,6 +156,7 @@ local function kitOf(world, f)
 	return world.moveData.Kits[f.kit]
 end
 CombatSimulation.kitOf = kitOf
+local PASSIVE = {} -- the passives of Wilhem's third sheet (defined with applyHit below)
 
 -- The fighter's stance (TARO: CLASSIQUE / ESQUIVE), nil for a kit without stances; its
 -- starters (crouch special) and its weave (ESQUIVE only).
@@ -283,6 +295,7 @@ local function startMove(world, f, id, events, isLink)
 		table.insert(events, { kind = "GuardRelease", slot = f.slot })
 	end
 	if m.air then f.airAttackUsed = true end
+	PASSIVE.onStart(world, f, m, events)
 	if m.homing then
 		local target = world.fighters[3 - f.slot]
 		local c = world.config
@@ -491,6 +504,7 @@ local function stepFighter(world, f, input, events)
 		return
 	end
 	f.frozen = false
+	PASSIVE.tick(world, f, events)
 	f.holdBlock, f.holdCrouch = input.block, input.crouch
 	f.dashCooldown = math.max(0, f.dashCooldown - 1)
 	-- Guard release: a light attack started while guarding or just after a blocked hit comes
@@ -610,6 +624,8 @@ local function stepFighter(world, f, input, events)
 	if f.move then
 		local m = moves[f.move]
 		f.moveFrame += 1
+		-- HIBIKI's TEMPO: recoveries run twice as fast.
+		if f.tempo > 0 and f.moveFrame > m.startup + m.active then f.moveFrame += 1 end
 		if m.jumpCancel and f.moveContact == "Hit" and input.jump and grounded
 			and f.moveFrame > m.startup + m.active then
 			-- Super jump after a launcher to follow the target.
@@ -700,6 +716,12 @@ local function stepFighter(world, f, input, events)
 	if input.dash and grounded and not crouched and not blocking and f.dashTicks == 0 and f.dashCooldown == 0 then
 		f.dashDirection = if math.abs(input.axis) > 0.1 then math.sign(input.axis) else f.facing
 		f.dashTicks = c.DashTicks
+		if f.shackled then
+			-- KAZAN's ENTRAVE: the chains cut this dash in half.
+			f.shackled = false
+			f.dashTicks = math.ceil(c.DashTicks / 2)
+			table.insert(events, { kind = "ShackleDash", slot = f.slot, x = f.x, y = f.y + 2 })
+		end
 		f.dashInvuln = stats.DashInvuln or 0
 		f.dashCooldown = c.DashCooldownTicks
 		local weave = weaveOf(world, f)
@@ -725,8 +747,9 @@ local function stepFighter(world, f, input, events)
 		end
 	end
 	f.crouching, f.blocking = crouched, blocking
+	local slow = if f.chilled > 0 then f.chillScale else 1 -- (YUKINA's frost, SYLVA's roots)
 	if f.dashTicks > 0 then
-		f.vx = f.dashDirection * stats.DashSpeed
+		f.vx = f.dashDirection * stats.DashSpeed * slow
 		f.dashTicks -= 1
 		f.state = "Dashing"
 	elseif blocking then
@@ -736,7 +759,7 @@ local function stepFighter(world, f, input, events)
 		f.vx = 0
 		f.state = "Crouching"
 	else
-		f.vx = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed)
+		f.vx = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed) * slow
 		f.state = if math.abs(f.vx) > 0.05 then "Walking" else "Idle"
 	end
 	physics(f, c)
@@ -768,7 +791,9 @@ end
 
 function CombatSimulation.hitbox(f, m)
 	local hb = m.hitbox
-	local x1, x2 = f.x + f.facing * hb.near, f.x + f.facing * hb.far
+	-- (SURCHARGE, TERRITOIRE: this move reaches farther)
+	local far = if f.reachMove == f.moveSerial and f.move == m.id then hb.far * f.reachScale else hb.far
+	local x1, x2 = f.x + f.facing * hb.near, f.x + f.facing * far
 	return math.min(x1, x2), math.max(x1, x2), f.y + hb.low, f.y + hb.high
 end
 
@@ -787,6 +812,7 @@ local function hitboxActive(f, moves)
 end
 
 local function canBlock(d, sourceX, m)
+	if m.grab then return false end -- (GORAN's grabs go through the guard)
 	if not isGrounded(d) or d.move then return false end
 	local guarding = d.blocking or (d.stunKind == "Block" and d.holdBlock)
 	if not guarding then return false end
@@ -957,9 +983,219 @@ local function passiveBonus(world, a, d, m, source)
 	return 1, false
 end
 
+--[[
+	Passives of Wilhem's third sheet. All in one table (the module is close to the limit of
+	local names). Each is a real mechanic, tested in tests/CombatSimulation.test.luau:
+	  Overcharge  (RAIJIN SURCHARGE)       Every hits landed in a row charge the next special or
+	              skill: Reach times its reach, Bonus more damage.
+	  Frost       (YUKINA GEL PROGRESSIF)  each hit adds a frost stack on the target; at Stacks
+	              it is slowed by Slow for SlowTicks.
+	  Poison      (VENOM CONTAMINATION)    special and skill hits add a poison charge (up to
+	              Max); every Interval ticks the charges deal PerCharge each, for Duration
+	              ticks. Poison never kills (it stops at 1 health).
+	  Anchor      (GORAN ANCRAGE)          his grounded heavy normals (damage >= Heavy) take
+	              one hit without flinching (armor); his grabs (move.grab) go through guards.
+	  Mass        (ASTER MASSE VARIABLE)   a special or skill hit makes the next air attack
+	              deal Bonus more.
+	  Tempo       (HIBIKI TEMPO)           Chain hits, each within Window ticks of the last:
+	              recoveries run twice as fast for Duration ticks.
+	  Puppet      (MARION DOUBLE COMMANDE) her threads (FILS CROISÉS) bind the target, and the
+	              puppet strikes it from the other side (a second position), then Cooldown ticks.
+	  Shackle     (KAZAN ENTRAVE)          Hits special or skill hits on the target: its next
+	              dash is cut in half.
+	  Pact        (KUREN PACTE ÉCARLATE)   each special or skill costs Cost of his maximum
+	              health (never below 1: he cannot kill himself) and deals Bonus more.
+	  Territory   (SYLVA TERRITOIRE)       one of her traps within Range of her: her attacks
+	              reach Reach times farther.
+	  SecondWind  (ELIAN SECOND SOUFFLE)   his heals (move.heal, a share of his maximum
+	              health on contact) are Boost times stronger once per round under Threshold.
+	  Engineering (NOVA INGÉNIERIE)        Charges drones, one back every Cooldown ticks; the
+	              crouch special (move.drone) sends a sentinel that fires Shots times.
+	Projectiles can also pull (data.pull: toward the thrower), bind (data.bind: extra stun),
+	stay put as traps (speed 0, data.trap: slows) and moves can reflect projectiles
+	(move.reflect = { from, to }: YUKINA's MIROIR DE GLACE).
+]]
+function PASSIVE.special(m)
+	return m.kind == "Special" or m.kind == "Skill"
+end
+
+-- A move starts: the charges it spends and the reach it gets.
+function PASSIVE.onStart(world, f, m, events)
+	local passive = kitOf(world, f).Passive
+	if not passive then return end
+	if passive.Type == "Overcharge" and f.overcharged and PASSIVE.special(m) then
+		f.overcharged = false
+		f.reachMove, f.reachScale = f.moveSerial, passive.Reach
+		f.bonusMove, f.bonusScale = f.moveSerial, 1 + passive.Bonus
+		table.insert(events, { kind = "PassiveUsed", slot = f.slot, name = passive.Name })
+	elseif passive.Type == "Pact" and PASSIVE.special(m) then
+		local cost = math.floor(f.maxHp * passive.Cost)
+		f.hp = math.max(1, f.hp - cost) -- (never by his own hand)
+		f.bonusMove, f.bonusScale = f.moveSerial, 1 + passive.Bonus
+		table.insert(events, { kind = "PassiveUsed", slot = f.slot, name = passive.Name, cost = cost })
+	elseif passive.Type == "Territory" and m.hitbox then
+		for _, p in world.projectiles do
+			if p.owner == f.slot and p.data.trap and math.abs(p.x - f.x) <= passive.Range then
+				f.reachMove, f.reachScale = f.moveSerial, passive.Reach
+				break
+			end
+		end
+	end
+	if m.drone then
+		if f.droneCharges > 0 then
+			-- NOVA's SENTINELLE: a drone over her shoulder that fires on its own.
+			f.droneCharges -= 1
+			if f.droneCharge <= 0 then f.droneCharge = passive and passive.Cooldown or 480 end
+			table.insert(world.drones, { owner = f.slot, x = f.x - f.facing * 0.8, y = f.y + 6, shots = m.drone.shots,
+				timer = m.drone.delay, every = m.drone.every, data = m.drone.projectile })
+			table.insert(events, { kind = "Drone", slot = f.slot, x = f.x, y = f.y + 6 })
+		else
+			table.insert(events, { kind = "PassiveEmpty", slot = f.slot })
+		end
+	end
+end
+
+-- The damage multiplier of the attacker's own passive for this hit.
+function PASSIVE.bonus(world, a, m, source)
+	local passive = kitOf(world, a).Passive
+	local scale = 1
+	if not source and a.bonusMove == a.moveSerial then scale *= a.bonusScale end
+	if passive and passive.Type == "Mass" and a.massReady and m.air and not source then
+		a.massReady = false
+		scale *= 1 + passive.Bonus
+	end
+	return scale
+end
+
+-- A hit landed (not blocked): stacks, charges and follow-ups.
+function PASSIVE.onHit(world, a, d, m, source, firstHit, events)
+	local passive = kitOf(world, a).Passive
+	if not passive then return end
+	local kind = passive.Type
+	if kind == "Overcharge" and firstHit then
+		a.charge += 1
+		if a.charge >= passive.Every then
+			a.charge, a.overcharged = 0, true
+			table.insert(events, { kind = "PassiveReady", slot = a.slot, name = passive.Name })
+		end
+	elseif kind == "Frost" and firstHit then
+		d.frost += 1
+		if d.frost >= passive.Stacks then
+			d.frost, d.chilled, d.chillScale = 0, passive.SlowTicks, 1 - passive.Slow
+			table.insert(events, { kind = "Chilled", slot = d.slot, x = d.x, y = d.y + 3 })
+		end
+	elseif kind == "Poison" and firstHit and PASSIVE.special(m) then
+		d.poison = math.min(passive.Max, d.poison + 1)
+		d.poisonTicks, d.poisonDamage, d.poisonInterval = passive.Duration, passive.PerCharge, passive.Interval
+	elseif kind == "Mass" and firstHit and PASSIVE.special(m) then
+		a.massReady = true
+	elseif kind == "Tempo" and firstHit then
+		a.tempoChain = if world.tick - a.tempoLast <= passive.Window then a.tempoChain + 1 else 1
+		a.tempoLast = world.tick
+		if a.tempoChain >= passive.Chain then
+			a.tempoChain, a.tempo = 0, passive.Duration
+			table.insert(events, { kind = "PassiveReady", slot = a.slot, name = passive.Name })
+		end
+	elseif kind == "Shackle" and firstHit and PASSIVE.special(m) then
+		d.shackleHits += 1
+		if d.shackleHits >= passive.Hits then
+			d.shackleHits, d.shackled = 0, true
+			table.insert(events, { kind = "Shackled", slot = d.slot, x = d.x, y = d.y + 3 })
+		end
+	elseif kind == "Puppet" and source and m.bind and a.puppetCooldown == 0 then
+		-- The puppet comes in from the far side of the target: a strike from a second position.
+		a.puppetCooldown = passive.Cooldown
+		local data = world.moves[passive.Strike].projectile
+		local side = if d.x >= a.x then 1 else -1
+		world.nextProjectileId += 1
+		table.insert(world.projectiles, { id = world.nextProjectileId, owner = a.slot, data = data,
+			x = d.x + side * 5, y = d.y + data.height, oldX = d.x + side * 5, vx = -side * data.speed, life = data.life })
+		table.insert(events, { kind = "Puppet", slot = a.slot, x = d.x + side * 5, y = d.y + data.height })
+	end
+end
+
+-- A contact (hit or block) of a healing move: ELIAN.
+function PASSIVE.heal(world, a, m, events)
+	if not m.heal then return end
+	local passive = kitOf(world, a).Passive
+	local amount = m.heal
+	if passive and passive.Type == "SecondWind" and not a.secondWindUsed and a.hp < a.maxHp * passive.Threshold then
+		a.secondWindUsed = true
+		amount *= passive.Boost
+	end
+	local gain = math.floor(a.maxHp * amount + 0.5)
+	a.hp = math.min(a.maxHp, a.hp + gain)
+	table.insert(events, { kind = "Heal", slot = a.slot, amount = gain, x = a.x, y = a.y + 3 })
+end
+
+-- GORAN's ANCRAGE: armor on a grounded heavy normal (one hit per move).
+function PASSIVE.armor(world, a, d, m, events)
+	local passive = kitOf(world, d).Passive
+	if not passive or passive.Type ~= "Anchor" or m.kind == "Ultimate" or not isGrounded(d) then return false end
+	local dm = d.move and world.moves[d.move]
+	if not dm or (dm.kind or "Normal") ~= "Normal" or dm.air or dm.damage < passive.Heavy then return false end
+	if d.moveFrame > dm.startup + dm.active or d.armorMove == d.moveSerial then return false end
+	d.armorMove = d.moveSerial
+	local damage = math.max(1, math.floor(m.damage * passive.Absorb + 0.5))
+	d.hp = math.max(1, d.hp - damage)
+	if a.slot ~= d.slot then a.moveHits = m.hits or 1 end
+	table.insert(events, { kind = "Armor", attacker = a.slot, defender = d.slot, damage = damage, x = d.x, y = d.y + 3.5 })
+	return true
+end
+
+-- Every tick of a fighter (after hitstop): timers, poison, drones refill.
+function PASSIVE.tick(world, f, events)
+	f.chilled = math.max(0, f.chilled - 1)
+	f.tempo = math.max(0, f.tempo - 1)
+	f.puppetCooldown = math.max(0, f.puppetCooldown - 1)
+	if f.poisonTicks > 0 and f.state ~= "KO" then
+		f.poisonTicks -= 1
+		if f.poisonTicks % f.poisonInterval == 0 and f.hp > 1 then
+			local damage = f.poison * f.poisonDamage
+			f.hp = math.max(1, f.hp - damage) -- (poison never kills)
+			table.insert(events, { kind = "Poison", slot = f.slot, damage = damage, x = f.x, y = f.y + 3 })
+		end
+		if f.poisonTicks == 0 then f.poison = 0 end
+	end
+	local passive = kitOf(world, f).Passive
+	if passive and passive.Type == "Engineering" and f.droneCharges < passive.Charges then
+		f.droneCharge = math.max(0, f.droneCharge - 1)
+		if f.droneCharge == 0 then
+			f.droneCharges += 1
+			if f.droneCharges < passive.Charges then f.droneCharge = passive.Cooldown end
+		end
+	end
+end
+
+-- NOVA's sentinels fire on their own.
+function PASSIVE.drones(world, events)
+	for i = #world.drones, 1, -1 do
+		local drone = world.drones[i]
+		local owner = world.fighters[drone.owner]
+		local foe = world.fighters[3 - drone.owner]
+		drone.x += ((owner.x - owner.facing * 0.8) - drone.x) * 0.1
+		drone.timer -= 1
+		if drone.timer <= 0 and foe then
+			drone.timer, drone.shots = drone.every, drone.shots - 1
+			local dir = if foe.x >= drone.x then 1 else -1
+			world.nextProjectileId += 1
+			table.insert(world.projectiles, { id = world.nextProjectileId, owner = drone.owner, data = drone.data,
+				x = drone.x + dir, y = foe.y + drone.data.height, oldX = drone.x, vx = dir * drone.data.speed, life = drone.data.life })
+			table.insert(events, { kind = "DroneShot", slot = drone.owner, x = drone.x, y = drone.y })
+		end
+		if drone.shots <= 0 or owner.state == "KO" then table.remove(world.drones, i) end
+	end
+end
+CombatSimulation.PASSIVE = PASSIVE
+
 local function applyHit(world, a, d, m, events, source)
 	local c = world.config
 	if tryParry(world, a, d, m, events, source) or tryEvade(world, a, d, m, events, source) then return end
+	if PASSIVE.armor(world, a, d, m, events) then
+		if not source then a.moveContact, a.hitstop = "Hit", 6 end
+		d.hitstop = 6
+		return
+	end
 	local event = { attacker = a.slot, defender = d.slot, move = m.id, heavy = m.heavy == true }
 	if source then
 		event.x, event.y, event.projectile = source.x, source.y, true
@@ -975,6 +1211,7 @@ local function applyHit(world, a, d, m, events, source)
 	local final = source ~= nil or a.moveHits >= hits
 	local firstHit = source ~= nil or a.moveHits == 1
 	local stop = if final then m.hitstop else (m.multiHitstop or 3)
+	if firstHit and not source then PASSIVE.heal(world, a, m, events) end
 	if canBlock(d, if source then source.x else a.x, m) then
 		if not source then a.moveContact = "Block" end
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
@@ -1006,8 +1243,10 @@ local function applyHit(world, a, d, m, events, source)
 
 	if not source then a.moveContact = "Hit" end
 	local bonus, tip = passiveBonus(world, a, d, m, source)
+	bonus *= PASSIVE.bonus(world, a, m, source)
 	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)
+	PASSIVE.onHit(world, a, d, m, source, firstHit, events)
 	event.tip = tip or nil
 	-- RAGE: a hit landed adds a stack; being hit loses them all.
 	local rage = kitOf(world, a).Passive
@@ -1066,6 +1305,13 @@ local function applyHit(world, a, d, m, events, source)
 		d.wallBounce = true
 	end
 	applyPush(a, d, if final then m.push else (m.multiPush or 1), c, source)
+	if m.pull and source then
+		-- A hook, a chain, gravity: the target is dragged toward the thrower.
+		local owner = a.x
+		d.pushVx = (if owner >= d.x then 1 else -1) * m.pull
+	end
+	if m.bind then d.stun = math.max(d.stun, m.bind) end -- (bound: threads, roots)
+	if m.trap and m.slow then d.chilled, d.chillScale = m.slow.ticks, 1 - m.slow.amount end
 	if not source then a.hitstop = stop end
 	d.hitstop = stop
 	event.kind, event.damage, event.combo, event.comboDamage = "Hit", damage, d.comboHits, d.comboDamage
@@ -1102,7 +1348,7 @@ local function stepProjectiles(world, events)
 	for i = 1, #list do
 		for j = i + 1, #list do
 			local a, b = list[i], list[j]
-			if a.owner ~= b.owner and not a.dead and not b.dead then
+			if a.owner ~= b.owner and not a.dead and not b.dead and not a.data.trap and not b.data.trap then
 				local a1, a2 = span(a)
 				local b1, b2 = span(b)
 				if a1 <= b2 and b1 <= a2 and math.abs(a.y - b.y) < a.data.halfHeight + b.data.halfHeight then
@@ -1114,7 +1360,19 @@ local function stepProjectiles(world, events)
 	end
 	for _, p in list do
 		local d = world.fighters[3 - p.owner]
-		if not p.dead and not isInvulnerable(d, c, world.moves) then
+		local dm = d.move and world.moves[d.move]
+		local mirror = dm and dm.reflect and d.moveFrame >= dm.reflect.from and d.moveFrame <= dm.reflect.to
+		if p.data.trap and not isGrounded(d) then
+			-- (a trap on the floor only catches feet)
+		elseif not p.dead and mirror and not p.data.trap then
+			local x1, x2 = span(p)
+			local dx1, dx2 = CombatSimulation.hurtbox(d, c)
+			if x1 <= dx2 + 1.5 and dx1 - 1.5 <= x2 then
+				-- YUKINA's MIROIR DE GLACE: the projectile goes back to its thrower.
+				p.owner, p.vx, p.life = d.slot, -p.vx, math.max(p.life, 40)
+				table.insert(events, { kind = "Reflect", slot = d.slot, x = p.x, y = p.y })
+			end
+		elseif not p.dead and not isInvulnerable(d, c, world.moves) then
 			local x1, x2 = span(p)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(d, c)
 			local h = p.data.halfHeight
@@ -1175,7 +1433,7 @@ local function detectHits(world, events)
 	for _, pair in { { a, b }, { b, a } } do
 		local attacker, defender = pair[1], pair[2]
 		local m = hitboxActive(attacker, moves)
-		if m and not isInvulnerable(defender, c, moves) then
+		if m and not isInvulnerable(defender, c, moves) and not (m.grab and not isGrounded(defender)) then
 			local hx1, hx2, hy1, hy2 = CombatSimulation.hitbox(attacker, m)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(defender, c)
 			if hx1 <= dx2 and dx1 <= hx2 and hy1 <= dy2 and dy1 <= hy2 and not slips(world, attacker, defender, m, events) then
@@ -1491,6 +1749,7 @@ function CombatSimulation.step(world, inputs)
 	if fighting then
 		detectHits(world, events)
 		stepProjectiles(world, events)
+		PASSIVE.drones(world, events)
 		if world.training then trainingRefill(world) end
 		-- ULTIMES ON (solo button, `ultimateConditions` = the player's slot): every condition of
 		-- the ultimates met for that fighter, ki always full and health held at 25 % (the COUP
@@ -1526,6 +1785,49 @@ function CombatSimulation.passiveGauge(world, f)
 	if passive.Type == "Evade" then return f.evadeCharge end
 	if passive.Type == "Blink" then return f.dashCooldown end
 	if passive.Type == "Rage" then return f.rage end
+	return nil
+end
+
+-- The HUD line of the third sheet's passives (nil for the others, drawn by the HUD itself).
+function CombatSimulation.passiveLabel(world, f)
+	local passive = kitOf(world, f).Passive
+	if not passive then return nil end
+	local foe = world.fighters[3 - f.slot]
+	local kind, name = passive.Type, passive.Name
+	local function dots(n, most) return string.rep("●", n) .. string.rep("○", math.max(0, most - n)) end
+	if kind == "Overcharge" then
+		return if f.overcharged then name .. " ⚡ PRÊTE" else name .. " " .. dots(f.charge, passive.Every), f.overcharged
+	elseif kind == "Frost" then
+		if foe and foe.chilled > 0 then return name .. " ❄ RALENTI " .. math.ceil(foe.chilled / 60) .. " s", true end
+		return name .. " " .. dots(foe and foe.frost or 0, passive.Stacks), false
+	elseif kind == "Poison" then
+		local n = foe and foe.poisonTicks > 0 and foe.poison or 0
+		return name .. " ☠ " .. dots(n, passive.Max), n > 0
+	elseif kind == "Mass" then
+		return if f.massReady then name .. " : AÉRIEN +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %" else name, f.massReady
+	elseif kind == "Tempo" then
+		if f.tempo > 0 then return name .. " ♪ " .. math.ceil(f.tempo / 60) .. " s", true end
+		return name .. " " .. dots(if world.tick - f.tempoLast <= passive.Window then f.tempoChain else 0, passive.Chain), false
+	elseif kind == "Puppet" then
+		return if f.puppetCooldown <= 0 then name .. " ✓" else name .. " " .. math.ceil(f.puppetCooldown / 60) .. " s",
+			f.puppetCooldown <= 0
+	elseif kind == "Shackle" then
+		if foe and foe.shackled then return name .. " ⛓ DASH ENTRAVÉ", true end
+		return name .. " " .. dots(foe and foe.shackleHits or 0, passive.Hits), false
+	elseif kind == "Pact" then
+		return name .. " : -" .. math.floor(passive.Cost * 100 + 0.5) .. " % PV, +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
+	elseif kind == "Territory" then
+		local traps = 0
+		for _, p in world.projectiles do
+			if p.owner == f.slot and p.data.trap then traps += 1 end
+		end
+		return name .. " " .. (if traps > 0 then "🌿 " .. traps else "—"), traps > 0
+	elseif kind == "SecondWind" then
+		return if f.secondWindUsed then name .. " (utilisé)" else name .. " ✓", not f.secondWindUsed
+	elseif kind == "Engineering" then
+		return name .. " " .. dots(f.droneCharges, passive.Charges)
+			.. (if f.droneCharges < passive.Charges then " " .. math.ceil(f.droneCharge / 60) .. " s" else ""), f.droneCharges > 0
+	end
 	return nil
 end
 

@@ -878,6 +878,21 @@ function EffectsController:onEvent(event, views, rigs)
 		local v = views[event.attacker]
 		if v then self.camera:punch(0.1, Vector3.new(v.x, v.y + 3.5, 0)) end
 		return
+	elseif event.kind == "Chilled" or event.kind == "Poison" or event.kind == "Heal" or event.kind == "Reflect"
+		or event.kind == "Armor" or event.kind == "Shackled" or event.kind == "Puppet" or event.kind == "Drone" then
+		-- The third sheet's passives: a mark where it happened, in a colour that tells it.
+		local slot = event.slot or event.defender
+		local position = Vector3.new(event.x or 0, event.y or 3, 0)
+		local colors = { Chilled = "9FE6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "C8F0FF", Armor = "FF4A3A",
+			Shackled = "FFB04A", Puppet = "E0304A", Drone = "FF8A2A" }
+		local color = Color3.fromHex(colors[event.kind])
+		self:spark(position, color, if event.kind == "Poison" then 0.5 else 1.2)
+		if event.kind == "Heal" or event.kind == "Chilled" then
+			self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 1.6, 0, 360, color, math.pi / 2, 1)
+		elseif event.kind == "Armor" and rigs[slot] then
+			self:flash(rigs[slot])
+		end
+		return
 	elseif event.kind == "Projectile" then
 		local v = views[event.attacker]
 		if v then self:spark(Vector3.new(v.x + v.facing * 1.8, v.y + 3.6, 0), self:energy(event.attacker), 0.8) end
@@ -937,21 +952,23 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		local visual = self.projectiles[p.id]
 		local color = self:energy(p.owner)
 		if not visual then
-			local core = self:part(Vector3.one * 1.1, CFrame.new(p.x, p.y, 0), WHITE, Enum.PartType.Ball)
-			local shell = self:part(Vector3.one * 2, CFrame.new(p.x, p.y, 0), color, Enum.PartType.Ball)
+			-- (a trap lies flat on the floor; a drone is small and metallic)
+			local scale = if p.drone then 0.45 elseif p.trap then 1.3 else 1
+			local core = self:part(Vector3.one * 1.1 * scale, CFrame.new(p.x, p.y, 0), if p.drone then Color3.fromHex("5A5A66") else WHITE, Enum.PartType.Ball)
+			local shell = self:part(Vector3.one * 2 * scale, CFrame.new(p.x, p.y, 0), color, Enum.PartType.Ball)
 			shell.Material, shell.Transparency = Enum.Material.ForceField, 0
 			local light = Instance.new("PointLight")
 			light.Color, light.Range, light.Brightness = color, 12, 3
 			light.Parent = core
-			visual = { core = core, shell = shell, color = color, trail = 0 }
+			visual = { core = core, shell = shell, color = color, trail = 0, scale = scale, still = p.drone or p.trap }
 			self.projectiles[p.id] = visual
 		end
 		local position = Vector3.new(p.x + p.vx * ahead, p.y, 0.4)
 		local pulse = 1 + 0.12 * math.sin(now * 40)
 		visual.core.CFrame = CFrame.new(position)
 		visual.shell.CFrame = CFrame.new(position)
-		visual.shell.Size = Vector3.one * 2 * pulse
-		if now - visual.trail > (if self.reduced then 0.06 else 0.03) then
+		visual.shell.Size = if p.trap then Vector3.new(2.6, 0.3, 2.6) * pulse else Vector3.one * 2 * pulse * visual.scale
+		if not visual.still and now - visual.trail > (if self.reduced then 0.06 else 0.03) then
 			visual.trail = now
 			local ghost = self:part(Vector3.one * 1.3, CFrame.new(position), visual.color, Enum.PartType.Ball)
 			ghost.Transparency = 0.4

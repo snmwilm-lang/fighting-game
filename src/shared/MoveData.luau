@@ -633,6 +633,186 @@ Moves.AsuraGatling = move({
 	heavy = true,
 })
 
+-- ===================================================================== WILHEM'S THIRD SHEET
+--[[
+	Twelve kits on the same combo grammar, written compactly: `newKit(prefix, names, tuning,
+	overrides)` names every role `<Prefix><Role>` (RaijinJab, YukinaKaienRush...) from a list
+	of 29 names in ROLE_ORDER. Each kit changes what makes it itself: its crouch special (the
+	S + E of the sheet), reach, speed, damage, and its passive (CombatSimulation PASSIVE).
+]]
+local ROLE_ORDER = {
+	"Jab", "Cross", "Elbow", "Kick", "BodyBlow", "Uppercut", "PalmStrike", "DragonTornado", "DragonFist", "CrescentMoon",
+	"RisingWind", "KiFlurry", "ThunderHeel", "SpinKick", "Smash", "Hammer", "Sweep", "LowKick", "AirKick", "AirKick2",
+	"AirSmash", "Rising", "KiChase", "Finale", "KiBlast", "KaienRush", "Awakening", "Kaiten", "Fatal",
+}
+local THIRD = {} -- name -> { roles, names } (used by the kit() calls below)
+local function newKit(name, prefix, list, tuning, overrides)
+	assert(#list == #ROLE_ORDER, name .. ": " .. #list .. " names")
+	local roles, names, byRole = {}, {}, {}
+	for i, role in ROLE_ORDER do
+		local id = prefix .. role
+		roles[role], names[id], byRole[role] = id, list[i], list[i]
+	end
+	local own = {}
+	for role, fields in overrides do own[prefix .. role] = fields end
+	derive(roles, names, tuning, own)
+	THIRD[name] = { roles = roles, names = byRole }
+	return roles
+end
+
+-- RAIJIN 雷: a lightning spear. Long thrusts; LANCE FOUDROYANTE (S + E) pierces across the screen.
+newKit("RAIJIN", "Raijin", {
+	"ESTOC", "REVERS DE HAMPE", "TALON DE LANCE", "TOURNOIEMENT", "PERCÉE DU VENTRE", "ENVOL DE LANCE", "DÉCHARGE",
+	"DRAGON FOUDROYANT", "CROC DU TONNERRE", "ARC ÉLECTRIQUE", "VENT D'ORAGE", "MILLE ESTOCS", "CHUTE DE FOUDRE",
+	"BALAYAGE DE HAMPE", "ESTOC LOURD", "FRAPPE DESCENDANTE", "FAUCHE BASSE", "PIQUE BASSE", "ESTOC AÉRIEN", "REVERS AÉRIEN",
+	"PLONGEON FOUDRE", "ÉCLAIR MONTANT", "POURSUITE ÉLECTRIQUE", "COUP DE TONNERRE", "LANCE FOUDROYANTE",
+	"MILLE ÉCLAIRS", "JUGEMENT DU TONNERRE", "雷神 · COLÈRE DIVINE", "天罰 · SENTENCE CÉLESTE",
+}, { damage = 1.06, startup = 0, reach = 1.15 }, {
+	KiBlast = { startup = 14, projectile = { speed = 50, life = 46, damage = 62, halfWidth = 1.3, guardDamage = 16 } },
+})
+-- YUKINA 雪: two fans of ice. Dances round the target; MIROIR DE GLACE (S + E) sends projectiles back.
+newKit("YUKINA", "Yukina", {
+	"ÉVENTAIL", "REVERS D'ÉVENTAIL", "LAME DE GIVRE", "DANSE GLACÉE", "ÉCLAT AU CŒUR", "ENVOL DE NEIGE", "SOUFFLE GELÉ",
+	"TOURBILLON DE NEIGE", "STALAGMITE", "CROISSANT DE GLACE", "BLIZZARD", "PLUIE D'AIGUILLES", "PAS DE GIVRE",
+	"ÉVENTAIL TOURNANT", "COUPE GLACÉE", "CHUTE DE GRÊLE", "PATINAGE", "COUP BAS GELÉ", "ÉVENTAIL AÉRIEN", "DOUBLE ÉVENTAIL",
+	"AVALANCHE", "PIC DE GLACE", "POURSUITE BLANCHE", "CRISTALLISATION", "ÉCLATS DE GLACE",
+	"JARDIN DES GLACES", "VALSE HIVERNALE", "氷獄 · PRISON ÉTERNELLE", "絶対零度 · ZÉRO ABSOLU",
+}, { damage = 1.05, startup = 0, reach = 1.05 }, {
+	KiBlast = { projectile = { speed = 24, life = 80, damage = 52 } },
+})
+Moves.YukinaMirror = move({ -- crouch + E: a mirror of ice that sends projectiles back to their thrower
+	id = "YukinaMirror", name = "MIROIR DE GLACE", kind = "Special", startup = 3, active = 18, recovery = 20,
+	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+	reflect = { from = 3, to = 21 },
+})
+-- VENOM 毒: green claws and poison. Fast, wears the target down; BRUME TOXIQUE (S + E) is a slow cloud.
+newKit("VENOM", "Venom", {
+	"GRIFFE", "REVERS GRIFFU", "LACÉRATION", "RUÉE DU PRÉDATEUR", "CROC AU VENTRE", "ARRACHÉ", "INJECTION", "FRÉNÉSIE",
+	"MORSURE MONTANTE", "CROISSANT VENIMEUX", "SPIRALE TOXIQUE", "MILLE GRIFFES", "PIÈGE DU SERPENT", "FOUET DE GRIFFES",
+	"GRIFFE LOURDE", "ÉCRASEMENT", "FAUCHE RAMPANTE", "GRIFFE BASSE", "GRIFFE AÉRIENNE", "DOUBLE GRIFFE",
+	"PIQUÉ DU PRÉDATEUR", "BOND VENIMEUX", "TRAQUE", "DERNIÈRE MORSURE", "BRUME TOXIQUE",
+	"MORSURE FATALE", "ÉPIDÉMIE", "毒王 · ROI DU VENIN", "蝕 · CORROSION TOTALE",
+}, { damage = 0.9, startup = -1, reach = 0.95 }, {
+	KiBlast = { startup = 10, projectile = { speed = 10, life = 130, damage = 36, halfWidth = 1.8, halfHeight = 1.8, hitstun = 18,
+		push = 4, guardDamage = 8 } },
+})
+-- GORAN 剛: the wrestler. Slow and huge; grabs that go through guards, ÉTREINTE DU TITAN (S + E).
+newKit("GORAN", "Goran", {
+	"MANCHETTE", "AVANT-BRAS", "COUP DE COUDE", "CLOTHESLINE", "ÉTRANGLEMENT", "LEVÉE DU TITAN", "COUP DE TÊTE", "SUPLEX",
+	"UPPERCUT DU TITAN", "SOUPLESSE ARRIÈRE", "PROJECTION TOURNANTE", "MARTÈLEMENT", "GENOU AU SOL", "LARIAT",
+	"FRAPPE DU COLOSSE", "MARTEAU", "BALAYAGE DU TITAN", "COUP DE PIED BAS", "CORPS-À-CORPS AÉRIEN", "COUDE AÉRIEN",
+	"CHUTE DU COLOSSE", "CHARGE DU TITAN", "SAISIE AÉRIENNE", "POWERBOMB", "ÉTREINTE DU TITAN",
+	"SUPLEX APOCALYPTIQUE", "BRISURE VERTÉBRALE", "巨神 · CHUTE DU TITAN", "終幕 · DERNIÈRE PROJECTION",
+}, { damage = 0.86, startup = 1, reach = 0.95 }, {
+	BodyBlow = { grab = true, damage = 70, knockdown = true, hitbox = { near = 0, far = 2.6, low = 0.5, high = 5.5 } },
+})
+Moves.GoranGrab = move({ -- crouch + E: ÉTREINTE DU TITAN, seized and thrown over his shoulder (not blockable)
+	id = "GoranGrab", name = "ÉTREINTE DU TITAN", kind = "Special", startup = 5, active = 3, recovery = 32,
+	damage = 130, guardDamage = 0, hitstun = 30, blockstun = 0, hitstop = 14, push = 30, blockPush = 0,
+	launch = 24, knockdown = true, grab = true,
+	hitbox = { near = 0, far = 2.7, low = 0.5, high = 5.5 },
+	heavy = true,
+})
+-- ASTER 星: gravity. ATTRACTION (S + E) pulls the target in; gravity hits charge his air attacks.
+newKit("ASTER", "Aster", {
+	"IMPULSION", "ANNEAU", "PRESSION", "ORBITE COURTE", "MASSE AU CŒUR", "APESANTEUR", "POUSSÉE STELLAIRE",
+	"SPIRALE GALACTIQUE", "COMÈTE MONTANTE", "CROISSANT LUNAIRE", "VENT SOLAIRE", "PLUIE D'ÉTOILES", "CHUTE DE MASSE",
+	"ANNEAU TOURNANT", "FRAPPE GRAVE", "ÉCRASEMENT", "GLISSEMENT", "PRESSION BASSE", "IMPULSION AÉRIENNE", "ANNEAU AÉRIEN",
+	"CHUTE D'ASTRE", "ÉLÉVATION", "ORBITE", "SUPERNOVA", "ATTRACTION",
+	"ORBITE MORTELLE", "EFFONDREMENT STELLAIRE", "重力 · HORIZON DES ÉVÉNEMENTS", "星葬 · FUNÉRAILLES COSMIQUES",
+}, { damage = 1.08, startup = 0, reach = 1.05 }, {
+	KiBlast = { projectile = { speed = 26, life = 70, damage = 44, pull = 30, push = 0, hitstun = 26 } },
+})
+-- HIBIKI 響: sound and rhythm. Quick, and quicker still in TEMPO; ONDE SONIQUE (S + E) blows the target away.
+newKit("HIBIKI", "Hibiki", {
+	"BEAT", "CONTRETEMPS", "SNARE", "BREAKDANCE", "BASSE AU VENTRE", "DROP", "IMPULSION SONORE", "REMIX", "CRESCENDO",
+	"SCRATCH", "LARSEN", "RAFALE DE NOTES", "KICK DRUM", "PIROUETTE", "FORTISSIMO", "BASS DROP", "GLISSANDO", "COUP BAS",
+	"NOTE AÉRIENNE", "DOUBLE CROCHE", "CHUTE DE TEMPO", "AMPLI", "ÉCHO", "FINAL EN MAJEUR", "ONDE SONIQUE",
+	"SYMPHONIE BRUTALE", "FRÉQUENCE INTERDITE", "絶響 · DERNIÈRE RÉSONANCE", "無音 · SILENCE ABSOLU",
+}, { damage = 0.94, startup = -1, reach = 1 }, {
+	KiBlast = { startup = 9, projectile = { speed = 38, life = 36, damage = 48, halfHeight = 1.8, push = 42, blockPush = 30 } },
+})
+-- MARION 糸: a puppeteer. Long threads, a puppet that strikes from the other side; FILS CROISÉS
+-- (S + E) binds the target.
+newKit("MARION", "Marion", {
+	"FIL", "REVERS DE FIL", "PANTIN", "DANSE MACABRE", "AIGUILLE", "LEVÉE DU RIDEAU", "MAIN DE BOIS", "PIROUETTE DU PANTIN",
+	"CORDE MONTANTE", "ARC DE SOIE", "TOILE", "MILLE FILS", "CHUTE DU DÉCOR", "VALSE DU PANTIN", "COUP DE THÉÂTRE",
+	"TOMBÉE DU RIDEAU", "FIL RASANT", "AIGUILLE BASSE", "FIL AÉRIEN", "DOUBLE FIL", "CHUTE DE MARIONNETTE",
+	"ENTRÉE EN SCÈNE", "TIRAGE", "SALUT FINAL", "FILS CROISÉS",
+	"BAL DES MARIONNETTES", "THÉÂTRE SANGLANT", "操人 · DERNIER ACTE", "終演 · LE RIDEAU TOMBE",
+}, { damage = 1.12, startup = 0, reach = 1.2 }, {
+	KiBlast = { projectile = { speed = 30, life = 56, damage = 30, hitstun = 10, bind = 40, push = 0 } },
+})
+Moves.MarionPuppet = move({ -- DOUBLE COMMANDE: the puppet's strike from the other side (thrown by the passive)
+	id = "MarionPuppet", name = "LE PANTIN", kind = "Special", startup = 8, active = 2, recovery = 14,
+	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+	projectile = { speed = 34, life = 26, spawnX = 0, height = 3.2, halfWidth = 0.9, halfHeight = 1.4,
+		damage = 44, guardDamage = 10, hitstun = 22, blockstun = 12, hitstop = 8, push = 10, blockPush = 10 },
+})
+-- KAZAN 鎖: the jailer's chains. The longest reach of the chains; CROCHET DU GEÔLIER (S + E) pulls.
+newKit("KAZAN", "Kazan", {
+	"MAILLON", "REVERS DE CHAÎNE", "MENOTTE", "FOUET DE FER", "CADENAS", "LEVÉE DES FERS", "BOULET",
+	"TOURBILLON DE CHAÎNES", "CHAÎNE MONTANTE", "ARC DE FER", "TEMPÊTE DE MAILLONS", "MILLE MAILLONS", "ÉCROU",
+	"CHAÎNE TOURNANTE", "MASSE DU GEÔLIER", "VERROU", "ENTRAVE BASSE", "MAILLON BAS", "CHAÎNE AÉRIENNE", "DOUBLE CHAÎNE",
+	"CHUTE DU BOULET", "TRACTION", "POURSUITE DU GEÔLIER", "SENTENCE", "CROCHET DU GEÔLIER",
+	"CENT CHAÎNES", "PRISON DE FER", "鎖獄 · JUGEMENT DES ENTRAVES", "断罪 · DERNIER VERDICT",
+}, { damage = 1.0, startup = 1, reach = 1.25 }, {
+	KiBlast = { projectile = { speed = 42, life = 30, damage = 40, pull = 36, push = 0, hitstun = 26 } },
+})
+-- KUREN 血: blood. Every special costs blood and hits harder; LANCE SANGUINE (S + E) is the fastest throw.
+newKit("KUREN", "Kuren", {
+	"ENTAILLE", "REVERS ÉCARLATE", "SAIGNÉE", "DANSE POURPRE", "PERFORATION", "GEYSER", "PALME DE SANG", "VORTEX ÉCARLATE",
+	"PIQUE SANGUINE", "CROISSANT ROUGE", "HÉMORRAGIE", "AVERSE D'ÉPINES", "CAILLOT", "FOUET DE SANG", "COUP DU PACTE",
+	"MARTEAU CRUOR", "FAUCHE ROUGE", "ENTAILLE BASSE", "SERRE AÉRIENNE", "DOUBLE ENTAILLE", "CHUTE ÉCARLATE",
+	"ASCENSION SANGLANTE", "TRAQUE ROUGE", "OFFRANDE", "LANCE SANGUINE",
+	"PLUIE ÉCARLATE", "PACTE INTERDIT", "血王 · TRÔNE SANGLANT", "血月 · LUNE DE SANG",
+}, { damage = 1.2, startup = 0, reach = 1.05 }, {
+	KiBlast = { startup = 11, projectile = { speed = 54, life = 42, damage = 70, halfWidth = 1.1 } },
+})
+-- SYLVA 森: the huntress. Traps on the floor; RACINES VORACES (S + E) slow and hurt who steps on them.
+newKit("SYLVA", "Sylva", {
+	"RONCE", "REVERS FEUILLU", "ÉPINE", "COUP DE LIANE", "ÉCORCE", "POUSSE", "SÈVE", "TOURBILLON DE FEUILLES",
+	"RACINE MONTANTE", "CROISSANT DE LIANE", "VENT DES BOIS", "PLUIE D'ÉPINES", "SOUCHE", "FOUET DE LIANE", "COUP DE TRONC",
+	"CHUTE DE BRANCHE", "RACINE RAMPANTE", "ÉPINE BASSE", "BOND DU LYNX", "DOUBLE SERRE", "CHUTE DU FAUCON",
+	"GERMINATION", "CHASSE", "FLORAISON", "RACINES VORACES",
+	"FORÊT HOSTILE", "ÉTREINTE SAUVAGE", "森王 · DOMAINE DES RONCES", "世界樹 · LE DERNIER ARBRE",
+}, { damage = 0.98, startup = 0, reach = 1.1 }, {
+	KiBlast = { startup = 10, recovery = 20, projectile = { speed = 0, life = 420, spawnX = 3.6, height = 0.4, halfWidth = 1.3,
+		halfHeight = 0.6, damage = 50, hitstun = 22, bind = 24, push = 0, trap = true, slow = { ticks = 120, amount = 0.35 },
+		guard = "Low" } },
+})
+-- ELIAN 癒: the healer. Light and care; IMPULSION VITALE (S + E) pushes away and heals him a little.
+newKit("ELIAN", "Elian", {
+	"PAUME", "REVERS LUMINEUX", "BÉNÉDICTION", "PAS DE GRÂCE", "IMPOSITION", "ÉLÉVATION", "PALME SACRÉE",
+	"SPIRALE DE LUMIÈRE", "RAYON MONTANT", "HALO", "SOUFFLE DIVIN", "PRIÈRE EN RAFALE", "CHUTE D'ANGE",
+	"TOURNOIEMENT SAINT", "FRAPPE SACRÉE", "JUGEMENT", "FAUCHE DE LUMIÈRE", "COUP BAS", "PLUME", "DOUBLE PLUME",
+	"CHUTE CÉLESTE", "ASCENSION", "LUMIÈRE CHERCHEUSE", "ABSOLUTION", "RAYON",
+	"RENAISSANCE", "PURIFICATION", "神癒 · MIRACLE DIVIN", "天光 · DERNIÈRE LUMIÈRE",
+}, { damage = 1.02, startup = 0, reach = 1 }, {})
+Moves.ElianPulse = move({ -- crouch + E: IMPULSION VITALE, a close wave that pushes away and heals him
+	id = "ElianPulse", name = "IMPULSION VITALE", kind = "Special", startup = 8, active = 4, recovery = 24,
+	damage = 50, guardDamage = 10, hitstun = 20, blockstun = 14, hitstop = 8, push = 36, blockPush = 32,
+	heal = 0.04,
+	hitbox = { near = 0, far = 3.4, low = 0, high = 6 },
+})
+-- NOVA 機: the engineer. Mechanical gauntlets and two drones; SENTINELLE (S + E) fires on its own.
+newKit("NOVA", "Nova", {
+	"GANTELET", "REVERS MÉCANIQUE", "PISTON", "COMBO SERVO", "PERCEUSE", "PROPULSEUR", "DÉCHARGE", "TURBINE",
+	"CANON MONTANT", "ARC PLASMA", "RAFALE DE DRONES", "MITRAILLE", "MARTEAU HYDRAULIQUE", "ROTOR", "IMPACT", "PRESSE",
+	"GLISSADE", "COUP BAS", "PROPULSION AÉRIENNE", "DOUBLE PISTON", "BOMBE", "DÉCOLLAGE", "VERROUILLAGE", "SURCHAUFFE",
+	"TIR DE DRONE", "SATURATION", "PROTOCOLE OMEGA", "機神 · ARMÉE MÉCANIQUE", "終焉 · EXTINCTION PROGRAMMÉE",
+}, { damage = 1.05, startup = 0, reach = 1 }, {})
+local droneShot = {
+	id = "NovaDroneShot", name = "TIR DE SENTINELLE", kind = "Special", guard = "Mid", launch = 0,
+	speed = 40, life = 50, spawnX = 0, height = 3.4, halfWidth = 0.6, halfHeight = 0.6,
+	damage = 30, guardDamage = 6, hitstun = 16, blockstun = 10, hitstop = 6, push = 6, blockPush = 8,
+}
+Moves.NovaSentinel = move({ -- crouch + E: SENTINELLE, a drone that fires `shots` times on its own (INGÉNIERIE)
+	id = "NovaSentinel", name = "SENTINELLE", kind = "Special", startup = 10, active = 2, recovery = 20,
+	damage = 0, guardDamage = 0, hitstun = 0, blockstun = 0, hitstop = 0, push = 0, blockPush = 0,
+	drone = table.freeze({ shots = 3, delay = 24, every = 36, projectile = table.freeze(droneShot) }),
+})
+
 MoveData.Moves = table.freeze(Moves)
 
 -- ===================================================================== kits
@@ -935,6 +1115,109 @@ kit("HIBECARES", {
 	GateTitle = { text = "崩", sub = "RUINES DU MONDE" },
 	Colors = { TORNADE = "FF8A1A", RAFALE = "FFB21A", DRAGON = "FF6A1A", FOUDRE = "FFD45A", MUR = "FF8A1A", LUNE = "C8A070" },
 })
+-- ===================================================================== WILHEM'S THIRD SHEET: the kits
+-- Their route names come from their own moves (THIRD[name].names, by role); the ÉVEIL finales
+-- are the six full routes'.
+local function third(name, data)
+	local n = THIRD[name].names
+	data.Roles = THIRD[name].roles
+	data.RouteNames = { "CHAÎNE", "LANCEUR", "PERCÉE", "MUR", "MARTEAU", "FAUCHE", n.DragonTornado, n.KiFlurry, n.DragonFist,
+		n.ThunderHeel, n.CrescentMoon }
+	data.FullRouteNames = { n.DragonTornado, n.KiFlurry, n.DragonFist, n.ThunderHeel, "MUR", n.CrescentMoon }
+	local e = data.Energy
+	data.Colors = { TORNADE = e, RAFALE = e, DRAGON = e, FOUDRE = data.Light or e, MUR = e, LUNE = data.Light or e }
+	data.Energy, data.Light = nil, nil
+	kit(name, data)
+end
+third("RAIJIN", {
+	Kanji = "雷", Role = "PERCÉE", Difficulty = 2, Energy = "FFE85A", Light = "FFFFFF",
+	Description = "Le dragon foudroyant : une lance chargée d'éclairs, la plus longue allonge. SURCHARGE : 3 coups portés d'affilée chargent la prochaine technique (plus d'allonge, plus de dégâts).",
+	Stats = { MaxHealth = 1400, WalkSpeed = 17.5, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 42 },
+	Passive = { Type = "Overcharge", Name = "SURCHARGE", Every = 3, Reach = 1.35, Bonus = 0.15 },
+	GateTitle = { text = "雷神", sub = "COLÈRE DIVINE" },
+})
+third("YUKINA", {
+	Kanji = "雪", Role = "CONTRÔLE", Difficulty = 3, Energy = "9FE6FF", Light = "FFFFFF",
+	Description = "L'impératrice du givre : deux éventails de glace. GEL PROGRESSIF : 3 coups gèlent l'adversaire (20 % plus lent). MIROIR DE GLACE (S + E) renvoie les projectiles.",
+	Starters = { Crouch = { Special = "YukinaMirror" } },
+	Stats = { MaxHealth = 1250, WalkSpeed = 17.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 42 },
+	Passive = { Type = "Frost", Name = "GEL PROGRESSIF", Stacks = 3, Slow = 0.2, SlowTicks = 180 },
+	GateTitle = { text = "氷獄", sub = "PRISON ÉTERNELLE" },
+})
+third("VENOM", {
+	Kanji = "毒", Role = "USURE", Difficulty = 2, Energy = "7CFF4A", Light = "C8FF9A",
+	Description = "Le prédateur : griffes et poison, rapide. CONTAMINATION : ses techniques empoisonnent (jusqu'à 3 charges, des dégâts qui durent mais ne tuent jamais). BRUME TOXIQUE (S + E).",
+	Stats = { MaxHealth = 1350, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
+	Passive = { Type = "Poison", Name = "CONTAMINATION", Max = 3, PerCharge = 6, Interval = 30, Duration = 180 },
+	GateTitle = { text = "毒王", sub = "ROI DU VENIN" },
+})
+third("GORAN", {
+	Kanji = "剛", Role = "LUTTE", Difficulty = 2, Energy = "FF4A3A", Light = "FFB0A0",
+	Description = "Le titan : lent et énorme, des saisies que la garde n'arrête pas. ANCRAGE : ses coups lourds au sol encaissent un coup sans broncher. ÉTREINTE DU TITAN (S + E).",
+	Starters = { Crouch = { Special = "GoranGrab" } },
+	Stats = { MaxHealth = 1700, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
+	Passive = { Type = "Anchor", Name = "ANCRAGE", Heavy = 60, Absorb = 1 },
+	GateTitle = { text = "巨神", sub = "CHUTE DU TITAN" },
+})
+third("ASTER", {
+	Kanji = "星", Role = "GRAVITÉ", Difficulty = 3, Energy = "B49CFF", Light = "E8E0FF",
+	Description = "Le maître de la gravité : anneaux flottants. MASSE VARIABLE : après une technique réussie, sa prochaine attaque aérienne frappe 30 % plus fort. ATTRACTION (S + E) tire l'adversaire.",
+	Stats = { MaxHealth = 1300, WalkSpeed = 16.5, AirSpeed = 15.5, JumpVelocity = 47, DashSpeed = 40 },
+	Passive = { Type = "Mass", Name = "MASSE VARIABLE", Bonus = 0.3 },
+	GateTitle = { text = "重力", sub = "HORIZON DES ÉVÉNEMENTS" },
+})
+third("HIBIKI", {
+	Kanji = "響", Role = "RYTHME", Difficulty = 3, Energy = "FF6FC8", Light = "FFD0EE",
+	Description = "La résonance : son et rythme, très rapide. TEMPO : 3 coups en rythme et ses récupérations vont deux fois plus vite pendant 4 s. ONDE SONIQUE (S + E) repousse.",
+	Stats = { MaxHealth = 1250, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
+	Passive = { Type = "Tempo", Name = "TEMPO", Chain = 3, Window = 50, Duration = 240 },
+	GateTitle = { text = "絶響", sub = "DERNIÈRE RÉSONANCE" },
+})
+third("MARION", {
+	Kanji = "糸", Role = "MARIONNETTES", Difficulty = 3, Energy = "E0304A", Light = "F0C8D0",
+	Description = "La marionnettiste : de longs fils et un pantin. DOUBLE COMMANDE : ses techniques font frapper le pantin depuis l'autre côté. FILS CROISÉS (S + E) immobilise.",
+	Stats = { MaxHealth = 1150, WalkSpeed = 16.5, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
+	Passive = { Type = "Puppet", Name = "DOUBLE COMMANDE", Cooldown = 300, Strike = "MarionPuppet" },
+	GateTitle = { text = "操人", sub = "DERNIER ACTE" },
+})
+third("KAZAN", {
+	Kanji = "鎖", Role = "CAPTURE", Difficulty = 2, Energy = "FFB04A", Light = "E0E0E8",
+	Description = "Le geôlier : des chaînes à très longue portée. ENTRAVE : 2 techniques touchées et le prochain dash adverse est coupé de moitié. CROCHET DU GEÔLIER (S + E) attire.",
+	Stats = { MaxHealth = 1450, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 38 },
+	Passive = { Type = "Shackle", Name = "ENTRAVE", Hits = 2 },
+	GateTitle = { text = "鎖獄", sub = "JUGEMENT DES ENTRAVES" },
+})
+third("KUREN", {
+	Kanji = "血", Role = "SACRIFICE", Difficulty = 3, Energy = "D0102E", Light = "FF8090",
+	Description = "L'alchimiste sanguin. PACTE ÉCARLATE : chaque technique lui coûte 3 % de sa vie (jamais mortel) et frappe 30 % plus fort. LANCE SANGUINE (S + E) traverse l'écran.",
+	Stats = { MaxHealth = 1350, WalkSpeed = 17, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 41 },
+	Passive = { Type = "Pact", Name = "PACTE ÉCARLATE", Cost = 0.03, Bonus = 0.3 },
+	GateTitle = { text = "血王", sub = "TRÔNE SANGLANT" },
+})
+third("SYLVA", {
+	Kanji = "森", Role = "PIÈGES", Difficulty = 3, Energy = "4AD86A", Light = "C8F0A0",
+	Description = "La chasseuse : pièges et lianes. RACINES VORACES (S + E) pose un piège qui ralentit et blesse. TERRITOIRE : avec un piège près d'elle, ses coups portent plus loin.",
+	Stats = { MaxHealth = 1250, WalkSpeed = 17.5, AirSpeed = 15, JumpVelocity = 46, DashSpeed = 42 },
+	Passive = { Type = "Territory", Name = "TERRITOIRE", Range = 12, Reach = 1.2 },
+	GateTitle = { text = "森王", sub = "DOMAINE DES RONCES" },
+})
+third("ELIAN", {
+	Kanji = "癒", Role = "SOUTIEN", Difficulty = 2, Energy = "FFE9A0", Light = "FFFFFF",
+	Description = "Le guérisseur. IMPULSION VITALE (S + E) repousse et le soigne un peu. SECOND SOUFFLE : sous 30 % de vie, son prochain soin est trois fois plus fort (une fois par manche).",
+	Starters = { Crouch = { Special = "ElianPulse" } },
+	Stats = { MaxHealth = 1350, WalkSpeed = 17, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
+	Passive = { Type = "SecondWind", Name = "SECOND SOUFFLE", Threshold = 0.3, Boost = 3 },
+	GateTitle = { text = "神癒", sub = "MIRACLE DIVIN" },
+})
+third("NOVA", {
+	Kanji = "機", Role = "DRONES", Difficulty = 3, Energy = "FF8A2A", Light = "FFD0A0",
+	Description = "L'ingénieure de guerre : gantelets mécaniques et drones. SENTINELLE (S + E) : un drone tire seul trois fois. INGÉNIERIE : 2 drones, qui reviennent avec le temps.",
+	Starters = { Crouch = { Special = "NovaSentinel" } },
+	Stats = { MaxHealth = 1300, WalkSpeed = 17, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
+	Passive = { Type = "Engineering", Name = "INGÉNIERIE", Charges = 2, Cooldown = 540 },
+	GateTitle = { text = "機神", sub = "ARMÉE MÉCANIQUE" },
+})
+
 -- ===================================================================== ASURA 阿 · boss
 -- The CHALLENGE boss: KAI's moves with four arms (the extra pair is cosmetic, see RigBuilder),
 -- a lot more health, harder hits and a sturdier guard. Not selectable (not in KitOrder).
@@ -954,7 +1237,8 @@ kit("ASURA", {
 
 MoveData.Cinematics = table.freeze(MoveData.Cinematics)
 MoveData.Kits = table.freeze(Kits)
-MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES" })
+MoveData.KitOrder = table.freeze({ "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES",
+	"RAIJIN", "YUKINA", "VENOM", "GORAN", "ASTER", "HIBIKI", "MARION", "KAZAN", "KUREN", "SYLVA", "ELIAN", "NOVA" })
 
 -- KAI's tables, kept for code written before the kits.
 MoveData.Starters = Kits.KAI.Starters
@@ -973,6 +1257,8 @@ moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
 moveKit.TaroChampion = "TARO"
 moveKit.HibecaresWall, moveKit.HibecaresCounter = "HIBECARES", "HIBECARES"
+moveKit.YukinaMirror, moveKit.GoranGrab, moveKit.MarionPuppet = "YUKINA", "GORAN", "MARION"
+moveKit.ElianPulse, moveKit.NovaSentinel = "ELIAN", "NOVA"
 MoveData.MoveKit = table.freeze(moveKit)
 
 function MoveData.total(m)

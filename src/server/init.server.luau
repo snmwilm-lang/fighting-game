@@ -863,6 +863,8 @@ local function snapshot(match)
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching, maxHp = f.maxHp, passive = Sim.passiveGauge(world, f), weave = f.weaveTicks > 0,
 			passiveCharges = Sim.passiveCharges(world, f) or 0,
+			passiveLabel = Sim.passiveLabel(world, f), passiveOn = select(2, Sim.passiveLabel(world, f)), -- (third sheet)
+			chilled = f.chilled > 0 or nil, poisoned = f.poisonTicks > 0 or nil, tempo = f.tempo > 0 or nil,
 			wakeInvuln = f.wakeInvuln, -- (the body blinks while untouchable after getting up)
 			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
@@ -874,7 +876,11 @@ local function snapshot(match)
 	end
 	local projectiles = {}
 	for _, p in world.projectiles do
-		table.insert(projectiles, { id = p.id, x = p.x, y = p.y, vx = p.vx, owner = p.owner })
+		table.insert(projectiles, { id = p.id, x = p.x, y = p.y, vx = p.vx, owner = p.owner, trap = p.data.trap or nil,
+			move = p.data.id })
+	end
+	for i, drone in world.drones or {} do -- NOVA's sentinels, drawn as small drones
+		table.insert(projectiles, { id = "drone" .. drone.owner .. "-" .. i, x = drone.x, y = drone.y, vx = 0, owner = drone.owner, drone = true })
 	end
 	local packet = {
 		projectiles = projectiles,

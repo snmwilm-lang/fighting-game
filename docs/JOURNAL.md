@@ -1,5 +1,87 @@
 # Journal du projet — état à transmettre
 
+## Version 0.15.0 — 4 octobre 2026
+
+Demandes de Wilhem : « fais ASURA, les combats 2-3 en ligne, des plus grands serveurs » ;
+« rends tout plus beau » ; les 12 fiches de la troisième planche (RAIJIN, YUKINA, VENOM,
+GORAN, ASTER, HIBIKI, MARION, KAZAN, KUREN, SYLVA, ELIAN, NOVA) avec leurs étoiles ; « tu as
+fait des cinématiques pour ASURA ? » ; « mets trois losanges en 3v3 (best of 5) et une attaque
+gatling à ASURA avec tous ses bras » ; « tu n'as pas fait de modèle à ASURA » ; « n'oublie pas
+les modèles 3D de tout le monde » ; la capture du lobby (titre de K.O. resté affiché).
+
+- **12 nouveaux persos** (`MoveData.luau`, `newKit` : chaque rôle de KAI reçoit le coup du kit,
+  `<Prefixe><Rôle>`), avec les vies, étoiles, passifs, S + E et ultimes des fiches. KitOrder :
+  20 persos. Leurs S + E : LANCE FOUDROYANTE (projectile rapide), MIROIR DE GLACE (renvoie les
+  projectiles, `move.reflect`), BRUME TOXIQUE (nuage lent), ÉTREINTE DU TITAN (saisie
+  imparable, `move.grab`, rate un adversaire en l'air), ATTRACTION (`projectile.pull`), ONDE
+  SONIQUE, FILS CROISÉS (`projectile.bind`), CROCHET DU GEÔLIER (attire), LANCE SANGUINE,
+  RACINES VORACES (piège posé au sol : `projectile.trap`, vitesse 0, ralentit), IMPULSION
+  VITALE (`move.heal`), SENTINELLE (`move.drone` : un drone qui tire 3 fois, `world.drones`).
+- **12 passifs, chacun une vraie mécanique** (`CombatSimulation.luau`, table `PASSIVE`) :
+  SURCHARGE (3 coups d'affilée → prochaine technique : allonge ×1,35, +15 %), GEL PROGRESSIF
+  (3 givres → −20 % de vitesse 3 s), CONTAMINATION (poison 3 charges max, ne tue jamais),
+  ANCRAGE (armure d'un coup sur les gros coups au sol), MASSE VARIABLE (+30 % sur la prochaine
+  attaque aérienne), TEMPO (3 coups en rythme → récupérations ×2 pendant 4 s), DOUBLE
+  COMMANDE (le pantin frappe de l'autre côté après FILS CROISÉS), ENTRAVE (2 techniques → le
+  prochain dash adverse coupé de moitié), PACTE ÉCARLATE (−3 % de vie par technique, jamais
+  mortel, +30 %), TERRITOIRE (un piège près d'elle → allonge ×1,2), SECOND SOUFFLE (sous 30 %,
+  soin ×3 une fois par manche), INGÉNIERIE (2 drones, un toutes les 9 s). Le HUD affiche leur
+  état (`Sim.passiveLabel`, envoyé dans le snapshot), avec bulles (GELÉ !, ANCRAGE !,
+  +PV, MIROIR DE GLACE !…), sons et marques à l'écran.
+- **Cinématiques** : un réalisateur à thèmes dans `CinematicDirector.luau` (`GEN`, table
+  unique pour rester sous la limite de noms locaux) : chaque perso a son étalonnage (orage,
+  givre, toxique, titan, cosmos, son, marionnette, fer, sang, sauvage, sacré, tech, et le noir
+  et or d'ASURA), ses propres effets (lance-éclair, éclats de glace, griffes, chaînes,
+  drones…), sa façon de se battre par ultime (archétypes : estocs de tous côtés, tourne
+  autour, à distance, saisies, jongle, attire, et la **gatling** d'ASURA), ses angles, ses
+  poses, et des noms de plans à lui ; R, ÉVEIL, PORTE, COUP FATAL et écran de K.O. pour
+  chacun. Le cadrage vérifie la ligne de vue (un perso qui tourne autour de sa cible ne la
+  cache jamais). Le client dessine chaque effet avec un accessoire existant à la couleur du
+  perso (`THEME_FX`) et crée une ColorCorrection par étalonnage (`THEME_GRADES`).
+- **ASURA** : ses propres cinématiques (avant, il rejouait celles de KAI : la simulation passe
+  maintenant le kit de l'attaquant, `cin.kit`), **GATLING DES QUATRE BRAS** (E au sol : 12
+  coups, les deux bras du bas pistonnent en décalé), et son **propre modèle** (crinière noire
+  et or, troisième œil, torse nu barré de chaînes d'or, bracelets, hakama, pieds nus, 4 bras).
+- **Modèles 3D** : 13 nouveaux corps en blocs (`RigBuilder.BODIES`, coiffures et tenues des
+  fiches : la lance de RAIJIN dans le dos, les éventails de YUKINA à la ceinture, le masque et
+  les griffes de VENOM, le singlet et la barbe de GORAN, les anneaux d'ASTER, le casque de
+  HIBIKI, les fils de MARION, les chaînes de KAZAN, le manteau de KUREN, l'écorce de SYLVA,
+  la croix de lumière d'ELIAN, les gantelets et les deux drones de NOVA) et les tenues
+  portées sur un avatar Roblox (`OUTFITS`). 2 styles de couleurs chacun (`CharacterData`).
+  Gardes, courses, respirations et poses de victoire propres (`PoseLibrary` `thirdKit`,
+  `Animator.IDLE_RHYTHM`). Les armes restent portées (lance dans le dos, éventails à la
+  ceinture) : une vraie arme en main demanderait ses animations (règle des armes).
+- **Manches** : le 1 contre 1 est un vrai **2 manches gagnantes** (avant, un 1v1 passait par
+  les équipes et finissait au premier K.O.) ; 2v2 / 3v3 restent des relais : **3 losanges en
+  3v3** (un par adversaire mis K.O., jusqu'à 5 manches). `Sim.setLineup`. L'écran de K.O.
+  final n'arrive plus en plein relais.
+- **Lobby** : le titre « K.O. · … VICTOIRE » ne reste plus affiché au retour au menu (la
+  cinématique est fermée au changement de combat) ; la liste des joueurs de Roblox (en haut
+  à droite) est masquée (notre liste : H) ; grille de sélection 5 × 4 ; MES PERSONNAGES
+  défile ; NOUVEAUTÉS annonce les 12.
+- **Serveurs** : README, comment monter le nombre max. de joueurs (jusqu'à 100 par place).
+- Version 0.15.0.
+
+Tests : CombatSimulation 109 (13 nouveaux : un par passif, le miroir, les manches), FighterAI
+12, CinematicDirector 830 (les 20 persos + ASURA), Animation 35, Kits (voir plus bas),
+PressQueue 4, Fuzz 2, Cinematography 295 sur 296 (un plan de la rafale de YUKINA cache un poing derrière l'autre, à corriger), Lobby 11 ; Kits pas encore relancé sur les 20 persos ; `rigcheck` : tous les corps se
+construisent (planche `rigcheck render` vérifiée). **Rien essayé dans Studio.**
+
+Équilibrage (CPU contre CPU, `luau tests/Balance.luau`, moyennes contre tout le plateau) :
+niveau 4 (120 matchs par duel) : TARO 65,1, GORAN 61,0, HIBECARES 60,3, VENOM 60,2,
+ZEPHYR 55,0, RYUKEN 53,4, KAI 53,2, RAIJIN 52,1, DAICHA 52,1, SHIN 50,7, SYLVA 47,7, KAZAN 45,3,
+HIBIKI 44,8, NOVA 44,1, ELIAN 44,0, YUKINA 43,7, ASTER 43,3, AKEMI 41,9, MARION 41,4, KUREN 40,7 %.
+Niveau 3 (60 matchs) : entre 39 (MARION) et 62 % (GORAN). TARO dépasse de 0,1 point la limite
+de 65 % ; AKEMI et TARO ne sont pas retouchés, à la demande de Wilhem.
+
+### Problèmes ouverts / prochaine étape
+
+- Juger dans Studio les 13 nouveaux corps, leurs effets et leurs étalonnages.
+- Vraies armes en main (lance de RAIJIN, éventails de YUKINA) avec des animations d'arme.
+- Poses d'attaque propres aux 12 (ils empruntent les gestes des rôles de KAI) et planches
+  `PoseSheet` pour chacun.
+- File d'attente commune à tous les serveurs (MemoryStore + téléportation).
+
 ## Version 0.14.1 — 3 octobre 2026
 
 Retour de Wilhem (avec une image de lobby faite sous ChatGPT) : « un truc similaire à ça ».

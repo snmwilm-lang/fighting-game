@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterData = require(Shared.CharacterData)
 local RigSpec = require(Shared.RigSpec)
 local WeaponSpec = require(Shared.WeaponSpec)
+local FourArms = require(Shared.FourArms)
 local RigReader = require(Shared.RigReader)
 local RigBuilder = {}
 local INK = Color3.fromHex("0B0B0E")
@@ -1629,43 +1630,68 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 	if data.Kit == "ASURA" then RigBuilder.addFourArms(model, data) end
 end
 
--- ASURA's second pair of arms, under the first: an upper arm, a forearm and a wrapped fist on
--- each side, jointed to the torso (Motor6D AsuraLeft / AsuraRight). The client swings them
--- after the real arms (AnimationController), so they follow every blow with a little delay.
+-- ASURA's second pair of arms, out of his back under the first: on each side an upper arm (a
+-- gold armlet), a forearm (wraps and a gold bangle) and a wrapped fist, on two joints: the
+-- shoulder (Motor6D AsuraLeft / AsuraRight, on the torso) and the elbow (AsuraLeftElbow /
+-- AsuraRightElbow). Their geometry comes from FourArms.SPEC, scaled to the torso; the client
+-- poses them every frame with FourArms.pose (AnimationController).
 function RigBuilder.addFourArms(model, data)
 	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
 	if not torso or model:FindFirstChild("AsuraArmLeft") then return end
+	local spec = FourArms.SPEC
 	local skin, wraps = Color3.fromHex(data.SkinTone or "8A5A44"), Color3.fromHex(data.Wraps or "C8A040")
-	local width = torso.Size.X / 2
-	-- Outside the real arms (their width read on the body), so both pairs show.
-	local realArm = model:FindFirstChild("RightUpperArm") or model:FindFirstChild("Right Arm")
-	local armWidth = if realArm then realArm.Size.X else 1
+	local gold = Color3.fromHex(data.Sash or "FFD23F")
+	local scale = torso.Size.X / 2
+	local upperLength, foreLength = spec.upper * scale, spec.fore * scale
+	local function piece(name, size, color, material, shape)
+		local p = Instance.new("Part")
+		p.Name, p.Size, p.Color = name, size, color
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.CanCollide, p.CanTouch, p.CanQuery, p.Massless, p.CastShadow = false, false, false, true, true
+		if shape then p.Shape = shape end
+		return p
+	end
+	local function weld(part0, part1, offset)
+		local w = Instance.new("Weld")
+		w.Part0, w.Part1, w.C0 = part0, part1, offset
+		w.Parent = part1
+		part1.CFrame = part0.CFrame * offset
+		part1.Parent = model
+	end
+	-- (built straight into their guard; the client takes over once it runs)
+	local guard = FourArms.pose({ state = "Idle" }, 0, nil)
 	for _, side in { -1, 1 } do
 		local name = if side < 0 then "Left" else "Right"
-		local arm = Instance.new("Part")
-		arm.Name = "AsuraArm" .. name
-		arm.Size = Vector3.new(0.5, 1.7, 0.5)
-		arm.Color, arm.Material = skin, Enum.Material.SmoothPlastic
-		arm.CanCollide, arm.CanTouch, arm.CanQuery, arm.Massless = false, false, false, true
-		local fist = Instance.new("Part")
-		fist.Name = "AsuraFist" .. name
-		fist.Size = Vector3.new(0.58, 0.58, 0.58)
-		fist.Color, fist.Material = wraps, Enum.Material.Fabric
-		fist.CanCollide, fist.CanTouch, fist.CanQuery, fist.Massless = false, false, false, true
-		local weld = Instance.new("Weld")
-		weld.Part0, weld.Part1, weld.C0 = arm, fist, CFrame.new(0, -1.0, 0)
-		weld.Parent = fist
-		local joint = Instance.new("Motor6D")
-		joint.Name = "Asura" .. name
-		joint.Part0, joint.Part1 = torso, arm
-		-- Lower, a little behind and outside the real shoulders, spread outward.
-		joint.C0 = CFrame.new(side * (width + armWidth + 0.1), -0.45, 0.35) * CFrame.Angles(0, 0, side * math.rad(28))
-		joint.C1 = CFrame.new(0, 0.75, 0)
-		-- Placed where the joint holds them (the engine would snap them there anyway).
-		arm.CFrame = torso.CFrame * joint.C0 * joint.C1:Inverse()
-		fist.CFrame = arm.CFrame * weld.C0
-		joint.Parent = torso
-		arm.Parent, fist.Parent = model, model
+		local pitch, yaw, roll, bend = FourArms.angles(side, guard[name])
+		local w = 0.5 * scale
+		local upper = piece("AsuraArm" .. name, Vector3.new(w, upperLength, w), skin)
+		local fore = piece("AsuraForearm" .. name, Vector3.new(w * 0.92, foreLength, w * 0.92), skin)
+		local shoulder = Instance.new("Motor6D")
+		shoulder.Name, shoulder.Part0, shoulder.Part1 = "Asura" .. name, torso, upper
+		shoulder.C0 = CFrame.new(side * spec.shoulder.x * scale, spec.shoulder.y * scale, spec.shoulder.z * scale)
+			* CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0) * CFrame.Angles(0, 0, math.rad(roll))
+		shoulder.C1 = CFrame.new(0, upperLength / 2, 0)
+		upper.CFrame = torso.CFrame * shoulder.C0 * shoulder.C1:Inverse()
+		shoulder.Parent = torso
+		upper.Parent = model
+		local elbow = Instance.new("Motor6D")
+		elbow.Name, elbow.Part0, elbow.Part1 = "Asura" .. name .. "Elbow", upper, fore
+		elbow.C0 = CFrame.new(0, -upperLength / 2, 0) * CFrame.Angles(math.rad(bend), 0, 0)
+		elbow.C1 = CFrame.new(0, foreLength / 2, 0)
+		fore.CFrame = upper.CFrame * elbow.C0 * elbow.C1:Inverse()
+		elbow.Parent = upper
+		fore.Parent = model
+		-- The joints read as joints: a ball at the shoulder and at the elbow.
+		weld(upper, piece("AsuraShoulderBall" .. name, Vector3.one * w * 1.25, skin, nil, Enum.PartType.Ball), CFrame.new(0, upperLength / 2, 0))
+		weld(upper, piece("AsuraElbowBall" .. name, Vector3.one * w * 1.05, skin, nil, Enum.PartType.Ball), CFrame.new(0, -upperLength / 2, 0))
+		weld(upper, piece("AsuraArmlet" .. name, Vector3.new(w * 1.2, 0.16 * scale, w * 1.2), gold, Enum.Material.Metal), CFrame.new(0, upperLength * 0.12, 0))
+		for i, y in { 0.2, 0, -0.2 } do
+			weld(fore, piece("AsuraWrap" .. name .. i, Vector3.new(w * 1.02, 0.08 * scale, w * 1.02), wraps, Enum.Material.Fabric),
+				CFrame.new(0, y * foreLength, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.18))
+		end
+		weld(fore, piece("AsuraBangle" .. name, Vector3.new(w * 1.14, 0.18 * scale, w * 1.14), gold, Enum.Material.Metal), CFrame.new(0, -foreLength * 0.36, 0))
+		weld(fore, piece("AsuraFist" .. name, Vector3.one * 0.62 * scale, wraps, Enum.Material.Fabric), CFrame.new(0, -foreLength / 2 - 0.22 * scale, 0))
+		weld(fore, piece("AsuraKnuckles" .. name, Vector3.new(0.66, 0.16, 0.2) * scale, gold, Enum.Material.Metal), CFrame.new(0, -foreLength / 2 - 0.34 * scale, -0.24 * scale))
 	end
 end
 

@@ -18,6 +18,7 @@ local Kinematics = require(Shared.Kinematics)
 local PoseLibrary = require(Shared.PoseLibrary)
 local Animator = require(Shared.Animator)
 local Retarget = require(Shared.Retarget)
+local FourArms = require(Shared.FourArms)
 
 local rad = math.rad
 
@@ -62,42 +63,46 @@ end
 -- facing, hitstop, combo, victory, intro, pose }); other: the opponent's view.
 -- ASURA's second pair of arms (RigBuilder.addFourArms): they copy the real shoulders' swing
 -- a few frames late and a little wider, so every blow seems to come twice.
-function AnimationController:swingFourArms(pose, dt, view, now)
+-- ASURA's second pair of arms (RigBuilder.addFourArms): shoulder and elbow posed every frame
+-- by the pure FourArms module (guard raised like the statues, strikes, the gatling's pistons),
+-- eased so a change of key never snaps.
+function AnimationController:swingFourArms(view, dt, now)
 	local model = self.model
 	if not model then return end
 	if self.fourArms == nil then
 		self.fourArms = false
 		for _, name in { "Left", "Right" } do
-			local joint = model:FindFirstChild("Asura" .. name, true)
-			if joint and joint:IsA("Motor6D") then
+			local shoulder = model:FindFirstChild("Asura" .. name, true)
+			local elbow = model:FindFirstChild("Asura" .. name .. "Elbow", true)
+			if shoulder and shoulder:IsA("Motor6D") and elbow and elbow:IsA("Motor6D") then
 				self.fourArms = self.fourArms or {}
-				self.fourArms[name] = { joint = joint, base = joint.C0, x = 0, z = 0 }
+				-- (the build already turned them into their guard: start from the bare joint)
+				local guard = FourArms.pose({ state = "Idle" }, 0, nil)[name]
+				local side = if name == "Left" then -1 else 1
+				local pitch, yaw, roll, bend = FourArms.angles(side, guard)
+				local turn = CFrame.Angles(0, rad(yaw), 0) * CFrame.Angles(rad(pitch), 0, 0) * CFrame.Angles(0, 0, rad(roll))
+				self.fourArms[name] = { shoulder = shoulder, elbow = elbow, side = side,
+					shoulderBase = shoulder.C0 * turn:Inverse(), elbowBase = elbow.C0 * CFrame.Angles(rad(bend), 0, 0):Inverse(),
+					angles = { guard[1], guard[2], guard[3], guard[4] } }
 			end
 		end
 	end
 	if not self.fourArms then return end
-	-- GATLING DES QUATRE BRAS: the extra arms piston straight ahead, out of phase with each
-	-- other, as fast as the eye can follow.
-	local gatling = view and view.move == "AsuraGatling"
-	local follow = 1 - math.exp(-(if gatling then 40 else 14) * dt)
+	local target = FourArms.pose(view, now, MoveData.Moves)
+	local fast = view.move == "AsuraGatling" or view.state == "Hitstun"
+	local follow = 1 - math.exp(-(if fast then 30 else 12) * dt)
 	for name, info in self.fourArms do
-		local shoulder = pose[name .. "Shoulder"]
-		local tx, tz = 0, 0
-		if gatling then
-			local phase = if name == "Left" then 0 else math.pi
-			tx, tz = 70 + 25 * math.sin((now or 0) * 38 + phase), 0
-		elseif shoulder then
-			tx, tz = (shoulder[1] or 0) * 0.85, (shoulder[3] or 0) * 0.6
-		end
-		info.x += (tx - info.x) * follow
-		info.z += (tz - info.z) * follow
-		info.joint.C0 = info.base * CFrame.Angles(rad(info.x), 0, rad(info.z))
+		local a, goal = info.angles, target[name]
+		for i = 1, 4 do a[i] += (goal[i] - a[i]) * follow end
+		local pitch, yaw, roll, bend = FourArms.angles(info.side, a)
+		info.shoulder.C0 = info.shoulderBase * CFrame.Angles(0, rad(yaw), 0) * CFrame.Angles(rad(pitch), 0, 0) * CFrame.Angles(0, 0, rad(roll))
+		info.elbow.C0 = info.elbowBase * CFrame.Angles(rad(bend), 0, 0)
 	end
 end
 
 function AnimationController:update(view, other, dt, now, poseRate, cinematic)
 	local pose, lift = self.animator:step(view, other, dt, now, poseRate, cinematic)
-	self:swingFourArms(pose, dt, view, now)
+	self:swingFourArms(view, dt, now)
 	if self.retarget then
 		local c0 = Retarget.solve(self.retarget, pose, view.y or 0)
 		for name, info in self.joints do

@@ -1004,4 +1004,85 @@ test("DAICHA's orb flies round him: circles when idle, out of his body, strikes 
 	expect(guard.fwd > 1, "the orb does not shield him")
 end)
 
+-- ===================================================================== ASURA's four arms
+local FourArms = require("../src/shared/FourArms")
+
+-- Every point of ASURA's extra arms (torso space) for a view at time `now`.
+local function asuraArms(view, now)
+	local half = RigSpec.KAI.parts.UpperTorso.size[1] / 2
+	local solved = FourArms.solve(FourArms.SPEC, FourArms.pose(view, now, MoveData.Moves), half)
+	return solved
+end
+
+-- The bodies the extra arms must stay out of, in UpperTorso space: { centre, half size }.
+local function asuraBodies()
+	local parts = RigSpec.KAI.parts
+	local ut = parts.UpperTorso
+	local out = {}
+	for _, name in { "UpperTorso", "LowerTorso", "Head" } do
+		local p = parts[name]
+		out[name] = { p.pos[1] - ut.pos[1], p.pos[2] - ut.pos[2], p.pos[3] - ut.pos[3], p.size[1] / 2, p.size[2] / 2, p.size[3] / 2 }
+	end
+	return out
+end
+
+test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never through his body", function()
+	local bodies = asuraBodies()
+	local margin = 0.22 -- (the arms' own thickness)
+	local function inside(point)
+		for name, b in bodies do
+			if math.abs(point[1] - b[1]) < b[4] + margin and math.abs(point[2] - b[2]) < b[5] + margin
+				and math.abs(point[3] - b[3]) < b[6] + margin then
+				return name
+			end
+		end
+		return nil
+	end
+	local views = { { state = "Idle" }, { state = "Walking" }, { state = "Jumping" }, { state = "Blocking" }, { state = "Hitstun" },
+		{ state = "Knockdown" }, { state = "Dashing" } }
+	for _, id in { "Jab", "Cross", "Smash", "Uppercut", "BodyBlow", "KaienRush", "AsuraGatling", "AirKick" } do
+		local m = MoveData.Moves[id]
+		for frame = 1, MoveData.total(m) do table.insert(views, { state = "Attack", move = id, moveFrame = frame }) end
+	end
+	for _, view in views do
+		for now = 0, 1.2, 0.1 do
+			for side, arm in asuraArms(view, now) do
+				for k = 0, 10 do
+					local t = k / 10
+					local a, b = if t <= 0.5 then arm.shoulder else arm.elbow, if t <= 0.5 then arm.elbow else arm.fist
+					local u = if t <= 0.5 then t * 2 else t * 2 - 1
+					if k > 1 then -- (the shoulder itself sits on the back)
+						local point = { a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u }
+						local hit = inside(point)
+						expect(not hit, string.format("%s %s frame %s: the %s arm goes through the %s", view.state, tostring(view.move),
+							tostring(view.moveFrame), side, tostring(hit)))
+					end
+				end
+			end
+		end
+	end
+	-- Guard: both fists up, out at the sides, above their elbows.
+	local guard = asuraArms({ state = "Idle" }, 0)
+	for side, arm in guard do
+		expect(arm.fist[2] > arm.elbow[2] + 0.4 and math.abs(arm.fist[1]) > 2, side .. ": the guard is not raised out to the side")
+	end
+	-- An attack: the lead extra fist ends far in front (-Z) at the end of the active frames.
+	local smash = MoveData.Moves.Smash
+	local hit = asuraArms({ state = "Attack", move = "Smash", moveFrame = smash.startup + smash.active + 2 }, 0)
+	expect(math.min(hit.Left.fist[3], hit.Right.fist[3]) < -0.9, "no extra fist thrown at the target")
+	-- The gatling: the two fists out of phase, each going back and forth.
+	local g = MoveData.Moves.AsuraGatling
+	local apart, swings = 0, { Left = {}, Right = {} }
+	for now = 0, 0.5, 0.02 do
+		local arms = asuraArms({ state = "Attack", move = "AsuraGatling", moveFrame = g.startup + 5 }, now)
+		apart = math.max(apart, math.abs(arms.Left.fist[3] - arms.Right.fist[3]))
+		for side, arm in arms do table.insert(swings[side], arm.fist[3]) end
+	end
+	expect(apart > 0.6, "the gatling's fists move together")
+	for side, list in swings do
+		local lo, hi = math.min(table.unpack(list)), math.max(table.unpack(list))
+		expect(hi - lo > 0.8, side .. " fist does not piston in the gatling")
+	end
+end)
+
 T.finish()

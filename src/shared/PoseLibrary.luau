@@ -1259,10 +1259,6 @@ end
 -- pistons on the client, AnimationController:swingFourArms).
 Poses.AsuraGatling = Poses.TaroGatling
 -- The crouch specials of the third sheet that are not roles: the role closest in gesture.
-Poses.YukinaMirror = Poses.KiBlast -- (both fans held out: the mirror)
-Poses.GoranGrab = Poses.BodyBlow
-Poses.ElianPulse = Poses.PalmStrike
-Poses.NovaSentinel = Poses.KiBlast
 Poses.MarionPuppet = Poses.KiBlast -- (only thrown by the passive; never played as a move)
 
 -- HIBECARES: heavy, wide swings of the stone fists.
@@ -1815,6 +1811,1048 @@ local WEAPON_STRIKE = {
 	RightFoot = { "HibecaresStomp", "AkemiKnee" },
 }
 
+-- ===================================================================== Wilhem's third sheet: their own blows
+--[[
+	Every move of the twelve has its own key poses, built on the kit's own stance (Kits.X): no
+	two moves share a pose, no move borrows KAI's (Wilhem: "chaque perso a sa propre animation,
+	chaque animation est différente"). Arms are written { shoulder rx, shoulder rz, elbow,
+	wrist } per side (R / L below): rx 90 = arm forward, 180 = overhead; on the right arm rz > 0
+	swings it out to the right, rz < 0 across the body; on the left it is mirrored (rz < 0 out).
+	RAIJIN holds his spear and YUKINA her fans (WeaponSpec): with the wrist at -70 the weapon
+	carries on the line of the forearm, so the arm's swing is the weapon's.
+]]
+local function arms(r, l, extra)
+	local t = {}
+	if r then
+		t.RightShoulder, t.RightElbow = deg(r[1], 0, r[2]), deg(r[3] or 0)
+		if r[4] then t.RightWrist = deg(r[4]) end
+	end
+	if l then
+		t.LeftShoulder, t.LeftElbow = deg(l[1], 0, l[2]), deg(l[3] or 0)
+		if l[4] then t.LeftWrist = deg(l[4]) end
+	end
+	for k, v in extra or {} do t[k] = v end
+	return t
+end
+local KITS = Poses.Kits
+-- A kit's staging pose for its ultimates: its stance, the power gathered (arms given).
+local function gather(base, a)
+	return feet(merge(base, merge({ Root = { 0, 0, 0, base.Root[4] - 0.1, 0 }, Waist = deg(4, 0), Neck = deg(-10) }, a)),
+		-0.6, 0.6, 0, -6, 10)
+end
+local THIRD_STRIKE = {}
+local function strike(prefix, map)
+	for role, limbs in map do THIRD_STRIKE[prefix .. role] = limbs end
+end
+local R_, L_, B_ = { "RightHand" }, { "LeftHand" }, { "LeftHand", "RightHand" }
+local RF, LF, BF = { "RightFoot" }, { "LeftFoot" }, { "LeftFoot", "RightFoot" }
+
+-- ---------------------------------------------------------------- RAIJIN 雷 · the lightning spear (right hand)
+do
+	local S, C = KITS.RAIJIN.STANCE, KITS.RAIJIN.Crouch
+	local W = -70 -- the spear on the line of the forearm
+	local function spear(sh, rz, el, wr, l, extra) return arms({ sh, rz, el, wr or W }, l, extra) end
+	-- ESTOC: a straight thrust, the left hand sliding along the shaft.
+	Poses.RaijinJab = stroke(S, spear(40, 10, 90, nil, { 60, -20, 60 }), spear(90, -4, 0, nil, { 86, 12, 30 }), 0.7, 20)
+	-- REVERS DE HAMPE: the shaft swung flat from the right, right to left.
+	Poses.RaijinCross = stroke(S, spear(86, 80, 20, nil, { 50, -30, 70 }, { Waist = deg(-6, -40) }),
+		spear(88, -50, 0, nil, { 30, -50, 40 }), 0.35, 40)
+	-- TALON DE LANCE: the butt driven up and back across, the blade low behind.
+	Poses.RaijinElbow = stroke(S, spear(30, -40, 70, -20, { 70, -10, 90 }), spear(122, 30, 10, -40, { 40, -40, 60 }), 0.3, 30)
+	-- TOURNOIEMENT: the spear spun once round the body, the body turning with it.
+	Poses.RaijinKick = stroke(S, spear(88, 90, 0, nil, nil, { Waist = deg(-8, -50) }),
+		spear(90, -90, 0, nil, { 20, -40, 40 }, { Root = { 0, 160, 0, S.Root[4] - 0.08, -0.3 } }), 0.3, 20)
+	-- PERCÉE DU VENTRE: dropped low, the thrust at the belly.
+	Poses.RaijinBodyBlow = stroke(S, spear(20, 20, 110, nil, { 40, -20, 80 }, { Root = { 0, -10, 0, -0.75, 0.3 } }),
+		spear(70, 0, 0, nil, { 66, 10, 20 }, { Root = { 0, -14, 0, -0.85, -0.8 }, Waist = deg(-26, -20) }), 0.8, 10)
+	-- ENVOL DE LANCE: scooped up from the floor, the target lifted on the blade.
+	Poses.RaijinUppercut = stroke(S, spear(10, 20, 40, -10, { 20, -30, 60 }, { Root = { 0, 10, 0, -0.85, 0.2 }, Waist = deg(-24, 20) }),
+		spear(160, -10, 10, nil, { 130, -20, 40 }), 0.3, 24)
+	-- DÉCHARGE: both hands on the shaft, the lightning driven forward.
+	Poses.RaijinPalmStrike = stroke(S, spear(50, 20, 80, nil, { 50, -20, 80 }), spear(88, -8, 4, nil, { 88, 8, 4 }), 0.55, 14)
+	-- DRAGON FOUDROYANT: off the floor, the spear held out flat, spinning.
+	Poses.RaijinDragonTornado = spinStroke(S, C, spear(90, 92, 0, nil, { 60, -60, 30 }), spear(90, 92, 0, nil, { 80, -80, 20 }))
+	-- CROC DU TONNERRE: a rising thrust into the sky, twice.
+	Poses.RaijinDragonFist = leapStroke(S, C, spear(20, 10, 60, nil, { 30, -20, 80 }, { Waist = deg(-26, -20) }),
+		spear(158, -6, 4, nil, { 140, 10, 20 }), spear(140, 20, 10, nil, { 160, -10, 10 }))
+	-- ARC ÉLECTRIQUE: a flip, the spear drawing an arc of light over the head.
+	Poses.RaijinCrescentMoon = flipStroke(S, spear(110, 10, 0), spear(70, -10, 0))
+	-- VENT D'ORAGE: up on the storm, the spear swept left then right.
+	Poses.RaijinRisingWind = leapStroke(S, C, spear(60, 60, 30, nil, nil, { Waist = deg(-20, 30) }),
+		spear(110, 70, 0, nil, { 40, -50, 30 }), spear(110, -70, 0, nil, { 40, -50, 30 }))
+	-- MILLE ESTOCS: thrust, pull, thrust, the shaft sliding through the left hand.
+	Poses.RaijinKiFlurry = flurry(S, spear(92, -4, 0, nil, { 88, 10, 20 }), spear(84, 12, 30, nil, { 80, 6, 50 }), 0.6)
+	-- CHUTE DE FOUDRE: a leap and the spear brought down like a bolt.
+	Poses.RaijinThunderHeel = leapStroke(S, C, spear(170, 10, 60, -30, { 160, -10, 60 }), spear(60, -6, 0, nil, { 64, 8, 20 }))
+	-- BALAYAGE DE HAMPE: the shaft swept wide at the waist, the body pivoting.
+	Poses.RaijinSpinKick = stroke(S, spear(70, -60, 30, nil, { 40, -40, 60 }, { Waist = deg(-6, 40) }),
+		spear(80, 95, 0, nil, { 30, -60, 30 }, { Root = { 0, -150, 0, S.Root[4] - 0.08, -0.2 } }), 0.25, 30)
+	-- ESTOC LOURD: the whole body behind the thrust, both hands, a long lunge.
+	Poses.RaijinSmash = stroke(S, spear(20, 30, 110, nil, { 40, -10, 90 }, { Root = { 0, -20, 0, S.Root[4], 0.4 }, Waist = deg(0, -40) }),
+		spear(94, -2, 0, nil, { 90, 12, 10 }, { Waist = deg(-24, 30) }), 1.0, 30)
+	-- FRAPPE DESCENDANTE: raised overhead with both hands, brought straight down.
+	Poses.RaijinHammer = stroke(S, spear(172, 10, 30, -20, { 168, -10, 40 }), spear(66, -4, 0, nil, { 64, 8, 10 }), 0.45, 10)
+	-- FAUCHE BASSE: at the ankles, the blade swept flat.
+	Poses.RaijinSweep = lowStroke(C, spear(40, 80, 10, -20, { 30, -30, 60 }), spear(40, -60, 0, -20, { 20, -40, 40 }))
+	-- PIQUE BASSE: a short stab at the feet from the crouch.
+	Poses.RaijinLowKick = lowStroke(C, spear(30, 10, 90, nil, { 30, -20, 90 }), spear(52, 0, 0, -10, { 50, 10, 20 }), 0.5)
+	-- In the air: a thrust down, a sweep across, a plunge.
+	Poses.RaijinAirKick = airStroke(S, spear(90, 20, 80), spear(60, -4, 0, nil, { 50, 10, 30 }), -30)
+	Poses.RaijinAirKick2 = airStroke(S, spear(88, 85, 10), spear(88, -60, 0, nil, { 30, -40, 40 }), -14)
+	Poses.RaijinAirSmash = dive(S, spear(170, 8, 50, -30, { 165, -10, 60 }), spear(70, -2, 0, nil, { 72, 8, 10 }))
+	-- ÉCLAIR MONTANT: the spear thrust straight up out of a crouch.
+	Poses.RaijinRising = leapStroke(S, C, spear(10, 20, 100, nil, { 20, -20, 90 }), spear(176, -4, 4, nil, { 60, -40, 80 }))
+	-- POURSUITE ÉLECTRIQUE: leaping, the spear leading.
+	Poses.RaijinKiChase = chase(S, C, spear(92, -2, 0, nil, { -30, -30, 30 }))
+	-- COUP DE TONNERRE: one hand at the end of the shaft, the full length thrown through.
+	Poses.RaijinFinale = finisher(S, spear(-30, 30, 100, nil, { 30, -30, 90 }), spear(96, -2, 0, nil, { -30, -30, 90 }))
+	-- LANCE FOUDROYANTE: drawn back over the shoulder and hurled.
+	Poses.RaijinKiBlast = stroke(S, spear(172, 30, 70, -10, { 60, -40, 40 }, { Waist = deg(4, -40) }),
+		spear(104, -10, 0, nil, { -20, -40, 30 }), 0.5, 40)
+	local raised = gather(S, spear(176, 8, 6, nil, { 70, -40, 100 }))
+	-- MILLE ÉCLAIRS: the charge, the spear couched under the arm.
+	Poses.RaijinKaienRush = ultimate(raised, stroke(S, spear(-10, 30, 120, nil, { 20, -20, 100 }),
+		spear(80, 10, 30, -40, { 70, 20, 50 }, { Root = { 0, 0, 0, -0.75, -1.1 }, Waist = deg(-32, 10) }), 1.2, 10))
+	-- JUGEMENT DU TONNERRE: the spear raised in the left hand too, both driven down at once.
+	Poses.RaijinAwakening = ultimate(raised, finisher(S, spear(170, 20, 50, -20, { 170, -20, 50 }),
+		spear(84, -20, 0, nil, { -30, -40, 70 })))
+	-- COLÈRE DIVINE: the spear held up at arm's length, then planted ahead.
+	Poses.RaijinKaiten = ultimate(raised, stroke(S, spear(176, -20, 0, nil, { 120, -40, 30 }),
+		spear(110, -30, 0, nil, { 100, 20, 20 }), 0.4, 6))
+	-- SENTENCE CÉLESTE: one throw from far back, the body twisted round.
+	Poses.RaijinFatal = ultimate(raised, finisher(S, spear(176, 60, 80, -10, { 40, -60, 40 }),
+		spear(120, -10, 0, nil, { -40, -50, 60 })))
+	strike("Raijin", { Jab = R_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,
+		DragonTornado = R_, DragonFist = R_, CrescentMoon = R_, RisingWind = R_, KiFlurry = R_, ThunderHeel = R_, SpinKick = R_,
+		Smash = R_, Hammer = R_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = R_, AirSmash = R_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = R_, Awakening = R_, Kaiten = R_, Fatal = R_ })
+end
+
+-- ---------------------------------------------------------------- YUKINA 雪 · two fans of ice (both hands)
+do
+	local S, C = KITS.YUKINA.STANCE, KITS.YUKINA.Crouch
+	local F = -60 -- the fan opened on the line of the hand
+	local function fans(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or F }, l and { l[1], l[2], l[3], l[4] or F }, extra)
+	end
+	-- ÉVENTAIL: the right fan flicked open across the face.
+	Poses.YukinaJab = stroke(S, fans({ 60, 50, 90 }, { 60, -30, 70 }), fans({ 92, -30, 10 }, { 50, -50, 60 }), 0.3, 24)
+	-- REVERS D'ÉVENTAIL: the left fan swept back the other way.
+	Poses.YukinaCross = stroke(S, fans({ 40, -20, 80 }, { 80, 40, 30 }, { Waist = deg(-4, 30) }), fans({ 40, 30, 70 }, { 90, -60, 6 }), 0.3, 30)
+	-- LAME DE GIVRE: both fans cutting down in an X.
+	Poses.YukinaElbow = stroke(S, fans({ 150, 40, 30 }, { 150, -40, 30 }), fans({ 70, -40, 10 }, { 70, 40, 10 }), 0.35, 10)
+	-- DANSE GLACÉE: a pirouette, both fans out like wings.
+	Poses.YukinaKick = stroke(S, fans({ 90, 80, 10 }, { 90, -80, 10 }, { Waist = deg(0, -30) }),
+		fans({ 90, 85, 0 }, { 90, -85, 0 }, { Root = { 0, 170, 0, -0.42, -0.2 } }), 0.2, 20)
+	-- ÉCLAT AU CŒUR: a closed fan driven point first into the chest.
+	Poses.YukinaBodyBlow = stroke(S, fans({ 20, 30, 120, -20 }, { 60, -40, 60 }), fans({ 86, -6, 0, -20 }, { 40, -60, 40 }), 0.6, 20)
+	-- ENVOL DE NEIGE: both fans swept up from the hips, the snow lifting the target.
+	Poses.YukinaUppercut = stroke(S, fans({ 10, 40, 20 }, { 10, -40, 20 }, { Root = { 0, 0, 0, -0.6, 0.2 }, Waist = deg(-20) }),
+		fans({ 165, 20, 10 }, { 165, -20, 10 }), 0.2, 6)
+	-- SOUFFLE GELÉ: both fans fanned at the target, a gust of frost.
+	Poses.YukinaPalmStrike = stroke(S, fans({ 60, 60, 60 }, { 60, -60, 60 }), fans({ 90, 20, 4, -20 }, { 90, -20, 4, -20 }), 0.25, 6)
+	-- TOURBILLON DE NEIGE: spinning off the floor, the fans out flat.
+	Poses.YukinaDragonTornado = spinStroke(S, C, fans({ 95, 90, 0 }, { 95, -90, 0 }), fans({ 80, 70, 20 }, { 110, -95, 0 }))
+	-- STALAGMITE: rising, both fans thrust up, then crossed above the head.
+	Poses.YukinaDragonFist = leapStroke(S, C, fans({ 20, 30, 90 }, { 20, -30, 90 }), fans({ 170, 20, 6 }, { 170, -20, 6 }),
+		fans({ 160, -20, 20 }, { 160, 20, 20 }))
+	-- CROISSANT DE GLACE: a flip, one fan tracing the crescent.
+	Poses.YukinaCrescentMoon = flipStroke(S, fans({ 120, 40, 0 }, { 40, -60, 40 }), fans({ 60, 40, 0 }, { 40, -60, 40 }))
+	-- BLIZZARD: up into the wind, the fans beating like wings.
+	Poses.YukinaRisingWind = leapStroke(S, C, fans({ 60, 70, 40 }, { 60, -70, 40 }), fans({ 140, 90, 10 }, { 140, -90, 10 }),
+		fans({ 40, 90, 10 }, { 40, -90, 10 }))
+	-- PLUIE D'AIGUILLES: the fans flicked again and again, needles of ice.
+	Poses.YukinaKiFlurry = flurry(S, fans({ 96, 30, 10 }, { 60, -50, 60 }), fans({ 60, 50, 60 }, { 96, -30, 10 }), 0.25)
+	-- PAS DE GIVRE: a skating step and a fan dropped like a blade.
+	Poses.YukinaThunderHeel = leapStroke(S, C, fans({ 150, 60, 30 }, { 40, -50, 50 }), fans({ 50, 10, 0 }, { 30, -70, 30 }))
+	-- ÉVENTAIL TOURNANT: a turn on the spot, the right fan wheeling round at shoulder height.
+	Poses.YukinaSpinKick = stroke(S, fans({ 88, -50, 20 }, { 60, -70, 40 }, { Waist = deg(-6, 40) }),
+		fans({ 90, 92, 0 }, { 50, -80, 30 }, { Root = { 0, -160, 0, -0.42, -0.15 } }), 0.2, 30)
+	-- COUPE GLACÉE: both fans closed together, one heavy cut.
+	Poses.YukinaSmash = stroke(S, fans({ 30, 40, 110 }, { 30, 30, 110 }, { Root = { 0, -16, 0, S.Root[4], 0.3 }, Waist = deg(0, -36) }),
+		fans({ 94, -10, 0 }, { 90, 20, 30 }, { Waist = deg(-20, 30) }), 0.7, 30)
+	-- CHUTE DE GRÊLE: both fans brought down from high, hail falling.
+	Poses.YukinaHammer = stroke(S, fans({ 175, 20, 20 }, { 175, -20, 20 }), fans({ 40, 30, 20 }, { 40, -30, 20 }), 0.3, 6)
+	-- PATINAGE: low, the fan skimming the ice.
+	Poses.YukinaSweep = lowStroke(C, fans({ 40, 85, 10, -20 }, { 30, -50, 50 }), fans({ 40, -50, 0, -20 }, { 20, -70, 30 }))
+	-- COUP BAS GELÉ: the closed fan jabbed at the knee.
+	Poses.YukinaLowKick = lowStroke(C, fans({ 20, 20, 100 }, { 40, -40, 60 }), fans({ 54, 0, 0, -10 }, { 30, -60, 40 }), 0.4)
+	Poses.YukinaAirKick = airStroke(S, fans({ 120, 60, 40 }, { 60, -60, 40 }), fans({ 60, -20, 0 }, { 40, -70, 30 }), -20)
+	Poses.YukinaAirKick2 = airStroke(S, fans({ 60, 60, 40 }, { 120, -60, 40 }), fans({ 40, 70, 30 }, { 70, 20, 0 }), -16)
+	-- AVALANCHE: both fans raised, the dive with the snow.
+	Poses.YukinaAirSmash = dive(S, fans({ 175, 30, 30 }, { 175, -30, 30 }), fans({ 70, 20, 4 }, { 70, -20, 4 }))
+	-- PIC DE GLACE: the right fan driven straight up.
+	Poses.YukinaRising = leapStroke(S, C, fans({ 10, 30, 100 }, { 30, -40, 70 }), fans({ 176, 10, 4 }, { 60, -60, 60 }))
+	Poses.YukinaKiChase = chase(S, C, fans({ 90, 30, 6 }, { 90, -30, 6 }))
+	-- CRISTALLISATION: one fan held back, the other opened through the target.
+	Poses.YukinaFinale = finisher(S, fans({ -20, 40, 90 }, { 60, -50, 60 }), fans({ 94, -4, 0 }, { -30, -40, 70 }))
+	-- ÉCLATS DE GLACE: both fans thrown open, shards flying.
+	Poses.YukinaKiBlast = stroke(S, fans({ 60, -30, 110 }, { 60, 30, 110 }, { Waist = deg(-4, -20) }),
+		fans({ 100, 50, 0 }, { 100, -50, 0 }), 0.35, 16)
+	-- MIROIR DE GLACE: both fans opened together before her, a mirror.
+	Poses.YukinaMirror = {
+		Startup = merge(S, fans({ 60, 40, 80 }, { 60, -40, 80 })),
+		Active = feet(merge(S, fans({ 96, 8, 30, 0 }, { 96, -8, 30, 0 }, { Waist = deg(-6) })), -0.6, 0.6, 0, -8, 6),
+		Recovery = merge(S, fans({ 70, 20, 60 }, { 70, -20, 60 })),
+	}
+	local raised = gather(S, fans({ 160, 40, 20 }, { 160, -40, 20 }))
+	-- JARDIN DES GLACES: one fan swept along the floor, the garden rising.
+	Poses.YukinaKaienRush = ultimate(raised, stroke(S, fans({ 30, 60, 40 }, { 120, -40, 40 }),
+		fans({ 50, -60, 0, -20 }, { 140, -30, 20 }, { Root = { 0, 10, 0, -0.8, -0.5 }, Waist = deg(-30, -20) }), 0.5, 20))
+	-- VALSE HIVERNALE: a turn of the waltz, the right fan through the target.
+	Poses.YukinaAwakening = ultimate(raised, finisher(S, fans({ 40, 80, 60 }, { 80, -80, 30 }),
+		fans({ 96, 20, 0 }, { -20, -70, 40 }, { Root = { 0, 120, 0, -0.5, -0.8 } })))
+	-- PRISON ÉTERNELLE: both fans closed together, pointed at the target.
+	Poses.YukinaKaiten = ultimate(raised, stroke(S, fans({ 150, 10, 60 }, { 150, -10, 60 }),
+		fans({ 98, -4, 0, -30 }, { 98, 4, 0, -30 }), 0.3, 0))
+	-- ZÉRO ABSOLU: the left fan held up as a shield, the right one swept down.
+	Poses.YukinaFatal = ultimate(raised, finisher(S, fans({ 170, 40, 40 }, { 120, -10, 60 }),
+		fans({ 70, -50, 0 }, { 150, -10, 40 })))
+	strike("Yukina", { Jab = R_, Cross = L_, Elbow = B_, Kick = B_, BodyBlow = R_, Uppercut = B_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = R_, RisingWind = B_, KiFlurry = B_, ThunderHeel = R_, SpinKick = R_,
+		Smash = B_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = R_, KiChase = B_,
+		Finale = R_, KiBlast = B_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = B_, Mirror = B_ })
+end
+
+-- ---------------------------------------------------------------- VENOM 毒 · claws (hunched, fast)
+do
+	local S, C = KITS.VENOM.STANCE, KITS.VENOM.Crouch
+	local K = 40 -- the wrist cocked back, claws out
+	local function claws(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or K }, l and { l[1], l[2], l[3], l[4] or K }, extra)
+	end
+	-- GRIFFE: a quick swipe of the left claw, down and across.
+	Poses.VenomJab = stroke(S, claws(nil, { 110, -40, 70 }), claws(nil, { 70, 30, 20 }), 0.5, 20)
+	-- REVERS GRIFFU: the right claw raked back the other way.
+	Poses.VenomCross = stroke(S, claws({ 100, 50, 70 }, { 50, -20, 80 }), claws({ 70, -40, 20 }, { 40, -30, 90 }), 0.55, 30)
+	-- LACÉRATION: both claws dragged down the target.
+	Poses.VenomElbow = stroke(S, claws({ 140, 30, 50 }, { 140, -30, 50 }), claws({ 50, -10, 20 }, { 50, 10, 20 }), 0.5, 10)
+	-- RUÉE DU PRÉDATEUR: a low pounce, both claws leading.
+	Poses.VenomKick = stroke(S, claws({ 30, 40, 100 }, { 30, -40, 100 }, { Root = { 0, 0, 0, -0.9, 0.3 } }),
+		claws({ 88, 10, 10 }, { 88, -10, 10 }, { Root = { 0, -6, 0, -0.8, -0.9 }, Waist = deg(-30) }), 0.9, 6)
+	-- CROC AU VENTRE: the right claw driven up under the ribs.
+	Poses.VenomBodyBlow = stroke(S, claws({ -20, 30, 90 }, { 70, -30, 60 }), claws({ 60, -10, 30, 60 }, { 40, -40, 80 },
+		{ Root = { 0, 10, 0, -0.8, -0.6 }, Waist = deg(-30, 30) }), 0.7, 20)
+	-- ARRACHÉ: the claw hooked in and torn upward.
+	Poses.VenomUppercut = stroke(S, claws({ 10, 20, 110 }, { 60, -30, 70 }, { Root = { 0, 0, 0, -0.95, 0.1 }, Waist = deg(-30) }),
+		claws({ 170, -20, 40 }, { 30, -50, 60 }), 0.3, 20)
+	-- INJECTION: two fingers stabbed in, the poison delivered.
+	Poses.VenomPalmStrike = stroke(S, claws({ 40, 20, 120, -20 }, { 40, -20, 120, -20 }), claws({ 92, -6, 0, -40 }, { 60, -40, 60 }), 0.6, 24)
+	-- FRÉNÉSIE: a spinning frenzy off the floor, claws out.
+	Poses.VenomDragonTornado = spinStroke(S, C, claws({ 70, 80, 40 }, { 70, -80, 40 }), claws({ 100, 70, 20 }, { 50, -90, 60 }))
+	-- MORSURE MONTANTE: rising, both claws closing like jaws.
+	Poses.VenomDragonFist = leapStroke(S, C, claws({ 20, 40, 100 }, { 20, -40, 100 }), claws({ 150, -20, 30 }, { 120, 20, 30 }),
+		claws({ 120, -20, 30 }, { 150, 20, 30 }))
+	-- CROISSANT VENIMEUX: a flip, a claw raking through the arc.
+	Poses.VenomCrescentMoon = flipStroke(S, claws({ 120, 20, 30 }, { 40, -60, 60 }), claws({ 60, 20, 30 }, { 40, -60, 60 }))
+	-- SPIRALE TOXIQUE: up in a spiral, claws left then right.
+	Poses.VenomRisingWind = leapStroke(S, C, claws({ 60, 40, 60 }, { 60, -40, 60 }), claws({ 100, 80, 20 }, { 50, -20, 80 }),
+		claws({ 50, 20, 80 }, { 100, -80, 20 }))
+	-- MILLE GRIFFES: claw after claw, the hunched body rocking.
+	Poses.VenomKiFlurry = flurry(S, claws({ 100, -30, 30 }, { 60, -40, 90 }), claws({ 60, 40, 90 }, { 100, 30, 30 }), 0.5)
+	-- PIÈGE DU SERPENT: a leap, the claws striking down like fangs.
+	Poses.VenomThunderHeel = leapStroke(S, C, claws({ 160, 20, 60 }, { 160, -20, 60 }), claws({ 50, 0, 10, 60 }, { 50, 0, 10, 60 }))
+	-- FOUET DE GRIFFES: a spin, the arm thrown out like a whip.
+	Poses.VenomSpinKick = stroke(S, claws({ 60, -60, 50 }, { 50, -60, 60 }, { Waist = deg(-10, 40) }),
+		claws({ 88, 95, 6 }, { 40, -60, 60 }, { Root = { 0, -170, 0, S.Root[4] - 0.08, -0.2 } }), 0.3, 30)
+	-- GRIFFE LOURDE: a big overhand rake, the whole body thrown into it.
+	Poses.VenomSmash = stroke(S, claws({ 170, 40, 70 }, { 60, -30, 70 }, { Root = { 0, -20, 0, S.Root[4], 0.4 }, Waist = deg(4, -40) }),
+		claws({ 60, -40, 10 }, { -20, -30, 60 }, { Waist = deg(-34, 30) }), 0.8, 30)
+	-- ÉCRASEMENT: both claws hammered down on the target.
+	Poses.VenomHammer = stroke(S, claws({ 172, 20, 40 }, { 172, -20, 40 }), claws({ 40, 10, 10 }, { 40, -10, 10 }), 0.45, 6)
+	-- FAUCHE RAMPANTE: on all fours, a claw raking the ankles.
+	Poses.VenomSweep = lowStroke(C, claws({ 30, 70, 30 }, { 50, -30, 60 }), claws({ 30, -50, 10 }, { 40, -40, 60 }), 0.5)
+	-- GRIFFE BASSE: a short claw at the shins.
+	Poses.VenomLowKick = lowStroke(C, claws({ 20, 10, 100 }, { 50, -30, 70 }), claws({ 46, 0, 0 }, { 40, -40, 70 }), 0.45)
+	Poses.VenomAirKick = airStroke(S, claws({ 130, 30, 70 }, { 60, -40, 60 }), claws({ 60, -20, 20 }, { 40, -50, 60 }), -26)
+	Poses.VenomAirKick2 = airStroke(S, claws({ 60, 40, 60 }, { 130, -30, 70 }), claws({ 40, 50, 60 }, { 60, 20, 20 }), -22)
+	-- PIQUÉ DU PRÉDATEUR: dropped from the air, both claws first.
+	Poses.VenomAirSmash = dive(S, claws({ 160, 30, 40 }, { 160, -30, 40 }), claws({ 80, 10, 4 }, { 80, -10, 4 }))
+	-- BOND VENIMEUX: springing up, one claw raking the sky.
+	Poses.VenomRising = leapStroke(S, C, claws({ 0, 30, 110 }, { 40, -30, 80 }), claws({ 172, 20, 20 }, { 60, -60, 70 }))
+	Poses.VenomKiChase = chase(S, C, claws({ 92, 20, 10 }, { 92, -20, 10 }))
+	-- DERNIÈRE MORSURE: coiled low, then the right claw through, the left pulled back.
+	Poses.VenomFinale = finisher(S, claws({ -30, 40, 110 }, { 50, -40, 80 }), claws({ 92, -4, 0, 60 }, { -30, -40, 90 }))
+	-- BRUME TOXIQUE: both claws spread, the cloud breathed out.
+	Poses.VenomKiBlast = stroke(S, claws({ 40, -20, 120 }, { 40, 20, 120 }, { Waist = deg(-4, -10) }),
+		claws({ 96, 50, 20, -40 }, { 96, -50, 20, -40 }), 0.2, 10)
+	local raised = gather(S, claws({ 120, 50, 70 }, { 120, -50, 70 }))
+	-- MORSURE FATALE: the pounce, the jaws of both claws wide open.
+	Poses.VenomKaienRush = ultimate(raised, stroke(S, claws({ 150, 50, 60 }, { 30, -50, 60 }, { Root = { 0, 0, 0, -0.95, 0.3 } }),
+		claws({ 120, 0, 20 }, { 60, 0, 20 }, { Root = { 0, 0, 0, -0.75, -1.1 }, Waist = deg(-34) }), 1.1, 0))
+	-- ÉPIDÉMIE: the right claw into the target, the left raised over it.
+	Poses.VenomAwakening = ultimate(raised, finisher(S, claws({ 20, 60, 120 }, { 160, -20, 50 }),
+		claws({ 88, 10, 0, 60 }, { 150, -30, 30 })))
+	-- ROI DU VENIN: both claws on the target's shoulders, the poison pressed in.
+	Poses.VenomKaiten = ultimate(raised, stroke(S, claws({ 130, 60, 80 }, { 130, -60, 80 }),
+		claws({ 96, 24, 30, 70 }, { 96, -24, 30, 70 }), 0.6, 0))
+	-- CORROSION TOTALE: the claw raised high and torn down through.
+	Poses.VenomFatal = ultimate(raised, finisher(S, claws({ 176, 20, 30 }, { 40, -50, 80 }),
+		claws({ 40, -30, 0, 50 }, { -30, -50, 90 })))
+	strike("Venom", { Jab = L_, Cross = R_, Elbow = B_, Kick = B_, BodyBlow = R_, Uppercut = R_, PalmStrike = R_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = R_, RisingWind = B_, KiFlurry = B_, ThunderHeel = B_, SpinKick = R_,
+		Smash = R_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = R_, KiChase = B_,
+		Finale = R_, KiBlast = B_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_ })
+end
+
+
+-- ---------------------------------------------------------------- GORAN 剛 · the wrestler (grabs, lifts, slams)
+do
+	local S, C = KITS.GORAN.STANCE, KITS.GORAN.Crouch
+	local function hands(r, l, extra) return arms(r, l, extra) end
+	-- MANCHETTE: a forearm smashed across the jaw.
+	Poses.GoranJab = stroke(S, hands({ 80, 60, 90 }, { 60, -40, 80 }), hands({ 88, -40, 80 }, { 50, -40, 80 }), 0.3, 30)
+	-- AVANT-BRAS: the left forearm rammed forward like a bar.
+	Poses.GoranCross = stroke(S, hands({ 60, 40, 80 }, { 50, -60, 120 }), hands({ 60, 40, 80 }, { 86, 20, 100 }), 0.4, 20)
+	-- COUP DE COUDE: the elbow dropped on the target from above.
+	Poses.GoranElbow = stroke(S, hands({ 170, 30, 150 }, { 60, -40, 80 }), hands({ 90, 0, 150 }, { 40, -50, 70 }), 0.3, 16)
+	-- CLOTHESLINE: the arm out straight, the body running through.
+	Poses.GoranKick = stroke(S, hands({ 88, 90, 4 }, { 40, -60, 60 }, { Waist = deg(-6, -30) }),
+		hands({ 92, 60, 0 }, { 30, -70, 60 }, { Root = { 0, 30, 0, -0.55, -0.7 } }), 0.8, 30)
+	-- ÉTRANGLEMENT: both hands at the throat, the target held up (a grab).
+	Poses.GoranBodyBlow = stroke(S, hands({ 70, 50, 70 }, { 70, -50, 70 }),
+		hands({ 112, 14, 50, -30 }, { 112, -14, 50, -30 }, { Waist = deg(4) }), 0.3, 0)
+	-- LEVÉE DU TITAN: hands under the target, lifted overhead.
+	Poses.GoranUppercut = stroke(S, hands({ 30, 30, 90 }, { 30, -30, 90 }, { Root = { 0, 0, 0, -0.95, 0.1 }, Waist = deg(-30) }),
+		hands({ 170, 20, 40 }, { 170, -20, 40 }, { Waist = deg(10) }), 0.2, 0)
+	-- COUP DE TÊTE: both hands on the target's shoulders, the forehead driven in.
+	Poses.GoranPalmStrike = stroke(S, hands({ 90, 30, 60 }, { 90, -30, 60 }, { Neck = deg(-20) }),
+		hands({ 96, 20, 70 }, { 96, -20, 70 }, { Waist = deg(-34), Neck = deg(30) }), 0.5, 0)
+	-- SUPLEX: the target hugged and thrown over his head (two beats: up, over).
+	Poses.GoranDragonTornado = spinStroke(S, C, hands({ 120, 30, 100 }, { 120, -30, 100 }), hands({ 170, 20, 80 }, { 170, -20, 80 }))
+	-- UPPERCUT DU TITAN: from the crouch, the huge fist up, then the other.
+	Poses.GoranDragonFist = leapStroke(S, C, hands({ 0, 30, 120 }, { 40, -30, 90 }), hands({ 168, -10, 30 }, { 60, -40, 80 }),
+		hands({ 60, 40, 80 }, { 168, 10, 30 }))
+	-- SOUPLESSE ARRIÈRE: arched back, the target carried over in a bridge.
+	Poses.GoranCrescentMoon = flipStroke(S, hands({ 150, 20, 60 }, { 150, -20, 60 }), hands({ 100, 30, 80 }, { 100, -30, 80 }))
+	-- PROJECTION TOURNANTE: off the floor, swinging the target round, twice.
+	Poses.GoranRisingWind = leapStroke(S, C, hands({ 80, 60, 80 }, { 80, -60, 80 }), hands({ 100, 80, 30 }, { 90, 40, 60 }),
+		hands({ 90, -40, 60 }, { 100, -80, 30 }))
+	-- MARTÈLEMENT: both fists clubbed down again and again.
+	Poses.GoranKiFlurry = flurry(S, hands({ 150, 20, 60 }, { 90, -30, 90 }), hands({ 90, 30, 90 }, { 150, -20, 60 }), 0.3)
+	-- GENOU AU SOL: a hop, the knee driven down on the fallen target.
+	Poses.GoranThunderHeel = leapStroke(S, C, hands({ 140, 50, 60 }, { 140, -50, 60 }), hands({ 40, 50, 60 }, { 40, -50, 60 }))
+	-- LARIAT: a full turn, the arm swung out at neck height.
+	Poses.GoranSpinKick = stroke(S, hands({ 60, -40, 60 }, { 60, -60, 60 }, { Waist = deg(-8, 40) }),
+		hands({ 90, 92, 2 }, { 40, -70, 50 }, { Root = { 0, -140, 0, -0.55, -0.3 } }), 0.3, 30)
+	-- FRAPPE DU COLOSSE: a two-handed axe blow from the side.
+	Poses.GoranSmash = stroke(S, hands({ 120, 70, 60 }, { 120, 40, 70 }, { Root = { 0, -20, 0, S.Root[4], 0.3 }, Waist = deg(4, -44) }),
+		hands({ 76, -40, 20 }, { 74, -10, 30 }, { Waist = deg(-26, 34) }), 0.6, 30)
+	-- MARTEAU: both fists joined overhead and brought down.
+	Poses.GoranHammer = stroke(S, hands({ 175, 6, 40 }, { 175, -6, 40 }), hands({ 50, -6, 20 }, { 50, 6, 20 }), 0.35, 0)
+	-- BALAYAGE DU TITAN: low, the huge arm swept along the floor.
+	Poses.GoranSweep = lowStroke(C, hands({ 30, 80, 30 }, { 40, -40, 70 }), hands({ 30, -60, 10 }, { 30, -50, 70 }), 0.4)
+	-- COUP DE PIED BAS: crouched, a hand-slap at the knees.
+	Poses.GoranLowKick = lowStroke(C, hands({ 20, 20, 110 }, { 30, -30, 80 }), hands({ 44, 10, 10 }, { 30, -40, 80 }), 0.35)
+	Poses.GoranAirKick = airStroke(S, hands({ 130, 40, 70 }, { 130, -40, 70 }), hands({ 70, 20, 20 }, { 70, -20, 20 }), -18)
+	Poses.GoranAirKick2 = airStroke(S, hands({ 90, 60, 140 }, { 50, -40, 70 }), hands({ 80, -20, 150 }, { 40, -50, 70 }), -10)
+	-- CHUTE DU COLOSSE: the whole body dropped, arms spread to crush.
+	Poses.GoranAirSmash = dive(S, hands({ 140, 70, 30 }, { 140, -70, 30 }), hands({ 70, 60, 20 }, { 70, -60, 20 }))
+	-- CHARGE DU TITAN: the shoulder first, both arms tucked.
+	Poses.GoranRising = stroke(S, hands({ 30, 30, 120 }, { 30, -30, 120 }, { Root = { 0, -30, 0, -0.6, 0.3 } }),
+		hands({ 40, 20, 140 }, { 60, -30, 120 }, { Root = { 0, -40, 0, -0.65, -1.0 }, Waist = deg(-30, -20) }), 1.1, 6)
+	Poses.GoranKiChase = chase(S, C, hands({ 92, 40, 30 }, { 92, -40, 30 }))
+	-- POWERBOMB: the target raised high on both hands, then the fall.
+	Poses.GoranFinale = finisher(S, hands({ 172, 20, 50 }, { 60, -40, 60 }), hands({ 60, -10, 10 }, { -30, -40, 70 }))
+	-- ÉTREINTE DU TITAN: seized and thrown over the shoulder.
+	Poses.GoranKiBlast = stroke(S, hands({ 80, 40, 60 }, { 80, -40, 60 }), hands({ 150, -30, 80 }, { 110, -60, 60 }), 0.4, 40)
+	Poses.GoranGrab = {
+		Startup = feet(merge(S, hands({ 80, 50, 50 }, { 80, -50, 50 })), -0.7, 0.75, 0, -10, 14),
+		Active = feet(merge(S, hands({ 100, 16, 70 }, { 100, -16, 70 }, { Root = { 0, 0, 0, -0.65, -0.4 }, Waist = deg(-20) })),
+			-1.0, 0.6, 0, -14, 14),
+		Recovery = feet(merge(S, hands({ 160, -20, 60 }, { 140, -50, 60 }, { Root = { 0, 60, 0, -0.55, 0 }, Waist = deg(4, 40) })),
+			-0.7, 0.7, 0, -8, 14),
+	}
+	local raised = gather(S, hands({ 150, 70, 90 }, { 150, -70, 90 }))
+	-- SUPLEX APOCALYPTIQUE: the bear hug.
+	Poses.GoranKaienRush = ultimate(raised, stroke(S, hands({ 90, 70, 40 }, { 90, -70, 40 }),
+		hands({ 94, 30, 110 }, { 94, -30, 110 }, { Root = { 0, 0, 0, -0.6, -0.8 }, Waist = deg(-10) }), 0.9, 0))
+	-- BRISURE VERTÉBRALE: the target across the knee, both hands pressing down.
+	Poses.GoranAwakening = ultimate(raised, finisher(S, hands({ 160, 40, 70 }, { 160, -40, 70 }),
+		hands({ 40, 10, 40 }, { -20, -50, 70 }, { Root = { 0, 10, 0, -0.9, -0.6 } })))
+	-- CHUTE DU TITAN: both arms raised to the sky, the giant falling.
+	Poses.GoranKaiten = ultimate(raised, stroke(S, hands({ 178, 10, 10 }, { 178, -10, 10 }),
+		hands({ 100, 40, 0 }, { 100, -40, 0 }, { Waist = deg(-36) }), 0.5, 0))
+	-- DERNIÈRE PROJECTION: one hand under, one on top, the throw.
+	Poses.GoranFatal = ultimate(raised, finisher(S, hands({ 40, 50, 100 }, { 140, -40, 60 }),
+		hands({ 150, -30, 30 }, { -40, -50, 80 })))
+	strike("Goran", { Jab = R_, Cross = L_, Elbow = R_, Kick = R_, BodyBlow = B_, Uppercut = B_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = B_, RisingWind = B_, KiFlurry = B_, ThunderHeel = B_, SpinKick = R_,
+		Smash = B_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = B_, AirKick2 = R_, AirSmash = B_, Rising = B_, KiChase = B_,
+		Finale = R_, KiBlast = B_, KaienRush = B_, Awakening = B_, Kaiten = B_, Fatal = R_, Grab = B_ })
+end
+
+-- ---------------------------------------------------------------- ASTER 星 · gravity (open palms, rings)
+do
+	local S, C = KITS.ASTER.STANCE, KITS.ASTER.Crouch
+	-- (his weightless stance stands tall: the strokes bend the knees a little more)
+	local T = merge(S, { Root = { 0, S.Root[2], 0, -0.32, 0 } })
+	local P = -70 -- the palm open toward the target
+	local function palms(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or P }, l and { l[1], l[2], l[3], l[4] or P }, extra)
+	end
+	-- IMPULSION: the left palm pushed out, the air bending.
+	Poses.AsterJab = stroke(T, palms(nil, { 40, -20, 100 }), palms(nil, { 92, 6, 4 }), 0.3, 16)
+	-- ANNEAU: the right hand traces a ring across.
+	Poses.AsterCross = stroke(T, palms({ 100, 70, 30, 0 }, { 50, -30, 50 }), palms({ 90, -40, 10, 0 }, { 40, -40, 50 }), 0.3, 30)
+	-- PRESSION: the palm pressed down on the target from above.
+	Poses.AsterElbow = stroke(T, palms({ 160, 10, 50 }, { 60, -40, 60 }), palms({ 80, 0, 10, -80 }, { 40, -50, 60 }), 0.3, 10)
+	-- ORBITE COURTE: a step round, both hands circling.
+	Poses.AsterKick = stroke(T, palms({ 60, 70, 60 }, { 120, -40, 40 }, { Waist = deg(0, -30) }),
+		palms({ 120, 40, 40 }, { 60, -70, 60 }, { Root = { 0, 120, 0, -0.3, -0.2 } }), 0.2, 20)
+	-- MASSE AU CŒUR: a palm on the chest, the weight dropped on it.
+	Poses.AsterBodyBlow = stroke(T, palms({ 10, 30, 110 }, { 50, -30, 60 }), palms({ 80, 0, 6 }, { 40, -40, 50 },
+		{ Root = { 0, 0, 0, -0.55, -0.5 }, Waist = deg(-24) }), 0.5, 20)
+	-- APESANTEUR: both palms raised, the target floating up.
+	Poses.AsterUppercut = stroke(T, palms({ 40, 30, 60, 60 }, { 40, -30, 60, 60 }),
+		palms({ 150, 30, 20, 60 }, { 150, -30, 20, 60 }), 0.1, 0)
+	-- POUSSÉE STELLAIRE: both palms together, pushing.
+	Poses.AsterPalmStrike = stroke(T, palms({ 50, 10, 100 }, { 50, -10, 100 }), palms({ 94, 6, 2 }, { 94, -6, 2 }), 0.4, 6)
+	-- SPIRALE GALACTIQUE: floating in a spin, the arms out like an orbit.
+	Poses.AsterDragonTornado = spinStroke(S, C, palms({ 100, 80, 10, 0 }, { 80, -80, 10, 0 }), palms({ 80, 80, 10, 0 }, { 100, -80, 10, 0 }))
+	-- COMÈTE MONTANTE: rising, a palm thrown up, the other following.
+	Poses.AsterDragonFist = leapStroke(S, C, palms({ 20, 30, 90 }, { 20, -30, 90 }), palms({ 170, 20, 6 }, { 90, -50, 40 }),
+		palms({ 90, 50, 40 }, { 170, -20, 6 }))
+	-- CROISSANT LUNAIRE: a slow somersault, both hands drawing the moon.
+	Poses.AsterCrescentMoon = flipStroke(S, palms({ 140, 50, 10 }, { 140, -50, 10 }), palms({ 60, 70, 10 }, { 60, -70, 10 }))
+	-- VENT SOLAIRE: up, both palms pushing left then right.
+	Poses.AsterRisingWind = leapStroke(S, C, palms({ 60, 40, 60 }, { 60, -40, 60 }), palms({ 100, 70, 6 }, { 100, 40, 6 }),
+		palms({ 100, -40, 6 }, { 100, -70, 6 }))
+	-- PLUIE D'ÉTOILES: palm after palm, quick and light.
+	Poses.AsterKiFlurry = flurry(S, palms({ 96, 10, 4 }, { 60, -30, 70 }), palms({ 60, 30, 70 }, { 96, -10, 4 }), 0.25)
+	-- CHUTE DE MASSE: a leap, a palm brought down like a falling star.
+	Poses.AsterThunderHeel = leapStroke(S, C, palms({ 175, 10, 20 }, { 120, -40, 40 }), palms({ 50, -4, 0, -80 }, { 60, -50, 40 }))
+	-- ANNEAU TOURNANT: a pirouette, the rings flung round at arm's length.
+	Poses.AsterSpinKick = stroke(T, palms({ 80, -40, 30 }, { 80, -70, 30 }, { Waist = deg(-6, 40) }),
+		palms({ 92, 94, 0, 0 }, { 92, -94, 0, 0 }, { Root = { 0, -170, 0, -0.32, -0.1 } }), 0.2, 30)
+	-- FRAPPE GRAVE: the heavy palm, the floor seeming to sink.
+	Poses.AsterSmash = stroke(T, palms({ 30, 40, 110, 40 }, { 70, -30, 50 }, { Root = { 0, -18, 0, T.Root[4], 0.3 }, Waist = deg(0, -40) }),
+		palms({ 94, -6, 0 }, { -20, -30, 60 }, { Waist = deg(-24, 30) }), 0.7, 30)
+	-- ÉCRASEMENT: both palms pressed down from above.
+	Poses.AsterHammer = stroke(T, palms({ 172, 20, 20, -80 }, { 172, -20, 20, -80 }), palms({ 70, 10, 10, -80 }, { 70, -10, 10, -80 }), 0.3, 0)
+	-- GLISSEMENT: crouched, a palm sliding along the floor.
+	Poses.AsterSweep = lowStroke(C, palms({ 40, 70, 10 }, { 40, -40, 60 }), palms({ 40, -50, 0, -60 }, { 30, -50, 60 }), 0.4)
+	-- PRESSION BASSE: low, a palm pushing the knee away.
+	Poses.AsterLowKick = lowStroke(C, palms({ 20, 10, 110 }, { 40, -30, 70 }), palms({ 56, 0, 2 }, { 30, -40, 70 }), 0.35)
+	Poses.AsterAirKick = airStroke(S, palms({ 120, 30, 40 }, { 60, -40, 60 }), palms({ 70, -10, 4 }, { 40, -50, 60 }), -18)
+	Poses.AsterAirKick2 = airStroke(S, palms({ 60, 40, 60 }, { 120, -30, 40 }), palms({ 40, 50, 60 }, { 70, 10, 4 }), -14)
+	-- CHUTE D'ASTRE: falling straight, both palms ahead.
+	Poses.AsterAirSmash = dive(S, palms({ 160, 20, 30 }, { 160, -20, 30 }), palms({ 80, 10, 4, -80 }, { 80, -10, 4, -80 }))
+	-- ÉLÉVATION: a palm swept up, lifting the target off the floor.
+	Poses.AsterRising = leapStroke(S, C, palms({ 10, 30, 30, 60 }, { 40, -30, 60 }), palms({ 176, 20, 6, 60 }, { 60, -50, 60 }))
+	Poses.AsterKiChase = chase(S, C, palms({ 90, 10, 4 }, { 60, -40, 50 }))
+	-- SUPERNOVA: drawn in close, then the right palm thrown open.
+	Poses.AsterFinale = finisher(S, palms({ -20, 40, 110 }, { 60, -40, 80 }), palms({ 96, -4, 0 }, { -30, -40, 60 }))
+	-- ATTRACTION: the hand thrown out, then closed and pulled back.
+	Poses.AsterKiBlast = stroke(T, palms({ 40, -20, 110 }, { 50, -30, 60 }), palms({ 100, 10, 4, 0 }, { 30, -50, 60 }), 0.3, 16)
+	local raised = gather(S, palms({ 160, 50, 20, 0 }, { 120, -50, 40, 0 }))
+	-- ORBITE MORTELLE: both hands circling the target, then closed on it.
+	Poses.AsterKaienRush = ultimate(raised, stroke(T, palms({ 90, 80, 20 }, { 90, -80, 20 }),
+		palms({ 98, 20, 30, 0 }, { 98, -20, 30, 0 }, { Root = { 0, 0, 0, -0.35, -0.7 } }), 0.8, 0))
+	-- EFFONDREMENT STELLAIRE: the left palm up holding the star, the right driving it down.
+	Poses.AsterAwakening = ultimate(raised, finisher(S, palms({ 170, 20, 30 }, { 150, -30, 40 }),
+		palms({ 74, -6, 0, -80 }, { 160, -20, 20 })))
+	-- HORIZON DES ÉVÉNEMENTS: both arms wide, the black hole opening.
+	Poses.AsterKaiten = ultimate(raised, stroke(T, palms({ 120, 90, 10, 0 }, { 120, -90, 10, 0 }),
+		palms({ 100, 50, 0 }, { 100, -50, 0 }), 0.2, 0))
+	-- FUNÉRAILLES COSMIQUES: one hand raised to the sky, the other pressing the target down.
+	Poses.AsterFatal = ultimate(raised, finisher(S, palms({ 176, 30, 10 }, { 40, -50, 80 }),
+		palms({ 60, 10, 0, -80 }, { 176, -20, 10 })))
+	strike("Aster", { Jab = L_, Cross = R_, Elbow = R_, Kick = B_, BodyBlow = R_, Uppercut = B_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = B_, RisingWind = B_, KiFlurry = B_, ThunderHeel = R_, SpinKick = B_,
+		Smash = R_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_ })
+end
+
+-- ---------------------------------------------------------------- HIBIKI 響 · rhythm (kicks, breakdance, quick jabs)
+do
+	local S, C = KITS.HIBIKI.STANCE, KITS.HIBIKI.Crouch
+	-- A kick of HIBIKI: the standing leg planted by IK, the kicking leg given.
+	local function kick(base, hip, knee, side, arms_, root, waist)
+		local l = if side == "Left" then { LeftHip = deg(hip, 0, -10), LeftKnee = deg(knee), LeftAnkle = deg(-30) }
+			else { RightHip = deg(hip, 0, 10), RightKnee = deg(knee), RightAnkle = deg(-30) }
+		return feet(merge(base, merge(arms_ or {}, { Root = root or { 0, 0, 0, -0.15, 0.1 }, Waist = waist or deg(10, 0) })),
+			-0.5, 0.5, 0, -10, 6, l)
+	end
+	local function set(windup, active, recovery) return { Startup = windup, Active = active, Recovery = recovery or S } end
+	-- BEAT: a quick left jab on the beat, the head nodding.
+	Poses.HibikiJab = stroke(S, arms(nil, { 70, -10, 120 }), arms(nil, { 92, 8, 2 }, { Neck = deg(-10) }), 0.35, 18)
+	-- CONTRETEMPS: the right hand off the beat, a backfist.
+	Poses.HibikiCross = stroke(S, arms({ 60, -40, 140 }, { 80, -20, 120 }), arms({ 90, 60, 20, 30 }, { 70, -20, 120 }), 0.3, 30)
+	-- SNARE: a snapping side kick at the ribs.
+	Poses.HibikiElbow = set(kick(S, 80, -120, "Right", arms({ 90, 20, 120 }, { 90, -20, 120 })),
+		kick(S, 90, -4, "Right", arms({ 60, 40, 100 }, { 60, -40, 100 }), { 0, -30, -20, -0.1, 0.1 }, deg(14, -20)))
+	-- BREAKDANCE: dropped to one hand, the legs windmilling.
+	Poses.HibikiKick = set(merge(C, arms({ 30, 30, 60 }, { 30, -30, 60 })),
+		blind(merge(legs(120, -10, 60, -20, -10, 20), arms({ -10, 60, 10 }, { 160, -20, 10 }, { Root = { 0, 90, 70, -1.6, 0 }, Waist = deg(-10) }))),
+		C)
+	-- BASSE AU VENTRE: a knee into the belly, both hands pulling the target down.
+	Poses.HibikiBodyBlow = set(kick(S, 60, -100, "Right", arms({ 90, 20, 60 }, { 90, -20, 60 })),
+		kick(S, 100, -140, "Right", arms({ 70, 10, 100 }, { 70, -10, 100 }), { 0, 0, 0, -0.1, -0.3 }, deg(-14, 0)))
+	-- DROP: a jumping knee straight up.
+	Poses.HibikiUppercut = leapStroke(S, C, arms({ 20, 30, 90 }, { 20, -30, 90 }), arms({ 160, 30, 30 }, { 160, -30, 30 }))
+	-- IMPULSION SONORE: both fists punched together at the target, the amplifiers ringing.
+	Poses.HibikiPalmStrike = stroke(S, arms({ 50, 20, 130 }, { 50, -20, 130 }), arms({ 92, 10, 2 }, { 92, -10, 2 }), 0.4, 8)
+	-- REMIX: a spinning back kick off the floor, twice.
+	Poses.HibikiDragonTornado = spinStroke(S, C, arms({ 60, 70, 60 }, { 60, -70, 60 }), arms({ 120, 60, 40 }, { 40, -70, 70 }))
+	-- CRESCENDO: a rising scissor kick, one leg then the other.
+	Poses.HibikiDragonFist = leapStroke(S, C, arms({ 30, 40, 80 }, { 30, -40, 80 }), arms({ 40, 70, 30 }, { 120, -40, 40 }),
+		arms({ 120, 40, 40 }, { 40, -70, 30 }))
+	-- SCRATCH: a cartwheel, the heels raking the target.
+	Poses.HibikiCrescentMoon = flipStroke(S, arms({ 170, 30, 10 }, { 170, -30, 10 }), arms({ 150, 50, 10 }, { 150, -50, 10 }))
+	-- LARSEN: spinning up, both feet out.
+	Poses.HibikiRisingWind = leapStroke(S, C, arms({ 60, 60, 50 }, { 60, -60, 50 }), arms({ 90, 90, 10 }, { 40, -60, 50 }),
+		arms({ 40, 60, 50 }, { 90, -90, 10 }))
+	-- RAFALE DE NOTES: left, right, left on a fast rhythm.
+	Poses.HibikiKiFlurry = flurry(S, arms({ 94, 6, 2 }, { 70, -20, 120 }), arms({ 70, 20, 120 }, { 94, -6, 2 }), 0.35)
+	-- KICK DRUM: a stamp-kick down on the target, like a pedal.
+	Poses.HibikiThunderHeel = leapStroke(S, C, arms({ 120, 60, 40 }, { 120, -60, 40 }), arms({ 40, 60, 60 }, { 40, -60, 60 }))
+	-- PIROUETTE: a turning hook kick.
+	Poses.HibikiSpinKick = set(feet(merge(S, arms({ 60, 60, 60 }, { 60, -60, 60 }, { Root = { 0, 90, 0, -0.3, 0 } })), -0.5, 0.5, 0, -10, 6),
+		kick(S, 100, -40, "Right", arms({ 40, 80, 20 }, { 40, -80, 20 }), { 0, 200, -10, -0.1, 0 }, deg(14, 20)))
+	-- FORTISSIMO: a big straight punch, the whole weight forward.
+	Poses.HibikiSmash = stroke(S, arms({ 20, 30, 140 }, { 80, -10, 110 }, { Root = { 0, -20, 0, S.Root[4], 0.4 }, Waist = deg(0, -40) }),
+		arms({ 94, -4, 0 }, { -20, -30, 90 }, { Waist = deg(-22, 34) }), 0.8, 30)
+	-- BASS DROP: an axe kick, the heel brought down from over the head.
+	Poses.HibikiHammer = set(kick(S, 150, -10, "Right", arms({ 60, 50, 60 }, { 60, -50, 60 })),
+		kick(S, 70, -6, "Right", arms({ 40, 60, 60 }, { 40, -60, 60 }), { 0, 0, 0, -0.2, -0.2 }, deg(-10)))
+	-- GLISSANDO: a sliding low sweep on one hand.
+	Poses.HibikiSweep = lowStroke(C, arms({ 30, 60, 30 }, { 50, -40, 60 }), arms({ 20, 70, 10 }, { 50, -30, 60 }), 0.5)
+	-- COUP BAS: a low snap kick at the shin.
+	Poses.HibikiLowKick = set(merge(C, { RightHip = deg(85, 0, 10), RightKnee = deg(-135), RightAnkle = deg(30), Waist = deg(-20, 10) }),
+		merge(C, { RightHip = deg(82, 0, 10), RightKnee = deg(-4), RightAnkle = deg(-30), Waist = deg(-12, -24), Neck = deg(14, 10) }), C)
+	Poses.HibikiAirKick = airStroke(S, arms({ 60, 50, 60 }, { 60, -50, 60 }), arms({ 40, 70, 30 }, { 40, -70, 30 }), -30)
+	Poses.HibikiAirKick2 = airStroke(S, arms({ 100, 40, 80 }, { 50, -50, 60 }), arms({ 60, 70, 30 }, { 60, -40, 30 }), -8)
+	-- CHUTE DE TEMPO: dropping with both fists down.
+	Poses.HibikiAirSmash = dive(S, arms({ 170, 10, 60 }, { 170, -10, 60 }), arms({ 80, 4, 0 }, { 80, -4, 0 }))
+	-- AMPLI: a jumping uppercut with the amplified glove.
+	Poses.HibikiRising = leapStroke(S, C, arms({ 10, 30, 120 }, { 40, -30, 90 }), arms({ 174, -6, 10 }, { 40, -50, 90 }))
+	Poses.HibikiKiChase = chase(S, C, arms({ 92, 10, 6 }, { -30, -40, 40 }))
+	-- FINAL EN MAJEUR: coiled low, the final straight with everything behind it.
+	Poses.HibikiFinale = finisher(S, arms({ -30, 30, 140 }, { 60, -40, 110 }), arms({ 96, -2, 0 }, { -40, -40, 90 }))
+	-- ONDE SONIQUE: both gloves clapped together, the wave going out.
+	Poses.HibikiKiBlast = stroke(S, arms({ 90, 80, 40 }, { 90, -80, 40 }), arms({ 92, 30, 10, -40 }, { 92, -30, 10, -40 }), 0.2, 0)
+	local raised = gather(S, arms({ 170, 30, 60 }, { 100, -60, 130 }))
+	-- SYMPHONIE BRUTALE: a flying kick into the barrage.
+	Poses.HibikiKaienRush = ultimate(raised, set(nil, kick(S, 110, -10, "Right", arms({ 30, 60, 60 }, { 90, -20, 120 }),
+		{ 0, -40, 0, -0.1, -0.6 }, deg(16, -30)), S))
+	-- FRÉQUENCE INTERDITE: both hands at the headphones, then thrown open.
+	Poses.HibikiAwakening = ultimate(raised, finisher(S, arms({ 140, 60, 150 }, { 140, -60, 150 }),
+		arms({ 98, 40, 0 }, { -10, -70, 40 })))
+	-- DERNIÈRE RÉSONANCE: a stamp on the floor, both fists raised.
+	Poses.HibikiKaiten = ultimate(raised, stroke(S, arms({ 60, 40, 140 }, { 60, -40, 140 }),
+		arms({ 176, 20, 4 }, { 176, -20, 4 }, { Waist = deg(10) }), 0.1, 0))
+	-- SILENCE ABSOLU: a single finger to the lips, then the strike.
+	Poses.HibikiFatal = ultimate(raised, finisher(S, arms({ 100, -40, 150 }, { 40, -40, 80 }),
+		arms({ 100, 10, 0, -30 }, { -30, -50, 70 })))
+	strike("Hibiki", { Jab = L_, Cross = R_, Elbow = RF, Kick = BF, BodyBlow = RF, Uppercut = RF, PalmStrike = B_,
+		DragonTornado = BF, DragonFist = BF, CrescentMoon = BF, RisingWind = BF, KiFlurry = B_, ThunderHeel = RF, SpinKick = RF,
+		Smash = R_, Hammer = RF, Sweep = R_, LowKick = RF, AirKick = RF, AirKick2 = LF, AirSmash = B_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = B_, KaienRush = RF, Awakening = R_, Kaiten = B_, Fatal = R_ })
+end
+
+
+-- ---------------------------------------------------------------- MARION 糸 · the puppeteer (hands high, threads)
+do
+	local S0, C = KITS.MARION.STANCE, KITS.MARION.Crouch
+	-- (her stance stands tall: the strokes bend the knees a little)
+	local S = merge(S0, { Root = { 0, S0.Root[2], 0, -0.3, 0 } })
+	local Q = 50 -- the fingers curled, pulling the threads
+	local function threads(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or Q }, l and { l[1], l[2], l[3], l[4] or Q }, extra)
+	end
+	-- FIL: a finger flicked, the thread lashing out.
+	Poses.MarionJab = stroke(S, threads(nil, { 120, -20, 80 }), threads(nil, { 100, 10, 10, -40 }), 0.15, 10)
+	-- REVERS DE FIL: the right hand yanked across, the thread cutting.
+	Poses.MarionCross = stroke(S, threads({ 120, 60, 60 }, { 110, -30, 70 }), threads({ 110, -40, 20, -30 }, { 110, -30, 70 }), 0.15, 24)
+	-- PANTIN: both hands jerked down, the puppet striking.
+	Poses.MarionElbow = stroke(S, threads({ 150, 30, 60 }, { 150, -30, 60 }), threads({ 100, 20, 40, 70 }, { 100, -20, 40, 70 }), 0.1, 0)
+	-- DANSE MACABRE: a slow turn, the threads drawing a circle.
+	Poses.MarionKick = stroke(S, threads({ 130, 70, 40 }, { 130, -70, 40 }, { Waist = deg(0, -30) }),
+		threads({ 120, 85, 20 }, { 120, -85, 20 }, { Root = { 0, 150, 0, -0.42, 0 } }), 0.1, 20)
+	-- AIGUILLE: a needle thrown from between two fingers.
+	Poses.MarionBodyBlow = stroke(S, threads({ 40, -30, 130, -30 }, { 110, -30, 60 }), threads({ 96, 10, 0, -60 }, { 110, -30, 60 }), 0.25, 20)
+	-- LEVÉE DU RIDEAU: both hands raised slowly, the target lifted on its threads.
+	Poses.MarionUppercut = stroke(S, threads({ 60, 30, 40, 40 }, { 60, -30, 40, 40 }), threads({ 172, 20, 30, 60 }, { 172, -20, 30, 60 }), 0.05, 0)
+	-- MAIN DE BOIS: the puppet's wooden hand pushed out with both of hers.
+	Poses.MarionPalmStrike = stroke(S, threads({ 120, 30, 90 }, { 120, -30, 90 }), threads({ 98, 20, 10, -40 }, { 98, -20, 10, -40 }), 0.2, 0)
+	-- PIROUETTE DU PANTIN: lifted on her own threads, spinning.
+	Poses.MarionDragonTornado = spinStroke(S, C, threads({ 150, 60, 30 }, { 150, -60, 30 }), threads({ 120, 80, 20 }, { 160, -40, 30 }))
+	-- CORDE MONTANTE: rising on a thread, one hand pulling up, then the other.
+	Poses.MarionDragonFist = leapStroke(S, C, threads({ 100, 30, 90 }, { 100, -30, 90 }), threads({ 176, 10, 40, 70 }, { 110, -40, 60 }),
+		threads({ 110, 40, 60 }, { 176, -10, 40, 70 }))
+	-- ARC DE SOIE: a flip, the silk drawn in an arc.
+	Poses.MarionCrescentMoon = flipStroke(S, threads({ 160, 30, 20 }, { 160, -30, 20 }), threads({ 120, 50, 20 }, { 120, -50, 20 }))
+	-- TOILE: up, the web woven left then right.
+	Poses.MarionRisingWind = leapStroke(S, C, threads({ 120, 40, 60 }, { 120, -40, 60 }), threads({ 120, 80, 20, 70 }, { 140, 10, 60 }),
+		threads({ 140, -10, 60 }, { 120, -80, 20, 70 }))
+	-- MILLE FILS: the fingers working like a pianist's, the puppet striking again and again.
+	Poses.MarionKiFlurry = flurry(S, threads({ 120, 30, 40, 70 }, { 130, -20, 70, 20 }), threads({ 130, 20, 70, 20 }, { 120, -30, 40, 70 }), 0.15)
+	-- CHUTE DU DÉCOR: a hop, both hands dropped: the scenery falls on the target.
+	Poses.MarionThunderHeel = leapStroke(S, C, threads({ 176, 20, 20 }, { 176, -20, 20 }), threads({ 80, 20, 10, 70 }, { 80, -20, 10, 70 }))
+	-- VALSE DU PANTIN: a waltz turn, the right hand leading the puppet round.
+	Poses.MarionSpinKick = stroke(S, threads({ 130, -40, 60 }, { 120, -50, 60 }, { Waist = deg(-4, 40) }),
+		threads({ 110, 95, 10 }, { 140, -40, 60 }, { Root = { 0, -150, 0, -0.42, 0 } }), 0.1, 30)
+	-- COUP DE THÉÂTRE: both hands thrown wide, the curtain ripped open.
+	Poses.MarionSmash = stroke(S, threads({ 100, -20, 120 }, { 100, 20, 120 }, { Waist = deg(0, -20) }),
+		threads({ 110, 95, 0, -20 }, { 110, -95, 0, -20 }, { Waist = deg(-10, 10) }), 0.3, 10)
+	-- TOMBÉE DU RIDEAU: both hands brought down from high, the curtain falling.
+	Poses.MarionHammer = stroke(S, threads({ 178, 10, 20 }, { 178, -10, 20 }), threads({ 60, 20, 10, 70 }, { 60, -20, 10, 70 }), 0.15, 0)
+	-- FIL RASANT: low, a thread whipped along the floor.
+	Poses.MarionSweep = lowStroke(C, threads({ 70, 70, 30 }, { 100, -30, 60 }), threads({ 50, -50, 10, -30 }, { 100, -30, 60 }), 0.2)
+	-- AIGUILLE BASSE: crouched, a needle at the ankle.
+	Poses.MarionLowKick = lowStroke(C, threads({ 40, -20, 120, -30 }, { 90, -30, 70 }), threads({ 60, 0, 0, -60 }, { 90, -30, 70 }), 0.25)
+	Poses.MarionAirKick = airStroke(S, threads({ 150, 40, 40 }, { 120, -40, 60 }), threads({ 90, -10, 10, 60 }, { 120, -40, 60 }), -14)
+	Poses.MarionAirKick2 = airStroke(S, threads({ 120, 40, 60 }, { 150, -40, 40 }), threads({ 120, 40, 60 }, { 90, 10, 10, 60 }), -10)
+	-- CHUTE DE MARIONNETTE: dropped on her threads, both hands pulling down.
+	Poses.MarionAirSmash = dive(S, threads({ 170, 30, 30 }, { 170, -30, 30 }), threads({ 90, 20, 10, 70 }, { 90, -20, 10, 70 }))
+	-- ENTRÉE EN SCÈNE: rising on the threads, both arms up.
+	Poses.MarionRising = leapStroke(S, C, threads({ 90, 40, 90 }, { 90, -40, 90 }), threads({ 178, 30, 10 }, { 178, -30, 10 }))
+	Poses.MarionKiChase = chase(S, C, threads({ 110, 20, 20, 60 }, { 110, -20, 20, 60 }))
+	-- SALUT FINAL: a bow, the left hand behind, the right hand cutting every thread.
+	Poses.MarionFinale = finisher(S, threads({ 150, 60, 60 }, { 40, -40, 100 }), threads({ 96, -30, 0, -40 }, { -30, -40, 90 }))
+	-- FILS CROISÉS: both hands crossed before her, the threads cast.
+	Poses.MarionKiBlast = stroke(S, threads({ 120, 50, 70 }, { 120, -50, 70 }), threads({ 104, -30, 20, -30 }, { 104, 30, 20, -30 }), 0.1, 0)
+	local raised = gather(S, threads({ 175, 30, 40, 60 }, { 175, -30, 40, 60 }))
+	-- BAL DES MARIONNETTES: both hands conducting, the puppets thrown in.
+	Poses.MarionKaienRush = ultimate(raised, stroke(S, threads({ 150, 80, 50 }, { 150, -80, 50 }),
+		threads({ 112, 30, 30, 70 }, { 112, -30, 30, 70 }), 0.2, 0))
+	-- THÉÂTRE SANGLANT: the left hand holding the puppet high, the right pulling the last thread.
+	Poses.MarionAwakening = ultimate(raised, finisher(S, threads({ 176, 40, 20 }, { 176, -20, 30 }),
+		threads({ 90, -40, 30, 70 }, { 170, -20, 30 })))
+	-- DERNIER ACTE: arms open wide, a bow before the curtain.
+	Poses.MarionKaiten = ultimate(raised, stroke(S, threads({ 120, 90, 30 }, { 120, -90, 30 }),
+		threads({ 70, 70, 20 }, { 70, -70, 20 }, { Waist = deg(-30) }), 0.1, 0))
+	-- LE RIDEAU TOMBE: one hand raised for the curtain, the other brought down through.
+	Poses.MarionFatal = ultimate(raised, finisher(S, threads({ 178, 20, 10 }, { 60, -40, 100 }),
+		threads({ 60, 0, 0, 70 }, { 178, -20, 10 })))
+	strike("Marion", { Jab = L_, Cross = R_, Elbow = B_, Kick = B_, BodyBlow = R_, Uppercut = B_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = B_, RisingWind = B_, KiFlurry = B_, ThunderHeel = B_, SpinKick = R_,
+		Smash = B_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = B_, KiChase = B_,
+		Finale = R_, KiBlast = B_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_ })
+end
+
+-- ---------------------------------------------------------------- KAZAN 鎖 · the jailer's chains (whips, pulls)
+do
+	local S, C = KITS.KAZAN.STANCE, KITS.KAZAN.Crouch
+	-- A chain lash: the arm swung straight, the elbow barely bent, the wrist following.
+	local function chain(r, l, extra) return arms(r, l, extra) end
+	-- MAILLON: the left chain snapped out.
+	Poses.KazanJab = stroke(S, chain(nil, { 60, -60, 100 }), chain(nil, { 96, 4, 0, -20 }), 0.2, 20)
+	-- REVERS DE CHAÎNE: the right chain whipped back across.
+	Poses.KazanCross = stroke(S, chain({ 90, 90, 10 }, { 60, -30, 90 }, { Waist = deg(-6, -40) }), chain({ 88, -60, 0 }, { 50, -40, 90 }), 0.2, 40)
+	-- MENOTTE: the chain looped down on the wrists.
+	Poses.KazanElbow = stroke(S, chain({ 170, 40, 20 }, { 60, -30, 100 }), chain({ 70, 0, 0, -30 }, { 50, -40, 100 }), 0.25, 16)
+	-- FOUET DE FER: a full turn, the chain lashing round at head height.
+	Poses.KazanKick = stroke(S, chain({ 100, -40, 10 }, { 60, -50, 90 }, { Waist = deg(-6, 40) }),
+		chain({ 100, 94, 0 }, { 40, -60, 90 }, { Root = { 0, -170, 0, -0.45, -0.1 } }), 0.2, 30)
+	-- CADENAS: the fist wrapped in chain, driven into the belly.
+	Poses.KazanBodyBlow = stroke(S, chain({ 20, 30, 120 }, { 60, -30, 90 }), chain({ 66, -10, 30 }, { 40, -40, 90 },
+		{ Root = { 0, 10, 0, -0.65, -0.6 }, Waist = deg(-26, 24) }), 0.6, 20)
+	-- LEVÉE DES FERS: the chain swung up from the floor under the chin.
+	Poses.KazanUppercut = stroke(S, chain({ -20, 30, 20 }, { 60, -30, 90 }, { Root = { 0, 0, 0, -0.8, 0.2 }, Waist = deg(-24) }),
+		chain({ 168, 10, 0 }, { 40, -40, 90 }), 0.2, 20)
+	-- BOULET: both chains swung together like a ball and chain.
+	Poses.KazanPalmStrike = stroke(S, chain({ 40, 60, 20 }, { 40, -20, 60 }, { Waist = deg(0, -40) }),
+		chain({ 100, -20, 0 }, { 96, 20, 20 }), 0.35, 30)
+	-- TOURBILLON DE CHAÎNES: off the floor, the chains whirling out flat.
+	Poses.KazanDragonTornado = spinStroke(S, C, chain({ 92, 92, 0 }, { 92, -92, 0 }), chain({ 100, 85, 0 }, { 84, -85, 0 }))
+	-- CHAÎNE MONTANTE: rising, the chain whipped up, then the other.
+	Poses.KazanDragonFist = leapStroke(S, C, chain({ 0, 30, 60 }, { 0, -30, 60 }), chain({ 176, 20, 0 }, { 40, -60, 60 }),
+		chain({ 40, 60, 60 }, { 176, -20, 0 }))
+	-- ARC DE FER: a flip, the chain trailing the arc.
+	Poses.KazanCrescentMoon = flipStroke(S, chain({ 150, 10, 0 }, { 40, -60, 60 }), chain({ 30, 10, 0 }, { 40, -60, 60 }))
+	-- TEMPÊTE DE MAILLONS: up, both chains lashing right then left.
+	Poses.KazanRisingWind = leapStroke(S, C, chain({ 60, 60, 40 }, { 60, -60, 40 }), chain({ 110, 90, 0 }, { 60, 40, 60 }),
+		chain({ 60, -40, 60 }, { 110, -90, 0 }))
+	-- MILLE MAILLONS: short lashes, one chain then the other.
+	Poses.KazanKiFlurry = flurry(S, chain({ 100, -10, 0 }, { 60, -40, 90 }), chain({ 60, 40, 90 }, { 100, 10, 0 }), 0.25)
+	-- ÉCROU: a leap, the chain brought down like a hammer.
+	Poses.KazanThunderHeel = leapStroke(S, C, chain({ 178, 10, 10 }, { 60, -50, 90 }), chain({ 40, -4, 0 }, { 50, -50, 90 }))
+	-- CHAÎNE TOURNANTE: a pivot, the chain swept round at the waist.
+	Poses.KazanSpinKick = stroke(S, chain({ 70, -60, 20 }, { 50, -60, 90 }, { Waist = deg(-6, 40) }),
+		chain({ 74, 96, 0 }, { 40, -70, 80 }, { Root = { 0, 160, 0, -0.45, -0.1 } }), 0.2, 30)
+	-- MASSE DU GEÔLIER: the chain swung overhead in a great arc and down.
+	Poses.KazanSmash = stroke(S, chain({ 176, -30, 10 }, { 60, -40, 90 }, { Root = { 0, -20, 0, S.Root[4], 0.4 }, Waist = deg(8, -40) }),
+		chain({ 70, 20, 0 }, { -20, -40, 80 }, { Waist = deg(-30, 30) }), 0.6, 30)
+	-- VERROU: both chains crossed and pulled tight across the target.
+	Poses.KazanHammer = stroke(S, chain({ 120, 70, 60 }, { 120, -70, 60 }), chain({ 96, -30, 60 }, { 96, 30, 60 }), 0.3, 0)
+	-- ENTRAVE BASSE: low, the chain swept round the ankles.
+	Poses.KazanSweep = lowStroke(C, chain({ 30, 90, 0 }, { 40, -40, 90 }), chain({ 30, -70, 0 }, { 40, -50, 90 }), 0.3)
+	-- MAILLON BAS: crouched, a short lash at the shins.
+	Poses.KazanLowKick = lowStroke(C, chain({ 30, 40, 90 }, { 40, -40, 90 }), chain({ 50, -10, 0 }, { 40, -40, 90 }), 0.3)
+	Poses.KazanAirKick = airStroke(S, chain({ 160, 30, 10 }, { 60, -50, 80 }), chain({ 60, -10, 0 }, { 40, -50, 80 }), -24)
+	Poses.KazanAirKick2 = airStroke(S, chain({ 60, 50, 80 }, { 160, -30, 10 }), chain({ 40, 50, 80 }, { 60, 10, 0 }), -18)
+	-- CHUTE DU BOULET: dropping, both chains first.
+	Poses.KazanAirSmash = dive(S, chain({ 176, 20, 10 }, { 176, -20, 10 }), chain({ 70, 10, 0 }, { 70, -10, 0 }))
+	-- TRACTION: the chain hooked on the target and hauled in with both hands.
+	Poses.KazanRising = stroke(S, chain({ 100, 10, 0 }, { 100, -10, 0 }), chain({ 40, 30, 120 }, { 40, -30, 120 },
+		{ Root = { 0, 0, 0, -0.5, 0.5 }, Waist = deg(10) }), -0.3, 0)
+	Poses.KazanKiChase = chase(S, C, chain({ 100, 4, 0 }, { -30, -40, 60 }))
+	-- SENTENCE: the chain wound round the fist, the verdict driven through.
+	Poses.KazanFinale = finisher(S, chain({ -30, 40, 110 }, { 60, -40, 90 }), chain({ 94, -2, 0 }, { -30, -40, 90 }))
+	-- CROCHET DU GEÔLIER: the hook thrown far, the chain paying out.
+	Poses.KazanKiBlast = stroke(S, chain({ 170, 40, 40 }, { 60, -40, 90 }, { Waist = deg(4, -36) }),
+		chain({ 100, -6, 0 }, { -10, -40, 70 }), 0.5, 36)
+	local raised = gather(S, chain({ 120, 80, 40 }, { 120, -80, 40 }))
+	-- CENT CHAÎNES: both chains thrown out, all the links flying.
+	Poses.KazanKaienRush = ultimate(raised, stroke(S, chain({ 40, -40, 120 }, { 40, 40, 120 }),
+		chain({ 104, 40, 0 }, { 104, -40, 0 }, { Root = { 0, 0, 0, -0.55, -0.8 } }), 0.8, 0))
+	-- PRISON DE FER: the left chain held taut, the right one closing the cell.
+	Poses.KazanAwakening = ultimate(raised, finisher(S, chain({ 90, 90, 0 }, { 110, -30, 20 }),
+		chain({ 90, -40, 0 }, { 100, -50, 40 })))
+	-- JUGEMENT DES ENTRAVES: both chains pulled down to the floor, the target forced to kneel.
+	Poses.KazanKaiten = ultimate(raised, stroke(S, chain({ 160, 20, 30 }, { 160, -20, 30 }),
+		chain({ 20, 20, 40 }, { 20, -20, 40 }, { Root = { 0, 0, 0, -0.75, 0.2 }, Waist = deg(-20) }), 0.1, 0))
+	-- DERNIER VERDICT: the chain raised, then the last blow.
+	Poses.KazanFatal = ultimate(raised, finisher(S, chain({ 178, 20, 0 }, { 40, -50, 100 }),
+		chain({ 60, -20, 0 }, { -40, -50, 90 })))
+	strike("Kazan", { Jab = L_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = R_, RisingWind = B_, KiFlurry = B_, ThunderHeel = R_, SpinKick = R_,
+		Smash = R_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = B_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_ })
+end
+
+-- ---------------------------------------------------------------- KUREN 血 · blood (open-handed slashes, finger thrusts)
+do
+	local S, C = KITS.KUREN.STANCE, KITS.KUREN.Crouch
+	local N = -50 -- the hand flat, fingers together like a blade
+	local function blade2(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or N }, l and { l[1], l[2], l[3], l[4] or N }, extra)
+	end
+	-- ENTAILLE: a quick backhand cut with the left hand.
+	Poses.KurenJab = stroke(S, blade2(nil, { 60, 30, 110 }), blade2(nil, { 94, -60, 10 }), 0.3, 24)
+	-- REVERS ÉCARLATE: the right hand cutting back the other way.
+	Poses.KurenCross = stroke(S, blade2({ 100, -40, 100 }, { 40, -30, 60 }), blade2({ 92, 60, 10 }, { 40, -40, 60 }), 0.35, 30)
+	-- SAIGNÉE: a downward diagonal slash, the blood flicked off the fingers.
+	Poses.KurenElbow = stroke(S, blade2({ 160, 50, 40 }, { 50, -30, 80 }), blade2({ 50, -40, 10 }, { 40, -40, 80 }), 0.35, 20)
+	-- DANSE POURPRE: a turn, the coat flaring, the hand cutting round.
+	Poses.KurenKick = stroke(S, blade2({ 90, -50, 30 }, { 60, -60, 60 }, { Waist = deg(-4, 40) }),
+		blade2({ 92, 90, 0 }, { 30, -80, 50 }, { Root = { 0, -160, 0, -0.36, -0.1 } }), 0.25, 30)
+	-- PERFORATION: four fingers stabbed in like a blade.
+	Poses.KurenBodyBlow = stroke(S, blade2({ 20, 20, 130 }, { 50, -30, 70 }), blade2({ 90, -4, 0, -10 }, { -20, -40, 80 },
+		{ Root = { 0, 10, 0, -0.55, -0.6 }, Waist = deg(-24, 26) }), 0.7, 20)
+	-- GEYSER: the hand swept up, a geyser of blood following it.
+	Poses.KurenUppercut = stroke(S, blade2({ 10, 20, 40 }, { 60, -30, 70 }, { Root = { 0, 0, 0, -0.75, 0.2 }, Waist = deg(-22) }),
+		blade2({ 174, 10, 4, -20 }, { 40, -50, 80 }), 0.2, 20)
+	-- PALME DE SANG: the open palm on the target, the mark of blood left on it.
+	Poses.KurenPalmStrike = stroke(S, blade2({ 40, 30, 120, 40 }, { 60, -30, 70 }), blade2({ 94, 4, 2, -70 }, { 20, -40, 90 }), 0.4, 16)
+	-- VORTEX ÉCARLATE: a spin off the floor, both hands cutting.
+	Poses.KurenDragonTornado = spinStroke(S, C, blade2({ 92, 90, 0 }, { 60, -40, 80 }), blade2({ 60, 40, 80 }, { 92, -90, 0 }))
+	-- PIQUE SANGUINE: rising, a blood spike thrust up, then another.
+	Poses.KurenDragonFist = leapStroke(S, C, blade2({ 20, 20, 110 }, { 40, -30, 80 }), blade2({ 176, -6, 0, -10 }, { 60, -40, 80 }),
+		blade2({ 60, 40, 80 }, { 176, 6, 0, -10 }))
+	-- CROISSANT ROUGE: a backflip, the hand drawing a red crescent.
+	Poses.KurenCrescentMoon = flipStroke(S, blade2({ 130, 40, 0 }, { 40, -60, 70 }), blade2({ 50, 40, 0 }, { 40, -60, 70 }))
+	-- HÉMORRAGIE: up, both hands slashing in an X, then out.
+	Poses.KurenRisingWind = leapStroke(S, C, blade2({ 140, 40, 40 }, { 140, -40, 40 }), blade2({ 80, -40, 0 }, { 80, 40, 0 }),
+		blade2({ 110, 80, 0 }, { 110, -80, 0 }))
+	-- AVERSE D'ÉPINES: finger stabs, one hand then the other.
+	Poses.KurenKiFlurry = flurry(S, blade2({ 96, -4, 0, -10 }, { 50, -40, 90 }), blade2({ 50, 40, 90 }, { 96, 4, 0, -10 }), 0.4)
+	-- CAILLOT: a leap and the edge of the hand chopped down.
+	Poses.KurenThunderHeel = leapStroke(S, C, blade2({ 176, 30, 40 }, { 60, -50, 80 }), blade2({ 46, -10, 0, -10 }, { 40, -50, 80 }))
+	-- FOUET DE SANG: a whip of blood from the turning hand.
+	Poses.KurenSpinKick = stroke(S, blade2({ 70, -60, 40 }, { 50, -60, 70 }, { Waist = deg(-6, 40) }),
+		blade2({ 100, 98, 0 }, { 30, -70, 60 }, { Root = { 0, 170, 0, -0.36, -0.1 } }), 0.25, 30)
+	-- COUP DU PACTE: the hand pulled to the heart, then driven through.
+	Poses.KurenSmash = stroke(S, blade2({ 30, -40, 140 }, { 60, -30, 80 }, { Root = { 0, -20, 0, S.Root[4], 0.4 }, Waist = deg(0, -40) }),
+		blade2({ 96, -2, 0, -10 }, { -30, -40, 90 }, { Waist = deg(-26, 34) }), 0.9, 30)
+	-- MARTEAU CRUOR: both hands clasped, a hammer of clotted blood.
+	Poses.KurenHammer = stroke(S, blade2({ 176, 8, 50, 0 }, { 176, -8, 50, 0 }), blade2({ 56, -8, 10, 0 }, { 56, 8, 10, 0 }), 0.35, 0)
+	-- FAUCHE ROUGE: low, a reaping slash at the ankles.
+	Poses.KurenSweep = lowStroke(C, blade2({ 40, 80, 20, -20 }, { 50, -40, 70 }), blade2({ 40, -60, 0, -20 }, { 40, -50, 70 }), 0.35)
+	-- ENTAILLE BASSE: a short cut at the shin.
+	Poses.KurenLowKick = lowStroke(C, blade2({ 30, 40, 100 }, { 50, -40, 70 }), blade2({ 52, -20, 0 }, { 40, -40, 70 }), 0.35)
+	Poses.KurenAirKick = airStroke(S, blade2({ 140, 40, 50 }, { 60, -40, 70 }), blade2({ 60, -30, 0 }, { 40, -50, 70 }), -22)
+	Poses.KurenAirKick2 = airStroke(S, blade2({ 60, 40, 70 }, { 140, -40, 50 }), blade2({ 40, 50, 70 }, { 60, 30, 0 }), -16)
+	-- CHUTE ÉCARLATE: dropping, both hands joined into one blade.
+	Poses.KurenAirSmash = dive(S, blade2({ 174, 10, 30 }, { 174, -10, 30 }), blade2({ 80, 6, 0 }, { 80, -6, 0 }))
+	-- ASCENSION SANGLANTE: rising out of a crouch, one hand cutting the sky.
+	Poses.KurenRising = leapStroke(S, C, blade2({ 0, 30, 110 }, { 40, -30, 80 }), blade2({ 176, 20, 0, -10 }, { 40, -60, 80 }))
+	Poses.KurenKiChase = chase(S, C, blade2({ 94, -4, 0, -10 }, { -30, -40, 80 }))
+	-- OFFRANDE: the hand drawn back over the heart, then the offering struck through.
+	Poses.KurenFinale = finisher(S, blade2({ 40, -40, 150, 40 }, { 60, -40, 90 }), blade2({ 98, 0, 0, -20 }, { -30, -50, 90 }))
+	-- LANCE SANGUINE: the arm thrown out straight, the lance leaving the fingertips.
+	Poses.KurenKiBlast = stroke(S, blade2({ 60, -40, 140, 40 }, { 50, -30, 80 }), blade2({ 100, 0, 0, -20 }, { -10, -50, 80 }), 0.4, 30)
+	local raised = gather(S, blade2({ 60, -30, 150, 40 }, { 150, -40, 40 }))
+	-- PLUIE ÉCARLATE: both hands raised, the rain called down.
+	Poses.KurenKaienRush = ultimate(raised, stroke(S, blade2({ 176, 30, 10 }, { 176, -30, 10 }),
+		blade2({ 110, 60, 0 }, { 110, -60, 0 }, { Waist = deg(-20) }), 0.3, 0))
+	-- PACTE INTERDIT: the right hand on his own heart, the left cutting through.
+	Poses.KurenAwakening = ultimate(raised, finisher(S, blade2({ 30, -50, 150, 40 }, { 170, -40, 40 }),
+		blade2({ 40, -40, 150, 40 }, { 80, 30, 0 })))
+	-- TRÔNE SANGLANT: one hand raised like a king's, the other pointing down at the target.
+	Poses.KurenKaiten = ultimate(raised, stroke(S, blade2({ 170, 20, 30 }, { 60, -40, 90 }),
+		blade2({ 178, 10, 0 }, { 50, -20, 0, -10 }), 0.1, 10))
+	-- LUNE DE SANG: a full turn and the last cut under the red moon.
+	Poses.KurenFatal = ultimate(raised, finisher(S, blade2({ 100, 90, 40 }, { 120, -50, 60 }),
+		blade2({ 90, -70, 0 }, { -30, -60, 80 }, { Root = { 0, 150, 0, -0.5, -0.8 } })))
+	strike("Kuren", { Jab = L_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = R_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = R_, RisingWind = B_, KiFlurry = B_, ThunderHeel = R_, SpinKick = R_,
+		Smash = R_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = L_, Kaiten = R_, Fatal = R_ })
+end
+
+
+-- ---------------------------------------------------------------- SYLVA 森 · the huntress (lunges, kicks, vine whips)
+do
+	local S, C = KITS.SYLVA.STANCE, KITS.SYLVA.Crouch
+	local function kickLeg(side, hip, knee)
+		return if side == "Left" then { LeftHip = deg(hip, 0, -10), LeftKnee = deg(knee), LeftAnkle = deg(-30) }
+			else { RightHip = deg(hip, 0, 10), RightKnee = deg(knee), RightAnkle = deg(-30) }
+	end
+	local function kickPose(hip, knee, side, a, root, waist)
+		return feet(merge(S, merge(a or {}, { Root = root or { 0, 10, 0, -0.2, 0.1 }, Waist = waist or deg(10) })), -0.5, 0.5, 0, -10, 6,
+			kickLeg(side or "Right", hip, knee))
+	end
+	-- RONCE: a quick swipe of the bark gauntlet, thorns out.
+	Poses.SylvaJab = stroke(S, arms(nil, { 70, 20, 110, 30 }), arms(nil, { 90, -40, 10, 30 }), 0.45, 20)
+	-- REVERS FEUILLU: the right gauntlet swept back.
+	Poses.SylvaCross = stroke(S, arms({ 80, -40, 110 }, { 70, -20, 90 }), arms({ 92, 50, 10 }, { 60, -30, 90 }), 0.45, 30)
+	-- ÉPINE: a snap kick, the toe like a thorn.
+	Poses.SylvaElbow = { Startup = kickPose(80, -120, "Right", arms({ 60, 40, 80 }, { 60, -40, 80 })),
+		Active = kickPose(96, -4, "Right", arms({ 30, 60, 60 }, { 30, -60, 60 }), { 0, -10, 0, -0.1, 0.1 }), Recovery = S }
+	-- COUP DE LIANE: a vine lashed from the right hand, the arm thrown straight.
+	Poses.SylvaKick = stroke(S, arms({ 150, 60, 30 }, { 60, -40, 90 }, { Waist = deg(4, -36) }),
+		arms({ 70, -40, 0, -30 }, { 30, -50, 80 }), 0.35, 36)
+	-- ÉCORCE: the bark-covered knee driven in, both hands on the target's neck.
+	Poses.SylvaBodyBlow = { Startup = kickPose(84, -128, "Right", arms({ 90, 30, 60 }, { 90, -30, 60 })),
+		Active = kickPose(110, -140, "Right", arms({ 80, 10, 100 }, { 80, -10, 100 }), { 0, 0, 0, -0.1, -0.3 }, deg(-16)), Recovery = S }
+	-- POUSSE: a rising palm from the crouch, a shoot bursting up.
+	Poses.SylvaUppercut = stroke(S, arms({ 0, 30, 100 }, { 50, -30, 80 }, { Root = { 0, 0, 0, -0.95, 0.1 }, Waist = deg(-28) }),
+		arms({ 170, 10, 10, 40 }, { 40, -50, 80 }), 0.3, 20)
+	-- SÈVE: both gauntlets pressed together on the target.
+	Poses.SylvaPalmStrike = stroke(S, arms({ 50, 30, 110 }, { 50, -30, 110 }), arms({ 88, 14, 20, -50 }, { 88, -14, 20, -50 }), 0.5, 10)
+	-- TOURBILLON DE FEUILLES: spinning off the floor, kicking.
+	Poses.SylvaDragonTornado = spinStroke(S, C, arms({ 70, 80, 30 }, { 110, -60, 30 }), arms({ 110, 60, 30 }, { 70, -80, 30 }))
+	-- RACINE MONTANTE: springing up, a rising knee then the other foot.
+	Poses.SylvaDragonFist = leapStroke(S, C, arms({ 30, 40, 80 }, { 30, -40, 80 }), arms({ 60, 70, 40 }, { 150, -20, 20 }),
+		arms({ 150, 20, 20 }, { 60, -70, 40 }))
+	-- CROISSANT DE LIANE: a flip, the vine trailing the arc.
+	Poses.SylvaCrescentMoon = flipStroke(S, arms({ 140, 20, 10 }, { 60, -60, 40 }), arms({ 60, 20, 10 }, { 140, -60, 40 }))
+	-- VENT DES BOIS: up in the wind, both legs scissoring.
+	Poses.SylvaRisingWind = leapStroke(S, C, arms({ 60, 60, 50 }, { 60, -60, 50 }), arms({ 40, 90, 20 }, { 90, -40, 60 }),
+		arms({ 90, 40, 60 }, { 40, -90, 20 }))
+	-- PLUIE D'ÉPINES: claw after claw of the gauntlets, quick and low.
+	Poses.SylvaKiFlurry = flurry(S, arms({ 92, -30, 10, 30 }, { 60, -40, 100 }), arms({ 60, 40, 100 }, { 92, 30, 10, 30 }), 0.5)
+	-- SOUCHE: a leap, both heels stamping like a falling stump.
+	Poses.SylvaThunderHeel = leapStroke(S, C, arms({ 120, 60, 40 }, { 120, -60, 40 }), arms({ 30, 60, 40 }, { 30, -60, 40 }))
+	-- FOUET DE LIANE: a spinning back fist, the vine lashing.
+	Poses.SylvaSpinKick = stroke(S, arms({ 60, -60, 50 }, { 50, -60, 70 }, { Waist = deg(-6, 40) }),
+		arms({ 90, 96, 4, -30 }, { 30, -70, 70 }, { Root = { 0, -170, 0, -0.5, -0.2 } }), 0.4, 30)
+	-- COUP DE TRONC: a flying kick, the whole body behind the heel.
+	Poses.SylvaSmash = { Startup = feet(merge(S, arms({ 60, 30, 90 }, { 60, -30, 90 }, { Root = { 0, -20, 0, -0.85, 0.4 } })), -0.4, 1.0, 0, -10, 8),
+		Active = kickPose(100, -6, "Right", arms({ 20, 70, 40 }, { 60, -40, 90 }), { 0, -30, 0, -0.1, -0.6 }, deg(16, -20)),
+		Recovery = merge(S, arms({ 60, 40, 80 }, { 60, -40, 80 })) }
+	-- CHUTE DE BRANCHE: an axe kick from high, the heel dropped.
+	Poses.SylvaHammer = { Startup = kickPose(160, -10, "Right", arms({ 60, 60, 50 }, { 60, -60, 50 })),
+		Active = kickPose(60, -4, "Right", arms({ 40, 60, 50 }, { 40, -60, 50 }), { 0, 0, 0, -0.25, -0.3 }, deg(-14)), Recovery = S }
+	-- RACINE RAMPANTE: low, a hand sweeping the ankles like a root.
+	Poses.SylvaSweep = lowStroke(C, arms({ 30, 80, 20, 30 }, { 60, -30, 70 }), arms({ 30, -60, 0, 30 }, { 50, -40, 70 }), 0.5)
+	-- ÉPINE BASSE: a crouched toe kick at the shin.
+	Poses.SylvaLowKick = { Startup = merge(C, { RightHip = deg(85, 0, 10), RightKnee = deg(-135), RightAnkle = deg(30), Waist = deg(-26, 14) }),
+		Active = merge(C, { RightHip = deg(80, 0, 10), RightKnee = deg(-6), RightAnkle = deg(-34), Waist = deg(-14, -28), Neck = deg(16, 6) }),
+		Recovery = C }
+	Poses.SylvaAirKick = airStroke(S, arms({ 60, 60, 60 }, { 60, -60, 60 }), arms({ 30, 70, 40 }, { 40, -70, 40 }), -32)
+	Poses.SylvaAirKick2 = airStroke(S, arms({ 120, 40, 60 }, { 60, -40, 70 }), arms({ 60, -30, 10, 30 }, { 40, -60, 60 }), -12)
+	-- CHUTE DU FAUCON: diving, both gauntlets like talons.
+	Poses.SylvaAirSmash = dive(S, arms({ 150, 50, 40, 40 }, { 150, -50, 40, 40 }), arms({ 74, 20, 10, 40 }, { 74, -20, 10, 40 }))
+	-- GERMINATION: springing up, a palm thrust to the sky.
+	Poses.SylvaRising = leapStroke(S, C, arms({ 10, 40, 110 }, { 30, -40, 90 }), arms({ 172, -10, 10, 40 }, { 40, -60, 70 }))
+	Poses.SylvaKiChase = chase(S, C, arms({ 96, 20, 10, 30 }, { -20, -40, 50 }))
+	-- FLORAISON: coiled like a spring, then the gauntlet blooming through.
+	Poses.SylvaFinale = finisher(S, arms({ -20, 50, 120 }, { 60, -40, 90 }), arms({ 96, -6, 0, 40 }, { -30, -40, 90 }))
+	-- RACINES VORACES: the gauntlet slammed on the floor, the roots sent out.
+	Poses.SylvaKiBlast = stroke(S, arms({ 150, 30, 60 }, { 60, -30, 90 }), arms({ 30, 0, 0, 60 }, { 50, -40, 80 },
+		{ Root = { 0, 0, 0, -0.9, -0.2 }, Waist = deg(-34) }), 0.2, 10)
+	local raised = gather(S, arms({ 170, 50, 30, 40 }, { 80, -50, 110 }))
+	-- FORÊT HOSTILE: the hunt: a long lunge, both gauntlets forward.
+	Poses.SylvaKaienRush = ultimate(raised, stroke(S, arms({ 20, 40, 120 }, { 20, -40, 120 }, { Root = { 0, 0, 0, -0.9, 0.3 } }),
+		arms({ 100, 20, 10, 40 }, { 100, -20, 10, 40 }, { Root = { 0, 0, 0, -0.75, -1.1 }, Waist = deg(-30) }), 1.1, 0))
+	-- ÉTREINTE SAUVAGE: the vines wrap: both arms around the target.
+	Poses.SylvaAwakening = ultimate(raised, finisher(S, arms({ 90, 90, 30 }, { 90, -90, 30 }),
+		arms({ 96, 20, 90 }, { 60, -60, 70 })))
+	-- DOMAINE DES RONCES: both hands down to the earth, the brambles rising.
+	Poses.SylvaKaiten = ultimate(raised, stroke(S, arms({ 170, 30, 20 }, { 170, -30, 20 }),
+		arms({ 30, 30, 0, 60 }, { 30, -30, 0, 60 }, { Root = { 0, 0, 0, -1.0, 0 }, Waist = deg(-40) }), 0.1, 0))
+	-- LE DERNIER ARBRE: arms raised like branches, then the final blow.
+	Poses.SylvaFatal = ultimate(raised, finisher(S, arms({ 178, 30, 30 }, { 178, -30, 30 }),
+		arms({ 100, 10, 0, 40 }, { 160, -40, 30 })))
+	strike("Sylva", { Jab = L_, Cross = R_, Elbow = RF, Kick = R_, BodyBlow = RF, Uppercut = R_, PalmStrike = B_,
+		DragonTornado = BF, DragonFist = BF, CrescentMoon = BF, RisingWind = BF, KiFlurry = B_, ThunderHeel = BF, SpinKick = R_,
+		Smash = RF, Hammer = RF, Sweep = R_, LowKick = RF, AirKick = RF, AirKick2 = R_, AirSmash = B_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = B_, Kaiten = B_, Fatal = R_ })
+end
+
+-- ---------------------------------------------------------------- ELIAN 癒 · the healer (palms of light, upright)
+do
+	local S0, C = KITS.ELIAN.STANCE, KITS.ELIAN.Crouch
+	local S = merge(S0, { Root = { 0, S0.Root[2], 0, -0.3, 0 } })
+	local P = -75 -- the palm turned to the target, light in it
+	local function light(r, l, extra)
+		return arms(r and { r[1], r[2], r[3], r[4] or P }, l and { l[1], l[2], l[3], l[4] or P }, extra)
+	end
+	-- PAUME: a calm push of the left palm.
+	Poses.ElianJab = stroke(S, light(nil, { 50, -20, 100 }), light(nil, { 90, 8, 10 }), 0.25, 14)
+	-- REVERS LUMINEUX: the right hand brushes across, light trailing.
+	Poses.ElianCross = stroke(S, light({ 80, 70, 40, 0 }, { 50, -30, 70 }), light({ 86, -50, 10, 0 }, { 40, -40, 70 }), 0.25, 30)
+	-- BÉNÉDICTION: the hand raised then laid on the target's head.
+	Poses.ElianElbow = stroke(S, light({ 170, 20, 30 }, { 50, -40, 70 }), light({ 100, 0, 20, -80 }, { 40, -40, 70 }), 0.3, 10)
+	-- PAS DE GRÂCE: a graceful turn, a palm at the end of it.
+	Poses.ElianKick = stroke(S, light({ 60, 60, 60 }, { 60, -60, 60 }, { Waist = deg(0, -30) }),
+		light({ 92, 40, 4 }, { 40, -80, 40 }, { Root = { 0, 110, 0, -0.42, -0.2 } }), 0.25, 20)
+	-- IMPOSITION: a hand on the chest, the light driven in.
+	Poses.ElianBodyBlow = stroke(S, light({ 20, 20, 120 }, { 50, -30, 80 }), light({ 82, -4, 10 }, { 30, -40, 80 },
+		{ Root = { 0, 0, 0, -0.5, -0.4 }, Waist = deg(-20) }), 0.45, 16)
+	-- ÉLÉVATION: both palms lifting under the target.
+	Poses.ElianUppercut = stroke(S, light({ 20, 30, 50, 60 }, { 20, -30, 50, 60 }, { Root = { 0, 0, 0, -0.7, 0.1 } }),
+		light({ 160, 20, 10, 60 }, { 160, -20, 10, 60 }), 0.15, 0)
+	-- PALME SACRÉE: both palms joined, pushed through.
+	Poses.ElianPalmStrike = stroke(S, light({ 40, 10, 120, 0 }, { 40, -10, 120, 0 }), light({ 92, 4, 4 }, { 92, -4, 4 }), 0.45, 6)
+	-- SPIRALE DE LUMIÈRE: spinning off the floor, palms out like a halo.
+	Poses.ElianDragonTornado = spinStroke(S, C, light({ 120, 80, 10, 0 }, { 120, -80, 10, 0 }), light({ 100, 90, 0, 0 }, { 140, -70, 10, 0 }))
+	-- RAYON MONTANT: rising on a ray, one palm then the other to the sky.
+	Poses.ElianDragonFist = leapStroke(S, C, light({ 30, 30, 90 }, { 30, -30, 90 }), light({ 172, 10, 4, 40 }, { 80, -50, 50 }),
+		light({ 80, 50, 50 }, { 172, -10, 4, 40 }))
+	-- HALO: a flip, both hands drawing the halo.
+	Poses.ElianCrescentMoon = flipStroke(S, light({ 160, 50, 10, 0 }, { 160, -50, 10, 0 }), light({ 80, 80, 10, 0 }, { 80, -80, 10, 0 }))
+	-- SOUFFLE DIVIN: up, both palms blowing the wind left then right.
+	Poses.ElianRisingWind = leapStroke(S, C, light({ 60, 40, 70 }, { 60, -40, 70 }), light({ 94, 60, 4 }, { 94, 30, 4 }),
+		light({ 94, -30, 4 }, { 94, -60, 4 }))
+	-- PRIÈRE EN RAFALE: palms struck one after the other, quick as a prayer.
+	Poses.ElianKiFlurry = flurry(S, light({ 94, 6, 4 }, { 60, -10, 120, 0 }), light({ 60, 10, 120, 0 }, { 94, -6, 4 }), 0.3)
+	-- CHUTE D'ANGE: a leap, both palms brought down like wings folding.
+	Poses.ElianThunderHeel = leapStroke(S, C, light({ 150, 80, 10, 0 }, { 150, -80, 10, 0 }), light({ 60, 20, 4, -80 }, { 60, -20, 4, -80 }))
+	-- TOURNOIEMENT SAINT: a turn, the arm sweeping light around.
+	Poses.ElianSpinKick = stroke(S, light({ 70, -50, 30 }, { 60, -60, 60 }, { Waist = deg(-4, 40) }),
+		light({ 96, 96, 0, 0 }, { 40, -60, 60 }, { Root = { 0, -170, 0, -0.42, -0.1 } }), 0.2, 30)
+	-- FRAPPE SACRÉE: a heavy palm, the whole body leaning in.
+	Poses.ElianSmash = stroke(S, light({ 30, 40, 120 }, { 70, -30, 70 }, { Root = { 0, -18, 0, -0.32, 0.4 }, Waist = deg(0, -40) }),
+		light({ 94, -2, 0 }, { -20, -30, 80 }, { Waist = deg(-20, 30) }), 0.7, 30)
+	-- JUGEMENT: the right hand raised high and brought down like a verdict.
+	Poses.ElianHammer = stroke(S, light({ 178, 4, 10, 0 }, { 60, -40, 80 }), light({ 50, 0, 0, -80 }, { 40, -40, 80 }), 0.3, 6)
+	-- FAUCHE DE LUMIÈRE: crouched, a palm swept along the floor.
+	Poses.ElianSweep = lowStroke(C, light({ 40, 70, 20 }, { 50, -30, 70 }), light({ 40, -50, 0, -60 }, { 40, -40, 70 }), 0.35)
+	-- COUP BAS: a short palm at the knee.
+	Poses.ElianLowKick = lowStroke(C, light({ 20, 20, 110 }, { 40, -30, 80 }), light({ 50, 0, 0 }, { 30, -40, 80 }), 0.3)
+	Poses.ElianAirKick = airStroke(S, light({ 120, 40, 40 }, { 60, -40, 70 }), light({ 60, -10, 4, -80 }, { 40, -50, 70 }), -18)
+	Poses.ElianAirKick2 = airStroke(S, light({ 60, 40, 70 }, { 120, -40, 40 }), light({ 40, 50, 70 }, { 60, 10, 4, -80 }), -14)
+	-- CHUTE CÉLESTE: falling, both palms ahead, a column of light.
+	Poses.ElianAirSmash = dive(S, light({ 168, 20, 20 }, { 168, -20, 20 }), light({ 84, 10, 4, -80 }, { 84, -10, 4, -80 }))
+	-- ASCENSION: lifted, both arms opening upward.
+	Poses.ElianRising = leapStroke(S, C, light({ 30, 30, 90 }, { 30, -30, 90 }), light({ 170, 40, 10, 0 }, { 170, -40, 10, 0 }))
+	Poses.ElianKiChase = chase(S, C, light({ 92, 6, 4 }, { -20, -40, 50 }))
+	-- ABSOLUTION: drawn back in a breath, then one palm of pure light.
+	Poses.ElianFinale = finisher(S, light({ -20, 40, 120, 0 }, { 70, -40, 80 }), light({ 96, -2, 0 }, { -30, -40, 70 }))
+	-- RAYON: a ray thrown from the palm.
+	Poses.ElianKiBlast = stroke(S, light({ 60, 30, 110 }, { 50, -30, 70 }), light({ 100, 0, 0 }, { 30, -40, 70 }), 0.3, 20)
+	-- IMPULSION VITALE: both palms open close to the chest, the wave of life pushed out.
+	Poses.ElianPulse = {
+		Startup = feet(merge(S, light({ 60, 10, 140, 0 }, { 60, -10, 140, 0 })), -0.7, 0.7, 0, -8, 8),
+		Active = feet(merge(S, light({ 92, 40, 10 }, { 92, -40, 10 }, { Waist = deg(-8) })), -0.9, 0.6, 0, -12, 8),
+		Recovery = merge(S, light({ 70, 30, 60 }, { 70, -30, 60 })),
+	}
+	local raised = gather(S, light({ 176, 20, 10, 0 }, { 176, -20, 10, 0 }))
+	-- RENAISSANCE: the light gathered between both palms, then given.
+	Poses.ElianKaienRush = ultimate(raised, stroke(S, light({ 80, 30, 100, 0 }, { 80, -30, 100, 0 }),
+		light({ 100, 10, 0 }, { 100, -10, 0 }, { Root = { 0, 0, 0, -0.4, -0.7 } }), 0.7, 0))
+	-- PURIFICATION: one palm on the target, the other raised to the sky.
+	Poses.ElianAwakening = ultimate(raised, finisher(S, light({ 40, 40, 110 }, { 176, -20, 10, 0 }),
+		light({ 94, 0, 0 }, { 176, -20, 10, 0 })))
+	-- MIRACLE DIVIN: both arms open wide, the light falling from above.
+	Poses.ElianKaiten = ultimate(raised, stroke(S, light({ 150, 60, 10, 0 }, { 150, -60, 10, 0 }),
+		light({ 110, 90, 0, 0 }, { 110, -90, 0, 0 }), 0.1, 0))
+	-- DERNIÈRE LUMIÈRE: kneeling, both palms joined, then thrown forward.
+	Poses.ElianFatal = ultimate(raised, finisher(S, light({ 100, -10, 150, 0 }, { 100, 10, 150, 0 }),
+		light({ 98, 10, 0 }, { 30, -60, 60 })))
+	strike("Elian", { Jab = L_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = B_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = B_, RisingWind = B_, KiFlurry = B_, ThunderHeel = B_, SpinKick = R_,
+		Smash = R_, Hammer = R_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = B_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_, Pulse = B_ })
+end
+
+-- ---------------------------------------------------------------- NOVA 機 · mechanical gauntlets (heavy punches, cannons)
+do
+	local S, C = KITS.NOVA.STANCE, KITS.NOVA.Crouch
+	local G = arms
+	-- GANTELET: a straight left, the gauntlet hissing.
+	Poses.NovaJab = stroke(S, G(nil, { 70, -10, 120 }), G(nil, { 92, 6, 0 }), 0.4, 22)
+	-- REVERS MÉCANIQUE: a spinning backfist with the right gauntlet.
+	Poses.NovaCross = stroke(S, G({ 80, -50, 120 }, { 80, -20, 120 }), G({ 92, 70, 10 }, { 70, -20, 120 }), 0.35, 34)
+	-- PISTON: an elbow driven by the piston, short and hard.
+	Poses.NovaElbow = stroke(S, G({ 50, 50, 150 }, { 80, -20, 120 }), G({ 92, -30, 150 }, { 60, -30, 120 }), 0.4, 30)
+	-- COMBO SERVO: a mechanical hook, the arm locked at the elbow.
+	Poses.NovaKick = stroke(S, G({ 60, 80, 90 }, { 80, -20, 120 }, { Waist = deg(-4, -40) }), G({ 90, -30, 90 }, { 60, -30, 120 }), 0.35, 36)
+	-- PERCEUSE: a corkscrew punch into the ribs.
+	Poses.NovaBodyBlow = stroke(S, G({ -10, 30, 120 }, { 80, -20, 120 }), G({ 70, -10, 20 }, { 60, -30, 120 },
+		{ Root = { 0, 14, 0, -0.7, -0.6 }, Waist = deg(-26, 34) }), 0.6, 24)
+	-- PROPULSEUR: an uppercut boosted by the gauntlet's thruster.
+	Poses.NovaUppercut = stroke(S, G({ 0, 30, 120 }, { 80, -30, 120 }, { Root = { 0, 10, 0, -0.95, 0.1 }, Waist = deg(-26, -20) }),
+		G({ 170, -10, 20 }, { 50, -40, 110 }), 0.3, 24)
+	-- DÉCHARGE: both gauntlets slammed together on the target, a spark between them.
+	Poses.NovaPalmStrike = stroke(S, G({ 80, 70, 60 }, { 80, -70, 60 }), G({ 96, 16, 30 }, { 96, -16, 30 }), 0.35, 0)
+	-- TURBINE: spinning off the floor, the gauntlets out like rotor blades.
+	Poses.NovaDragonTornado = spinStroke(S, C, G({ 90, 90, 0 }, { 90, -90, 0 }), G({ 100, 80, 10 }, { 80, -80, 10 }))
+	-- CANON MONTANT: rising, a gauntlet fired upward, then the other.
+	Poses.NovaDragonFist = leapStroke(S, C, G({ 10, 30, 120 }, { 10, -30, 120 }), G({ 176, -6, 0 }, { 60, -40, 110 }),
+		G({ 60, 40, 110 }, { 176, 6, 0 }))
+	-- ARC PLASMA: a flip, a gauntlet tracing the arc.
+	Poses.NovaCrescentMoon = flipStroke(S, G({ 110, 10, 0 }, { 60, -40, 110 }), G({ 50, 10, 0 }, { 60, -40, 110 }))
+	-- RAFALE DE DRONES: up, punching left and right, the drones firing.
+	Poses.NovaRisingWind = leapStroke(S, C, G({ 60, 40, 110 }, { 60, -40, 110 }), G({ 90, 60, 0 }, { 70, -10, 120 }),
+		G({ 70, 10, 120 }, { 90, -60, 0 }))
+	-- MITRAILLE: punches like a machine gun.
+	Poses.NovaKiFlurry = flurry(S, G({ 96, -2, 0 }, { 70, -20, 130 }), G({ 70, 20, 130 }, { 96, 2, 0 }), 0.45)
+	-- MARTEAU HYDRAULIQUE: a leap, both gauntlets brought down like a press.
+	Poses.NovaThunderHeel = leapStroke(S, C, G({ 176, 10, 60 }, { 176, -10, 60 }), G({ 50, 6, 0 }, { 50, -6, 0 }))
+	-- ROTOR: a full spin, the arm out, the gauntlet whirling.
+	Poses.NovaSpinKick = stroke(S, G({ 70, -60, 60 }, { 70, -30, 120 }, { Waist = deg(-6, 40) }),
+		G({ 92, 96, 0 }, { 50, -40, 120 }, { Root = { 0, -170, 0, -0.5, -0.1 } }), 0.25, 30)
+	-- IMPACT: the big right, the gauntlet's piston firing on contact.
+	Poses.NovaSmash = stroke(S, G({ 20, 40, 140 }, { 80, -10, 120 }, { Root = { 0, -20, 0, S.Root[4], 0.45 }, Waist = deg(0, -42) }),
+		G({ 96, -2, 0 }, { -20, -30, 100 }, { Waist = deg(-24, 36) }), 0.9, 34)
+	-- PRESSE: both gauntlets on the target, the press closing.
+	Poses.NovaHammer = stroke(S, G({ 120, 60, 90 }, { 120, -60, 90 }), G({ 100, 30, 60 }, { 100, -30, 60 }), 0.3, 0)
+	-- GLISSADE: a sliding low punch, the gauntlet scraping the floor.
+	Poses.NovaSweep = lowStroke(C, G({ 30, 50, 120 }, { 50, -30, 110 }), G({ 30, 10, 0 }, { 50, -30, 110 }), 0.6)
+	-- COUP BAS: a short punch at the shin.
+	Poses.NovaLowKick = lowStroke(C, G({ 30, 20, 130 }, { 50, -30, 110 }), G({ 48, 4, 0 }, { 50, -30, 110 }), 0.4)
+	Poses.NovaAirKick = airStroke(S, G({ 120, 30, 100 }, { 60, -30, 110 }), G({ 70, -6, 0 }, { 50, -40, 110 }), -22)
+	Poses.NovaAirKick2 = airStroke(S, G({ 60, 30, 110 }, { 120, -30, 100 }), G({ 50, 40, 110 }, { 70, 6, 0 }), -18)
+	-- BOMBE: dropped like a bomb, both gauntlets under her.
+	Poses.NovaAirSmash = dive(S, G({ 170, 20, 60 }, { 170, -20, 60 }), G({ 60, 10, 0 }, { 60, -10, 0 }))
+	-- DÉCOLLAGE: launched off the floor by the gauntlets' thrusters, a rising punch.
+	Poses.NovaRising = leapStroke(S, C, G({ -20, 30, 100 }, { -20, -30, 100 }), G({ 176, 4, 4 }, { -30, -40, 60 }))
+	Poses.NovaKiChase = chase(S, C, G({ 94, 4, 0 }, { -30, -40, 70 }))
+	-- SURCHAUFFE: the gauntlet glowing red, coiled back, then fired.
+	Poses.NovaFinale = finisher(S, G({ -30, 30, 140 }, { 70, -40, 110 }), G({ 96, -2, 0 }, { -30, -40, 100 }))
+	-- TIR DE DRONE: the gauntlet held out as a cannon, the other hand bracing it.
+	Poses.NovaKiBlast = stroke(S, G({ 60, 20, 120 }, { 40, -20, 120 }), G({ 92, 0, 0, -40 }, { 80, 20, 70 }), 0.25, 10)
+	-- SENTINELLE: a hand raised to launch the drone, the other at the visor.
+	Poses.NovaSentinel = {
+		Startup = feet(merge(S, G({ 100, 30, 120 }, { 140, -40, 150 })), -0.7, 0.75, 0, -8, 8),
+		Active = feet(merge(S, G({ 176, 20, 10, -40 }, { 140, -40, 150 }, { Waist = deg(6) })), -0.7, 0.75, 0, -8, 8),
+		Recovery = merge(S, G({ 120, 20, 60 }, { 120, -30, 140 })),
+	}
+	local raised = gather(S, G({ 140, 40, 150 }, { 100, -60, 120 }))
+	-- SATURATION: both gauntlets aimed together, firing.
+	Poses.NovaKaienRush = ultimate(raised, stroke(S, G({ 60, 20, 140 }, { 60, -20, 140 }),
+		G({ 98, 10, 0, -40 }, { 98, -10, 0, -40 }, { Root = { 0, 0, 0, -0.5, -0.5 } }), 0.5, 0))
+	-- PROTOCOLE OMEGA: the left gauntlet braced on the right, the final shot.
+	Poses.NovaAwakening = ultimate(raised, finisher(S, G({ 20, 30, 150 }, { 40, -30, 140 }),
+		G({ 96, -4, 0, -40 }, { 60, 40, 100 })))
+	-- ARMÉE MÉCANIQUE: both hands raised, the drones called down.
+	Poses.NovaKaiten = ultimate(raised, stroke(S, G({ 120, 60, 120 }, { 120, -60, 120 }),
+		G({ 178, 30, 4 }, { 178, -30, 4 }), 0.05, 0))
+	-- EXTINCTION PROGRAMMÉE: a step in, the last blow with the overheated gauntlet.
+	Poses.NovaFatal = ultimate(raised, finisher(S, G({ 170, 40, 120 }, { 60, -40, 120 }),
+		G({ 60, -20, 0 }, { -30, -50, 100 })))
+	strike("Nova", { Jab = L_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,
+		DragonTornado = B_, DragonFist = B_, CrescentMoon = R_, RisingWind = B_, KiFlurry = B_, ThunderHeel = B_, SpinKick = R_,
+		Smash = R_, Hammer = B_, Sweep = R_, LowKick = R_, AirKick = R_, AirKick2 = L_, AirSmash = B_, Rising = R_, KiChase = R_,
+		Finale = R_, KiBlast = R_, KaienRush = B_, Awakening = R_, Kaiten = B_, Fatal = R_, Sentinel = B_ })
+end
+
 Poses.STRIKE = {
 	Jab = { "LeftHand" }, Cross = { "RightHand" }, Elbow = { "RightHand" }, Kick = { "RightFoot" },
 	BodyBlow = { "RightHand" }, Uppercut = { "RightHand" }, PalmStrike = { "LeftHand", "RightHand" },
@@ -1865,6 +2903,8 @@ for limb, ids in WEAPON_STRIKE do
 		Poses.STRIKE[id] = if limb == "Both" then { "LeftHand", "RightHand" } else { limb }
 	end
 end
+
+for id, limbs in THIRD_STRIKE do Poses.STRIKE[id] = limbs end
 
 -- Joint ranges (degrees) the Animator clamps exaggerated keys to; the tests check them too.
 Poses.LIMITS = table.freeze({

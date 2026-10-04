@@ -46,9 +46,19 @@ montrer où les voir » ; « un maximum de taf sur les sons, les musiques in gam
   Réglage MUSIC dans SETTINGS. `Music.CUSTOM` : Wilhem peut y mettre plus tard ses propres
   musiques uploadées (un ID par thème), elles remplacent alors le séquenceur.
 - **Sons** : COUNTER HIT, la seconde vie, FIGHT!, et les boutons des menus (survol, clic).
+- **Bug corrigé : ASURA au mur spammait la même attaque** (facile à contrer). Cause : l'IA du
+  boss jouait toujours une de ses 6 routes complètes, dont 2 ouvrent sur SMASH (13 images,
+  un contre gratuit) : toujours les mêmes ouvertures. Maintenant, au neutre, il mélange jab,
+  coup bas (accroupi) et overhead (avant + R), jamais deux fois la même ouverture de suite,
+  jamais un coup lent pour ouvrir (seulement pour punir). Test (FighterAI, mur, garde debout
+  et basse : ≥ 3 ouvertures, aucune > 60 %, coups lents ≤ 15 %) — il échouait avant le
+  correctif. ASURA bat toujours LÉGENDE à 96 %.
 - Version 0.16.1.
 
-Tests : TESTS_LINE
+Tests : CombatSimulation 117, FighterAI 13, CinematicDirector 832, Animation 39, Kits 129,
+PressQueue 4, Fuzz 2, Cinematography 296, Lobby 17. Balance (LEGEND, 120 matchs par duel, avec
+l'overhead et la garde basse qui s'use) : moyennes de 39 % (KAZAN) à 62 % (VENOM), tous les
+kits entre 35 et 65 %. Boss (`tests/BossReport.luau -a 30`) : ASURA bat l'IA LÉGENDE à 96 %.
 
 Problèmes ouverts : rien n'est vérifié dans Roblox Studio — à écouter en jeu : le volume et
 le rendu du séquenceur (les sons du client sont courts et peu nombreux : c'est une musique

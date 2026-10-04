@@ -62,7 +62,7 @@ end
 -- spear. Not one of the menu's levels.
 FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 1, block = 0.95, lowBlock = 1, combo = 1, aggression = 0.93,
 	antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
-	ultimate = 1, read = 1, charge = true, routes = { "hard" } })
+	ultimate = 1, read = 1, charge = true, varied = true, routes = { "hard" } })
 
 -- Does the opponent outreach this fighter (a spear, a sword, long legs)? Its longest neutral
 -- button against ours (the boss charges in only then: walking in, it eats the pokes).
@@ -120,7 +120,36 @@ local function observe(f, moves)
 	}
 end
 
-function FighterAI:pickPlan(meter, cost, fullRoutes, bait)
+function FighterAI:pickPlan(meter, cost, fullRoutes, bait, opening)
+	-- The boss opens from neutral with a mix-up, never twice the same, never a slow blow
+	-- (a slow opener from neutral is a free counter hit: Wilhem cornered him and saw him
+	-- throw the same SMASH again and again).
+	if opening and self.level.varied then
+		for attempt = 1, 4 do
+			local roll = self:random()
+			local plan
+			if roll < 0.22 then
+				plan = { "R", "L", overhead = true } -- overhead (forward + R): beats the low guard
+			elseif roll < 0.42 then
+				plan = { crouch = true, "L", "L", "E" } -- low: beats the standing guard
+			else
+				self:pickPlan(meter, cost, fullRoutes, bait, false)
+				plan = self.plan
+				if plan[1] ~= "L" and not plan.weave then
+					plan = table.clone(plan)
+					plan[1] = "L" -- (a fast first button: the jab, then the route)
+				end
+			end
+			local key = (if plan.overhead then "O" elseif plan.crouch then "C" else "") .. table.concat(plan, "")
+			if key ~= self.lastOpening or attempt == 4 then
+				self.lastOpening = key
+				local length = 1
+				while length < #plan and self:chance(self.level.combo) do length += 1 end
+				self.plan, self.step, self.planLength, self.pressedMove = plan, 1, length, nil
+				return
+			end
+		end
+	end
 	-- Against a ready evade passive (VOILE D'OMBRE), a lone jab spends it first.
 	if bait and self:chance(self.level.punish * 0.5) then
 		self.plan, self.step, self.planLength, self.pressedMove = { "L" }, 1, 1, nil
@@ -535,7 +564,7 @@ function FighterAI:think(world, slot)
 					input.dash = true
 				end
 			else
-				self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
+				self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade, true)
 				if pressing > 0.5 and self.plan[1] ~= "L" and not self.plan.weave then
 					-- Against mashing, open with the fastest button (the jab) or lose the trade.
 					self.plan = { "L", table.unpack(self.plan, 2) }

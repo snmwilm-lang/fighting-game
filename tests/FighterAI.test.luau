@@ -281,4 +281,37 @@ test("the same seed replays the same fight", function()
 	expect(a.damage[1] == b.damage[1] and a.damage[2] == b.damage[2], "non-deterministic CPU")
 end)
 
+test("ASURA against the wall: varied openers, never the same slow blow again and again (no cheese)", function()
+	for _, guard in { "stand", "crouch" } do
+		local world = Sim.newWorld(Config, MoveData, true)
+		Sim.setKits(world, "ASURA", "RAIJIN")
+		world.phase = "Fight"
+		local a, b = world.fighters[1], world.fighters[2]
+		local brain = FighterAI.new("ASURA", 11)
+		local openers, total, wasFree = {}, 0, true
+		for t = 1, 60 * 40 do
+			if t % 90 == 1 then b.x, a.x, a.facing, b.facing = Config.ArenaMinX + 0.5, Config.ArenaMinX + 3.5, -1, 1 end
+			local neutral = Sim.neutralInput()
+			neutral.block, neutral.crouch = true, guard == "crouch"
+			local before = a.moveSerial
+			Sim.step(world, { brain:think(world, 1), neutral })
+			if a.moveSerial ~= before and a.move and wasFree then
+				openers[a.move] = (openers[a.move] or 0) + 1
+				total += 1
+			end
+			wasFree = a.move == nil and a.stun == 0
+		end
+		local kinds, top, slow = 0, 0, 0
+		for id, n in openers do
+			kinds += 1
+			top = math.max(top, n)
+			if MoveData.Moves[id].startup >= 13 then slow += n end
+		end
+		expect(total >= 8, guard .. ": ASURA hardly attacks a cornered opponent (" .. total .. ")")
+		expect(kinds >= 3, guard .. ": only " .. kinds .. " different openers")
+		expect(top <= total * 0.6, guard .. ": one opener is " .. top .. " of " .. total)
+		expect(slow <= total * 0.15, guard .. ": slow openers (free counter hits) " .. slow .. " of " .. total)
+	end
+end)
+
 T.finish()

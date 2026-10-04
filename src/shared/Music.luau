@@ -61,7 +61,7 @@ Music.SCALES = SCALES
 Music.THEMES = {
 	MENU = { tempo = 92, scale = "minorPenta", root = 0.9, bassRoot = 0.5,
 		calm = { taiko = "x.......x.....x.", hat = "..x...x...x...x.", swell = "x..............." },
-		fight = {}, clutch = {},
+		fight = { rim = "....x.......x..." }, clutch = { shaker = "x.x.x.x.x.x.x.x." }, -- (the menu stays calm: unused)
 		melody = { "1...3...5-..4...", "3...2...1-......", "5...4...3...5...", "6-..5...3-..2..." },
 		bass = { "1.......1.......", "1.......5.......", "4.......4.......", "5.......1......." } },
 	TEMPLE = { tempo = 124, scale = "miyako", root = 1, bassRoot = 0.5,

@@ -1388,6 +1388,24 @@ test("GORAN ANCRAGE: a heavy blow on the ground takes a hit without flinching; h
 	expect(find(ge, "Hit") ~= nil and find(ge, "Block") == nil, "ÉTREINTE DU TITAN was blocked")
 end)
 
+test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors his heavies only", function()
+	local w = kitDuel("ASURA", "KAI", 3)
+	local a, k = w.fighters[1], w.fighters[2]
+	local al, ar, ab, at = Sim.hurtbox(a, Config)
+	local kl, kr, kb, kt = Sim.hurtbox(k, Config)
+	expect(ar - al > (kr - kl) * 1.15, "ASURA's body is not wider than KAI's")
+	expect(math.abs((at - ab) - (kt - kb)) < 1e-6, "ASURA is taller than KAI")
+	local stats, kai = MoveData.Kits.ASURA.Stats, MoveData.Kits.KAI.Stats
+	expect(stats.MaxHealth >= kai.MaxHealth * 2 and (stats.DamageDealt or 1) > 1.3, "ASURA is not much stronger than KAI")
+	-- his heavy grounded blow (Smash) takes a hit; his jab does not
+	local function armored(id)
+		a.state, a.move, a.moveFrame, a.moveSerial, a.armorMove = "Attack", id, 1, (a.moveSerial or 0) + 1, nil
+		return PASSIVE.armor(w, k, a, Moves.Jab, {})
+	end
+	expect(armored("Smash"), "ASURA'S WRATH did not armor the Smash")
+	expect(not armored("Jab"), "ASURA'S WRATH armored a jab (too cheap)")
+end)
+
 test("ASTER MASSE VARIABLE: a technique that lands charges the next air attack (+30 %)", function()
 	local w = kitDuel("ASTER", "KAI", 3)
 	local a, d = w.fighters[1], w.fighters[2]

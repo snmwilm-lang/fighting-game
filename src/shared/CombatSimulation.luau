@@ -812,9 +812,11 @@ function CombatSimulation.hitbox(f, m)
 	return math.min(x1, x2), math.max(x1, x2), f.y + hb.low, f.y + hb.high
 end
 
+-- A massive body (Stats.Bulk: ASURA, the boss) is as tall as the others but wider to hit.
 function CombatSimulation.hurtbox(f, c)
+	local wide = f.stats and f.stats.Bulk or 1
 	local height = if f.crouching then c.CrouchHurtHeight else c.HurtHeight
-	return f.x - c.HurtHalfWidth, f.x + c.HurtHalfWidth, f.y, f.y + height
+	return f.x - c.HurtHalfWidth * wide, f.x + c.HurtHalfWidth * wide, f.y, f.y + height
 end
 
 local function hitboxActive(f, moves)

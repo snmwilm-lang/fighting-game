@@ -124,7 +124,8 @@ local function volume(view, band)
 		return { x - 1.8, y, z - 1, x + 1.8, y + 2.6, z + 1 }
 	end
 	local b = BANDS[band or "full"]
-	return { x - 1.1, y + 5.7 * b[1], z - 0.9, x + 1.1, y + 5.7 * b[2], z + 0.9 }
+	local k = view.bulk or 1 -- (a massive body: ASURA, wider)
+	return { x - 1.1 * k, y + 5.7 * b[1], z - 0.9 * k, x + 1.1 * k, y + 5.7 * b[2], z + 0.9 * k }
 end
 
 --[[
@@ -4858,7 +4859,16 @@ local function clean(ctx, frame, a, d, tick)
 	end
 end
 
+-- The width of each view's body (Stats.Bulk: ASURA is massive), for the framing.
+local function bodyScales(ctx, views)
+	for _, view in views do
+		local kit = view.kit and ctx.moveData.Kits and ctx.moveData.Kits[view.kit]
+		view.bulk = kit and kit.Stats and kit.Stats.Bulk or nil
+	end
+end
+
 function Director.ko(ctx, winner, loser, w, l, t)
+	bodyScales(ctx, { w, l })
 	local frame = koScene(ctx, winner, loser, w, l, t)
 	drift(ctx, frame, t)
 	return frame
@@ -4871,6 +4881,7 @@ function Director.cinematic(ctx)
 	local cin = ctx.cin
 	local a, d = ctx.views[cin.attacker], ctx.views[cin.defender]
 	if not a or not d then return nil end
+	bodyScales(ctx, ctx.views)
 	ctx.anchors.dir = ctx.anchors.dir or a.facing
 	local dir = ctx.anchors.dir
 	a.victory, a.pose, d.pose = false, nil, nil

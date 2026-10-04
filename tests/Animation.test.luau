@@ -1164,9 +1164,15 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 		end
 		return nil
 	end
-	local views = { { state = "Idle" }, { state = "Walking" }, { state = "Jumping" }, { state = "Blocking" }, { state = "Hitstun" },
-		{ state = "Knockdown" }, { state = "Dashing" } }
-	for _, id in { "Jab", "Cross", "Smash", "Uppercut", "BodyBlow", "KaienRush", "AsuraGatling", "AirKick" } do
+	-- every state and every move ASURA can play (Wilhem: « vérifie les anim de ses bras »)
+	local views = {}
+	for _, state in { "Idle", "Walking", "Jumping", "Falling", "Blocking", "CrouchBlocking", "Crouching", "Hitstun", "Blockstun",
+		"Launched", "Knockdown", "GetUp", "Dashing", "Cinematic", "KO" } do
+		table.insert(views, { state = state })
+	end
+	local ids = { "AsuraGatling" }
+	for _, id in MoveData.Kits.ASURA.Roles do table.insert(ids, id) end
+	for _, id in ids do
 		local m = MoveData.Moves[id]
 		for frame = 1, MoveData.total(m) do table.insert(views, { state = "Attack", move = id, moveFrame = frame }) end
 	end

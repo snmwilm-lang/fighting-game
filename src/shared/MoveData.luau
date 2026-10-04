@@ -1229,11 +1229,15 @@ third("NOVA", {
 kit("ASURA", {
 	Kanji = "阿", Role = "BOSS", Boss = true,
 	Difficulty = 3,
-	Description = "A four-armed KAI, out of the Gate of Heaven. He hits harder, takes twice as much and never lets go. E: FOUR-ARMED GATLING.",
+	Description = "A four-armed KAI, out of the Gate of Heaven. Massive: he hits far harder, his heavy blows go through yours and he never lets go. E: FOUR-ARMED GATLING.",
 	Roles = table.clone(KAI_ROLES),
 	Starters = { Ground = { Special = "AsuraGatling" } },
-	Stats = { MaxHealth = 2700, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40, DamageDealt = 1.2,
-		GuardDamageTaken = 0.7 },
+	-- (Bulk: as tall as the others but massive: wider to hit)
+	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40, DamageDealt = 1.35,
+		GuardDamageTaken = 0.6, Bulk = 1.2 },
+	-- ASURA'S WRATH: his heavy grounded normals (Kick, Spin Kick, Hammer, Smash) take one hit
+	-- without flinching (GORAN's armor rule).
+	Passive = { Type = "Anchor", Name = "ASURA'S WRATH", Heavy = 80, Absorb = 1 },
 	RouteNames = { "CHAIN", "LAUNCHER", "LIVER", "WALL", "AXE KICK", "SWEEP", "TORNADO", "GUST", "DRAGON", "THUNDER", "MOON" },
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "阿修羅", sub = "WRATH OF THE FOUR ARMS" },

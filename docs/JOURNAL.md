@@ -65,6 +65,17 @@ leurs défauts, presque parfait en main, make it cool » ; « prépare différen
   de la table des styles (`CharacterData`) : le style par défaut de 12 persos était introuvable
   et le jeu retombait sur KAI. Clés réalignées, outil `rigcheck` mis à jour, nouveau test
   (Lobby) : chaque style de chaque perso existe, est bien le sien, et rangé sous son nom.
+- **ASURA (boss) : plus massif, pas plus grand, et bien plus fort.** Corps : pectoraux,
+  trapèzes, dorsaux, épaulières d'or, biceps et avant-bras épais, gantelets (`RigBuilder`,
+  `BODIES.ASURA`) ; la deuxième paire de bras est aussi épaisse que la première (poings plus
+  gros). Même taille que les autres : seule la largeur de son corps à toucher grandit
+  (`Stats.Bulk` 1,2 → hurtbox plus large, même hauteur, même portée ; caméra des cinématiques
+  cadrée en conséquence). Force : 3200 PV (2700), dégâts ×1,35 (×1,2), garde ×0,6 (×0,7),
+  marche 18, et un passif **ASURA'S WRATH** (« COLÈRE D'ASURA ») : ses coups lourds au sol
+  (Kick, Spin Kick, Hammer, Smash) encaissent un coup sans broncher (règle d'armure de GORAN),
+  jamais ses jabs. Bras vérifiés : le test d'Animation pose ses quatre bras dans tous les états
+  et tous ses coups, jamais à travers le corps. Tests : CombatSimulation (corps plus large,
+  même hauteur, armure sur ses lourds seulement), FighterAI (le boss bat toujours LÉGENDE).
 - Version 0.16.0.
 
 Tests : CombatSimulation 112, FighterAI 12, CinematicDirector 832, Animation 39, Kits KITS_LINE, PressQueue 4,

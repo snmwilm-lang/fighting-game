@@ -68,6 +68,8 @@ local function check(world, label, tick, last)
 		-- Chained attacks are fine: "stuck" is the same state with the same move.
 		local key = f.state .. ":" .. tostring(f.move)
 		if l.state == key then l.ticks += 1 else l.state, l.ticks = key, 0 end
+		-- (a cinematic holds both fighters still on purpose: its time does not count)
+		if world.cinematic then l.ticks = 0 end
 		local limit = STUCK_LIMIT[f.state]
 		if limit and world.phase == "Fight" then
 			expect(l.ticks < limit, string.format("%s t%d P%d stuck in %s for %d ticks (move %s)", label, tick, i, f.state,

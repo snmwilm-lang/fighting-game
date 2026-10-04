@@ -483,10 +483,22 @@ BODIES.ASURA = {
 			material(o("UpperTorso", "GoldChain", Vector3.new(0.12, 1.8, 0.08), CFrame.new(0, 0, -0.54) * CFrame.Angles(0, 0, sign * 0.6), gold), Enum.Material.Metal)
 		end
 		material(o("UpperTorso", "ChainMedal", Vector3.new(0.34, 0.34, 0.1), CFrame.new(0, 0.02, -0.58), gold), Enum.Material.Metal)
+		-- Massive, not taller: slabs of muscle (pecs, trapezius, lats) and gold pauldrons widen him.
+		local skin = color("SkinTone")
+		for _, sign in { -1, 1 } do
+			o("UpperTorso", "Pec", Vector3.new(0.86, 0.6, 0.16), CFrame.new(sign * 0.44, 0.34, -0.52) * CFrame.Angles(math.rad(-6), 0, sign * -0.06), skin)
+			o("UpperTorso", "Trapezius", Vector3.new(0.5, 0.34, 0.8), CFrame.new(sign * 0.5, 0.78, 0.06) * CFrame.Angles(0, 0, sign * -0.42), skin, "WedgePart")
+			o("UpperTorso", "Lat", Vector3.new(0.16, 1.0, 0.84), CFrame.new(sign * 0.92, 0.1, 0.04) * CFrame.Angles(0, 0, sign * 0.1), skin)
+		end
 		bareArms(ctx, nil, nil)
 		for _, side in { "Left", "Right" } do
-			material(o(side .. "UpperArm", "Armlet", Vector3.new(0.92, 0.16, 0.92), CFrame.new(0, -0.1, 0), gold), Enum.Material.Metal)
-			material(o(side .. "LowerArm", "Bangle", Vector3.new(0.74, 0.2, 0.74), CFrame.new(0, -0.32, 0), gold), Enum.Material.Metal)
+			local sign = if side == "Left" then -1 else 1
+			material(o(side .. "UpperArm", "Pauldron", Vector3.new(1.08, 0.22, 1.04), CFrame.new(sign * 0.08, 0.5, 0) * CFrame.Angles(0, 0, sign * -0.25), gold), Enum.Material.Metal)
+			o(side .. "UpperArm", "Biceps", Vector3.new(0.9, 0.66, 0.92), CFrame.new(0, -0.06, -0.02), skin)
+			material(o(side .. "UpperArm", "Armlet", Vector3.new(0.96, 0.16, 0.98), CFrame.new(0, -0.1, 0), gold), Enum.Material.Metal)
+			o(side .. "LowerArm", "Forearm", Vector3.new(0.82, 0.58, 0.86), CFrame.new(0, 0.14, 0), skin)
+			material(o(side .. "LowerArm", "Bangle", Vector3.new(0.88, 0.26, 0.9), CFrame.new(0, -0.32, 0), gold), Enum.Material.Metal)
+			o(side .. "Hand", "Gauntlet", Vector3.new(0.88, 0.42, 0.9), CFrame.new(0, 0.08, 0), color("Wraps"))
 		end
 		o("LowerTorso", "Sash", Vector3.new(1.8, 0.4, 1.04), CFrame.new(0, 0.18, 0), color("Shirt"))
 		ctx.tail("LowerTorso", "SashTail", Vector3.new(0.3, 1.6, 0.06), CFrame.new(-0.4, 0.14, -0.56) * CFrame.Angles(0, 0, -0.12), color("Shirt"))
@@ -1651,7 +1663,7 @@ function RigBuilder.addFourArms(model, data)
 	for _, side in { -1, 1 } do
 		local name = if side < 0 then "Left" else "Right"
 		local pitch, yaw, roll, bend, twist = FourArms.angles(side, guard[name])
-		local w = 0.5 * scale
+		local w = 0.62 * scale -- (as thick as his first arms: massive)
 		local upper = piece("AsuraArm" .. name, Vector3.new(w, upperLength, w), skin)
 		local fore = piece("AsuraForearm" .. name, Vector3.new(w * 0.92, foreLength, w * 0.92), skin)
 		local shoulder = Instance.new("Motor6D")
@@ -1679,8 +1691,8 @@ function RigBuilder.addFourArms(model, data)
 				CFrame.new(0, y * foreLength, 0) * CFrame.Angles(0, 0, (if i % 2 == 0 then 1 else -1) * 0.18))
 		end
 		weld(fore, piece("AsuraBangle" .. name, Vector3.new(w * 1.14, 0.18 * scale, w * 1.14), gold, Enum.Material.Metal), CFrame.new(0, -foreLength * 0.36, 0))
-		weld(fore, piece("AsuraFist" .. name, Vector3.one * 0.62 * scale, wraps, Enum.Material.Fabric), CFrame.new(0, -foreLength / 2 - 0.22 * scale, 0))
-		weld(fore, piece("AsuraKnuckles" .. name, Vector3.new(0.66, 0.16, 0.2) * scale, gold, Enum.Material.Metal), CFrame.new(0, -foreLength / 2 - 0.34 * scale, -0.24 * scale))
+		weld(fore, piece("AsuraFist" .. name, Vector3.one * 0.76 * scale, wraps, Enum.Material.Fabric), CFrame.new(0, -foreLength / 2 - 0.3 * scale, 0))
+		weld(fore, piece("AsuraKnuckles" .. name, Vector3.new(0.8, 0.18, 0.2) * scale, gold, Enum.Material.Metal), CFrame.new(0, -foreLength / 2 - 0.4 * scale, -0.3 * scale))
 	end
 end
 

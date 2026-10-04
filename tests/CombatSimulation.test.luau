@@ -414,7 +414,7 @@ test("PORTE DES CIEUX: the R key on the climax adds the bonus, and can KO", func
 	world.fighters[2].hp = 900
 	local events, hpAtStart = playEarned(world, routeKeys(MoveData.FullRoutes[3], "U"), { prompts = true, ticks = 1200 })
 	local grade = find(events, "PromptGrade")
-	expect(grade and grade.grade == "PARFAIT", "gate prompt " .. tostring(grade and grade.grade))
+	expect(grade and grade.grade == "PERFECT", "gate prompt " .. tostring(grade and grade.grade))
 	local cin = MoveData.Cinematics.Kaiten
 	local expected = math.floor(Config.MaxHealth * cin.MaxHealthShare) + math.floor(Config.MaxHealth * cin.PerfectBonus)
 	local dealt = 0
@@ -445,7 +445,7 @@ test("gate: a perfect gate only KOs if the blows left can finish (every kit)", f
 				for _, e in Sim.step(world, { input({ ultimate = press }), input({}) }) do table.insert(events, e) end
 			end
 			local grade = find(events, "PromptGrade")
-			expect(grade and grade.grade == "PARFAIT", kitName .. ": gate prompt " .. tostring(grade and grade.grade))
+			expect(grade and grade.grade == "PERFECT", kitName .. ": gate prompt " .. tostring(grade and grade.grade))
 			return d.hp, events
 		end
 		local maxHp = MoveData.Kits.KAI.Stats.MaxHealth
@@ -502,7 +502,7 @@ test("rhythm prompts: all on time is PARFAIT and gives a ki bar back", function(
 	local world = closeWorld(3, false)
 	local events = playEarned(world, routeKeys(MoveData.FullRoutes[2], "R"), { prompts = true })
 	local grade = find(events, "PromptGrade")
-	expect(grade and grade.grade == "PARFAIT", "grade " .. tostring(grade and grade.grade))
+	expect(grade and grade.grade == "PERFECT", "grade " .. tostring(grade and grade.grade))
 	expect(world.fighters[1].meter >= MoveData.Cinematics.Awakening.PerfectRefund, "no ki refund")
 end)
 
@@ -527,7 +527,7 @@ test("rhythm prompts: mashing fails them", function()
 		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
 	end
 	local grade = find(events, "PromptGrade")
-	expect(grade and grade.grade == "BON", "mashing graded " .. tostring(grade and grade.grade))
+	expect(grade and grade.grade == "GOOD", "mashing graded " .. tostring(grade and grade.grade))
 end)
 
 test("6th press without 3 bars stays COUP DE GRÂCE", function()
@@ -575,7 +575,7 @@ test("rhythm: a link typed before the attack is out still links, but is not clea
 	-- R pressed on the 3rd startup frame of the JAB (its fist is not out yet).
 	local events = run(world, 70, function(t) return { input({ light = t == 1, heavy = t == 3 }) } end)
 	expect(compactRoute(events) == "Jab,BodyBlow", "early link dropped: " .. compactRoute(events))
-	expect(not a.chainClean and a.dirtyReason == "TROP TÔT", "early link judged clean")
+	expect(not a.chainClean and a.dirtyReason == "TOO EARLY", "early link judged clean")
 	-- The same R pressed once the jab is out: clean.
 	local good = closeWorld(3)
 	run(good, 70, function(t) return { input({ light = t == 1, heavy = t == Moves.Jab.startup + 2 }) } end)
@@ -1514,6 +1514,34 @@ test("a target left launched on the floor with no speed (after a cinematic, a sp
 	d.launched, d.y, d.vy, d.pendingBounce = true, 0, -30, true
 	Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
 	expect(d.launched and d.vy > 0, "no bounce")
+end)
+
+test("COUNTER HIT: a blow that catches the opponent starting its own attack hits harder and stuns longer", function()
+	local function exchange(late)
+		local world = Sim.newWorld(Config, MoveData, false)
+		world.phase = "Fight"
+		local a, d = world.fighters[1], world.fighters[2]
+		a.x, d.x = -1.5, 1.5
+		local events = {}
+		-- P2 starts its slow heavy blow and P1 jabs into its startup (`still`: P2 just stands).
+		local i2 = Sim.neutralInput()
+		i2.heavy = not late
+		Sim.step(world, { Sim.neutralInput(), i2 })
+		local i1 = Sim.neutralInput()
+		i1.light = true
+		for _ = 1, 30 do
+			for _, e in Sim.step(world, { i1, Sim.neutralInput() }) do
+				if e.kind == "Hit" and e.attacker == 1 then table.insert(events, e) end
+			end
+			i1 = Sim.neutralInput()
+		end
+		return events[1], d
+	end
+	local counter = exchange(false)
+	local plain = exchange(true)
+	expect(counter and counter.counter == true, "no counter hit on a startup")
+	expect(plain and not plain.counter, "a counter hit on a neutral opponent")
+	expect(counter.damage > plain.damage, string.format("counter %d, plain %d", counter.damage, plain.damage))
 end)
 
 T.finish()

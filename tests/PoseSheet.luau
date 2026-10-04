@@ -78,12 +78,12 @@ for _, id in { "Jab", "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Hammer"
 	local f, show = attack(id)
 	if f then add(role(id), show, f) end
 end
-if stanceName == "CLASSIQUE" then
+if stanceName == "CLASSIC" then
 	local f, show = attack("TaroChampion")
 	if f then add("TaroChampion", show, f) end
 end
-local weave = kit.Stances and kit.Stances.ESQUIVE and kit.Stances.ESQUIVE.Weave
-if weave and stanceName ~= "CLASSIQUE" then -- the boxer: weave (forward dash) and DEMPSEY ROLL
+local weave = kit.Stances and kit.Stances.PEEKABOO and kit.Stances.PEEKABOO.Weave
+if weave and stanceName ~= "CLASSIC" then -- the boxer: weave (forward dash) and DEMPSEY ROLL
 	add("Weave", 4, still("Dashing", { vx = kit.Stats.DashSpeed, weave = true }))
 	for _, id in { weave.Hook, "TaroDempseyR", weave.Finish } do
 		local f, show = attack(id)

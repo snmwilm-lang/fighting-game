@@ -149,7 +149,7 @@ function HUD.new(config)
 		}), "Energy")
 		stroke(count, 2.5)
 		local ready = text(side, {
-			Name = "UltimateReady", Text = "ULTIME PRÊT · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
+			Name = "UltimateReady", Text = "ULTIMATE READY · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
 			Size = UDim2.fromOffset(150, 14), Position = if left then UDim2.fromOffset(barX + 30, 84) else UDim2.new(1, -barX - 180, 0, 84),
 			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
 		})
@@ -179,7 +179,7 @@ function HUD.new(config)
 		local align = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
 		local count = text(frame, { Size = UDim2.new(1, 0, 0, 74), TextSize = 78, TextXAlignment = align, TextColor3 = self.bars[slot].energy })
 		stroke(count, 4)
-		local hits = text(frame, { Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 68), TextSize = 30, Text = "HITS !", TextXAlignment = align })
+		local hits = text(frame, { Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 68), TextSize = 30, Text = "HITS!", TextXAlignment = align })
 		stroke(hits, 3)
 		local detail = text(frame, { Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 98), TextSize = 16, Font = UI_FONT, TextXAlignment = align })
 		stroke(detail, 2)
@@ -239,33 +239,33 @@ function HUD.new(config)
 		if self.onMenu then self.onMenu() end
 	end)
 	self.menuButton.TextColor3 = Color3.fromHex("FFD23F")
-	self.mouseButton = button("MouseLock", "SOURIS : LIBRE (CTRL)", 168, function()
+	self.mouseButton = button("MouseLock", "MOUSE: FREE (CTRL)", 168, function()
 		if self.onMouseLock then self.onMouseLock() end
 	end)
-	self.kitButton = button("Kit", "PERSO : KAI (T)", 156, function()
+	self.kitButton = button("Kit", "FIGHTER: KAI (T)", 156, function()
 		if self.onKit then self.onKit() end
 	end)
-	self.foeKitButton = button("FoeKit", "ADVERSAIRE : KAI (G)", 176, function()
+	self.foeKitButton = button("FoeKit", "OPPONENT: KAI (G)", 176, function()
 		if self.onFoeKit then self.onFoeKit() end
 	end)
-	self.avatarButton = button("Avatar", "APPARENCE : AVATAR", 176, function()
+	self.avatarButton = button("Avatar", "LOOK: AVATAR", 176, function()
 		if self.onAvatar then self.onAvatar() end
 	end)
-	self.skinButton = button("Skin", "STYLE : CLASSIQUE", 140, function()
+	self.skinButton = button("Skin", "STYLE: CLASSIC", 140, function()
 		if self.onSkin then self.onSkin() end
 	end)
-	self.dummyButton = button("Dummy", "MANNEQUIN (M)", 170, function()
+	self.dummyButton = button("Dummy", "DUMMY (M)", 170, function()
 		if self.onDummy then self.onDummy() end
 	end)
-	self.resetButton = button("Reset", "REPLACER", 84, function()
+	self.resetButton = button("Reset", "RESET", 84, function()
 		if self.onReset then self.onReset() end
 	end)
 	-- TARO only: his two boxing styles (keys 1 / & and 2 / é).
 	self.stanceButtons = {
-		button("Stance1", "1 · CLASSIQUE (&)", 136, function()
+		button("Stance1", "1 · CLASSIC (&)", 136, function()
 			if self.onStance then self.onStance(1) end
 		end),
-		button("Stance2", "2 · ESQUIVE (é)", 124, function()
+		button("Stance2", "2 · PEEKABOO (é)", 124, function()
 			if self.onStance then self.onStance(2) end
 		end),
 	}
@@ -275,19 +275,19 @@ function HUD.new(config)
 	-- Combo trainer: pick a combo in its panel (two categories), the bar at the bottom shows
 	-- what to press and when.
 	self.trainerRoute = 0
-	self.routeButton = button("Route", "ENTRAÎNEUR ▾", 130, function()
+	self.routeButton = button("Route", "TRAINER ▾", 130, function()
 		self.trainerPanel.Visible = not self.trainerPanel.Visible
 	end)
 	-- Training: switch the ultimates' conditions on (ki always full, COUP FATAL ready).
-	self.ultiButton = button("UltiConditions", "ULTIMES : OFF", 230, function()
+	self.ultiButton = button("UltiConditions", "ULTIMATES: OFF", 230, function()
 		if self.onUltiConditions then self.onUltiConditions() end
 	end)
-	self.labButton = button("Lab", "LABO CINÉ", 86, function()
+	self.labButton = button("Lab", "CINE LAB", 86, function()
 		self.labPanel.Visible = not self.labPanel.Visible
 	end)
 	local poseButton
 	local function poseLabel(rate)
-		return if rate >= 60 then "POSES : FLUIDE" else "POSES : " .. rate .. "/s"
+		return if rate >= 60 then "POSES: SMOOTH" else "POSES: " .. rate .. "/s"
 	end
 	poseButton = button("PoseRate", poseLabel(self.poseRate), 108, function()
 		local rates = { 12, 15, 24, 60 }
@@ -295,14 +295,14 @@ function HUD.new(config)
 		self.poseRate = rates[current % #rates + 1]
 		poseButton.Text = poseLabel(self.poseRate)
 	end)
-	self.effectsButton = button("Effects", "EFFETS : FORTS", 118, function()
-		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFETS : RÉDUITS" else "EFFETS : FORTS" end
+	self.effectsButton = button("Effects", "EFFECTS: FULL", 118, function()
+		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFECTS: REDUCED" else "EFFECTS: FULL" end
 	end)
-	self.soundButton = button("Sound", "SON : OUI", 84, function()
-		if self.onSound then self.soundButton.Text = if self.onSound() then "SON : OUI" else "SON : NON" end
+	self.soundButton = button("Sound", "SOUND: ON", 84, function()
+		if self.onSound then self.soundButton.Text = if self.onSound() then "SOUND: ON" else "SOUND: OFF" end
 	end)
-	self.debugButton = button("Hitboxes", "HITBOX : NON", 104, function()
-		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX : OUI" else "HITBOX : NON" end
+	self.debugButton = button("Hitboxes", "HITBOX: OFF", 104, function()
+		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX: ON" else "HITBOX: OFF" end
 	end)
 	local panelY = y + 40 -- panels open below the last row of buttons
 	local trainer = new("Frame", {
@@ -310,7 +310,7 @@ function HUD.new(config)
 		Size = UDim2.fromOffset(6 * 92, 140), BackgroundTransparency = 1, Visible = false,
 	}, gui)
 	self.trainer = trainer
-	self.trainerNow = text(trainer, { Text = "MAINTENANT !", TextSize = 40, TextColor3 = Color3.fromHex("FFD23F"),
+	self.trainerNow = text(trainer, { Text = "NOW!", TextSize = 40, TextColor3 = Color3.fromHex("FFD23F"),
 		Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 0), Visible = false })
 	stroke(self.trainerNow, 3)
 	self.trainerStatus = text(trainer, { TextSize = 15, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 20),
@@ -354,15 +354,15 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · RB : garde · RT : dash · SELECT : replacer"
-			else "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée · P : menu"
+			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · SELECT: reset"
+			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
 	return self
 end
 
-local KEY_LABEL = { L = "CLIC G", R = "CLIC D", U = "TOUCHE R", E = "TOUCHE E", C = "TOUCHE C" }
+local KEY_LABEL = { L = "L-CLICK", R = "R-CLICK", U = "R KEY", E = "E KEY", C = "C KEY" }
 -- A route's keys, compact: mouse buttons as L / R, keyboard keys in brackets ("L L [R]").
 local SHORT_KEY = { L = "L", R = "R", U = "[R]", E = "[E]", C = "[C]" }
 local function keysShort(keys)
@@ -375,7 +375,7 @@ local function keysInWords(keys)
 	local words = {}
 	for k in keys:gmatch("%S") do table.insert(words, KEY_LABEL[k] or k) end
 	if #words < 2 then return words[1] or "" end
-	return table.concat(words, ", ", 1, #words - 1) .. ", puis " .. words[#words]
+	return table.concat(words, ", ", 1, #words - 1) .. ", then " .. words[#words]
 end
 local GREY = Color3.fromHex("B9B9C2")
 local GOLD = Color3.fromHex("FFD23F")
@@ -384,10 +384,10 @@ local ULTIMATE = Color3.fromHex("FF2A3D")
 
 -- Why a route stopped being clean (CombatSimulation sets dirtyReason).
 local DIRTY = {
-	["TROP TÔT"] = "TROP TÔT : appuie quand le coup d'avant sort ou touche, pas avant",
-	SPAM = "SPAM : plusieurs boutons à la fois ou trop d'appuis d'avance",
-	["MAUVAIS BOUTON"] = "MAUVAIS BOUTON : ce n'est pas la suite de la route",
-	["APPUI PERDU"] = "APPUI PERDU : tapé trop tôt, l'appui a expiré",
+	["TOO EARLY"] = "TOO EARLY: press when the previous blow comes out or lands, not before",
+	SPAM = "SPAM: several buttons at once or too many presses ahead",
+	["WRONG BUTTON"] = "WRONG BUTTON: that is not the next step of the route",
+	["PRESS LOST"] = "PRESS LOST: pressed too early, the press expired",
 }
 
 function HUD:kitData()
@@ -442,11 +442,11 @@ function HUD:trainerRoutes()
 	local starters = kit.Starters.Ground
 	local jab = kit.Roles.Jab or "Jab"
 	local cross = MoveData.Moves[jab].cancels and MoveData.Moves[jab].cancels.Light or kit.Roles.Cross
-	add({ name = "SPÉCIALE", keys = "L L E", moves = { jab, cross, kit.Roles.Rising or starters.Special } }, 1)
+	add({ name = "SPECIAL", keys = "L L E", moves = { jab, cross, kit.Roles.Rising or starters.Special } }, 1)
 	-- 2. ULTIMES: the full routes (ÉVEIL / PORTE), the ultimate and the COUP FATAL.
 	for _, route in kit.FullRoutes do add(route, 2, true) end
-	add({ name = "ULTIME", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } }, 2)
-	add({ name = "COUP FATAL", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } }, 2)
+	add({ name = "ULTIMATE", keys = "L L U", moves = { jab, cross, kit.Ultimates.Rush } }, 2)
+	add({ name = "FATAL BLOW", keys = "L L C", moves = { jab, cross, kit.Ultimates.Fatal } }, 2)
 	list[#list - 1].cost = MoveData.Moves[kit.Ultimates.Rush].meterCost
 	list[#list].cost = MoveData.Moves[kit.Ultimates.Fatal].meterCost
 	list[#list].fatal = true
@@ -456,7 +456,7 @@ end
 
 function HUD:refreshRouteButton()
 	local route = self:trainerRoutes()[self.trainerRoute]
-	self.routeButton.Text = if route then "ENTRAÎNEUR ✓" else "ENTRAÎNEUR ▾"
+	self.routeButton.Text = if route then "TRAINER ✓" else "TRAINER ▾"
 	if self.trainerTitle then
 		self.trainerTitle.Text = if route then route.name .. "  ·  " .. keysShort(route.keys) else ""
 	end
@@ -476,17 +476,17 @@ function HUD:fillTrainer()
 		self:fillTrainer()
 		self.trainerPanel.Visible = false
 	end
-	text(panel, { Text = "ENTRAÎNEUR · " .. self:kitData().Name .. "  (choisis un combo)", TextSize = 18, Font = UI_FONT,
+	text(panel, { Text = "TRAINER · " .. self:kitData().Name .. "  (pick a combo)", TextSize = 18, Font = UI_FONT,
 		Size = UDim2.new(1, -150, 0, 26), Position = UDim2.fromOffset(10, 6), TextColor3 = RED,
 		TextXAlignment = Enum.TextXAlignment.Left })
 	local off = new("TextButton", {
-		Text = "ARRÊTER", Size = UDim2.fromOffset(130, 26), Position = UDim2.new(1, -140, 0, 6), Font = UI_FONT, TextSize = 13,
+		Text = "STOP", Size = UDim2.fromOffset(130, 26), Position = UDim2.new(1, -140, 0, 6), Font = UI_FONT, TextSize = 13,
 		TextColor3 = GREY, BackgroundColor3 = Color3.fromHex("2A1418"), AutoButtonColor = true,
 	}, panel)
 	off.Activated:Connect(function() choose(0) end)
 	local routes = self:trainerRoutes()
-	local titles = { "COMBOS ★ ET COUPS  ·  L = clic gauche, R = clic droit, [E] = touche E",
-		"ROUTES COMPLÈTES ET ULTIMES  ·  [R] = touche R, [C] = touche C (bouton ULTIMES : ON = ki plein)" }
+	local titles = { "COMBOS ★ AND MOVES  ·  L = left click, R = right click, [E] = E key",
+		"FULL ROUTES AND ULTIMATES  ·  [R] = R key, [C] = C key (ULTIMATES: ON button = full ki)" }
 	for category, title in titles do
 		local x = if category == 1 then 0 else 0.5
 		text(panel, { Text = title, TextSize = 12, Font = UI_FONT, TextColor3 = GOLD, TextWrapped = true,
@@ -547,11 +547,11 @@ end
 
 -- Mouse lock state shown on its button (Ctrl toggles it; locked, the cursor is hidden).
 function HUD:setMouseLock(on)
-	self.mouseButton.Text = if on then "SOURIS : BLOQUÉE (CTRL)" else "SOURIS : LIBRE (CTRL)"
+	self.mouseButton.Text = if on then "MOUSE: LOCKED (CTRL)" else "MOUSE: FREE (CTRL)"
 end
 
 -- How hard the kit is to pick up: ★ SIMPLE, ★★ MOYEN, ★★★ TECHNIQUE.
-HUD.DIFFICULTY = { "SIMPLE", "MOYEN", "TECHNIQUE" }
+HUD.DIFFICULTY = { "SIMPLE", "MEDIUM", "TECHNICAL" }
 function HUD.difficultyText(kit)
 	local level = kit.Difficulty or 2
 	return string.rep("★", level) .. string.rep("☆", 3 - level) .. " " .. HUD.DIFFICULTY[level]
@@ -566,32 +566,32 @@ function HUD:fillCombos()
 	local lines = {
 		{ kit.Name .. " " .. kit.Kanji .. " · " .. kit.Role .. " · " .. HUD.difficultyText(kit), RED },
 		{ kit.Description, GREY },
-		{ "COMBOS  ·  L = clic gauche, R = clic droit", RED },
+		{ "COMBOS  ·  L = left click, R = right click", RED },
 	}
 	-- The full routes first (the 6-press combos that open the ultimates), then the short ones.
-	table.insert(lines, { "ROUTES COMPLÈTES (6 appuis, fin : " .. moveName(kit, "KiChase") .. " > " .. moveName(kit, "Finale") .. ")", RED })
+	table.insert(lines, { "FULL ROUTES (6 presses, ending: " .. moveName(kit, "KiChase") .. " > " .. moveName(kit, "Finale") .. ")", RED })
 	for _, route in kit.FullRoutes do
 		local names = {}
 		for i = 1, math.min(4, #route.moves) do table.insert(names, MoveData.Moves[route.moves[i]].name) end
 		table.insert(lines, { route.keys .. "  →  " .. route.name .. "  (" .. table.concat(names, " > ") .. "…)", WHITE })
 	end
-	table.insert(lines, { "COMBOS COURTS", RED })
+	table.insert(lines, { "SHORT COMBOS", RED })
 	for _, route in kit.Routes do
 		local names = {}
 		for _, id in route.moves do table.insert(names, MoveData.Moves[id].name) end
 		table.insert(lines, { route.keys .. "  →  " .. table.concat(names, " > "), WHITE })
 	end
-	table.insert(lines, { "RYTHME : chaque appui APRÈS la sortie du coup d'avant. Tapé trop tôt, le combo continue mais n'est plus PROPRE (pas d'ultime). Garde, saut ou dash annulent les coups en attente.", GOLD })
-	table.insert(lines, { "3 ULTIMES (route PROPRE seulement)", GOLD })
-	table.insert(lines, { "1. TOUCHE R du clavier (2 barres), seule ou après un coup qui touche (ex. CLIC G, CLIC G, puis TOUCHE R) : " .. moveName(kit, u.Rush), ULTIMATE })
-	table.insert(lines, { "2. Route complète, 6e = CLIC D (3 barres) : " .. moveName(kit, u.Awaken) .. ", finale selon la route", ULTIMATE })
-	table.insert(lines, { "   jusqu'à −30 % de la vie max : chaque QTE raté pendant la rafale en retire ; FINAL FINISH s'il achève", ULTIMATE })
-	table.insert(lines, { "3. Route complète, 6e = touche R (3 barres) : " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R au sommet : +10 % ; raté : −15 %)", ULTIMATE })
-	table.insert(lines, { "COUP FATAL · touche C (manette L1) : " .. moveName(kit, "Fatal") .. " — 3 barres, ta vie sous 30 %, une fois par match", ULTIMATE })
-	table.insert(lines, { "   en plein combo : −50 % de la vie max ; à froid : −30 % ; ne tue que sous la moitié de la vie ; QTE raté : −40 % du coup ; paré ou esquivé : perdu", ULTIMATE })
-	table.insert(lines, { "↓ + L : " .. moveName(kit, "LowKick") .. " (garde basse)  ·  ↓ + R : " .. moveName(kit, "Uppercut") .. " (lanceur)", WHITE })
-	table.insert(lines, { "Après le lanceur : ESPACE puis L L R en l'air", WHITE })
-	table.insert(lines, { "E après un coup : " .. moveName(kit, "Rising") .. " (invincible au départ)", ORANGE })
+	table.insert(lines, { "RHYTHM: each press AFTER the previous blow comes out. Pressed too early, the combo goes on but is no longer CLEAN (no ultimate). Guard, jump or dash cancel the queued blows.", GOLD })
+	table.insert(lines, { "3 ULTIMATES (CLEAN route only)", GOLD })
+	table.insert(lines, { "1. R KEY on the keyboard (2 bars), alone or after a blow that lands (e.g. L-CLICK, L-CLICK, then R KEY): " .. moveName(kit, u.Rush), ULTIMATE })
+	table.insert(lines, { "2. Full route, 6th = R-CLICK (3 bars): " .. moveName(kit, u.Awaken) .. ", finale depends on the route", ULTIMATE })
+	table.insert(lines, { "   up to −30 % of max health: each QTE missed during the flurry takes some off; FINAL FINISH if it finishes", ULTIMATE })
+	table.insert(lines, { "3. Full route, 6th = R key (3 bars): " .. kit.GateTitle.text .. " " .. kit.GateTitle.sub .. " (R at the peak: +10 %; missed: −15 %)", ULTIMATE })
+	table.insert(lines, { "FATAL BLOW · C key (gamepad L1): " .. moveName(kit, "Fatal") .. " — 3 bars, your health under 30 %, once per match", ULTIMATE })
+	table.insert(lines, { "   in a combo: −50 % of max health; raw: −30 %; only kills under half health; missed QTE: −40 % of the blow; parried or dodged: lost", ULTIMATE })
+	table.insert(lines, { "↓ + L: " .. moveName(kit, "LowKick") .. " (low guard)  ·  ↓ + R: " .. moveName(kit, "Uppercut") .. " (launcher)", WHITE })
+	table.insert(lines, { "After the launcher: SPACE then L L R in the air", WHITE })
+	table.insert(lines, { "E after a blow: " .. moveName(kit, "Rising") .. " (invincible at startup)", ORANGE })
 	if kit.Stances then
 		-- TARO: two styles, switched in neutral (keys 1 / & and 2 / é, or the HUD buttons).
 		for rank, id in kit.Stances.Order do
@@ -599,53 +599,53 @@ function HUD:fillCombos()
 			local special = MoveData.Moves[stance.CrouchSpecial]
 			local guard = math.floor((1 - (stance.Stats.GuardDamageTaken or 1)) * 100 + 0.5)
 			local power = math.floor(((stance.Stats.DamageDealt or 1) - 1) * 100 + 0.5)
-			table.insert(lines, { string.format("%d / %s : %s · dégâts %+d %% · garde %s%s · ↓ + E : %s", rank, stance.Key, stance.Name,
-				power, if guard > 0 then "-" .. guard .. " % d'usure" else "normale", "", special and special.name or "?"), ORANGE })
+			table.insert(lines, { string.format("%d / %s: %s · damage %+d %% · guard %s%s · ↓ + E: %s", rank, stance.Key, stance.Name,
+				power, if guard > 0 then "-" .. guard .. " % chip" else "normal", "", special and special.name or "?"), ORANGE })
 			if stance.Weave then
-				table.insert(lines, { "   DASH VERS L'ADVERSAIRE = ESQUIVE DE BUSTE (coups hauts esquivés, + ki) · pendant / juste après : L = DEMPSEY ROLL (L encore jusqu'à "
-					.. stance.Weave.MaxHooks .. ") · R = CROCHET FINAL · ↓ + E = PARADE qui contre", ORANGE })
+				table.insert(lines, { "   DASH TOWARD THE OPPONENT = BODY SWAY (high blows dodged, + ki) · during / right after: L = DEMPSEY ROLL (L again up to "
+					.. stance.Weave.MaxHooks .. ") · R = FINAL HOOK · ↓ + E = PARRY that counters", ORANGE })
 			else
-				table.insert(lines, { "   garde de fer, frappe plus lourde · ↓ + E = DROITE DU CHAMPION (lente, écrase la garde, met au sol)", ORANGE })
+				table.insert(lines, { "   iron guard, heavier hits · ↓ + E = CHAMPION'S RIGHT (slow, crushes the guard, knocks down)", ORANGE })
 			end
 		end
 	else
 		local crouchSpecial = kit.Starters.Crouch.Special
 		local special = MoveData.Moves[crouchSpecial]
 		if special and special.parry and special.parry.lows then
-			table.insert(lines, { "↓ + E : " .. special.name .. " (encaisse n'importe quel coup, même bas, en ne prenant que "
-				.. math.floor((special.parry.absorb or 0) * 100 + 0.5) .. " % des dégâts, puis riposte ; perd contre les ultimes)", ORANGE })
+			table.insert(lines, { "↓ + E: " .. special.name .. " (takes any blow, even low, taking only "
+				.. math.floor((special.parry.absorb or 0) * 100 + 0.5) .. " % of the damage, then strikes back; loses to ultimates)", ORANGE })
 		elseif special and special.parry then
-			table.insert(lines, { "↓ + E : " .. special.name .. " (contre les coups debout et les projectiles ; perd contre les coups bas et les ultimes)", ORANGE })
+			table.insert(lines, { "↓ + E: " .. special.name .. " (counters standing blows and projectiles; loses to low blows and ultimates)", ORANGE })
 		elseif special and special.projectile and special.projectile.guard == "Low" then
-			table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (onde au ras du sol : à garder accroupi, 1 à la fois)", ORANGE })
+			table.insert(lines, { "↓ + E: " .. moveName(kit, crouchSpecial) .. " (wave along the floor: block it crouching, 1 at a time)", ORANGE })
 		else
-			table.insert(lines, { "↓ + E : " .. moveName(kit, crouchSpecial) .. " (projectile, 1 à la fois)", ORANGE })
+			table.insert(lines, { "↓ + E: " .. moveName(kit, crouchSpecial) .. " (projectile, 1 at a time)", ORANGE })
 		end
 	end
 	local passive = kit.Passive
 	if passive and passive.Type == "Evade" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " (comme Ultra Instinct) : au neutre, un coup reçu est esquivé tout seul ; "
-			.. (passive.Charges or 1) .. " esquives en réserve, chacune revient en " .. math.floor(passive.Cooldown / 60)
-			.. " s (plus vite quand elle touche). Juste après l'esquive, CLIC G ou CLIC D : elle réapparaît dans le dos et frappe. Jamais contre les ultimes.", ORANGE })
+		table.insert(lines, { "PASSIVE " .. passive.Name .. " (like Ultra Instinct): in neutral, an incoming blow is dodged on its own; "
+			.. (passive.Charges or 1) .. " dodges in reserve, each comes back in " .. math.floor(passive.Cooldown / 60)
+			.. " s (faster when she lands hits). Right after the dodge, L-CLICK or R-CLICK: she reappears behind and strikes. Never against ultimates.", ORANGE })
 	elseif passive and passive.Type == "Rage" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " : chaque coup porté (pas en garde) ajoute +" .. passive.PerStack * 100 .. " % de dégâts (jusqu'à "
-			.. passive.Max .. "), tout est perdu dès qu'il est touché.", ORANGE })
+		table.insert(lines, { "PASSIVE " .. passive.Name .. ": each blow that lands (not blocked) adds +" .. passive.PerStack * 100 .. " % damage (up to "
+			.. passive.Max .. "), all lost as soon as he is hit.", ORANGE })
 	elseif passive and passive.Type == "Tip" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " : un coup du bout de la lame (adversaire au bout de l'allonge) fait +"
-			.. math.floor(passive.Bonus * 100 + 0.5) .. " % de dégâts.", ORANGE })
+		table.insert(lines, { "PASSIVE " .. passive.Name .. ": a hit with the tip of the blade (opponent at the end of the reach) does +"
+			.. math.floor(passive.Bonus * 100 + 0.5) .. " % damage.", ORANGE })
 	elseif passive and passive.Type == "Blink" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " : SHIFT vers l'adversaire (à moins de " .. passive.Range
-			.. " m) le traverse et réapparaît derrière lui, intouchable un instant ; recharge " .. string.format("%.1f", passive.Cooldown / 60) .. " s.", ORANGE })
+		table.insert(lines, { "PASSIVE " .. passive.Name .. ": SHIFT toward the opponent (within " .. passive.Range
+			.. " m) goes through and reappears behind, untouchable for a moment; cooldown " .. string.format("%.1f", passive.Cooldown / 60) .. " s.", ORANGE })
 	elseif passive and passive.Type == "Ruins" then
-		table.insert(lines, { "PASSIF " .. passive.Name .. " : plus il est blessé, plus il frappe fort (jusqu'à +"
-			.. math.floor(passive.MaxBonus * 100 + 0.5) .. " % à " .. math.floor(passive.To * 100 + 0.5) .. " % de vie).", ORANGE })
+		table.insert(lines, { "PASSIVE " .. passive.Name .. ": the more he is hurt, the harder he hits (up to +"
+			.. math.floor(passive.MaxBonus * 100 + 0.5) .. " % at " .. math.floor(passive.To * 100 + 0.5) .. " % health).", ORANGE })
 	end
 	if kit.Stats.DashInvuln then
-		table.insert(lines, { "DASH : intouchable pendant " .. kit.Stats.DashInvuln .. " images au départ", ORANGE })
+		table.insert(lines, { "DASH: untouchable for " .. kit.Stats.DashInvuln .. " frames at the start", ORANGE })
 	end
-	table.insert(lines, { "VIE " .. kit.Stats.MaxHealth .. " · ★ = skill : alterne clic gauche / clic droit", GREY })
-	table.insert(lines, { "1 seul effondrement, rebond sol et rebond mur par combo", GREY })
-	table.insert(lines, { "T : changer de perso · G : perso du CPU (solo)", GREY })
+	table.insert(lines, { "HEALTH " .. kit.Stats.MaxHealth .. " · ★ = skill: alternate left click / right click", GREY })
+	table.insert(lines, { "only 1 crumple, ground bounce and wall bounce per combo", GREY })
+	table.insert(lines, { "T: change fighter · G: CPU fighter (solo)", GREY })
 	for i, line in lines do
 		local l = text(panel, { Text = line[1], TextColor3 = line[2], Font = if i == 1 then DISPLAY else UI_FONT,
 			TextSize = if i == 1 then 22 else 12, Size = UDim2.new(1, -10, 0, if i == 1 then 24 else 18),
@@ -687,9 +687,9 @@ function HUD:fillLab()
 	local panel = self.labPanel
 	clearContent(panel)
 	local kit = self:kitData()
-	text(panel, { Text = "LABO CINÉ · " .. kit.Name, TextSize = 22, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 0,
+	text(panel, { Text = "CINE LAB · " .. kit.Name, TextSize = 22, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 0,
 		TextXAlignment = Enum.TextXAlignment.Left })
-	text(panel, { Text = "Lance une cinématique sans faire le combo (solo). Active HITBOX pour voir le nom du plan.",
+	text(panel, { Text = "Plays a cinematic without doing the combo (solo). Turn HITBOX on to see the shot names.",
 		TextSize = 11, Font = UI_FONT, Size = UDim2.new(1, 0, 0, 30), TextWrapped = true, LayoutOrder = 1,
 		TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left })
 	local order = 2
@@ -712,13 +712,13 @@ function HUD:fillLab()
 	for _, route in kit.FullRoutes do
 		add("2 · " .. moveName(kit, u.Awaken) .. " · " .. route.name, play("Awaken", route.name, false))
 	end
-	add("2 · ÉVEIL · FINAL FINISH (cible < 50 %)", play("Awaken", kit.FullRoutes[1].name, true))
+	add("2 · AWAKENING · FINAL FINISH (target < 50 %)", play("Awaken", kit.FullRoutes[1].name, true))
 	add("3 · " .. kit.GateTitle.sub, play("Gate", nil, false))
-	add("3 · " .. kit.GateTitle.sub .. " · K.O. (cible faible)", play("Gate", nil, true))
-	add("4 · COUP FATAL · " .. moveName(kit, "Fatal") .. " (en combo)", play("Fatal", nil, false))
-	add("4 · COUP FATAL · K.O. (son écran de K.O.)", play("Fatal", nil, true))
-	add("4 · COUP FATAL · à froid", play("Fatal", "raw", false))
-	add("SCÈNE DE K.O. (aperçu seul)", function()
+	add("3 · " .. kit.GateTitle.sub .. " · K.O. (weak target)", play("Gate", nil, true))
+	add("4 · FATAL BLOW · " .. moveName(kit, "Fatal") .. " (in a combo)", play("Fatal", nil, false))
+	add("4 · FATAL BLOW · K.O. (its K.O. screen)", play("Fatal", nil, true))
+	add("4 · FATAL BLOW · raw", play("Fatal", "raw", false))
+	add("K.O. SCENE (preview only)", function()
 		if self.onPreviewKO then self.onPreviewKO() end
 	end)
 end
@@ -763,34 +763,34 @@ function HUD:updateTrainer(view, meterFull)
 		end
 		box.outline.Color = color
 		if route.full and i == 6 then
-			box.keyLabel.Text = if meterFull then "CLIC D ou R" else "CLIC D"
-			box.moveLabel.Text = if meterFull then "CLIC D = ÉVEIL · TOUCHE R = " .. kit.GateTitle.text else moveName(kit, "Finale")
+			box.keyLabel.Text = if meterFull then "R-CLICK or R" else "R-CLICK"
+			box.moveLabel.Text = if meterFull then "R-CLICK = AWAKENING · R KEY = " .. kit.GateTitle.text else moveName(kit, "Finale")
 		end
 	end
 	self.trainerNow.Visible = view.cancelReady == true and progress >= 1 and progress < n and not failed
-	local reason = DIRTY[view.dirtyReason or ""] or "pas PROPRE : mauvais bouton, appui trop tôt ou en trop"
+	local reason = DIRTY[view.dirtyReason or ""] or "not CLEAN: wrong button, press too early or one too many"
 	if failed then
-		self.trainerStatus.Text = "RATÉ : il fallait " .. (KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?")
-			.. " — recommence au 1er coup"
+		self.trainerStatus.Text = "MISSED: it needed " .. (KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?")
+			.. " — start again from the 1st blow"
 		self.trainerStatus.TextColor3 = RED
 	elseif progress >= n then
-		self.trainerStatus.Text = if not route.full then "COMBO RÉUSSI ✓"
-			elseif view.chainClean then "ROUTE RÉUSSIE · PROPRE ✓" else "ROUTE RÉUSSIE · " .. reason .. " : pas d'ultime"
+		self.trainerStatus.Text = if not route.full then "COMBO CLEARED ✓"
+			elseif view.chainClean then "ROUTE CLEARED · CLEAN ✓" else "ROUTE CLEARED · " .. reason .. ": no ultimate"
 		self.trainerStatus.TextColor3 = Color3.fromHex("3DDC84")
 	elseif route.cost and (view.meter or 0) < route.cost then
 		-- An ultimate needs its ki first: say it plainly (in training the gauge refills when calm).
-		self.trainerStatus.Text = string.format("Il faut %d barres de ki (tu en as %d) : active ULTIMES : ON en haut",
+		self.trainerStatus.Text = string.format("You need %d ki bars (you have %d): turn ULTIMATES: ON at the top",
 			route.cost // 100, (view.meter or 0) // 100)
 		self.trainerStatus.TextColor3 = ORANGE
 	elseif progress >= 1 then
 		local nextKey = KEY_LABEL[keys:sub(progress + 1, progress + 1)] or "?"
-		self.trainerStatus.Text = (if view.chainClean then "PROPRE ✓ · maintenant " .. nextKey .. " quand le coup touche (case jaune)" else reason)
-			.. (if route.full then "  ·  ki " .. (if meterFull then "3 barres ✓" else "< 3 barres") else "")
+		self.trainerStatus.Text = (if view.chainClean then "CLEAN ✓ · now " .. nextKey .. " when the blow lands (yellow box)" else reason)
+			.. (if route.full then "  ·  ki " .. (if meterFull then "3 bars ✓" else "< 3 bars") else "")
 		self.trainerStatus.TextColor3 = if view.chainClean then WHITE else ORANGE
 	else
-		self.trainerStatus.Text = "Colle-toi au mannequin (mode IMMOBILE) et fais : " .. keysInWords(route.keys)
-			.. (if route.fatal then " (en entraînement, pas besoin d'avoir peu de vie)" else "")
-			.. "  ·  combo : " .. keysShort(route.keys)
+		self.trainerStatus.Text = "Stand next to the dummy (STILL mode) and do: " .. keysInWords(route.keys)
+			.. (if route.fatal then " (in training, low health is not needed)" else "")
+			.. "  ·  combo: " .. keysShort(route.keys)
 		self.trainerStatus.TextColor3 = GREY
 	end
 end
@@ -819,7 +819,7 @@ function HUD:applyLook(slot)
 end
 
 function HUD:setEffectsReduced(reduced)
-	self.effectsButton.Text = if reduced then "EFFETS : RÉDUITS" else "EFFETS : FORTS"
+	self.effectsButton.Text = if reduced then "EFFECTS: REDUCED" else "EFFECTS: FULL"
 end
 
 -- What the loser of a PERFECT round reads.
@@ -831,15 +831,15 @@ HUD.LOSER_LINES = {
 	"You must defeat Sheng Long to stand a chance.", -- Ryu, Street Fighter II
 	"Handsome fighters never lose battles.", -- Vega, Street Fighter II
 	"I will meditate and then destroy you!", -- Dhalsim, Street Fighter II
-	"Comme voler un bonbon à un bébé… sauf qu'un bébé se serait mieux défendu.", -- Walshy, Halo
+	"Like taking candy from a baby… except the baby would have put up a better fight.", -- Walshy, Halo
 	"You can't beat me.", -- LowTierGod
-	"GET OVER HERE… et apprends à jouer.", -- Scorpion, Mortal Kombat
+	"GET OVER HERE… and learn to play.", -- Scorpion, Mortal Kombat
 	"TOASTY!", -- Mortal Kombat
-	"LOOSER… pas un seul coup porté.",
-	"Zéro dégât. ZÉRO.",
-	"Tu as touché le vent. Bravo.",
-	"Même le mannequin d'entraînement a fait mieux.",
-	"GG… enfin, surtout G pour lui.",
+	"LOSER… not a single hit landed.",
+	"Zero damage. ZERO.",
+	"You hit the wind. Well done.",
+	"Even the training dummy did better.",
+	"GG… well, mostly G for them.",
 }
 
 function HUD:announceText(main, sub, color, size, hold)
@@ -889,73 +889,74 @@ end
 
 function HUD:onEvent(event, world)
 	-- SHIN's PRÉCISION: a hit with the tip of the blade.
-	if event.kind == "Hit" and event.tip then self:callout(event.attacker, "BOUT DE LAME !") end
+	if event.kind == "Hit" and event.tip then self:callout(event.attacker, "BLADE TIP!") end
+	if event.kind == "Hit" and event.counter then self:callout(event.attacker, "COUNTER!") end
 	if event.kind == "Hit" and event.combo and event.combo >= 2 then
 		local c = self.combo[event.attacker]
 		c.frame.Visible = true
 		c.count.Text = tostring(event.combo)
 		local m = MoveData.Moves[event.move]
-		c.detail.Text = (if m and m.heavy then m.name .. " · " else "") .. event.comboDamage .. " DÉGÂTS"
+		c.detail.Text = (if m and m.heavy then m.name .. " · " else "") .. event.comboDamage .. " DAMAGE"
 		c.scale.Scale = 1.5
 		tween(c.scale, 0.15, { Scale = 1 }, Enum.EasingStyle.Back)
 		c.expires = os.clock() + 1.4
 	elseif event.kind == "Skill" then
 		local m = MoveData.Moves[event.move]
-		self:callout(event.attacker, (if m then m.name else event.move) .. " !")
+		self:callout(event.attacker, (if m then m.name else event.move) .. "!")
 	elseif event.kind == "Parry" then
 		-- TARO's PARADE, HIBECARES's MUR DE PIERRE (the share of the blow it took).
-		local label = if event.name then event.name .. " !" else "PARADE !"
+		local label = if event.name then event.name .. "!" else "PARRY!"
 		if event.absorbed then label ..= " −" .. event.absorbed end
 		self:callout(event.defender, label)
 	elseif event.kind == "Blink" and event.counter then
-		self:callout(event.slot, "CONTRE-INSTINCT !")
+		self:callout(event.slot, "COUNTER-INSTINCT!")
 	elseif event.kind == "Blink" and not event.move then
 		local kit = MoveData.Kits[CharacterData[event.slot].Kit]
-		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TÉLÉPORTATION") .. " !")
+		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TELEPORT") .. "!")
 	elseif event.kind == "Evade" then
 		local kit = MoveData.Kits[CharacterData[event.defender].Kit]
-		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "ESQUIVE") .. " !")
+		self:callout(event.defender, (if kit and kit.Passive then kit.Passive.Name else "DODGE") .. "!")
 	elseif event.kind == "Slip" then
-		self:callout(event.defender, "ESQUIVE !")
+		self:callout(event.defender, "DODGE!")
 		self:slowMotion(0.45) -- black and white for the slow-down
 	elseif event.kind == "Stance" then
-		self:callout(event.slot, (event.name or event.stance) .. " !")
+		self:callout(event.slot, (event.name or event.stance) .. "!")
 		-- The local player: how the new style plays, in one line.
 		if event.slot == (Players.LocalPlayer:GetAttribute("FighterSlot") or 0) then
-			local hint = if event.stance == "ESQUIVE"
-				then "SHIFT vers l'adversaire = ESQUIVE · puis clic gauche = DEMPSEY ROLL · S + E = PARADE"
-				else "Garde de fer, coups plus lourds · S + E = DROITE DU CHAMPION"
+			local hint = if event.stance == "PEEKABOO"
+				then "SHIFT toward the opponent = DODGE · then left click = DEMPSEY ROLL · S + E = PARRY"
+				else "Iron guard, heavier hits · S + E = CHAMPION'S RIGHT"
 			self:announceText(event.name or event.stance, hint, Color3.fromHex("FFB21A"))
 		end
 	elseif event.kind == "PassiveReady" then
-		self:callout(event.slot, event.name .. " !")
+		self:callout(event.slot, event.name .. "!")
 	elseif event.kind == "Chilled" then
-		self:callout(event.slot, "GELÉ ! −20 % VITESSE")
+		self:callout(event.slot, "FROZEN! −20 % SPEED")
 	elseif event.kind == "Armor" then
-		self:callout(event.defender, "ANCRAGE ! −" .. event.damage)
+		self:callout(event.defender, "ANCHOR! −" .. event.damage)
 	elseif event.kind == "Heal" then
-		self:callout(event.slot, "+" .. event.amount .. " PV")
+		self:callout(event.slot, "+" .. event.amount .. " HP")
 	elseif event.kind == "Reflect" then
-		self:callout(event.slot, "MIROIR DE GLACE !")
+		self:callout(event.slot, "ICE MIRROR!")
 	elseif event.kind == "Shackled" then
-		self:callout(event.slot, "ENTRAVÉ ! DASH COUPÉ")
+		self:callout(event.slot, "SHACKLED! DASH CUT")
 	elseif event.kind == "Puppet" then
-		self:callout(event.slot, "DOUBLE COMMANDE !")
+		self:callout(event.slot, "DOUBLE CONTROL!")
 	elseif event.kind == "Drone" then
-		self:callout(event.slot, "SENTINELLE !")
+		self:callout(event.slot, "SENTRY!")
 	elseif event.kind == "PassiveEmpty" then
-		self:callout(event.slot, "PLUS DE DRONE")
+		self:callout(event.slot, "NO DRONE LEFT")
 	elseif event.kind == "PassiveUsed" and event.cost then
-		self:callout(event.slot, "PACTE −" .. event.cost .. " PV")
+		self:callout(event.slot, "PACT −" .. event.cost .. " HP")
 	elseif event.kind == "GuardBreak" then
 		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
 	elseif event.kind == "Fight" then
-		self:announceText("FIGHT !", nil, RED)
+		self:announceText("FIGHT!", nil, RED)
 	elseif event.kind == "RoundEnd" then
 		local main = if event.reason == "Timeout" then "TIME OVER" elseif event.winner == 0 then "DOUBLE K.O." else "K.O."
 		local sub
 		if not world.training then
-			sub = if event.winner == 0 then "ÉGALITÉ" else CharacterData[event.winner].Name .. " " .. CharacterData[event.winner].Skin .. " GAGNE LE ROUND"
+			sub = if event.winner == 0 then "DRAW" else CharacterData[event.winner].Name .. " " .. CharacterData[event.winner].Skin .. " WINS THE ROUND"
 		end
 		if event.perfect and not world.training and event.winner ~= 0 then
 			-- PERFECT: the round won without losing any health. Big and gold for the winner (and
@@ -971,8 +972,8 @@ function HUD:onEvent(event, world)
 		end
 		self:announceText(main, sub, if main == "K.O." then RED else WHITE)
 	elseif event.kind == "MatchEnd" then
-		local main = if event.winner == 0 then "MATCH NUL" else CharacterData[event.winner].Name .. " GAGNE !"
-		self:announceText(main, "VICTOIRE", RED)
+		local main = if event.winner == 0 then "DRAW GAME" else CharacterData[event.winner].Name .. " WINS!"
+		self:announceText(main, "VICTORY", RED)
 	end
 end
 
@@ -991,14 +992,14 @@ function HUD:update(world, views, fps, dt)
 		end
 		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
-		bar.player.Text = (if localSlot == slot then "VOUS · " else "") .. view.player .. " · " .. kit.Role
+		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player .. " · " .. kit.Role
 		if view.team and #view.team > 1 then
 			-- Relay team: who is out (✕), who fights (●), who waits (○).
 			local marks = {}
 			for i in view.team do
 				marks[i] = if i < (view.teamIndex or 1) then "✕" elseif i == view.teamIndex then "●" else "○"
 			end
-			bar.player.Text ..= "  ·  ÉQUIPE " .. table.concat(marks, "")
+			bar.player.Text ..= "  ·  TEAM " .. table.concat(marks, "")
 		end
 		-- Passive gauge: ready or the seconds left (VOILE D'OMBRE, OMBRE INVERSÉE), the RAGE
 		-- stacks, the ROI DES RUINES bonus (from health), PRÉCISION's rule.
@@ -1007,7 +1008,7 @@ function HUD:update(world, views, fps, dt)
 		local stance = kit.Stances and view.stance and kit.Stances[view.stance]
 		local weave = stance and stance.Weave
 		if weave and weave.Charges then
-			passive = { Type = "Evade", Name = "ESQUIVES", Charges = weave.Charges }
+			passive = { Type = "Evade", Name = "DODGES", Charges = weave.Charges }
 		end
 		bar.passive.Visible = passive ~= nil
 		if passive and view.passiveLabel then
@@ -1024,7 +1025,7 @@ function HUD:update(world, views, fps, dt)
 				local bonus = math.floor(passive.MaxBonus * math.clamp((passive.From - ratio) / (passive.From - passive.To), 0, 1) * 100 + 0.5)
 				label, ready = passive.Name .. " +" .. bonus .. " %", bonus > 0
 			elseif passive.Type == "Tip" then
-				label, ready = passive.Name .. " : BOUT DE LAME +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
+				label, ready = passive.Name .. ": BLADE TIP +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
 			elseif passive.Type == "Evade" then
 				-- The evades ready (●) and the seconds before the next one.
 				local charges, most = view.passiveCharges or 0, passive.Charges or 1
@@ -1054,12 +1055,12 @@ function HUD:update(world, views, fps, dt)
 		local u = kit.Ultimates
 		local ready = view.meter >= MoveData.Moves[u.Rush].meterCost
 		bar.ready.Visible = ready
-		bar.ready.Text = if view.meter >= MoveData.Moves[u.Awaken].meterCost then "3 BARRES · ÉVEIL / " .. kit.GateTitle.text
-			else "ULTIME PRÊT · R"
+		bar.ready.Text = if view.meter >= MoveData.Moves[u.Awaken].meterCost then "3 BARS · AWAKENING / " .. kit.GateTitle.text
+			else "ULTIMATE READY · R"
 		-- COUP FATAL (last breath, once per match): announced above everything else.
 		if view.fatal == "ready" then
 			bar.ready.Visible = true
-			bar.ready.Text = "COUP FATAL PRÊT · C — " .. moveName(kit, "Fatal")
+			bar.ready.Text = "FATAL BLOW READY · C — " .. moveName(kit, "Fatal")
 			bar.ready.TextTransparency = 0.1 * (1 + math.sin(os.clock() * 12))
 		elseif ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
@@ -1067,14 +1068,14 @@ function HUD:update(world, views, fps, dt)
 		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end
 	end
 	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
-	self.round.Text = if world.training then "ENTRAÎNEMENT"
-		elseif world.mode == "SURVIVAL" then "SURVIE · VAGUE " .. (world.wave or 1)
+	self.round.Text = if world.training then "TRAINING"
+		elseif world.mode == "SURVIVAL" then "SURVIVAL · WAVE " .. (world.wave or 1)
 		else "ROUND " .. world.round
 	-- Training tools only in ENTRAÎNEMENT (the server ignores them elsewhere anyway).
 	local solo = world.solo and (world.mode == nil or world.mode == "TRAINING")
 	self.labButton.Visible = solo and localSlot > 0
 	self.ultiButton.Visible = solo and localSlot > 0
-	self.ultiButton.Text = if world.ultimateConditions then "ULTIMES : ON (ki plein, vie 25 %)" else "ULTIMES : OFF"
+	self.ultiButton.Text = if world.ultimateConditions then "ULTIMATES: ON (full ki, 25 % health)" else "ULTIMATES: OFF"
 	self.ultiButton.TextColor3 = if world.ultimateConditions then Color3.fromHex("FFD23F") else WHITE
 	if not self.labButton.Visible then self.labPanel.Visible = false end
 	local mine = views[localSlot]
@@ -1082,7 +1083,7 @@ function HUD:update(world, views, fps, dt)
 	self:updateTrainer(mine, mine ~= nil and mine.meter >= MoveData.Moves[myKit.Ultimates.Awaken].meterCost)
 	self.resetButton.Visible = solo and localSlot > 0
 	self.dummyButton.Visible = solo and localSlot > 0
-	self.dummyButton.Text = "MANNEQUIN : " .. world.dummyMode .. " (M)"
+	self.dummyButton.Text = "DUMMY: " .. world.dummyMode .. " (M)"
 	self.avatarButton.Visible = localSlot > 0
 	self.skinButton.Visible = localSlot > 0
 	self.kitButton.Visible = solo and localSlot > 0
@@ -1095,38 +1096,38 @@ function HUD:update(world, views, fps, dt)
 		b.TextColor3 = if active then Color3.fromHex("FFD23F") else WHITE
 	end
 	if localSlot > 0 then
-		self.skinButton.Text = "STYLE : " .. CharacterData[localSlot].Skin
-		self.kitButton.Text = "PERSO : " .. CharacterData[localSlot].Kit .. " (T)"
-		self.foeKitButton.Text = "ADVERSAIRE : " .. CharacterData[3 - localSlot].Kit .. " (G)"
+		self.skinButton.Text = "STYLE: " .. CharacterData[localSlot].Skin
+		self.kitButton.Text = "FIGHTER: " .. CharacterData[localSlot].Kit .. " (T)"
+		self.foeKitButton.Text = "OPPONENT: " .. CharacterData[3 - localSlot].Kit .. " (G)"
 	end
 	local player = Players.LocalPlayer
-	self.avatarButton.Text = if player:GetAttribute("Avatar") then "APPARENCE : AVATAR" else "APPARENCE : MODÈLE"
+	self.avatarButton.Text = if player:GetAttribute("Avatar") then "LOOK: AVATAR" else "LOOK: MODEL"
 	-- Avatar loading feedback: the reason is shown when the avatar could not be used.
 	local avatarStatus = player:GetAttribute("AvatarStatus")
 	local kind, reason = string.match(tostring(avatarStatus or ""), "^([^|]*)|?(.*)$")
 	local note = ""
-	if kind == "MODÈLE" then
-		note = " · avatar impossible, modèle en blocs (" .. reason .. ")"
+	if kind == "MODEL" then
+		note = " · avatar failed, block model (" .. reason .. ")"
 	elseif player:GetAttribute("Avatar") and kind and kind ~= "" then
-		note = if kind == "CHARGEMENT" then " · AVATAR : chargement…"
+		note = if kind == "LOADING" then " · AVATAR: loading…"
 			elseif kind == "OK" then " · AVATAR " .. rig .. " + KIT " .. CharacterData[math.max(localSlot, 1)].Kit
-			elseif kind == "SANS ACCESSOIRES" then " · AVATAR sans accessoires (" .. reason .. ")"
-			else " · avatar indisponible, corps par défaut (" .. reason .. ")"
+			elseif kind == "NO ACCESSORIES" then " · AVATAR without accessories (" .. reason .. ")"
+			else " · avatar unavailable, default body (" .. reason .. ")"
 	end
 	if avatarStatus ~= self.lastAvatarStatus then
 		self.lastAvatarStatus = avatarStatus
-		if kind == "DÉFAUT" or kind == "MODÈLE" then
-			self:announceText("AVATAR INDISPONIBLE", "Corps " .. rig .. " par défaut avec le kit · " .. reason, GOLD)
+		if kind == "DEFAULT" or kind == "MODEL" then
+			self:announceText("AVATAR UNAVAILABLE", "Body " .. rig .. " by default with the kit · " .. reason, GOLD)
 		end
 	end
 	-- Ping of each player in the fight (round trip measured by the server).
 	local pings = {}
 	for slot = 1, 2 do
 		local v = views[slot]
-		if v and v.ping then table.insert(pings, (if slot == localSlot then "VOUS " else "ADV. ") .. v.ping .. " ms") end
+		if v and v.ping then table.insert(pings, (if slot == localSlot then "YOU " else "OPP. ") .. v.ping .. " ms") end
 	end
 	self.status.Text = string.format("v%s · %s · %d FPS%s%s", self.config.Version,
-		if localSlot == 0 then "SPECTATEUR" elseif world.training then "ENTRAÎNEMENT"
+		if localSlot == 0 then "SPECTATOR" elseif world.training then "TRAINING"
 			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5),
 		if #pings > 0 then " · PING " .. table.concat(pings, " / ") else "", note)
 end

@@ -256,7 +256,7 @@ local function startMove(world, f, id, events, isLink)
 		-- hit, recovery or the late window). Typed earlier, the combo goes on but is not clean.
 		local current = if f.move then f.moveSerial elseif f.grace then f.grace.serial else nil
 		if entry and entry.after ~= current then
-			f.chainClean, f.dirtyReason = false, "TROP TÔT"
+			f.chainClean, f.dirtyReason = false, "TOO EARLY"
 		end
 	else
 		f.chainKeys, f.chainClean = letter, not f.dirtyStart
@@ -404,7 +404,7 @@ local function chooseMove(world, f, grounded, crouching)
 	if not nextId and f.move and f.moveContact and not head.judged then
 		-- The cancel window is open and this button continues nothing: wrong button.
 		head.judged = true
-		f.chainClean, f.dirtyReason = false, "MAUVAIS BOUTON"
+		f.chainClean, f.dirtyReason = false, "WRONG BUTTON"
 	end
 	local weave = weaveOf(world, f)
 	if weave and nextId and moves[nextId].dempsey and not moves[nextId].finisher and f.dempseyCount >= weave.MaxHooks then
@@ -672,7 +672,7 @@ local function stepFighter(world, f, input, events)
 			entry.ticks -= 1
 			if entry.ticks <= 0 then
 				table.remove(f.buffer, i)
-				if f.move or f.grace then f.chainClean, f.dirtyReason = false, "APPUI PERDU" end
+				if f.move or f.grace then f.chainClean, f.dirtyReason = false, "PRESS LOST" end
 			end
 		end
 	end
@@ -1255,8 +1255,18 @@ local function applyHit(world, a, d, m, events, source)
 	end
 
 	if not source then a.moveContact = "Hit" end
+	-- COUNTER HIT: caught starting its own attack, outside a combo (not by a projectile or
+	-- an ultimate).
+	local theirs = d.move and world.moves[d.move]
+	local counter = theirs ~= nil and d.state == "Attack" and d.moveFrame <= theirs.startup and d.comboHits == 0 and not source
+		and m.kind ~= "Ultimate" and theirs.kind ~= "Ultimate" and firstHit and theirs.startup >= (c.CounterMinStartup or 0)
 	local bonus, tip = passiveBonus(world, a, d, m, source)
 	bonus *= PASSIVE.bonus(world, a, m, source)
+	if counter then
+		bonus *= c.CounterDamage or 1
+		event.counter = true
+		stop += c.CounterHitstop or 0
+	end
 	local damage = math.max(1, math.floor(m.damage * comboScale(d, c) * (a.stats.DamageDealt or 1) * bonus + 0.5))
 	d.hp = math.max(0, d.hp - damage)
 	PASSIVE.onHit(world, a, d, m, source, firstHit, events)
@@ -1275,7 +1285,7 @@ local function applyHit(world, a, d, m, events, source)
 	gainMeter(d, damage * c.MeterWhenHit, c)
 	d.move, d.moveContact, d.dashTicks, d.grace = nil, nil, 0, nil
 	d.blocking, d.crouching = false, false
-	d.stun, d.stunKind = m.hitstun, "Hit"
+	d.stun, d.stunKind = m.hitstun + (if counter then c.CounterHitstun or 0 else 0), "Hit"
 	d.calmTicks = 0
 	local airborne = not isGrounded(d) or d.launched
 	if firstHit and (airborne or (final and (m.launch ~= 0 or m.groundBounce))) then
@@ -1517,7 +1527,7 @@ local function judgePrompts(world, state, input, events, force)
 	state.nextPrompt += 1
 	if state.nextPrompt > #state.prompts then
 		local all = state.perfect == #state.prompts
-		state.grade = if all then "PARFAIT" elseif state.perfect >= #state.prompts - 1 then "GRAND" else "BON"
+		state.grade = if all then "PERFECT" elseif state.perfect >= #state.prompts - 1 then "GREAT" else "GOOD"
 		if all and cin.PerfectRefund then gainMeter(world.fighters[state.attacker], cin.PerfectRefund, world.config) end
 		if all and cin.PerfectBonus then
 			-- Gate fully opened: the final blow hits harder.
@@ -1814,15 +1824,15 @@ function CombatSimulation.passiveLabel(world, f)
 	local kind, name = passive.Type, passive.Name
 	local function dots(n, most) return string.rep("●", n) .. string.rep("○", math.max(0, most - n)) end
 	if kind == "Overcharge" then
-		return if f.overcharged then name .. " ⚡ PRÊTE" else name .. " " .. dots(f.charge, passive.Every), f.overcharged
+		return if f.overcharged then name .. " ⚡ READY" else name .. " " .. dots(f.charge, passive.Every), f.overcharged
 	elseif kind == "Frost" then
-		if foe and foe.chilled > 0 then return name .. " ❄ RALENTI " .. math.ceil(foe.chilled / 60) .. " s", true end
+		if foe and foe.chilled > 0 then return name .. " ❄ SLOWED " .. math.ceil(foe.chilled / 60) .. " s", true end
 		return name .. " " .. dots(foe and foe.frost or 0, passive.Stacks), false
 	elseif kind == "Poison" then
 		local n = foe and foe.poisonTicks > 0 and foe.poison or 0
 		return name .. " ☠ " .. dots(n, passive.Max), n > 0
 	elseif kind == "Mass" then
-		return if f.massReady then name .. " : AÉRIEN +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %" else name, f.massReady
+		return if f.massReady then name .. ": AIR +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %" else name, f.massReady
 	elseif kind == "Tempo" then
 		if f.tempo > 0 then return name .. " ♪ " .. math.ceil(f.tempo / 60) .. " s", true end
 		return name .. " " .. dots(if world.tick - f.tempoLast <= passive.Window then f.tempoChain else 0, passive.Chain), false
@@ -1830,10 +1840,10 @@ function CombatSimulation.passiveLabel(world, f)
 		return if f.puppetCooldown <= 0 then name .. " ✓" else name .. " " .. math.ceil(f.puppetCooldown / 60) .. " s",
 			f.puppetCooldown <= 0
 	elseif kind == "Shackle" then
-		if foe and foe.shackled then return name .. " ⛓ DASH ENTRAVÉ", true end
+		if foe and foe.shackled then return name .. " ⛓ DASH SHACKLED", true end
 		return name .. " " .. dots(foe and foe.shackleHits or 0, passive.Hits), false
 	elseif kind == "Pact" then
-		return name .. " : -" .. math.floor(passive.Cost * 100 + 0.5) .. " % PV, +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
+		return name .. " : -" .. math.floor(passive.Cost * 100 + 0.5) .. " % HP, +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
 	elseif kind == "Territory" then
 		local traps = 0
 		for _, p in world.projectiles do
@@ -1841,7 +1851,7 @@ function CombatSimulation.passiveLabel(world, f)
 		end
 		return name .. " " .. (if traps > 0 then "🌿 " .. traps else "—"), traps > 0
 	elseif kind == "SecondWind" then
-		return if f.secondWindUsed then name .. " (utilisé)" else name .. " ✓", not f.secondWindUsed
+		return if f.secondWindUsed then name .. " (used)" else name .. " ✓", not f.secondWindUsed
 	elseif kind == "Engineering" then
 		return name .. " " .. dots(f.droneCharges, passive.Charges)
 			.. (if f.droneCharges < passive.Charges then " " .. math.ceil(f.droneCharge / 60) .. " s" else ""), f.droneCharges > 0

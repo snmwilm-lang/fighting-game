@@ -45,33 +45,77 @@ end
 function HubController.new(remote)
 	local self = setmetatable({ remote = remote, status = {}, seconds = 30, shownChallenge = nil }, HubController)
 	local player = Players.LocalPlayer
-	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 8 }, player:WaitForChild("PlayerGui"))
-	-- HUB MULTI button, top right, big and gold; the H key opens / closes the hub too.
-	self.toggle = button(gui, "JOUEURS DU SERVEUR (H)", GOLD, {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 128), Size = UDim2.fromOffset(300, 36), TextSize = 15,
-		TextColor3 = GOLD, ZIndex = 5,
+	-- Above the main menu (DisplayOrder 20) and the mobile controls (10): this window opens
+	-- from the menu (PLAYERS, CHALLENGE A FRIEND) and must be drawn and clicked on top of it.
+	-- (It was at 8: hidden under the full-screen menu, which also took its clicks.)
+	local gui = new("ScreenGui", { Name = "Hub", ResetOnSpawn = false, DisplayOrder = 30, IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, player:WaitForChild("PlayerGui"))
+	self.gui = gui
+	-- HUB MULTI button, top right, big and gold, during a match (the menu has its own PLAYERS
+	-- button); the H key opens / closes the hub too.
+	self.toggle = button(gui, "PLAYERS ON THE SERVER (H)", GOLD, {
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 164), Size = UDim2.fromOffset(300, 36), TextSize = 15,
+		TextColor3 = GOLD, ZIndex = 5, Visible = false,
 	})
-	-- The hub itself: a lobby panel in the middle of the screen. It opens on arrival.
+	-- A dim backdrop under the window: it keeps the clicks off the menu behind, and a click on
+	-- it closes the window.
+	self.backdrop = new("TextButton", { Name = "Backdrop", Visible = false, Text = "", AutoButtonColor = false, BackgroundColor3 = INK,
+		BackgroundTransparency = 0.45, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 1 }, gui)
+	self.backdrop.Activated:Connect(function() self:setVisible(false) end)
+	-- The window: centred, sized on the screen (phone to PC) within bounds, never taller than
+	-- the screen: a fixed header, the players' list (it scrolls) and a fixed footer with the
+	-- INVITE button, always on screen.
 	local panel = new("Frame", {
 		Name = "Players", Visible = false, BackgroundColor3 = Color3.fromHex("15151B"), BackgroundTransparency = 0, BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(520, 0),
-		AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 10,
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.84), ZIndex = 2,
 	}, gui)
+	new("UISizeConstraint", { MaxSize = Vector2.new(560, 640), MinSize = Vector2.new(280, 260) }, panel)
 	new("UICorner", { CornerRadius = UDim.new(0, 10) }, panel)
 	stroke(panel, 3, GOLD)
 	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8),
 		PaddingBottom = UDim.new(0, 10) }, panel)
-	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, panel)
 	self.panel = panel
-	self.toggle.Activated:Connect(function() panel.Visible = not panel.Visible end)
+	local title = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -56, 0, 44), Font = DISPLAY, TextScaled = true,
+		TextColor3 = GOLD, Text = "PLAYERS ON THE SERVER · CHALLENGES", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 }, panel)
+	new("UITextSizeConstraint", { MaxTextSize = 34 }, title)
+	-- A big red close button, easy to see and to hit.
+	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(44, 44),
+		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "✕", TextColor3 = WHITE, AutoButtonColor = true, ZIndex = 3 }, panel)
+	new("UICorner", { CornerRadius = UDim.new(0, 8) }, close)
+	stroke(close, 2, WHITE)
+	close.Activated:Connect(function() self:setVisible(false) end)
+	self.stateLabel = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 34),
+		Font = UI_FONT, TextSize = 13, TextColor3 = WHITE, TextWrapped = true, Text = "", TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 3 }, panel)
+	self.list = new("ScrollingFrame", { Name = "List", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 86),
+		Size = UDim2.new(1, 0, 1, -86 - 96), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6,
+		ScrollBarImageColor3 = GOLD, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 3 }, panel)
+	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.list)
+	local footer = new("Frame", { Name = "Footer", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
+		Size = UDim2.new(1, 0, 0, 90), ZIndex = 3 }, panel)
+	local invite = button(footer, "INVITE A FRIEND", GOLD, { Size = UDim2.new(1, 0, 0, 48), TextSize = 20, TextColor3 = GOLD, ZIndex = 4 })
+	new("UICorner", { CornerRadius = UDim.new(0, 8) }, invite)
+	invite.Activated:Connect(function()
+		if not self:invite() then
+			invite.Text = "NOT AVAILABLE HERE"
+			task.delay(3, function() invite.Text = "INVITE A FRIEND" end)
+		end
+	end)
+	self.inviteButton = invite
+	new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 54), Size = UDim2.new(1, 0, 0, 32), Font = UI_FONT,
+		TextSize = 11, TextColor3 = GREY, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4,
+		Text = "Your friend joins this server (or from your Roblox profile, \"Join\"), shows up in the list: CHALLENGE, they ACCEPT. H: open / close." },
+		footer)
+	self.toggle.Activated:Connect(function() self:setVisible(not panel.Visible) end)
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if not processed and input.KeyCode == Enum.KeyCode.H then panel.Visible = not panel.Visible end
+		if not processed and input.KeyCode == Enum.KeyCode.H then self:setVisible(not panel.Visible) end
 	end)
 	-- Incoming challenge banner.
 	local banner = new("Frame", {
 		Name = "Challenge", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.fromOffset(420, 96),
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.fromOffset(420, 96), ZIndex = 6,
 	}, gui)
+	new("UISizeConstraint", { MaxSize = Vector2.new(420, 96) }, banner)
 	stroke(banner, 3, GOLD)
 	self.bannerText = new("TextLabel", {
 		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 40), Position = UDim2.fromOffset(8, 6),
@@ -81,8 +125,8 @@ function HubController.new(remote)
 		BackgroundTransparency = 1, Size = UDim2.new(1, -16, 0, 14), Position = UDim2.fromOffset(8, 44),
 		Font = UI_FONT, TextSize = 11, TextColor3 = GREY, Text = "",
 	}, banner)
-	self.acceptButton = button(banner, "ACCEPTER", GOLD, { Position = UDim2.new(0.5, -128, 0, 60), Size = UDim2.fromOffset(120, 28) })
-	self.declineButton = button(banner, "REFUSER", RED, { Position = UDim2.new(0.5, 8, 0, 60), Size = UDim2.fromOffset(120, 28) })
+	self.acceptButton = button(banner, "ACCEPT", GOLD, { Position = UDim2.new(0.5, -128, 0, 60), Size = UDim2.fromOffset(120, 28) })
+	self.declineButton = button(banner, "DECLINE", RED, { Position = UDim2.new(0.5, 8, 0, 60), Size = UDim2.fromOffset(120, 28) })
 	self.acceptButton.Activated:Connect(function()
 		if self.shownChallenge then self.remote:FireServer("accept", self.shownChallenge) end
 	end)
@@ -116,9 +160,9 @@ function HubController.new(remote)
 		end
 		local left = next(before) and before[next(before)]
 		if arrived and not first then
-			self:say(arrived.name .. " a rejoint le serveur · H pour le défier")
+			self:say(arrived.name .. " joined the server · H to challenge them")
 		elseif left and not first then
-			self:say(left .. " a quitté le serveur")
+			self:say(left .. " left the server")
 		end
 		-- Someone to fight and nobody to fight yet: open the list.
 		self:render()
@@ -158,15 +202,26 @@ function HubController:invite()
 	return false
 end
 
+-- Opens / closes the window (built at once, before the server's next status arrives).
+function HubController:setVisible(visible)
+	self.panel.Visible, self.backdrop.Visible = visible, visible
+	if visible then self:render() end
+end
+
+-- The menu shows its own PLAYERS button: the gold one is only for matches.
+function HubController:setInMatch(inMatch)
+	self.toggle.Visible = inMatch
+	if inMatch then self:setVisible(false) end
+end
+
 function HubController:render()
 	local me = Players.LocalPlayer.UserId
-	local mine, fighting = nil, 0
+	local mine = nil
 	for _, p in self.status do
 		if p.id == me then mine = p end
-		if p.slot > 0 then fighting += 1 end
 	end
-	self.toggle.Text = "JOUEURS DU SERVEUR (H) · " .. (self.total or #self.status)
-	for _, child in self.panel:GetChildren() do
+	self.toggle.Text = "PLAYERS ON THE SERVER (H) · " .. (self.total or #self.status)
+	for _, child in self.list:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
 	end
 	local order = 0
@@ -174,41 +229,30 @@ function HubController:render()
 		order += 1
 		props.LayoutOrder = order
 		props.BackgroundTransparency = 1
-		return new("Frame", props, self.panel)
+		props.ZIndex = 3
+		return new("Frame", props, self.list)
 	end
-	local title = line({ Size = UDim2.new(1, 0, 0, 44) })
-	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -56, 1, 0), Font = DISPLAY, TextSize = 36,
-		TextColor3 = GOLD, Text = "JOUEURS DU SERVEUR · DÉFIS", TextXAlignment = Enum.TextXAlignment.Left }, title)
-	-- A big red close button, easy to see and to hit.
-	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(44, 44),
-		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "✕", TextColor3 = WHITE, AutoButtonColor = true }, title)
-	new("UICorner", { CornerRadius = UDim.new(0, 8) }, close)
-	stroke(close, 2, WHITE)
-	close.Activated:Connect(function() self.panel.Visible = false end)
 	-- Where the local player is right now.
 	local opponent
 	for _, p in self.status do
 		if p.id ~= me and p.slot > 0 then opponent = p.name end
 	end
-	local where = if mine and mine.slot > 0 then (if opponent then "TU COMBATS " .. opponent else "TU ES EN COMBAT")
-		else "DÉFIE un joueur : il ACCEPTE, le 1 contre 1 commence (avec l'équipe choisie au menu)"
-	local stateLine = line({ Size = UDim2.new(1, 0, 0, 20) })
-	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 13,
-		TextColor3 = WHITE, Text = where, TextXAlignment = Enum.TextXAlignment.Left }, stateLine)
+	self.stateLabel.Text = if mine and mine.slot > 0 then (if opponent then "YOU ARE FIGHTING " .. opponent else "YOU ARE IN A FIGHT")
+		else "CHALLENGE a player: they ACCEPT, the 1 vs 1 starts (with the team picked in the menu)"
 	for _, p in self.status do
-		local row = line({ Size = UDim2.new(1, 0, 0, 30) })
-		local state = p.where or (if p.slot > 0 then "EN COMBAT" else "AU MENU")
+		local row = line({ Size = UDim2.new(1, -8, 0, 32) })
+		local state = p.where or (if p.slot > 0 then "IN A FIGHT" else "IN THE MENU")
 		new("TextLabel", {
-			BackgroundTransparency = 1, Size = UDim2.new(1, -130, 1, 0), Font = UI_FONT, TextSize = 13,
+			BackgroundTransparency = 1, Size = UDim2.new(1, -130, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
 			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
-			Text = (if p.id == me then "VOUS · " else "") .. p.name .. "  ·  " .. state,
+			Text = (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
 		}, row)
 		if p.id ~= me then
 			local challengedMe = p.sent == me
 			local sent = mine and mine.sent == p.id
-			local label = if challengedMe then "ACCEPTER" elseif sent then "DÉFI ENVOYÉ" else "DÉFIER"
+			local label = if challengedMe then "ACCEPT" elseif sent then "CHALLENGE SENT" else "CHALLENGE"
 			local b = button(row, label, if challengedMe then GOLD else RED, {
-				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(120, 26),
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(120, 28), ZIndex = 4,
 				AutoButtonColor = not sent, TextColor3 = if sent then GREY else WHITE,
 			})
 			b.Activated:Connect(function()
@@ -221,23 +265,14 @@ function HubController:render()
 		end
 	end
 	if #self.status <= 1 then
-		local hint = line({ Size = UDim2.new(1, 0, 0, 78) })
-		new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 12,
+		local hint = line({ Size = UDim2.new(1, -8, 0, 96) })
+		new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 12, ZIndex = 4,
 			TextColor3 = GREY, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
-			Text = "Tu es seul sur ce serveur. Pour jouer avec un ami, il doit être sur le MÊME serveur : "
-				.. "INVITER UN AMI (il arrive ici), ou ton ami te rejoint depuis ton profil Roblox (« Rejoindre »). "
-				.. "Il apparaît alors dans cette liste : DÉFIER, il ACCEPTE, le 1 contre 1 commence. "
-				.. "Dans Roblox Studio : onglet Test › Clients et serveurs, 2 joueurs." }, hint)
+			Text = "You are alone on this server. To play with a friend, they must be on the SAME server: "
+				.. "INVITE A FRIEND (they arrive here), or your friend joins you from your Roblox profile (\"Join\"). "
+				.. "They then show up in this list: CHALLENGE, they ACCEPT, the 1 vs 1 starts. "
+				.. "In Roblox Studio: Test tab › Clients and Servers, 2 players." }, hint)
 	end
-	local actions = line({ Size = UDim2.new(1, 0, 0, 28) })
-	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, actions)
-	local invite = button(actions, "INVITER UN AMI", GOLD, { Size = UDim2.fromOffset(140, 28) })
-	invite.Activated:Connect(function()
-		if not self:invite() then invite.Text = "INDISPONIBLE ICI" end
-	end)
-	local keys = line({ Size = UDim2.new(1, 0, 0, 16) })
-	new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 10, TextColor3 = GREY,
-		Text = "H : ouvrir / fermer cette fenêtre", TextXAlignment = Enum.TextXAlignment.Left }, keys)
 	-- Incoming challenge: the most recent one is shown in the banner.
 	local from = mine and mine.from and mine.from[#mine.from]
 	if from ~= self.shownChallenge then
@@ -249,7 +284,7 @@ function HubController:render()
 		for _, p in self.status do
 			if p.id == from then name = p.name end
 		end
-		self.bannerText.Text = name .. " TE DÉFIE EN 1 CONTRE 1 !"
+		self.bannerText.Text = name .. " CHALLENGES YOU TO A 1 VS 1!"
 		self.banner.Visible = true
 	else
 		self.banner.Visible = false
@@ -260,7 +295,7 @@ function HubController:tick()
 	if self.notice.Visible and os.clock() > (self.noticeUntil or 0) then self.notice.Visible = false end
 	if self.banner.Visible and self.challengeAt then
 		local left = math.max(0, math.ceil(self.seconds - (os.clock() - self.challengeAt)))
-		self.bannerTimer.Text = "Le défi expire dans " .. left .. " s · le combat commence dès que tu acceptes"
+		self.bannerTimer.Text = "The challenge expires in " .. left .. " s · the fight starts as soon as you accept"
 	end
 end
 

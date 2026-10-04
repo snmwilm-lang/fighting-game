@@ -32,8 +32,8 @@ Director.KO_SCENE = 200 -- ticks of the K.O. scene (same as the FINAL FINISH ext
 -- The normals KAI cycles through during the strikes of his ÉVEIL.
 local RUSH = { "Jab", "Cross", "Kick", "Elbow", "AirKick", "SpinKick", "BodyBlow", "Uppercut", "AirKick2", "KiFlurry" }
 Director.STYLE_COLORS = {
-	TORNADE = "FF2A3D", RAFALE = "FF7A2A", DRAGON = "FF2A3D",
-	FOUDRE = "8FD8FF", MUR = "FF2A3D", LUNE = "FFE9B0",
+	TORNADO = "FF2A3D", GUST = "FF7A2A", DRAGON = "FF2A3D",
+	THUNDER = "8FD8FF", WALL = "FF2A3D", MOON = "FFE9B0",
 }
 
 local function v(x, y, z)
@@ -346,7 +346,7 @@ local function style(ctx, frame, a, d, tick, dir, name, color)
 	local start, final = data.Hits[#data.Hits] + 4, data.FinalTick
 	local p = progress(tick, start, final)
 	d.x, d.state = cx, "Hitstun"
-	if name == "TORNADE" then
+	if name == "TORNADO" then
 		-- Rising spin: both fighters climb inside a tornado of ki; the camera circles them.
 		d.y = lerp(0, 9, smooth(p))
 		a.x, a.y, a.facing = cx - dir * 1.9, d.y - 0.5, dir
@@ -358,7 +358,7 @@ local function style(ctx, frame, a, d, tick, dir, name, color)
 		frame.speedLines = color
 		frame.shot = frameOn("tornade-orbit", dir, { a, d }, { yaw = lerp(-40, 70, p), pitch = lerp(-14, 10, p), fill = 0.72,
 			fov = 50, focus = P(D, "UpperTorso") })
-	elseif name == "RAFALE" then
+	elseif name == "GUST" then
 		-- Barrage: a hundred fists in front of the target.
 		a.x, a.y, a.facing = cx - dir * 2.3, 0, dir
 		a.state, a.move = "Attack", flurry
@@ -392,7 +392,7 @@ local function style(ctx, frame, a, d, tick, dir, name, color)
 			frame.shot = frameOn("dragon-rise", dir, { a, d }, { yaw = -18, pitch = -24, fill = 0.78, fov = 58, roll = 12,
 				focus = P(D, "UpperTorso") })
 		end
-	elseif name == "FOUDRE" then
+	elseif name == "THUNDER" then
 		-- Leap into the storm, dive with lightning.
 		if p < 0.62 then
 			a.x, a.y, a.facing = cx - dir * 1.6, lerp(1, 12, smooth(p / 0.62)), dir
@@ -413,7 +413,7 @@ local function style(ctx, frame, a, d, tick, dir, name, color)
 			end
 			frame.shot = frameOn("foudre-dive", dir, { a, d }, { yaw = 44, pitch = 16, fill = 0.75, fov = 46, focus = P(D, "UpperTorso") })
 		end
-	elseif name == "MUR" then
+	elseif name == "WALL" then
 		-- Spinning heel that sends the target across the arena into the wall.
 		anchors.wall = anchors.wall or {
 			from = cx, to = math.clamp(cx + dir * 14, config.ArenaMinX - 4, config.ArenaMaxX + 4),
@@ -434,7 +434,7 @@ local function style(ctx, frame, a, d, tick, dir, name, color)
 			frame.shot = frameOn("mur-wall", dir, { d, { point = true, x = wallX, y = 4, z = 0 } }, { yaw = -30, pitch = 6, fill = 0.7,
 				fov = 50, focus = P(D, "UpperTorso") })
 		end
-	elseif name == "LUNE" then
+	elseif name == "MOON" then
 		-- A giant crescent rises behind KAI, then the axe kick from the moon.
 		a.x, a.facing = cx - dir * 1.7, dir
 		table.insert(frame.fx, { key = "lune-crescent", kind = "crescent", pos = v(cx, 13, -6), color = color, keep = true })
@@ -466,7 +466,7 @@ local function awakening(ctx, frame, a, d, tick, dir)
 	local cx = center(ctx, d)
 	-- The route that was played picks the finale template and its colour.
 	local kit = kitOf(ctx)
-	local name = cin.style or (kit and kit.FullRoutes[1].name) or "TORNADE"
+	local name = cin.style or (kit and kit.FullRoutes[1].name) or "TORNADO"
 	local template = name
 	for _, route in (kit and kit.FullRoutes or {}) do
 		if route.name == name then template = route.finale or name end
@@ -605,7 +605,7 @@ local function kaiten(ctx, frame, a, d, tick, dir)
 	else
 		-- 8. The world comes back.
 		a.y, a.facing, a.pose = 0, dir, "StandTall"
-		local title = kitOf(ctx) and kitOf(ctx).GateTitle or { text = "開天", sub = "PORTE DES CIEUX" }
+		local title = kitOf(ctx) and kitOf(ctx).GateTitle or { text = "開天", sub = "GATE OF HEAVEN" }
 		frame.title = { text = title.text, color = RED, sub = title.sub }
 		frame.shot = frameOn("porte-after", dir, { a }, { yaw = -44, pitch = -6, fill = 0.75, fov = 40, focus = P(A, "UpperTorso") })
 	end
@@ -1877,7 +1877,7 @@ function KIT.SHIN.Gate(ctx, frame, a, d, tick, dir)
 	if tick < 30 then
 		a.x, a.facing, a.pose = cx - dir * 8, dir, "StandTall"
 		d.state = "Idle"
-		frame.shot = frameOn("shin-zero-horizon", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.26, fov = 28, focus = P(A, "UpperTorso") })
+		frame.shot = frameOn("shin-zero-horizon", dir, { a, d }, { yaw = -24, pitch = 1, fill = 0.26, fov = 28, focus = P(A, "UpperTorso") })
 	elseif tick < 60 then
 		a.x, a.facing, a.pose = cx - dir * 8, dir, "Iai"
 		table.insert(frame.fx, { key = "zero-seal", kind = "kanjiSeal", pos = v(a.x, 0.06, 0), color = color, text = "零", keep = true })
@@ -2515,7 +2515,7 @@ function FATAL.title(ctx, frame, tick, F, color)
 	if ctx.cin.finish then
 		frame.title = { text = "K.O.", color = color, sub = name }
 	else
-		frame.title = { text = name, color = color, sub = "COUP FATAL" }
+		frame.title = { text = name, color = color, sub = "FATAL BLOW" }
 	end
 end
 
@@ -2822,7 +2822,7 @@ function FATAL.SHIN(ctx, frame, a, d, tick, dir)
 	if tick < F + 56 then d.x, d.y, d.state = cx, 0, "Idle" end -- (still standing until the sheath clicks)
 	if tick < 40 then
 		a.x, a.facing, a.pose = far, dir, "StandTall"
-		frame.shot = frameOn("shin-issen-duel", dir, { a, d }, { yaw = 0, pitch = 1, fill = 0.32, fov = 30, focus = P(A, "UpperTorso") })
+		frame.shot = frameOn("shin-issen-duel", dir, { a, d }, { yaw = -24, pitch = 1, fill = 0.32, fov = 30, focus = P(A, "UpperTorso") })
 	elseif tick < 66 then
 		a.x, a.facing, a.pose = far, dir, "Iai"
 		frame.shot = frameOn("shin-issen-eyes", dir, { a }, { yaw = 20, pitch = 0, fill = 0.8, fov = 24, band = "bust", lift = IAI_DROP,
@@ -2878,7 +2878,7 @@ function FATAL.DAICHA(ctx, frame, a, d, tick, dir)
 	if tick < 36 then
 		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
 		d.x, d.state = cx, "Hitstun"
-		frame.shot = frameOn("daicha-neant-summon", dir, { a, hole }, { yaw = -20, pitch = -10, fill = 0.7, fov = 40, focus = P(A, "UpperTorso") })
+		frame.shot = frameOn("daicha-neant-summon", dir, { a, hole }, { yaw = -42, pitch = -10, fill = 0.7, fov = 40, focus = P(A, "UpperTorso") })
 	elseif tick < 100 then
 		local p = smooth(progress(tick, 36, 100))
 		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
@@ -2973,7 +2973,7 @@ local KO = {}
 local function koEnd(ctx, frame, W, color)
 	frame.fade = true
 	local data = ctx.characters[W]
-	frame.title = { text = "K.O.", color = color, sub = data.Name .. " " .. data.Skin .. " · VICTOIRE" }
+	frame.title = { text = "K.O.", color = color, sub = data.Name .. " " .. data.Skin .. " · VICTORY" }
 end
 
 function KO.TARO(ctx, frame, W, L, w, l, t, side)
@@ -3212,7 +3212,7 @@ function KO.SHIN(ctx, frame, W, L, w, l, t, side)
 	elseif t < 150 then
 		-- 3. L'HORIZON: both, very small, far away along the floor.
 		w.pose = "StandTall"
-		frame.shot = frameOn("ko-shin-horizon", dir, { w, l }, { yaw = 24, pitch = 2, fill = 0.3, fov = 26 })
+		frame.shot = frameOn("ko-shin-horizon", dir, { w, l }, { yaw = 44, pitch = 2, fill = 0.3, fov = 26 })
 	else
 		-- 4. IL S'EN VA: he walks away into the background, tracked sideways.
 		local k = progress(t, 150, 188)
@@ -4518,7 +4518,7 @@ function GEN.Fatal(T)
 				blowShot = "blow", preset = 9, impact = 3.4, burst = 2.6, quake = 0.8 })
 			if tick >= F + FATAL_TITLE then
 				local name = GEN.moveName(ctx, T, "Fatal")
-				frame.title = if cin.finish then { text = "K.O.", color = color, sub = name } else { text = name, color = color, sub = "COUP FATAL" }
+				frame.title = if cin.finish then { text = "K.O.", color = color, sub = name } else { text = name, color = color, sub = "FATAL BLOW" }
 			end
 		end
 	end
@@ -4572,14 +4572,14 @@ Director.OPEN, Director.END = GEN.OPEN, GEN.END
 -- thrown up higher at every blow (ÉVEIL), swung round at the end of his arms (PORTE), seized and
 -- crushed (FATAL). Black and gold grade; golden fists of ki, a halo of four arms, a burning seal.
 GEN.add("ASURA", {
-	turn = { ["eveil-blows-b"] = 30, ["eveil-meditate"] = 30, ["fatal-blow"] = 30, ["fatal-stride"] = 30 },
+	turn = { ["eveil-blows-b"] = 30, ["eveil-final"] = 30, ["eveil-meditate"] = 30, ["fatal-blow"] = 30, ["fatal-stride"] = 30, ["gate-silhouette"] = 30, ["gate-silhouette-wide"] = 55 },
 	open = { rush = "slam", awaken = "meditate", gate = "silhouette", fatal = "stride" },
 	finish = { rush = "stomp", awaken = "crater", gate = "blowaway", fatal = "pin" },
 	id = "asura", grade = "asura", kanji = "阿", pose = "Roar", rest = "StandTall", seed = 2, step = 5, quake = true,
 	rush = "gatling", awaken = "juggle", gate = "swing", fatal = "grapple",
 	blows = { "Cross", "Uppercut", "Hammer", "Smash", "BodyBlow", "SpinKick", "Elbow" },
 	fx = { line = "asuraFist", burst = "asuraHalo", ground = "asuraSeal" },
-	names = { Rush = "GATLING DES QUATRE BRAS", Awaken = "MILLE BRAS", Fatal = "阿修羅 · COLÈRE FINALE" },
+	names = { Rush = "FOUR-ARMED GATLING", Awaken = "THOUSAND ARMS", Fatal = "阿修羅 · FINAL WRATH" },
 })
 
 -- Wilhem's third sheet. Each kit: its grade, its own effects, its archetype for each ultimate.
@@ -4599,7 +4599,7 @@ GEN.add("RAIJIN", {
 -- YUKINA 雪: the target frozen still while she flows round it (R); ice shards from afar
 -- (ÉVEIL); the frozen puppet jerked on its threads of frost (PORTE); the last waltz (FATAL).
 GEN.add("YUKINA", {
-	turn = { ["fatal-storm"] = 30, ["gate-walkpast"] = -30, ["rush-blows-a"] = 30, ["rush-freeze"] = 30 },
+	turn = { ["eveil-orbit"] = -55, ["fatal-storm"] = 30, ["gate-walkpast"] = -30, ["rush-blows-a"] = 30, ["rush-freeze"] = 30 },
 	open = { rush = "spin", awaken = "kneel", gate = "levitate", fatal = "storm" },
 	finish = { rush = "freeze", awaken = "orbit", gate = "walkpast", fatal = "bow" },
 	id = "yukina", grade = "frost", kanji = "雪", pose = "WindGather", rest = "StandTall", seed = 1, step = 11,
@@ -4623,7 +4623,7 @@ GEN.add("VENOM", {
 -- GORAN 剛: suplexes from side to side (R); the stomps make the ring jump (ÉVEIL); thrown to the
 -- sky (PORTE); the giant swing (FATAL).
 GEN.add("GORAN", {
-	turn = { ["gate-blows"] = 30, ["gate-leap"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-blows-c"] = -30, ["rush-charge"] = 30 },
+	turn = { ["fatal-kneel"] = 30, ["gate-blows"] = 30, ["gate-leap"] = 30, ["rush-blows-a"] = 30, ["rush-blows-b"] = 30, ["rush-blows-c"] = -30, ["rush-charge"] = 30 },
 	open = { rush = "charge", awaken = "slam", gate = "leap", fatal = "kneel" },
 	finish = { rush = "crater", awaken = "stomp", gate = "bounce", fatal = "blowaway" },
 	id = "goran", grade = "titan", kanji = "剛", pose = "Colossus", rest = "StandTall", seed = 4, step = 7, quake = true,
@@ -4647,7 +4647,7 @@ GEN.add("ASTER", {
 -- HIBIKI 響: the target hops on her beat (R); waves of sound from every side (ÉVEIL); the
 -- wall of sound from afar (PORTE); the last dance on her rhythm (FATAL).
 GEN.add("HIBIKI", {
-	turn = { ["eveil-freeze"] = 30, ["fatal-charge"] = 30, ["fatal-walkpast"] = -30, ["gate-blows"] = 30, ["rush-blows-c"] = 30 },
+	turn = { ["eveil-freeze"] = 30, ["eveil-spin"] = 30, ["fatal-charge"] = 30, ["fatal-walkpast"] = -30, ["gate-blows"] = 30, ["rush-blows-c"] = 30 },
 	open = { rush = "kata", awaken = "spin", gate = "slam", fatal = "charge" },
 	finish = { rush = "echo", awaken = "freeze", gate = "stomp", fatal = "walkpast" },
 	id = "hibiki", grade = "sonic", kanji = "響", pose = "Kiai", rest = "StandTall", seed = 6, step = 7,
@@ -4791,7 +4791,7 @@ local function koScene(ctx, winner, loser, w, l, t)
 		w.pose = "ArmsCrossed"
 		frame.fade = true
 		local data = ctx.characters[W]
-		frame.title = { text = "K.O.", color = RED, sub = data.Name .. " " .. data.Skin .. " · VICTOIRE" }
+		frame.title = { text = "K.O.", color = RED, sub = data.Name .. " " .. data.Skin .. " · VICTORY" }
 		frame.shot = shot("ko-wide", At(v(w.x, 10, 46)), At(v(w.x, 6, -20)), 38)
 	end
 	return frame

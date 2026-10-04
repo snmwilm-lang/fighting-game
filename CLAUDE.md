@@ -7,7 +7,7 @@
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
-  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau` et `FourArms.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau` et `Maps.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,
@@ -40,3 +40,9 @@
   réellement livrés avec le client) ; chaque perso garde sa matière sonore.
 - Après chaque livraison, mettre à jour `docs/JOURNAL.md` (version, fichiers, tests,
   problèmes ouverts, prochaine étape).
+- Le jeu est écrit en anglais (langue source de la traduction automatique de Roblox). Tout
+  nouveau texte affiché doit avoir sa traduction française dans `src/shared/Locale.luau`
+  (`Locale.FR`, ou `Locale.SAME` si le mot est identique) : le test « languages » de
+  `Lobby.test.luau` le vérifie.
+- Les arènes : données dans `src/shared/Maps.luau`, construites côté client par
+  `src/client/ArenaBuilder.luau`. Le sol de combat (y = 0, x de -28 à 28) ne change jamais.

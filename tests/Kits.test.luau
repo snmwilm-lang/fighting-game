@@ -95,7 +95,7 @@ local function stance(world, slot, id)
 	f.stance, f.stats = id, Kits[f.kit].Stances[id].Stats
 	return world
 end
-local function esquive(world, slot) return stance(world, slot, "ESQUIVE") end
+local function esquive(world, slot) return stance(world, slot, "PEEKABOO") end
 
 print("Kits")
 
@@ -332,7 +332,7 @@ local function dempsey(keys, ticks)
 end
 
 test("TARO: a slipped attack whiffs to its end; 3 slips at most, refilled over time", function()
-	local weave = MoveData.Kits.TARO.Stances.ESQUIVE.Weave
+	local weave = MoveData.Kits.TARO.Stances.PEEKABOO.Weave
 	expect(weave.Charges == 3, "TARO should hold 3 slips")
 	local world = esquive(kitWorld("KAI", "TARO", 4), 2)
 	local taro = world.fighters[2]
@@ -388,27 +388,27 @@ end)
 test("TARO: two stances, CLASSIQUE (1 / &) and ESQUIVE (2 / é), switched in neutral", function()
 	local world = kitWorld("TARO", "KAI", 6)
 	local taro = world.fighters[1]
-	expect(taro.stance == "CLASSIQUE" and taro.stats.GuardDamageTaken == Kits.TARO.Stances.CLASSIQUE.Stats.GuardDamageTaken,
+	expect(taro.stance == "CLASSIC" and taro.stats.GuardDamageTaken == Kits.TARO.Stances.CLASSIC.Stats.GuardDamageTaken,
 		"TARO does not start as CLASSIQUE")
 	local events = run(world, 2, function(t) return { input({ stance = if t == 1 then 2 else 0 }) } end)
 	local e = find(events, "Stance")
-	expect(e and e.stance == "ESQUIVE" and taro.stance == "ESQUIVE", "key 2 did not switch to ESQUIVE")
-	expect(taro.stats.WalkSpeed == Kits.TARO.Stances.ESQUIVE.Stats.WalkSpeed, "the ESQUIVE stats are not used")
+	expect(e and e.stance == "PEEKABOO" and taro.stance == "PEEKABOO", "key 2 did not switch to ESQUIVE")
+	expect(taro.stats.WalkSpeed == Kits.TARO.Stances.PEEKABOO.Stats.WalkSpeed, "the ESQUIVE stats are not used")
 	-- Cooldown, then back; never during an attack.
 	run(world, 2, function() return { input({ stance = 1 }) } end)
-	expect(taro.stance == "ESQUIVE", "switched again during the cooldown")
+	expect(taro.stance == "PEEKABOO", "switched again during the cooldown")
 	run(world, Config.StanceCooldownTicks + 2, function(t) return { input({ stance = if t == Config.StanceCooldownTicks + 1 then 1 else 0 }) } end)
-	expect(taro.stance == "CLASSIQUE", "key 1 did not switch back to CLASSIQUE")
+	expect(taro.stance == "CLASSIC", "key 1 did not switch back to CLASSIQUE")
 	run(world, Config.StanceCooldownTicks + 2)
 	run(world, 4, function(t) return { input({ light = t == 1, stance = if t == 3 then 2 else 0 }) } end)
-	expect(taro.stance == "CLASSIQUE", "switched in the middle of a jab")
+	expect(taro.stance == "CLASSIC", "switched in the middle of a jab")
 	-- The stance stays for the next round; other kits ignore the keys.
-	local versus = stance(kitWorld("TARO", "KAI", 3, false), 1, "ESQUIVE")
+	local versus = stance(kitWorld("TARO", "KAI", 3, false), 1, "PEEKABOO")
 	versus.fighters[2].hp = 1
 	run(versus, 60, function(t) return { input({ light = t == 1 }) } end)
 	run(versus, Config.KOTicks + Config.IntroTicks + 10)
 	expect(versus.fighters[2].hp == versus.fighters[2].maxHp, "no new round started")
-	expect(versus.fighters[1].stance == "ESQUIVE", "the stance was lost at the next round")
+	expect(versus.fighters[1].stance == "PEEKABOO", "the stance was lost at the next round")
 	local kai = kitWorld("KAI", "TARO", 6)
 	local none = run(kai, 2, function() return { input({ stance = 2 }) } end)
 	expect(kai.fighters[1].stance == nil and find(none, "Stance") == nil, "KAI changed stance")
@@ -421,13 +421,13 @@ test("TARO CLASSIQUE: iron guard, heavier punches, DROITE DU CHAMPION; no weave"
 		local hit = find(events, "Hit")
 		return hit and hit.damage or 0
 	end
-	expect(jab("CLASSIQUE") > jab("ESQUIVE"), "the classic boxer does not hit harder")
+	expect(jab("CLASSIC") > jab("PEEKABOO"), "the classic boxer does not hit harder")
 	local function guardAfter(id)
 		local world = stance(kitWorld("KAI", "TARO", 3), 2, id)
 		run(world, 40, function(t) return { input({ heavy = t == 1 }), input({ block = true }) } end)
 		return world.fighters[2].guard
 	end
-	expect(guardAfter("CLASSIQUE") > guardAfter("ESQUIVE"), "the classic guard is not tougher")
+	expect(guardAfter("CLASSIC") > guardAfter("PEEKABOO"), "the classic guard is not tougher")
 	local world = kitWorld("TARO", "KAI", 3)
 	local events = run(world, 40, function(t) return { input({ crouch = t <= 2, special = t == 1 }), input({ block = true }) } end)
 	local blocked = find(events, "Block")

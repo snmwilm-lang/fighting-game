@@ -10,20 +10,7 @@ StageController.__index = StageController
 
 function StageController.new(config)
 	local self = setmetatable({ config = config, lights = {}, cloths = {}, shadows = {} }, StageController)
-	local arena = workspace:WaitForChild("Arena", 10)
-	if arena then
-		for i, p in arena:GetChildren() do
-			if p:IsA("BasePart") then
-				local light = p:FindFirstChildOfClass("PointLight")
-				if p.Name == "Lantern" and light then
-					table.insert(self.lights, { light = light, base = light.Brightness, seed = i * 1.37 })
-				elseif p.Name == "Banner" or p.Name == "BannerTail" then
-					-- Swing around the top edge of the cloth.
-					table.insert(self.cloths, { part = p, base = p.CFrame, half = p.Size.Y / 2, seed = i * 0.71 })
-				end
-			end
-		end
-	end
+	self:setArena(workspace:FindFirstChild("Arena"))
 	self.focus = Instance.new("DepthOfFieldEffect")
 	self.focus.Name = "StageFocus"
 	self.focus.FarIntensity, self.focus.NearIntensity, self.focus.InFocusRadius = 0.18, 0, 22
@@ -32,6 +19,23 @@ function StageController.new(config)
 	self.folder.Name = "StageEffects"
 	self.folder.Parent = workspace
 	return self
+end
+
+-- The stage to bring to life (a new one is built for every match's stage: ArenaBuilder).
+function StageController:setArena(arena)
+	self.lights, self.cloths = {}, {}
+	if not arena then return end
+	for i, p in arena:GetChildren() do
+		if p:IsA("BasePart") then
+			local light = p:FindFirstChildOfClass("PointLight")
+			if p.Name == "Lantern" and light then
+				table.insert(self.lights, { light = light, base = light.Brightness, seed = i * 1.37 })
+			elseif p.Name == "Banner" or p.Name == "BannerTail" then
+				-- Swing around the top edge of the cloth.
+				table.insert(self.cloths, { part = p, base = p.CFrame, half = p.Size.Y / 2, seed = i * 0.71 })
+			end
+		end
+	end
 end
 
 -- Three stacked translucent discs fake a soft-edged blob shadow (no texture needed).

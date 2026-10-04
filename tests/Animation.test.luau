@@ -499,6 +499,48 @@ test("every move of every kit has its own animation: nothing borrowed, no key po
 	expect(Poses.AsuraGatling ~= Poses.TaroGatling and Poses.AsuraGatling.Active ~= Poses.TaroGatling.Active, "ASURA wears TARO's gatling")
 end)
 
+test("no animation shared: jumps, dashes, hits, falls and the cinematics' poses are each kit's own, ASURA's blows too (Wilhem)", function()
+	local kits = table.clone(MoveData.KitOrder)
+	table.insert(kits, "ASURA")
+	local UPPER = { "Waist", "Neck", "LeftShoulder", "LeftElbow", "RightShoulder", "RightElbow" }
+	local function apart(p, q)
+		local most = 0
+		for _, joint in UPPER do
+			local a, b = p[joint] or { 0, 0, 0 }, q[joint] or { 0, 0, 0 }
+			for i = 1, 3 do most = math.max(most, math.abs((a[i] or 0) - (b[i] or 0))) end
+		end
+		return most
+	end
+	local anim = newAnimator()
+	local STANDING = { StandTall = true, Roar = true, Kiai = true, Victory = true, Block = true, Kneel = true, Land = true,
+		WindGather = true, ArmsCrossed = true, Colossus = true }
+	for _, name in Poses.PERSONAL do
+		local seen = {}
+		for _, kit in kits do
+			local pose = anim:base(name, kit)
+			expect(pose ~= nil, kit .. " has no " .. name)
+			if type(pose[1]) == "table" and not pose.Root then pose = pose[1] end
+			for other, theirs in seen do
+				expect(apart(pose, theirs) >= 5, string.format("%s's %s is %s's", kit, name, other))
+			end
+			seen[kit] = pose
+			if STANDING[name] then
+				anim.kit = kit
+				local left, right = feetAboveFloor(anim, anim:resolve(pose))
+				-- (one foot on the floor at least: ZEPHYR's victory raises a leg high on purpose)
+				expect(math.min(left, right) < 0.08, string.format("%s's %s floats (%.2f, %.2f)", kit, name, left, right))
+			end
+		end
+	end
+	anim.kit = nil
+	local count = 0
+	for id, set in Poses.Kits.ASURA.Moves do
+		count += 1
+		expect(apart(set.Active, Poses[id].Active) >= 5, "ASURA's " .. id .. " is KAI's")
+	end
+	expect(count >= 20, "ASURA has only " .. count .. " moves of his own")
+end)
+
 test("each kit has its own stance, guard and run", function()
 	local anim = newAnimator()
 	local base = anim:resolve(Poses.STANCE)
@@ -734,7 +776,7 @@ test("TARO's weave and DEMPSEY ROLL animate on R15 and R6: grounded, fists reach
 		Sim.setKits(world, "TARO", "KAI")
 		world.phase = "Fight"
 		world.fighters[1].x, world.fighters[2].x = -3, 3
-		local esquive = MoveData.Kits.TARO.Stances.ESQUIVE -- the weave and the roll belong to it
+		local esquive = MoveData.Kits.TARO.Stances.PEEKABOO -- the weave and the roll belong to it
 		world.fighters[1].stance, world.fighters[1].stats = esquive.Id, esquive.Stats
 		for tick = 1, 110 do
 			local i = Sim.neutralInput()
@@ -807,11 +849,11 @@ test("TARO's two stances look different and stay grounded (R15 and R6)", functio
 		return pose, lift
 	end
 	local r15 = newAnimator(KAI)
-	local classic = settled(r15, "CLASSIQUE")
-	local esquive = settled(r15, "ESQUIVE")
+	local classic = settled(r15, "CLASSIC")
+	local esquive = settled(r15, "PEEKABOO")
 	expect(classic.Root[4] > esquive.Root[4] + 0.1, "the classic guard is not more upright than the peek-a-boo")
 	expect(classic.LeftElbow[1] < esquive.LeftElbow[1] - 30, "the classic lead arm is not out")
-	for _, stance in { "CLASSIQUE", "ESQUIVE" } do
+	for _, stance in { "CLASSIC", "PEEKABOO" } do
 		for _, state in { "Idle", "Blocking", "Walking" } do
 			-- R6: on the floor, never sinking.
 			local rt = Retarget.new(K, r6Skeleton())

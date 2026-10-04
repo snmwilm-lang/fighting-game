@@ -34,16 +34,16 @@ local ROUTES = {
 }
 
 FighterAI.Levels = table.freeze({
-	{ name = "FACILE", reaction = 22, block = 0.15, lowBlock = 0.2, combo = 0.45, aggression = 0.5,
+	{ name = "EASY", reaction = 22, block = 0.15, lowBlock = 0.2, combo = 0.45, aggression = 0.5,
 		antiAir = 0.05, punish = 0.25, reversal = 0.05, counter = 0.4, zoning = 0, promptSpread = 12, decision = 16, ultimate = 0,
 		routes = { "easy" } },
 	{ name = "NORMAL", reaction = 15, block = 0.4, lowBlock = 0.5, combo = 0.72, aggression = 0.62,
 		antiAir = 0.3, punish = 0.5, reversal = 0.15, counter = 0.5, zoning = 0.2, promptSpread = 9, decision = 12, ultimate = 0.25,
 		read = 0.35, routes = { "easy", "normal" } },
-	{ name = "DIFFICILE", reaction = 10, block = 0.62, lowBlock = 0.75, combo = 0.88, aggression = 0.72,
+	{ name = "HARD", reaction = 10, block = 0.62, lowBlock = 0.75, combo = 0.88, aggression = 0.72,
 		antiAir = 0.6, punish = 0.75, reversal = 0.3, counter = 0.55, zoning = 0.35, full = 0.25, promptSpread = 6, decision = 8, ultimate = 0.6,
 		read = 0.8, routes = { "normal", "hard" } },
-	{ name = "LÉGENDE", reaction = 6, block = 0.88, lowBlock = 0.95, combo = 1, aggression = 0.8,
+	{ name = "LEGEND", reaction = 6, block = 0.88, lowBlock = 0.95, combo = 1, aggression = 0.8,
 		antiAir = 0.95, punish = 1, reversal = 0.5, counter = 0.75, zoning = 0.5, full = 0.75, promptSpread = 2, decision = 5, ultimate = 1,
 		read = 1, routes = { "hard" } },
 })
@@ -57,8 +57,8 @@ end
 
 -- The CHALLENGE boss (ASURA): LÉGENDE's reads, faster still, never drops a combo, always
 -- ends on its ultimates and reverses pressure more often. Not one of the menu's levels.
-FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 4, block = 0.93, lowBlock = 0.97, combo = 1, aggression = 0.88,
-	antiAir = 0.97, punish = 1, reversal = 0.6, counter = 0.85, zoning = 0.5, full = 0.85, promptSpread = 1, decision = 4,
+FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 3, block = 0.95, lowBlock = 0.97, combo = 1, aggression = 0.88,
+	antiAir = 0.97, punish = 1, reversal = 0.6, counter = 0.95, zoning = 0.5, full = 0.85, promptSpread = 1, decision = 4,
 	ultimate = 1, read = 1, routes = { "hard" } })
 
 -- levelIndex: 1 (FACILE) to 4 (LÉGENDE), or "ASURA" (the boss).
@@ -398,6 +398,16 @@ function FighterAI:think(world, slot)
 		end
 	end
 	if seen.move and (seen.phase == "Startup" or seen.phase == "Active") and dist < 6.5 then
+		-- COUNTER HIT (reads): a slow blow started in jab range still has frames left: the jab
+		-- gets in first and lands as a counter hit (more damage, more stun) instead of guarding.
+		local theirs = world.moves[seen.move]
+		local jab = world.moves[kit.Roles and kit.Roles.Jab or "Jab"]
+		if read > 0 and theirs and jab and seen.phase == "Startup" and grounded and not seen.airborne and not me.move and dist < 3.4
+			and theirs.kind ~= "Ultimate" and not theirs.invuln
+			and theirs.startup - (seen.moveFrame + self.level.reaction) > jab.startup + 1 and self:chance(self.level.counter * read) then
+			input.light = true
+			return input
+		end
 		if seen.airborne and seen.vy < 0 and grounded and canAntiAir and self:chance(self.level.antiAir) then
 			input.special = true
 			return input

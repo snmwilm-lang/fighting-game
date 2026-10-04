@@ -692,7 +692,7 @@ local TARO_CLASSIC = feet({
 	LeftShoulder = { 84, 0, 12 }, LeftElbow = { 70, 0, 0 },
 	RightShoulder = { 58, 0, -26 }, RightElbow = { 140, 0, 0 },
 }, -0.7, 0.75, 0, -10, 8)
-Poses.Kits.TARO_CLASSIQUE = {
+Poses.Kits.TARO_CLASSIC = {
 	STANCE = TARO_CLASSIC,
 	Idle = { TARO_CLASSIC, merge(TARO_CLASSIC, { Root = { 0, -14, 0, -0.36, 0 }, LeftShoulder = { 80, 0, 14 } }) },
 	Block = feet(merge(TARO_CLASSIC, merge(TARO_GUARD, { Root = { 0, -8, 0, -0.3, 0 }, Waist = { -10, 8, 0 } })), -0.7, 0.75, 0, -10, 8),
@@ -3849,6 +3849,112 @@ Poses.LIMITS = table.freeze({
 	Neck = { -55, 55 },
 	Waist = { -60, 45 },
 })
+
+-- ASURA 阿: KAI out of the Gate of Heaven, but his own body: a heavy, wide-open stance, all
+-- four fists forward (the extra pair is posed by FourArms).
+Poses.Kits.ASURA = thirdKit({ root = { 6, -0.52 }, waist = { -16, 6 }, neck = { 14, -6 }, lead = { 82, 34, 92 },
+	rear = { 78, -34, 98 }, step = { -0.72, 0.78, 12 }, run = { -10, -20 }, win = { 168, 168, 26 } })
+
+--[[
+	No animation shared (Wilhem: « vérifie qu'aucune animation soit partagée »). The moves, the
+	stances, guards, runs and victories are each kit's own above; the rest (jumps, dashes,
+	landings, hit reactions, falls, getting up, the cinematics' poses) was one set for every
+	kit. Each kit now carries its own body language into them: the upper body moves part of
+	the way from KAI's stance to the kit's (its guard height, its lean, the set of its head),
+	legs and feet untouched so the feet stay where the pose puts them. A kit holding a weapon in
+	both hands (RAIJIN's spear) keeps its hands on it. ASURA, who fights with KAI's moves, gets
+	his own version of each of them the same way. Tests: Animation (no pose of one kit is
+	another's, feet planted, joint limits).
+]]
+Poses.PERSONAL = { "Idle", "RunUpper", "BackUpper", "Block", "CrouchBlock", "Crouch", "Blockstun", "CrouchBlockstun",
+	"Evade", "Dash", "DashBack", "JumpRise", "JumpApex", "Fall", "Land", "HitHigh", "HitHigh2", "HitLow", "HitBody",
+	"CrumpleStart", "Crumple", "GuardBroken", "Launched", "LaunchedFall", "DownImpact", "Down", "DownFace", "Kneel", "Victory",
+	"StandTall", "Roar", "WindGather", "Kiai", "Levitate", "ArmsCrossed", "KiBeamDown", "Colossus", "Iai", "Sheathe",
+	"GloveTap" }
+do
+	local UPPER = { "Waist", "Neck", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" }
+	local ARMS = { "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" }
+	local LYING = { Down = true, DownImpact = true, DownFace = true, Launched = true, LaunchedFall = true, Crumple = true,
+		CrumpleStart = true }
+	-- the expressive poses keep most of their shape (a roar stays a roar)
+	local SHOW = { Victory = true, StandTall = true, Roar = true, WindGather = true, Kiai = true, Levitate = true,
+		ArmsCrossed = true, KiBeamDown = true, Colossus = true, Iai = true, Sheathe = true, GloveTap = true }
+	local BOTH_HANDS = { RAIJIN = true }
+	local limits = Poses.LIMITS
+	local base = Poses.STANCE
+	local function personal(pose, stance, amount, hands)
+		local out = table.clone(pose)
+		for _, joint in UPPER do
+			local a, k, b = pose[joint], stance[joint], base[joint]
+			if k or b then
+				a, k, b = a or { 0, 0, 0 }, k or { 0, 0, 0 }, b or { 0, 0, 0 }
+				local v = {}
+				for i = 1, 3 do v[i] = (a[i] or 0) + ((k[i] or 0) - (b[i] or 0)) * amount end
+				local range = limits[joint]
+				if range then v[1] = math.clamp(v[1], range[1], range[2]) end
+				out[joint] = v
+			end
+		end
+		if hands then
+			for _, joint in ARMS do
+				if stance[joint] then out[joint] = table.clone(stance[joint]) end
+			end
+		end
+		return out
+	end
+	for kit, own in Poses.Kits do
+		local stance = own.STANCE
+		if stance and not string.find(kit, "_") then
+			for _, name in Poses.PERSONAL do
+				local shared = Poses[name]
+				if shared and not own[name] then
+					local amount = if LYING[name] then 0.35 elseif SHOW[name] then 0.4 else 0.6
+					local hands = BOTH_HANDS[kit] and not LYING[name] and not SHOW[name]
+					if type(shared[1]) == "table" and not shared.Root then
+						-- (a breathing pair: both its poses)
+						own[name] = { personal(shared[1], stance, amount, hands), personal(shared[2], stance, amount, hands) }
+					else
+						own[name] = personal(shared, stance, amount, hands)
+					end
+				end
+			end
+		end
+	end
+	-- The guards: most kits raised the very same arms (GUARD_ARMS) over their own legs; each
+	-- now raises them its own way (the boxer's high, the beast's low and wide...).
+	local guard = GUARD_ARMS
+	local function guardLike(pose)
+		for _, joint in { "LeftShoulder", "LeftElbow", "RightShoulder", "RightElbow" } do
+			local a, b = pose[joint], guard[joint]
+			if not a or not b or a[1] ~= b[1] or (a[3] or 0) ~= (b[3] or 0) then return false end
+		end
+		return true
+	end
+	for kit, own in Poses.Kits do
+		local stance = own.STANCE
+		if stance and not string.find(kit, "_") then
+			for _, name in { "Block", "CrouchBlock", "BackUpper" } do
+				local pose = own[name]
+				if pose and guardLike(pose) then own[name] = personal(pose, stance, 0.5, false) end
+			end
+		end
+	end
+	-- ASURA's own version of each of KAI's moves (looked up first by the Animator).
+	local asura = Poses.Kits.ASURA
+	asura.Moves = {}
+	for _, id in { "Jab", "Cross", "Uppercut", "DragonFist", "KiChase", "Finale", "BodyBlow", "PalmStrike", "DragonTornado",
+		"Smash", "Sweep", "RisingWind", "KiFlurry", "Hammer", "ThunderHeel", "Elbow", "SpinKick", "Kick", "CrescentMoon",
+		"LowKick", "Rising", "AirKick", "AirKick2", "AirSmash", "KiBlast", "KaienRush", "Awakening", "Kaiten", "Fatal" } do
+		local set = Poses[id]
+		if type(set) == "table" and set.Active then
+			local mine = {}
+			for phase, pose in set do
+				if type(pose) == "table" and (pose.Root or pose.Waist) then mine[phase] = personal(pose, asura.STANCE, 0.3, false) end
+			end
+			asura.Moves[id] = mine
+		end
+	end
+end
 
 -- Every move its own key poses (see "every move its own" above): where a move's wind-up or
 -- recovery is still the very pose of another move (a kit's staging shared by its ultimates,

@@ -13,16 +13,16 @@ local GameModes = {}
 GameModes.MAX_TEAM = 3
 
 GameModes.List = {
-	{ id = "VERSUS_CPU", name = "1 CONTRE 1 · IA", kanji = "戦",
-		description = "Toi contre le CPU. Choisis 1, 2 ou 3 persos (relais) et le niveau.", team = true, level = true },
-	{ id = "VERSUS", name = "1 CONTRE 1 · JOUEUR", kanji = "対",
-		description = "Contre un vrai joueur : NORMAL ou CLASSÉ (points), ou défie un ami du serveur.", team = true, queue = true },
-	{ id = "SURVIVAL", name = "SURVIE", kanji = "生",
-		description = "Un seul perso, des adversaires à la chaîne, de plus en plus forts. Ta vie ne revient qu'un peu.", team = false },
-	{ id = "TRAINING", name = "ENTRAÎNEMENT", kanji = "練",
-		description = "Mannequin, CPU, entraîneur de combos, conditions des ultimes.", team = false },
+	{ id = "VERSUS_CPU", name = "1 VS 1 · CPU", kanji = "戦",
+		description = "You against the CPU. Pick 1, 2 or 3 fighters (tag) and the level.", team = true, level = true },
+	{ id = "VERSUS", name = "1 VS 1 · PLAYER", kanji = "対",
+		description = "Against a real player: NORMAL or RANKED (points), or challenge a friend on the server.", team = true, queue = true },
+	{ id = "SURVIVAL", name = "SURVIVAL", kanji = "生",
+		description = "One fighter, opponents one after another, stronger and stronger. Your health only comes back a little.", team = false },
+	{ id = "TRAINING", name = "TRAINING", kanji = "練",
+		description = "Dummy, CPU, combo trainer, ultimate conditions.", team = false },
 	{ id = "CHALLENGE", name = "CHALLENGE · ASURA", kanji = "阿",
-		description = "ASURA, un KAI à quatre bras, sorti de la Porte des Cieux. Emmène 1 à 3 persos. Ta victoire décide de ta récompense.",
+		description = "ASURA, a four-armed KAI, out of the Gate of Heaven. Bring 1 to 3 fighters. Your victory decides your reward.",
 		team = true },
 }
 
@@ -38,11 +38,11 @@ GameModes.find = find
 
 -- A menu request from a client: { mode, team = { kits }, level, queue }. Everything a
 -- client sends is checked: unknown modes and kits, locked modes, team sizes.
-function GameModes.validate(request, kitOrder)
-	if type(request) ~= "table" then return nil, "requête invalide" end
+function GameModes.validate(request, kitOrder, maps)
+	if type(request) ~= "table" then return nil, "invalid request" end
 	local mode = type(request.mode) == "string" and find(request.mode)
-	if not mode then return nil, "mode inconnu" end
-	if mode.locked then return nil, "mode verrouillé" end
+	if not mode then return nil, "unknown mode" end
+	if mode.locked then return nil, "locked mode" end
 	local known = {}
 	for _, kit in kitOrder do known[kit] = true end
 	local team = {}
@@ -50,21 +50,26 @@ function GameModes.validate(request, kitOrder)
 		for i = 1, GameModes.MAX_TEAM do
 			local kit = request.team[i]
 			if kit == nil then break end
-			if type(kit) ~= "string" or not known[kit] then return nil, "perso inconnu" end
+			if type(kit) ~= "string" or not known[kit] then return nil, "unknown fighter" end
 			table.insert(team, kit)
 		end
 	end
-	if #team == 0 then return nil, "aucun perso choisi" end
+	if #team == 0 then return nil, "no fighter picked" end
 	if not mode.team and #team > 1 then team = { team[1] } end
 	local out = { mode = mode.id, team = team }
 	if mode.level then
 		local level = request.level
-		if type(level) ~= "number" or level % 1 ~= 0 or level < 1 or level > 4 then return nil, "niveau invalide" end
+		if type(level) ~= "number" or level % 1 ~= 0 or level < 1 or level > 4 then return nil, "invalid level" end
 		out.level = level
 	end
 	if mode.queue then
-		if type(request.queue) ~= "string" or not GameModes.QUEUES[request.queue] then return nil, "file invalide" end
+		if type(request.queue) ~= "string" or not GameModes.QUEUES[request.queue] then return nil, "invalid queue" end
 		out.queue = request.queue
+	end
+	-- the stage (Maps): nil or "RANDOM" = drawn by the server
+	if request.map ~= nil then
+		if type(request.map) ~= "string" or (request.map ~= "RANDOM" and not (maps and maps[request.map])) then return nil, "invalid stage" end
+		if request.map ~= "RANDOM" then out.map = request.map end
 	end
 	return out
 end
@@ -91,7 +96,7 @@ end
 --   left on the last fighter · damage: share of ASURA's health taken (also when lost).
 -- Returns grade (0 none, 1 C, 2 B, 3 A, 4 S), the title earned, and whether KAI's ÉVEILLÉ
 -- style is unlocked (any win).
-GameModes.CHALLENGE_TITLES = { "VAINQUEUR D'ASURA", "BRISEUR DE BRAS", "ÉGAL D'ASURA", "ASURA" }
+GameModes.CHALLENGE_TITLES = { "ASURA SLAYER", "ARM BREAKER", "ASURA'S EQUAL", "ASURA" }
 function GameModes.challengeGrade(won, fighters, hpLeft)
 	if not won then return 0, nil, false end
 	local grade = 1 -- C: beaten with a team of 3
@@ -99,6 +104,72 @@ function GameModes.challengeGrade(won, fighters, hpLeft)
 	if fighters <= 1 then grade = 3 end -- A: alone
 	if fighters <= 1 and hpLeft >= 0.5 then grade = 4 end -- S: alone, with half the health left
 	return grade, GameModes.CHALLENGE_TITLES[grade], true
+end
+
+--[[
+	What a fighter is good and bad at, for the fighter select (from the real data, so it
+	never lies): POWER (damage of its blows), SPEED (startup + recovery of its ground blows),
+	RANGE (reach), DEFENSE (health and guard), MOBILITY (walk, dash, jump). Each from 1 to 5,
+	ranked against the whole roster. Every fighter has something it is the best at and
+	something it pays for (tests: Lobby), but the all-rounder.
+]]
+GameModes.STATS = { "POWER", "SPEED", "RANGE", "DEFENSE", "MOBILITY" }
+local GROUND = { "Jab", "Cross", "Elbow", "Kick", "BodyBlow", "Uppercut", "Smash", "Hammer", "Sweep", "LowKick", "SpinKick" }
+local function measure(moveData, name)
+	local kit = moveData.Kits[name]
+	local st = kit.Stats
+	local power, reach, n = 0, 0, 0
+	for _, id in kit.Roles do
+		local m = moveData.Moves[id]
+		if m and (m.damage or 0) > 0 and m.kind ~= "Ultimate" then
+			power += m.damage * (m.hits or 1)
+			reach += m.hitbox and m.hitbox.far or 0
+			n += 1
+		end
+	end
+	local frames, k = 0, 0
+	for _, role in GROUND do
+		local m = moveData.Moves[kit.Roles[role]]
+		if m then
+			frames += m.startup * 2 + (m.recovery or 0)
+			k += 1
+		end
+	end
+	return {
+		POWER = power / math.max(n, 1) * (st.DamageDealt or 1),
+		SPEED = -frames / math.max(k, 1) + (st.WalkSpeed or 16) * 0.4,
+		RANGE = reach / math.max(n, 1),
+		DEFENSE = st.MaxHealth / (st.GuardDamageTaken or 1),
+		MOBILITY = (st.WalkSpeed or 16) + (st.DashSpeed or 38) * 0.5 + (st.JumpVelocity or 43) * 0.3,
+	}
+end
+function GameModes.ratings(moveData, kitOrder)
+	local raw = {}
+	for _, name in kitOrder do raw[name] = measure(moveData, name) end
+	local out = {}
+	for _, name in kitOrder do out[name] = {} end
+	for _, stat in GameModes.STATS do
+		local sorted = table.clone(kitOrder)
+		table.sort(sorted, function(a, b)
+			if raw[a][stat] ~= raw[b][stat] then return raw[a][stat] < raw[b][stat] end
+			return a < b
+		end)
+		for i, name in sorted do
+			out[name][stat] = 1 + math.floor((i - 1) * 5 / #sorted)
+		end
+	end
+	return out
+end
+-- Its strengths (4 and 5) and weaknesses (1 and 2), strongest first.
+function GameModes.traits(rating)
+	local plus, minus = {}, {}
+	for _, stat in GameModes.STATS do
+		if rating[stat] >= 4 then table.insert(plus, stat) end
+		if rating[stat] <= 2 then table.insert(minus, stat) end
+	end
+	table.sort(plus, function(a, b) return rating[a] > rating[b] end)
+	table.sort(minus, function(a, b) return rating[a] < rating[b] end)
+	return plus, minus
 end
 
 return GameModes

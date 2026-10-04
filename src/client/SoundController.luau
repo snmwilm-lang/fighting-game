@@ -104,7 +104,7 @@ function SoundController:onEvent(event)
 	elseif kind == "Projectile" then
 		self:playAll(material(MoveData.MoveKit[event.move]).projectile or MATERIALS.KAI.projectile)
 	elseif kind == "PromptGrade" then
-		self:playAll(if event.grade == "PARFAIT" then ACTIONS.Perfect else ACTIONS.Graded)
+		self:playAll(if event.grade == "PERFECT" then ACTIONS.Perfect else ACTIONS.Graded)
 	elseif kind == "GroundBounce" or kind == "WallBounce" then
 		self:playAll(ACTIONS.Bounce)
 	elseif kind == "Blink" or kind == "Block" or kind == "GuardBreak" or kind == "Clash" or kind == "Evade" or kind == "Slip"

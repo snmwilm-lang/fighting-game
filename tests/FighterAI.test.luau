@@ -141,7 +141,7 @@ test("LÉGENDE earns ÉVEIL ÉCARLATE and nails its rhythm prompts", function()
 		if grade then break end
 	end
 	expect(found, "LÉGENDE never earned the awakening")
-	expect(grade == "PARFAIT" or grade == "GRAND", "LÉGENDE prompts graded " .. tostring(grade))
+	expect(grade == "PERFECT" or grade == "GREAT", "LÉGENDE prompts graded " .. tostring(grade))
 end)
 
 -- One CPU (slot 1, kit `kit`) against a scripted opponent (slot 2, KAI); returns the events.

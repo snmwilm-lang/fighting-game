@@ -112,7 +112,7 @@ Animator.GAITS = GAITS
 -- shift from one foot to the other (shift, degrees): the boxer bounces, the swordsman barely
 -- breathes, the colossus heaves.
 local IDLE_RHYTHM = {
-	KAI = { rate = 1.15, shift = 3 }, TARO = { rate = 1.9, shift = 4 }, TARO_CLASSIQUE = { rate = 1.4, shift = 3 },
+	KAI = { rate = 1.15, shift = 3 }, TARO = { rate = 1.9, shift = 4 }, TARO_CLASSIC = { rate = 1.4, shift = 3 },
 	ZEPHYR = { rate = 1.35, shift = 5 }, AKEMI = { rate = 0.8, shift = 3 }, RYUKEN = { rate = 1.0, shift = 2 },
 	SHIN = { rate = 0.55, shift = 1.5 }, DAICHA = { rate = 0.7, shift = 4 }, HIBECARES = { rate = 0.5, shift = 2.5 },
 	ASURA = { rate = 0.9, shift = 3 },
@@ -220,7 +220,10 @@ end
 
 -- Key poses of a move: its own, or its role's.
 function Animator:moveSet(id)
-	return self.poses[id] or (self.roleOf[id] and self.poses[self.roleOf[id]])
+	-- (a kit that fights with another's moves has its own version of them: ASURA)
+	local kits = self.poses.Kits
+	local own = kits and self.kit and kits[self.kit] and kits[self.kit].Moves
+	return (own and own[id]) or self.poses[id] or (self.roleOf[id] and self.poses[self.roleOf[id]])
 end
 
 -- `key` pushed `amount` times as far from `base` (1 = key itself), joints clamped to LIMITS.

@@ -1,5 +1,68 @@
 # Journal du projet — état à transmettre
 
+## Version 0.16.0 — 4 octobre 2026
+
+Retours de Wilhem : « passe tout le jeu en anglais ; avec la traduction Roblox ou un réglage
+de langue, chacun l'aura dans sa langue » ; « vérifie qu'aucune animation ne soit partagée » ;
+« un jeu de combat agréable, plusieurs persos au gameplay différent, avec leurs avantages et
+leurs défauts, presque parfait en main, make it cool » ; « prépare différentes maps » ;
+« un gros récap et plusieurs tests quand tout est fini ».
+
+- **Le jeu est en anglais** (langue source de la traduction automatique de Roblox) : les 1 352
+  textes (coups, persos, descriptions, menus, HUD, hub, cinématiques) ont été réécrits, les
+  noms de coups en anglais façon anime (POING DU DRAGON → DRAGON FIST…). Nouveau réglage
+  **SETTINGS › LANGUAGE**, gardé avec le profil :
+  - AUTO (Roblox) : l'anglais, traduit par Roblox dans la langue du joueur ;
+  - ENGLISH : jamais traduit ;
+  - FRANÇAIS : le français d'origine du jeu, jamais re-traduit par Roblox.
+  `src/shared/Locale.luau` (pur, généré depuis les textes français d'origine : rien n'est
+  perdu) traduit les lignes entières, les lignes à trous (« You need 3 ki bars… ») et les
+  lignes faites de morceaux ; `src/client/LanguageController.luau` l'applique à chaque texte
+  des écrans. À régler une fois dans le Creator Dashboard : Localization › langue source
+  anglais et traduction automatique activée (pour AUTO).
+- **Aucune animation partagée** : les coups, gardes, courses et victoires étaient propres à
+  chaque perso, mais les sauts, dashs, réactions aux coups, chutes, relevés et les poses des
+  cinématiques étaient communs à tous, et la garde (bras) était identique chez 16 persos.
+  Chaque perso porte maintenant son langage corporel dans toutes ces poses (sa garde, son
+  buste, sa tête ; jambes et pieds intacts), RAIJIN garde les deux mains sur sa lance, et
+  ASURA a sa propre version de chacun des coups de KAI. Test (Animation) : deux persos ne
+  partagent aucune pose (écart d'au moins 5°), pieds au sol, articulations dans leurs limites.
+- **Gameplay** :
+  - chaque perso a son rythme (récupération après ses coups) : VENOM et HIBIKI enchaînent
+    vite, GORAN, HIBECARES, SHIN, RAIJIN, ZEPHYR sont punissables s'ils ratent, etc. ;
+  - **forces et faiblesses** calculées depuis les vraies données (PUISSANCE, VITESSE,
+    ALLONGE, DÉFENSE, MOBILITÉ de 1 à 5) et affichées en barres à la sélection ; chaque perso
+    est le meilleur quelque part et paie ailleurs, et deux persos n'ont jamais le même
+    profil (test) ; ZEPHYR (1 350 PV, coups longs à récupérer), KUREN (moins mobile, un peu
+    plus fort) et MARION (1 250 PV) retouchés ; TARO et AKEMI inchangés ;
+  - **COUNTER HIT** : toucher un coup lent (8 images de démarrage ou plus) pendant son
+    démarrage fait +20 % de dégâts, étourdit plus longtemps, fige plus fort, « COUNTER! » ;
+    le CPU LÉGENDE s'en sert aussi ; l'IA d'ASURA est un peu plus vive. Tests.
+- **6 maps** (`src/shared/Maps.luau`, construites côté client par `src/client/ArenaBuilder.luau`) :
+  SCARLET TEMPLE (le temple), FROZEN LAKE (lac gelé, pins, aurore, neige), NEON ROOFTOP
+  (toit d'une ville, enseignes néon, pluie), VOLCANO FORGE (basalte, rivière et chutes de
+  lave, braises), BAMBOO DOJO (bambous, lanternes, feuilles), CLOUD PALACE (marbre au-dessus
+  d'une mer de nuages, îles flottantes). Même sol de combat partout (y = 0, x de -28 à 28) :
+  la map ne change que le décor. Choix STAGE à la sélection (RANDOM par défaut, tirée par le
+  serveur en ligne) ; chaque joueur voit la map de son propre combat. Tests (Lobby).
+- **Bug corrigé (prioritaire) : « Jouer entre amis »** — la fenêtre des joueurs et des
+  invitations (`HubController`) était dans un ScreenGui d'ordre 8, sous le menu principal
+  (ordre 20, plein écran) : elle s'affichait derrière lui et le menu prenait ses clics
+  (boutons DÉFIER / INVITER inaccessibles) ; le bandeau d'un défi reçu était caché de la même
+  façon. La fenêtre passe au-dessus du menu (ordre 30), avec un fond assombri qui bloque les
+  clics vers le menu (un clic dessus la ferme), une taille relative à l'écran bornée (mobile
+  et PC), un en-tête fixe, la liste des joueurs qui défile et un pied fixe avec un grand
+  bouton INVITE A FRIEND toujours visible ; elle se remplit dès l'ouverture. Le bouton doré
+  « PLAYERS ON THE SERVER » n'apparaît plus qu'en combat (le menu a son bouton PLAYERS).
+- Version 0.16.0.
+
+Tests : CombatSimulation 112, FighterAI 12, CinematicDirector 832, Animation 39, Kits KITS_LINE, PressQueue 4,
+Fuzz FUZZ_LINE, Cinematography 296, Lobby 15. BALANCE_LINE
+
+Problèmes ouverts : rien n'est vérifié dans Roblox Studio (maps, réglage de langue, barres de
+la sélection à regarder en jeu) ; la traduction automatique de Roblox dépend du réglage du
+Creator Dashboard. Prochaine étape : jouer chaque map et chaque perso en vrai, ajuster.
+
 ## Version 0.15.3 — 4 octobre 2026
 
 Retours de Wilhem : « le souci des combos, c'est injouable… TARO doit pouvoir faire un

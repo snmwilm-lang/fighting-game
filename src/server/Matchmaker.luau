@@ -26,11 +26,11 @@ Matchmaker.MAX_WINDOW = 800
 
 Matchmaker.RANKS = {
 	{ min = 0, name = "BRONZE" },
-	{ min = 900, name = "ARGENT" },
-	{ min = 1100, name = "OR" },
-	{ min = 1300, name = "PLATINE" },
-	{ min = 1500, name = "DIAMANT" },
-	{ min = 1700, name = "LÉGENDE" },
+	{ min = 900, name = "SILVER" },
+	{ min = 1100, name = "GOLD" },
+	{ min = 1300, name = "PLATINUM" },
+	{ min = 1500, name = "DIAMOND" },
+	{ min = 1700, name = "LEGEND" },
 }
 
 function Matchmaker.new()

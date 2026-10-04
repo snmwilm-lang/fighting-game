@@ -130,7 +130,7 @@ test("ranking: Elo moves points from the loser to the winner, more for an upset"
 	expect(upset - 1000 > expected - 1400, "an upset should win more points")
 	local d1, d2 = Matchmaker.elo(1200, 1200, 0.5)
 	expect(d1 == 1200 and d2 == 1200, "a draw between equals changed the ratings")
-	expect(Matchmaker.rankName(950) == "ARGENT" and Matchmaker.rankName(1750) == "LÉGENDE", "rank names")
+	expect(Matchmaker.rankName(950) == "SILVER" and Matchmaker.rankName(1750) == "LEGEND", "rank names")
 end)
 
 test("matchmaking: only teams of the same size meet (1v1, 2v2, 3v3)", function()
@@ -197,6 +197,91 @@ test("10000 players: the search pairs them fast and right, each hub view stays s
 	t = os.clock()
 	for id = 1, 10000 do Lobby.view(list, id, nil, byId) end
 	expect(os.clock() - t < 1, string.format("10000 views took %.2f s", os.clock() - t))
+end)
+
+test("languages: the game is in English, every move, fighter text and menu line has its French (Locale)", function()
+	local Locale = require("../src/shared/Locale")
+	local CharacterData = require("../src/shared/CharacterData")
+	local missing = {}
+	local function need(text)
+		if type(text) == "string" and string.find(text, "%a") and not Locale.SAME[text] and Locale.translate(text, "FR") == text then
+			table.insert(missing, text)
+		end
+	end
+	for _, m in MoveData.Moves do
+		need(m.name)
+	end
+	for _, kit in MoveData.Kits do
+		need(kit.Description)
+		need(kit.Role)
+		if kit.Passive then need(kit.Passive.Name) end
+		for _, r in kit.FullRoutes do need(r.name) end
+	end
+	for _, mode in GameModes.List or {} do need(mode.description) end
+	-- whole lines, format lines and lines built from pieces
+	expect(Locale.translate("ROUTE CLEARED · CLEAN ✓", "FR") == "ROUTE RÉUSSIE · PROPRE ✓", "a whole line")
+	expect(Locale.translate("You need 3 ki bars (you have 1): turn ULTIMATES: ON at the top", "FR")
+		== "Il faut 3 barres de ki (tu en as 1) : active ULTIMES : ON en haut", "a format line")
+	expect(Locale.translate("FIGHTER: KAI (T)", "FR") == "PERSO : KAI (T)", "a line built from pieces")
+	expect(Locale.translate("DRAGON FIST", "EN") == "DRAGON FIST" and Locale.translate("DRAGON FIST", "AUTO") == "DRAGON FIST",
+		"English or Roblox's translation change nothing")
+	-- the source is English: no French left in the moves' names
+	for id, m in MoveData.Moves do
+		expect(not string.find(m.name or "", "[\195\197]"), id .. " is still French: " .. tostring(m.name))
+	end
+	local list = {}
+	for i = 1, math.min(#missing, 8) do list[i] = missing[i] end
+	expect(#missing == 0, #missing .. " texts without French: " .. table.concat(list, " | "))
+	local _ = CharacterData
+end)
+
+test("every fighter is good at something and pays for it, and no two play alike (POWER, SPEED, RANGE, DEFENSE, MOBILITY)", function()
+	local ratings = GameModes.ratings(MoveData, MoveData.KitOrder)
+	local seen = {}
+	for _, name in MoveData.KitOrder do
+		local r = ratings[name]
+		local plus, minus = GameModes.traits(r)
+		expect(#plus >= 1, name .. " is the best at nothing")
+		expect(#minus >= 1, name .. " has no weakness")
+		local key = table.concat({ r.POWER, r.SPEED, r.RANGE, r.DEFENSE, r.MOBILITY }, "")
+		expect(not seen[key], name .. " plays like " .. tostring(seen[key]))
+		seen[key] = name
+	end
+	-- the roles read in the numbers: GORAN tanks, VENOM is fast, KAZAN reaches far, AKEMI moves
+	expect(ratings.GORAN.DEFENSE == 5 and ratings.VENOM.SPEED == 5 and ratings.KAZAN.RANGE == 5 and ratings.AKEMI.MOBILITY == 5,
+		"a fighter does not read like its role")
+end)
+
+test("stages: six complete stages on the same ground, chosen in the menu or drawn, checked by the server", function()
+	local Maps = require("../src/shared/Maps")
+	local ids, names = {}, {}
+	local function hexColor(c) return type(c) == "string" and string.match(c, "^%x%x%x%x%x%x$") ~= nil end
+	for _, map in Maps.LIST do
+		expect(not ids[map.id] and not names[map.name], map.id .. " is twice")
+		ids[map.id], names[map.name] = true, true
+		expect(#map.sky >= 4 and #map.hills == 3, map.id .. ": sky or hills missing")
+		for _, band in map.sky do expect(hexColor(band[2]), map.id .. ": bad sky colour") end
+		for _, key in { "color", "worn", "trim", "line" } do expect(hexColor(map.floor[key]), map.id .. ": bad floor " .. key) end
+		expect(type(map.floor.material) == "string" and hexColor(map.light) and hexColor(map.mist), map.id .. ": floor, light or mist")
+		expect(map.air and #map.air.colors == 2 and map.air.rate > 0, map.id .. ": no particles")
+		local l = map.lighting
+		expect(l.clock >= 0 and l.clock < 24 and l.brightness > 0 and l.density >= 0 and l.density <= 1, map.id .. ": lighting")
+		expect(map.kanji and map.props, map.id .. ": no kanji or set dressing")
+	end
+	expect(#Maps.LIST >= 6, "only " .. #Maps.LIST .. " stages")
+	expect(Maps.pick("FROZEN", 3) == "FROZEN" and ids[Maps.pick(nil, 7)] and ids[Maps.pick("NOWHERE", 2)], "picking a stage")
+	local drawn = {}
+	for seed = 1, 60 do drawn[Maps.pick(nil, seed)] = true end
+	local n = 0
+	for _ in drawn do n += 1 end
+	expect(n == #Maps.LIST, "RANDOM never draws some stages")
+	local kits = MoveData.KitOrder
+	local ok = GameModes.validate({ mode = "VERSUS_CPU", team = { "KAI" }, level = 2, map = "NEON" }, kits, Maps.BY_ID)
+	expect(ok and ok.map == "NEON", "a stage asked in the menu is dropped")
+	local random = GameModes.validate({ mode = "VERSUS_CPU", team = { "KAI" }, level = 2, map = "RANDOM" }, kits, Maps.BY_ID)
+	expect(random and random.map == nil, "RANDOM is not drawn by the server")
+	expect(GameModes.validate({ mode = "VERSUS_CPU", team = { "KAI" }, level = 2, map = "MOON BASE" }, kits, Maps.BY_ID) == nil,
+		"an unknown stage is accepted")
 end)
 
 T.finish()

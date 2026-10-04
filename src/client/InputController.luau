@@ -158,13 +158,13 @@ function InputController.start(remote)
 		end
 	end)
 	local layout = {
-		Light = { -82, -92, 84, "COUP" },
-		Heavy = { -180, -64, 72, "LOURD" },
-		Jump = { -78, -196, 66, "SAUT" },
-		Block = { -172, -162, 66, "GARDE", Color3.fromHex("6E7BFF") },
+		Light = { -82, -92, 84, "ATTACK" },
+		Heavy = { -180, -64, 72, "HEAVY" },
+		Jump = { -78, -196, 66, "JUMP" },
+		Block = { -172, -162, 66, "GUARD", Color3.fromHex("6E7BFF") },
 		Dash = { -268, -56, 58, "DASH" },
-		Crouch = { -262, -138, 54, "BAS" },
-		Special = { -250, -222, 58, "SPÉ", Color3.fromHex("FFB938") },
+		Crouch = { -262, -138, 54, "DOWN" },
+		Special = { -250, -222, 58, "SPEC", Color3.fromHex("FFB938") },
 		Ultimate = { -152, -254, 62, "ULTI", Color3.fromHex("FF2A3D") },
 		Fatal = { -60, -282, 54, "FATAL", Color3.fromHex("FFFFFF") },
 	}

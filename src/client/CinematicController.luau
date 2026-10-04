@@ -53,7 +53,7 @@ local THEME_GRADES = {
 	holy = { TintColor = Color3.fromRGB(255, 245, 215), Contrast = 0.15, Saturation = -0.2, Brightness = 0.12 }, -- ELIAN
 	tech = { TintColor = Color3.fromRGB(255, 205, 160), Contrast = 0.4, Saturation = -0.25, Brightness = -0.04 }, -- NOVA
 }
-local PROMPT_LABEL = { Light = "CLIC G", Heavy = "CLIC D", Ultimate = "R" }
+local PROMPT_LABEL = { Light = "L-CLICK", Heavy = "R-CLICK", Ultimate = "R" }
 
 local function tween(instance, duration, goal, style, direction)
 	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), goal)
@@ -402,7 +402,7 @@ function CinematicController:onPrompt(event)
 	else
 		self.promptResult.TextSize = 44
 	end
-	self.promptResult.Text = if event.success then "PARFAIT !" else "RATÉ"
+	self.promptResult.Text = if event.success then "PERFECT!" else "MISSED"
 	self.promptResult.TextColor3 = if event.success then GOLD else Color3.fromHex("8A8A96")
 	self.promptResult.Visible = true
 	local id = (self.promptId or 0) + 1
@@ -413,8 +413,8 @@ function CinematicController:onPrompt(event)
 end
 
 function CinematicController:onGrade(event)
-	local color = if event.grade == "PARFAIT" then GOLD elseif event.grade == "GRAND" then WHITE else Color3.fromHex("8A8A96")
-	self:showStamp("RYTHME : " .. event.grade, color)
+	local color = if event.grade == "PERFECT" then GOLD elseif event.grade == "GREAT" then WHITE else Color3.fromHex("8A8A96")
+	self:showStamp("RHYTHM: " .. event.grade, color)
 end
 
 -- Ring closing in on the next prompt. Only the attacker's controller decides; this is a hint.
@@ -669,7 +669,7 @@ function CinematicController:camera(dt, rigs, views)
 	local info = self.debugInfo
 	self.debugLabel.Visible = (self.effects.debug or self.labRequested) and info ~= nil
 	if self.debugLabel.Visible then
-		self.debugLabel.Text = string.format(" %s · plan %s · tick %d/%d · FOV %d", info.label, s.name, info.tick, info.length, s.fov)
+		self.debugLabel.Text = string.format(" %s · shot %s · tick %d/%d · FOV %d", info.label, s.name, info.tick, info.length, s.fov)
 	end
 	camera.CFrame = (self.cameraCFrame + push) + self.cameraCFrame:VectorToWorldSpace(shake)
 	-- Depth of field on the subject (off in reduced mode).

@@ -15,8 +15,10 @@ local HUDController = require(script.HUDController)
 local EffectsController = require(script.EffectsController)
 local CinematicController = require(script.CinematicController)
 local StageController = require(script.StageController)
+local ArenaBuilder = require(script.ArenaBuilder)
 local SoundController = require(script.SoundController)
 local HubController = require(script.HubController)
+local LanguageController = require(script.LanguageController)
 local MenuController = require(script.MenuController)
 local player = Players.LocalPlayer
 -- Roblox's own player list (top right) covers the lobby's cards: our hub (H) lists the players.
@@ -28,22 +30,45 @@ local input = InputController.start(remotes:WaitForChild("Input"))
 local cameraController = CameraController.new(Config)
 local effects = EffectsController.new(Config, cameraController)
 local cinematic = CinematicController.new(Config, hud, effects)
+-- The stage: the default one in the menu, the match's own in a fight (Maps, attribute Map).
+local currentMap = nil
+local function buildStage()
+	local id = player:GetAttribute("Map")
+	if id == nil or id == "" then id = currentMap or "TEMPLE" end
+	if workspace:FindFirstChild("Arena") and id == currentMap then return workspace.Arena end
+	currentMap = id
+	return ArenaBuilder.build(id)
+end
+buildStage()
 local stage = StageController.new(Config)
+player:GetAttributeChangedSignal("Map"):Connect(function()
+	stage:setArena(buildStage())
+end)
 local sounds = SoundController.new()
 local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
+local language = LanguageController.new() -- SETTINGS › LANGUAGE (Auto / English / Français)
+local menuRemote = remotes:WaitForChild("Menu")
 -- PARAMÈTRES of the main menu: the same switches as the HUD's.
 local settings = {
 	effects = function()
 		effects.reduced = not effects.reduced
 		hud:setEffectsReduced(effects.reduced)
 	end,
-	effectsState = function() return if effects.reduced then "RÉDUITS" else "FORTS" end,
+	effectsState = function() return if effects.reduced then "REDUCED" else "FULL" end,
 	sound = function() sounds:setEnabled(not sounds.enabled) end,
-	soundState = function() return if sounds.enabled then "OUI" else "NON" end,
+	soundState = function() return if sounds.enabled then "ON" else "OFF" end,
 	mouse = function() input.toggleMouseLock() end,
-	mouseState = function() return if input.isMouseLocked() then "OUI (en combat)" else "NON" end,
+	mouseState = function() return if input.isMouseLocked() then "ON (in a fight)" else "OFF" end,
+	-- (applied at once on this screen, kept with the profile by the server)
+	language = function()
+		local lang = language:nextLanguage()
+		language:set(lang)
+		menuRemote:FireServer({ action = "language", language = lang })
+	end,
+	languageState = function() return language:name() end,
+	onLanguage = function(lang) language:set(lang) end,
 }
-local menu = MenuController.new(remotes:WaitForChild("Menu"), hub, settings) -- main menu (lobby)
+local menu = MenuController.new(menuRemote, hub, settings) -- main menu (lobby)
 hud.onMenu = menu:bindLeave()
 -- P: back to the main menu from a match (same as the HUD's ◀ MENU).
 game:GetService("UserInputService").InputBegan:Connect(function(key, processed)
@@ -245,7 +270,7 @@ local function findRig(slot)
 			-- constraints): after a moment, rebuild them here so the body can be animated.
 			firstSeen[model] = firstSeen[model] or os.clock()
 			if os.clock() - firstSeen[model] < 2 or RigReader.ensureJoints(model) == 0 then return nil end
-			warn("[FightingGame] Articulations de " .. model.Name .. " reconstruites côté client")
+			warn("[FightingGame] Joints of " .. model.Name .. " rebuilt on the client")
 		end
 		local animation = AnimationController.new(model)
 		cached = {
@@ -391,4 +416,4 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
 end)
-print("[FightingGame] Client ready — 4 kits (T / G), combos (clics), garde F, spéciale E, ultime R, avatar R15")
+print("[FightingGame] Client ready — 4 kits (T / G), combos (clicks), guard F, special E, ultimate R, avatar R15")

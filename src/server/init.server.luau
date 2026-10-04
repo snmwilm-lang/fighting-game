@@ -25,13 +25,13 @@ local FighterAI = require(Shared.FighterAI)
 local PressQueue = require(Shared.PressQueue)
 local RigReader = require(Shared.RigReader)
 local GameModes = require(Shared.GameModes)
-local ArenaBuilder = require(script.ArenaBuilder)
+local Maps = require(Shared.Maps)
 local RigBuilder = require(script.RigBuilder)
 local Lobby = require(script.Lobby)
 local Matchmaker = require(script.Matchmaker)
 
 Players.CharacterAutoLoads = false
-ArenaBuilder.build()
+-- (the stages are built by each client: Maps, client/ArenaBuilder)
 local fightersFolder = Instance.new("Folder")
 fightersFolder.Name, fightersFolder.Parent = "Fighters", workspace
 local remotes = Instance.new("Folder")
@@ -51,7 +51,7 @@ local menuRemote = remote("Menu") -- main menu: requests in, the player's menu s
 remotes.Parent = ReplicatedStorage
 
 -- Training dummy modes, cycled from the HUD (MANNEQUIN) or the M key.
-local DUMMY_MODES = { { name = "IMMOBILE" }, { name = "GARDE", block = true } }
+local DUMMY_MODES = { { name = "STILL" }, { name = "GUARD", block = true } }
 for level, data in FighterAI.Levels do
 	table.insert(DUMMY_MODES, { name = "CPU " .. data.name, level = level })
 end
@@ -72,7 +72,8 @@ do
 end
 local function defaultProfile()
 	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI",
-		asuraGrade = 0, asuraDamage = 0, title = "" } -- CHALLENGE: best grade, best damage share, title
+		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
+		language = "AUTO" } -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 end
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
@@ -197,7 +198,7 @@ local function swapModel(match, i, model)
 	model.Parent = match.folder
 	-- Once in the world, check the joints again (a Humanoid may rebuild its own).
 	local rebuilt = RigReader.ensureJoints(model)
-	if rebuilt > 0 then print("[FightingGame] " .. model.Name .. " : " .. rebuilt .. " articulations reconstruites après placement") end
+	if rebuilt > 0 then print("[FightingGame] " .. model.Name .. ": " .. rebuilt .. " joints rebuilt after placement") end
 	slot.model = model
 	if owner then owner.Character = model end
 	watchRig(match, i)
@@ -231,7 +232,7 @@ function rebuildSlot(match, i)
 			task.spawn(function()
 				local ok, model = pcall(RigBuilder.buildShadow, i, other, rigOf(other, otherClient), data) -- yields
 				if not ok then
-					warn("[FightingGame] Clone d'ombre impossible : " .. tostring(model))
+					warn("[FightingGame] Shadow clone failed: " .. tostring(model))
 					model = nil
 				end
 				if slot.owner or slot.building ~= ticket or match.closed then
@@ -246,13 +247,13 @@ function rebuildSlot(match, i)
 		return
 	end
 	if client and client.avatar then
-		owner:SetAttribute("AvatarStatus", "CHARGEMENT")
+		owner:SetAttribute("AvatarStatus", "LOADING")
 		task.spawn(function()
 			-- Own avatar + kit; a default body + kit if the avatar cannot load (see RigBuilder).
 			local ok, model, status = pcall(RigBuilder.buildAvatar, i, owner, rigOf(owner, client), data) -- yields
 			if not ok then
-				warn("[FightingGame] Avatar impossible : " .. tostring(model))
-				model, status = nil, "MODÈLE|" .. tostring(model):sub(1, 90)
+				warn("[FightingGame] Avatar failed: " .. tostring(model))
+				model, status = nil, "MODEL|" .. tostring(model):sub(1, 90)
 			end
 			if slot.owner ~= owner or not client.avatar or slot.building ~= ticket or match.closed then
 				if model then model:Destroy() end
@@ -295,6 +296,7 @@ local function newMatch(mode, options)
 		world = Sim.newWorld(Config, MoveData, mode == "TRAINING"), slots = {}, characters = {},
 		dummyMode = 1, generation = 0, accumulator = 0, lastSnapshot = 0, pendingDebug = {},
 		wave = 0, lastRoster = nil, lastRosterAt = -math.huge,
+		map = Maps.pick(options.map, math.random(1, 1000)), -- its stage (asked in the menu, else drawn)
 	}
 	for i = 1, 2 do
 		match.slots[i] = { model = nil, owner = nil, input = Sim.neutralInput(), lastInput = 0, presses = PressQueue.new() }
@@ -311,6 +313,7 @@ local function seat(match, i, player)
 	player:SetAttribute("MatchId", match.id)
 	player:SetAttribute("FighterSlot", i)
 	player:SetAttribute("Mode", match.mode)
+	player:SetAttribute("Map", match.map) -- (the client builds this stage)
 end
 
 -- Builds the rigs and starts a match whose slots and teams are set.
@@ -340,6 +343,7 @@ local function unseat(player)
 	player:SetAttribute("MatchId", 0)
 	player:SetAttribute("FighterSlot", 0)
 	player:SetAttribute("Mode", "")
+	player:SetAttribute("Map", "")
 	if player.Character == match.slots[i].model then player.Character = nil end
 	local anyone = false
 	for _, slot in match.slots do
@@ -369,7 +373,7 @@ end
 local function startSolo(player, request)
 	local client = clients[player]
 	local mode = request.mode
-	local match = newMatch(mode, { level = request.level })
+	local match = newMatch(mode, { level = request.level, map = request.map })
 	seat(match, 1, player)
 	local world = match.world
 	if mode == "TRAINING" then
@@ -436,7 +440,7 @@ function menuStatus(player)
 	menuRemote:FireClient(player, {
 		state = if client.match then "match" elseif client.queue then "queue" else "menu",
 		mode = client.match and client.match.mode or nil, queue = client.queue,
-		rating = profile.rating, rank = Matchmaker.rankName(profile.rating), hero = profile.hero,
+		rating = profile.rating, rank = Matchmaker.rankName(profile.rating), hero = profile.hero, language = profile.language,
 		nextRank = (function()
 			for _, r in Matchmaker.RANKS do
 				if r.min > profile.rating then return r.min end
@@ -462,9 +466,9 @@ local function hubStatus()
 		local client = player and clients[player]
 		entry.slot = if client and client.match then client.slot else 0
 		entry.where = if not client then "?"
-			elseif client.match then (if client.match.mode == "VERSUS" then "EN COMBAT" elseif client.match.mode == "TRAINING" then "ENTRAÎNEMENT"
-				elseif client.match.mode == "CHALLENGE" then "CONTRE ASURA" else "CONTRE LE CPU")
-			elseif client.queue then "RECHERCHE" else "AU MENU"
+			elseif client.match then (if client.match.mode == "VERSUS" then "IN A FIGHT" elseif client.match.mode == "TRAINING" then "TRAINING"
+				elseif client.match.mode == "CHALLENGE" then "VS ASURA" else "VS THE CPU")
+			elseif client.queue then "SEARCHING" else "IN THE MENU"
 	end
 	return list
 end
@@ -558,7 +562,7 @@ task.spawn(function()
 			end
 			model.Parent = folder
 		else
-			warn("[FightingGame] Aperçu de " .. name .. " impossible : " .. tostring(model))
+			warn("[FightingGame] Preview of " .. name .. " failed: " .. tostring(model))
 		end
 		task.wait()
 	end
@@ -656,6 +660,13 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			buildHero(player)
 			menuStatus(player)
 		end
+	elseif action == "language" then
+		-- SETTINGS › LANGUAGE, kept with the profile.
+		if (packet.language == "AUTO" or packet.language == "EN" or packet.language == "FR") and client.profile then
+			client.profile.language = packet.language
+			saveProfile(player, client)
+			menuStatus(player)
+		end
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
 		local request = GameModes.validate({ mode = "VERSUS_CPU", team = packet.team, level = 1 }, MoveData.KitOrder)
@@ -666,7 +677,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			if clients[player] then menuRemote:FireClient(player, { ranking = list }) end
 		end)
 	elseif action == "start" then
-		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder)
+		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder, Maps.BY_ID)
 		if not request then
 			menuRemote:FireClient(player, { error = reason })
 			return
@@ -858,8 +869,8 @@ local function roster(match)
 	for i, slot in match.slots do
 		local character = match.characters[i]
 		local name = if slot.owner then slot.owner.DisplayName
-			elseif match.mode == "TRAINING" then "MANNEQUIN · " .. DUMMY_MODES[match.dummyMode].name
-			elseif match.mode == "SURVIVAL" then "CPU · VAGUE " .. match.wave
+			elseif match.mode == "TRAINING" then "DUMMY · " .. DUMMY_MODES[match.dummyMode].name
+			elseif match.mode == "SURVIVAL" then "CPU · WAVE " .. match.wave
 			elseif match.mode == "CHALLENGE" then "ASURA · BOSS"
 			else "CPU · " .. (FighterAI.Levels[match.level or 1] or FighterAI.Levels[1]).name
 		list[i] = {
@@ -906,7 +917,7 @@ local function snapshot(match)
 			passiveLabel = Sim.passiveLabel(world, f), passiveOn = select(2, Sim.passiveLabel(world, f)), -- (third sheet)
 			chilled = f.chilled > 0 or nil, poisoned = f.poisonTicks > 0 or nil, tempo = f.tempo > 0 or nil,
 			wakeInvuln = f.wakeInvuln, -- (the body blinks while untouchable after getting up)
-			stance = f.stance, -- TARO: "CLASSIQUE" / "ESQUIVE"
+			stance = f.stance, -- TARO: "CLASSIC" / "PEEKABOO"
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",

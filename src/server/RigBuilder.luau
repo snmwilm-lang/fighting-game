@@ -1697,7 +1697,7 @@ local function describe(player)
 	if player.UserId > 0 then table.insert(ids, player.UserId) end
 	local appearance = player.CharacterAppearanceId
 	if appearance and appearance > 0 and appearance ~= player.UserId then table.insert(ids, appearance) end
-	if #ids == 0 then return nil, "joueur de test Studio (pas de compte Roblox)" end
+	if #ids == 0 then return nil, "Studio test player (no Roblox account)" end
 	local reason = "inconnue"
 	for _, id in ids do
 		for attempt = 1, 2 do
@@ -1748,7 +1748,7 @@ local function fromDescription(slot, description, label, rigType, data)
 	rigType = if rigType == "R6" then "R6" else "R15"
 	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, description, Enum.HumanoidRigType[rigType])
 	if not built or not model then
-		return nil, "création du corps " .. rigType .. " impossible : " .. tostring(model)
+		return nil, "body creation " .. rigType .. " failed: " .. tostring(model)
 	end
 	model.Name = "Fighter" .. slot
 	model:SetAttribute("Slot", slot)
@@ -1765,18 +1765,18 @@ local function fromDescription(slot, description, label, rigType, data)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if not root or not humanoid then
 		model:Destroy()
-		return nil, "corps sans HumanoidRootPart"
+		return nil, "body without HumanoidRootPart"
 	end
 	-- Joints the animation can drive (Motor6D), whatever Roblox built (see RigReader).
 	local rebuilt = RigReader.ensureJoints(model)
 	if rebuilt > 0 then
 		model:SetAttribute("JointsRebuilt", rebuilt)
-		print(string.format("[FightingGame] Avatar %s : %d articulations reconstruites en Motor6D", rigType, rebuilt))
+		print(string.format("[FightingGame] Avatar %s: %d joints rebuilt as Motor6D", rigType, rebuilt))
 	end
 	local complete, missing = hasJoints(model, rigType)
 	if not complete then
 		model:Destroy()
-		return nil, "articulation " .. tostring(missing) .. " absente"
+		return nil, "joint " .. tostring(missing) .. " missing"
 	end
 	root.Anchored, root.Transparency = true, 1
 	humanoid.AutoRotate, humanoid.EvaluateStateMachine = false, false
@@ -1790,7 +1790,7 @@ local function fromDescription(slot, description, label, rigType, data)
 		humanoid.AutomaticScalingEnabled = false
 		local factor = math.clamp(TARGET_HEIGHT / height, 0.6, 1.6)
 		local scaled, problem = pcall(function() model:ScaleTo(model:GetScale() * factor) end)
-		if not scaled then warn("[FightingGame] Mise à l'échelle de l'avatar impossible : " .. tostring(problem)) end
+		if not scaled then warn("[FightingGame] Avatar scaling failed: " .. tostring(problem)) end
 		skeleton = RigReader.skeleton(model)
 	end
 	model:SetAttribute("RootHeight", if skeleton then -skeleton.floor else humanoid.HipHeight + root.Size.Y / 2)
@@ -1820,7 +1820,7 @@ end
 	The player's own Roblox avatar, as an R15 or R6 body (rigType), wearing the kit. Never
 	gives up silently:
 	  avatar loaded                -> model, "OK"
-	  avatar unavailable           -> default body + kit, "DÉFAUT|<reason>"
+	  avatar unavailable           -> default body + kit, "DEFAULT|<reason>"
 	  avatar body cannot be built  -> retried without its accessories, then the default body
 	Returns nil only if even the default body fails (the server then uses the block model).
 ]]
@@ -1838,12 +1838,12 @@ function RigBuilder.buildAvatar(slot, player, rigType, data)
 			pcall(function() plain[field] = description[field] end)
 		end
 		model = fromDescription(slot, plain, "AVATAR", rigType, data)
-		if model then return model, "SANS ACCESSOIRES|" .. tostring(reason) end
+		if model then return model, "NO ACCESSORIES|" .. tostring(reason) end
 	end
-	warn("[FightingGame] Avatar indisponible pour " .. player.Name .. " : " .. tostring(reason))
-	local model, problem = fromDescription(slot, defaultDescription(slot, data), "DÉFAUT", rigType, data)
-	if model then return model, "DÉFAUT|" .. tostring(reason) end
-	return nil, "MODÈLE|" .. tostring(problem)
+	warn("[FightingGame] Avatar unavailable for " .. player.Name .. ": " .. tostring(reason))
+	local model, problem = fromDescription(slot, defaultDescription(slot, data), "DEFAULT", rigType, data)
+	if model then return model, "DEFAULT|" .. tostring(reason) end
+	return nil, "MODEL|" .. tostring(problem)
 end
 
 -- The CPU / training dummy: a shadow clone of the opponent's avatar (dark body, glowing
@@ -1860,8 +1860,8 @@ function RigBuilder.buildShadow(slot, player, rigType, data)
 	else
 		description = defaultDescription(slot, data)
 	end
-	local model = fromDescription(slot, description, if shadow then "OMBRE" else "DÉFAUT", rigType, data)
-	if not model and shadow then model = fromDescription(slot, defaultDescription(slot, data), "DÉFAUT", rigType, data) end
+	local model = fromDescription(slot, description, if shadow then "SHADOW" else "DEFAULT", rigType, data)
+	if not model and shadow then model = fromDescription(slot, defaultDescription(slot, data), "DEFAULT", rigType, data) end
 	if model and shadow then
 		local outline = model:FindFirstChild("InkOutline")
 		if outline then

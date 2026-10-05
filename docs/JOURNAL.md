@@ -1,5 +1,35 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.11 — 5 octobre 2026 · SHIN : UN VRAI KATANA, ET SON COURANT TRANCHANT (S + E)
+
+Wilhem : « SHIN : effet S + E et augmente la qualité de cette lame ».
+
+**Le katana** (`WeaponSpec.SHIN`, 4 pièces → 27) :
+- **Poignée** blanche tressée de cordon sombre en losanges croisés, deux ornements dorés, une bague (fuchi) et un **pommeau** doré.
+- **Tsuba** : disque de fer sombre cerclé d'or, avec sa rondelle.
+- **Habaki** doré à la base de la lame.
+- **Lame** : acier poli, arête plus sombre, dos clair, et la ligne de trempe qui brille de la couleur de ki le long du tranchant. Elle se **courbe vers le dos** jusqu'à une **pointe en angle** (kissaki).
+- Même longueur qu'avant (pointe à −3,86), donc même portée à l'écran. La portée de jeu ne change pas.
+- **Fourreau** : embouchure et bout dorés, nœud de cordon de la couleur de ki.
+- Les pièces d'arme acceptent maintenant une rotation (`rot`), lue par le RigBuilder, la retarget R6 (`AnimationController`) et les outils de test (`WeaponKit`).
+- Nouvel outil : `luau tests/WeaponCloseup.luau -a KIT` (gros plan d'une arme, 4 angles).
+
+**COURANT TRANCHANT (S + E)** (`SHOTS.slash`, client, cosmétique) : avant, deux barres. Maintenant :
+- un **croissant d'eau**, ventre en avant, épais au milieu et effilé en deux pointes ;
+- un cœur blanc lumineux, de l'eau (verre, reflets) autour, et son ki en halo autour de l'eau ;
+- une **brume** qui s'en échappe, des **images rémanentes** de son eau et des **gouttes** qui tombent ;
+- une **gerbe d'eau** là où il finit.
+- Effets réduits : pas de halo, moitié moins de brume et de traînées.
+
+Tests :
+- Animation 47 (nouveau : « SHIN's katana is a real katana »), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; `rigcheck` OK.
+- Cinematography 310, CinematicDirector 871 ; Kits relancée.
+- Kits pour la v0.23.9 : 130 OK. Celle de la v0.23.10 a été coupée par la limite de temps : elle est relancée ici.
+- Lame dans le corps (`WeaponClearance SHIN`) : 63 → 76 images sur 1 136. Les nouvelles pièces de la poignée et du tsuba frôlent le poignet et le torse dans quelques coups.
+
+À voir dans Studio : le katana de près (sélection, victoire) et le croissant d'eau en vol.
+Prochaine étape : les éventails de YUKINA, puis le poison de VENOM, les griffes de KAZAN, les bombes de SYLVA.
+
 ## Version 0.23.10 — 5 octobre 2026 · RAIJIN : LA LANCE SUR UNE ÉPAULE, POINTE EN ARRIÈRE (PLANCHE DE WILHEM)
 
 Wilhem (planche « IDLE / VUE AVANT / CÔTÉ / ARRIÈRE / MARCHE ») : « t'as pas compris, lance sur les épaules je veux dire ça », puis « la pointe de la lance peut être vers l'arrière pendant l'idle, regarde l'image ».

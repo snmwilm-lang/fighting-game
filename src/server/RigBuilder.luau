@@ -1509,8 +1509,12 @@ end
 function OUTFITS.SHIN(o)
 	o.weapon(WeaponSpec.SHIN)
 	local waist = o.size("LowerTorso")
-	o.piece("LowerTorso", "Sheath", Vector3.new(0.2, 0.24, 3.0), CFrame.new(-waist.X * 0.52, 0, waist.Z * 0.2)
-		* CFrame.Angles(math.rad(-20), math.rad(10), 0), INK)
+	local sheath = CFrame.new(-waist.X * 0.52, 0, waist.Z * 0.2) * CFrame.Angles(math.rad(-20), math.rad(10), 0)
+	o.piece("LowerTorso", "Sheath", Vector3.new(0.2, 0.24, 3.0), sheath, INK)
+	-- (its fittings: the gold mouth (koiguchi), the end cap (kojiri), the cord knot (sageo))
+	o.piece("LowerTorso", "SheathMouth", Vector3.new(0.24, 0.28, 0.14), sheath * CFrame.new(0, 0, -1.44), o.color("VestTrim")).Material = Enum.Material.Metal
+	o.piece("LowerTorso", "SheathEnd", Vector3.new(0.23, 0.27, 0.12), sheath * CFrame.new(0, 0, 1.46), o.color("VestTrim")).Material = Enum.Material.Metal
+	o.piece("LowerTorso", "SheathCord", Vector3.new(0.24, 0.1, 0.22), sheath * CFrame.new(0, 0.1, -1.1), o.energy)
 	if not o.block then
 		local head = o.size("Head")
 		o.piece("Head", "Collar", Vector3.new(head.X * 1.06, head.Y * 0.38, head.Z * 1.06), CFrame.new(0, -head.Y * 0.36, 0), o.main)
@@ -1778,7 +1782,7 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 			local partColor = if piece.color == "energy" then o.energy elseif piece.color == "trim" then color("VestTrim")
 				else Color3.fromHex(piece.color)
 			local p = o.piece(spec.hand, piece.name, Vector3.new(piece.size[1], piece.size[2], piece.size[3]),
-				grip * CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0), partColor, piece.shape and Enum.PartType[piece.shape])
+				grip * CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0) * CFrame.Angles(math.rad(piece.rot and piece.rot[1] or 0), math.rad(piece.rot and piece.rot[2] or 0), math.rad(piece.rot and piece.rot[3] or 0)), partColor, piece.shape and Enum.PartType[piece.shape])
 			if piece.material then p.Material = Enum.Material[piece.material] end
 		end
 	end

@@ -64,7 +64,8 @@ function AnimationController.new(model)
 							weld.Part0, weld.Part1, weld.C0 = arm, p, arm.CFrame:ToObjectSpace(p.CFrame)
 							weld.Parent = p
 							table.insert(self.weapons, { weld = weld, spec = held, arm = armName,
-								offset = CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0) })
+								offset = CFrame.new(piece.x or 0, piece.y or 0, piece.z or 0)
+									* CFrame.Angles(math.rad(piece.rot and piece.rot[1] or 0), math.rad(piece.rot and piece.rot[2] or 0), math.rad(piece.rot and piece.rot[3] or 0)) })
 						end
 					end
 				end

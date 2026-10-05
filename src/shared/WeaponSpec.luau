@@ -17,14 +17,44 @@ WeaponSpec.SHIN = {
 	-- An R6 arm has no wrist: there the blade carries on the line of the arm, so the arm's
 	-- swing is still the blade's arc.
 	r6Grip = { y = -0.3, z = -0.15, tilt = -78 },
+	-- (Wilhem: « augmente la qualité de cette lame »: a real katana, piece by piece. The grip's
+	-- -Z runs up the blade, its -Y is the cutting edge, +Y the back. `rot`: degrees around the
+	-- grip's X, Y, Z, after the offset.)
 	pieces = {
-		{ name = "Handle", size = { 0.18, 0.18, 0.9 }, z = 0.05, color = "0B0B0E" },
-		{ name = "Guard", size = { 0.5, 0.5, 0.08 }, z = -0.42, color = "trim", shape = "Cylinder" },
-		{ name = "Blade", size = { 0.08, 0.22, 3.4 }, z = -2.16, color = "D6DCE8", material = "Metal" },
-		{ name = "Edge", size = { 0.09, 0.05, 3.3 }, y = -0.12, z = -2.12, color = "energy", material = "Neon" },
+		-- the hilt: the pommel cap (kashira), the handle (tsuka) wrapped in crossed cord (ito)
+		-- over white ray skin (same), two ornaments (menuki) under the wrap
+		{ name = "Pommel", size = { 0.17, 0.21, 0.07 }, z = 0.36, color = "trim", material = "Metal" },
+		{ name = "Handle", size = { 0.16, 0.2, 0.7 }, z = -0.03, color = "E9E4D6" },
+		{ name = "Wrap2", size = { 0.17, 0.21, 0.08 }, z = 0.15, color = "141621" },
+		{ name = "Wrap3", size = { 0.17, 0.21, 0.08 }, z = 0.0, color = "141621" },
+		{ name = "Wrap4", size = { 0.17, 0.21, 0.08 }, z = -0.15, color = "141621" },
+		{ name = "WrapX1a", size = { 0.175, 0.03, 0.2 }, z = 0.21, rot = { 42, 0, 0 }, color = "141621" },
+		{ name = "WrapX1b", size = { 0.175, 0.03, 0.2 }, z = 0.21, rot = { -42, 0, 0 }, color = "141621" },
+		{ name = "WrapX2a", size = { 0.175, 0.03, 0.2 }, z = 0.075, rot = { 42, 0, 0 }, color = "141621" },
+		{ name = "WrapX2b", size = { 0.175, 0.03, 0.2 }, z = 0.075, rot = { -42, 0, 0 }, color = "141621" },
+		{ name = "WrapX3a", size = { 0.175, 0.03, 0.2 }, z = -0.075, rot = { 42, 0, 0 }, color = "141621" },
+		{ name = "WrapX3b", size = { 0.175, 0.03, 0.2 }, z = -0.075, rot = { -42, 0, 0 }, color = "141621" },
+		{ name = "Menuki", size = { 0.165, 0.05, 0.12 }, y = 0.1, z = 0.075, color = "trim", material = "Metal" },
+		{ name = "Fuchi", size = { 0.19, 0.23, 0.07 }, z = -0.31, color = "trim", material = "Metal" },
+		-- the guard (tsuba): a dark iron disc in a gold rim, its washers (seppa) either side
+		{ name = "GuardRim", size = { 0.05, 0.54, 0.54 }, z = -0.4, rot = { 0, 90, 0 }, color = "trim", shape = "Cylinder", material = "Metal" },
+		{ name = "Guard", size = { 0.08, 0.46, 0.46 }, z = -0.4, rot = { 0, 90, 0 }, color = "1C1C24", shape = "Cylinder", material = "Metal" },
+		{ name = "Seppa", size = { 0.04, 0.3, 0.3 }, z = -0.46, rot = { 0, 90, 0 }, color = "trim", shape = "Cylinder", material = "Metal" },
+		-- the blade collar (habaki), gold
+		{ name = "Habaki", size = { 0.12, 0.27, 0.18 }, y = -0.01, z = -0.56, color = "trim", material = "Metal" },
+		-- the blade: polished steel, its ridge line (shinogi) darker, its glowing temper line
+		-- (hamon, `Edge`) along the cutting edge; it curves back toward the tip (sori) and ends
+		-- in an angled point (kissaki)
+		{ name = "Blade", size = { 0.07, 0.24, 2.7 }, z = -1.97, color = "D6DCE8", material = "Metal" },
+		{ name = "Ridge", size = { 0.075, 0.035, 2.6 }, y = 0.055, z = -1.97, color = "8E97A8", material = "Metal" },
+		{ name = "BladeBack", size = { 0.078, 0.03, 2.7 }, y = 0.115, z = -1.97, color = "A9B1C0", material = "Metal" },
+		{ name = "Edge", size = { 0.08, 0.05, 2.65 }, y = -0.1, z = -1.97, color = "energy", material = "Neon" },
+		{ name = "BladeTip", size = { 0.07, 0.22, 0.42 }, y = 0.02, z = -3.51, rot = { 7, 0, 0 }, color = "D6DCE8", material = "Metal" },
+		{ name = "EdgeTip", size = { 0.08, 0.05, 0.4 }, y = -0.075, z = -3.5, rot = { 7, 0, 0 }, color = "energy", material = "Neon" },
+		{ name = "Kissaki", size = { 0.066, 0.16, 0.2 }, y = 0.06, z = -3.76, rot = { 32, 0, 0 }, color = "EEF2F8", material = "Metal" },
 	},
 	-- Along the grip's -Z: where the blade starts and ends (trails, tests).
-	base = -0.46, tip = -3.86,
+	base = -0.62, tip = -3.86,
 }
 
 WeaponSpec.DAICHA = {

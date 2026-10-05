@@ -1357,6 +1357,25 @@ T.test("DAICHA's matter looks alive: a corona, motes and a light that breathe at
 	expect(thrown.light == 0 and thrown.halo == 0 and thrown.sats == 0, "the thrown orb still shines in her hand")
 end)
 
+T.test("SHIN's katana is a real katana: guard, collar, wrapped hilt, a blade that curves back to an angled point", function()
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	local spec, by = WeaponSpec.SHIN, {}
+	for _, p in spec.pieces do by[p.name] = p end
+	for _, name in { "Pommel", "Handle", "Guard", "GuardRim", "Habaki", "Blade", "Ridge", "Edge", "BladeTip", "Kissaki" } do
+		expect(by[name] ~= nil, "SHIN's katana has no " .. name)
+	end
+	local wraps = 0
+	for name in by do if name:sub(1, 5) == "WrapX" then wraps += 1 end end
+	expect(wraps >= 4, "the hilt is not wrapped in crossed cord")
+	-- the guard sits between the hilt and the blade; the point ends where the blade ends
+	expect(by.Handle.z > by.Guard.z and by.Guard.z > by.Blade.z, "the guard is not between the hilt and the blade")
+	expect(math.abs(by.Kissaki.z - by.Kissaki.size[3] / 2 - spec.tip) < 0.15, "the point does not end at the tip")
+	-- the curve (sori): toward the point the blade rises to its back (+Y), more and more
+	expect((by.BladeTip.rot[1] or 0) > 0 and by.Kissaki.rot[1] > by.BladeTip.rot[1], "the blade does not curve back to its point")
+	-- the temper line glows along the cutting edge (-Y), the ridge sits above it
+	expect(by.Edge.y < 0 and by.Ridge.y > 0 and by.Edge.color == "energy", "the edge / ridge are not where a katana has them")
+end)
+
 T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()
 	local WeaponFX = require("../src/shared/WeaponFX")
 	local WeaponSpec = require("../src/shared/WeaponSpec")

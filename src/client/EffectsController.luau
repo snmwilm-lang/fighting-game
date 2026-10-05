@@ -1927,11 +1927,39 @@ function SHOTS.wave(self, color, accent, scale)
 	end
 	return { pieces = list, ghost = "crack" }
 end
+-- SHIN's COURANT TRANCHANT (S + E): a crescent of water cut off his blade, its belly forward,
+-- thick in the middle and thinning to two points: a white core, the water around it (glass),
+-- his ki around that; it sheds mist, after-images of its water and droplets that fall.
 function SHOTS.slash(self, color, accent, scale)
-	local list = {}
-	piece(self, list, Vector3.new(0.12, 2.8, 0.12), CFrame.identity, WHITE)
-	piece(self, list, Vector3.new(0.5, 3, 0.4), CFrame.identity, color, nil, nil, 0.25)
-	return { pieces = list, ghost = "streak" }
+	local list, after = {}, {}
+	local R, n = 1.75 * scale, 4
+	local function arc(i, width, depth, lengthScale, partColor, material, transparency)
+		local a = i / n * 1.05
+		local w = width * (1 - math.abs(i) / (n + 1.2))
+		local at = CFrame.new(math.cos(a) * R - R + 0.35, math.sin(a) * R, 0) * CFrame.Angles(0, 0, a)
+		return piece(self, list, Vector3.new(w, R * 1.05 / n * lengthScale, depth), at, partColor, nil, material, transparency)
+	end
+	-- (the middle of the core first: it carries the light and the mist)
+	local core = arc(0, 0.16, 0.1, 1.15, WHITE, Enum.Material.Neon)
+	local mist = Instance.new("ParticleEmitter")
+	mist.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	mist.Color, mist.LightEmission = ColorSequence.new(accent, color), 0.5
+	mist.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 2.2) })
+	mist.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	mist.Lifetime, mist.Speed, mist.Rate = NumberRange.new(0.25, 0.45), NumberRange.new(0.5, 1.5), if self.reduced then 12 else 30
+	mist.SpreadAngle, mist.Parent = Vector2.new(180, 180), core
+	for i = -n, n do
+		if i ~= 0 then arc(i, 0.16, 0.1, 1.15, WHITE, Enum.Material.Neon) end
+	end
+	for i = -n, n do
+		local water = arc(i, 0.5, 0.3, 1.12, accent, Enum.Material.Glass, 0.3)
+		if i % 2 == 0 then table.insert(after, list[#list]) end
+		water.Reflectance = 0.2
+	end
+	if not self.reduced then
+		for i = -n + 1, n - 1 do arc(i, 0.85, 0.5, 1.2, color, Enum.Material.ForceField, 0) end
+	end
+	return { pieces = list, ghost = "current", after = after }
 end
 function SHOTS.sphere(self, color, accent, scale)
 	local list = {}
@@ -2036,6 +2064,7 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		visual.dir = if p.vx and p.vx ~= 0 then dir else (visual.dir or 1)
 		local y = if visual.flat then 0.15 elseif visual.hover then p.y + math.sin(now * 6) * 0.15 else p.y
 		local position = Vector3.new(p.x + (p.vx or 0) * ahead, y, if visual.flat then self.config.PlaneZ else 0.4)
+		visual.at = position
 		local base = CFrame.new(position) * (if visual.dir < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
 		local turn = if visual.roll then CFrame.Angles(visual.roll * now, 0, 0) else CFrame.identity
 		local spin = if visual.spin then CFrame.Angles(0, 0, now * visual.spin) else CFrame.identity
@@ -2069,6 +2098,17 @@ function EffectsController:updateProjectiles(list, ahead, now)
 				local seg = self:part(Vector3.new(0.9, 0.05, 0.3), CFrame.new(floor), visual.color)
 				tween(seg, 0.8, { Transparency = 1 })
 				Debris:AddItem(seg, 0.85)
+			elseif visual.ghost == "current" then
+				-- (SHIN's crescent: its water left behind a moment, and droplets falling off it)
+				for _, entry in visual.after do
+					local ghost = self:part(entry.part.Size, entry.part.CFrame, visual.accent)
+					ghost.Material, ghost.Transparency = Enum.Material.Glass, 0.55
+					tween(ghost, 0.22, { Transparency = 1, Size = entry.part.Size * Vector3.new(0.3, 1, 0.3) })
+					Debris:AddItem(ghost, 0.24)
+				end
+				if math.random() < 0.4 then
+					self:drops(position + Vector3.new(-visual.dir * 0.6, (math.random() - 0.5) * 2.4, 0), visual.accent, 1, 0.8, 3)
+				end
 			elseif visual.ghost == "drip" then
 				if math.random() < 0.35 then self:drops(position, visual.accent, 1, 0.8, 2) end
 			end
@@ -2076,6 +2116,8 @@ function EffectsController:updateProjectiles(list, ahead, now)
 	end
 	for id, visual in self.projectiles do
 		if not alive[id] then
+			-- (SHIN's crescent bursts into spray where it ends)
+			if visual.ghost == "current" and visual.at then self:drops(visual.at, visual.accent, 7, 1, 10) end
 			for _, entry in visual.pieces do entry.part:Destroy() end
 			self.projectiles[id] = nil
 		end

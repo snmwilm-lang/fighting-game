@@ -106,7 +106,8 @@ function WeaponKit.pieces(kit, parts, energy, flight, which)
 		grip = K.translation(at[1], at[2], at[3])
 	end
 	for _, p in spec.pieces do
-		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(p.x or 0, p.y or 0, p.z or 0)),
+		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(K.mul(grip, K.translation(p.x or 0, p.y or 0, p.z or 0)),
+			K.angles(math.rad(p.rot and p.rot[1] or 0), math.rad(p.rot and p.rot[2] or 0), math.rad(p.rot and p.rot[3] or 0))),
 			size = if scale == 1 then p.size else { p.size[1] * scale, p.size[2] * scale, p.size[3] * scale },
 			color = if p.color == "energy" then energy or "8FD8FF" elseif p.color == "trim" then "C9A227" else p.color })
 	end

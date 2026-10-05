@@ -1,5 +1,39 @@
 # Journal du projet — état à transmettre
 
+## Version 0.19.0 — 5 octobre 2026 · CLASSEMENTS, ANTI-FARM, TESTEURS, MOBILE, MENUS
+
+Réponses de Wilhem : deux classements (de tous les temps + de la semaine), pas de plafond de
+pièces mais un anti-triche plus fort, 3 persos au choix pour les anciens testeurs, l'UI de
+combat trop grande sur mobile, une touche manette vraiment libre pour quitter, la liste 9-15
+du brief et une passe visuelle.
+
+**Deux classements** (`Champions.luau`, serveur, menu) : DE TOUS LES TEMPS (l'Elo, inchangé) et DE LA SEMAINE (points des matchs en ligne comptés par l'anti-farm : victoire 3, nul 1, défaite 0, multipliés par la part anti-farm ; un nouveau magasin ordonné chaque semaine `JeuxCombat_Semaine_<semaine>`, donc remis à zéro chaque lundi 0 h UTC). Le champion de la semaine est le premier du classement DE LA SEMAINE écoulée (au moins 1 point). Page CLASSEMENT : onglets DE TOUS LES TEMPS / DE LA SEMAINE / HISTORIQUE.
+
+**Pièces sans plafond, anti-farm renforcé** (`AntiCheat.luau`) : plus de plafond quotidien (le total du jour reste compté dans le profil, pour voir). Nouveau : le serveur compte les vraies actions de chaque joueur pendant le match (coups, sauts, dashs, changements de direction ; tenir une touche compte une fois). Moins de 20 actions d'un côté (compte AFK qui se laisse battre, bot immobile) : le match ne rapporte rien, ni pièces ni points, aux DEUX. Restent : moins de 25 s = rien, même adversaire répété ×0,25 puis 0.
+
+**Matchs nuls** : ils existent mais sont rares (double K.O., ou temps écoulé à vie égale) : 100 pièces.
+
+**Anciens testeurs** (`Economy.giveTesterPicks / claimFighter`) : un profil sauvegardé avant la vente des persos reçoit 3 persos gratuits à choisir, une seule fois (bouton GRATUIT (n RESTANT(S)) sur un perso verrouillé, avec confirmation). Un nouveau joueur n'en a pas.
+
+**Mobile et manette** :
+- HUD de combat : tout le HUD est dessiné sur un canevas mis à l'échelle de l'écran (taille normale dès 720 px de haut, ~0,5 sur un téléphone) : il ne remplit plus l'écran ;
+- boutons tactiles (stick, attaques) à l'échelle aussi (~0,62 sur un téléphone, assez grands pour le pouce) ;
+- manette : MAINTENIR L3 (clic du stick gauche, seule touche libre) une seconde pour quitter un combat, une jauge se remplit ; écrit dans l'aide des touches.
+
+**Liste 9-15 du brief** (menu) :
+- NOTIFICATIONS : une cloche à côté du profil, avec le nombre non lu ; récompenses, quêtes, déblocages, achats, champion, revanche y restent (les 20 derniers) ;
+- ENCYCLOPÉDIE : bouton 📖 COUPS de la page PERSONNAGES : description, passif, forces / faiblesses, vie et vitesse, chaque coup (rôle, nom, dégâts, démarrage en images) et les ultimes, tirés des vraies données ;
+- FILE D'ATTENTE : la recherche dit où elle cherche (ce serveur, tous les serveurs, rangs élargis) et donne une astuce toutes les 6 s ;
+- HISTORIQUE ET REVANCHE : les 10 derniers matchs sauvegardés dans le profil (mode, persos, adversaire, résultat, pièces, points, date) dans CLASSEMENT › HISTORIQUE ; REVANCHE défie le dernier adversaire en ligne s'il est encore sur le serveur (il accepte dans sa bannière), aussi en bouton après un match en ligne ;
+- CARTE DE JOUEUR : un clic sur son profil : titre, rang, points de la semaine, V / D et taux, favori, persos possédés, succès et quêtes, meilleure survie, pièces ;
+- CENTRE DES NOUVEAUTÉS : un clic sur une tuile NOUVEAUTÉS ouvre les articles (la mise à jour économie / quêtes / semaine en tête).
+
+**Passe visuelle** : vignette sombre aux bords de l'écran en combat, bande sombre derrière la barre du haut (vie lisible sur les arènes claires), reflet sur les barres de vie, ligne technique (version, FPS, ping) seulement en entraînement ou outils ouverts ; arènes un peu plus contrastées, bloom adouci sur téléphone.
+
+Tests : Lobby 31 (nouveaux : classement de la semaine, testeurs, anti-farm AFK, pièces sans plafond, textes en français).
+
+Problèmes ouverts : rien vérifié dans Roblox Studio ; le classement de la semaine et le champion ne marchent que dans le jeu publié (DataStore).
+
 ## Version 0.18.1 — 5 octobre 2026
 
 Même contenu que la 0.18.0 avec ses deux correctifs (accès développeur dans Studio, onglets du

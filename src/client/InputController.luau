@@ -136,6 +136,19 @@ function InputController.start(remote)
 	local controls = Instance.new("Frame")
 	controls.Name, controls.Size, controls.BackgroundTransparency = "Controls", UDim2.fromScale(1, 1), 1
 	controls.Parent = gui
+	-- (scaled to the screen: on a phone the pad and the buttons took half of it; still big
+	-- enough for a thumb)
+	local controlsScale = Instance.new("UIScale")
+	controlsScale.Parent = controls
+	local function fitControls()
+		local height = gui.AbsoluteSize.Y
+		if height <= 0 then return end
+		local scale = math.clamp(height / 620, 0.62, 1)
+		controlsScale.Scale = scale
+		controls.Size = UDim2.fromScale(1 / scale, 1 / scale)
+	end
+	fitControls()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitControls)
 	local function circle(name, size, position, text, color)
 		local b = Instance.new("TextButton")
 		b.Name, b.Size, b.Position = name, UDim2.fromOffset(size, size), position

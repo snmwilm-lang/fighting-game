@@ -411,8 +411,11 @@ local function lighting(map)
 		e.Parent = Lighting
 		return e
 	end
-	effect("ColorCorrectionEffect", "ArenaGrade", { Contrast = l.contrast, Saturation = l.saturation, TintColor = hex(l.tint) })
-	effect("BloomEffect", "ArenaBloom", { Intensity = l.bloom, Size = 28, Threshold = 1.25 })
+	effect("ColorCorrectionEffect", "ArenaGrade", { Contrast = l.contrast + 0.04, Saturation = l.saturation, TintColor = hex(l.tint) })
+	-- (VISUAL PASS: a touch more contrast; the bloom softer on phones, where it washed the
+	-- small screen out)
+	local phone = game:GetService("UserInputService").TouchEnabled and not game:GetService("UserInputService").KeyboardEnabled
+	effect("BloomEffect", "ArenaBloom", { Intensity = l.bloom * (if phone then 0.6 else 1), Size = 28, Threshold = 1.25 })
 	effect("SunRaysEffect", "ArenaSunRays", { Intensity = 0.05, Spread = 0.55 })
 	effect("Atmosphere", "ArenaAtmosphere", { Density = l.density, Offset = 0.1, Color = hex(l.atmosphere), Decay = hex(l.decay), Glare = 0.4,
 		Haze = l.haze })

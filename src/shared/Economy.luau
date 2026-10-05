@@ -67,6 +67,29 @@ function Economy.buyFighter(profile, kit, roster)
 	return true
 end
 
+-- THE TESTERS (Wilhem): a profile saved before the fighters were sold gets TESTER_PICKS free
+-- picks, once: any locked fighters of their choice (profile.freePicks, given by the server when
+-- it loads an old profile). Returns true, or false and why: "unknown", "owned", "picks".
+Economy.TESTER_PICKS = 3
+function Economy.claimFighter(profile, kit, roster)
+	if type(profile) ~= "table" or type(kit) ~= "string" or not table.find(roster, kit) then return false, "unknown" end
+	if Economy.owns(profile, kit) then return false, "owned" end
+	local picks = tonumber(profile.freePicks) or 0
+	if picks < 1 then return false, "picks" end
+	if type(profile.ownedKits) ~= "table" then profile.ownedKits = {} end
+	profile.freePicks = picks - 1
+	profile.ownedKits[kit] = true
+	return true
+end
+
+-- Gives the testers' picks to a profile loaded from an old save (one without ownedKits), once.
+function Economy.giveTesterPicks(profile, saved)
+	if type(saved) ~= "table" or type(saved.ownedKits) == "table" or saved.picksGiven then return false end
+	profile.freePicks = Economy.TESTER_PICKS
+	profile.picksGiven = true
+	return true
+end
+
 -- The coins of a PvP result before the anti-farm share and the daily cap: "win", "loss",
 -- "draw"; a player who left the match ("left") gets nothing.
 function Economy.pvpCoins(result)

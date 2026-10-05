@@ -112,6 +112,26 @@ hud.onMenu = menu:bindLeave()
 game:GetService("UserInputService").InputBegan:Connect(function(key, processed)
 	if not processed and key.KeyCode == Enum.KeyCode.P and (player:GetAttribute("MatchId") or 0) ~= 0 then menu:leave() end
 end)
+-- Gamepad: HOLD L3 (left stick pressed, a key the fight does not use) one second to leave a
+-- match; a bar fills meanwhile (no leaving a RANKED match by accident).
+do
+	local UIS = game:GetService("UserInputService")
+	local holding = nil
+	UIS.InputBegan:Connect(function(key)
+		if key.KeyCode == Enum.KeyCode.ButtonL3 and (player:GetAttribute("MatchId") or 0) ~= 0 then holding = os.clock() end
+	end)
+	UIS.InputEnded:Connect(function(key)
+		if key.KeyCode == Enum.KeyCode.ButtonL3 then holding = nil end
+	end)
+	game:GetService("RunService").RenderStepped:Connect(function()
+		local progress = if holding then math.clamp((os.clock() - holding) / 1, 0, 1) else 0
+		hud:setLeaveProgress(progress)
+		if progress >= 1 then
+			holding = nil
+			menu:leave()
+		end
+	end)
+end
 hud.onReset = input.reset
 hud.onDummy = input.toggleDummy
 hud.onMouseLock = input.toggleMouseLock

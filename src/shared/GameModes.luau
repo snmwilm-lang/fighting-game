@@ -181,6 +181,21 @@ function GameModes.addCoins(profile, kind, count)
 	profile.coins = math.max(0, (tonumber(profile.coins) or 0) + gain)
 	return gain
 end
+-- MATCH HISTORY: the last HISTORY_SIZE matches of a profile, newest first. `entry`: { t = time,
+-- mode, queue, opp (the opponent's name or "CPU"), oppKit, kit, r = "W" / "L" / "D", coins,
+-- delta (rating) }. Only plain values (kept by the DataStore).
+GameModes.HISTORY_SIZE = 10
+function GameModes.addHistory(profile, entry)
+	if type(profile.history) ~= "table" then profile.history = {} end
+	local clean = {}
+	for k, v in entry do
+		if type(v) == "string" or type(v) == "number" then clean[k] = if type(v) == "string" then string.sub(v, 1, 40) else v end
+	end
+	table.insert(profile.history, 1, clean)
+	while #profile.history > GameModes.HISTORY_SIZE do table.remove(profile.history) end
+	return profile.history
+end
+
 function GameModes.wallet(status)
 	local _, done = GameModes.achievements(status)
 	return { coins = tonumber(status and status.coins) or 0, crystals = done * GameModes.CRYSTALS_PER_ACHIEVEMENT,

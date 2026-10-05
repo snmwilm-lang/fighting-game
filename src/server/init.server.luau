@@ -92,6 +92,9 @@ local function defaultProfile()
 		equipped = {}, -- the style worn with each fighter (kit -> style name)
 		quests = {}, -- QUESTS: the counters and the quests rewarded (Quests)
 		titles = {}, championWeeks = {}, -- the titles owned (challenges, champion of the week)
+		weekId = 0, weekPoints = 0, -- WEEKLY ranking: the points of the week (Champions)
+		freePicks = 0, picksGiven = false, -- the testers' free fighters (Economy.giveTesterPicks)
+		history = {}, -- MATCH HISTORY: the last 10 matches (GameModes.addHistory)
 		devOff = false, -- (developer access only: switched off to play as a new player)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
@@ -161,6 +164,10 @@ local function loadProfile(player, client)
 				client.profile.taunts = Taunts.sanitize(client.profile.taunts, client.profile)
 				-- (a challenge title won before the titles list: kept in it)
 				local p = client.profile
+				-- (a tester's profile, saved before the fighters were sold: 3 free picks, once)
+				if Economy.giveTesterPicks(p, data) then
+					print("[FightingGame] " .. player.Name .. ": tester profile, " .. Economy.TESTER_PICKS .. " free fighters to pick")
+				end
 				if p.title ~= "" and not table.find(p.titles, p.title) then table.insert(p.titles, p.title) end
 				-- (a favourite that is not playable any more, a locked fighter: KAI, free, instead)
 				if not Economy.canPlay(p, p.hero, "VERSUS", devOn(player, client)) then p.hero = "KAI" end
@@ -186,6 +193,17 @@ do
 	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Classement_v1")
 	if ok then board = result end
 end
+-- WEEKLY ranking: one ordered store per week (it starts from zero every Monday).
+local weeklyBoards = {}
+local function weeklyBoard(week)
+	if not store then return nil end
+	if weeklyBoards[week] == nil then
+		local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Semaine_" .. week)
+		weeklyBoards[week] = if ok then result else false
+	end
+	return weeklyBoards[week] or nil
+end
+local weeklyWritten = {} -- user id -> "week:points" last written (only changes are written)
 -- One write of a profile (UpdateAsync, safe if another server touched it), then the board
 -- only when the rating changed. Yields: called in its own thread.
 local function writeProfile(player, client, release)
@@ -212,6 +230,14 @@ local function writeProfile(player, client, release)
 	local data = profile
 	local rating = math.floor(data.rating)
 	if board and SaveQueue.boardChanged(saves, id, rating) then pcall(board.SetAsync, board, tostring(id), rating) end
+	-- (and the weekly ranking, when the points of the week changed)
+	local week = Champions.week(os.time())
+	local points = Champions.pointsOf(data, week)
+	local key = week .. ":" .. points
+	if points > 0 and weeklyWritten[id] ~= key then
+		local weekly = weeklyBoard(week)
+		if weekly and pcall(weekly.SetAsync, weekly, tostring(id), points) then weeklyWritten[id] = key end
+	end
 	return true
 end
 -- A change to keep: written by the next flush (urgent: now, when leaving or closing).
@@ -252,6 +278,32 @@ local function topRatings()
 		end
 	end
 	boardCache, boardAt = list, os.clock()
+	return list
+end
+
+-- The WEEKLY ranking (the points of this week), cached a minute like the other one.
+local weeklyCache, weeklyAt, weeklyOf = nil, -math.huge, nil
+local function topWeekly()
+	local week = Champions.week(os.time())
+	if weeklyCache and weeklyOf == week and os.clock() - weeklyAt < 60 then return weeklyCache end
+	local list = {}
+	local weekly = weeklyBoard(week)
+	if weekly then
+		local ok, pages = pcall(weekly.GetSortedAsync, weekly, false, 10)
+		if ok and pages then
+			for rank, entry in pages:GetCurrentPage() do
+				local id = tonumber(entry.key)
+				local name = id and nameCache[id]
+				if id and not name then
+					local okName, value = pcall(Players.GetNameFromUserIdAsync, Players, id)
+					name = if okName then value else "#" .. entry.key
+					nameCache[id] = name
+				end
+				table.insert(list, { rank = rank, name = name or "?", rating = entry.value, title = "PTS" })
+			end
+		end
+	end
+	weeklyCache, weeklyAt, weeklyOf = list, os.clock(), week
 	return list
 end
 
@@ -558,8 +610,9 @@ function endVersus(match, winnerSlot, leftSlot)
 	-- ANTI-CHEAT (farming): a match too short, or the same two players again and again,
 	-- pays less or nothing; the coins have a daily cap (AntiCheat).
 	local seconds, now = match.world.tick / Config.TickRate, os.time()
-	local shareA = AntiCheat.share(ca.profile, b.UserId, seconds, now)
-	local shareB = AntiCheat.share(cb.profile, a.UserId, seconds, now)
+	local actionsA, actionsB = match.slots[1].actions or 0, match.slots[2].actions or 0
+	local shareA = AntiCheat.share(ca.profile, b.UserId, seconds, now, actionsA, actionsB)
+	local shareB = AntiCheat.share(cb.profile, a.UserId, seconds, now, actionsB, actionsA)
 	local share = math.min(shareA.rating, shareB.rating) -- (the rating stays a zero-sum)
 	AntiCheat.record(ca.profile, b.UserId, now)
 	AntiCheat.record(cb.profile, a.UserId, now)
@@ -579,6 +632,15 @@ function endVersus(match, winnerSlot, leftSlot)
 		return gain
 	end
 	local gains = { pay(ca.profile, 1, shareA.coins), pay(cb.profile, 2, shareB.coins) }
+	-- WEEKLY ranking: the points of the week (a real match only; nothing for the one who left)
+	if share > 0 then
+		local week = Champions.week(now)
+		for slot, client in { ca, cb } do
+			if slot ~= leftSlot then
+				Champions.addPoints(client.profile, week, if winnerSlot == slot then "win" elseif winnerSlot == 0 then "draw" else "loss", share)
+			end
+		end
+	end
 	-- QUESTS: a real match (counted by the anti-farm) moves them; never the one who left.
 	if share > 0 then
 		for slot, client in { ca, cb } do
@@ -597,6 +659,15 @@ function endVersus(match, winnerSlot, leftSlot)
 		cb.profile.rating = AntiCheat.scaleRating(before[2], newB, share)
 		GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
 		GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
+	end
+	-- MATCH HISTORY (both, the one who left too) and the REMATCH's opponent
+	for i, player in { a, b } do
+		local client, other = clients[player], (if i == 1 then b else a)
+		local world = match.world
+		GameModes.addHistory(client.profile, { t = now, mode = "VERSUS", queue = match.queue or "NORMAL", opp = other.DisplayName,
+			oppKit = world.kits[3 - i], kit = world.kits[i], r = if winnerSlot == i then "W" elseif winnerSlot == 0 then "D" else "L",
+			coins = gains[i], delta = client.profile.rating - before[i] })
+		client.lastOpponent = other.UserId
 	end
 	for i, player in { a, b } do
 		local client = clients[player]
@@ -633,13 +704,15 @@ function menuStatus(player, bought, unlocked)
 				optTaunts = profile.optTaunts, tauntKey = profile.tauntKey } else nil,
 		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
 		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
-		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {},
+		history = profile.history or {}, rematch = client.lastOpponent ~= nil and Players:GetPlayerByUserId(client.lastOpponent) ~= nil,
+		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {}, freePicks = profile.freePicks or 0,
 		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
 		isDev = isDev(player), dev = devOn(player, client),
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
 		shinGrade = profile.shinGrade,
+		weekPoints = Champions.pointsOf(profile, Champions.week(os.time())),
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
 			local n = 0
@@ -649,8 +722,8 @@ function menuStatus(player, bought, unlocked)
 	})
 end
 
--- CHAMPION OF THE WEEK (Champions): the existing ranking is untouched; at each new week
--- (Monday 00:00 UTC) the player first on it becomes the champion of the week that ended,
+-- CHAMPION OF THE WEEK (Champions): at each new week (Monday 00:00 UTC) the player first on
+-- the WEEKLY ranking of the week that ended becomes its champion,
 -- written once in a shared history (UpdateAsync: one write per week whatever the servers).
 -- The champion gets the title WEEKLY CHAMPION (not for sale), here or when they next join.
 local championStore = nil
@@ -672,10 +745,11 @@ task.spawn(function()
 		if okRead and type(history) == "table" then championHistory = history end
 		local week = Champions.week(os.time())
 		local last = championHistory[#championHistory]
-		if board and (not last or last.week < week - 1) then
-			local okTop, pages = pcall(board.GetSortedAsync, board, false, 1)
+		local ended = weeklyBoard(week - 1)
+		if ended and (not last or last.week < week - 1) then
+			local okTop, pages = pcall(ended.GetSortedAsync, ended, false, 1)
 			local top = okTop and pages and pages:GetCurrentPage()[1]
-			local id = top and tonumber(top.key)
+			local id = top and (tonumber(top.value) or 0) > 0 and tonumber(top.key)
 			if id then
 				local okName, name = pcall(Players.GetNameFromUserIdAsync, Players, id)
 				local champion = { id = id, name = if okName then name else "#" .. id, rating = top.value }
@@ -1070,7 +1144,7 @@ end)
 -- { action = "start", request = { mode, team, level, queue } } · { action = "cancel" } (leave
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
-	start = true, cancel = true, leave = true, taunts = true, buySkin = true, buyFighter = true, equip = true, title = true,
+	start = true, cancel = true, leave = true, taunts = true, buySkin = true, buyFighter = true, claimFighter = true, rematch = true, equip = true, title = true,
 	devMode = true, preview = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
@@ -1153,6 +1227,28 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 					elseif why == "owned" then "ALREADY OWNED" else "FIGHTER NOT FOR SALE" })
 			end
 		end
+	elseif action == "claimFighter" then
+		-- A tester's free pick (Economy.claimFighter: only with picks left, kept forever).
+		if typeof(packet.kit) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+			local ok = Economy.claimFighter(client.profile, packet.kit, MoveData.KitOrder)
+			if ok then
+				saveProfile(player, client, true)
+				menuStatus(player, nil, packet.kit)
+			else
+				menuRemote:FireClient(player, { error = "NO FREE PICK LEFT" })
+			end
+		end
+	elseif action == "rematch" then
+		-- REMATCH: a challenge to the last online opponent, if still on this server (they
+		-- ACCEPT in their banner, like any challenge).
+		local target = client.lastOpponent and Players:GetPlayerByUserId(client.lastOpponent)
+		if target and clients[target] and Lobby.challenge(lobby, player.UserId, target.UserId, now) then
+			broadcastHub(true)
+			menuRemote:FireClient(player, { rematchSent = target.DisplayName })
+		else
+			menuRemote:FireClient(player, { error = "YOUR OPPONENT IS NOT ON THIS SERVER ANY MORE" })
+		end
 	elseif action == "equip" then
 		-- The style worn with a fighter (only one the player may wear; cosmetic only).
 		local style = typeof(packet.skin) == "string" and CharacterData.Skins[packet.skin]
@@ -1187,9 +1283,11 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		local request = GameModes.validate({ mode = "VERSUS_CPU", team = packet.team, level = 1 }, MoveData.KitOrder)
 		if request and Economy.teamAllowed(client.profile, request.team, "VERSUS", devOn(player, client)) then client.team = request.team end
 	elseif action == "ranking" then
+		-- ALL TIME (the rating) or WEEKLY (the points of the week)
+		local weekly = packet.board == "weekly"
 		task.spawn(function()
-			local list = topRatings()
-			if clients[player] then menuRemote:FireClient(player, { ranking = list }) end
+			local list = if weekly then topWeekly() else topRatings()
+			if clients[player] then menuRemote:FireClient(player, { ranking = list, board = if weekly then "weekly" else "all" }) end
 		end)
 	elseif action == "start" then
 		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder, Maps.BY_ID)
@@ -1384,6 +1482,12 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		if not match.slots[3 - client.slot].owner then rebuildSlot(match, 3 - client.slot) end
 	end
 	local input = slot.input
+	-- (ANTI-FARM: the player's real actions in this match: attacks, jumps, dashes, a change of
+	-- direction; holding a key counts once)
+	local acted = #packet.presses > 0 or packet.jump or packet.dash or packet.axis ~= (slot.lastAxis or 0)
+		or packet.block ~= (slot.lastBlock or false)
+	if acted then slot.actions = (slot.actions or 0) + 1 end
+	slot.lastAxis, slot.lastBlock = packet.axis, packet.block
 	input.axis, input.crouch, input.block = packet.axis, packet.crouch, packet.block
 	-- Pulses stay set until the next simulation tick consumes them.
 	input.jump = input.jump or packet.jump
@@ -1549,6 +1653,8 @@ local function followEvents(match, events)
 				local client = clients[owner]
 				local team = world.teams and world.teams[1]
 				Quests.record(client.profile, { won = event.winner == 1, pvp = false, kits = if team then team.kits else { world.kits[1] } })
+				GameModes.addHistory(client.profile, { t = os.time(), mode = match.mode, opp = "CPU", oppKit = world.kits[2], kit = world.kits[1],
+					r = if event.winner == 1 then "W" elseif event.winner == 0 then "D" else "L" })
 				local gifts = Quests.grant(client.profile)
 				saveProfile(owner, client, #gifts > 0)
 				if #gifts > 0 then menuRemote:FireClient(owner, { questGifts = gifts }) end

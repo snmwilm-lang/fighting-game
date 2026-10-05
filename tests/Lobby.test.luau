@@ -508,11 +508,14 @@ test("anti-cheat: forged packets kick, a real player never does; no farming (sho
 	local n = 0
 	for _ in profile.recentOpp do n += 1 end
 	expect(n <= AC.RECENT_LIMIT, "the opponent list grows without end")
-	-- daily coin cap
+	-- no daily cap (Wilhem): every real match pays, the day's total is only counted
 	local p2 = {}
 	local got = 0
-	for _ = 1, 100 do got += AC.capCoins(p2, 40, time) end
-	expect(got == AC.DAILY_COINS and AC.capCoins(p2, 40, time + 86400) == 40, "the daily coin cap is wrong")
+	for _ = 1, 100 do got += AC.capCoins(p2, 150, time) end
+	expect(got == 15000 and p2.coinToday == 15000 and AC.capCoins(p2, -5, time) == 0, "coins are capped (or go negative)")
+	-- both must really play: an AFK alt (or a still bot) pays nothing, to either side
+	expect(AC.share({}, 7, 90, time, 300, 3).coins == 0 and AC.share({}, 7, 90, time, 2, 300).rating == 0, "an idle player's match pays")
+	expect(AC.share({}, 7, 90, time, 300, 250).coins == 1, "a real match is punished")
 	expect(AC.scaleRating(1000, 1016, 0.25) == 1004 and AC.scaleRating(1000, 984, 0.25) == 996, "the rating share is wrong")
 end)
 
@@ -591,7 +594,18 @@ test("economy, styles, quests and titles: every new menu line reads in French", 
 		"3 / 8 DONE", "DONE", "TITLE SHOWN", "DEVELOPER ACCESS", "NONE YET", "HIDDEN", "ON · ALL FIGHTERS", "OFF · NEW PLAYER",
 		"ACHIEVEMENTS · QUESTS · YOUR PROGRESS", "NOT POSSIBLE: FIGHTER LOCKED: SHIN (TRAINING ONLY)", "NOT POSSIBLE: THIS STYLE IS A QUEST REWARD",
 		"NOT POSSIBLE: ALREADY OWNED", "NOT POSSIBLE: FIGHTER NOT FOR SALE", "WEEKLY CHAMPION", "CANCEL",
-		"⚙ TOOLS ▾", "⚙ TOOLS ▴", "FIGHTER", "TRAINING", "DISPLAY" }
+		"⚙ TOOLS ▾", "⚙ TOOLS ▴", "FIGHTER", "TRAINING", "DISPLAY",
+		"ALL TIME", "WEEKLY", "TAKE FREE (2 LEFT)", "TAKE", "HOLD L3 TO LEAVE",
+		"NOTIFICATIONS", "Nothing yet: rewards, quests, unlocks and challenges show up here.", "NO TITLE SHOWN", "RANK GOLD · 1320 PTS",
+		"THIS WEEK: 12 PTS", "8 W / 3 L · WIN RATE 73/100", "FAVORITE: KAI", "FIGHTERS: 11 / 20", "ACHIEVEMENTS: 4 · QUESTS: 2 / 8",
+		"BEST SURVIVAL: 6", "COINS: 4200", "UPDATE", "SHOP · QUESTS · WEEKLY", "HISTORY", "YOUR LAST 10 MATCHES",
+		"⚔ REMATCH (LAST ONLINE OPPONENT)", "No match yet: your fights show up here.", "WIN", "LOSS", "VS CPU",
+		"KAI  vs  Bob (TARO)  ·  ONLINE · RANKED", "+150 COINS", "📖 MOVES", "PASSIVE: RAGE", "MOVES", "ULTIMATES", "⚔ REMATCH",
+		"NOT POSSIBLE: YOUR OPPONENT IS NOT ON THIS SERVER ANY MORE", "REMATCH SENT TO Bob · THEY ACCEPT IN THEIR BANNER",
+		"LIGHT 1  ·  DRAGON FIST  ·  62 dmg  ·  9 f", "Looking on every server…",
+		"Match RANKED · 0:12\n2 player(s) searching on this server · your rank: GOLD (1320 pts)\nLooking on every server…\n\nTIP: A win online pays 150 coins, a loss 50.",
+		"TAKE SHIN FOR FREE?\nThank you for testing: 3 free fighter(s) left to pick.", "NOT POSSIBLE: NO FREE PICK LEFT", "YOU: 12 PTS THIS WEEK · win 3, draw 1 · from zero every Monday",
+		"No points yet this week: win online matches (the ranking is kept in the published game)." }
 	for _, q in Quests.LIST do
 		table.insert(lines, q.name)
 		table.insert(lines, q.how)
@@ -615,6 +629,7 @@ test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAI
 	local gain = AC.capCoins(p, math.floor(Economy.pvpCoins("win") * share.coins + 0.5), now)
 	expect(gain == 150, "a win paid " .. gain)
 	expect(AC.share(p, 42, 10, now).coins == 0, "a 10 s match pays")
+	expect(AC.share(p, 43, 90, now, 400, 5).coins == 0, "a win against an AFK alt pays")
 	-- 8 free of 20, all of them real fighters
 	expect(#Economy.FREE == 8, "not 8 free fighters")
 	for _, kit in Economy.FREE do expect(table.find(MoveData.KitOrder, kit) ~= nil, kit .. " is not a fighter") end
@@ -641,6 +656,20 @@ test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAI
 		"a locked fighter is playable out of training")
 	local allowed, which = Economy.teamAllowed(fresh, { "KAI", "SHIN" }, "VERSUS", false)
 	expect(not allowed and which == "SHIN", "a team with a locked fighter passes")
+end)
+
+test("testers: an old profile gets 3 free fighters of its choice, once; a new one none", function()
+	local Economy = require("../src/shared/Economy")
+	local old = { coins = 120, wins = 4 } -- (saved before the fighters were sold: no ownedKits)
+	local p = { coins = 120, ownedKits = {} }
+	expect(Economy.giveTesterPicks(p, old) and p.freePicks == 3, "a tester got no picks")
+	expect(not Economy.giveTesterPicks(p, { coins = 1, picksGiven = true }), "the picks were given twice")
+	expect(not Economy.giveTesterPicks({}, { ownedKits = {} }) and not Economy.giveTesterPicks({}, nil), "a new player got picks")
+	for _, kit in { "SHIN", "KUROEN", "AKEMI" } do expect(Economy.claimFighter(p, kit, MoveData.KitOrder), kit .. " not taken") end
+	local ok, why = Economy.claimFighter(p, "NOVA", MoveData.KitOrder)
+	expect(not ok and why == "picks" and p.coins == 120, "a fourth fighter was given (or coins taken)")
+	expect(Economy.canPlay(p, "KUROEN", "VERSUS", false), "a picked fighter is not playable")
+	expect(not Economy.claimFighter({ freePicks = 3 }, "KAI", MoveData.KitOrder), "a pick was spent on a free fighter")
 end)
 
 test("developer access: listed ids or the game's owner, never Studio's test players, never written as bought, can be off", function()
@@ -728,6 +757,13 @@ test("weekly champion: written once per week, title given once, not for sale, hi
 	expect(C.grant(p, 7, history) == 0 and #p.titles == 1, "the title was given twice")
 	expect(C.grant({}, 8, history) == 0, "someone else got the title")
 	expect(C.canShow(p, C.TITLE) and C.canShow(p, "") and not C.canShow(p, "GOD SLAYER"), "titles not owned can be shown")
+	-- WEEKLY ranking: points of the week, from zero on a new week, scaled by the anti-farm share
+	local w = {}
+	expect(C.addPoints(w, 100, "win", 1) == 3 and C.addPoints(w, 100, "draw", 1) == 4 and C.addPoints(w, 100, "loss", 1) == 4,
+		"the weekly points are wrong")
+	expect(C.addPoints(w, 100, "win", 0.25) == 5, "the anti-farm share does not scale the points")
+	expect(C.pointsOf(w, 100) == 5 and C.pointsOf(w, 101) == 0, "last week's points show this week")
+	expect(C.addPoints(w, 101, "win", 1) == 3, "the points do not start again on Monday")
 	local long = nil
 	for w = 1, C.KEEP + 10 do long = C.record(long, w, { id = w, name = "P", rating = 1 }) end
 	expect(#long == C.KEEP and long[1].week == 11, "the history grows without end")

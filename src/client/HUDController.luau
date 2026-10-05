@@ -54,10 +54,37 @@ end
 
 function HUD.new(config)
 	local self = setmetatable({ config = config, poseRate = config.PoseRate, bars = {}, trail = { 1, 1 }, combo = {} }, { __index = HUD })
-	local gui = new("ScreenGui", { Name = "CombatHUD", ResetOnSpawn = false, DisplayOrder = 5, IgnoreGuiInset = false },
+	local screen = new("ScreenGui", { Name = "CombatHUD", ResetOnSpawn = false, DisplayOrder = 5, IgnoreGuiInset = false },
 		Players.LocalPlayer:WaitForChild("PlayerGui"))
-	self.gui = gui
+	self.gui = screen
+	-- Everything is drawn on a canvas scaled to the screen: on a phone the whole HUD shrinks
+	-- together (it filled the screen), keeping its layout; on a PC it stays at full size.
+	local gui = new("Frame", { Name = "Canvas", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, screen)
+	local canvasScale = new("UIScale", { Scale = 1 }, gui)
+	local function fitCanvas()
+		local size = screen.AbsoluteSize
+		if size.Y <= 0 then return end
+		-- (full size from 720 px high; a phone in landscape, ~360-430 px: about 0.55)
+		local s = math.clamp(size.Y / 720, 0.5, 1)
+		canvasScale.Scale = s
+		gui.Size = UDim2.fromScale(1 / s, 1 / s)
+	end
+	fitCanvas()
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCanvas)
+	self.canvas = gui
 
+	-- VISUAL PASS: a dark vignette at the screen's edges (the fighters stand out in the middle)
+	-- and a dark band behind the header (the bars read on every stage, the bright ones too).
+	for _, side in { { 0, 0 }, { 1, 180 } } do
+		local edge = new("Frame", { Name = "Vignette", AnchorPoint = Vector2.new(side[1], 0), Position = UDim2.fromScale(side[1], 0),
+			Size = UDim2.fromScale(0.22, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 0 }, gui)
+		new("UIGradient", { Rotation = side[2], Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45),
+			NumberSequenceKeypoint.new(1, 1) }) }, edge)
+	end
+	local band = new("Frame", { Name = "HeaderBand", Size = UDim2.new(1, 0, 0, 120), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0,
+		ZIndex = 0 }, gui)
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25),
+		NumberSequenceKeypoint.new(1, 1) }) }, band)
 	-- Top header: portraits, health, guard, round pips and timer.
 	local header = new("Frame", { Name = "Header", BackgroundTransparency = 1, Size = UDim2.new(1, -24, 0, 104), Position = UDim2.fromOffset(12, 6) }, gui)
 	for slot = 1, 2 do
@@ -91,6 +118,9 @@ function HUD.new(config)
 			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) }),
 			Rotation = if left then 0 else 180,
 		}, fill)
+		-- (a shine on its top third, and the bar slanted at its inner end like a blade)
+		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.32, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55,
+			BorderSizePixel = 0, ZIndex = 2 }, bar)
 		local guard = new("Frame", {
 			Name = "Guard", BackgroundColor3 = INK, BorderSizePixel = 0,
 			Size = UDim2.new(0.6, 0, 0, 6), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
@@ -384,7 +414,7 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · R3: taunts · SELECT: reset"
+			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"
 			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
@@ -553,6 +583,22 @@ end
 
 
 -- In a match: the fight HUD; in the main menu, nothing of it (the menu takes the screen).
+-- The gamepad's "hold L3 to leave" bar (0: hidden).
+function HUD:setLeaveProgress(progress)
+	if not self.leaveBar then
+		local frame = new("Frame", { Name = "LeaveHold", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 190),
+			Size = UDim2.fromOffset(260, 34), BackgroundColor3 = INK, BackgroundTransparency = 0.15, Visible = false }, self.canvas)
+		corner(frame, 6)
+		stroke(frame, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		local fill = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = RED, BorderSizePixel = 0 }, frame)
+		corner(fill, 6)
+		text(frame, { Size = UDim2.fromScale(1, 1), Text = "HOLD L3 TO LEAVE", TextSize = 14, Font = UI_FONT, ZIndex = 2 })
+		self.leaveBar = { frame = frame, fill = fill }
+	end
+	self.leaveBar.frame.Visible = progress > 0
+	self.leaveBar.fill.Size = UDim2.fromScale(progress, 1)
+end
+
 function HUD:setInMatch(inMatch)
 	self.inMatch = inMatch
 	self.gui.Enabled = inMatch
@@ -1175,6 +1221,8 @@ function HUD:update(world, views, fps, dt)
 		local v = views[slot]
 		if v and v.ping then table.insert(pings, (if slot == localSlot then "YOU " else "OPP. ") .. v.ping .. " ms") end
 	end
+	-- (the technical line: in training, or with TOOLS open; out of the way in a real fight)
+	self.status.Visible = world.training == true or (self.tools ~= nil and self.tools.Visible)
 	self.status.Text = string.format("v%s · %s · %d FPS%s%s", self.config.Version,
 		if localSlot == 0 then "SPECTATOR" elseif world.training then "TRAINING"
 			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5),

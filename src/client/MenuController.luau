@@ -89,11 +89,29 @@ end
 local LEVEL_NAMES = {}
 for i, level in FighterAI.Levels do LEVEL_NAMES[i] = level.name end
 local QUEUES = { NORMAL = "NORMAL · no points", RANKED = "RANKED · points and rank", FRIEND = "FRIEND · challenge a player on the server" }
+-- The tips shown while searching an opponent.
+local SEARCH_TIPS = {
+	"A heavy blow (right click) ends a combo: the opponent flies.",
+	"Guard (F) blocks everything but grabs and overheads (forward + R).",
+	"Every fighter can be tried for free in TRAINING.",
+	"Quests give styles: ACHIEVEMENTS › QUESTS.",
+	"The WEEKLY ranking starts again every Monday: its first becomes WEEKLY CHAMPION.",
+	"A win online pays 150 coins, a loss 50.",
+}
+
+-- WHAT'S NEW: the tiles of the bottom; a click opens the NEWS centre (every article).
 local NEWS = {
-	{ tag = "NEW", title = "KUROEN · KAZAN'S CLAWS", color = RED, kanji = "蝕" },
-	{ tag = "TEAMS", title = "1, 2 OR 3 FIGHTERS", color = VIOLET, kanji = "隊" },
-	{ tag = "ONLINE", title = "RANKED MATCHES", color = GOLD, kanji = "位" },
-	{ tag = "BOSS", title = "KUROEN SHIN", color = GOLD, kanji = "真" },
+	{ tag = "UPDATE", title = "SHOP · QUESTS · WEEKLY", color = RED, kanji = "新", lines = {
+		"Fighters to unlock (4000 coins) and styles (2500): FIGHTERS page, try them free in TRAINING.",
+		"Online: a win 150 coins, a loss 50. Quests give styles. WEEKLY ranking from zero every Monday: its first becomes WEEKLY CHAMPION.",
+		"Match history and REMATCH (RANKING › HISTORY), player card (click your profile), notifications (the bell)." } },
+	{ tag = "NEW", title = "KUROEN · KAZAN'S CLAWS", color = RED, kanji = "蝕", lines = {
+		"KUROEN, the emperor of the eclipse: DOMINATION in three levels, ZERO ABSOLU: ECLIPSE.",
+		"KAZAN fights with two steel claws now: rakes, rends, SHACKLE HOOK." } },
+	{ tag = "TEAMS", title = "1, 2 OR 3 FIGHTERS", color = VIOLET, kanji = "隊", lines = {
+		"Fight in teams of 1, 2 or 3 against the CPU: tag in and out like in the great tag fighters." } },
+	{ tag = "BOSS", title = "KUROEN SHIN", color = GOLD, kanji = "真", lines = {
+		"KUROEN past every limit (SOLO › CHALLENGE). Beat him for KUROEN's DIVINE ECLIPSE style." } },
 }
 
 function MenuController.new(remote, hub, settings)
@@ -206,12 +224,17 @@ function MenuController.new(remote, hub, settings)
 		elseif packet.result then
 			self:showResult(packet)
 		elseif packet.ranking then
-			self.ranking = packet.ranking
-			self:refreshRanking()
+			-- (only the ranking of the tab shown: a late answer of the other one is ignored)
+			if (packet.board or "all") == self.rankingBoard then
+				self.ranking = packet.ranking
+				self:refreshRanking()
+			end
 		elseif packet.questGifts then
 			self:questFlash(packet.questGifts)
+		elseif packet.rematchSent then
+			self:notify("REMATCH SENT TO " .. tostring(packet.rematchSent) .. " · THEY ACCEPT IN THEIR BANNER", GOLD)
 		elseif packet.champion then
-			self:flash("👑 CHAMPION OF THE WEEK · TITLE WEEKLY CHAMPION (SETTINGS › TITLE)", GOLD)
+			self:notify("👑 CHAMPION OF THE WEEK · TITLE WEEKLY CHAMPION (SETTINGS › TITLE)", GOLD)
 			self.toastUntil = os.clock() + 8
 		else
 			self.status = packet
@@ -229,8 +252,8 @@ function MenuController.new(remote, hub, settings)
 			if self.page == "settings" then
 				for _, refresh in self.settingRefresh or {} do refresh() end
 			end
-			if packet.bought then self:flash("STYLE BOUGHT · " .. packet.bought, GOLD) end
-			if packet.unlocked then self:flash(packet.unlocked .. " UNLOCKED · YOURS FOREVER", GOLD) end
+			if packet.bought then self:notify("STYLE BOUGHT · " .. packet.bought, GOLD) end
+			if packet.unlocked then self:notify(packet.unlocked .. " UNLOCKED · YOURS FOREVER", GOLD) end
 			if packet.state == "queue" then
 				if self.page ~= "search" then self.searchStart = os.clock() end
 				self:open("search")
@@ -369,6 +392,96 @@ function MenuController:buildTopBar()
 			TextSize = 13, Text = "0", TextColor3 = Theme.WHITE })
 		self.walletChips[kind] = chip
 	end
+	-- PLAYER CARD: a click on the profile opens it.
+	local cardButton = new("TextButton", { Name = "OpenCard", Size = UDim2.fromOffset(262, 54), BackgroundTransparency = 1, Text = "",
+		AutoButtonColor = false }, profile)
+	cardButton.Activated:Connect(function() self:showPlayerCard() end)
+	-- NOTIFICATIONS: the bell, left of the profile, with the number not read yet.
+	local bell = Theme.button(bar, { Name = "Notifications", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -504, 0, 17),
+		Size = UDim2.fromOffset(46, 44), Font = UI_FONT, TextSize = 20, Text = "🔔" }, GOLD)
+	self.bellCount = label(bell, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 4, 0, -6), Size = UDim2.fromOffset(20, 18),
+		BackgroundTransparency = 0, BackgroundColor3 = Theme.RED, Font = UI_FONT, TextSize = 11, Text = "", TextColor3 = WHITE,
+		TextXAlignment = Enum.TextXAlignment.Center, Visible = false })
+	corner(self.bellCount, 9)
+	bell.Activated:Connect(function() self:showNotes() end)
+	self.notes, self.unread = {}, 0
+end
+
+-- ===================================================================== popups
+-- A window over the menu: a title, a list that scrolls, ✕ (or a click outside) to close.
+function MenuController:popup(title, width, height)
+	if self.popupFrame then self.popupFrame:Destroy() end
+	local shade = new("TextButton", { Name = "Popup", Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35,
+		AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 50 }, self.root)
+	self.popupFrame = shade
+	local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(width or 560, height or 520),
+		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 51, Active = true }, shade)
+	Theme.surface(box, Theme.GOLD)
+	label(box, { Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -80, 0, 40), Font = DISPLAY, TextScaled = true, Text = title,
+		TextColor3 = WHITE, ZIndex = 52 })
+	local close = Theme.button(box, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(40, 40),
+		BackgroundColor3 = Theme.RED, Font = UI_FONT, TextSize = 20, Text = "✕", ZIndex = 52 })
+	local function closePopup()
+		if self.popupFrame == shade then self.popupFrame = nil end
+		shade:Destroy()
+	end
+	close.Activated:Connect(closePopup)
+	shade.Activated:Connect(closePopup)
+	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(20, 62), Size = UDim2.new(1, -40, 1, -76), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(), ZIndex = 52,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, box)
+	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	self.dialogYes = close
+	task.defer(function() self:gamepadFocus(true) end)
+	return list, closePopup
+end
+
+-- One line of text in a popup's list.
+local function line(list, order, text, color, size, height)
+	return label(list, { LayoutOrder = order, Size = UDim2.new(1, -8, 0, height or 22), Font = if size then UI_FONT else BODY_FONT,
+		TextSize = size or 13, Text = text, TextColor3 = color or WHITE, TextWrapped = true, ZIndex = 53,
+		TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = if height then Enum.AutomaticSize.None else Enum.AutomaticSize.Y })
+end
+
+-- NOTIFICATIONS: a toast now, and kept in the bell's list (the last 20).
+function MenuController:notify(text, color)
+	self:flash(text, color)
+	table.insert(self.notes, 1, { text = text, color = color or GOLD, at = os.date("%H:%M") })
+	while #self.notes > 20 do table.remove(self.notes) end
+	self.unread += 1
+	self.bellCount.Text, self.bellCount.Visible = tostring(math.min(self.unread, 99)), true
+end
+
+function MenuController:showNotes()
+	self.unread = 0
+	self.bellCount.Visible = false
+	local list = self:popup("NOTIFICATIONS", 520, 460)
+	if #self.notes == 0 then line(list, 1, "Nothing yet: rewards, quests, unlocks and challenges show up here.", GREY) end
+	for i, note in self.notes do line(list, i, note.at .. "  ·  " .. note.text, note.color) end
+end
+
+-- PLAYER CARD: who the player is, at a glance (all from the saved profile the server sends).
+function MenuController:showPlayerCard()
+	local s = self.status or {}
+	local list = self:popup(Players.LocalPlayer.DisplayName, 520, 500)
+	local wins, losses = s.wins or 0, s.losses or 0
+	local owned = 0
+	for _, kit in MoveData.KitOrder do if self:owns(kit) then owned += 1 end end
+	local _, achievements = GameModes.achievements(s)
+	local questsDone = 0
+	for _, q in Quests.list(s) do if q.done then questsDone += 1 end end
+	local entries = {
+		{ if (s.title or "") ~= "" then "« " .. s.title .. " »" else "NO TITLE SHOWN", GOLD, 16 },
+		{ "RANK " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " PTS", WHITE, 15 },
+		{ "THIS WEEK: " .. (s.weekPoints or 0) .. " PTS", WHITE, 15 },
+		{ string.format("%d W / %d L · WIN RATE %d/100", wins, losses, if wins + losses > 0 then math.floor(wins * 100 / (wins + losses) + 0.5) else 0), WHITE, 15 },
+		{ "FAVORITE: " .. (s.hero or "KAI"), WHITE, 15 },
+		{ "FIGHTERS: " .. owned .. " / " .. #MoveData.KitOrder, WHITE, 15 },
+		{ "ACHIEVEMENTS: " .. achievements .. " · QUESTS: " .. questsDone .. " / " .. #Quests.LIST, WHITE, 15 },
+		{ "BEST SURVIVAL: " .. (s.survivalBest or 0), WHITE, 15 },
+		{ "COINS: " .. (s.coins or 0), GOLD, 15 },
+	}
+	for i, e in entries do line(list, i, e[1], e[2], e[3]) end
 end
 
 -- A selected destination carries the red brush accent, in both navigation bars.
@@ -886,7 +999,12 @@ end
 
 function MenuController:playAgain()
 	self.again.Visible = false
-	if not self.lastRequest or self.inMatch then return end
+	if self.inMatch then return end
+	if self.againRematch then
+		self.remote:FireServer({ action = "rematch" })
+		return
+	end
+	if not self.lastRequest then return end
 	self.remote:FireServer({ action = "start", request = table.clone(self.lastRequest) })
 end
 
@@ -898,7 +1016,7 @@ function MenuController:buildSearch()
 	self.searchPulse = Theme.rule(page, UDim2.fromOffset(24, 88), UDim2.new(1, -48, 0, 2), Theme.RED)
 	self.searchTitle = label(page, { Position = UDim2.fromOffset(20, 16), Size = UDim2.new(1, -40, 0, 56), Font = DISPLAY, TextScaled = true,
 		Text = "SEARCHING FOR AN OPPONENT…", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
-	self.searchText = label(page, { Position = UDim2.fromOffset(20, 104), Size = UDim2.new(1, -40, 0, 80), Font = BODY_FONT, TextSize = 16,
+	self.searchText = label(page, { Position = UDim2.fromOffset(20, 96), Size = UDim2.new(1, -40, 0, 116), Font = BODY_FONT, TextSize = 15,
 		TextWrapped = true, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
 	local cancel = new("TextButton", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -16), Size = UDim2.fromOffset(200, 46),
 		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 30, Text = "CANCEL", TextColor3 = WHITE, ZIndex = 6 }, page)
@@ -977,8 +1095,12 @@ function MenuController:buildCharacters()
 	self.galleryFavorite = Theme.button(page, { Position = UDim2.fromOffset(390, 278), Size = UDim2.fromOffset(148, 26), Font = UI_FONT, TextSize = 12,
 		Text = "★ FAVORITE" }, GOLD)
 	self.galleryFavorite.Activated:Connect(function() self:makeFavorite(self.galleryKit) end)
-	local try = Theme.button(page, { Position = UDim2.fromOffset(232, 310), Size = UDim2.new(1, -254, 0, 26), Font = UI_FONT, TextSize = 12,
+	local try = Theme.button(page, { Position = UDim2.fromOffset(232, 310), Size = UDim2.new(1, -364, 0, 26), Font = UI_FONT, TextSize = 12,
 		Text = "▶ TRY IN TRAINING (FREE)" }, GOLD)
+	-- ENCYCLOPEDIA: every move of the fighter, its damage and speed (from the real data)
+	local moves = Theme.button(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 310), Size = UDim2.fromOffset(102, 26),
+		Font = UI_FONT, TextSize = 12, Text = "📖 MOVES" }, GOLD)
+	moves.Activated:Connect(function() self:showMoves(self.galleryKit or "KAI") end)
 	try.Activated:Connect(function()
 		local kit = self.galleryKit or "KAI"
 		self.remote:FireServer({ action = "start", request = { mode = "TRAINING", team = { kit }, map = self.stage or "RANDOM" } })
@@ -1032,9 +1154,16 @@ function MenuController:confirm(text, yesText, onYes)
 	shade.Activated:Connect(close)
 end
 
--- UNLOCK a fighter (4000 coins): the balance is checked first, then a confirmation.
+-- UNLOCK a fighter (4000 coins): the balance is checked first, then a confirmation. A tester
+-- with free picks left takes it for free instead (a confirmation too).
 function MenuController:askUnlock(kit)
 	if not kit or self:owns(kit) then return end
+	local picks = tonumber(self.status.freePicks) or 0
+	if picks > 0 then
+		self:confirm(string.format("TAKE %s FOR FREE?\nThank you for testing: %d free fighter(s) left to pick.", kit, picks),
+			"TAKE", function() self.remote:FireServer({ action = "claimFighter", kit = kit }) end)
+		return
+	end
 	local coins = tonumber(self.status.coins) or 0
 	if coins < Economy.FIGHTER_PRICE then
 		self:flash(string.format("NOT ENOUGH COINS · %s COSTS %d (YOU HAVE %d) · TRY IT IN TRAINING", kit, Economy.FIGHTER_PRICE, coins), RED)
@@ -1236,7 +1365,8 @@ function MenuController:drawKitInfo(name)
 		self.galleryState.Text, self.galleryState.TextColor3 = string.format("🔒 LOCKED · %d COINS · YOU HAVE %d", Economy.FIGHTER_PRICE, coins), RED
 	end
 	self.galleryUnlock.Visible = not owned
-	self.galleryUnlock.Text = "UNLOCK · " .. Economy.FIGHTER_PRICE
+	local picks = tonumber(s.freePicks) or 0
+	self.galleryUnlock.Text = if picks > 0 then "TAKE FREE (" .. picks .. " LEFT)" else "UNLOCK · " .. Economy.FIGHTER_PRICE
 	self.galleryFavorite.Text = if s.hero == name then "★ YOUR FAVORITE" else "★ FAVORITE"
 	-- the style shown: the one equipped (or the first), unless the player picked another one of this fighter
 	local current = self.galleryStyleName
@@ -1250,11 +1380,64 @@ end
 function MenuController:buildRanking()
 	local page = rightPage(self, "RANKING", Theme.GOLD)
 	Theme.heading(page, "RANKING", Theme.GOLD)
-	self.rankingMine = label(page, { Position = UDim2.fromOffset(22, 80), Size = UDim2.new(1, -32, 0, 24), Font = UI_FONT, TextSize = 15,
-		Text = "", TextColor3 = WHITE })
-	self.rankingList = new("Frame", { Position = UDim2.fromOffset(22, 122), Size = UDim2.new(1, -44, 1, -140), BackgroundTransparency = 1 }, page)
+	-- two rankings: ALL TIME (the rating) and WEEKLY (the points of the week, from zero every Monday)
+	self.rankingBoard = "all"
+	self.rankingTabs = {}
+	for i, tab in { { "all", "ALL TIME" }, { "weekly", "WEEKLY" }, { "history", "HISTORY" } } do
+		local b = Theme.button(page, { Position = UDim2.fromOffset(22 + (i - 1) * 172, 76), Size = UDim2.fromOffset(164, 30), Font = UI_FONT,
+			TextSize = 13, Text = tab[2] }, GOLD)
+		b.Activated:Connect(function()
+			self.rankingBoard = tab[1]
+			self.ranking = nil
+			if tab[1] ~= "history" then self.remote:FireServer({ action = "ranking", board = tab[1] }) end
+			self:refreshRanking()
+		end)
+		self.rankingTabs[tab[1]] = b
+	end
+	self.rankingMine = label(page, { Position = UDim2.fromOffset(22, 112), Size = UDim2.new(1, -32, 0, 24), Font = UI_FONT, TextSize = 14,
+		Text = "", TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+	self.rankingList = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 144), Size = UDim2.new(1, -36, 1, -160), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
 	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, self.rankingList)
 	return page
+end
+
+-- MATCH HISTORY: the last 10 matches (saved by the server), and REMATCH against the last online
+-- opponent while they are on this server.
+local MODE_NAMES = { VERSUS = "ONLINE", VERSUS_CPU = "VS CPU", SURVIVAL = "SURVIVAL", CHALLENGE = "CHALLENGE · ASURA",
+	CHALLENGE_SHIN = "CHALLENGE · KUROEN SHIN" }
+function MenuController:refreshHistory(list)
+	local s = self.status or {}
+	local history = s.history or {}
+	self.rankingMine.Text = "YOUR LAST " .. #history .. " MATCHES"
+	if s.rematch then
+		local again = Theme.button(list, { LayoutOrder = 0, Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = Theme.RED, Font = DISPLAY, TextSize = 24,
+			Text = "⚔ REMATCH (LAST ONLINE OPPONENT)" }, GOLD)
+		again.Activated:Connect(function() self.remote:FireServer({ action = "rematch" }) end)
+	end
+	if #history == 0 then
+		label(list, { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 40), Font = BODY_FONT, TextSize = 14, TextWrapped = true, TextColor3 = GREY,
+			Text = "No match yet: your fights show up here." })
+	end
+	for i, h in history do
+		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = Theme.PANEL, BorderSizePixel = 0 }, list)
+		local color = if h.r == "W" then GOLD elseif h.r == "L" then Theme.RED else GREY
+		Theme.rule(row, UDim2.fromOffset(0, 0), UDim2.new(0, 3, 1, 0), color)
+		label(row, { Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(60, 34), Font = DISPLAY, TextSize = 22,
+			Text = if h.r == "W" then "WIN" elseif h.r == "L" then "LOSS" else "DRAW", TextColor3 = color })
+		local mode = MODE_NAMES[h.mode or ""] or (h.mode or "?")
+		if h.mode == "VERSUS" and h.queue then mode ..= " · " .. h.queue end
+		label(row, { Position = UDim2.fromOffset(74, 0), Size = UDim2.new(1, -230, 1, 0), Font = UI_FONT, TextSize = 12,
+			Text = (h.kit or "?") .. "  vs  " .. (h.opp or "?") .. " (" .. (h.oppKit or "?") .. ")  ·  " .. mode, TextColor3 = WHITE,
+			TextTruncate = Enum.TextTruncate.AtEnd })
+		local extra = {}
+		if h.coins and h.coins > 0 then table.insert(extra, "+" .. h.coins .. " COINS") end
+		if h.delta and h.delta ~= 0 then table.insert(extra, (if h.delta > 0 then "+" else "") .. h.delta .. " PTS") end
+		table.insert(extra, os.date("%d/%m %H:%M", h.t or 0))
+		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(150, 34), Font = BODY_FONT,
+			TextSize = 11, Text = table.concat(extra, " · "), TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Right })
+	end
 end
 
 function MenuController:refreshRanking()
@@ -1263,7 +1446,15 @@ function MenuController:refreshRanking()
 		if child:IsA("GuiObject") then child:Destroy() end
 	end
 	local s = self.status
-	self.rankingMine.Text = "YOU: " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " pts · " .. (s.wins or 0) .. " W / " .. (s.losses or 0) .. " L"
+	for name, b in self.rankingTabs or {} do b.BackgroundColor3 = if name == self.rankingBoard then Theme.RED else Theme.PANEL end
+	if self.rankingBoard == "history" then
+		self:refreshHistory(list)
+		return
+	elseif self.rankingBoard == "weekly" then
+		self.rankingMine.Text = "YOU: " .. (s.weekPoints or 0) .. " PTS THIS WEEK · win 3, draw 1 · from zero every Monday"
+	else
+		self.rankingMine.Text = "YOU: " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " pts · " .. (s.wins or 0) .. " W / " .. (s.losses or 0) .. " L"
+	end
 	local entries = self.ranking
 	if not entries then
 		label(list, { Size = UDim2.new(1, 0, 0, 30), Font = BODY_FONT, TextSize = 14, Text = "Loading…", TextColor3 = GREY })
@@ -1271,7 +1462,8 @@ function MenuController:refreshRanking()
 	end
 	if #entries == 0 then
 		label(list, { Size = UDim2.new(1, 0, 0, 60), Font = BODY_FONT, TextSize = 14, TextWrapped = true, TextColor3 = GREY,
-			Text = "No ranking yet: play a RANKED match (the ranking is kept in the published game)." })
+			Text = if self.rankingBoard == "weekly" then "No points yet this week: win online matches (the ranking is kept in the published game)."
+				else "No ranking yet: play a RANKED match (the ranking is kept in the published game)." })
 		return
 	end
 	for i, e in entries do
@@ -1283,7 +1475,8 @@ function MenuController:refreshRanking()
 		label(row, { Position = UDim2.fromOffset(60, 0), Size = UDim2.new(1, -230, 1, 0), Font = UI_FONT, TextSize = 15, Text = e.name,
 			TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
 		label(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 0), Size = UDim2.fromOffset(170, 34), Font = UI_FONT,
-			TextSize = 14, Text = e.title .. " · " .. e.rating, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Right })
+			TextSize = 14, Text = if self.rankingBoard == "weekly" then e.rating .. " PTS" else e.title .. " · " .. e.rating, TextColor3 = GOLD,
+			TextXAlignment = Enum.TextXAlignment.Right })
 	end
 end
 
@@ -1555,8 +1748,9 @@ function MenuController:buildBottom()
 	self.bottomNews = news
 	for i, item in NEWS do
 		local x = 14 + (i - 1) * 154
-		local tile = new("Frame", { Position = UDim2.fromOffset(x, 46), Size = UDim2.fromOffset(146, 118), BackgroundColor3 = PANEL,
-			BorderSizePixel = 0, ClipsDescendants = true }, news)
+		local tile = new("TextButton", { Position = UDim2.fromOffset(x, 46), Size = UDim2.fromOffset(146, 118), BackgroundColor3 = PANEL,
+			BorderSizePixel = 0, ClipsDescendants = true, Text = "", AutoButtonColor = false }, news)
+		tile.Activated:Connect(function() self:showNews(i) end)
 		tile.BackgroundColor3 = Color3.new(1, 1, 1)
 		Theme.edge(tile, item.color:Lerp(Theme.LINE, 0.6))
 		Theme.ink(tile, item.color, 0.87)
@@ -1622,6 +1816,65 @@ function MenuController:refreshLocks()
 	for name, lock in self.rosterLocks or {} do lock.Visible = not self:owns(name) end
 end
 
+-- ENCYCLOPEDIA of a fighter: what it is, its passive, its strengths and weaknesses, then every
+-- move (the role in the combo grammar, the name, damage, startup frames), from MoveData itself.
+local ROLE_NAMES = { Jab = "LIGHT 1", Cross = "LIGHT 2", Elbow = "LIGHT 3", Kick = "LIGHT 4", Smash = "HEAVY", Hammer = "HEAVY (AIR)",
+	Uppercut = "LAUNCHER", Rising = "RISING", BodyBlow = "GRAB", PalmStrike = "PALM", KiBlast = "SPECIAL (E)", Sweep = "SWEEP",
+	LowKick = "LOW", SpinKick = "SPIN", AirKick = "AIR 1", AirKick2 = "AIR 2", AirSmash = "AIR HEAVY", KiFlurry = "FLURRY",
+	DragonFist = "DRAGON FIST", DragonTornado = "TORNADO", CrescentMoon = "CRESCENT", RisingWind = "RISING WIND", ThunderHeel = "HEEL",
+	KiChase = "CHASE", Finale = "FINISHER", KaienRush = "ULTIMATE R", Awakening = "AWAKENING", Kaiten = "KAITEN" }
+function MenuController:showMoves(name)
+	local kit = MoveData.Kits[name]
+	if not kit then return end
+	local list = self:popup(name .. " " .. kit.Kanji .. " · " .. kit.Role, 640, 560)
+	local order = 0
+	local function add(text, color, size)
+		order += 1
+		line(list, order, text, color, size)
+	end
+	add(kit.Description, WHITE)
+	if kit.Passive then add("PASSIVE: " .. kit.Passive.Name, GOLD, 14) end
+	local rating = self.ratings and self.ratings[name]
+	if rating then
+		local plus, minus = GameModes.traits(rating)
+		add("+ " .. (if #plus > 0 then table.concat(plus, " · ") else "—") .. "    − " .. (if #minus > 0 then table.concat(minus, " · ") else "—"), WHITE, 13)
+	end
+	add("Health " .. kit.Stats.MaxHealth .. " · speed " .. kit.Stats.WalkSpeed, GREY)
+	add("MOVES", GOLD, 15)
+	local roles = {}
+	for role in kit.Roles do table.insert(roles, role) end
+	table.sort(roles)
+	for _, role in roles do
+		local m = MoveData.Moves[kit.Roles[role]]
+		if m then
+			add(string.format("%s  ·  %s  ·  %d dmg  ·  %d f", ROLE_NAMES[role] or string.upper(role), m.name, m.damage or 0, m.startup or 0), WHITE)
+		end
+	end
+	add("ULTIMATES", GOLD, 15)
+	for _, key in { "Rush", "Awaken", "Gate", "Fatal" } do
+		local m = kit.Ultimates[key] and MoveData.Moves[kit.Ultimates[key]]
+		if m then add(string.upper(key) .. "  ·  " .. m.name, WHITE) end
+	end
+end
+
+-- NEWS centre: every article, the one clicked first.
+function MenuController:showNews(first)
+	local list = self:popup("WHAT'S NEW", 600, 520)
+	local order = 0
+	local function article(item)
+		order += 1
+		line(list, order, item.tag .. "  ·  " .. item.title, item.color, 17)
+		for _, text in item.lines or {} do
+			order += 1
+			line(list, order, "• " .. text, WHITE)
+		end
+		order += 1
+		line(list, order, " ", WHITE, nil, 8)
+	end
+	if NEWS[first] then article(NEWS[first]) end
+	for i, item in NEWS do if i ~= first then article(item) end end
+end
+
 -- ===================================================================== navigation
 function MenuController:open(page)
 	Theme.reset(self.root)
@@ -1666,7 +1919,7 @@ function MenuController:open(page)
 		self.selectTitle.Text = self.mode.name .. " · PICK " .. (if self.mode.team then "YOUR TEAM" else "YOUR FIGHTER")
 		self:refreshSelect()
 	elseif page == "ranking" then
-		self.remote:FireServer({ action = "ranking" })
+		if self.rankingBoard ~= "history" then self.remote:FireServer({ action = "ranking", board = self.rankingBoard }) end
 		self:refreshRanking()
 	elseif page == "characters" then
 		self:showKitInfo(self.galleryKit or self.status.hero or "KAI")
@@ -1821,7 +2074,7 @@ end
 function MenuController:questFlash(gifts)
 	if type(gifts) ~= "table" or #gifts == 0 then return end
 	task.delay(2.6, function()
-		self:flash("QUEST COMPLETE · NEW STYLE: " .. table.concat(gifts, ", "), Theme.VIOLET)
+		self:notify("QUEST COMPLETE · NEW STYLE: " .. table.concat(gifts, ", "), Theme.VIOLET)
 		self.toastUntil = os.clock() + 6
 	end)
 end
@@ -1834,7 +2087,10 @@ end
 local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
 	self:questFlash(packet.questGifts)
-	if self.lastRequest and not packet.queue then
+	-- (solo: PLAY AGAIN; online: REMATCH against the same player)
+	self.againRematch = packet.queue ~= nil
+	self.again.Text = if self.againRematch then "⚔ REMATCH" else "▶ PLAY AGAIN"
+	if (self.lastRequest and not packet.queue) or packet.queue then
 		self.again.Visible = true
 		self.againUntil = os.clock() + 20
 	end
@@ -1904,8 +2160,14 @@ function MenuController:frame(dt)
 		local waited = math.floor(os.clock() - self.searchStart)
 		local queue = if s.queue == "RANKED" then "RANKED" else "NORMAL"
 		local count = (s.waiting or {})[s.queue or "NORMAL"] or 0
-		self.searchText.Text = string.format("Match %s · %d:%02d\n%d player(s) searching on this server · your rank: %s (%d pts)",
-			queue, waited // 60, waited % 60, count, s.rank or "BRONZE", s.rating or 1000)
+		-- (the wait, who searches, the rank; the search widens with the wait and goes to the
+		-- other servers; a tip changes every 6 s)
+		local tips = SEARCH_TIPS
+		local tip = tips[math.floor(os.clock() / 6) % #tips + 1]
+		self.searchText.Text = string.format("Match %s · %d:%02d\n%d player(s) searching on this server · your rank: %s (%d pts)\n%s\n\nTIP: %s",
+			queue, waited // 60, waited % 60, count, s.rank or "BRONZE", s.rating or 1000,
+			if waited < 6 then "Looking on this server…" elseif waited < 20 then "Looking on every server…"
+				else "Widening the search to more ranks…", tip)
 		self.searchPulse.BackgroundTransparency = 0.3 + 0.3 * math.sin(os.clock() * 4)
 	end
 	-- Camera on the lobby hero: low angle, slightly to the side, like the cover art.

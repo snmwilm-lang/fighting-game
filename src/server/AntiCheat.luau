@@ -8,12 +8,16 @@
 	   an input sequence going back, a gross flood) adds suspicion points; they fade by
 	   DECAY per second. At KICK points the player is kicked (a log line on the server); a real
 	   player never gets near it (malformed packets are impossible from the game's client).
-	2. FARMING. Coins and ELO are earned only by real matches:
+	2. FARMING. Coins and ELO are earned only by real matches (no daily cap on coins: Wilhem
+	   wants playing to pay, the farming is stopped at its source instead):
 	   • a match shorter than MIN_MATCH seconds pays nothing and moves no rating (an alt
 	     joining and leaving at once);
+	   • both players must really play: fewer than MIN_ACTIONS actions (attacks, moves) in the
+	     match and NEITHER of the two gets anything (an AFK alt that lets itself be beaten, a
+	     bot standing still); the server counts the actions itself;
 	   • the same two players again and again: from the REPEAT_SOFT-th match of the day the
 	     gains are divided, from REPEAT_HARD on they stop (two alt accounts);
-	   • coins per day are capped (DAILY_COINS), kept in the profile (every server sees it).
+	   • the coins of the day are still counted in the profile (coinToday), only to be seen.
 	Tests: tests/Lobby.test.luau.
 ]]
 local AntiCheat = {}
@@ -29,7 +33,7 @@ AntiCheat.FLOOD_DROPS = 120 -- (a 144 Hz client mashing stays far below; a flood
 AntiCheat.MIN_MATCH = 25
 AntiCheat.REPEAT_SOFT = 4
 AntiCheat.REPEAT_HARD = 8
-AntiCheat.DAILY_COINS = 2000
+AntiCheat.MIN_ACTIONS = 20 -- (a real player makes hundreds in a match)
 AntiCheat.RECENT_LIMIT = 30 -- opponents remembered per profile
 
 function AntiCheat.new()
@@ -80,8 +84,12 @@ end
 
 -- How much of a match's gains a player keeps: { coins = 0..1, rating = 0..1 }.
 -- `profile.recentOpp` keeps today's count against each opponent (saved: every server sees it).
-function AntiCheat.share(profile, opponentId, seconds, time)
+function AntiCheat.share(profile, opponentId, seconds, time, myActions, theirActions)
 	if seconds < AntiCheat.MIN_MATCH then return { coins = 0, rating = 0, reason = "short" } end
+	-- (counted by the server: nil when not counted, e.g. an older caller)
+	if (myActions and myActions < AntiCheat.MIN_ACTIONS) or (theirActions and theirActions < AntiCheat.MIN_ACTIONS) then
+		return { coins = 0, rating = 0, reason = "idle" }
+	end
 	if not opponentId then return { coins = 1, rating = 1 } end
 	local recent = type(profile.recentOpp) == "table" and profile.recentOpp or {}
 	local key = tostring(opponentId)
@@ -127,11 +135,12 @@ function AntiCheat.dropped(state, now)
 	return false
 end
 
--- The coins a player may still get today (the cap is in the profile: coinDay, coinToday).
+-- The coins of a reward: all of them (no daily cap), counted in the profile's day total
+-- (coinDay, coinToday) so an abnormal day can be seen. Never negative.
 function AntiCheat.capCoins(profile, gain, time)
 	local today = day(time)
 	if profile.coinDay ~= today then profile.coinDay, profile.coinToday = today, 0 end
-	local allowed = math.max(0, math.min(gain, AntiCheat.DAILY_COINS - (profile.coinToday or 0)))
+	local allowed = math.max(0, gain)
 	profile.coinToday = (profile.coinToday or 0) + allowed
 	return allowed
 end

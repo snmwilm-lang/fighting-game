@@ -1,5 +1,11 @@
 # Journal du projet — état à transmettre
 
+## Version 0.18.1 — 5 octobre 2026
+
+Même contenu que la 0.18.0 avec ses deux correctifs (accès développeur dans Studio, onglets du
+haut lisibles), sous un nouveau numéro : Wilhem rouvrait un ancien fichier du même nom. La
+console écrit « 0.18.1 ready » : c'est le bon fichier.
+
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 
 Demande de Wilhem : finaliser l'économie sans refaire l'existant (provocations, classement et

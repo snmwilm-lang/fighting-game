@@ -1142,6 +1142,12 @@ function MenuController:refreshStyles(name)
 end
 
 function MenuController:showKitInfo(name)
+	-- (an error drawing a fighter is written in the Output instead of freezing the page)
+	local ok, err = pcall(self.drawKitInfo, self, name)
+	if not ok then warn("[FightingGame] FIGHTERS page, " .. tostring(name) .. ": " .. tostring(err)) end
+end
+
+function MenuController:drawKitInfo(name)
 	local kit = MoveData.Kits[name]
 	if not kit then return end
 	self.galleryKit = name
@@ -1527,11 +1533,12 @@ function MenuController:buildBottom()
 		-- (no hover: passing the mouse over the strip showed someone else on the FIGHTERS page)
 		tile.Activated:Connect(function()
 			-- (owned: the favourite; locked: its page, to see it, try it or unlock it)
-			if self.page == "characters" then
-				-- (on the FIGHTERS page a click shows the fighter; FAVORITE there makes it the favourite)
-				self:showKitInfo(name)
-			elseif self:owns(name) then
+			if self:owns(name) then
+				-- (a click takes the fighter: it becomes the favourite, shown on the FIGHTERS page)
 				self:makeFavorite(name)
+				if self.page == "characters" then self:showKitInfo(name) end
+			elseif self.page == "characters" then
+				self:showKitInfo(name)
 			else
 				self.galleryKit = name
 				if self.page ~= "characters" then self:open("characters") else self:showKitInfo(name) end

@@ -49,6 +49,10 @@ v0.18.8 : mobile et console (« optimise aussi mobile et console, même les touc
   et la croix même dans le menu) ;
 - provocations à la manette : R3 ouvre la roue, le stick droit vise, le relâcher envoie
   (rien d'autre ne change dans les provocations) ; l'aide des touches manette le dit.
+v0.18.9 : « toujours bug dans FIGHTER, je peux pas changer les persos » : depuis la v0.18.5 un
+clic sur la bande ne faisait plus qu'afficher le perso (le favori passait par ★ FAVORI). Un clic
+prend de nouveau le perso (favori, héros du lobby) et l'affiche ; toujours rien au survol. Une
+erreur en dessinant la page est écrite dans la Sortie (« FIGHTERS page, … ») au lieu de la figer.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

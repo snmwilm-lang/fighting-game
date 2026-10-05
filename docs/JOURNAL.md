@@ -1,5 +1,27 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.4 — 5 octobre 2026 · DAICHA : UNE BOULE PLUS BELLE
+
+Wilhem : « rends-la plus agréable visuellement ». Constat : le cœur lumineux de la boule (KitOrbCore, néon) était caché DANS la sphère noire opaque ; en jeu on ne voyait qu'une boule noire mate.
+
+Nouveau rendu (côté client, `EffectsController:flyOrb` / `orbDressing`), réglé par une fonction pure testée, `OrbFlight.look` :
+- **Une éclipse en petit** : sphère noire brillante (reflets) entourée d'une couronne translucide de sa couleur de ki (l'ancien cœur néon, sorti et agrandi autour).
+- **Un reflet** blanc, en haut, du côté de la caméra.
+- **Trois éclats de ki** qui tournent autour, chacun sur son orbite inclinée.
+- **Une lumière** de sa couleur qui éclaire autour d'elle.
+- **Une fumée d'ombre** (texture intégrée de Roblox `smoke_main.dds`, déjà utilisée par les arènes) qui s'en échappe.
+- Elle **vit selon l'action** : au repos elle respire, calme ; rassemblée avant un coup, elle brûle plus fort, les éclats rentrent et tournent vite ; à l'impact, la couronne s'embrase, la lumière flashe et les éclats sont projetés ; elle se calme ensuite. En garde, le disque garde son liseré (qui respire), et une **onde de sa couleur** part du disque quand un coup le frappe. Touchée, la lumière vacille. Au K.O., de la fumée d'ombre monte de la flaque. Lancée (INVERTED SPHERE), plus rien ne brille dans sa main.
+- **Fantômes** : quand elle frappe vite, elle laisse des copies noires qui s'effacent (désactivées en effets réduits).
+- **Traînée** : de sa couleur vers un violet sombre, qui s'affine en pointe.
+
+Performance : 4 petites pièces, une lumière, un émetteur par DAICHA ; fumée réduite et sans fantômes en mode effets réduits.
+
+Maquette des états (dessin à plat, pas une capture Roblox) : `DAICHA_orbe_look.png` envoyée à Wilhem.
+
+Tests : Animation 43 (nouveau : l'aspect au repos, rassemblée, à l'impact, après, en garde, au K.O., lancée), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; fluidité inchangée (`OrbQuality` : combo 0,50, enchaînements 0,92).
+
+À voir dans Studio : le rendu réel de la couronne (néon translucide) et de la fumée, la lisibilité sur chaque arène, la couleur de ki de chaque joueur.
+
 ## Version 0.23.3 — 5 octobre 2026 · DAICHA : UNE BOULE FLUIDE
 
 Wilhem : « essaie de fluidifier le comportement de l'orbe, vraiment ». Nouvel outil de mesure `tests/OrbQuality.luau` : il rejoue un combat avec la vraie simulation, puis refait le dessin du client comme en jeu (30 images serveur par seconde, affichage à 120 i/s, extrapolation, lissage du corps, ressort) et mesure les à-coups de la boule.

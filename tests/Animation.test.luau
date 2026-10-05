@@ -1312,6 +1312,42 @@ T.test("DAICHA's matter: every blow its own path (rise, slam, dive, spin, throw,
 	expect(t.p[1] == 30, "the orb does not snap after a teleport")
 end)
 
+T.test("DAICHA's matter looks alive: a corona, motes and a light that breathe at rest, burn when gathered, flare on the impact", function()
+	local OrbFlight = require("../src/shared/OrbFlight")
+	local roles = MoveData.Kits.DAICHA.Roles
+	local function look(view, move, role, time)
+		local m = move and MoveData.Moves[move]
+		return OrbFlight.look(view, m, role, time or 1, OrbFlight.form(view, m, role, time or 1))
+	end
+	local rest = look({ state = "Idle" }, nil, nil, 1)
+	expect(rest.halo > 1.1 and rest.haloT > 0.6 and rest.sats > 1.5 and rest.light < 1, "the orb is not calm at rest")
+	local a, b = look({ state = "Idle" }, nil, nil, 0.65), look({ state = "Idle" }, nil, nil, 1.95)
+	expect(math.abs(a.halo - b.halo) > 0.02, "its corona does not breathe at rest")
+	for role, id in roles do
+		local m = MoveData.Moves[id]
+		if m.hitbox and OrbFlight.path(role) ~= "vortex" then
+			local gathered = look({ state = "Attack", moveFrame = m.startup }, id, role)
+			local contact = look({ state = "Attack", moveFrame = m.startup + 1 }, id, role)
+			local after = look({ state = "Attack", moveFrame = m.startup + m.active + m.recovery }, id, role)
+			expect(gathered.light > rest.light and gathered.haloT < rest.haloT and gathered.sats < rest.sats,
+				id .. ": it does not burn brighter, its motes drawn in, when gathered")
+			expect(contact.halo > gathered.halo and contact.light > gathered.light and contact.sats > gathered.sats,
+				id .. ": no flare on the impact")
+			expect(math.abs(after.light - rest.light) < 0.3 and math.abs(after.halo - rest.halo) < 0.15, id .. ": it does not calm down after")
+			for frame = 0, m.startup + m.active + m.recovery do
+				local l = look({ state = "Attack", moveFrame = frame }, id, role)
+				expect(l.haloT >= 0 and l.haloT <= 1 and l.light >= 0 and l.halo >= 0, id .. ": a look out of range")
+			end
+		end
+	end
+	local guard = look({ state = "Blocking" }, nil, nil)
+	expect(guard.halo == 0 and guard.sats == 0 and guard.light > 0, "the disc keeps the sphere's corona or motes")
+	expect(look({ state = "KO" }, nil, nil).wisps > 0.5, "no shadow rises off the puddle")
+	local kb = MoveData.Moves[roles.KiBlast]
+	local thrown = look({ state = "Attack", moveFrame = kb.startup + 1 }, roles.KiBlast, "KiBlast")
+	expect(thrown.light == 0 and thrown.halo == 0 and thrown.sats == 0, "the thrown orb still shines in her hand")
+end)
+
 T.test("DAICHA's matter flows: one smooth curve per path, a clock that never goes back, chained from where it was, measured fluid", function()
 	local OrbFlight = require("../src/shared/OrbFlight")
 	local roles = MoveData.Kits.DAICHA.Roles

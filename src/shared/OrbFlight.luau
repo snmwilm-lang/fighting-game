@@ -346,6 +346,58 @@ function OrbFlight.form(view, move, role, time)
 	return { shape = "ball", radius = S.rest * 1.2 + (S.rest - S.rest * 1.2) * smooth(u), stretch = 1 }
 end
 
+-- HOW IT LOOKS (the client draws it; pure so it is tested). A black sphere with a corona of
+-- her ki colour round it (an eclipse, in small), a glint of light, three motes of ki circling
+-- it, a light, wisps of shadow drifting off it. Returns, for her view at `time` (`form` from
+-- OrbFlight.form):
+--   halo   the corona's size (x the sphere's radius; 0 = none), haloT its transparency;
+--   light  the light's brightness;  sats  the motes' orbit (x radius; 0 = none), spin (rad/s);
+--   wisps  the shadow drifting off it (0..1).
+-- At rest it breathes, calm; gathered for a blow it burns brighter, the motes drawn in and
+-- spinning fast; on the impact the corona flares and the motes are flung out; guarding, the
+-- disc has its own rim; hurt, it gutters; at the K.O., shadow rises off the puddle.
+OrbFlight.LOOK = {
+	rest = { halo = 1.24, haloT = 0.8, light = 0.7, sats = 2.1, spin = 1.6, wisps = 0.45 },
+	gather = { halo = 1.13, haloT = 0.6, light = 1.6, sats = 1.25, spin = 8, wisps = 1 },
+	impact = { halo = 1.45, haloT = 0.5, light = 4.5, sats = 2.8, spin = 4, wisps = 1 },
+	guard = { halo = 0, haloT = 1, light = 1.2, sats = 0, spin = 0, wisps = 0.3 },
+	hurt = { halo = 1.2, haloT = 0.9, light = 0.3, sats = 2.5, spin = 12, wisps = 0.2 },
+	puddle = { halo = 0, haloT = 1, light = 0.35, sats = 0, spin = 0, wisps = 1 },
+	gone = { halo = 0, haloT = 1, light = 0, sats = 0, spin = 0, wisps = 0 },
+}
+local function blend(a, b, t)
+	local out = {}
+	for k, v in a do out[k] = v + (b[k] - v) * t end
+	return out
+end
+function OrbFlight.look(view, move, role, time, form)
+	local L = OrbFlight.LOOK
+	local state = view.state
+	time = time or 0
+	if form and form.radius < 0.05 then return blend(L.gone, L.gone, 0) end
+	if GUARD[state] then return blend(L.guard, L.guard, 0) end
+	if state == "KO" then return blend(L.puddle, L.puddle, 0) end
+	if HURT[state] then
+		local out = blend(L.hurt, L.hurt, 0)
+		out.light *= 0.6 + 0.4 * math.abs(math.sin(time * 23)) -- (it gutters)
+		return out
+	end
+	local breath = math.sin(time * 2.4)
+	local rest = blend(L.rest, L.rest, 0)
+	rest.halo += breath * 0.06
+	rest.haloT -= breath * 0.04
+	if state ~= "Attack" or not move then return rest end
+	local frame, startup, active, recovery = view.moveFrame or 0, move.startup, move.active, move.recovery
+	if frame <= startup then
+		return blend(rest, L.gather, smooth(frame / math.max(1, startup) * 1.5))
+	elseif frame <= startup + active then
+		-- (the flare, at its brightest on the contact, then dying down)
+		local since = frame - startup
+		return blend(L.impact, L.gather, smooth((since - 1) / math.max(2, active + 2)))
+	end
+	return blend(L.gather, rest, smooth((frame - startup - active) / math.max(1, recovery * 0.7)))
+end
+
 -- The move's clock as the client draws it: the frame extrapolated between two snapshots, but
 -- never back (a snapshot that brings a hit-stop the client had not foreseen would pull the
 -- matter back a step: it waits there instead until the move catches up). A new move, or the

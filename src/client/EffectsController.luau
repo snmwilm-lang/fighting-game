@@ -251,6 +251,89 @@ function EffectsController:orbVortex(center, color)
 	self:tornadoRing(center, color)
 end
 
+-- The orb's dressing (flyOrb): the glint, the three motes of ki circling it, its light, the
+-- wisps of shadow drifting off it, the ghosts it leaves when it strikes fast, built once and
+-- moved every frame. A handful of parts and two emitters: cheap.
+local SAT_PLANES = { CFrame.Angles(math.rad(70), 0, 0), CFrame.Angles(math.rad(20), math.rad(60), 0), CFrame.Angles(math.rad(-45), math.rad(-50), 0) }
+function EffectsController:orbDressing(rig, look, r, hidden, gone, speed, dt, now, color, view, frameCF)
+	local shell = rig.orbParts[1]
+	if not shell or not shell.Parent then return end
+	local fx = rig.orbFx
+	if not fx or not fx.glint.Parent then
+		fx = {}
+		fx.glint = self:part(Vector3.one * 0.1, CFrame.identity, WHITE, Enum.PartType.Ball)
+		fx.glint.Name, fx.glint.Parent = "OrbGlint", rig.model
+		fx.sats = {}
+		for i = 1, 3 do
+			local sat = self:part(Vector3.one * 0.1, CFrame.identity, color, Enum.PartType.Ball)
+			sat.Name, sat.Parent = "OrbMote" .. i, rig.model
+			fx.sats[i] = sat
+		end
+		fx.light = Instance.new("PointLight")
+		fx.light.Name, fx.light.Shadows, fx.light.Parent = "OrbLight", false, shell
+		fx.wisps = Instance.new("ParticleEmitter")
+		fx.wisps.Name = "OrbWisps"
+		fx.wisps.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		fx.wisps.Color = ColorSequence.new(Color3.fromHex("000000"), Color3.fromHex("2A1240"))
+		fx.wisps.LightEmission, fx.wisps.LightInfluence = 0, 0
+		fx.wisps.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) })
+		fx.wisps.Lifetime, fx.wisps.Speed = NumberRange.new(0.4, 0.8), NumberRange.new(0.4, 1.3)
+		fx.wisps.SpreadAngle, fx.wisps.Acceleration = Vector2.new(180, 180), Vector3.new(0, 1.8, 0)
+		fx.wisps.RotSpeed, fx.wisps.Rotation = NumberRange.new(-60, 60), NumberRange.new(0, 360)
+		fx.wisps.Parent = shell
+		fx.phase, fx.ghostClock = 0, 0
+		rig.orbFx = fx
+	end
+	local pos = frameCF.Position
+	-- the light, in her ki colour (it flares on the impact)
+	fx.light.Color, fx.light.Brightness = color, if gone then 0 else look.light
+	fx.light.Range = 5 + look.light * 1.2
+	-- the wisps of shadow, drifting off it (fewer with reduced effects)
+	local rate = if gone then 0 else look.wisps * (if self.reduced then 5 else 14)
+	fx.wisps.Rate = rate
+	local puff = math.max(r, rig.orbRadius * 0.6)
+	if math.abs(puff - (fx.puff or -1)) > 0.03 then -- (rebuilt only when it changes: no garbage every frame)
+		fx.puff = puff
+		fx.wisps.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, math.max(0.1, puff * 1.4)), NumberSequenceKeypoint.new(1, math.max(0.2, puff * 2.6)) })
+	end
+	-- the glint: a small white highlight on the side toward the camera, high
+	local camera = workspace.CurrentCamera
+	if camera and not hidden and r > 0.08 then
+		local toCamera = (camera.CFrame.Position - pos).Unit
+		local at = pos + (toCamera * 0.72 + Vector3.yAxis * 0.42 - camera.CFrame.RightVector * 0.3) * r
+		fx.glint.CFrame, fx.glint.Size, fx.glint.Transparency = CFrame.new(at), Vector3.one * math.max(0.03, r * 0.32), 0.2
+	else
+		fx.glint.Transparency = 1
+	end
+	-- the three motes of ki, each on its own tilted orbit
+	fx.phase += look.spin * dt
+	local orbit = r * look.sats
+	local moteSize = math.clamp(r * 0.28, 0.05, 0.16)
+	for i, sat in fx.sats do
+		if hidden or look.sats < 0.2 then
+			sat.Transparency = 1
+		else
+			local a = fx.phase + (i - 1) * math.pi * 2 / 3
+			local plane = SAT_PLANES[i]
+			local offset = (plane.RightVector * math.cos(a) + plane.LookVector * math.sin(a)) * orbit
+			sat.CFrame, sat.Size, sat.Color = CFrame.new(pos + offset), Vector3.one * moteSize, color:Lerp(WHITE, 0.45) -- (lighter than the corona: they read against it)
+			sat.Transparency = 0.1
+		end
+	end
+	-- ghosts: when it strikes fast, it leaves fading black copies of itself
+	if not hidden and not self.reduced and view.state == "Attack" and speed > 22 and now - fx.ghostClock > 0.035 then
+		fx.ghostClock = now
+		local ghost = self:part(Vector3.one * r * 2, CFrame.new(pos), Color3.fromHex("07040C"), Enum.PartType.Ball)
+		ghost.Material, ghost.Transparency = Enum.Material.SmoothPlastic, 0.5
+		local rim = self:part(Vector3.one * r * 2.5, CFrame.new(pos), color, Enum.PartType.Ball)
+		rim.Transparency = 0.8
+		tween(ghost, 0.16, { Transparency = 1, Size = Vector3.one * r * 1.2 })
+		tween(rim, 0.16, { Transparency = 1, Size = Vector3.one * r * 1.4 })
+		Debris:AddItem(ghost, 0.18)
+		Debris:AddItem(rim, 0.18)
+	end
+end
+
 -- DAICHA's matter, free of her hand: where OrbFlight puts it, followed by a spring (it lags a
 -- little behind her steps and jumps, overshoots a touch and settles; tight in a strike; re-formed
 -- from nothing after a teleport), in the shape OrbFlight gives (Wilhem: attack = a dense sphere
@@ -319,19 +402,42 @@ function EffectsController:flyOrb(rig, view, now, slot)
 	rig.orbAlong = along.Unit
 	local frameCF = CFrame.lookAt(rig.orbPosition, rig.orbPosition + rig.orbAlong)
 	local thin = 1 / math.sqrt(stretch)
+	-- HOW IT LOOKS (OrbFlight.look, eased): a black sphere with a corona of her ki colour
+	-- (KitOrbCore, once hidden inside it), a glint, three motes circling, a light, wisps.
+	local hidden = m > 0.97 or self.hideOrb or r < 0.03
+	local wantLook = OrbFlight.look(shown, move, role, now, form)
+	local look = rig.orbLook or wantLook
+	for k, v in wantLook do look[k] = look[k] + (v - look[k]) * (1 - math.exp(-dt * 22)) end
+	rig.orbLook = look
+	local color = self:energy(slot or 1)
 	for _, p in rig.orbParts do
 		if p.Parent then
 			local mesh = p:FindFirstChild("OrbShape")
 			if not mesh then
 				mesh = Instance.new("SpecialMesh")
 				mesh.Name, mesh.MeshType, mesh.Parent = "OrbShape", Enum.MeshType.Sphere, p
+				if p.Name == "KitOrbCore" then
+					p.Material, p.CastShadow = Enum.Material.Neon, false
+				else
+					-- (a glossy black: the light slides over it)
+					p.Material, p.Color, p.Reflectance = Enum.Material.SmoothPlastic, Color3.fromHex("07040C"), 0.22
+				end
 			end
 			mesh.Scale = Vector3.new(thin, thin, stretch)
 			p.CFrame = frameCF
-			p.Size = Vector3.one * math.max(0.03, if p.Name == "KitOrbCore" then r * 0.95 else r * 2)
-			p.Transparency = if m > 0.97 or self.hideOrb or r < 0.03 then 1 else 0
+			if p.Name == "KitOrbCore" then
+				p.Size = Vector3.one * math.max(0.03, r * 2 * math.max(look.halo, 0.01))
+				p.Transparency = if hidden or look.halo < 0.05 then 1 else math.clamp(look.haloT, 0, 1)
+			else
+				p.Size = Vector3.one * math.max(0.03, r * 2)
+				p.Transparency = if hidden then 1 else 0
+			end
 		end
 	end
+	-- (the light and the wisps stay with the disc and the puddle; gone with the thrown orb, or
+	-- while an ultimate stages the matter itself)
+	local gone = self.hideOrb or (rig.orbRadius < 0.03 and m < 0.5)
+	self:orbDressing(rig, look, r, hidden, gone, speed, dt, now, color, view, frameCF)
 	-- its ribbon: drawn whenever it flies fast (not only during a blow), as wide as the orb
 	local trail = rig.trails and rig.trails.Weapon
 	if trail then
@@ -369,7 +475,17 @@ function EffectsController:flyOrb(rig, view, now, slot)
 	rig.orbDisc.CFrame, rig.orbDisc.Transparency = face, if hide then 1 else 0.02
 	rig.orbRim.Size = Vector3.new(thick * 0.5, math.max(0.05, d * 1.08), math.max(0.05, d * 1.08))
 	rig.orbRim.CFrame = face * CFrame.new(-0.05 + 0.03 * rig.orbLie, 0, 0)
-	rig.orbRim.Transparency = if hide then 1 else 0.35 + 0.25 * rig.orbLie
+	-- (the rim breathes gently)
+	rig.orbRim.Transparency = if hide then 1 else 0.3 + 0.25 * rig.orbLie + 0.08 * math.sin(now * 3)
+	-- a blow lands on the shield: a ring of her colour spreads off it
+	local stunned = view.state == "Blockstun" or view.state == "CrouchBlockstun"
+	if stunned and not rig.orbWasStunned and not hide then
+		local ring = self:part(Vector3.new(0.05, d * 1.05, d * 1.05), face, self:energy(slot or 1), Enum.PartType.Cylinder)
+		ring.Transparency = 0.35
+		tween(ring, 0.28, { Transparency = 1, Size = Vector3.new(0.05, d * 1.7, d * 1.7) })
+		Debris:AddItem(ring, 0.3)
+	end
+	rig.orbWasStunned = stunned
 end
 
 -- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
@@ -1179,6 +1295,12 @@ function EffectsController:attachWeapon(slot, rig)
 		trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.45),
 			NumberSequenceKeypoint.new(1, 1) })
 		trail.Lifetime, trail.MinLength, trail.LightEmission, trail.FaceCamera = if blade then 0.2 else 0.16, 0.02, 1, false
+		if orb then
+			-- (the orb's smear: from her colour to a dark violet, thinning to a point)
+			trail.Color = ColorSequence.new(self:energy(slot), Color3.fromHex("2A1240"))
+			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1) })
+			trail.LightEmission, trail.Lifetime = 0.7, 0.2
+		end
 		trail.Enabled = false
 		trail.Parent = weapon
 		rig.trails.Weapon = trail

@@ -60,6 +60,9 @@ v0.18.11 : logo du menu dans le style de l'artwork de Wilhem : BREAK blanc argen
 rouge, contours noirs épais, lueur et trait rouges (dessiné en UI). L'artwork recadré est dans
 `assets/logo/breakframez_logo.png` : une fois envoyé sur Roblox par Wilhem, son id va dans
 `MenuController.LOGO_IMAGE` et l'image remplace le dessin (seulement une fois chargée).
+v0.18.12 : le logo dessiné s'approche de l'artwork (anneau de lumière rouge brisé derrière,
+éclats noirs et rouges autour) ; `MenuController.LOGO_STYLE = "KO"` remet l'ancien K.O. (Claude ne
+peut pas envoyer d'image sur Roblox : il faut le compte de Wilhem).
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

@@ -51,6 +51,8 @@ local MenuController = {}
 MenuController.__index = MenuController
 -- The logo artwork once uploaded to Roblox by Wilhem ("rbxassetid://<id>"; empty: the drawn logo).
 MenuController.LOGO_IMAGE = ""
+-- The drawn logo: "BREAKFRAMEZ" (after Wilhem's art) or "KO" (the first menu's K.O.).
+MenuController.LOGO_STYLE = "BREAKFRAMEZ"
 
 -- Shared, restrained hover / press / gamepad feedback.
 local juice = Theme.feedback
@@ -267,6 +269,19 @@ function MenuController:buildTopBar()
 		NumberSequenceKeypoint.new(1, 1) }) }, glow)
 	new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.52, 0.5), Size = UDim2.fromOffset(4, 78),
 		BackgroundColor3 = Theme.RED, BorderSizePixel = 0, Rotation = 8 }, drawn)
+	-- (a ring of red light behind, broken at two places, and shards flying around, like the art)
+	local ring = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(84, 84),
+		BackgroundTransparency = 1 }, drawn)
+	new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, ring)
+	local ringStroke = new("UIStroke", { Color = Theme.RED, Thickness = 3, Transparency = 0.15 }, ring)
+	new("UIGradient", { Rotation = 35, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.42, 0),
+		NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(0.58, 0),
+		NumberSequenceKeypoint.new(1, 0) }) }, ringStroke)
+	for i, shard in { { 10, 8, 7, 30 }, { 170, 6, 9, -20 }, { 182, 52, 6, 45 }, { 6, 58, 8, 15 }, { 150, 66, 5, 60 }, { 40, 0, 5, -35 } } do
+		local piece = new("Frame", { Position = UDim2.fromOffset(shard[1], shard[2]), Size = UDim2.fromOffset(shard[3], shard[3] * 1.6),
+			BackgroundColor3 = if i % 2 == 0 then Theme.RED else Color3.fromHex("1A1A20"), BorderSizePixel = 0, Rotation = shard[4] }, drawn)
+		new("UIStroke", { Color = if i % 2 == 0 then Color3.fromHex("FF8090") else Theme.RED, Thickness = 1 }, piece)
+	end
 	local top = label(drawn, { Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(150, 36), Font = DISPLAY, TextScaled = true,
 		Text = "BREAK", TextColor3 = Color3.fromHex("ECECF2"), Rotation = -6, TextXAlignment = Enum.TextXAlignment.Center })
 	stroke(top, 3, INK)
@@ -275,6 +290,14 @@ function MenuController:buildTopBar()
 		Text = "FRAMEZ", TextColor3 = Color3.fromHex("FF2236"), Rotation = -6, TextXAlignment = Enum.TextXAlignment.Center })
 	stroke(bottom, 3, INK)
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromHex("FF4A5A"), Color3.fromHex("B0081C")) }, bottom)
+	if MenuController.LOGO_STYLE == "KO" then
+		drawn:ClearAllChildren()
+		local brush = Theme.rule(drawn, UDim2.fromOffset(8, 22), UDim2.fromOffset(113, 34), Theme.RED)
+		brush.Rotation = -9
+		local ko = label(drawn, { Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(148, 62), Font = DISPLAY,
+			TextSize = 62, Text = "K.O.", TextColor3 = Theme.WHITE, Rotation = -8 })
+		stroke(ko, 2, INK)
+	end
 	if MenuController.LOGO_IMAGE ~= "" then
 		local picture = new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = MenuController.LOGO_IMAGE,
 			ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1 }, logo)

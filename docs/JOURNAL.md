@@ -1,5 +1,61 @@
 # Journal du projet — état à transmettre
 
+## Version 0.20.0 — 5 octobre 2026 · BOUTIQUE ET MONÉTISATION, TESTEURS
+
+Brief « système complet de monétisation » (plan validé par Wilhem : « go »), et « faut que les
+testeurs aient accès à tous les persos ».
+
+**Configuration centrale** (`src/shared/StoreConfig.luau`, pur) :
+- Game Pass : VIP 299, DOUBLE REWARDS 199, SUPPORTER 99.
+- Developer Products : packs 1 000 / 3 000 / 7 500 pièces, 8 styles GOLD à 149 R$.
+- Cosmétiques : 6 titres, 4 emotes + RESPECT (SUPPORTER), 5 auras + VIP GOLD (VIP), 3 animations de victoire « BIENTÔT ».
+- Tous les IDs valent 0 : aucun inventé, l'article affiche BIENTÔT et le serveur refuse son achat.
+- Prix proposés, provisoires.
+
+**Règles** (`src/shared/Store.luau`, pur) :
+- Bonus de pièces additionnés et plafonnés à ×2,25, seulement sur les pièces des combats (versus, survie, défis). Jamais sur les packs, les quêtes, l'Elo, les points de la semaine ni le combat.
+- Registre des reçus dans le profil (200 derniers) : un reçu n'est jamais donné deux fois.
+- Achat et équipement des cosmétiques ; un article de pass suit le pass (perdu avec lui).
+
+**Serveur** :
+- Game Pass vérifiés à chaque connexion (`UserOwnsGamePassAsync`, dernier état confirmé gardé si Roblox ne répond pas) et donnés tout de suite après un achat (`PromptGamePassPurchaseFinished`).
+- Un seul `ProcessReceipt` : `PurchaseGranted` seulement après l'écriture du profil, sinon `NotProcessedYet`. Aucun achat sur un profil non chargé.
+- PolicyService : articles payants aléatoires refusés aux joueurs concernés (il n'y en a aucun).
+- Achats en Robux lancés par le serveur (action `robux`), achats en pièces (`buyItem`), auras (`cosmetic`).
+- Badges VIP / SUPPORTER et pseudo doré dans le lobby, aura portée posée sur le rig en match (attribut `Aura`, dessinée par `EffectsController`).
+- `CharacterData.SHOP_PRODUCTS` retiré : ses produits sont dans `StoreConfig`.
+
+**Menu** :
+- Nouvelle entrée BOUTIQUE (`src/client/ShopPage.luau`), onglets À LA UNE / COSMÉTIQUES / BOUTIQUE / GAME PASS.
+- Aperçu en grand :
+  - 3D du style ;
+  - plaque du titre ;
+  - bulle de l'emote ;
+  - particules de l'aura ;
+  - avantages du pass.
+- Prix et statut : POSSÉDÉ / ÉQUIPÉ / verrouillé / BIENTÔT. Confirmation des achats en pièces, notification après chaque achat. PC, mobile, manette.
+- Bouton R$ dans PERSONNAGES pour les styles vendus en Robux (seulement avec un vrai ID).
+- Badges sur la carte de joueur.
+
+**Testeurs** (`Economy.makeTester`) : un profil sauvegardé avant la vente des persos, ou qui avait reçu les 3 choix gratuits de la 0.19.0, devient TESTEUR.
+- Il a tous les persos, même ceux ajoutés plus tard, sans qu'ils soient écrits comme achetés.
+- `DevAccess.TESTER_IDS` permet d'ajouter un testeur par UserId.
+
+**Guide** : `docs/MONETISATION.md`.
+- Quoi créer sur le Creator Dashboard, où trouver les IDs et où les coller.
+- Comment tester (achats de test dans Studio, puis jeu publié).
+
+Tests : Lobby 36 (nouveaux : store ×5 — configuration, bonus et plafond, reçus rejoués / reconnexion / sauvegarde échouée, cosmétiques et équipement, textes en français ; testeurs).
+
+Problèmes ouverts :
+- Rien vérifié dans Roblox Studio.
+- Aucun vrai achat testé (impossible hors Roblox).
+- IDs à créer par Wilhem.
+- Animations de victoire à faire.
+- Images des pass à fournir par Wilhem.
+
+Prochaine étape : Wilhem crée les pass et produits, colle les IDs, fait les achats de test dans Studio.
+
 ## Version 0.19.0 — 5 octobre 2026 · CLASSEMENTS, ANTI-FARM, TESTEURS, MOBILE, MENUS
 
 Réponses de Wilhem : deux classements (de tous les temps + de la semaine), pas de plafond de

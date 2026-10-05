@@ -39,6 +39,9 @@ local Economy = require(Shared.Economy)
 local Quests = require(Shared.Quests)
 local DevAccess = require(script.DevAccess)
 local Champions = require(script.Champions)
+local StoreConfig = require(Shared.StoreConfig)
+local Store = require(Shared.Store)
+local storeIdx = Store.index(StoreConfig) -- (the SHOP: passes, products, cosmetics by key and id)
 local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
 local arrivedForCrossMatch -- (defined with the cross-server search)
 
@@ -93,8 +96,12 @@ local function defaultProfile()
 		quests = {}, -- QUESTS: the counters and the quests rewarded (Quests)
 		titles = {}, championWeeks = {}, -- the titles owned (challenges, champion of the week)
 		weekId = 0, weekPoints = 0, -- WEEKLY ranking: the points of the week (Champions)
-		freePicks = 0, picksGiven = false, -- the testers' free fighters (Economy.giveTesterPicks)
+		freePicks = 0, picksGiven = false, -- the old testers' free picks (Economy.claimFighter)
+		tester = false, -- TESTERS: every fighter (Economy.makeTester)
 		history = {}, -- MATCH HISTORY: the last 10 matches (GameModes.addHistory)
+		-- SHOP (Store, StoreConfig): the Game Passes last confirmed, the cosmetics bought with
+		-- coins, the ones worn, and the Robux receipts already granted (never twice)
+		passes = {}, ownedItems = {}, cosmetics = {}, receipts = {},
 		devOff = false, -- (developer access only: switched off to play as a new player)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
@@ -165,8 +172,10 @@ local function loadProfile(player, client)
 				-- (a challenge title won before the titles list: kept in it)
 				local p = client.profile
 				-- (a tester's profile, saved before the fighters were sold: 3 free picks, once)
-				if Economy.giveTesterPicks(p, data) then
-					print("[FightingGame] " .. player.Name .. ": tester profile, " .. Economy.TESTER_PICKS .. " free fighters to pick")
+				-- (a tester: an old profile, or a listed UserId: every fighter)
+				local listed = DevAccess.isTester(player.UserId)
+				if Economy.makeTester(p, if listed then { picksGiven = true } else data) then
+					print("[FightingGame] " .. player.Name .. ": tester profile, every fighter unlocked")
 				end
 				if p.title ~= "" and not table.find(p.titles, p.title) then table.insert(p.titles, p.title) end
 				-- (a favourite that is not playable any more, a locked fighter: KAI, free, instead)
@@ -174,7 +183,7 @@ local function loadProfile(player, client)
 				SaveQueue.loaded(saves, player.UserId)
 				SaveQueue.boardChanged(saves, player.UserId, math.floor(client.profile.rating)) -- (already on the board)
 				client.profileLoaded = true
-				if type(data) == "table" then client.onProfileLoaded() end
+				client.onProfileLoaded(type(data) == "table")
 				return
 			end
 			attempt += 1
@@ -182,6 +191,7 @@ local function loadProfile(player, client)
 		end
 		client.profileLoaded = true
 		if clients[player] == client then
+			client.checkPasses() -- (the perks still show; nothing can be bought on this session)
 			menuRemote:FireClient(player, { error = "SAVES UNAVAILABLE: this session will not be kept" })
 		end
 	end)
@@ -381,6 +391,9 @@ local function swapModel(match, i, model)
 	if rebuilt > 0 then print("[FightingGame] " .. model.Name .. ": " .. rebuilt .. " joints rebuilt after placement") end
 	slot.model = model
 	if owner then owner.Character = model end
+	-- (SHOP · VFX: the colours of the aura worn, drawn by every client; cosmetic only)
+	local ownerClient = owner and clients[owner]
+	model:SetAttribute("Aura", if ownerClient and ownerClient.profile then Store.auraColors(storeIdx, ownerClient.profile) else "")
 	watchRig(match, i)
 	place(slot, match.world.fighters[i])
 end
@@ -624,10 +637,11 @@ function endVersus(match, winnerSlot, leftSlot)
 		end
 	end
 	-- COINS (Economy): a win WIN, a loss LOSS, nothing for the one who left; the anti-farm
-	-- share and the daily cap apply.
+	-- share applies, then the Game Passes' bonus (Store.fightCoins: coins only, capped).
 	local function pay(profile, slot, part)
 		local result = if slot == leftSlot then "left" elseif winnerSlot == slot then "win" elseif winnerSlot == 0 then "draw" else "loss"
-		local gain = AntiCheat.capCoins(profile, math.floor(Economy.pvpCoins(result) * part + 0.5), now)
+		local base = math.floor(Economy.pvpCoins(result) * part + 0.5)
+		local gain = AntiCheat.capCoins(profile, Store.fightCoins(StoreConfig, base, profile), now)
 		profile.coins = (tonumber(profile.coins) or 0) + gain
 		return gain
 	end
@@ -705,8 +719,12 @@ function menuStatus(player, bought, unlocked)
 		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
 		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
 		history = profile.history or {}, rematch = client.lastOpponent ~= nil and Players:GetPlayerByUserId(client.lastOpponent) ~= nil,
-		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {}, freePicks = profile.freePicks or 0,
+		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {}, freePicks = profile.freePicks or 0, tester = profile.tester == true,
 		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
+		-- SHOP: passes, cosmetics, what may be bought with Robux (a real id and the policy known)
+		passes = profile.passes or {}, ownedItems = profile.ownedItems or {}, cosmetics = profile.cosmetics or {},
+		paid = client.policy ~= nil and (not store or SaveQueue.isLoaded(saves, player.UserId)),
+		coinMultiplier = Store.coinMultiplier(StoreConfig, profile),
 		isDev = isDev(player), dev = devOn(player, client),
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
@@ -772,6 +790,7 @@ local function hubStatus()
 		local client = player and clients[player]
 		entry.slot = if client and client.match then client.slot else 0
 		entry.title = if player then player:GetAttribute("Title") or "" else "" -- (a challenge title, WEEKLY CHAMPION...)
+		entry.badges = if player then player:GetAttribute("Badges") or "" else "" -- (Game Passes: "VIP,SUPPORTER")
 		entry.where = if not client then "?"
 			elseif client.match then (if client.match.mode == "VERSUS" then "IN A FIGHT" elseif client.match.mode == "TRAINING" then "TRAINING"
 				elseif GameModes.find(client.match.mode) and GameModes.find(client.match.mode).boss then "VS " .. GameModes.find(client.match.mode).boss
@@ -792,7 +811,7 @@ local function flushHub(force)
 	local list = hubStatus()
 	local parts = {}
 	for _, e in list do
-		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ","), e.title or "" }, ":"))
+		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ","), e.title or "", e.badges or "" }, ":"))
 	end
 	local key = table.concat(parts, "|")
 	if key == lastHubKey and not force then return end -- (nothing changed: no redraw on every client)
@@ -1054,6 +1073,91 @@ task.spawn(function()
 	end
 end)
 
+-- ===================================================================== SHOP (Robux)
+-- Game Passes (permanent, checked at every join and after a purchase), the player's policy
+-- (PolicyService) and what the passes show: badges, the VIP name colour, the aura worn, a
+-- pass title or emote kept only with the pass. Store / StoreConfig hold the rules and the ids.
+local MarketplaceService = game:GetService("MarketplaceService")
+local PolicyService = game:GetService("PolicyService")
+local function applyPassLooks(player, client)
+	local profile = client.profile
+	if not profile then return end
+	player:SetAttribute("Badges", table.concat(Store.badges(StoreConfig, profile), ","))
+	player:SetAttribute("NameColor", if Store.hasPass(profile, "VIP") then storeIdx.pass.VIP.nameColor else "")
+	-- (a pass title, a pass emote, a pass aura: only while the pass is owned)
+	if profile.title ~= "" and not Champions.canShow(profile, profile.title) and not Store.passTitle(storeIdx, profile, profile.title) then
+		profile.title = ""
+	end
+	player:SetAttribute("Title", profile.title)
+	profile.taunts = Taunts.sanitize(profile.taunts, profile)
+end
+local function checkPasses(player, client)
+	task.spawn(function()
+		local changed = false
+		for _, pass in StoreConfig.PASSES do
+			if pass.id > 0 then
+				local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.id)
+				if clients[player] ~= client then return end
+				-- (Roblox unreachable: the last confirmed ownership stays)
+				if ok then changed = Store.setPass(client.profile, pass.key, owns == true) or changed end
+			else
+				-- (a pass not created yet on Roblox: nobody owns it)
+				changed = Store.setPass(client.profile, pass.key, false) or changed
+			end
+		end
+		-- the policy: paid random items restricted (none is sold: kept for the rules); unknown
+		-- means restricted
+		local ok, info = pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
+		if clients[player] ~= client then return end
+		client.policy = { randomRestricted = not (ok and type(info) == "table" and info.ArePaidRandomItemsRestricted == false) }
+		applyPassLooks(player, client)
+		if changed then saveProfile(player, client) end
+		menuStatus(player)
+		broadcastHub()
+	end)
+end
+-- A Game Pass bought in the game: given at once (and checked again at every join).
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+	local pass = storeIdx.passById[passId]
+	local client = clients[player]
+	if not purchased or not pass or not client or not client.profile then return end
+	Store.setPass(client.profile, pass.key, true)
+	applyPassLooks(player, client)
+	saveProfile(player, client, true)
+	menuRemote:FireClient(player, { purchased = { kind = "pass", key = pass.key } })
+	menuStatus(player)
+	broadcastHub(true)
+end)
+-- DEVELOPER PRODUCTS: one handler for all of them (coin packs, Robux styles). A receipt is
+-- granted once (Store.grantReceipt: the PurchaseId kept in the profile) and answered
+-- PurchaseGranted only once the profile holding it is written; otherwise NotProcessedYet and
+-- Roblox calls again later (the next join, another server): nothing given twice, nothing lost.
+MarketplaceService.ProcessReceipt = function(receipt)
+	local product = storeIdx.productById[receipt.ProductId]
+	if not product then
+		warn("[FightingGame] receipt for an unknown product " .. tostring(receipt.ProductId) .. ": set its id in StoreConfig")
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local player = Players:GetPlayerByUserId(receipt.PlayerId)
+	local client = player and clients[player]
+	if not client or not client.profile or not client.profileLoaded or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- (the player left, or the profile is not in yet)
+	end
+	local result = Store.grantReceipt(client.profile, tostring(receipt.PurchaseId), product, os.time())
+	if result == "unknown" then return Enum.ProductPurchaseDecision.NotProcessedYet end
+	if store then
+		if not writeProfile(player, client) then return Enum.ProductPurchaseDecision.NotProcessedYet end
+	elseif not IN_STUDIO then
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- (no saves in a live game: never take Robux for nothing)
+	end
+	if result == "granted" and clients[player] == client then
+		print("[FightingGame] " .. player.Name .. " bought " .. product.key .. " (" .. tostring(receipt.PurchaseId) .. ")")
+		menuRemote:FireClient(player, { purchased = { kind = "product", key = product.key } })
+		menuStatus(player)
+	end
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
 local function joined(player)
 	if clients[player] then return end
 	local client = {
@@ -1065,13 +1169,17 @@ local function joined(player)
 	-- (the Output says who has the developer access: the UserId to put in DevAccess.IDS)
 	print(string.format("[FightingGame] %s · UserId %d · place owner %d (%s) · developer access: %s", player.Name, player.UserId,
 		game.CreatorId, if CREATOR_IS_USER then "user" else "group", if isDev(player) then "YES" else "no"))
-	client.onProfileLoaded = function()
+	client.checkPasses = function() checkPasses(player, client) end
+	client.onProfileLoaded = function(saved)
+		checkPasses(player, client) -- (a pass bought before the first visit counts too)
+		if not saved then return end
 		grantChampion(player, client)
 		buildHero(player)
 		menuStatus(player)
 	end
 	arrivedForCrossMatch(player, client)
 	loadProfile(player, client)
+	if not store then checkPasses(player, client) end -- (Studio without saves)
 	buildHero(player)
 	player:SetAttribute("Avatar", false) -- the block model of the kit; APPARENCE: avatar R15
 	player:SetAttribute("FighterSlot", 0)
@@ -1145,7 +1253,7 @@ end)
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
 	start = true, cancel = true, leave = true, taunts = true, buySkin = true, buyFighter = true, claimFighter = true, rematch = true, equip = true, title = true,
-	devMode = true, preview = true }
+	devMode = true, preview = true, buyItem = true, cosmetic = true, robux = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -1262,12 +1370,54 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	elseif action == "title" then
 		-- The title shown on the profile and in the lobby: one the player has, or none.
 		if typeof(packet.title) ~= "string" then return suspect(player, "malformed") end
-		if client.profile and Champions.canShow(client.profile, packet.title) then
+		if client.profile and (Champions.canShow(client.profile, packet.title) or Store.passTitle(storeIdx, client.profile, packet.title)) then
 			client.profile.title = packet.title
 			player:SetAttribute("Title", packet.title)
 			saveProfile(player, client)
 			menuStatus(player)
 			broadcastHub(true)
+		end
+	elseif action == "buyItem" then
+		-- SHOP · COSMETICS: an item bought with coins (Store.buyItem: price, ownership, never a
+		-- pass item or a COMING SOON one), once the saved profile is in.
+		if typeof(packet.id) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+			local ok, why = Store.buyItem(storeIdx, client.profile, packet.id)
+			if ok then
+				saveProfile(player, client, true)
+				menuRemote:FireClient(player, { purchased = { kind = "item", key = packet.id } })
+				menuStatus(player)
+			else
+				menuRemote:FireClient(player, { error = if why == "coins" then "NOT ENOUGH COINS" elseif why == "owned" then "ALREADY OWNED"
+					elseif why == "soon" then "COMING SOON" elseif why == "pass" then "ONLY WITH ITS GAME PASS" else "NOT FOR SALE" })
+			end
+		end
+	elseif action == "cosmetic" then
+		-- SHOP · COSMETICS: an aura (VFX) worn or taken off ("" = none); only an owned one.
+		if typeof(packet.kind) ~= "string" or typeof(packet.id) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and Store.equip(storeIdx, client.profile, packet.kind, packet.id) then
+			saveProfile(player, client)
+			menuStatus(player)
+		end
+	elseif action == "robux" then
+		-- SHOP · ROBUX: the server starts the Roblox purchase window, only for a pass or product
+		-- of StoreConfig with a real id, a known policy and a loaded profile; Roblox takes the
+		-- payment and the purchase is granted by PromptGamePassPurchaseFinished / ProcessReceipt.
+		if typeof(packet.kind) ~= "string" or typeof(packet.key) ~= "string" then return suspect(player, "malformed") end
+		local entry = if packet.kind == "pass" then storeIdx.pass[packet.key] elseif packet.kind == "product" then storeIdx.product[packet.key] else nil
+		if not entry then return suspect(player, "malformed") end
+		if not client.profile or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
+			menuRemote:FireClient(player, { error = "YOUR SAVE IS NOT LOADED YET" })
+		elseif not Store.canPrompt(entry, client.policy) then
+			menuRemote:FireClient(player, { error = if entry.id <= 0 then "COMING SOON" else "NOT AVAILABLE FOR YOUR ACCOUNT" })
+		elseif packet.kind == "pass" and Store.hasPass(client.profile, entry.key) then
+			menuRemote:FireClient(player, { error = "ALREADY OWNED" })
+		elseif entry.style and type(client.profile.ownedSkins) == "table" and client.profile.ownedSkins[entry.style] then
+			menuRemote:FireClient(player, { error = "ALREADY OWNED" })
+		elseif packet.kind == "pass" then
+			pcall(MarketplaceService.PromptGamePassPurchase, MarketplaceService, player, entry.id)
+		else
+			pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, entry.id)
 		end
 	elseif action == "devMode" then
 		-- The developer access switched off / on (only for a developer: DevAccess).
@@ -1663,7 +1813,7 @@ local function followEvents(match, events)
 				local client = clients[owner]
 				local beaten = match.wave - 1
 				GameModes.achievementProgress(client.profile, { survival = beaten })
-				local gain = AntiCheat.capCoins(client.profile, GameModes.COINS.survivalWin * beaten, os.time())
+				local gain = AntiCheat.capCoins(client.profile, Store.fightCoins(StoreConfig, GameModes.COINS.survivalWin * beaten, client.profile), os.time())
 				client.profile.coins = (client.profile.coins or 0) + gain
 				client.profile.survivalBest = math.max(client.profile.survivalBest, beaten)
 				saveProfile(owner, client) -- (the record and the achievements' counter)
@@ -1681,7 +1831,7 @@ local function followEvents(match, events)
 				local profile = client.profile
 				local newBest = grade > (profile.shinGrade or 0)
 				GameModes.achievementProgress(profile, { shinGrade = grade })
-				local gain = if grade >= 1 then AntiCheat.capCoins(profile, GameModes.COINS.boss, os.time()) else 0
+				local gain = if grade >= 1 then AntiCheat.capCoins(profile, Store.fightCoins(StoreConfig, GameModes.COINS.boss, profile), os.time()) else 0
 				profile.coins = (profile.coins or 0) + gain
 				if newBest then
 					profile.shinGrade = grade
@@ -1705,7 +1855,7 @@ local function followEvents(match, events)
 				local newBest = grade > profile.asuraGrade
 				profile.asuraDamage = math.max(profile.asuraDamage, math.floor(damage * 100 + 0.5))
 				GameModes.achievementProgress(profile, { asuraDamage = math.floor(damage * 100 + 0.5), asuraGrade = grade })
-				local gain = if grade >= 1 then AntiCheat.capCoins(profile, GameModes.COINS.boss, os.time()) else 0
+				local gain = if grade >= 1 then AntiCheat.capCoins(profile, Store.fightCoins(StoreConfig, GameModes.COINS.boss, profile), os.time()) else 0
 				profile.coins = (profile.coins or 0) + gain
 				if newBest then
 					profile.asuraGrade = grade
@@ -1795,30 +1945,6 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per server, opponent search, server-authoritative combat")
-
--- SHOP · ROBUX (prepared, off): a shop style sold for Robux needs a developer product created by
--- Wilhem on Roblox, its id in CharacterData.SHOP_PRODUCTS[name]. While that table is empty
--- (now: no id is ever invented) nothing is connected and the shop sells for coins only.
-if next(CharacterData.SHOP_PRODUCTS) then
-	local MarketplaceService = game:GetService("MarketplaceService")
-	local byProduct = {}
-	for name, product in CharacterData.SHOP_PRODUCTS do byProduct[product] = name end
-	MarketplaceService.ProcessReceipt = function(receipt)
-		local name = byProduct[receipt.ProductId]
-		local player = Players:GetPlayerByUserId(receipt.PlayerId)
-		local client = player and clients[player]
-		-- (granted only once the purchase is really written in the saved profile; else Roblox
-		-- calls again later)
-		if not name or not client or not client.profile or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
-			return Enum.ProductPurchaseDecision.NotProcessedYet
-		end
-		if type(client.profile.ownedSkins) ~= "table" then client.profile.ownedSkins = {} end
-		client.profile.ownedSkins[name] = true
-		if store and not writeProfile(player, client) then return Enum.ProductPurchaseDecision.NotProcessedYet end
-		menuStatus(player, name)
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	end
-end
 
 -- The server closing (update, shutdown): every loaded profile is written before it goes
 -- (Roblox waits up to 30 s for this).

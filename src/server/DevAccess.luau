@@ -33,6 +33,14 @@ function DevAccess.isDev(userId, creatorId, creatorIsUser, studioSolo)
 	return creatorIsUser == true and type(creatorId) == "number" and creatorId > 0 and userId == creatorId
 end
 
+-- TESTERS: Roblox UserIds (numbers) that get every fighter (Economy.makeTester; not the
+-- developer access: the shop, styles and passes stay as for any player). Old profiles saved
+-- before the fighters were sold are testers too, without being listed here.
+DevAccess.TESTER_IDS = {}
+function DevAccess.isTester(userId)
+	return type(userId) == "number" and userId > 0 and table.find(DevAccess.TESTER_IDS, userId) ~= nil
+end
+
 -- Is the access on right now (a developer who did not switch it off)?
 function DevAccess.active(isDev, profile)
 	return isDev == true and not (type(profile) == "table" and profile.devOff == true)

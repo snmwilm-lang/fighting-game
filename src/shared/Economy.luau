@@ -35,6 +35,7 @@ end
 -- Does the profile own this fighter (free or bought)?
 function Economy.owns(profile, kit)
 	if Economy.isFree(kit) then return true end
+	if type(profile) == "table" and profile.tester == true then return true end -- (the testers: every fighter)
 	local owned = type(profile) == "table" and profile.ownedKits
 	return type(owned) == "table" and owned[kit] == true
 end
@@ -67,9 +68,19 @@ function Economy.buyFighter(profile, kit, roster)
 	return true
 end
 
--- THE TESTERS (Wilhem): a profile saved before the fighters were sold gets TESTER_PICKS free
--- picks, once: any locked fighters of their choice (profile.freePicks, given by the server when
--- it loads an old profile). Returns true, or false and why: "unknown", "owned", "picks".
+-- THE TESTERS (Wilhem: « faut qu'ils aient accès à tous les persos »): a profile saved before
+-- the fighters were sold (no ownedKits), or one that already got the old 3 free picks
+-- (picksGiven), becomes a TESTER: every fighter, now and the ones added later (Economy.owns),
+-- without writing them as bought. The server also makes testers of the UserIds it lists
+-- (DevAccess.TESTER_IDS). Returns true when the profile just became a tester.
+function Economy.makeTester(profile, saved)
+	if type(profile) ~= "table" or profile.tester == true then return false end
+	if type(saved) ~= "table" or (type(saved.ownedKits) == "table" and not saved.picksGiven) then return false end
+	profile.tester = true
+	return true
+end
+
+-- (the old free picks: kept for a profile that still has some, see claimFighter)
 Economy.TESTER_PICKS = 3
 function Economy.claimFighter(profile, kit, roster)
 	if type(profile) ~= "table" or type(kit) ~= "string" or not table.find(roster, kit) then return false, "unknown" end
@@ -79,14 +90,6 @@ function Economy.claimFighter(profile, kit, roster)
 	if type(profile.ownedKits) ~= "table" then profile.ownedKits = {} end
 	profile.freePicks = picks - 1
 	profile.ownedKits[kit] = true
-	return true
-end
-
--- Gives the testers' picks to a profile loaded from an old save (one without ownedKits), once.
-function Economy.giveTesterPicks(profile, saved)
-	if type(saved) ~= "table" or type(saved.ownedKits) == "table" or saved.picksGiven then return false end
-	profile.freePicks = Economy.TESTER_PICKS
-	profile.picksGiven = true
 	return true
 end
 

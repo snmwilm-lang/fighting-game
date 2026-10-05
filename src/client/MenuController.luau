@@ -14,7 +14,6 @@
 ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
@@ -32,6 +31,10 @@ local Taunts = require(Shared.Taunts)
 local Economy = require(Shared.Economy)
 local Quests = require(Shared.Quests)
 local Theme = require(script.Parent.MenuTheme)
+local ShopPage = require(script.Parent.ShopPage)
+local StoreConfig = require(Shared.StoreConfig)
+local Store = require(Shared.Store)
+local storeIdx = Store.index(StoreConfig)
 
 local WHITE = Color3.fromHex("F5F5F7")
 local INK = Color3.fromHex("08080B")
@@ -198,6 +201,8 @@ function MenuController.new(remote, hub, settings)
 	self.pages.settings = self:buildSettings()
 	self.pages.achievements = self:buildAchievements()
 	self.pages.taunts = self:buildTaunts()
+	self.shop = ShopPage.new(self, root) -- (SHOP: passes, cosmetics, coins; ShopPage)
+	self.pages.shop = self.shop.page
 	self:buildBottom()
 	-- Toast (errors, results).
 	self.toast = label(root, { Visible = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 88),
@@ -231,6 +236,8 @@ function MenuController.new(remote, hub, settings)
 			end
 		elseif packet.questGifts then
 			self:questFlash(packet.questGifts)
+		elseif packet.purchased then
+			self.shop:purchased(packet.purchased)
 		elseif packet.rematchSent then
 			self:notify("REMATCH SENT TO " .. tostring(packet.rematchSent) .. " · THEY ACCEPT IN THEIR BANNER", GOLD)
 		elseif packet.champion then
@@ -249,6 +256,7 @@ function MenuController.new(remote, hub, settings)
 			if self.page == "characters" and self.galleryKit then self:showKitInfo(self.galleryKit) end
 			if self.page == "select" then self:refreshSelect() end
 			self:refreshLocks()
+			self.shop:statusChanged()
 			if self.page == "settings" then
 				for _, refresh in self.settingRefresh or {} do refresh() end
 			end
@@ -470,8 +478,10 @@ function MenuController:showPlayerCard()
 	local _, achievements = GameModes.achievements(s)
 	local questsDone = 0
 	for _, q in Quests.list(s) do if q.done then questsDone += 1 end end
+	local badges = Store.badges(StoreConfig, s)
 	local entries = {
 		{ if (s.title or "") ~= "" then "« " .. s.title .. " »" else "NO TITLE SHOWN", GOLD, 16 },
+		{ if #badges > 0 then "★ " .. table.concat(badges, " · ") else "", Color3.fromHex("FFD23F"), 15 },
 		{ "RANK " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " PTS", WHITE, 15 },
 		{ "THIS WEEK: " .. (s.weekPoints or 0) .. " PTS", WHITE, 15 },
 		{ string.format("%d W / %d L · WIN RATE %d/100", wins, losses, if wins + losses > 0 then math.floor(wins * 100 / (wins + losses) + 0.5) else 0), WHITE, 15 },
@@ -481,7 +491,9 @@ function MenuController:showPlayerCard()
 		{ "BEST SURVIVAL: " .. (s.survivalBest or 0), WHITE, 15 },
 		{ "COINS: " .. (s.coins or 0), GOLD, 15 },
 	}
-	for i, e in entries do line(list, i, e[1], e[2], e[3]) end
+	for i, e in entries do
+		if e[1] ~= "" then line(list, i, e[1], e[2], e[3]) end
+	end
 end
 
 -- A selected destination carries the red brush accent, in both navigation bars.
@@ -496,9 +508,12 @@ function MenuController:buildNav()
 		{ "players", "PLAYERS", "CHALLENGE · INVITE A FRIEND (H)", "友" },
 		{ "achievements", "ACHIEVEMENTS", "ACHIEVEMENTS · QUESTS · YOUR PROGRESS", "誉" },
 		{ "taunts", "TAUNTS", "YOUR 6 TRASH TALKS · EZ, BOZO…", "煽" },
+		{ "shop", "SHOP", "GAME PASSES · COSMETICS · COINS", "店" },
 		{ "settings", "SETTINGS", "EFFECTS · SOUND · MUSIC · LANGUAGE", "設" },
 	}
-	local step = if #entries > 6 then 78 else 88 -- (seven entries: a little tighter, same height)
+	-- (seven entries: a little tighter; eight: tighter still, the subtitle closer)
+	local step = if #entries > 7 then 68 elseif #entries > 6 then 78 else 88
+	local tight = step < 78
 	for i, entry in entries do
 		local b = new("TextButton", { Name = "Nav_" .. entry[1], Position = UDim2.fromOffset(0, (i - 1) * step),
 			Size = UDim2.fromOffset(360, step - 10), Rotation = -1.4, BackgroundColor3 = Color3.new(1, 1, 1),
@@ -510,11 +525,11 @@ function MenuController:buildNav()
 		local glyph = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -32, 0.5, 0), Size = UDim2.fromOffset(88, 78),
 			Font = UI_FONT, TextSize = 72, Text = entry[4], TextColor3 = Theme.MUTED, TextTransparency = 0.87,
 			TextXAlignment = Enum.TextXAlignment.Center })
-		label(b, { Position = UDim2.fromOffset(22, 7), Size = UDim2.fromOffset(292, 40), Font = DISPLAY, TextSize = 32,
-			Text = entry[2], TextColor3 = Theme.WHITE })
-		local subtitle = label(b, { Position = UDim2.fromOffset(22, 49), Size = UDim2.fromOffset(298, 19), Font = BODY_FONT,
-			TextSize = 10, Text = entry[3], TextColor3 = Theme.MUTED, TextTruncate = Enum.TextTruncate.AtEnd })
-		label(b, { Position = UDim2.new(1, -30, 0, 18), Size = UDim2.fromOffset(20, 38), Font = BODY_FONT,
+		label(b, { Position = UDim2.fromOffset(22, if tight then 3 else 7), Size = UDim2.fromOffset(292, if tight then 34 else 40), Font = DISPLAY,
+			TextSize = if tight then 28 else 32, Text = entry[2], TextColor3 = Theme.WHITE })
+		local subtitle = label(b, { Position = UDim2.fromOffset(22, if tight then 37 else 49), Size = UDim2.fromOffset(298, if tight then 16 else 19),
+			Font = BODY_FONT, TextSize = 10, Text = entry[3], TextColor3 = Theme.MUTED, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(b, { Position = UDim2.new(1, -30, 0, if tight then 10 else 18), Size = UDim2.fromOffset(20, 38), Font = BODY_FONT,
 			TextSize = 30, Text = "›", TextColor3 = Theme.WHITE })
 		local item = { button = b, wash = wash, edge = edge, rail = rail, glyph = glyph, subtitle = subtitle, active = false }
 		self.navItems[entry[1]] = item
@@ -1055,34 +1070,10 @@ function MenuController:buildCharacters()
 		BackgroundTransparency = 0.2, BorderSizePixel = 0 }, page)
 	Theme.edge(holder)
 	gradient(holder, Color3.fromHex("2A0A12"), INK, 90)
-	local view = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
-		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), Active = true }, holder)
-	local world = new("WorldModel", {}, view)
-	local camera = new("Camera", { FieldOfView = 26 }, view)
-	view.CurrentCamera = camera
-	self.gallery = { view = view, world = world, camera = camera, yaw = math.rad(-20), left = true }
-	self.galleryHint = label(holder, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 14),
-		Font = BODY_FONT, TextSize = 10, Text = "◀ DRAG TO TURN ▶", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Center })
+	self.gallery = self:styleViewport(holder)
+	self.galleryHint = self.gallery.hint
 	self.galleryStyle = label(holder, { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 16), Font = UI_FONT, TextSize = 11,
 		Text = "", TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
-	-- (turning: mouse or finger, on the preview only)
-	local dragging, lastX = nil, 0
-	view.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging, lastX = input, input.Position.X
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if not dragging then return end
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input == dragging then
-			self.gallery.yaw += (input.Position.X - lastX) * 0.012
-			lastX = input.Position.X
-			self.gallery.turned = os.clock()
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input == dragging or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = nil end
-	end)
 	-- the fighter's description
 	self.galleryText = label(page, { Position = UDim2.fromOffset(232, 104), Size = UDim2.new(1, -254, 0, 150), Font = BODY_FONT, TextSize = 12,
 		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top })
@@ -1114,6 +1105,36 @@ function MenuController:buildCharacters()
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
 	new("UIGridLayout", { CellSize = UDim2.new(0.5, -5, 0, 56), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.styleList)
 	return page
+end
+
+-- A 3D preview of a style in `holder` (FIGHTERS, SHOP): drag to turn it (mouse or finger).
+function MenuController:styleViewport(holder)
+	local view = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
+		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), Active = true }, holder)
+	local world = new("WorldModel", {}, view)
+	local camera = new("Camera", { FieldOfView = 26 }, view)
+	view.CurrentCamera = camera
+	local g = { view = view, world = world, camera = camera, yaw = math.rad(-20), left = true }
+	g.hint = label(holder, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 14),
+		Font = BODY_FONT, TextSize = 10, Text = "◀ DRAG TO TURN ▶", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Center })
+	local dragging, lastX = nil, 0
+	view.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging, lastX = input, input.Position.X
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input == dragging then
+			g.yaw += (input.Position.X - lastX) * 0.012
+			lastX = input.Position.X
+			g.turned = os.clock()
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input == dragging or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = nil end
+	end)
+	return g
 end
 
 -- Does the player own this fighter (free, bought, or the developer access)?
@@ -1201,11 +1222,16 @@ end
 
 -- The style shown on the body of the FIGHTERS page (the server builds its body once).
 function MenuController:showStyle(name)
-	local style = CharacterData.Skins[name]
-	if not style then return end
-	local g = self.gallery
+	if not CharacterData.Skins[name] then return end
 	self.galleryStyleName = name
 	self.galleryStyle.Text = name
+	self:viewStyle(self.gallery, name)
+end
+
+-- Puts the body of a style in a preview (styleViewport); asks the server for it once.
+function MenuController:viewStyle(g, name)
+	local style = CharacterData.Skins[name]
+	if not style or not g then return end
 	local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
 	local source = folder and folder:FindFirstChild(name)
 	if not source then
@@ -1215,11 +1241,11 @@ function MenuController:showStyle(name)
 			self.previewAsked[name] = true
 			self.remote:FireServer({ action = "preview", skin = name })
 		end
-		self.galleryWaiting = name
+		g.waiting = name
 		local kits = ReplicatedStorage:FindFirstChild("KitPreviews")
 		source = kits and kits:FindFirstChild(style.Kit)
 	else
-		self.galleryWaiting = nil
+		g.waiting = nil
 	end
 	if g.source == source then return end
 	if g.model then g.model:Destroy() end
@@ -1245,11 +1271,14 @@ function MenuController:showStyle(name)
 end
 
 function MenuController:animateGallery(dt)
-	local g = self.gallery
+	self:animateView(self.gallery, dt)
+end
+
+function MenuController:animateView(g, dt)
 	if not g then return end
-	if self.galleryWaiting then
+	if g.waiting then
 		local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
-		if folder and folder:FindFirstChild(self.galleryWaiting) then self:showStyle(self.galleryWaiting) end
+		if folder and folder:FindFirstChild(g.waiting) then self:viewStyle(g, g.waiting) end
 	end
 	if not g.model then return end
 	-- (it turns slowly by itself until the player turns it)
@@ -1311,14 +1340,14 @@ function MenuController:refreshStyles(name)
 		-- the action: BUY (price), EQUIP, or EQUIPPED
 		local action = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -5, 0.5, 0), Size = UDim2.fromOffset(80, 40),
 			Font = UI_FONT, TextSize = 12, Text = "" }, GOLD)
-		-- ROBUX (prepared): a style with a developer product (CharacterData.SHOP_PRODUCTS, set by
-		-- Wilhem) gets a Robux button; Roblox shows the price and the server grants it.
-		local product = CharacterData.SHOP_PRODUCTS[styleName]
-		if product and not mine then
+		-- ROBUX: a style with a Developer Product in StoreConfig (its real id set by Wilhem) gets
+		-- an R$ button; the server opens Roblox's purchase window and grants it (ProcessReceipt).
+		local product = storeIdx.styleProduct[styleName]
+		if product and product.id > 0 and not mine then
 			local robux = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -90, 0.5, 0), Size = UDim2.fromOffset(40, 40),
 				Font = UI_FONT, TextSize = 12, Text = "R$" }, GOLD)
 			robux.Activated:Connect(function()
-				pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, product)
+				self.remote:FireServer({ action = "robux", kind = "product", key = product.key })
 			end)
 		end
 		if wearing == styleName then
@@ -1358,7 +1387,8 @@ function MenuController:drawKitInfo(name)
 	local coins = tonumber(s.coins) or 0
 	local free, owned = Economy.isFree(name), Economy.owns(s, name)
 	if owned then
-		self.galleryState.Text, self.galleryState.TextColor3 = if free then "✓ FREE FIGHTER" else "✓ UNLOCKED · YOURS FOREVER", GOLD
+		self.galleryState.Text, self.galleryState.TextColor3 = if free then "✓ FREE FIGHTER"
+			elseif s.tester and not (s.ownedKits or {})[name] then "✓ TESTER · EVERY FIGHTER" else "✓ UNLOCKED · YOURS FOREVER", GOLD
 	elseif s.dev then
 		self.galleryState.Text, self.galleryState.TextColor3 = "DEVELOPER ACCESS · NOT BOUGHT", Theme.VIOLET
 	else
@@ -1927,6 +1957,8 @@ function MenuController:open(page)
 		self:refreshAchievements()
 	elseif page == "taunts" then
 		self:refreshTaunts()
+	elseif page == "shop" then
+		self.shop:refresh()
 	elseif page == "settings" then
 		for _, refresh in self.settingRefresh or {} do refresh() end
 	else
@@ -2155,6 +2187,7 @@ function MenuController:frame(dt)
 	if self.inMatch then return end
 	if self.page == "select" then self:animatePreviews(dt or 1 / 60) end
 	if self.page == "characters" then self:animateGallery(dt or 1 / 60) end
+	if self.page == "shop" then self.shop:update(dt or 1 / 60) end
 	if self.page == "search" then
 		local s = self.status
 		local waited = math.floor(os.clock() - self.searchStart)

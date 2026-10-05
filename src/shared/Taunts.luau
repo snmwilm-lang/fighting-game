@@ -6,8 +6,9 @@
 	can therefore never reach another player.
 
 	To add a taunt: one line in LIST (a stable id, the text, optionally `unlock` = a check on
-	the saved profile, e.g. an achievement; no paid unlock). Its id must never change (the
-	profiles keep ids).
+	the saved profile: an achievement `stat`, a SHOP item bought with coins `item`
+	(profile.ownedItems, StoreConfig.ITEMS), or a Game Pass `pass` (profile.passes)). Its id must
+	never change (the profiles keep ids).
 	Used by: server (init.server.luau), client (TauntController, MenuController). Tests: Lobby.
 ]]
 local Taunts = {}
@@ -34,6 +35,12 @@ Taunts.LIST = {
 	{ id = "godslayer", text = "GOD SLAIN 👑", unlock = { stat = "asuraGrade", min = 1, how = "Beat ASURA (CHALLENGE)" } },
 	{ id = "eclipse", text = "ECLIPSED 🌑", unlock = { stat = "shinGrade", min = 1, how = "Beat KUROEN SHIN (CHALLENGE)" } },
 	{ id = "veteran", text = "GG, GO NEXT", unlock = { stat = "wins", min = 25, how = "Win 25 versus matches" } },
+	-- SHOP (StoreConfig.ITEMS, EMOTE): bought with coins, or the SUPPORTER pass's own.
+	{ id = "calculated", text = "CALCULATED 🧠", unlock = { item = "EMOTE_CALCULATED", how = "SHOP" } },
+	{ id = "framedata", text = "FRAME DATA 📊", unlock = { item = "EMOTE_FRAMEDATA", how = "SHOP" } },
+	{ id = "whosnext", text = "WHO'S NEXT?", unlock = { item = "EMOTE_WHOSNEXT", how = "SHOP" } },
+	{ id = "breakframed", text = "BREAKFRAMED 💥", unlock = { item = "EMOTE_BREAKFRAMED", how = "SHOP" } },
+	{ id = "respect", text = "RESPECT 🤝", unlock = { pass = "SUPPORTER", how = "SUPPORTER pass" } },
 }
 
 Taunts.BY_ID = {}
@@ -49,6 +56,13 @@ function Taunts.unlocked(id, profile)
 	local taunt = Taunts.BY_ID[id]
 	if not taunt then return false end
 	if not taunt.unlock then return true end
+	local u = taunt.unlock
+	if u.item then
+		return type(profile) == "table" and type(profile.ownedItems) == "table" and profile.ownedItems[u.item] == true
+	end
+	if u.pass then
+		return type(profile) == "table" and type(profile.passes) == "table" and profile.passes[u.pass] == true
+	end
 	local value = type(profile) == "table" and tonumber(profile[taunt.unlock.stat]) or 0
 	return value >= taunt.unlock.min
 end

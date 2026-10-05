@@ -307,7 +307,7 @@ test("every fighter wears its own styles: each style of its list exists and is i
 	end
 end)
 
-test("shop styles: two per fighter, locked until bought with coins, the price checked, no Robux id invented", function()
+test("shop styles: two per fighter, locked until bought with coins, the price checked", function()
 	local CharacterData = require("../src/shared/CharacterData")
 	local count = 0
 	for name, item in CharacterData.SHOP do
@@ -318,7 +318,6 @@ test("shop styles: two per fighter, locked until bought with coins, the price ch
 		expect(item.coins > 0 and style.SkinTone ~= nil, name .. " has no price or no skin tone")
 	end
 	expect(count == 2 * 20, "expected 2 shop styles for each of the 20 fighters, got " .. count)
-	expect(next(CharacterData.SHOP_PRODUCTS) == nil, "a Robux product id was put in without Wilhem")
 	local profile = { coins = 1000, ownedSkins = {} }
 	expect(not CharacterData.canWear("KAI GOLD", profile), "a shop style is worn without being bought")
 	expect(CharacterData.canWear("CLASSIC", profile) and not CharacterData.canWear("AWAKENED", profile), "free / earned styles are wrong")
@@ -658,18 +657,26 @@ test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAI
 	expect(not allowed and which == "SHIN", "a team with a locked fighter passes")
 end)
 
-test("testers: an old profile gets 3 free fighters of its choice, once; a new one none", function()
+test("testers: an old profile (or one that had the free picks) gets every fighter, never written as bought; a new one none", function()
 	local Economy = require("../src/shared/Economy")
 	local old = { coins = 120, wins = 4 } -- (saved before the fighters were sold: no ownedKits)
 	local p = { coins = 120, ownedKits = {} }
-	expect(Economy.giveTesterPicks(p, old) and p.freePicks == 3, "a tester got no picks")
-	expect(not Economy.giveTesterPicks(p, { coins = 1, picksGiven = true }), "the picks were given twice")
-	expect(not Economy.giveTesterPicks({}, { ownedKits = {} }) and not Economy.giveTesterPicks({}, nil), "a new player got picks")
-	for _, kit in { "SHIN", "KUROEN", "AKEMI" } do expect(Economy.claimFighter(p, kit, MoveData.KitOrder), kit .. " not taken") end
-	local ok, why = Economy.claimFighter(p, "NOVA", MoveData.KitOrder)
-	expect(not ok and why == "picks" and p.coins == 120, "a fourth fighter was given (or coins taken)")
-	expect(Economy.canPlay(p, "KUROEN", "VERSUS", false), "a picked fighter is not playable")
-	expect(not Economy.claimFighter({ freePicks = 3 }, "KAI", MoveData.KitOrder), "a pick was spent on a free fighter")
+	expect(Economy.makeTester(p, old) and p.tester == true, "an old profile is not a tester")
+	expect(not Economy.makeTester(p, old), "made a tester twice")
+	for _, kit in MoveData.KitOrder do
+		expect(Economy.canPlay(p, kit, "VERSUS", false) and Economy.canPlay(p, kit, "RANKED", false), kit .. " is locked for a tester")
+	end
+	expect(next(p.ownedKits) == nil and p.coins == 120, "the tester's fighters were written as bought (or coins taken)")
+	expect(not Economy.buyFighter(p, "SHIN", MoveData.KitOrder), "a tester paid for a fighter")
+	-- a tester of v0.19 (the 3 picks given, ownedKits saved) gets them all too
+	local picked = { ownedKits = { SHIN = true } }
+	expect(Economy.makeTester(picked, { ownedKits = { SHIN = true }, picksGiven = true }) and Economy.owns(picked, "NOVA"),
+		"a tester who had the picks is still limited")
+	expect(not Economy.makeTester({}, { ownedKits = {} }) and not Economy.makeTester({}, nil), "a new player became a tester")
+	expect(not Economy.owns({ tester = "yes" }, "NOVA"), "a forged tester field unlocks fighters")
+	local fresh = { freePicks = 1, ownedKits = {} }
+	expect(Economy.claimFighter(fresh, "NOVA", MoveData.KitOrder) and not Economy.claimFighter({ freePicks = 3 }, "KAI", MoveData.KitOrder),
+		"the old picks are broken")
 end)
 
 test("developer access: listed ids or the game's owner, never Studio's test players, never written as bought, can be off", function()
@@ -767,6 +774,209 @@ test("weekly champion: written once per week, title given once, not for sale, hi
 	local long = nil
 	for w = 1, C.KEEP + 10 do long = C.record(long, w, { id = w, name = "P", rating = 1 }) end
 	expect(#long == C.KEEP and long[1].week == 11, "the history grows without end")
+end)
+
+test("store: one config, ids to fill (0 = not sold yet), passes cosmetic, prices and kinds coherent", function()
+	local Config = require("../src/shared/StoreConfig")
+	local Store = require("../src/shared/Store")
+	local CharacterData = require("../src/shared/CharacterData")
+	local Taunts = require("../src/shared/Taunts")
+	local idx = Store.index(Config)
+	local keys, ids = {}, {}
+	local function checkId(entry, what)
+		expect(type(entry.id) == "number" and entry.id >= 0 and entry.id % 1 == 0, what .. " has no valid id (0 until created)")
+		expect(type(entry.robux) == "number" and entry.robux > 0, what .. " has no Robux price shown")
+		expect(not keys[entry.key], "two entries share the key " .. entry.key)
+		keys[entry.key] = true
+		if entry.id > 0 then
+			expect(not ids[entry.id], "two entries share the id " .. entry.id)
+			ids[entry.id] = true
+		end
+		expect(not entry.random, what .. " is a paid random item (no loot box)")
+	end
+	for _, p in Config.PASSES do
+		checkId(p, "pass " .. p.key)
+		expect(#p.perks > 0, p.key .. " lists no perk")
+		-- a pass never touches the fight: only these fields are allowed
+		for field in p do
+			expect(table.find({ "key", "id", "robux", "name", "color", "perks", "coinBonus", "badge", "nameColor", "title", "taunt" }, field),
+				"pass " .. p.key .. " has an unknown perk field: " .. field)
+		end
+		if p.taunt then expect(Taunts.BY_ID[p.taunt] and Taunts.BY_ID[p.taunt].unlock.pass == p.key, p.key .. "'s emote is not its own") end
+	end
+	expect(idx.pass.VIP and idx.pass.DOUBLE and idx.pass.SUPPORTER, "VIP, DOUBLE REWARDS and SUPPORTER are missing")
+	for _, p in Config.PRODUCTS do
+		checkId(p, "product " .. p.key)
+		expect((p.coins ~= nil) ~= (p.style ~= nil), p.key .. " must give coins or a style")
+		if p.style then
+			local item = CharacterData.SHOP[p.style]
+			expect(item and not item.quest, p.key .. " sells " .. p.style .. ": not a shop style, or a quest reward")
+		end
+	end
+	local seen = {}
+	for _, item in Config.ITEMS do
+		expect(not seen[item.id] and table.find(Config.KINDS, item.kind), item.id .. " is twice or of an unknown kind")
+		seen[item.id] = true
+		expect(item.soon or item.pass or (type(item.coins) == "number" and item.coins > 0), item.id .. " has no price")
+		if item.pass then expect(idx.pass[item.pass], item.id .. " needs an unknown pass") end
+		if item.kind == "EMOTE" then
+			local t = Taunts.BY_ID[item.taunt]
+			expect(t and (t.unlock.item == item.id or t.unlock.pass == item.pass), item.id .. " is not its taunt's unlock")
+		end
+		if item.kind == "VFX" then expect(#item.colors == 2, item.id .. " needs two colours") end
+	end
+	for _, f in Config.FEATURED do
+		local ok = (f.kind == "pass" and idx.pass[f.key]) or (f.kind == "product" and idx.product[f.key]) or (f.kind == "item" and idx.item[f.key])
+		expect(ok, "FEATURED shows an unknown " .. f.kind .. " " .. f.key)
+	end
+	-- a Robux purchase only with a real id and a known policy
+	expect(not Store.canPrompt({ id = 0 }, {}) and not Store.canPrompt({ id = 5 }, nil) and Store.canPrompt({ id = 5 }, {}),
+		"a purchase can start without an id or a policy")
+	expect(not Store.canPrompt({ id = 5, random = true }, { randomRestricted = true }), "a paid random item passes a restricting policy")
+end)
+
+test("store: pass bonuses on fight coins only, added up, capped at x2.25; badges and pass items follow the pass", function()
+	local Config = require("../src/shared/StoreConfig")
+	local Store = require("../src/shared/Store")
+	local idx = Store.index(Config)
+	local p = { coins = 0 }
+	expect(Store.coinMultiplier(Config, p) == 1 and Store.fightCoins(Config, 150, p) == 150, "a bonus without a pass")
+	Store.setPass(p, "VIP", true)
+	expect(Store.fightCoins(Config, 150, p) == 188, "VIP is not +25 %: " .. Store.fightCoins(Config, 150, p))
+	Store.setPass(p, "DOUBLE", true)
+	expect(Store.coinMultiplier(Config, p) == 2.25 and Store.fightCoins(Config, 100, p) == 225, "VIP + DOUBLE is not x2.25")
+	Store.setPass(p, "VIP", false)
+	expect(Store.fightCoins(Config, 50, p) == 100 and Store.fightCoins(Config, 0, p) == 0 and Store.fightCoins(Config, -5, p) == 0,
+		"DOUBLE alone is not x2 (or a negative gain)")
+	-- the cap holds whatever passes are added later
+	local big = table.clone(Config)
+	big.PASSES = table.clone(Config.PASSES)
+	table.insert(big.PASSES, { key = "MEGA", coinBonus = 5 })
+	Store.setPass(p, "VIP", true)
+	Store.setPass(p, "MEGA", true)
+	expect(Store.coinMultiplier(big, p) == Config.MAX_COIN_MULTIPLIER, "the cap does not hold")
+	-- a coin pack never gets the bonus
+	expect(Store.grantReceipt(p, "R1", idx.product.COINS_1000, 1) == "granted" and p.coins == 1000, "a coin pack got the pass bonus")
+	-- badges and the pass's own items
+	local s = { passes = { SUPPORTER = true } }
+	expect(table.concat(Store.badges(Config, s), ",") == "SUPPORTER", "the SUPPORTER badge")
+	expect(Store.ownsItem(idx, s, "EMOTE_RESPECT") and Store.passTitle(idx, s, "SUPPORTER"), "SUPPORTER's emote / title")
+	expect(not Store.ownsItem(idx, {}, "EMOTE_RESPECT") and not Store.passTitle(idx, {}, "SUPPORTER"), "a pass item without the pass")
+	expect(not Store.buyItem(idx, { coins = 99999 }, "VFX_VIP_GOLD"), "a VIP item was sold for coins")
+	local Taunts = require("../src/shared/Taunts")
+	expect(Taunts.unlocked("respect", s) and not Taunts.unlocked("respect", {}), "the SUPPORTER emote is not tied to the pass")
+	expect(table.find(Taunts.sanitize({ "respect" }, s), "respect") and not table.find(Taunts.sanitize({ "respect" }, {}), "respect"),
+		"the wheel keeps a pass emote without the pass")
+	-- setPass reports changes only
+	expect(Store.setPass(s, "SUPPORTER", true) == false and Store.setPass(s, "SUPPORTER", false) == true and not Store.hasPass(s, "SUPPORTER"),
+		"setPass does not report its changes")
+end)
+
+test("store: receipts granted once (retries, a second server, a reconnection), never lost, the ledger bounded", function()
+	local Config = require("../src/shared/StoreConfig")
+	local Store = require("../src/shared/Store")
+	local idx = Store.index(Config)
+	local p = { coins = 10, ownedSkins = {} }
+	expect(Store.grantReceipt(p, "A", idx.product.COINS_3000, 100) == "granted" and p.coins == 3010, "a pack was not granted")
+	for _ = 1, 5 do
+		expect(Store.grantReceipt(p, "A", idx.product.COINS_3000, 101) == "duplicate", "a retried receipt was granted again")
+	end
+	expect(p.coins == 3010, "coins given twice: " .. p.coins)
+	-- the ledger travels with the saved profile: a reload (reconnection, another server) still knows it
+	local function copy(t)
+		local out = {}
+		for k, v in t do out[k] = if type(v) == "table" then copy(v) else v end
+		return out
+	end
+	local reloaded = copy(p)
+	expect(Store.grantReceipt(reloaded, "A", idx.product.COINS_3000, 500) == "duplicate" and reloaded.coins == 3010,
+		"a reloaded profile granted the receipt again")
+	-- a save that failed: the server answers NotProcessedYet, the profile that was not written
+	-- did not keep it, so Roblox's retry grants it (once) on the profile actually loaded
+	local unsaved = copy(reloaded)
+	Store.grantReceipt(unsaved, "B", idx.product.COINS_1000, 600)
+	expect(Store.grantReceipt(reloaded, "B", idx.product.COINS_1000, 700) == "granted" and reloaded.coins == 4010, "a lost save lost the purchase")
+	-- a Robux style
+	expect(Store.grantReceipt(p, "C", idx.product.SKIN_KAI_GOLD, 102) == "granted" and p.ownedSkins["KAI GOLD"], "the style was not given")
+	expect(Store.grantReceipt(p, "C", idx.product.SKIN_KAI_GOLD, 103) == "duplicate", "the style receipt twice")
+	-- bad receipts
+	expect(Store.grantReceipt(p, "", idx.product.COINS_1000, 1) == "unknown" and Store.grantReceipt(p, "D", nil, 1) == "unknown"
+		and Store.grantReceipt(p, "E", { key = "X" }, 1) == "unknown" and p.coins == 3010, "a bad receipt gave something")
+	-- bounded ledger, the newest kept
+	local q = { coins = 0 }
+	for i = 1, Store.KEEP_RECEIPTS + 30 do Store.grantReceipt(q, "R" .. i, idx.product.COINS_1000, i) end
+	local n = 0
+	for _ in q.receipts do n += 1 end
+	expect(n == Store.KEEP_RECEIPTS and q.receipts["R" .. (Store.KEEP_RECEIPTS + 30)] and not q.receipts.R1, "the ledger is not bounded: " .. n)
+end)
+
+test("store: cosmetics bought once with coins, equipped only when owned, unequipped, a lost pass removes its look", function()
+	local Config = require("../src/shared/StoreConfig")
+	local Store = require("../src/shared/Store")
+	local idx = Store.index(Config)
+	local p = { coins = 1000, titles = {} }
+	local ok, why = Store.buyItem(idx, p, "TITLE_UNTOUCHABLE")
+	expect(not ok and why == "coins" and p.coins == 1000, "bought without enough coins")
+	p.coins = 5000
+	expect(Store.buyItem(idx, p, "TITLE_UNTOUCHABLE") and p.coins == 3500 and table.find(p.titles, "UNTOUCHABLE"), "a title purchase failed")
+	ok, why = Store.buyItem(idx, p, "TITLE_UNTOUCHABLE")
+	expect(not ok and why == "owned" and p.coins == 3500 and #p.titles == 1, "a title paid twice")
+	ok, why = Store.buyItem(idx, p, "VICTORY_THRONE")
+	expect(not ok and why == "soon" and p.coins == 3500, "a COMING SOON item was sold")
+	expect(not Store.buyItem(idx, p, "NOPE") and not Store.buyItem(idx, nil, "VFX_FROST"), "an unknown item was sold")
+	-- equip
+	ok, why = Store.equip(idx, p, "VFX", "VFX_FROST")
+	expect(not ok and why == "locked" and Store.auraColors(idx, p) == "", "an aura not owned was equipped")
+	expect(Store.buyItem(idx, p, "VFX_FROST") and Store.equip(idx, p, "VFX", "VFX_FROST"), "an owned aura cannot be equipped")
+	expect(Store.equipped(idx, p, "VFX") == "VFX_FROST" and Store.auraColors(idx, p) == "BFEFFF,4FB8FF", "the aura worn")
+	expect(not Store.equip(idx, p, "VFX", "TITLE_UNTOUCHABLE") and not Store.equip(idx, p, "HEALTH", "VFX_FROST"), "a wrong kind equipped")
+	expect(Store.equip(idx, p, "VFX", "") and Store.equipped(idx, p, "VFX") == nil, "unequip failed")
+	expect(not Store.equip(idx, p, "VICTORY", "VICTORY_THRONE"), "a COMING SOON victory was equipped")
+	-- the VIP aura: only with VIP, gone with the pass
+	p.passes = { VIP = true }
+	expect(Store.equip(idx, p, "VFX", "VFX_VIP_GOLD") and Store.auraColors(idx, p) ~= "", "the VIP aura with VIP")
+	Store.setPass(p, "VIP", false)
+	expect(Store.equipped(idx, p, "VFX") == nil and Store.auraColors(idx, p) == "", "the VIP aura stays without the pass")
+	-- a forged save field never makes an item owned
+	expect(not Store.ownsItem(idx, { ownedItems = "all" }, "VFX_FROST") and not Store.ownsItem(idx, { ownedItems = { VICTORY_THRONE = true } }, "VICTORY_THRONE"),
+		"a forged profile owns items")
+end)
+
+test("store: every SHOP line, item, perk and message reads in French", function()
+	local Locale = require("../src/shared/Locale")
+	local Config = require("../src/shared/StoreConfig")
+	local Taunts = require("../src/shared/Taunts")
+	local lines = { "SHOP", "FEATURED", "COSMETICS", "GAME PASSES", "SKINS", "TITLES", "EMOTES", "AURAS", "VICTORY",
+		"THE BEST OF THE SHOP · COSMETICS AND COINS ONLY: NO ADVANTAGE IN A FIGHT", "COINS AND STYLES FOR ROBUX · ROBLOX CONFIRMS EVERY PURCHASE",
+		"PERMANENT · RESTORED EVERY TIME YOU JOIN · BONUSES ON FIGHT COINS ONLY (AT MOST x2.25)",
+		"A title shown over your fighter and in the lobby (SETTINGS › TITLE too).", "A taunt for your wheel (TAUNTS page): EQUIP puts it on the wheel.",
+		"Recolours your fighter's aura in fights, seen by everyone. Cosmetic only.", "Victory animations are being made: they come in a later update.",
+		"FIGHT COINS x2.25", "SOON", "COMING SOON", "COMING SOON · NOT ON SALE YET", "COMING SOON · IN A LATER UPDATE",
+		"PURCHASES NOT AVAILABLE YET · YOUR SAVE IS LOADING", "ROBLOX PURCHASE WINDOW…", "✓ OWNED · ACTIVE", "SOON · R$ 299",
+		"+3000 coins at once. Pass bonuses never apply to Robux purchases.", "A style for KAI · GOLD. Cosmetic only. Also in FIGHTERS.",
+		"✓ EQUIPPED", "UNEQUIP", "✓ OWNED", "QUEST", "🔒 2500 COINS", "BUY 2500", "WITH THE VIP PASS", "SEE THE PASS",
+		"NOT ENOUGH COINS · BREAKER COSTS 4000 (YOU HAVE 10)", "BUY BREAKER FOR 4000 COINS?\nYou have 5000 coins.", "GAME PASS · PERMANENT",
+		"+3000 COINS", "ON YOUR TAUNT WHEEL", "PURCHASE COMPLETE · VIP PASS", "GAME PASSES · COSMETICS · COINS",
+		"NOT POSSIBLE: ONLY WITH ITS GAME PASS", "NOT POSSIBLE: NOT FOR SALE", "NOT POSSIBLE: YOUR SAVE IS NOT LOADED YET",
+		"NOT POSSIBLE: NOT AVAILABLE FOR YOUR ACCOUNT", "NOT POSSIBLE: COMING SOON", "✓ TESTER · EVERY FIGHTER", "Permanent. No advantage in a fight." }
+	for _, p in Config.PASSES do
+		table.insert(lines, p.name)
+		for _, perk in p.perks do table.insert(lines, perk) end
+	end
+	for _, p in Config.PRODUCTS do
+		if p.name then table.insert(lines, p.name) end
+		if p.tag then table.insert(lines, p.tag) end
+	end
+	for _, item in Config.ITEMS do table.insert(lines, item.name) end
+	for _, t in Taunts.LIST do
+		table.insert(lines, t.text)
+		if t.unlock and t.unlock.how then table.insert(lines, t.unlock.how) end
+	end
+	for _, line in lines do
+		local fr = Locale.translate(line, "FR")
+		expect(fr ~= line or Locale.SAME[line], "no French for: " .. line)
+		expect(not string.find(fr, "%%[ds]"), "a format left in: " .. fr)
+	end
 end)
 
 T.finish()

@@ -13,6 +13,7 @@ local WHITE = Theme.WHITE
 local INK = Color3.fromHex("0B0B0E")
 local RED = Theme.RED
 local GOLD = Theme.GOLD
+local VIP_GOLD = Color3.fromHex("FFD23F") -- (the VIP pass's name colour: StoreConfig VIP.nameColor)
 local GREY = Theme.MUTED
 local DISPLAY = Enum.Font.Bangers
 local UI_FONT = Enum.Font.GothamBlack
@@ -252,10 +253,16 @@ function HubController:render()
 		row.BackgroundColor3 = Theme.PANEL
 		Theme.rule(row, UDim2.new(0, 0, 1, -1), UDim2.new(1, 0, 0, 1), Theme.LINE, 0.4)
 		local state = p.where or (if p.slot > 0 then "IN A FIGHT" else "IN THE MENU")
+		-- (Game Passes: the VIP / SUPPORTER badges, the VIP's gold name; cosmetic only)
+		local badges = if type(p.badges) == "string" and p.badges ~= "" then string.split(p.badges, ",") else {}
+		local vip = table.find(badges, "VIP") ~= nil
+		local tags = ""
+		for _, badge in badges do tags ..= "[" .. badge .. "] " end
 		new("TextLabel", {
 			BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -142, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
-			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
-			Text = (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
+			TextColor3 = if vip then VIP_GOLD elseif p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Text = tags .. (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
 		}, row)
 		-- (the title the player shows: WEEKLY CHAMPION, a challenge title...)
 		if p.title and p.title ~= "" then

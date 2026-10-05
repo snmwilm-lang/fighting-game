@@ -876,7 +876,13 @@ function EffectsController:ambient(rig, kitName, energyHex)
 		motes.Parent = torso
 		rig.motes = motes
 	end
-	motes.Color = ColorSequence.new(Color3.fromHex(KitFX.color(a.colors[1], energyHex)), Color3.fromHex(KitFX.color(a.colors[2], energyHex)))
+	-- (SHOP · VFX: an aura bought by the player recolours these motes, "RRGGBB,RRGGBB" set by
+	-- the server on the rig; the kit's shapes and motion stay: cosmetic only)
+	local worn = rig.model:GetAttribute("Aura")
+	local wornPair = if type(worn) == "string" and string.match(worn, "^%x%x%x%x%x%x,%x%x%x%x%x%x$") then string.split(worn, ",") else nil
+	rig.motesAura = worn
+	motes.Color = if wornPair then ColorSequence.new(Color3.fromHex(wornPair[1]), Color3.fromHex(wornPair[2]))
+		else ColorSequence.new(Color3.fromHex(KitFX.color(a.colors[1], energyHex)), Color3.fromHex(KitFX.color(a.colors[2], energyHex)))
 	motes.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, a.size), NumberSequenceKeypoint.new(1, a.size * 0.3) })
 	motes.Acceleration, motes.Speed, motes.Lifetime, motes.Drag = motion.accel, motion.speed, motion.life, motion.drag
 	motes.LightEmission = if a.motion == "flicker" then 1 else 0.5
@@ -1232,7 +1238,8 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if view.kit == "KUROEN" or rig.dominationAura then self:domination(rig, view.domination or 0, view) end
 	local color = self:energy(slot)
 	local energyHex = CharacterData[slot].Energy
-	if rig.motesKit ~= view.kit or rig.motesReduced ~= self.reduced or rig.motesEnergy ~= energyHex then
+	if rig.motesKit ~= view.kit or rig.motesReduced ~= self.reduced or rig.motesEnergy ~= energyHex
+		or (rig.model and rig.motesAura ~= rig.model:GetAttribute("Aura")) then
 		rig.motesEnergy = energyHex
 		self:ambient(rig, view.kit, energyHex)
 	end

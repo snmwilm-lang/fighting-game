@@ -242,8 +242,8 @@ local Skins = {
 --[[
 	SHOP SKINS (monetization, prepared): two premium skins per playable fighter, from five
 	themes (GOLD, PHANTOM, INFERNO, SAKURA, ABYSS) applied to the fighter's own outfit. Locked
-	until owned (profile.ownedSkins, checked by the server). Price in COINS now; a Robux price
-	needs a developer product id created by Wilhem (SHOP_PRODUCTS, empty: none invented).
+	until owned (profile.ownedSkins, checked by the server). Price in COINS; some are also sold
+	for Robux: their Developer Products are in src/shared/StoreConfig.luau (PRODUCTS, `style`).
 ]]
 local THEMES = {
 	GOLD = { Hair = "1A1712", HairTip = "FFD23F", Eyes = "FFD23F", Vest = "14120E", VestTrim = "FFD23F", Shirt = "1E1B16",
@@ -328,11 +328,9 @@ local CharacterData = {
 	Skins.NIGHT, -- slot 2
 }
 
--- The shop skins: name -> { kit, theme, coins }. A Robux price: SHOP_PRODUCTS[name] = the
--- developer product id Wilhem creates on Roblox (none invented: empty = coins only).
+-- The shop skins: name -> { kit, theme, coins }. (A Robux price: StoreConfig.PRODUCTS.)
 CharacterData.SHOP = table.freeze(SHOP)
 CharacterData.QUEST = QUEST
-CharacterData.SHOP_PRODUCTS = table.freeze({})
 
 -- May this profile wear this style? Achievement styles need their field >= 1, shop and quest
 -- styles must be owned (profile.ownedSkins[name]), the others are free. `dev`: the developer

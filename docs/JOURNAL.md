@@ -53,6 +53,9 @@ v0.18.9 : « toujours bug dans FIGHTER, je peux pas changer les persos » : depu
 clic sur la bande ne faisait plus qu'afficher le perso (le favori passait par ★ FAVORI). Un clic
 prend de nouveau le perso (favori, héros du lobby) et l'affiche ; toujours rien au survol. Une
 erreur en dessinant la page est écrite dans la Sortie (« FIGHTERS page, … ») au lieu de la figer.
+v0.18.10 : la version est écrite sous le logo du menu (on voit d'un coup d'œil quel fichier est
+ouvert : plusieurs fois un ancien fichier a été rouvert) ; le favori change tout de suite à
+l'écran au clic (étoile), le serveur le confirme.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

@@ -24,6 +24,7 @@ local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local GameModes = require(Shared.GameModes)
 local Maps = require(Shared.Maps)
+local CombatConfig = require(Shared.CombatConfig)
 local FighterAI = require(Shared.FighterAI)
 local AnimationController = require(script.Parent.AnimationController)
 local CurrencyIcons = require(script.Parent.CurrencyIcons)
@@ -260,6 +261,9 @@ function MenuController:buildTopBar()
 	stroke(title, 2, INK)
 	label(logo, { Position = UDim2.fromOffset(60, 47), Size = UDim2.fromOffset(120, 14), Font = UI_FONT, TextSize = 10,
 		Text = "FIGHTING GAME", TextColor3 = Theme.WHITE, Rotation = -5 })
+	-- (the version, to know at a glance which file is open)
+	label(logo, { Position = UDim2.fromOffset(4, 50), Size = UDim2.fromOffset(54, 12), Font = BODY_FONT, TextSize = 9,
+		Text = "v" .. CombatConfig.Version, TextColor3 = Theme.MUTED })
 	self.tabs = {}
 	local tabs = { { "PLAY", "home" }, { "FIGHTERS", "characters" }, { "RANKING", "ranking" },
 		{ "ACHIEVEMENTS", "achievements" }, { "SETTINGS", "settings" } }
@@ -1000,6 +1004,9 @@ function MenuController:makeFavorite(kit)
 		return
 	end
 	self.remote:FireServer({ action = "hero", kit = kit })
+	-- (shown at once; the server's status confirms it, or puts the real one back)
+	self.status.hero = kit
+	self:refreshProfile()
 	self:flash(kit .. " · YOUR FAVORITE", kitColor(kit))
 end
 

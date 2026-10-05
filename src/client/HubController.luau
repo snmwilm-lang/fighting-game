@@ -257,6 +257,13 @@ function HubController:render()
 			TextColor3 = if p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
 			Text = (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
 		}, row)
+		-- (the title the player shows: WEEKLY CHAMPION, a challenge title...)
+		if p.title and p.title ~= "" then
+			row.Size = UDim2.new(1, -8, 0, 62)
+			new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.new(0, 8, 1, -20), Size = UDim2.new(1, -142, 0, 16), Font = UI_FONT,
+				TextSize = 11, ZIndex = 4, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+				Text = "👑 " .. p.title }, row)
+		end
 		if p.id ~= me then
 			local challengedMe = p.sent == me
 			local sent = mine and mine.sent == p.id

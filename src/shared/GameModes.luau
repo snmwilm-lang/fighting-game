@@ -174,7 +174,7 @@ end
 -- Currencies (the bar of the menu, sprites: client/CurrencyIcons). COINS are earned by
 -- playing (the server adds them, never the client); CRYSTALS come from the achievements
 -- (CRYSTALS_PER_ACHIEVEMENT each one unlocked); RANK is the rating.
-GameModes.COINS = { win = 40, loss = 15, draw = 20, survivalWin = 10, boss = 60 }
+GameModes.COINS = { win = 150, loss = 50, draw = 100, survivalWin = 10, boss = 60 } -- (PvP: Economy.WIN / LOSS / DRAW)
 GameModes.CRYSTALS_PER_ACHIEVEMENT = 25
 function GameModes.addCoins(profile, kind, count)
 	local gain = (GameModes.COINS[kind] or 0) * (count or 1)

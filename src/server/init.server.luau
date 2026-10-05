@@ -35,6 +35,10 @@ local SaveQueue = require(script.SaveQueue)
 local GlobalQueue = require(script.GlobalQueue)
 local AntiCheat = require(script.AntiCheat)
 local Taunts = require(Shared.Taunts)
+local Economy = require(Shared.Economy)
+local Quests = require(Shared.Quests)
+local DevAccess = require(script.DevAccess)
+local Champions = require(script.Champions)
 local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
 local arrivedForCrossMatch -- (defined with the cross-server search)
 
@@ -83,7 +87,12 @@ local function defaultProfile()
 		recentOpp = {}, coinDay = 0, coinToday = 0, -- (anti-cheat: today's opponents, the daily coin cap)
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
-		ownedSkins = {}, -- SHOP: the shop styles bought (name -> true, CharacterData.SHOP)
+		ownedSkins = {}, -- SHOP: the shop and quest styles owned (name -> true, CharacterData.SHOP)
+		ownedKits = {}, -- the fighters unlocked with coins (name -> true; the free ones: Economy.FREE)
+		equipped = {}, -- the style worn with each fighter (kit -> style name)
+		quests = {}, -- QUESTS: the counters and the quests rewarded (Quests)
+		titles = {}, championWeeks = {}, -- the titles owned (challenges, champion of the week)
+		devOff = false, -- (developer access only: switched off to play as a new player)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
 		optTaunts = true, tauntKey = "V", -- SETTINGS: the opponents' taunts shown, the key of the taunt wheel
@@ -102,6 +111,12 @@ local function suspect(player, reason)
 		warn("[FightingGame] anti-cheat: kicked " .. player.Name .. " (" .. player.UserId .. "): " .. table.concat(why, ", "))
 		player:Kick("BREAKFRAMEZ: invalid data received from your game. / Données invalides reçues de ton jeu.")
 	end
+end
+-- The developer access (DevAccess: the listed UserIds and the game's owner; never everyone in
+-- Studio), on unless the developer switched it off in SETTINGS.
+local CREATOR_IS_USER = game.CreatorType == Enum.CreatorType.User
+local function devOn(player, client)
+	return DevAccess.active(DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER), client and client.profile)
 end
 local saves = SaveQueue.new() -- when to write (SaveQueue: spacing, batches, never an unloaded profile)
 local function loadProfile(player, client)
@@ -138,6 +153,11 @@ local function loadProfile(player, client)
 					GameModes.achievementSeason(client.profile)
 				end
 				client.profile.taunts = Taunts.sanitize(client.profile.taunts, client.profile)
+				-- (a challenge title won before the titles list: kept in it)
+				local p = client.profile
+				if p.title ~= "" and not table.find(p.titles, p.title) then table.insert(p.titles, p.title) end
+				-- (a favourite that is not playable any more, a locked fighter: KAI, free, instead)
+				if not Economy.canPlay(p, p.hero, "VERSUS", devOn(player, client)) then p.hero = "KAI" end
 				SaveQueue.loaded(saves, player.UserId)
 				SaveQueue.boardChanged(saves, player.UserId, math.floor(client.profile.rating)) -- (already on the board)
 				client.profileLoaded = true
@@ -155,6 +175,7 @@ local function loadProfile(player, client)
 end
 -- The ranking (CLASSEMENT): an ordered store of the ratings, read 10 at a time.
 local board = nil
+local championHistory = {} -- (the champions of the week, read from the shared history: Champions)
 do
 	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Classement_v1")
 	if ok then board = result end
@@ -379,13 +400,18 @@ local function refreshLooks(match)
 		local kit = match.world.kits[i]
 		if not match.characters[i] or match.characters[i].Kit ~= kit then
 			local other = match.characters[3 - i]
-			match.characters[i] = CharacterData.Skins[CharacterData.defaultStyle(kit, other and other.Skin)]
+			-- (the style the player equipped for this fighter, if it is theirs; the CPU: the first)
+			local owner = match.slots[i].owner
+			local client = owner and clients[owner]
+			match.characters[i] = CharacterData.Skins[CharacterData.styleFor(kit, client and client.profile, other and other.Skin,
+				client ~= nil and devOn(owner, client))]
 			if match.slots[i].model then rebuildSlot(match, i) end
 		end
 	end
 end
 
 local menuStatus -- (defined below)
+local previewStyle -- (defined below)
 
 local function newMatch(mode, options)
 	nextMatchId += 1
@@ -437,7 +463,7 @@ local function unseat(player)
 	if not match then return end
 	local i = client.slot
 	if match.mode == "VERSUS" and not match.finished and match.slots[3 - i].owner then
-		endVersus(match, 3 - i)
+		endVersus(match, 3 - i, i) -- (the one who leaves gets nothing)
 	end
 	match.slots[i].owner = nil
 	client.match, client.slot = nil, nil
@@ -500,8 +526,15 @@ local function startVersus(playerA, playerB, queue)
 	local match = newMatch("VERSUS", { queue = queue })
 	seat(match, 1, playerA)
 	seat(match, 2, playerB)
-	local teamA = clients[playerA].team or { "KAI" }
-	local teamB = clients[playerB].team or { "KAI" }
+	-- (a fighter the player does not own is never fielded: checked when the team was chosen,
+	-- checked again here)
+	local function fielded(player)
+		local client = clients[player]
+		local team = client.team or { "KAI" }
+		if not Economy.teamAllowed(client.profile, team, "VERSUS", devOn(player, client)) then return { "KAI" } end
+		return team
+	end
+	local teamA, teamB = fielded(playerA), fielded(playerB)
 	-- Same team size on both sides (the smaller one).
 	local size = math.min(#teamA, #teamB)
 	Sim.setLineup(match.world, table.move(teamA, 1, size, 1, {}), table.move(teamB, 1, size, 1, {}))
@@ -509,7 +542,7 @@ local function startVersus(playerA, playerB, queue)
 end
 
 -- End of a 1v1 between players: ratings (CLASSÉ), wins / losses, result to both.
-function endVersus(match, winnerSlot)
+function endVersus(match, winnerSlot, leftSlot)
 	if match.finished then return end
 	match.finished = true
 	local a, b = match.slots[1].owner, match.slots[2].owner
@@ -531,16 +564,26 @@ function endVersus(match, winnerSlot)
 			GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
 		end
 	end
-	-- COINS: everyone who plays earns some, the winner more
-	local function pay(profile, kind, part)
-		local gain = AntiCheat.capCoins(profile, math.floor(GameModes.COINS[kind] * part + 0.5), now)
-		profile.coins = (profile.coins or 0) + gain
+	-- COINS (Economy): a win WIN, a loss LOSS, nothing for the one who left; the anti-farm
+	-- share and the daily cap apply.
+	local function pay(profile, slot, part)
+		local result = if slot == leftSlot then "left" elseif winnerSlot == slot then "win" elseif winnerSlot == 0 then "draw" else "loss"
+		local gain = AntiCheat.capCoins(profile, math.floor(Economy.pvpCoins(result) * part + 0.5), now)
+		profile.coins = (tonumber(profile.coins) or 0) + gain
 		return gain
 	end
-	local gains = {
-		pay(ca.profile, if winnerSlot == 1 then "win" elseif winnerSlot == 2 then "loss" else "draw", shareA.coins),
-		pay(cb.profile, if winnerSlot == 2 then "win" elseif winnerSlot == 1 then "loss" else "draw", shareB.coins),
-	}
+	local gains = { pay(ca.profile, 1, shareA.coins), pay(cb.profile, 2, shareB.coins) }
+	-- QUESTS: a real match (counted by the anti-farm) moves them; never the one who left.
+	if share > 0 then
+		for slot, client in { ca, cb } do
+			if slot ~= leftSlot then
+				local team = match.world.teams and match.world.teams[slot]
+				Quests.record(client.profile, { won = winnerSlot == slot, pvp = true,
+					kits = if team then team.kits else { match.world.kits[slot] } })
+				client.questGifts = Quests.grant(client.profile)
+			end
+		end
+	end
 	local before = { ca.profile.rating, cb.profile.rating }
 	if match.queue == "RANKED" and share > 0 then
 		local newA, newB = Matchmaker.elo(ca.profile.rating, cb.profile.rating, scoreA)
@@ -551,17 +594,19 @@ function endVersus(match, winnerSlot)
 	end
 	for i, player in { a, b } do
 		local client = clients[player]
-		saveProfile(player, client)
+		saveProfile(player, client, client.questGifts and #client.questGifts > 0)
 		menuRemote:FireClient(player, {
+			questGifts = client.questGifts,
 			result = true, queue = match.queue, won = winnerSlot == i, draw = winnerSlot == 0,
 			rating = client.profile.rating, delta = client.profile.rating - before[i],
 			rank = Matchmaker.rankName(client.profile.rating), coins = gains[i],
 		})
+		client.questGifts = nil
 	end
 end
 
 -- What the menu of a player shows: where they are, their rank, the queues.
-function menuStatus(player, bought)
+function menuStatus(player, bought, unlocked)
 	local client = clients[player]
 	if not client then return end
 	local profile = client.profile or defaultProfile()
@@ -582,6 +627,9 @@ function menuStatus(player, bought)
 				optTaunts = profile.optTaunts, tauntKey = profile.tauntKey } else nil,
 		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
 		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
+		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {},
+		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
+		isDev = DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER), dev = devOn(player, client),
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -595,6 +643,47 @@ function menuStatus(player, bought)
 	})
 end
 
+-- CHAMPION OF THE WEEK (Champions): the existing ranking is untouched; at each new week
+-- (Monday 00:00 UTC) the player first on it becomes the champion of the week that ended,
+-- written once in a shared history (UpdateAsync: one write per week whatever the servers).
+-- The champion gets the title WEEKLY CHAMPION (not for sale), here or when they next join.
+local championStore = nil
+if store then
+	local ok, result = pcall(DataStoreService.GetDataStore, DataStoreService, "JeuxCombat_Champions_v1")
+	if ok then championStore = result end
+end
+local function grantChampion(player, client)
+	if not (client and client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId))) then return end
+	if Champions.grant(client.profile, player.UserId, championHistory) > 0 then
+		saveProfile(player, client, true)
+		menuRemote:FireClient(player, { champion = true })
+		menuStatus(player)
+	end
+end
+task.spawn(function()
+	while championStore do
+		local okRead, history = pcall(championStore.GetAsync, championStore, "history")
+		if okRead and type(history) == "table" then championHistory = history end
+		local week = Champions.week(os.time())
+		local last = championHistory[#championHistory]
+		if board and (not last or last.week < week - 1) then
+			local okTop, pages = pcall(board.GetSortedAsync, board, false, 1)
+			local top = okTop and pages and pages:GetCurrentPage()[1]
+			local id = top and tonumber(top.key)
+			if id then
+				local okName, name = pcall(Players.GetNameFromUserIdAsync, Players, id)
+				local champion = { id = id, name = if okName then name else "#" .. id, rating = top.value }
+				local okWrite, written = pcall(championStore.UpdateAsync, championStore, "history", function(old)
+					return Champions.record(old, week - 1, champion) -- (nil: already written by a server)
+				end)
+				if okWrite and type(written) == "table" then championHistory = written end
+			end
+		end
+		for player, client in clients do grantChampion(player, client) end
+		task.wait(300)
+	end
+end)
+
 -- ===================================================================== hub (friends)
 local function hubStatus()
 	local list = Lobby.status(lobby)
@@ -602,6 +691,7 @@ local function hubStatus()
 		local player = Players:GetPlayerByUserId(entry.id)
 		local client = player and clients[player]
 		entry.slot = if client and client.match then client.slot else 0
+		entry.title = if player then player:GetAttribute("Title") or "" else "" -- (a challenge title, WEEKLY CHAMPION...)
 		entry.where = if not client then "?"
 			elseif client.match then (if client.match.mode == "VERSUS" then "IN A FIGHT" elseif client.match.mode == "TRAINING" then "TRAINING"
 				elseif GameModes.find(client.match.mode) and GameModes.find(client.match.mode).boss then "VS " .. GameModes.find(client.match.mode).boss
@@ -622,7 +712,7 @@ local function flushHub(force)
 	local list = hubStatus()
 	local parts = {}
 	for _, e in list do
-		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ",") }, ":"))
+		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ","), e.title or "" }, ":"))
 	end
 	local key = table.concat(parts, "|")
 	if key == lastHubKey and not force then return end -- (nothing changed: no redraw on every client)
@@ -653,7 +743,8 @@ local function buildHero(player)
 	client.heroTicket = (client.heroTicket or 0) + 1
 	local ticket = client.heroTicket
 	local kit = client.profile and client.profile.hero or "KAI"
-	local look = CharacterData.Skins[CharacterData.defaultStyle(kit, nil)]
+	local look = CharacterData.Skins[CharacterData.styleFor(kit, client.profile, nil, devOn(player, client))]
+	player:SetAttribute("Title", client.profile and client.profile.title or "") -- (shown over the hero and in the hub)
 	task.spawn(function()
 		local model
 		if client.avatar then
@@ -707,6 +798,31 @@ task.spawn(function()
 	end
 	folder.Parent = ReplicatedStorage
 end)
+
+-- The FIGHTERS page previews every style of a fighter on its body: one model per style, built
+-- the first time a player looks at it, then shared by everyone (ReplicatedStorage.StylePreviews).
+local styleFolder = Instance.new("Folder")
+styleFolder.Name = "StylePreviews"
+styleFolder.Parent = ReplicatedStorage
+local styleBuilding = {}
+previewStyle = function(name)
+	local style = CharacterData.Skins[name]
+	if not style or styleBuilding[name] or styleFolder:FindFirstChild(name) then return end
+	styleBuilding[name] = true
+	task.spawn(function()
+		local ok, model = pcall(RigBuilder.build, 1, nil, style)
+		if ok and model then
+			model.Name = name
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") then d.CastShadow = false end
+			end
+			model.Parent = styleFolder
+		else
+			warn("[FightingGame] Preview of the style " .. name .. " failed: " .. tostring(model))
+		end
+		styleBuilding[name] = nil
+	end)
+end
 
 -- ===================================================================== cross-server RANKED
 --[[
@@ -867,6 +983,7 @@ local function joined(player)
 	}
 	clients[player] = client
 	client.onProfileLoaded = function()
+		grantChampion(player, client)
 		buildHero(player)
 		menuStatus(player)
 	end
@@ -944,7 +1061,8 @@ end)
 -- { action = "start", request = { mode, team, level, queue } } · { action = "cancel" } (leave
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
-	start = true, cancel = true, leave = true, taunts = true, buySkin = true }
+	start = true, cancel = true, leave = true, taunts = true, buySkin = true, buyFighter = true, equip = true, title = true,
+	devMode = true, preview = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -959,7 +1077,8 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		menuStatus(player)
 	elseif action == "hero" then
 		-- PERSONNAGES / MES PERSONNAGES: the favourite fighter (also the lobby's hero).
-		if typeof(packet.kit) == "string" and MoveData.Kits[packet.kit] and client.profile then
+		if typeof(packet.kit) == "string" and table.find(MoveData.KitOrder, packet.kit) and client.profile
+			and Economy.canPlay(client.profile, packet.kit, "VERSUS", devOn(player, client)) then
 			client.profile.hero = packet.kit
 			saveProfile(player, client)
 			buildHero(player)
@@ -998,13 +1117,61 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 				saveProfile(player, client, true)
 				menuStatus(player, packet.skin)
 			else
-				menuRemote:FireClient(player, { error = if why == "coins" then "NOT ENOUGH COINS" else "STYLE NOT FOR SALE" })
+				menuRemote:FireClient(player, { error = if why == "coins" then "NOT ENOUGH COINS"
+					elseif why == "quest" then "THIS STYLE IS A QUEST REWARD" elseif why == "owned" then "ALREADY OWNED" else "STYLE NOT FOR SALE" })
 			end
 		end
+	elseif action == "buyFighter" then
+		-- A fighter unlocked for coins (Economy: price, ownership; kept forever). Only once the
+		-- saved profile is in (never bought on a default profile that would be lost).
+		if typeof(packet.kit) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+			local ok, why = Economy.buyFighter(client.profile, packet.kit, MoveData.KitOrder)
+			if ok then
+				saveProfile(player, client, true)
+				menuStatus(player, nil, packet.kit)
+			else
+				menuRemote:FireClient(player, { error = if why == "coins" then "NOT ENOUGH COINS"
+					elseif why == "owned" then "ALREADY OWNED" else "FIGHTER NOT FOR SALE" })
+			end
+		end
+	elseif action == "equip" then
+		-- The style worn with a fighter (only one the player may wear; cosmetic only).
+		local style = typeof(packet.skin) == "string" and CharacterData.Skins[packet.skin]
+		if not style then return suspect(player, "malformed") end
+		if client.profile and CharacterData.canWear(packet.skin, client.profile, devOn(player, client)) then
+			client.profile.equipped[style.Kit] = packet.skin
+			saveProfile(player, client)
+			if client.profile.hero == style.Kit then buildHero(player) end
+			menuStatus(player)
+		end
+	elseif action == "title" then
+		-- The title shown on the profile and in the lobby: one the player has, or none.
+		if typeof(packet.title) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and Champions.canShow(client.profile, packet.title) then
+			client.profile.title = packet.title
+			player:SetAttribute("Title", packet.title)
+			saveProfile(player, client)
+			menuStatus(player)
+			broadcastHub(true)
+		end
+	elseif action == "devMode" then
+		-- The developer access switched off / on (only for a developer: DevAccess).
+		if typeof(packet.on) ~= "boolean" then return suspect(player, "malformed") end
+		if client.profile and DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER) then
+			client.profile.devOff = not packet.on
+			saveProfile(player, client)
+			buildHero(player)
+			menuStatus(player)
+		end
+	elseif action == "preview" then
+		-- The 3D preview of a style in the FIGHTERS page (built once per style, shared).
+		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
+		previewStyle(packet.skin)
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
 		local request = GameModes.validate({ mode = "VERSUS_CPU", team = packet.team, level = 1 }, MoveData.KitOrder)
-		if request then client.team = request.team end
+		if request and Economy.teamAllowed(client.profile, request.team, "VERSUS", devOn(player, client)) then client.team = request.team end
 	elseif action == "ranking" then
 		task.spawn(function()
 			local list = topRatings()
@@ -1014,6 +1181,12 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder, Maps.BY_ID)
 		if not request then
 			menuRemote:FireClient(player, { error = reason })
+			return
+		end
+		-- (a locked fighter: TRAINING only, to try it; the developer access plays them all)
+		local allowed, locked = Economy.teamAllowed(client.profile, request.team, request.mode, devOn(player, client))
+		if not allowed then
+			menuRemote:FireClient(player, { error = "FIGHTER LOCKED: " .. tostring(locked) .. " (TRAINING ONLY)" })
 			return
 		end
 		Matchmaker.leave(matchmaker, player.UserId)
@@ -1181,9 +1354,9 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		-- (and the shop styles until bought: CharacterData.canWear)
 		for _ = 1, 16 do
 			name = CharacterData.nextSkin(name, match.characters[other].Skin)
-			if CharacterData.canWear(name, client.profile) then break end
+			if CharacterData.canWear(name, client.profile, devOn(player, client)) then break end
 		end
-		if not CharacterData.canWear(name, client.profile) then name = match.characters[mine].Skin end
+		if not CharacterData.canWear(name, client.profile, devOn(player, client)) then name = match.characters[mine].Skin end
 		match.characters[mine] = CharacterData.Skins[name]
 		rebuildSlot(match, mine)
 	end
@@ -1357,6 +1530,15 @@ local function followEvents(match, events)
 			if event.slot == 2 and match.mode == "SURVIVAL" then match.brain = newBrain(match) end
 		elseif event.kind == "MatchEnd" then
 			local owner = match.slots[1].owner
+			-- QUESTS: a solo match played to its end (CPU, survival, challenges; never TRAINING)
+			if match.mode ~= "VERSUS" and match.mode ~= "TRAINING" and owner and clients[owner] then
+				local client = clients[owner]
+				local team = world.teams and world.teams[1]
+				Quests.record(client.profile, { won = event.winner == 1, pvp = false, kits = if team then team.kits else { world.kits[1] } })
+				local gifts = Quests.grant(client.profile)
+				saveProfile(owner, client, #gifts > 0)
+				if #gifts > 0 then menuRemote:FireClient(owner, { questGifts = gifts }) end
+			end
 			if match.mode == "SURVIVAL" and owner and clients[owner] then
 				local client = clients[owner]
 				local beaten = match.wave - 1
@@ -1384,6 +1566,8 @@ local function followEvents(match, events)
 				if newBest then
 					profile.shinGrade = grade
 					profile.title = title or profile.title
+					if title and not table.find(profile.titles, title) then table.insert(profile.titles, title) end
+					owner:SetAttribute("Title", profile.title)
 				end
 				saveProfile(owner, client)
 				menuRemote:FireClient(owner, { result = true, challenge = true, boss = "KUROEN SHIN", coins = gain, won = won, grade = grade, title = title,
@@ -1406,6 +1590,8 @@ local function followEvents(match, events)
 				if newBest then
 					profile.asuraGrade = grade
 					profile.title = title or profile.title
+					if title and not table.find(profile.titles, title) then table.insert(profile.titles, title) end
+					owner:SetAttribute("Title", profile.title)
 				end
 				saveProfile(owner, client)
 				menuRemote:FireClient(owner, { result = true, challenge = true, coins = gain, won = won, grade = grade, title = title,

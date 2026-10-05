@@ -1,5 +1,48 @@
 # Journal du projet — état à transmettre
 
+## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
+
+Demande de Wilhem : finaliser l'économie sans refaire l'existant (provocations, classement et
+skins conservés), 8 persos gratuits sur 20 (« assez de diversité mais pas les persos trop
+stylés »), entraînement gratuit pour tous, présentation des skins, quêtes, titre du champion
+de la semaine, audit des menus, accès développeur.
+
+**Économie** (`src/shared/Economy.luau`, pur, testé ; adapté au système existant, pas de second système) :
+- PvP : victoire 150, défaite 50 (nul 100, non fixé par Wilhem). Celui qui quitte un match en cours ne touche rien. Les règles anti-farm restent : match de moins de 25 s = rien, même adversaire répété = ×0,25 puis 0, plafond de 2000 pièces par jour (≈ 13 victoires) ;
+- `GameModes.COINS` aligné (les deux disent la même chose, test à l'appui) ;
+- achats côté serveur seulement, sur le profil chargé (jamais sur un profil par défaut), sauvegarde immédiate ; une demande par 0,5 s ; un achat déjà fait est refusé (pas de double paiement), jamais de solde négatif.
+
+**Persos gratuits et à débloquer** :
+- gratuits (proposition, une ligne à changer dans `Economy.FREE`) : KAI (polyvalent ★), TARO (boxeur), ZEPHYR (jambes), RYUKEN (puissance ★), HIBECARES (endurance ★), GORAN (lutteur), ELIAN (soutien), VENOM (usure). Les plus stylés restent à débloquer : AKEMI, SHIN, DAICHA, RAIJIN, YUKINA, ASTER, HIBIKI, KAZAN, KUREN, SYLVA, NOVA, KUROEN — 4000 pièces chacun, gardés pour toujours (`profile.ownedKits`) ;
+- le serveur refuse une équipe avec un perso verrouillé (sauf ENTRAÎNEMENT), à la demande, à l'équipe d'un défi entre amis et encore au lancement du 1v1 ; un favori verrouillé redevient KAI ;
+- menu : sélection avec voile 🔒 + prix sur les persos verrouillés (et « FREE TRIAL » en entraînement), clic = proposition de déblocage ; bande MES PERSONNAGES avec cadenas et prix ; page PERSONNAGES : état (gratuit / débloqué / verrouillé + prix + solde), DÉBLOQUER avec confirmation, ESSAYER EN ENTRAÎNEMENT. Le solde reste dans la carte profil.
+
+**Entraînement gratuit** : tous les persos y sont jouables (le changement de perso en entraînement existait déjà), ultimes compris ; jouer en entraînement ne débloque rien.
+
+**Skins** (aucun supprimé, aucun recréé) :
+- recensement (compté dans le code) : 46 styles « de base » (2 à 5 par perso jouable, plus ceux des boss ASURA et KUROEN SHIN ; ÉVEILLÉ et ÉCLIPSE DIVINE se gagnent en défi), et les 40 skins de boutique de la v0.17.0 ;
+- prix unique 2500 pièces ; 8 d'entre eux deviennent des récompenses de quête (non vendus) ; Robux : préparé (bouton R$ dès qu'un id de produit est mis dans `CharacterData.SHOP_PRODUCTS`, aucun inventé) ;
+- page PERSONNAGES : aperçu 3D du perso dans le style choisi (le serveur construit le corps du style une fois, partagé par tous), on le fait tourner au doigt / à la souris, il tourne seul sinon ; chaque style avec ses couleurs, son état (GRATUIT, GAGNÉ, BATS ASURA, QUÊTE · condition, ACQUIS, BOUTIQUE) et son bouton (prix avec confirmation, ÉQUIPER, ✓ PORTÉ) ;
+- ÉQUIPER : le style porté avec chaque perso est sauvegardé (`profile.equipped`) et utilisé en combat et dans le lobby, seulement s'il est toujours à soi ; purement cosmétique.
+
+**Quêtes** (`src/shared/Quests.luau`, pur, testé ; proposition à valider) : JOUE 10 matchs → KAI INFERNO · 40 matchs → HIBECARES ABYSS · GAGNE 5 matchs en ligne → TARO SAKURA · 25 → ZEPHYR ABYSS · 5 victoires avec RYUKEN → RYUKEN PHANTOM, GORAN → GORAN SAKURA, ELIAN → ELIAN ABYSS, VENOM → VENOM INFERNO. Compteurs dans le profil (sauvegardés), récompense donnée une seule fois par le serveur ; en ligne, seuls les matchs comptés par l'anti-farm avancent ; jamais l'entraînement. Onglet QUÊTES dans SUCCÈS (progression, style offert en couleurs).
+
+**Champion de la semaine** (`src/server/Champions.luau`, pur, testé) : il n'existait PAS de réinitialisation hebdomadaire — le classement est la note Elo de toujours (`JeuxCombat_Classement_v1`), laissé intact. À chaque nouvelle semaine (lundi 0 h UTC), le premier du classement devient champion de la semaine écoulée, écrit une seule fois dans un historique partagé (`JeuxCombat_Champions_v1`, UpdateAsync : une écriture par semaine quel que soit le nombre de serveurs, 104 semaines gardées). Titre WEEKLY CHAMPION (CHAMPION DE LA SEMAINE), donné une fois par semaine gagnée (à la connexion ou tout de suite), impossible à acheter ; affichable : PARAMÈTRES › TITRE AFFICHÉ (le serveur n'accepte qu'un titre possédé), visible sur la carte profil et dans la liste des joueurs du serveur.
+
+**Accès développeur** (`src/server/DevAccess.luau`, côté serveur seulement, testé) : les UserId de `DevAccess.IDS` et le propriétaire du jeu quand il appartient à un compte (game.CreatorId). Jamais les joueurs de test de Studio (UserId négatifs). Tous les persos dans tous les modes et tous les styles, sans rien écrire comme acheté ; PARAMÈTRES › ACCÈS DÉVELOPPEUR (visible seulement pour un développeur) le coupe pour jouer en nouveau joueur, et le remet.
+
+**Audit des menus** :
+- sélection : la colonne des persos (630 px) passait sous le panneau d'options (dernière rangée à moitié cachée) → 582 px ;
+- PARAMÈTRES devient une liste qui défile (avec les nouvelles lignes, la page débordait) ;
+- page PERSONNAGES réorganisée (aperçu, description, état, styles) sans rien dépasser ;
+- fenêtre « Jouer entre amis » : déjà corrigée (centrée dans la zone sûre, au-dessus du menu, bouton INVITER dans un pied fixe) — laissée telle quelle, on y ajoute seulement le titre des joueurs ;
+- texte de fin de défi ASURA : guillemet mal fermé corrigé.
+
+Tests : Lobby 30 (nouveaux : économie, accès développeur, styles 2500 / quêtes / équipement, quêtes, champion de la semaine, textes en français), toutes les autres suites inchangées.
+
+Problèmes ouverts : rien n'est vérifié dans Roblox Studio (achats réels, DataStore, aperçu 3D des styles, glisser pour tourner sur mobile, champion de la semaine en jeu publié). Sur un petit téléphone, tout le menu est réduit à l'échelle (canevas 1600 × 900) : à regarder en vrai. Les joueurs qui avaient déjà joué gardent leurs pièces mais perdent l'accès aux 12 persos à débloquer (à décider : les offrir aux testeurs ?). À valider par Wilhem : les 8 gratuits, les 8 quêtes et leurs récompenses, le gain d'un nul (100), le plafond de 2000 pièces par jour, ses UserId à mettre dans `DevAccess.IDS` (inutile si le jeu est sur son compte).
+Prochaine étape : réglages après retours de Wilhem, prix Robux une fois ses produits créés.
+
 ## Version 0.17.0 — 4 octobre 2026 · MAJOR UPDATE : KUROEN
 
 Demandes de Wilhem : supprimer MARION, refaire KAZAN avec deux griffes, créer KUROEN (rushdown

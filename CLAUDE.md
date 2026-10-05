@@ -7,7 +7,7 @@
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
-  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau` et `KitFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Economy.luau` et `Quests.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,
@@ -27,7 +27,7 @@
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).
 - `src/server/Lobby.luau` (règles du hub), `src/server/Matchmaker.luau` (recherche, Elo) et
-  `src/shared/GameModes.luau` (modes du menu) `src/server/SaveQueue.luau` (quand écrire les profils) `src/server/GlobalQueue.luau` (CLASSÉ entre serveurs, verrou de session) et `src/server/AntiCheat.luau` (suspicion, anti-farm) restent purs aussi (tests : `Lobby.test.luau`). Après une retouche de
+  `src/shared/GameModes.luau` (modes du menu) `src/server/SaveQueue.luau` (quand écrire les profils) `src/server/GlobalQueue.luau` (CLASSÉ entre serveurs, verrou de session) et `src/server/AntiCheat.luau` (suspicion, anti-farm), `src/server/DevAccess.luau` (accès développeur) et `src/server/Champions.luau` (champion de la semaine) restent purs aussi (tests : `Lobby.test.luau`). Après une retouche de
   `RigBuilder.luau` (corps, tenues), lancer `python3 tools/rigcheck.py check` (et
   `python3 tools/rigcheck.py render rigs.png` pour voir les persos).
 - La géométrie du rig KAI vit dans `RigSpec.luau` (utilisée par le RigBuilder et les tests) :

@@ -14,6 +14,7 @@
 ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -26,6 +27,8 @@ local FighterAI = require(Shared.FighterAI)
 local AnimationController = require(script.Parent.AnimationController)
 local CurrencyIcons = require(script.Parent.CurrencyIcons)
 local Taunts = require(Shared.Taunts)
+local Economy = require(Shared.Economy)
+local Quests = require(Shared.Quests)
 local Theme = require(script.Parent.MenuTheme)
 
 local WHITE = Color3.fromHex("F5F5F7")
@@ -177,6 +180,11 @@ function MenuController.new(remote, hub, settings)
 		elseif packet.ranking then
 			self.ranking = packet.ranking
 			self:refreshRanking()
+		elseif packet.questGifts then
+			self:questFlash(packet.questGifts)
+		elseif packet.champion then
+			self:flash("👑 CHAMPION OF THE WEEK · TITLE WEEKLY CHAMPION (SETTINGS › TITLE)", GOLD)
+			self.toastUntil = os.clock() + 8
 		else
 			self.status = packet
 			if packet.language and self.settings.onLanguage then self.settings.onLanguage(packet.language) end
@@ -187,8 +195,14 @@ function MenuController.new(remote, hub, settings)
 				if self.page == "taunts" then self:refreshTaunts() end
 			end
 			self:refreshProfile()
-			if self.page == "characters" and self.stylesKit then self:refreshStyles(self.stylesKit) end
+			if self.page == "characters" and self.galleryKit then self:showKitInfo(self.galleryKit) end
+			if self.page == "select" then self:refreshSelect() end
+			self:refreshLocks()
+			if self.page == "settings" then
+				for _, refresh in self.settingRefresh or {} do refresh() end
+			end
 			if packet.bought then self:flash("STYLE BOUGHT · " .. packet.bought, GOLD) end
+			if packet.unlocked then self:flash(packet.unlocked .. " UNLOCKED · YOURS FOREVER", GOLD) end
 			if packet.state == "queue" then
 				if self.page ~= "search" then self.searchStart = os.clock() end
 				self:open("search")
@@ -277,7 +291,7 @@ function MenuController:buildNav()
 		{ "characters", "FIGHTERS", "THE " .. #MoveData.KitOrder .. " FIGHTERS · YOUR FAVORITE", "人" },
 		{ "ranking", "RANKING", "CLIMB THE RANKS", "位" },
 		{ "players", "PLAYERS", "CHALLENGE · INVITE A FRIEND (H)", "友" },
-		{ "achievements", "ACHIEVEMENTS", "WHAT TO WIN · WHERE · YOUR PROGRESS", "誉" },
+		{ "achievements", "ACHIEVEMENTS", "ACHIEVEMENTS · QUESTS · YOUR PROGRESS", "誉" },
 		{ "taunts", "TAUNTS", "YOUR 6 TRASH TALKS · EZ, BOZO…", "煽" },
 		{ "settings", "SETTINGS", "EFFECTS · SOUND · MUSIC · LANGUAGE", "設" },
 	}
@@ -471,7 +485,8 @@ function MenuController:buildSelect()
 	self.p1 = self:selectSide(page, true)
 	self.p2 = self:selectSide(page, false)
 	-- The column of portraits, the VS emblem above it.
-	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(440, 630),
+	-- (it ends above the options panel: at 630 high its last row of fighters slid under it)
+	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(440, 582),
 		BackgroundColor3 = Theme.INK, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 6 }, page)
 	Theme.rule(column, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 3), Theme.RED)
 	local vs = label(column, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(160, 64), Font = DISPLAY,
@@ -495,12 +510,20 @@ function MenuController:buildSelect()
 		local pick = new("TextLabel", { BackgroundColor3 = RED, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 2),
 			Size = UDim2.fromOffset(22, 22), Font = DISPLAY, TextSize = 18, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 9 }, cell)
 		corner(pick, 11)
+		-- (locked: a dark veil, the lock and the price; in TRAINING: FREE TRIAL)
+		local lock = new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0,
+			Font = UI_FONT, TextScaled = true, Text = "🔒\n" .. Economy.FIGHTER_PRICE, TextColor3 = GOLD, Visible = false, ZIndex = 9 }, cell)
+		new("UIPadding", { PaddingTop = UDim.new(0.18, 0), PaddingBottom = UDim.new(0.3, 0), PaddingLeft = UDim.new(0.12, 0),
+			PaddingRight = UDim.new(0.12, 0) }, lock)
+		local trial = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.new(1, -4, 0, 14),
+			BackgroundColor3 = Theme.VIOLET, BorderSizePixel = 0, Font = UI_FONT, TextSize = 9, Text = "FREE TRIAL", TextColor3 = WHITE,
+			Visible = false, ZIndex = 9 }, cell)
 		cell.MouseEnter:Connect(function() self.kitIndex = i; self:refreshSelect() end)
 		cell.Activated:Connect(function()
 			self.kitIndex = i
 			self:pickKit()
 		end)
-		self.kitCells[i] = { cell = cell, edge = edge, pick = pick, color = color }
+		self.kitCells[i] = { cell = cell, edge = edge, pick = pick, color = color, lock = lock, trial = trial }
 	end
 	-- (the details of the fighter under the cursor, on its side)
 	self.kitName, self.kitRole = self.p1.name, self.p1.role
@@ -630,6 +653,9 @@ function MenuController:refreshSelect()
 		local order = table.find(self.team, MoveData.KitOrder[i])
 		entry.pick.Visible = order ~= nil
 		entry.pick.Text = if order then tostring(order) else ""
+		local kitName = MoveData.KitOrder[i]
+		entry.lock.Visible = not self:canPlay(kitName, mode.id)
+		entry.trial.Visible = mode.id == "TRAINING" and not self:owns(kitName)
 	end
 	local color = kitColor(name)
 	self.kitName.Text = name
@@ -698,6 +724,11 @@ end
 
 function MenuController:pickKit()
 	local name = MoveData.KitOrder[self.kitIndex]
+	if self.mode and not self:canPlay(name, self.mode.id) then
+		-- (locked out of TRAINING: offer to unlock it, or to try it for free)
+		self:askUnlock(name)
+		return
+	end
 	local found = table.find(self.team, name)
 	if found then
 		table.remove(self.team, found)
@@ -724,6 +755,11 @@ function MenuController:choose(entry, teamSize)
 	else
 		self.team = { favourite }
 	end
+	-- (a fighter no longer playable in this mode is not preselected: KAI, free, instead)
+	for i = #self.team, 1, -1 do
+		if not self:canPlay(self.team[i], mode.id) then table.remove(self.team, i) end
+	end
+	if #self.team == 0 then self.team = { "KAI" } end
 	self.kitIndex = table.find(MoveData.KitOrder, self.team[1]) or table.find(MoveData.KitOrder, favourite) or 1
 	if not mode.queue then self.queue = "NORMAL" end
 	self:open("select")
@@ -736,6 +772,12 @@ function MenuController:start()
 		return
 	end
 	local team = table.clone(self.team)
+	for _, kit in team do
+		if not self:canPlay(kit, mode.id) then
+			self:askUnlock(kit)
+			return
+		end
+	end
 	if mode.queue and self.queue == "FRIEND" then
 		-- A friend's 1v1: remember the team on the server, then the players' list (DÉFIER).
 		self.remote:FireServer({ action = "team", team = team })
@@ -776,27 +818,211 @@ function MenuController:buildSearch()
 end
 
 -- ===================================================================== characters, ranking, settings
+--[[
+	FIGHTERS: the fighter (name, role, difficulty), its 3D body in the style chosen (drag to
+	turn it), OWNED / FREE / the price to unlock it with the player's balance, TRY IN TRAINING
+	(any fighter, free), FAVORITE, then every style of the fighter: free, to earn (challenge,
+	quest), owned, or for sale (2500 coins, a confirmation first). A click on a style previews it
+	on the body; EQUIP wears it in fights. The server checks every purchase and every style.
+]]
 function MenuController:buildCharacters()
 	local page = rightPage(self, "FIGHTERS", Theme.RED)
 	Theme.heading(page, "FIGHTERS", Theme.RED)
-	self.galleryName = label(page, { Position = UDim2.fromOffset(22, 86), Size = UDim2.new(1, -44, 0, 48), Font = UI_FONT, TextSize = 18, TextWrapped = true,
-		Text = "", TextColor3 = Theme.GOLD })
-	self.galleryText = label(page, { Position = UDim2.fromOffset(22, 140), Size = UDim2.new(1, -44, 0, 190), Font = BODY_FONT, TextSize = 14,
-		TextWrapped = true, Text = "Pick a fighter below: it becomes your favorite (in the middle of the menu, preselected for fights).",
-		TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top })
-	-- STYLES: the fighter's colour styles, the shop ones with their price (bought with coins:
-	-- the server checks and keeps them in the profile). Worn in a fight with the style key.
-	Theme.rule(page, UDim2.fromOffset(22, 338), UDim2.new(1, -44, 0, 1), Theme.LINE)
-	label(page, { Position = UDim2.fromOffset(22, 344), Size = UDim2.new(1, -44, 0, 22), Font = UI_FONT, TextSize = 14,
+	self.galleryName = label(page, { Position = UDim2.fromOffset(22, 74), Size = UDim2.new(1, -44, 0, 26), Font = UI_FONT, TextSize = 16,
+		TextTruncate = Enum.TextTruncate.AtEnd, Text = "", TextColor3 = Theme.GOLD })
+	-- the 3D preview (drag to turn), its frame
+	local holder = new("Frame", { Position = UDim2.fromOffset(22, 104), Size = UDim2.fromOffset(196, 232), BackgroundColor3 = INK,
+		BackgroundTransparency = 0.2, BorderSizePixel = 0 }, page)
+	Theme.edge(holder)
+	gradient(holder, Color3.fromHex("2A0A12"), INK, 90)
+	local view = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromHex("8A8090"),
+		LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -1, 0.6), Active = true }, holder)
+	local world = new("WorldModel", {}, view)
+	local camera = new("Camera", { FieldOfView = 26 }, view)
+	view.CurrentCamera = camera
+	self.gallery = { view = view, world = world, camera = camera, yaw = math.rad(-20), left = true }
+	self.galleryHint = label(holder, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 14),
+		Font = BODY_FONT, TextSize = 10, Text = "◀ DRAG TO TURN ▶", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Center })
+	self.galleryStyle = label(holder, { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 16), Font = UI_FONT, TextSize = 11,
+		Text = "", TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+	-- (turning: mouse or finger, on the preview only)
+	local dragging, lastX = nil, 0
+	view.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging, lastX = input, input.Position.X
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input == dragging then
+			self.gallery.yaw += (input.Position.X - lastX) * 0.012
+			lastX = input.Position.X
+			self.gallery.turned = os.clock()
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input == dragging or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = nil end
+	end)
+	-- the fighter's description
+	self.galleryText = label(page, { Position = UDim2.fromOffset(232, 104), Size = UDim2.new(1, -254, 0, 150), Font = BODY_FONT, TextSize = 12,
+		TextWrapped = true, Text = "", TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top })
+	-- owned / locked, the price, the balance; UNLOCK, TRY IN TRAINING, FAVORITE
+	self.galleryState = label(page, { Position = UDim2.fromOffset(232, 256), Size = UDim2.new(1, -254, 0, 18), Font = UI_FONT, TextSize = 12,
+		Text = "", TextColor3 = GOLD, TextTruncate = Enum.TextTruncate.AtEnd })
+	self.galleryUnlock = Theme.button(page, { Position = UDim2.fromOffset(232, 278), Size = UDim2.fromOffset(150, 26), Font = UI_FONT, TextSize = 12,
+		Text = "", BackgroundColor3 = Theme.RED }, GOLD)
+	self.galleryUnlock.Activated:Connect(function() self:askUnlock(self.galleryKit) end)
+	self.galleryFavorite = Theme.button(page, { Position = UDim2.fromOffset(390, 278), Size = UDim2.fromOffset(148, 26), Font = UI_FONT, TextSize = 12,
+		Text = "★ FAVORITE" }, GOLD)
+	self.galleryFavorite.Activated:Connect(function() self:makeFavorite(self.galleryKit) end)
+	local try = Theme.button(page, { Position = UDim2.fromOffset(232, 310), Size = UDim2.new(1, -254, 0, 26), Font = UI_FONT, TextSize = 12,
+		Text = "▶ TRY IN TRAINING (FREE)" }, GOLD)
+	try.Activated:Connect(function()
+		local kit = self.galleryKit or "KAI"
+		self.remote:FireServer({ action = "start", request = { mode = "TRAINING", team = { kit }, map = self.stage or "RANDOM" } })
+	end)
+	-- every style of the fighter
+	Theme.rule(page, UDim2.fromOffset(22, 344), UDim2.new(1, -44, 0, 1), Theme.LINE)
+	label(page, { Position = UDim2.fromOffset(22, 348), Size = UDim2.new(1, -44, 0, 20), Font = UI_FONT, TextSize = 13,
 		Text = "STYLES · SHOP", TextColor3 = GOLD })
-	self.styleList = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 370), Size = UDim2.new(1, -44, 1, -384), BackgroundTransparency = 1,
+	self.styleList = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 370), Size = UDim2.new(1, -44, 1, -380), BackgroundTransparency = 1,
 		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
-	new("UIGridLayout", { CellSize = UDim2.fromOffset(250, 52), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.styleList)
+	new("UIGridLayout", { CellSize = UDim2.new(0.5, -5, 0, 56), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.styleList)
 	return page
 end
 
--- The styles of `name` in the FIGHTERS page: free, to earn, owned or for sale (BUY).
+-- Does the player own this fighter (free, bought, or the developer access)?
+function MenuController:owns(kit)
+	local s = self.status or {}
+	return s.dev == true or Economy.owns(s, kit)
+end
+
+-- May this fighter be fielded in the mode picked (TRAINING: all of them)?
+function MenuController:canPlay(kit, modeId)
+	local s = self.status or {}
+	return Economy.canPlay(s, kit, modeId, s.dev == true)
+end
+
+-- A yes / no question over the whole menu (every purchase asks first).
+function MenuController:confirm(text, yesText, onYes)
+	if self.dialog then self.dialog:Destroy() end
+	local shade = new("TextButton", { Name = "Confirm", Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35,
+		AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 60 }, self.root)
+	self.dialog = shade
+	local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(460, 210),
+		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 61 }, shade)
+	Theme.surface(box, Theme.GOLD)
+	label(box, { Position = UDim2.fromOffset(20, 18), Size = UDim2.new(1, -40, 0, 100), Font = UI_FONT, TextSize = 17, TextWrapped = true,
+		Text = text, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 62 })
+	local function close()
+		if self.dialog == shade then self.dialog = nil end
+		shade:Destroy()
+	end
+	local yes = Theme.button(box, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 20, 1, -18), Size = UDim2.new(0.5, -26, 0, 48),
+		BackgroundColor3 = Theme.RED, Font = DISPLAY, TextSize = 26, Text = yesText, ZIndex = 62 }, GOLD)
+	local no = Theme.button(box, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -18), Size = UDim2.new(0.5, -26, 0, 48),
+		Font = DISPLAY, TextSize = 26, Text = "CANCEL", ZIndex = 62 })
+	yes.Activated:Connect(function() close(); onYes() end)
+	no.Activated:Connect(close)
+	shade.Activated:Connect(close)
+end
+
+-- UNLOCK a fighter (4000 coins): the balance is checked first, then a confirmation.
+function MenuController:askUnlock(kit)
+	if not kit or self:owns(kit) then return end
+	local coins = tonumber(self.status.coins) or 0
+	if coins < Economy.FIGHTER_PRICE then
+		self:flash(string.format("NOT ENOUGH COINS · %s COSTS %d (YOU HAVE %d) · TRY IT IN TRAINING", kit, Economy.FIGHTER_PRICE, coins), RED)
+		return
+	end
+	self:confirm(string.format("UNLOCK %s FOR %d COINS?\nYou have %d coins. It stays yours forever.", kit, Economy.FIGHTER_PRICE, coins),
+		"UNLOCK", function() self.remote:FireServer({ action = "buyFighter", kit = kit }) end)
+end
+
+-- BUY a style (2500 coins), after a confirmation.
+function MenuController:askStyle(name)
+	local item = CharacterData.SHOP[name]
+	if not item then return end
+	local coins = tonumber(self.status.coins) or 0
+	if coins < item.coins then
+		self:flash(string.format("NOT ENOUGH COINS · THIS STYLE COSTS %d (YOU HAVE %d)", item.coins, coins), RED)
+		return
+	end
+	self:confirm(string.format("BUY THE STYLE %s FOR %d COINS?\nYou have %d coins.", name, item.coins, coins),
+		"BUY", function() self.remote:FireServer({ action = "buySkin", skin = name }) end)
+end
+
+function MenuController:makeFavorite(kit)
+	if not kit then return end
+	if not self:owns(kit) then
+		self:flash(kit .. " IS LOCKED · UNLOCK IT FIRST", RED)
+		return
+	end
+	self.remote:FireServer({ action = "hero", kit = kit })
+	self:flash(kit .. " · YOUR FAVORITE", kitColor(kit))
+end
+
+-- The style shown on the body of the FIGHTERS page (the server builds its body once).
+function MenuController:showStyle(name)
+	local style = CharacterData.Skins[name]
+	if not style then return end
+	local g = self.gallery
+	self.galleryStyleName = name
+	self.galleryStyle.Text = name
+	local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
+	local source = folder and folder:FindFirstChild(name)
+	if not source then
+		-- (not built yet: ask for it, show the fighter's first style meanwhile)
+		self.remote:FireServer({ action = "preview", skin = name })
+		self.galleryWaiting = name
+		local kits = ReplicatedStorage:FindFirstChild("KitPreviews")
+		source = kits and kits:FindFirstChild(style.Kit)
+	else
+		self.galleryWaiting = nil
+	end
+	if g.source == source then return end
+	if g.model then g.model:Destroy() end
+	g.model, g.animation, g.source, g.kit = nil, nil, source, style.Kit
+	if not source then return end
+	local model = source:Clone()
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		model:Destroy()
+		return
+	end
+	root.Anchored = true
+	model.Parent = g.world
+	local ok, animation = pcall(AnimationController.new, model)
+	g.model, g.animation, g.root = model, if ok then animation else nil, root
+	g.height = if ok and animation.rootHeight then animation.rootHeight else 3
+	root.CFrame = CFrame.new(0, g.height, 0) * CFrame.Angles(0, g.yaw, 0)
+	local _, size = model:GetBoundingBox()
+	local top = math.max(size.Y, 5.5)
+	local middle = Vector3.new(0, top / 2, 0)
+	local distance = (top / 2) / math.tan(math.rad(g.camera.FieldOfView / 2)) / 0.86 + math.max(size.X, size.Z) / 2
+	g.camera.CFrame = CFrame.lookAt(middle + Vector3.new(0, 0.3, -distance), middle)
+end
+
+function MenuController:animateGallery(dt)
+	local g = self.gallery
+	if not g then return end
+	if self.galleryWaiting then
+		local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
+		if folder and folder:FindFirstChild(self.galleryWaiting) then self:showStyle(self.galleryWaiting) end
+	end
+	if not g.model then return end
+	-- (it turns slowly by itself until the player turns it)
+	if os.clock() - (g.turned or 0) > 4 then g.yaw += dt * 0.35 end
+	if g.root then g.root.CFrame = CFrame.new(0, g.height, 0) * CFrame.Angles(0, g.yaw, 0) end
+	if g.animation then
+		pcall(g.animation.update, g.animation, { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = g.kit },
+			nil, dt, os.clock(), 60, false)
+		if g.root then g.root.CFrame = CFrame.new(0, g.height, 0) * CFrame.Angles(0, g.yaw, 0) end
+	end
+end
+
+-- The styles of `name` in the FIGHTERS page: free, to earn, owned or for sale.
 function MenuController:refreshStyles(name)
 	local list = self.styleList
 	if not list then return end
@@ -806,40 +1032,67 @@ function MenuController:refreshStyles(name)
 	end
 	local s = self.status or {}
 	local owned = s.ownedSkins or {}
+	local equipped = (s.equipped or {})[name]
+	local wearing = nil
 	for i, styleName in CharacterData.StyleOrder[name] or {} do
 		local style = CharacterData.Skins[styleName]
 		local item = CharacterData.SHOP[styleName]
 		local lock = CharacterData.LOCKED[styleName]
-		local row = new("Frame", { LayoutOrder = i, BackgroundColor3 = Theme.PANEL, BorderSizePixel = 0 }, list)
-		Theme.edge(row, if item then Color3.fromHex(style.Energy) else Theme.LINE)
-		-- (swatch: the outfit, its trim and its ki)
+		local quest = Quests.BY_REWARD[styleName]
+		local mine = s.dev == true or (if lock then (tonumber(s[lock]) or 0) >= 1 elseif item then owned[styleName] == true else true)
+		if mine and (equipped == styleName or (not equipped and i == 1)) then wearing = styleName end
+		local row = new("TextButton", { LayoutOrder = i, BackgroundColor3 = Theme.PANEL, AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, list)
+		local selected = self.galleryStyleName == styleName
+		Theme.edge(row, if selected then GOLD elseif item then Color3.fromHex(style.Energy) else Theme.LINE)
+		row.Activated:Connect(function()
+			self:showStyle(styleName)
+			self:refreshStyles(name)
+		end)
 		for k, key in { "Vest", "VestTrim", "Energy" } do
-			new("Frame", { Position = UDim2.fromOffset(6 + (k - 1) * 12, 8), Size = UDim2.fromOffset(10, 36),
+			new("Frame", { Position = UDim2.fromOffset(6 + (k - 1) * 10, 8), Size = UDim2.fromOffset(8, 40),
 				BackgroundColor3 = Color3.fromHex(style[key]), BorderSizePixel = 0 }, row)
 		end
-		local shown = if item then item.theme else styleName
-		label(row, { Position = UDim2.fromOffset(46, 4), Size = UDim2.fromOffset(130, 22), Font = UI_FONT, TextSize = 14, Text = shown,
-			TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { Position = UDim2.fromOffset(40, 4), Size = UDim2.new(1, -128, 0, 22), Font = UI_FONT, TextSize = 13,
+			Text = if item then item.theme else styleName, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+		-- what it is: free, owned, the challenge or quest that gives it, its price
 		local state, color = "FREE", GREY
 		if lock then
-			local open = (tonumber(s[lock]) or 0) >= 1
-			state, color = if open then "UNLOCKED" else "TO EARN", if open then GOLD else GREY
+			state, color = if mine then "EARNED" else (if lock == "shinGrade" then "BEAT KUROEN SHIN" else "BEAT ASURA"), if mine then GOLD else GREY
+		elseif quest then
+			state, color = if owned[styleName] then "QUEST · OWNED" else "QUEST · " .. quest.how, if owned[styleName] then GOLD else Theme.VIOLET
 		elseif item then
 			state, color = if owned[styleName] then "OWNED" else "SHOP", if owned[styleName] then GOLD else Color3.fromHex(style.Energy)
 		end
-		label(row, { Position = UDim2.fromOffset(46, 26), Size = UDim2.fromOffset(110, 20), Font = BODY_FONT, TextSize = 12, Text = state,
-			TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left })
-		if item and not owned[styleName] then
-			local buy = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(78, 38),
-				Text = "      " .. item.coins, TextSize = 14 }, GOLD)
-			CurrencyIcons.make("coins", buy, 20, UDim2.fromOffset(5, 9))
-			buy.Activated:Connect(function()
-				if (s.coins or 0) < item.coins then
-					self:flash("NOT ENOUGH COINS", RED)
-					return
-				end
-				self.remote:FireServer({ action = "buySkin", skin = styleName })
+		if s.dev and (lock or item) and not (if lock then (tonumber(s[lock]) or 0) >= 1 else owned[styleName]) then
+			state ..= " · DEV ACCESS"
+		end
+		label(row, { Position = UDim2.fromOffset(40, 28), Size = UDim2.new(1, -128, 0, 22), Font = BODY_FONT, TextSize = 10, Text = state,
+			TextColor3 = color, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top })
+		-- the action: BUY (price), EQUIP, or EQUIPPED
+		local action = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -5, 0.5, 0), Size = UDim2.fromOffset(80, 40),
+			Font = UI_FONT, TextSize = 12, Text = "" }, GOLD)
+		-- ROBUX (prepared): a style with a developer product (CharacterData.SHOP_PRODUCTS, set by
+		-- Wilhem) gets a Robux button; Roblox shows the price and the server grants it.
+		local product = CharacterData.SHOP_PRODUCTS[styleName]
+		if product and not mine then
+			local robux = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -90, 0.5, 0), Size = UDim2.fromOffset(40, 40),
+				Font = UI_FONT, TextSize = 12, Text = "R$" }, GOLD)
+			robux.Activated:Connect(function()
+				pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, Players.LocalPlayer, product)
 			end)
+		end
+		if wearing == styleName then
+			action.Text, action.TextColor3 = "✓ WORN", GOLD
+		elseif mine then
+			action.Text = "EQUIP"
+			action.Activated:Connect(function() self.remote:FireServer({ action = "equip", skin = styleName }) end)
+		elseif item and not quest then
+			action.Text = "      " .. item.coins
+			CurrencyIcons.make("coins", action, 18, UDim2.fromOffset(5, 11))
+			action.Activated:Connect(function() self:askStyle(styleName) end)
+		else
+			action.Text, action.TextColor3 = "🔒", GREY
+			action.Activated:Connect(function() self:flash(state, color) end)
 		end
 	end
 end
@@ -847,14 +1100,33 @@ end
 function MenuController:showKitInfo(name)
 	local kit = MoveData.Kits[name]
 	if not kit then return end
+	self.galleryKit = name
 	local level = kit.Difficulty or 2
 	self.galleryName.Text = name .. " " .. kit.Kanji .. " · " .. kit.Role .. " · " .. string.rep("★", level) .. string.rep("☆", 3 - level)
 	local lines = { kit.Description, "", "Health " .. kit.Stats.MaxHealth .. " · speed " .. kit.Stats.WalkSpeed }
 	if kit.Passive then table.insert(lines, "Passive: " .. kit.Passive.Name) end
-	table.insert(lines, "")
 	table.insert(lines, "Ultimates: " .. MoveData.Moves[kit.Ultimates.Rush].name .. " · " .. MoveData.Moves[kit.Ultimates.Awaken].name
 		.. " · " .. MoveData.Moves[kit.Ultimates.Gate].name .. (if kit.Ultimates.Fatal then " · " .. MoveData.Moves[kit.Ultimates.Fatal].name else ""))
 	self.galleryText.Text = table.concat(lines, "\n")
+	local s = self.status or {}
+	local coins = tonumber(s.coins) or 0
+	local free, owned = Economy.isFree(name), Economy.owns(s, name)
+	if owned then
+		self.galleryState.Text, self.galleryState.TextColor3 = if free then "✓ FREE FIGHTER" else "✓ UNLOCKED · YOURS FOREVER", GOLD
+	elseif s.dev then
+		self.galleryState.Text, self.galleryState.TextColor3 = "DEVELOPER ACCESS · NOT BOUGHT", Theme.VIOLET
+	else
+		self.galleryState.Text, self.galleryState.TextColor3 = string.format("🔒 LOCKED · %d COINS · YOU HAVE %d", Economy.FIGHTER_PRICE, coins), RED
+	end
+	self.galleryUnlock.Visible = not owned
+	self.galleryUnlock.Text = "UNLOCK · " .. Economy.FIGHTER_PRICE
+	self.galleryFavorite.Text = if s.hero == name then "★ YOUR FAVORITE" else "★ FAVORITE"
+	-- the style shown: the one equipped (or the first), unless the player picked another one of this fighter
+	local current = self.galleryStyleName
+	if not current or not CharacterData.Skins[current] or CharacterData.Skins[current].Kit ~= name then
+		current = (s.equipped or {})[name] or CharacterData.defaultStyle(name, nil)
+	end
+	self:showStyle(current)
 	self:refreshStyles(name)
 end
 
@@ -903,8 +1175,20 @@ end
 function MenuController:buildAchievements()
 	local page = rightPage(self, "ACHIEVEMENTS", Theme.GOLD)
 	Theme.heading(page, "ACHIEVEMENTS", Theme.GOLD)
-	self.achievementsCount = label(page, { Position = UDim2.fromOffset(22, 80), Size = UDim2.new(1, -32, 0, 22), Font = UI_FONT, TextSize = 15,
-		Text = "", TextColor3 = WHITE })
+	-- two lists: ACHIEVEMENTS (crystals) and QUESTS (styles)
+	self.achTab = "achievements"
+	self.achTabs = {}
+	for i, tab in { { "achievements", "ACHIEVEMENTS" }, { "quests", "QUESTS" } } do
+		local b = Theme.button(page, { Position = UDim2.fromOffset(22 + (i - 1) * 156, 76), Size = UDim2.fromOffset(148, 30), Font = UI_FONT,
+			TextSize = 13, Text = tab[2] }, GOLD)
+		b.Activated:Connect(function()
+			self.achTab = tab[1]
+			self:refreshAchievements()
+		end)
+		self.achTabs[tab[1]] = b
+	end
+	self.achievementsCount = label(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 80), Size = UDim2.fromOffset(200, 22),
+		Font = UI_FONT, TextSize = 13, Text = "", TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Right })
 	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 116), Size = UDim2.new(1, -44, 1, -136), BackgroundTransparency = 1,
 		BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
@@ -918,6 +1202,13 @@ function MenuController:refreshAchievements()
 	if not list then return end
 	for _, child in list:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	for name, b in self.achTabs do
+		b.BackgroundColor3 = if name == self.achTab then Theme.RED else Theme.PANEL
+	end
+	if self.achTab == "quests" then
+		self:refreshQuests(list)
+		return
 	end
 	local entries, done = GameModes.achievements(self.status or {})
 	self.achievementsCount.Text = done .. " / " .. #entries .. " UNLOCKED"
@@ -950,6 +1241,46 @@ function MenuController:refreshAchievements()
 				if d:IsA("GuiObject") then d.BackgroundTransparency = math.max(d.BackgroundTransparency, 0.55) end
 			end
 		end
+	end
+end
+
+-- QUESTS (Quests): simple challenges, their progress (saved by the server) and the style
+-- each one gives (an existing style, shown in its colours).
+function MenuController:refreshQuests(list)
+	local entries = Quests.list(self.status or {})
+	local done = 0
+	for _, q in entries do if q.done then done += 1 end end
+	self.achievementsCount.Text = done .. " / " .. #entries .. " DONE"
+	for i, q in entries do
+		local style = CharacterData.Skins[q.reward]
+		local row = new("Frame", { LayoutOrder = i, Size = UDim2.new(1, -10, 0, 84),
+			BackgroundColor3 = if q.done then Theme.VIOLET:Lerp(Theme.INK, 0.9) else Theme.PANEL, BorderSizePixel = 0 }, list)
+		Theme.edge(row, if q.done then Theme.VIOLET else Theme.LINE)
+		label(row, { Position = UDim2.fromOffset(10, 8), Size = UDim2.fromOffset(32, 32), Font = DISPLAY, TextSize = 25,
+			Text = if q.done then "✓" else string.format("%02d", i), TextColor3 = if q.done then Theme.VIOLET else Theme.MUTED,
+			TextXAlignment = Enum.TextXAlignment.Center })
+		label(row, { Position = UDim2.fromOffset(54, 8), Size = UDim2.new(1, -200, 0, 22), Font = UI_FONT, TextSize = 15,
+			Text = q.name, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { Position = UDim2.fromOffset(54, 32), Size = UDim2.new(1, -200, 0, 18), Font = BODY_FONT, TextSize = 12,
+			Text = q.how, TextColor3 = Theme.MUTED, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(row, { Position = UDim2.fromOffset(54, 54), Size = UDim2.fromOffset(120, 16), Font = UI_FONT, TextSize = 11,
+			Text = if q.done then "DONE" else q.value .. " / " .. q.goal, TextColor3 = if q.done then Theme.VIOLET else WHITE })
+		local track = Theme.rule(row, UDim2.fromOffset(54, 74), UDim2.new(1, -210, 0, 3), Theme.LINE)
+		Theme.rule(track, UDim2.fromOffset(0, 0), UDim2.fromScale(math.clamp(q.value / math.max(q.goal, 1), 0, 1), 1), Theme.VIOLET)
+		-- the reward: the style, its colours and its name
+		local reward = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(138, 64),
+			BackgroundColor3 = Theme.INK, BorderSizePixel = 0 }, row)
+		Theme.edge(reward, if style then Color3.fromHex(style.Energy) else Theme.LINE)
+		if style then
+			for k, key in { "Vest", "VestTrim", "Energy" } do
+				new("Frame", { Position = UDim2.fromOffset(6 + (k - 1) * 9, 8), Size = UDim2.fromOffset(7, 48),
+					BackgroundColor3 = Color3.fromHex(style[key]), BorderSizePixel = 0 }, reward)
+			end
+		end
+		label(reward, { Position = UDim2.fromOffset(38, 6), Size = UDim2.new(1, -42, 0, 14), Font = BODY_FONT, TextSize = 10,
+			Text = "STYLE", TextColor3 = Theme.MUTED })
+		label(reward, { Position = UDim2.fromOffset(38, 20), Size = UDim2.new(1, -42, 0, 38), Font = UI_FONT, TextSize = 12, TextWrapped = true,
+			Text = q.reward, TextColor3 = if q.done then GOLD else WHITE, TextYAlignment = Enum.TextYAlignment.Top })
 	end
 end
 
@@ -1043,22 +1374,46 @@ end
 function MenuController:buildSettings()
 	local page = rightPage(self, "SETTINGS", Theme.RED)
 	Theme.heading(page, "SETTINGS", Theme.RED)
-	local y = 92
 	self.settingRefresh = {}
-	for _, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
-		{ "language", "LANGUAGE" }, { "taunts", "OPPONENT TAUNTS" }, { "tauntKey", "TAUNT WHEEL KEY (PC)" } } do
+	-- (a list that scrolls: on a small screen, or with the developer's line, nothing goes off the page)
+	local rows = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 86), Size = UDim2.new(1, -36, 1, -96), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Theme.RED, CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, rows)
+	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingRight = UDim.new(0, 8) }, rows)
+	-- TITLE: the titles the player has (challenges, WEEKLY CHAMPION), or none; the server checks.
+	self.settings.title = function()
+		local owned = { "" }
+		for _, t in self.status.titles or {} do table.insert(owned, t) end
+		local index = table.find(owned, self.status.title or "") or 1
+		self.remote:FireServer({ action = "title", title = owned[index % #owned + 1] })
+	end
+	self.settings.titleState = function()
+		local t = self.status.title or ""
+		return if t == "" then (if #(self.status.titles or {}) == 0 then "NONE YET" else "HIDDEN") else t
+	end
+	-- DEVELOPER ACCESS (only shown to a developer: DevAccess on the server)
+	self.settings.dev = function()
+		self.remote:FireServer({ action = "devMode", on = not self.status.dev })
+	end
+	self.settings.devState = function()
+		return if self.status.dev then "ON · ALL FIGHTERS" else "OFF · NEW PLAYER"
+	end
+	for order, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
+		{ "language", "LANGUAGE" }, { "taunts", "OPPONENT TAUNTS" }, { "tauntKey", "TAUNT WHEEL KEY (PC)" }, { "title", "TITLE SHOWN" },
+		{ "dev", "DEVELOPER ACCESS" } } do
 		local key, name = entry[1], entry[2]
-		local b = Theme.button(page, { Name = "Setting_" .. key, Position = UDim2.fromOffset(22, y),
-			Size = UDim2.new(1, -44, 0, 52), Text = "" }, Theme.RED)
-		label(b, { Position = UDim2.fromOffset(16, 0), Size = UDim2.new(0.53, -16, 1, 0), Font = UI_FONT,
+		local b = Theme.button(rows, { Name = "Setting_" .. key, LayoutOrder = order, Size = UDim2.new(1, 0, 0, 52), Text = "" }, Theme.RED)
+		label(b, { Position = UDim2.fromOffset(16, 0), Size = UDim2.new(0.5, -16, 1, 0), Font = UI_FONT,
 			TextSize = 13, Text = name, TextColor3 = Theme.WHITE, TextWrapped = true })
-		local value = label(b, { Position = UDim2.new(0.53, 0, 0, 0), Size = UDim2.new(0.47, -42, 1, 0), Font = UI_FONT,
+		local value = label(b, { Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.new(0.5, -42, 1, 0), Font = UI_FONT,
 			TextSize = 13, Text = "", TextColor3 = Theme.GOLD, TextXAlignment = Enum.TextXAlignment.Right, TextWrapped = true })
 		label(b, { Position = UDim2.new(1, -29, 0, 0), Size = UDim2.fromOffset(24, 52), Font = BODY_FONT,
 			TextSize = 24, Text = "›", TextColor3 = Theme.MUTED })
 		local function refresh()
 			local get = self.settings[key .. "State"]
 			value.Text = if get then get() else "—"
+			if key == "dev" then b.Visible = self.status.isDev == true end
 		end
 		table.insert(self.settingRefresh, refresh)
 		b.Activated:Connect(function()
@@ -1067,9 +1422,8 @@ function MenuController:buildSettings()
 			refresh()
 		end)
 		task.defer(refresh)
-		y += 60
 	end
-	label(page, { Position = UDim2.fromOffset(22, y + 4), Size = UDim2.new(1, -44, 0, 30), Font = BODY_FONT, TextSize = 11,
+	label(rows, { LayoutOrder = 100, Size = UDim2.new(1, 0, 0, 30), Font = BODY_FONT, TextSize = 11,
 		TextWrapped = true, TextColor3 = Theme.MUTED, TextYAlignment = Enum.TextYAlignment.Top,
 		Text = "In a fight: P or ◀ MENU to come back here. Full controls: COMBOS button in a fight, or the README." })
 	return page
@@ -1121,16 +1475,31 @@ function MenuController:buildBottom()
 		label(tile, { Position = UDim2.fromOffset(0, 94), Size = UDim2.fromOffset(78, 16), Font = UI_FONT, TextSize = 11,
 			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
 			TextXAlignment = Enum.TextXAlignment.Center })
-		tile.MouseEnter:Connect(function() self:showKitInfo(name) end)
+		local lock = label(tile, { Position = UDim2.fromOffset(0, 94), Size = UDim2.fromOffset(78, 16), Font = UI_FONT, TextSize = 11,
+			Text = "🔒 " .. Economy.FIGHTER_PRICE, TextColor3 = GOLD, BackgroundTransparency = 0, BackgroundColor3 = INK,
+			TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 3 })
+		self.rosterLocks = self.rosterLocks or {}
+		self.rosterLocks[name] = lock
+		tile.MouseEnter:Connect(function() if self.page == "characters" then self:showKitInfo(name) end end)
 		tile.Activated:Connect(function()
-			self.remote:FireServer({ action = "hero", kit = name })
-			self:showKitInfo(name)
-			self:flash(name .. " · YOUR FAVORITE", kitColor(name))
+			-- (owned: the favourite; locked: its page, to see it, try it or unlock it)
+			if self:owns(name) then
+				self:makeFavorite(name)
+				if self.page == "characters" then self:showKitInfo(name) end
+			else
+				self.galleryKit = name
+				if self.page ~= "characters" then self:open("characters") else self:showKitInfo(name) end
+			end
 		end)
 		self.favoriteMarks[name] = label(tile, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 2),
 			Size = UDim2.fromOffset(18, 20), Font = UI_FONT, TextSize = 15, Text = "★", TextColor3 = Theme.GOLD, Visible = false })
 		self.rosterTiles[name] = edge
 	end
+end
+
+-- The locks of the fighters' strip (owned or not, the developer access).
+function MenuController:refreshLocks()
+	for name, lock in self.rosterLocks or {} do lock.Visible = not self:owns(name) end
 end
 
 -- ===================================================================== navigation
@@ -1180,7 +1549,7 @@ function MenuController:open(page)
 		self.remote:FireServer({ action = "ranking" })
 		self:refreshRanking()
 	elseif page == "characters" then
-		self:showKitInfo(self.status.hero or "KAI")
+		self:showKitInfo(self.galleryKit or self.status.hero or "KAI")
 	elseif page == "achievements" then
 		self:refreshAchievements()
 	elseif page == "taunts" then
@@ -1303,6 +1672,15 @@ function MenuController:reward(kind, amount)
 	end)
 end
 
+-- A quest done: its style is given (a toast after the result).
+function MenuController:questFlash(gifts)
+	if type(gifts) ~= "table" or #gifts == 0 then return end
+	task.delay(2.6, function()
+		self:flash("QUEST COMPLETE · NEW STYLE: " .. table.concat(gifts, ", "), Theme.VIOLET)
+		self.toastUntil = os.clock() + 6
+	end)
+end
+
 function MenuController:flash(text, color)
 	self.toast.Text, self.toast.TextColor3, self.toast.Visible = text, color or GOLD, true
 	self.toastUntil = os.clock() + 2.5
@@ -1310,6 +1688,7 @@ end
 
 local GRADE_NAMES = { "C", "B", "A", "S" }
 function MenuController:showResult(packet)
+	self:questFlash(packet.questGifts)
 	if self.lastRequest and not packet.queue then
 		self.again.Visible = true
 		self.againUntil = os.clock() + 20
@@ -1325,7 +1704,7 @@ function MenuController:showResult(packet)
 				self:flash("KUROEN SHIN WAS BEYOND YOU · TRY AGAIN", RED)
 			end
 		elseif packet.won then
-			self:flash("ASURA DEFEATED · RANK " .. GRADE_NAMES[packet.grade] .. " · TITLE \" " .. (packet.title or "") .. " »"
+			self:flash("ASURA DEFEATED · RANK " .. GRADE_NAMES[packet.grade] .. " · TITLE « " .. (packet.title or "") .. " »"
 				.. (if packet.unlock then " · AWAKENED KAI STYLE" else ""), GOLD)
 		else
 			self:flash("ASURA CRUSHED YOU · " .. (packet.damage or 0) .. " % OF HIS HEALTH TAKEN", RED)
@@ -1368,6 +1747,7 @@ function MenuController:frame(dt)
 	if self.again.Visible and (os.clock() > (self.againUntil or 0) or self.page ~= "home") then self.again.Visible = false end
 	if self.inMatch then return end
 	if self.page == "select" then self:animatePreviews(dt or 1 / 60) end
+	if self.page == "characters" then self:animateGallery(dt or 1 / 60) end
 	if self.page == "search" then
 		local s = self.status
 		local waited = math.floor(os.clock() - self.searchStart)

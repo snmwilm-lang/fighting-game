@@ -578,4 +578,154 @@ test("taunts never touch the fight: a taunt sent while attacking changes nothing
 	expect(play(false) == play(true), "a taunt changed the fight")
 end)
 
+test("economy, styles, quests and titles: every new menu line reads in French", function()
+	local Locale = require("../src/shared/Locale")
+	local Quests = require("../src/shared/Quests")
+	local lines = { "◀ DRAG TO TURN ▶", "★ FAVORITE", "★ YOUR FAVORITE", "▶ TRY IN TRAINING (FREE)", "UNLOCK · 4000", "UNLOCK", "BUY",
+		"EQUIP", "✓ WORN", "EARNED", "BEAT KUROEN SHIN", "BEAT ASURA", "QUEST · OWNED", "QUEST · Win 5 matches with RYUKEN",
+		"✓ FREE FIGHTER", "✓ UNLOCKED · YOURS FOREVER", "DEVELOPER ACCESS · NOT BOUGHT", "🔒 LOCKED · 4000 COINS · YOU HAVE 120",
+		"FREE TRIAL", "NOT ENOUGH COINS · SHIN COSTS 4000 (YOU HAVE 120) · TRY IT IN TRAINING",
+		"UNLOCK SHIN FOR 4000 COINS?\nYou have 5000 coins. It stays yours forever.", "NOT ENOUGH COINS · THIS STYLE COSTS 2500 (YOU HAVE 10)",
+		"BUY THE STYLE KAI GOLD FOR 2500 COINS?\nYou have 3000 coins.", "SHIN IS LOCKED · UNLOCK IT FIRST", "SHIN UNLOCKED · YOURS FOREVER",
+		"QUEST COMPLETE · NEW STYLE: KAI INFERNO", "👑 CHAMPION OF THE WEEK · TITLE WEEKLY CHAMPION (SETTINGS › TITLE)", "QUESTS",
+		"3 / 8 DONE", "DONE", "TITLE SHOWN", "DEVELOPER ACCESS", "NONE YET", "HIDDEN", "ON · ALL FIGHTERS", "OFF · NEW PLAYER",
+		"ACHIEVEMENTS · QUESTS · YOUR PROGRESS", "NOT POSSIBLE: FIGHTER LOCKED: SHIN (TRAINING ONLY)", "NOT POSSIBLE: THIS STYLE IS A QUEST REWARD",
+		"NOT POSSIBLE: ALREADY OWNED", "NOT POSSIBLE: FIGHTER NOT FOR SALE", "WEEKLY CHAMPION", "CANCEL" }
+	for _, q in Quests.LIST do
+		table.insert(lines, q.name)
+		table.insert(lines, q.how)
+	end
+	for _, line in lines do
+		local fr = Locale.translate(line, "FR")
+		expect(fr ~= line or Locale.SAME[line], "no French for: " .. line)
+		expect(not string.find(fr, "%%[ds]"), "a format left in: " .. fr)
+	end
+end)
+
+test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAINING tries them all", function()
+	local Economy = require("../src/shared/Economy")
+	local AC = require("../src/server/AntiCheat")
+	expect(Economy.pvpCoins("win") == 150 and Economy.pvpCoins("loss") == 50 and Economy.pvpCoins("left") == 0, "the PvP rewards are wrong")
+	expect(GameModes.COINS.win == Economy.WIN and GameModes.COINS.loss == Economy.LOSS, "two economies disagree")
+	-- a real match pays in full; the anti-farm still applies (short match, the same pair)
+	local now = 1e9
+	local p = { coins = 0, recentOpp = {} }
+	local share = AC.share(p, 42, 90, now)
+	local gain = AC.capCoins(p, math.floor(Economy.pvpCoins("win") * share.coins + 0.5), now)
+	expect(gain == 150, "a win paid " .. gain)
+	expect(AC.share(p, 42, 10, now).coins == 0, "a 10 s match pays")
+	-- 8 free of 20, all of them real fighters
+	expect(#Economy.FREE == 8, "not 8 free fighters")
+	for _, kit in Economy.FREE do expect(table.find(MoveData.KitOrder, kit) ~= nil, kit .. " is not a fighter") end
+	local fresh = { coins = 0 }
+	local locked = 0
+	for _, kit in MoveData.KitOrder do
+		if not Economy.owns(fresh, kit) then locked += 1 end
+		expect(Economy.canPlay(fresh, kit, "TRAINING", false), kit .. " cannot be tried in TRAINING")
+	end
+	expect(locked == 12, locked .. " fighters locked instead of 12")
+	-- buying: price, no debt, once, a boss or an unknown name never sold
+	local buyer = { coins = 3999 }
+	local ok, why = Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder)
+	expect(not ok and why == "coins" and buyer.coins == 3999, "bought without the coins")
+	buyer.coins = 4100
+	expect(Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder) and buyer.coins == 100, "the purchase of AKEMI failed")
+	ok, why = Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder)
+	expect(not ok and why == "owned" and buyer.coins == 100, "AKEMI was paid twice")
+	expect(not Economy.buyFighter({ coins = 99999 }, "ASURA", MoveData.KitOrder), "a boss was sold")
+	expect(not Economy.buyFighter({ coins = 99999 }, "KAI", MoveData.KitOrder), "a free fighter was sold")
+	expect(Economy.canPlay(buyer, "AKEMI", "VERSUS", false), "a bought fighter is not playable")
+	-- training never unlocks: still locked in every other mode
+	expect(not Economy.canPlay(fresh, "KUROEN", "VERSUS", false) and not Economy.canPlay(fresh, "KUROEN", "VERSUS_CPU", false),
+		"a locked fighter is playable out of training")
+	local allowed, which = Economy.teamAllowed(fresh, { "KAI", "SHIN" }, "VERSUS", false)
+	expect(not allowed and which == "SHIN", "a team with a locked fighter passes")
+end)
+
+test("developer access: listed ids or the game's owner, never Studio's test players, never written as bought, can be off", function()
+	local Economy = require("../src/shared/Economy")
+	local CharacterData = require("../src/shared/CharacterData")
+	local Dev = require("../src/server/DevAccess")
+	expect(Dev.isDev(777, 777, true) and not Dev.isDev(778, 777, true), "the owner of the game is not the only one")
+	expect(not Dev.isDev(-1, -1, true) and not Dev.isDev(-2, 777, true), "a Studio test player got the access")
+	expect(not Dev.isDev(777, 777, false), "a group game trusts its group id as a player")
+	table.insert(Dev.IDS, 555)
+	expect(Dev.isDev(555, 777, true), "a listed id has no access")
+	table.remove(Dev.IDS)
+	local profile = { coins = 0, devOff = false }
+	local dev = Dev.active(Dev.isDev(777, 777, true), profile)
+	for _, kit in MoveData.KitOrder do expect(Economy.canPlay(profile, kit, "VERSUS", dev), kit .. " locked for the developer") end
+	expect(CharacterData.canWear("KUROEN BLOOD MOON", profile, dev) or CharacterData.Skins["KUROEN BLOOD MOON"] == nil, "a style refused")
+	expect(CharacterData.canWear("AKEMI GOLD", profile, dev), "a shop style refused to the developer")
+	expect(profile.ownedKits == nil and profile.ownedSkins == nil, "the developer access wrote purchases")
+	profile.devOff = true
+	expect(not Dev.active(true, profile) and not Economy.canPlay(profile, "SHIN", "VERSUS", Dev.active(true, profile)),
+		"the access cannot be switched off")
+end)
+
+test("styles: 2500 coins, quest styles not sold, equipped style kept only while it is yours", function()
+	local CharacterData = require("../src/shared/CharacterData")
+	local Quests = require("../src/shared/Quests")
+	for name, item in CharacterData.SHOP do
+		expect(item.coins == 2500, name .. " costs " .. item.coins)
+		expect(item.quest == (Quests.BY_REWARD[name] ~= nil), name .. ": quest mark and quest list disagree")
+	end
+	for _, q in Quests.LIST do
+		expect(CharacterData.SHOP[q.reward] ~= nil and CharacterData.QUEST[q.reward], q.id .. "'s reward " .. q.reward .. " is not a quest style")
+	end
+	local p = { coins = 99999 }
+	local ok, why = CharacterData.buy(p, "KAI INFERNO")
+	expect(not ok and why == "quest" and p.coins == 99999, "a quest style was sold")
+	-- equip: worn only if it is the fighter's and still yours
+	p.equipped = { KAI = "KAI GOLD" }
+	expect(CharacterData.styleFor("KAI", p, nil, false) == "CLASSIC", "an unbought style is worn")
+	CharacterData.buy(p, "KAI GOLD")
+	expect(CharacterData.styleFor("KAI", p, nil, false) == "KAI GOLD", "the equipped style is not worn")
+	expect(CharacterData.styleFor("KAI", p, "KAI GOLD", false) ~= "KAI GOLD", "both slots wear the same style")
+	p.equipped.TARO = "KAI GOLD"
+	expect(CharacterData.Skins[CharacterData.styleFor("TARO", p, nil, false)].Kit == "TARO", "TARO wears KAI's style")
+end)
+
+test("quests: counted, saved in the profile, rewarded once with an existing style", function()
+	local Quests = require("../src/shared/Quests")
+	local CharacterData = require("../src/shared/CharacterData")
+	local p = {}
+	for _ = 1, 9 do Quests.record(p, { won = false, pvp = true, kits = { "KAI" } }) end
+	expect(#Quests.grant(p) == 0, "rewarded before the goal")
+	Quests.record(p, { won = true, pvp = true, kits = { "RYUKEN", "RYUKEN" } })
+	local given = Quests.grant(p)
+	expect(#given == 1 and given[1] == "KAI INFERNO" and p.ownedSkins["KAI INFERNO"], "PLAY10 did not give its style")
+	expect(#Quests.grant(p) == 0, "a reward was given twice")
+	expect(p.quests.kitWins.RYUKEN == 1 and p.quests.pvpWins == 1, "the counters are wrong (a fighter twice in the team counts once)")
+	for _ = 1, 4 do Quests.record(p, { won = true, pvp = false, kits = { "RYUKEN" } }) end
+	given = Quests.grant(p)
+	expect(table.find(given, "RYUKEN PHANTOM") ~= nil and CharacterData.canWear("RYUKEN PHANTOM", p), "the RYUKEN quest did not unlock its style")
+	expect(p.quests.pvpWins == 1, "a CPU win counted as an online win")
+	-- saved: the counters live in the profile (a plain table the DataStore keeps)
+	local copy = { quests = table.clone(p.quests), ownedSkins = table.clone(p.ownedSkins) }
+	expect(Quests.value(copy, Quests.BY_ID.PLAY10) == 14 and #Quests.grant(copy) == 0, "a saved profile loses its progress")
+	local shown = Quests.list(p)
+	expect(#shown == #Quests.LIST and shown[1].done and shown[1].value == shown[1].goal, "the menu list is wrong")
+end)
+
+test("weekly champion: written once per week, title given once, not for sale, history kept", function()
+	local C = require("../src/server/Champions")
+	local monday = 4 * 86400 + 100 * 7 * 86400
+	expect(C.week(monday) == 100 and C.week(monday - 1) == 99 and C.week(monday + 6 * 86400) == 100, "the week turns at the wrong time")
+	local history = C.record(nil, 99, { id = 7, name = "ALICE", rating = 2100 })
+	expect(history and #history == 1, "the first champion was not written")
+	expect(C.record(history, 99, { id = 8, name = "BOB", rating = 2200 }) == nil, "a second server wrote the same week again")
+	history = C.record(history, 100, { id = 7, name = "ALICE", rating = 2150 })
+	expect(#history == 2, "the history is not kept")
+	local p = { title = "", titles = {} }
+	expect(not C.canShow(p, C.TITLE), "the title can be shown without winning")
+	expect(C.grant(p, 7, history) == 2 and table.find(p.titles, C.TITLE), "the champion did not get the title")
+	expect(C.grant(p, 7, history) == 0 and #p.titles == 1, "the title was given twice")
+	expect(C.grant({}, 8, history) == 0, "someone else got the title")
+	expect(C.canShow(p, C.TITLE) and C.canShow(p, "") and not C.canShow(p, "GOD SLAYER"), "titles not owned can be shown")
+	local long = nil
+	for w = 1, C.KEEP + 10 do long = C.record(long, w, { id = w, name = "P", rating = 1 }) end
+	expect(#long == C.KEEP and long[1].week == 11, "the history grows without end")
+end)
+
 T.finish()

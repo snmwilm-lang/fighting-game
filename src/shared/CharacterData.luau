@@ -291,6 +291,14 @@ local BASE_ORDER = table.freeze({
 	["KUROEN SHIN"] = table.freeze({ "TRUE EMPEROR" }),
 })
 
+-- The price of a shop style in coins (Economy.SKIN_PRICE), and the shop styles won by a
+-- QUEST instead of bought (src/shared/Quests.luau: its rewards, kept equal by a test).
+local SKIN_PRICE = 2500
+local QUEST = table.freeze({
+	["KAI INFERNO"] = true, ["HIBECARES ABYSS"] = true, ["TARO SAKURA"] = true, ["ZEPHYR ABYSS"] = true,
+	["RYUKEN PHANTOM"] = true, ["GORAN SAKURA"] = true, ["ELIAN ABYSS"] = true, ["VENOM INFERNO"] = true,
+})
+
 -- The shop skins, generated on each fighter's own first style (its skin tone kept).
 local SHOP = {}
 local STYLE_ORDER = {}
@@ -304,7 +312,7 @@ for i, kit in SHOP_KITS do
 		colors.SkinTone = base and base.SkinTone or "C98F6E"
 		colors.Title = theme -- (shown after the fighter's name: "KAI GOLD", not "KAI KAI GOLD")
 		Skins[name] = style(kit, name, colors)
-		SHOP[name] = table.freeze({ kit = kit, theme = theme, coins = if k == 1 then 1500 else 2500 })
+		SHOP[name] = table.freeze({ kit = kit, theme = theme, coins = SKIN_PRICE, quest = QUEST[name] == true })
 		table.insert(STYLE_ORDER[kit], name)
 	end
 end
@@ -323,31 +331,47 @@ local CharacterData = {
 -- The shop skins: name -> { kit, theme, coins }. A Robux price: SHOP_PRODUCTS[name] = the
 -- developer product id Wilhem creates on Roblox (none invented: empty = coins only).
 CharacterData.SHOP = table.freeze(SHOP)
+CharacterData.QUEST = QUEST
 CharacterData.SHOP_PRODUCTS = table.freeze({})
 
--- May this profile wear this style? Achievement styles need their field >= 1, shop skins
--- must be owned (profile.ownedSkins[name]), the others are free.
-function CharacterData.canWear(name, profile)
+-- May this profile wear this style? Achievement styles need their field >= 1, shop and quest
+-- styles must be owned (profile.ownedSkins[name]), the others are free. `dev`: the developer
+-- access (src/server/DevAccess.luau) wears every style without owning it.
+function CharacterData.canWear(name, profile, dev)
+	if dev and Skins[name] then return true end
 	local lock = CharacterData.LOCKED[name]
 	if lock then return type(profile) == "table" and (tonumber(profile[lock]) or 0) >= 1 end
 	if SHOP[name] then
 		local owned = type(profile) == "table" and profile.ownedSkins
 		return type(owned) == "table" and owned[name] == true
 	end
-	return true
+	return Skins[name] ~= nil
 end
 
--- Buys a shop skin with coins (the server calls it on the saved profile). Returns true, or
--- false and why: "unknown", "owned", "coins".
+-- Buys a shop style with coins (the server calls it on the saved profile). Returns true, or
+-- false and why: "unknown", "quest" (won by a quest, not sold), "owned", "coins".
 function CharacterData.buy(profile, name)
 	local item = SHOP[name]
 	if not item or type(profile) ~= "table" then return false, "unknown" end
+	if item.quest then return false, "quest" end
 	if type(profile.ownedSkins) ~= "table" then profile.ownedSkins = {} end
 	if profile.ownedSkins[name] then return false, "owned" end
-	if (tonumber(profile.coins) or 0) < item.coins then return false, "coins" end
-	profile.coins -= item.coins
+	local coins = tonumber(profile.coins) or 0
+	if coins < item.coins then return false, "coins" end
+	profile.coins = coins - item.coins
 	profile.ownedSkins[name] = true
 	return true
+end
+
+-- The style a player wears with `kit`: the one equipped (profile.equipped[kit]) if it is still
+-- theirs, else the kit's first style; never `avoid` (the other slot's style).
+function CharacterData.styleFor(kit, profile, avoid, dev)
+	local equipped = type(profile) == "table" and type(profile.equipped) == "table" and profile.equipped[kit]
+	if type(equipped) == "string" and Skins[equipped] and Skins[equipped].Kit == kit and equipped ~= avoid
+		and CharacterData.canWear(equipped, profile, dev) then
+		return equipped
+	end
+	return CharacterData.defaultStyle(kit, avoid)
 end
 
 -- Styles to earn (the server checks): the profile field that must be at least 1.

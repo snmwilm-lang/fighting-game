@@ -142,6 +142,7 @@ table.sort(DRAG_NAMES)
 -- A leg that is not planted (a kick, a jump, a fall) follows through too; a planted one stays
 -- exactly where the leg IK put it.
 local LEG_DRAG = { 11, 0.65 }
+local PLANT_IN = 0.07 -- seconds for a free leg to settle onto its planted IK pose
 local LEGS = { Left = { "LeftHip", "LeftKnee", "LeftAnkle" }, Right = { "RightHip", "RightKnee", "RightAnkle" } }
 local WHIP = 7 -- a snap (impact, hit) lands at once and carries on past it: per second of the jump
 local CUT_DISTANCE = 2.5 -- the body moved further than this in one frame: a cut (blink, new round, shot)
@@ -315,13 +316,16 @@ function Animator:attack(id, frame, poseRate)
 	if frame <= S then
 		if m.meterCost then return startup, id .. ":K", false end -- held kiai during the super flash
 		local coil = if set.Coil then self:resolve(set.Coil) else self:cachedExaggeration(id .. "C", stance, startup, 1.15)
-		local u = math.max(frame, 0) / S
-		if u < COIL_AT then
-			local t = quantize(u / COIL_AT, math.max(S * COIL_AT, 2), poseRate)
+		-- (the anticipation reaches the coil on its LAST frame, so the moving hold starts from
+		-- there: before, it stopped two thirds of the way and the rest jumped in one tick)
+		local coilFrame = math.max(1, math.floor(S * COIL_AT))
+		frame = math.max(frame, 0)
+		if frame < coilFrame or (frame == coilFrame and coilFrame < S) then
+			local t = quantize(frame / coilFrame, math.max(coilFrame, 2), poseRate)
 			return lerpPose(stance, coil, easeOut(t)), id .. ":S" .. t, false
 		end
 		-- Moving hold: the wind-up tightens (slow in) until the strike leaves.
-		local h = quantize((u - COIL_AT) / (1 - COIL_AT), math.max(S * (1 - COIL_AT), 2), poseRate)
+		local h = quantize((frame - coilFrame) / math.max(1, S - coilFrame), math.max(S - coilFrame, 2), poseRate)
 		return lerpPose(coil, self:tension(id, coil, active), easeInOut(h)), id .. ":C" .. h, false
 	end
 	local a = frame - S
@@ -646,12 +650,30 @@ function Animator:overlap(pose, dt, snap, cut)
 	end
 	for _, name in DRAG_NAMES do follow(name, DRAG[name], false) end
 	local plant = pose.Plant
+	self.plantWeight = self.plantWeight or { 0, 0 }
 	for i, side in { "Left", "Right" } do
 		local planted = plant and (plant[i] or 0) >= 0.5
+		-- A planted leg is exactly where the leg IK put it (no sliding foot); a free one
+		-- follows through on its spring. Between the two it eases over a few frames (PLANT_IN):
+		-- at once, the knee jumped by up to 60 degrees when a kick's leg came down to plant.
+		local w = self.plantWeight[i]
+		if cut or dt <= 0 then
+			w = if planted then 1 else 0
+		elseif planted then
+			w = math.min(1, w + dt / PLANT_IN)
+		else
+			w = 0
+		end
+		self.plantWeight[i] = w
 		for _, name in LEGS[side] do
 			if pose[name] then
+				local target = table.clone(pose[name])
 				out[name] = table.clone(pose[name])
-				follow(name, LEG_DRAG, planted)
+				follow(name, LEG_DRAG, w >= 1)
+				if w > 0 and w < 1 then
+					local v, k = out[name], easeInOut(w)
+					for a = 1, 3 do v[a] = v[a] + ((target[a] or 0) - v[a]) * k end
+				end
 			end
 		end
 	end
@@ -687,9 +709,11 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 	local target, key, snap = self:evaluate(view, time, poseRate)
 
 	-- Landing squash on top of grounded stances (feet stay planted, knees absorb).
-	if tr.landAge < 0.2 and (view.state == "Idle" or view.state == "Walking" or view.state == "Crouching"
+	if tr.landAge < 0.23 and (view.state == "Idle" or view.state == "Walking" or view.state == "Crouching"
 		or view.state == "Blocking" or view.state == "CrouchBlocking") then
-		local w = (1 - easeOut(tr.landAge / 0.2)) * math.clamp(tr.landSpeed / 45, 0.35, 1)
+		-- (the knees take the weight over a couple of frames, not all on the first one: an
+		-- instant squash read as a pop of the knees, every fighter, every landing)
+		local w = smoothstep(0, 0.04, tr.landAge) * (1 - easeOut(clamp01((tr.landAge - 0.03) / 0.2))) * math.clamp(tr.landSpeed / 45, 0.35, 1)
 		target = lerpPose(target, self:resolve(self:base("Land")), w * 0.85)
 	end
 
@@ -697,8 +721,14 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 	-- a chase or a finisher): the planted legs fold into a jump tuck, so he never stands on
 	-- nothing.
 	local altitude = view.y or 0
-	if view.state == "Attack" and altitude > 0.4 and (target.Ground and target.Ground[1] or 1) > 0.5 then
-		local w = clamp01((altitude - 0.4) / 1.2)
+	-- (the tuck eases in and out: a rising strike lifts him 1 stud in 2 ticks, and the knees
+	-- used to fold at once)
+	local tuckWanted = if view.state == "Attack" and (target.Ground and target.Ground[1] or 1) > 0.5
+		then clamp01((altitude - 0.4) / 1.2) else 0
+	tr.tuck = (tr.tuck or 0) + (tuckWanted - (tr.tuck or 0)) * (1 - math.exp(-dt * 16))
+	if tuckWanted == 0 and tr.tuck < 0.02 then tr.tuck = 0 end
+	if tr.tuck > 0.001 then
+		local w = tr.tuck
 		target = table.clone(target)
 		for joint, tuck in AIR_TUCK do
 			local from = target[joint] or { 0, 0, 0 }
@@ -712,7 +742,7 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 		snapped = snap
 		local family = key:match("^[^:]+")
 		local last = self.lastKey and self.lastKey:match("^[^:]+")
-		local instant = snap or family == last or not self.current or tr.landAge == 0
+		local instant = snap or family == last or not self.current
 		local blending = self.blendTime ~= nil and self.blendTime > 0 and time - self.blendStart < self.blendTime
 		if family == last and blending and not snap then
 			-- A step inside the family while the blend into it still runs (walk -> low kick):
@@ -720,7 +750,9 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 		else
 			self.from = self.current
 			self.blendStart = time
-			self.blendTime = if instant then 0 else BLEND_TIMES[family] or BLEND_TIMES[last or ""] or 0.07
+			self.blendTime = if instant then 0
+				elseif tr.landAge == 0 then 0.05 -- (a landing: quick, into the squash, but not a cut)
+				else BLEND_TIMES[family] or BLEND_TIMES[last or ""] or 0.07
 		end
 		self.lastKey = key
 	end

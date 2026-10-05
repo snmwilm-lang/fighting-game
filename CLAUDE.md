@@ -25,6 +25,8 @@
   (à-coups, tremblements, interpénétration) avant et après une retouche d'animation.
   L'orbe de DAICHA : `luau tests/OrbQuality.luau -a all` (fluidité mesurée comme en jeu) et
   `luau tests/OrbClearance.luau -a all` (jamais dans son corps ni collée à elle à l'écran) avant et après.
+  Les armes tenues (SHIN, RAIJIN, YUKINA, KAZAN) : `luau tests/WeaponClearance.luau -a all` (jamais dans le
+  corps de leur perso) ; les gros sauts d'articulation de tous les persos : `luau tests/AnimPops.luau -a 50 list`.
 - Cinématiques : composer les plans avec `frameOn` (angle, plongée, part de l'écran), jamais
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).

@@ -577,10 +577,16 @@ test("landing squashes the knees, then recovers", function()
 	local view = { state = "Falling", x = 0, y = 2, vx = 0, vy = -40, facing = 1, hitstop = 0, combo = 0 }
 	anim:step(view, nil, dt, 0, 60, false)
 	view.state, view.y, view.vy = "Idle", 0, 0
+	-- (the squash comes in over a couple of frames: an instant one popped the knees)
 	local pose = anim:step(view, nil, dt, dt, 60, false)
-	local squash = pose.Root[4]
-	for i = 2, 30 do pose = anim:step(view, nil, dt, i * dt, 60, false) end
+	local first, squash = pose.Root[4], pose.Root[4]
+	for i = 2, 6 do
+		pose = anim:step(view, nil, dt, i * dt, 60, false)
+		squash = math.min(squash, pose.Root[4])
+	end
+	for i = 7, 30 do pose = anim:step(view, nil, dt, i * dt, 60, false) end
 	expect(squash < pose.Root[4] - 0.2, string.format("no landing squash (%.2f then %.2f)", squash, pose.Root[4]))
+	expect(first > squash + 0.05, "the landing squash is not eased in (all on the first frame)")
 	local left, right = feetAboveFloor(anim, pose)
 	expect(left < 0.06 and right < 0.06, "the feet leave the floor after landing")
 end)
@@ -1404,6 +1410,34 @@ T.test("DAICHA's matter flows: one smooth curve per path, a clock that never goe
 		expect(q.onScreen <= q.frames * 0.05, string.format("the orb is over her on screen in %s (%d frames of %d)", name, q.onScreen, q.frames))
 	end
 	expect(OrbQuality.measure("walk", 120, false).inside == 0, "the orb is in her body while she walks")
+end)
+
+T.test("held weapons keep out of their own fighter's body; a leg settles onto the floor without a jump", function()
+	-- (tests/WeaponClearance.luau: real fights, real poses, the weapon placed like the RigBuilder)
+	local WeaponClearance = require("./WeaponClearance")
+	expect(WeaponClearance.measure("SHIN", "walk").through == 0, "SHIN's blade cuts through his leg as he walks")
+	expect(WeaponClearance.measure("YUKINA", "showcase").through == 0, "YUKINA's fans go through her body")
+	local raijin = WeaponClearance.measure("RAIJIN", "walk")
+	expect(raijin.through <= raijin.frames * 0.3, string.format("RAIJIN's spear is in his body (%d of %d frames)", raijin.through, raijin.frames))
+	expect(WeaponClearance.measure("KAZAN", "moves").through <= 2, "KAZAN's claws go through his body")
+	-- the big jumps of a joint in one tick (over 50 degrees, not an impact's cut), every kit
+	local ClipKit = require("./ClipKit")
+	local JOINTS = { "LeftHip", "RightHip", "LeftKnee", "RightKnee" }
+	for _, kit in { "KAI", "RAIJIN", "AKEMI" } do
+		local last, worst, at = nil, 0, ""
+		ClipKit.play(kit, "routes", 60, function(info)
+			local pose = info.poses[1]
+			if last and not info.snaps[1] then
+				for _, j in JOINTS do
+					local d = math.abs((pose[j] and pose[j][1] or 0) - (last[j] or 0))
+					if d > worst then worst, at = d, string.format("t%d %s %s", info.tick, j, tostring(info.keys[1])) end
+				end
+			end
+			last = {}
+			for _, j in JOINTS do last[j] = pose[j] and pose[j][1] or 0 end
+		end)
+		expect(worst < 50, string.format("%s: a leg jumps %.0f degrees in one tick (%s)", kit, worst, at))
+	end
 end)
 
 T.test("DAICHA's matter keeps off her body: never in her arms, never stuck to her (Wilhem)", function()

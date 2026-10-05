@@ -1,5 +1,26 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.6 — 5 octobre 2026 · TOUS LES PERSOS : PLUS FLUIDES, LES ARMES HORS DU CORPS
+
+Wilhem : « fais le même genre d'analyse pour chaque perso, pour un rendu le plus agréable et fluide ». Mesuré d'abord, pour les 20 persos (scripts de combat réels, vraies poses), avec deux nouveaux outils :
+- `tests/AnimPops.luau` : les gros sauts d'une articulation en un tick, regroupés par transition (repos → coup, atterrissage…), donc ce qu'il faut corriger dans l'Animator pour TOUS les persos d'un coup ;
+- `tests/WeaponClearance.luau` : les armes tenues (katana de SHIN, lance de RAIJIN, éventails de YUKINA, griffes de KAZAN) contre le corps de leur perso.
+
+**Animator (tous les persos)** — sauts de plus de 50° en un tick : 44 → 17 (ceux qui restent sont des préparations de coups très vives, voulues).
+1. **Atterrissage d'un saut** : les genoux sautaient de ~65° en une image chez TOUS les persos (l'écrasement d'atterrissage tombait d'un coup et le passage « en l'air → au sol » était coupé). L'écrasement arrive maintenant en ~3 images et le passage se fond en 0,05 s : 16 → 0.
+2. **Jambe qui se pose au sol** : quand une jambe libre (coup de pied, balayette) redevient « plantée », elle sautait sur sa pose au sol (jusqu'à 60° au genou). Elle s'y pose maintenant en 0,07 s (`PLANT_IN`), le pied reste ensuite exactement planté (pas de glissade).
+3. **Coups qui soulèvent** (RISING WIND, GUST, TWIN…) : les jambes se repliaient d'un coup selon l'altitude ; le repli est maintenant amorti.
+4. La préparation d'un coup atteint sa pose d'armé sur sa dernière frame (elle s'arrêtait aux 2/3 et le reste sautait d'un coup).
+
+**Armes** — traversées du corps : 1 128 → 395 images (sur 4 544).
+- SHIN : en marchant, la lame passait dans sa jambe droite à chaque pas : le bras d'épée part un peu vers l'extérieur au lieu de croiser (19 → 0 en marche).
+- RAIJIN : le bout de hampe derrière son poing (1,8 stud, aucune main dessus) traversait son torse en garde et en marche : raccourci à 0,7 stud (833 → 320). Sa main gauche reste sur la hampe (82 % des images, la prise à deux mains n'est pas comptée comme une faute). Reste : des impacts de 2 frames et sa marche, à reprendre pose par pose si besoin.
+- YUKINA : 0. KAZAN : 12 images (une seule route).
+
+Tests : Animation 46 (nouveau : armes hors du corps, pas de saut de jambe de plus de 50° ; l'atterrissage s'écrase en douceur), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK.
+
+À voir dans Studio : les atterrissages, les coups de pied (jambe qui se repose), la marche de SHIN, la garde de RAIJIN.
+
 ## Version 0.23.5 — 5 octobre 2026 · DAICHA : LA BOULE NE RENTRE PLUS DANS SES BRAS
 
 Wilhem : « évite quand ça rentre dans les bras de Daicha, ou quand elle est trop collée au perso ». Mesuré d'abord (nouvel outil `tests/OrbClearance.luau` : vraie simulation, vraies poses, distance entre la boule et chaque partie de son corps) : sur 1 386 images de combat, la boule était DANS son corps sur 1 316 (mains et avant-bras surtout, même au repos : son point de repos était exactement sur sa main droite).

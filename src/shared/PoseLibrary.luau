@@ -1111,7 +1111,9 @@ Poses.Kits.SHIN = {
 	Block = feet(merge(SHIN, { Root = { 0, 4, 0, -0.5, 0 }, Waist = { -10, 4, 0 },
 		RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 }, LeftShoulder = { 70, 0, 20 }, LeftElbow = { 110, 0, 0 } }), -0.8, 0.85, 0, -8, 8),
 	CrouchBlock = merge(SHIN_CROUCH, { RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 } }),
-	RunUpper = upper(SHIN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -16, 10, 0 }, RightShoulder = { -20, 0, -10 }, RightElbow = { 20, 0, 0 },
+	-- (the sword arm trails a little OUT, not across: the blade no longer cuts through his
+	-- right leg at every step; tests/WeaponClearance.luau)
+	RunUpper = upper(SHIN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -16, 10, 0 }, RightShoulder = { -20, 0, 15 }, RightElbow = { 20, 0, 0 },
 		LeftShoulder = { -30, 0, 20 }, LeftElbow = { 20, 0, 0 } }),
 	BackUpper = upper(SHIN, { Root = { 0, 0, 0, 0, 0 } }),
 	Victory = feet({

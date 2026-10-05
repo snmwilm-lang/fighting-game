@@ -51,8 +51,9 @@ local MenuController = {}
 MenuController.__index = MenuController
 -- The logo artwork once uploaded to Roblox by Wilhem ("rbxassetid://<id>"; empty: the drawn logo).
 MenuController.LOGO_IMAGE = ""
--- The drawn logo: "BREAKFRAMEZ" (after Wilhem's art) or "KO" (the first menu's K.O.).
-MenuController.LOGO_STYLE = "BREAKFRAMEZ"
+-- The drawn logo: "PLAIN" (Wilhem: just BREAKFRAMEZ on black), "BREAKFRAMEZ" (after his art)
+-- or "KO" (the first menu's K.O.).
+MenuController.LOGO_STYLE = "PLAIN"
 
 -- Shared, restrained hover / press / gamepad feedback.
 local juice = Theme.feedback
@@ -290,7 +291,17 @@ function MenuController:buildTopBar()
 		Text = "FRAMEZ", TextColor3 = Color3.fromHex("FF2236"), Rotation = -6, TextXAlignment = Enum.TextXAlignment.Center })
 	stroke(bottom, 3, INK)
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromHex("FF4A5A"), Color3.fromHex("B0081C")) }, bottom)
-	if MenuController.LOGO_STYLE == "KO" then
+	if MenuController.LOGO_STYLE == "PLAIN" then
+		-- just the name on a black plate: BREAK in white, FRAMEZ in red
+		drawn:ClearAllChildren()
+		local plate = new("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(190, 46),
+			BackgroundColor3 = Color3.fromHex("000000"), BorderSizePixel = 0 }, drawn)
+		new("UICorner", { CornerRadius = UDim.new(0, 4) }, plate)
+		local name = label(plate, { Size = UDim2.fromScale(1, 1), Font = DISPLAY, TextScaled = true, RichText = true,
+			Text = '<font color="#F2F2F6">BREAK</font><font color="#FF1E34">FRAMEZ</font>', TextXAlignment = Enum.TextXAlignment.Center })
+		new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 4),
+			PaddingBottom = UDim.new(0, 4) }, name)
+	elseif MenuController.LOGO_STYLE == "KO" then
 		drawn:ClearAllChildren()
 		local brush = Theme.rule(drawn, UDim2.fromOffset(8, 22), UDim2.fromOffset(113, 34), Theme.RED)
 		brush.Rotation = -9

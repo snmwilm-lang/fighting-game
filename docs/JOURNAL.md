@@ -63,6 +63,9 @@ rouge, contours noirs épais, lueur et trait rouges (dessiné en UI). L'artwork 
 v0.18.12 : le logo dessiné s'approche de l'artwork (anneau de lumière rouge brisé derrière,
 éclats noirs et rouges autour) ; `MenuController.LOGO_STYLE = "KO"` remet l'ancien K.O. (Claude ne
 peut pas envoyer d'image sur Roblox : il faut le compte de Wilhem).
+v0.18.13 : Wilhem : « juste BREAKFRAMEZ sous du noir » → logo par défaut `LOGO_STYLE = "PLAIN"` :
+le nom sur une plaque noire, BREAK en blanc, FRAMEZ en rouge, rien d'autre (les styles
+« BREAKFRAMEZ » dessiné et « KO » restent disponibles par ce réglage).
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

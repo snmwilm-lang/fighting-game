@@ -36,6 +36,19 @@ function WeaponKit.grip(kit, parts, spec)
 	return K.mul(K.mul(frame, K.translation(0, size[2] * g.y, g.z)), K.angles(math.rad(g.tilt), 0, 0)), spec
 end
 
+-- A posed body ({ [name] = { cframe, size } }) as OrbFlight.avoid's boxes (centre, unit axes,
+-- half sizes), like the client reads them off the rig (EffectsController:orbBodyBoxes).
+function WeaponKit.boxes(parts)
+	local out = {}
+	for name, part in parts do
+		if name ~= "HumanoidRootPart" then
+			local c, z = part.cframe, part.size
+			table.insert(out, { c[1], c[2], c[3], c[4], c[7], c[10], c[5], c[8], c[11], c[6], c[9], c[12], z[1] / 2, z[2] / 2, z[3] / 2, name = name })
+		end
+	end
+	return out
+end
+
 -- Where a flying weapon is (DAICHA's orb, OrbFlight) for a fighter's view at `time`: a world
 -- position { x, y, z } (the view's x, y are its feet; it faces `facing` along X).
 function WeaponKit.flight(view, time)
@@ -84,6 +97,12 @@ function WeaponKit.pieces(kit, parts, energy, flight, which)
 		local id = view.state == "Attack" and view.move or nil
 		local form = OrbFlight.form(view, id and MoveData.Moves[id], id and ROLE_OF[id], flight.time)
 		scale = math.max(0.01, form.radius * 2 / 0.9)
+		-- (kept off her body, like in game: OrbFlight.avoid)
+		if form.shape == "ball" and form.radius > 0.05 then
+			local o = select(2, WeaponKit.flight(view, flight.time))
+			at = OrbFlight.avoid(at, form.radius, WeaponKit.boxes(parts), OrbFlight.SCREEN_CLEARANCE,
+				OrbFlight.avoidDirection(view.state, view.facing or 1, o), true)
+		end
 		grip = K.translation(at[1], at[2], at[3])
 	end
 	for _, p in spec.pieces do

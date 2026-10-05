@@ -25,7 +25,10 @@ local OrbFlight = {}
 
 -- (Wilhem's sheet: « l'orbe reste petite, proche de sa main ») at rest it floats just before
 -- her hand, bobbing, a small circle.
-OrbFlight.ORBIT = { fwd = 0.95, height = 3.4, side = 0.7, radius = 0.1, period = 2.6, bob = 0.12 }
+-- (0.23.5, Wilhem: « évite quand ça rentre dans ses bras, quand elle est trop collée au perso »:
+-- it floats a little above and ahead of her hands, never on them, as the camera sees her;
+-- OrbFlight.avoid then keeps it off her posed body, frame by frame)
+OrbFlight.ORBIT = { fwd = 1.75, height = 4.35, side = 0.9, radius = 0.1, period = 2.6, bob = 0.12 }
 local GUARD = { Blocking = true, CrouchBlocking = true, Blockstun = true, CrouchBlockstun = true }
 local HURT = { Hitstun = true, Launched = true, Knockdown = true, KO = true, Crumple = true, GuardBroken = true, GetUp = true }
 
@@ -39,7 +42,7 @@ local function mix(a, b, t)
 end
 
 -- Her striking hand, where the matter gathers before a blow (toward the camera: never in her body).
-OrbFlight.HAND = { fwd = 0.75, side = 1.05 }
+OrbFlight.HAND = { fwd = 1.45, side = 1.35 } -- (just ahead of her fist, never in it)
 
 -- Its place at rest at `time`, before her hand (lower when she crouches).
 function OrbFlight.orbit(time, crouching)
@@ -84,6 +87,7 @@ end
 
 -- The point a move strikes: the end of its reach, at the middle of its hitbox's height (the
 -- blows along the floor: just over it).
+OrbFlight.AHEAD = 0.4
 function OrbFlight.strike(move, role)
 	local box = move and move.hitbox
 	if not box then return { fwd = 1.8, up = 3.4, side = 0.3 } end
@@ -91,17 +95,19 @@ function OrbFlight.strike(move, role)
 	local up = if path == "low" or path == "reap" then 0.8
 		elseif FLOOR[path] then math.clamp(box.low + 0.8, 0.8, 1.6)
 		else math.clamp((box.low + box.high) / 2, 0.8, 5.5)
-	return { fwd = math.max(1.4, box.far - 0.2), up = up, side = 0.3 }
+	-- (0.23.5: a little past the end of the reach, so the swelling sphere bursts on the
+	-- opponent, ahead of her fist, not round it)
+	return { fwd = math.max(1.4, box.far + OrbFlight.AHEAD), up = up, side = 0.3 }
 end
 
 -- Where the matter waits, gathered, at the end of the wind-up (just before the blow).
 local function windUp(path, hit, hand)
-	if path == "low" then return { fwd = 0.9, up = 1.2, side = 0.9 } -- (down by her shin)
+	if path == "low" then return { fwd = 1.35, up = 1.1, side = 1.3 } -- (down before her shin)
 	elseif path == "reap" then return { fwd = -1.1, up = 1.1, side = 0.9 } -- (low, behind her)
-	elseif path == "rise" then return { fwd = 1.2, up = 0.8, side = 0.9 } -- (at the floor before her)
+	elseif path == "rise" then return { fwd = 1.5, up = 0.8, side = 1.2 } -- (at the floor before her)
 	elseif path == "slam" then return { fwd = 0.7, up = 6.6, side = 0.6 } -- (raised over her head)
 	elseif path == "dive" then return { fwd = 0.2, up = 5.2, side = 0.9 } -- (above her)
-	elseif path == "mark" or path == "spear" then return { fwd = 1.0, up = hand.up, side = 0.8 }
+	elseif path == "mark" or path == "spear" then return { fwd = 1.5, up = hand.up, side = 1.2 }
 	end
 	return hand
 end
@@ -179,7 +185,9 @@ function OrbFlight.keys(path, move, orbit, role, from)
 	-- the wind-up
 	if path == "heavy" then
 		-- M2: drawn back behind her (a short charge), then brought to her hand as she steps in.
-		add(math.max(1, math.floor(gathered * 0.55)), { fwd = -0.9, up = 4.2, side = 1.0 }, { stop = true })
+		-- (swung over her shoulder and clear behind her: never through her, nor over her on screen)
+		add(math.max(1, gathered * 0.25), { fwd = 0.6, up = 5.6, side = 1.6 }) -- (over her shoulder)
+		add(math.max(2, math.floor(gathered * 0.55)), { fwd = -1.7, up = 4.9, side = 1.2 }, { stop = true }) -- (clear behind her)
 	elseif path == "spin" then
 		-- One turn round her (toward the camera, behind her back, away), ending at her hand.
 		local r = 1.5
@@ -243,9 +251,13 @@ function OrbFlight.keys(path, move, orbit, role, from)
 		add(contact, hit, { drive = true })
 		if finish > contact then add(finish, hit) end
 	end
-	-- back to her hand, then to its orbit
+	-- back to her hand, then to its orbit: first swinging out toward the camera, round her
+	-- arm as she pulls it back (straight back, it came home through her fist)
 	local back = keys[#keys].t
-	add(back + (total - back) * 0.45, hand)
+	local last = keys[#keys].p
+	add(back + (total - back) * 0.22, { fwd = math.max(hand.fwd + 0.4, last.fwd - 0.5), up = math.max(last.up, 1.2) + 0.35,
+		side = math.max(hand.side, last.side) + 0.45 })
+	add(back + (total - back) * 0.55, hand)
 	add(total, orbit, { stop = true })
 	return keys
 end
@@ -256,7 +268,7 @@ function OrbFlight.offset(view, move, role, time, from)
 	local crouching = state == "Crouching" or state == "CrouchBlocking" or state == "CrouchBlockstun"
 	local orbit = OrbFlight.orbit(time, crouching)
 	if GUARD[state] then
-		return { fwd = 1.5, up = if crouching then 2.3 else 3.5, side = 0.2 } -- (the disc, before her)
+		return { fwd = 2.1, up = if crouching then 2.3 else 3.5, side = 0.4 } -- (the disc, before her, clear of her raised arms)
 	elseif state == "KO" then
 		return { fwd = 1.4, up = 0.06, side = 0.6 } -- (fallen, spread on the floor: a puddle)
 	elseif state == "Knockdown" then
@@ -396,6 +408,248 @@ function OrbFlight.look(view, move, role, time, form)
 		return blend(L.impact, L.gather, smooth((since - 1) / math.max(2, active + 2)))
 	end
 	return blend(L.gather, rest, smooth((frame - startup - active) / math.max(1, recovery * 0.7)))
+end
+
+-- KEEP OFF HER BODY. `center` = {x, y, z} (world), the sphere's `radius`, her body's parts as
+-- boxes { cx, cy, cz, Xx, Xy, Xz, Yx, Yy, Yz, Zx, Zy, Zz, hx, hy, hz } (centre, unit axes, half
+-- sizes: the client reads them off her rig every frame, the tests off the posed skeleton).
+-- Pushes the centre out of every box, `margin` studs clear of its surface (along the shortest
+-- way out), a few passes so that pushing it off one part does not leave it in another.
+-- Returns the new centre, and how far it was pushed.
+OrbFlight.CLEARANCE = 0.3
+OrbFlight.SCREEN_CLEARANCE = 0.15 -- (on screen: a gap between the sphere and her silhouette)
+-- How clear a point is of every box (the smallest distance to their surfaces, minus `need`).
+local function clearance(x, y, z, boxes, need)
+	local worst = math.huge
+	for _, b in boxes do
+		local dx, dy, dz = x - b[1], y - b[2], z - b[3]
+		local lx = math.abs(dx * b[4] + dy * b[5] + dz * b[6]) - b[13]
+		local ly = math.abs(dx * b[7] + dy * b[8] + dz * b[9]) - b[14]
+		local lz = math.abs(dx * b[10] + dy * b[11] + dz * b[12]) - b[15]
+		local d = math.sqrt(math.max(lx, 0) ^ 2 + math.max(ly, 0) ^ 2 + math.max(lz, 0) ^ 2) + math.min(math.max(lx, ly, lz), 0)
+		worst = math.min(worst, d - need)
+	end
+	return worst
+end
+OrbFlight.clearance = clearance
+
+-- The same, AS SEEN BY THE CAMERA (it looks straight along -Z: the screen is the X-Y plane).
+-- In front of her arm, toward the camera, the sphere is clear of it in space but looks stuck
+-- in it on screen: what Wilhem sees. Each part is taken as a capsule (its long axis, as wide
+-- as its thickest side), drawn flat on the screen.
+local function screenClearance(x, y, boxes, need)
+	local worst = math.huge
+	for _, b in boxes do
+		local hx, hy, hz = b[13], b[14], b[15]
+		local ax, ay, h, r
+		-- (the capsule round the box: its section's corners inside it)
+		if hx >= hy and hx >= hz then
+			ax, ay, h, r = b[4], b[5], hx, math.sqrt(hy * hy + hz * hz)
+		elseif hy >= hz then
+			ax, ay, h, r = b[7], b[8], hy, math.sqrt(hx * hx + hz * hz)
+		else
+			ax, ay, h, r = b[10], b[11], hz, math.sqrt(hx * hx + hy * hy)
+		end
+		local half = math.max(0, h - r)
+		local x0, y0 = b[1] - ax * half, b[2] - ay * half
+		local sx, sy = ax * half * 2, ay * half * 2
+		local l2 = sx * sx + sy * sy
+		local u = if l2 > 1e-8 then math.clamp(((x - x0) * sx + (y - y0) * sy) / l2, 0, 1) else 0
+		local dx, dy = x - (x0 + sx * u), y - (y0 + sy * u)
+		worst = math.min(worst, math.sqrt(dx * dx + dy * dy) - r - need)
+	end
+	return worst
+end
+OrbFlight.screenClearance = screenClearance
+
+-- `dir` (a unit vector, optional): pushed out along it only, as little as needed. A push that
+-- always goes the same way slides smoothly as her limbs move (the shortest way out may flip
+-- from one side of an arm to the other between two frames: a jolt). In a strike: forward, so
+-- the sphere rides ahead of her fist; else toward the camera.
+-- `screen`: clear of her as the camera sees her (`screenClearance`), pushed in the screen's
+-- plane (along `dir`'s X and Y).
+function OrbFlight.avoid(center, radius, boxes, margin, dir, screen)
+	local x, y, z = center[1], center[2], center[3]
+	local need = radius + (margin or OrbFlight.CLEARANCE)
+	if screen then
+		local d = dir or { 0, 1, 0 }
+		local dx, dy = d[1], d[2]
+		local l = math.sqrt(dx * dx + dy * dy)
+		if l < 1e-3 then dx, dy, l = 0, 1, 1 end
+		dx, dy = dx / l, dy / l
+		if screenClearance(x, y, boxes, need) >= 0 then return { x, y, z }, 0 end
+		local low, high, t = 0, nil, 0
+		while t < 5 do
+			t += 0.1
+			if screenClearance(x + dx * t, y + dy * t, boxes, need) >= 0 then
+				low, high = t - 0.1, t
+				break
+			end
+		end
+		if not high then return { x + dx * 5, y + dy * 5, z }, 5 end
+		for _ = 1, 7 do
+			local mid = (low + high) / 2
+			if screenClearance(x + dx * mid, y + dy * mid, boxes, need) >= 0 then high = mid else low = mid end
+		end
+		return { x + dx * high, y + dy * high, z }, high
+	end
+	if dir then
+		if clearance(x, y, z, boxes, need) >= 0 then return { x, y, z }, 0 end
+		local low, high = 0, nil
+		local t = 0
+		while t < 4 do
+			t += 0.1
+			if clearance(x + dir[1] * t, y + dir[2] * t, z + dir[3] * t, boxes, need) >= 0 then
+				low, high = t - 0.1, t
+				break
+			end
+		end
+		if high then
+			for _ = 1, 7 do
+				local mid = (low + high) / 2
+				if clearance(x + dir[1] * mid, y + dir[2] * mid, z + dir[3] * mid, boxes, need) >= 0 then high = mid else low = mid end
+			end
+			return { x + dir[1] * high, y + dir[2] * high, z + dir[3] * high }, high
+		end
+		-- (no way out along it: the shortest way, below)
+	end
+	local moved = 0
+	for _ = 1, 3 do
+		local pushed = false
+		for _, b in boxes do
+			local dx, dy, dz = x - b[1], y - b[2], z - b[3]
+			-- (in the box's own axes)
+			local lx = dx * b[4] + dy * b[5] + dz * b[6]
+			local ly = dx * b[7] + dy * b[8] + dz * b[9]
+			local lz = dx * b[10] + dy * b[11] + dz * b[12]
+			local hx, hy, hz = b[13], b[14], b[15]
+			-- quick out: too far from this box to touch it
+			if math.abs(lx) < hx + need and math.abs(ly) < hy + need and math.abs(lz) < hz + need then
+				local qx, qy, qz = math.clamp(lx, -hx, hx), math.clamp(ly, -hy, hy), math.clamp(lz, -hz, hz)
+				local ox, oy, oz = lx - qx, ly - qy, lz - qz
+				local d = math.sqrt(ox * ox + oy * oy + oz * oz)
+				local nx, ny, nz
+				if d > 1e-4 then
+					if d < need then
+						local k = need / d
+						nx, ny, nz = qx + ox * k, qy + oy * k, qz + oz * k
+					end
+				else
+					-- (its centre inside the part: out through the nearest face)
+					local px, py, pz = hx - math.abs(lx), hy - math.abs(ly), hz - math.abs(lz)
+					nx, ny, nz = lx, ly, lz
+					if px <= py and px <= pz then
+						nx = (if lx >= 0 then 1 else -1) * (hx + need)
+					elseif py <= pz then
+						ny = (if ly >= 0 then 1 else -1) * (hy + need)
+					else
+						nz = (if lz >= 0 then 1 else -1) * (hz + need)
+					end
+				end
+				if nx then
+					local wx = b[1] + nx * b[4] + ny * b[7] + nz * b[10]
+					local wy = b[2] + nx * b[5] + ny * b[8] + nz * b[11]
+					local wz = b[3] + nx * b[6] + ny * b[9] + nz * b[12]
+					moved += math.sqrt((wx - x) ^ 2 + (wy - y) ^ 2 + (wz - z) ^ 2)
+					x, y, z = wx, wy, wz
+					pushed = true
+				end
+			end
+		end
+		if not pushed then break end
+	end
+	return { x, y, z }, moved
+end
+
+-- The way the matter is pushed off her body, on the screen: forward in a strike when it is
+-- ahead of her (it rides ahead of her fist), else up and forward (it floats over her hands).
+function OrbFlight.avoidDirection(state, facing, o)
+	local strike = state == "Attack" and (o == nil or o.fwd >= 1.2) -- (ahead of her: it rides ahead of the fist)
+	local x, y = if strike then facing * 0.95 else facing * 0.45, if strike then 0.3 else 0.9
+	local l = math.sqrt(x * x + y * y)
+	return { x / l, y / l, 0 }
+end
+
+-- The spring trails its target by about 2ζ/ω (a tight one: 2 ticks). In a strike its target is
+-- therefore taken that far AHEAD on the path: followed, the matter is on time (in step with
+-- her fist, not 2 studs behind it, in it), and still smoothed. Not past the move's end; in a
+-- hit-stop the clock waits, and the target with it, still ahead.
+OrbFlight.LEAD = 3
+function OrbFlight.leadFrame(view, move)
+	local frame = view.moveFrame or 0
+	if view.state ~= "Attack" or not move then return frame end
+	return math.min(frame + OrbFlight.LEAD, move.startup + move.active + move.recovery)
+end
+
+-- How exactly a strike's frame is drawn on its path (0 = by the spring, 1 = on the path):
+-- only for the blow itself, from the end of the wind-up to the end of the contact (there a
+-- spring trails 2 studs behind, into her fist), coming in and going out smoothly; the
+-- wind-up and the return stay with the spring, which smooths a chained blow and her limbs.
+function OrbFlight.exactness(view, move)
+	if view.state ~= "Attack" or not move then return 0 end
+	local frame = view.moveFrame or 0
+	local open = move.startup - 3
+	local close = move.startup + move.active + math.max(2, move.recovery * 0.25)
+	return smooth((frame - open) / 2) * (1 - smooth((frame - close) / 3))
+end
+
+-- WHERE IT IS DRAWN, the whole client pipeline (pure: the client and the tests run the same):
+-- `target` = {x, y, z}, where `offset` puts it (world); `body` = {x, y}, her feet as drawn;
+-- `boxes`: her posed parts (see `avoid`); `radius`: the sphere's.
+--  1. the target is kept off her body as the camera sees it (`avoid`, `screen`);
+--  2. the spring (`follow`) runs RELATIVE TO HER BODY: it carries the matter along with her
+--     steps, dashes and jumps (in world space it trailed 1.6 studs behind a walk, into her
+--     back and arms), and only smooths its own motion round her; in a strike it is drawn on
+--     the path itself (`tight` = 1);
+--  3. what is drawn is kept off her body too, closer, along `dir`;
+-- `s` = {} kept per fighter. Returns the place {x, y, z}; `s.speed` its speed (studs/s) and
+-- `s.velocity`, `s.snapped` (a teleport: the client re-forms it).
+-- `dir`: the way it is pushed off her body (`avoidDirection`).
+OrbFlight.PUSH_IN, OrbFlight.PUSH_OUT = 40, 6
+-- `exact` (0..1): how much it is drawn on the path itself rather than by the spring (in a
+-- strike, once its first frames have passed: `exactness`).
+function OrbFlight.place(s, target, dt, tight, body, boxes, radius, dir, exact)
+	local want = target
+	if boxes then want = OrbFlight.avoid(target, radius, boxes, OrbFlight.SCREEN_CLEARANCE, dir, true) end
+	local rel = { want[1] - body[1], want[2] - body[2], want[3] }
+	if not s.p then s.p, s.v = { rel[1], rel[2], rel[3] }, { 0, 0, 0 } end
+	OrbFlight.follow(s, rel, dt, tight, body)
+	-- In a strike the path is already one smooth curve: drawn exactly on it (a spring, even a
+	-- tight one, trailed 2 studs behind a blow: into her own fist). `tight` blends from the
+	-- spring to the exact path, and the spring is kept in step so that leaving the strike is
+	-- smooth too.
+	exact = math.clamp(exact or 0, 0, 1)
+	local shown = s.p
+	if exact > 0 then
+		shown = { s.p[1] + (rel[1] - s.p[1]) * exact, s.p[2] + (rel[2] - s.p[2]) * exact, s.p[3] + (rel[3] - s.p[3]) * exact }
+		if exact > 0.97 and s.rel and dt > 0 and not s.snapped then
+			s.p = { rel[1], rel[2], rel[3] }
+			s.v = { (rel[1] - s.rel[1]) / dt, (rel[2] - s.rel[2]) / dt, (rel[3] - s.rel[3]) / dt }
+		end
+	end
+	s.rel = rel
+	local at = { body[1] + shown[1], body[2] + shown[2], shown[3] }
+	-- 3. what is drawn is kept off her body too (closer: the spring may lag, never into her),
+	-- pushed the same fixed way; the push comes in fast and leaves slowly, so it slides off her
+	-- limbs (posed 60 times a second) without a jolt
+	if boxes and dir then
+		local _, need = OrbFlight.avoid(at, radius, boxes, OrbFlight.SCREEN_CLEARANCE * 0.4, dir, true)
+		local push = s.push or 0
+		local rate = if need > push then OrbFlight.PUSH_IN else OrbFlight.PUSH_OUT
+		push += (need - push) * (1 - math.exp(-dt * rate))
+		s.push = push
+		at = { at[1] + dir[1] * push, at[2] + dir[2] * push, at[3] + dir[3] * push }
+	end
+	if s.drawn and dt > 0 then
+		local v = { (at[1] - s.drawn[1]) / dt, (at[2] - s.drawn[2]) / dt, (at[3] - s.drawn[3]) / dt }
+		-- (a teleport carries it at once: not a speed)
+		if s.snapped then v = { 0, 0, 0 } end
+		s.velocity, s.speed = v, math.sqrt(v[1] ^ 2 + v[2] ^ 2 + v[3] ^ 2)
+	else
+		s.velocity, s.speed = { 0, 0, 0 }, 0
+	end
+	s.drawn = at
+	return at
 end
 
 -- The move's clock as the client draws it: the frame extrapolated between two snapshots, but

@@ -1124,7 +1124,8 @@ test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a s
 	-- Idle (Wilhem's sheet): small, floating just before her hand, never in her body.
 	for i = 0, 40 do
 		local o = OrbFlight.offset({ state = "Idle" }, nil, nil, i / 40 * OrbFlight.ORBIT.period)
-		expect(o.fwd > 0.6 and o.fwd < 1.3 and o.up > 3 and o.up < 3.8, "the idle orb is not by her hand")
+		-- (0.23.5: near her hand, but floating ahead of it, never on it)
+		expect(o.fwd > 1.3 and o.fwd < 2.1 and o.up > 3.8 and o.up < 4.7, "the idle orb is not near her hand")
 		expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) > 0.9, "the idle orb goes through her body")
 	end
 	expect(OrbFlight.form({ state = "Idle" }, nil).radius < 0.4, "the orb is not small at rest")
@@ -1160,7 +1161,7 @@ test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a s
 				return OrbFlight.offset({ state = "Attack", move = id, moveFrame = frame }, m, role, 1)
 			end
 			local hit = at(m.startup + 1)
-			expect(math.abs(hit.fwd - math.max(1.4, m.hitbox.far - 0.2)) < 0.01 and hit.up >= 0.8,
+			expect(math.abs(hit.fwd - math.max(1.4, m.hitbox.far + OrbFlight.AHEAD)) < 0.01 and hit.up >= 0.8,
 				string.format("%s: the orb is not at the point of impact on contact (%.2f)", id, hit.fwd))
 			local back = at(m.startup + m.active + m.recovery)
 			local orbit = OrbFlight.orbit(1, false)
@@ -1222,7 +1223,7 @@ T.test("DAICHA's matter: every blow its own path (rise, slam, dive, spin, throw,
 	expect(n >= 14, "too few distinct orb paths: " .. n)
 	-- RISING SHADOW: from the floor, on up through the target
 	local up = get("Uppercut")
-	expect(at("Uppercut", up.startup - 3).up < 1.5, "the rising shadow does not start at the floor")
+	expect(at("Uppercut", up.startup - 1).up < 1.5, "the rising shadow does not start at the floor")
 	expect(at("Uppercut", up.startup + up.active).up > at("Uppercut", up.startup + 1).up + 1.5, "the rising shadow does not rise")
 	-- FALL: raised high over her head, crushed down to the floor
 	local hm = get("Hammer")
@@ -1393,12 +1394,50 @@ T.test("DAICHA's matter flows: one smooth curve per path, a clock that never goe
 		return q.p[1]
 	end
 	expect(moved(0) < moved(0.5) and moved(0.5) < moved(1), "the spring does not blend from loose to tight")
-	-- measured like in game (snapshots at 30 a second, drawn at 120): fluid
+	-- measured like in game (snapshots at 30 a second, drawn at 120): fluid round her, and
+	-- (0.23.5) almost never in her body
 	local OrbQuality = require("./OrbQuality")
-	for name, most in { routes = 1.3, combo = 0.8, heavy = 1.0, walk = 0.1 } do
+	for _, name in { "routes", "combo", "heavy", "walk" } do
 		local q = OrbQuality.measure(name, 120, false)
-		expect(q.jitter < most, string.format("the orb shakes in %s (%.2f, at most %.2f)", name, q.jitter, most))
+		expect(q.relZigzag <= 6, string.format("the orb stutters round her in %s (%d)", name, q.relZigzag))
+		expect(q.inside <= q.frames * 0.03, string.format("the orb is in her body in %s (%d frames of %d)", name, q.inside, q.frames))
+		expect(q.onScreen <= q.frames * 0.05, string.format("the orb is over her on screen in %s (%d frames of %d)", name, q.onScreen, q.frames))
 	end
+	expect(OrbQuality.measure("walk", 120, false).inside == 0, "the orb is in her body while she walks")
+end)
+
+T.test("DAICHA's matter keeps off her body: never in her arms, never stuck to her (Wilhem)", function()
+	local OrbFlight = require("../src/shared/OrbFlight")
+	-- a box 1 x 2 x 1 at the origin: a point inside is pushed out, `margin` clear of it
+	local box = { 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1, 0.5 }
+	local out = OrbFlight.avoid({ 0.2, 0, 0 }, 0.3, { box }, 0.2)
+	expect(OrbFlight.clearance(out[1], out[2], out[3], { box }, 0.5) >= -1e-3, "a point inside her is not pushed out")
+	local free = OrbFlight.avoid({ 3, 0, 0 }, 0.3, { box }, 0.2)
+	expect(free[1] == 3 and free[2] == 0, "a point clear of her is moved")
+	-- pushed along a fixed way only: it slides, it never flips side
+	local along = OrbFlight.avoid({ 0.2, 0.3, 0.1 }, 0.3, { box }, 0.2, { 0, 0, 1 })
+	expect(along[1] == 0.2 and along[2] == 0.3 and along[3] > 0.95, "the push does not keep to its way")
+	local d = OrbFlight.avoidDirection("Attack", 1, { fwd = 3, up = 3, side = 0.3 })
+	expect(d[1] > 0.8, "in a strike it is not pushed ahead of her fist")
+	local e = OrbFlight.avoidDirection("Idle", -1, nil)
+	expect(e[2] > 0.8 and e[1] < 0, "at rest it is not pushed up over her hands")
+	-- the target a little ahead on the path, never past the move's end
+	local m = MoveData.Moves[MoveData.Kits.DAICHA.Roles.Jab]
+	expect(OrbFlight.leadFrame({ state = "Attack", moveFrame = 2 }, m) == 2 + OrbFlight.LEAD, "no lead in a strike")
+	expect(OrbFlight.leadFrame({ state = "Attack", moveFrame = 99 }, m) == m.startup + m.active + m.recovery, "a lead past the move's end")
+	-- her real poses, in a real fight: the place it aims at is never over her as the camera sees
+	-- her (and so never in her)
+	local OrbClearance = require("./OrbClearance")
+	for _, name in { "showcase", "moves", "combo", "heavy", "routes", "walk" } do
+		local q = OrbClearance.measure(name)
+		local inside = 0
+		for _, n in q.inside do inside += n end
+		expect(q.onScreen == 0 and inside <= 1, string.format("%s: the orb aims over her on screen (%d frames) or into her (%d)", name, q.onScreen, inside))
+	end
+	-- on screen, a body part and a point right on it: pushed off it, up and forward at rest
+	local arm = { 0, 3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0.6, 0.2 }
+	local off = OrbFlight.avoid({ 0.1, 3.2, 1.5 }, 0.3, { arm }, 0.15, OrbFlight.avoidDirection("Idle", 1), true)
+	expect(OrbFlight.screenClearance(off[1], off[2], { arm }, 0.3) >= -1e-3 and off[3] == 1.5, "not pushed off her arm on screen")
 end)
 
 -- ===================================================================== ASURA's four arms

@@ -1,5 +1,24 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.5 — 5 octobre 2026 · DAICHA : LA BOULE NE RENTRE PLUS DANS SES BRAS
+
+Wilhem : « évite quand ça rentre dans les bras de Daicha, ou quand elle est trop collée au perso ». Mesuré d'abord (nouvel outil `tests/OrbClearance.luau` : vraie simulation, vraies poses, distance entre la boule et chaque partie de son corps) : sur 1 386 images de combat, la boule était DANS son corps sur 1 316 (mains et avant-bras surtout, même au repos : son point de repos était exactement sur sa main droite).
+
+Ce qui a changé (`OrbFlight.luau`, `EffectsController:flyOrb`) :
+1. **Points de base décollés** : au repos elle flotte un peu au-dessus et devant ses mains (plus sur elles) ; le point « dans la main » avant un coup est devant le poing ; le disque de garde est plus loin devant ses bras levés ; le recul du coup lourd passe par-dessus son épaule puis franchement derrière elle.
+2. **L'impact est un peu au-delà de la portée** (`OrbFlight.AHEAD`) : la boule éclate sur l'adversaire, devant le poing, pas autour.
+3. **Évitement de son corps, vu de la caméra** (`OrbFlight.avoid`, `screenClearance`) : à chaque image, le client lit ses 15 parties (tête, torse, bras, mains, jambes) telles qu'elles sont dessinées ; la boule est écartée de sa silhouette à l'écran (devant son bras, elle n'y touche pas en 3D mais on la voit dedans : c'est ce que voit le joueur), toujours dans le même sens (en avant pendant un coup, en haut-avant sinon) pour glisser sans à-coup.
+4. **Le ressort suit son corps** (`OrbFlight.place`) : il tourne autour d'elle au lieu de la suivre dans le monde (en marchant, il la faisait traîner 1,6 stud derrière, dans son dos) ; pendant un coup il vise 3 frames plus loin sur la trajectoire (`OrbFlight.LEAD`) pour ne plus être en retard sur son poing ; ce qui est affiché est encore repoussé de sa silhouette (repoussée vite, relâchée doucement).
+
+Mesures (`OrbClearance -a all`, points visés) : dans son corps 1 316 → 1 ; sur sa silhouette à l'écran 0. Comme en jeu avec le ressort (`OrbQuality -a all 120`) : moins de 3 % des images au contact pendant les coups, 0 en marchant ; pas de zigzag autour d'elle.
+Essayé et abandonné : dessiner la boule exactement sur la trajectoire pendant un coup (plus de contact, mais saccadé) ; repousser « par le plus court chemin » (la boule sautait d'un côté du bras à l'autre).
+
+Rendu de contrôle avant / après envoyé à Wilhem (`DAICHA_orbe_corps.png`). Les planches (`WeaponKit`, AnimClip, PoseSheet) appliquent le même évitement.
+
+Tests : Animation 44 (nouveau : évitement, sens de poussée, avance, mesures en combat réel), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2.
+
+À voir dans Studio : la boule au repos au-dessus des mains, le recul du coup lourd, l'impact devant le poing.
+
 ## Version 0.23.4 — 5 octobre 2026 · DAICHA : UNE BOULE PLUS BELLE
 
 Wilhem : « rends-la plus agréable visuellement ». Constat : le cœur lumineux de la boule (KitOrbCore, néon) était caché DANS la sphère noire opaque ; en jeu on ne voyait qu'une boule noire mate.

@@ -251,6 +251,36 @@ function EffectsController:orbVortex(center, color)
 	self:tornadoRing(center, color)
 end
 
+-- DAICHA's body as boxes for OrbFlight.avoid (centre, unit axes, half sizes), read off her rig
+-- as drawn this frame. The tables are kept and refilled: no garbage every frame.
+local BODY_PARTS = { "Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm",
+	"RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot" }
+function EffectsController:orbBodyBoxes(rig)
+	local parts = rig.orbBody
+	if not parts or (parts[1] and not parts[1].Parent) then
+		parts = {}
+		for _, name in BODY_PARTS do
+			local p = rig.model:FindFirstChild(name)
+			if p and p:IsA("BasePart") then table.insert(parts, p) end
+		end
+		rig.orbBody, rig.orbBoxes = parts, {}
+	end
+	local boxes = rig.orbBoxes
+	for i, p in parts do
+		local cf, size = p.CFrame, p.Size
+		local b = boxes[i] or {}
+		local px, py, pz = cf.Position.X, cf.Position.Y, cf.Position.Z
+		local rx, uy, lz = cf.XVector, cf.YVector, cf.ZVector
+		b[1], b[2], b[3] = px, py, pz
+		b[4], b[5], b[6] = rx.X, rx.Y, rx.Z
+		b[7], b[8], b[9] = uy.X, uy.Y, uy.Z
+		b[10], b[11], b[12] = lz.X, lz.Y, lz.Z
+		b[13], b[14], b[15] = size.X / 2, size.Y / 2, size.Z / 2
+		boxes[i] = b
+	end
+	return boxes
+end
+
 -- The orb's dressing (flyOrb): the glint, the three motes of ki circling it, its light, the
 -- wisps of shadow drifting off it, the ghosts it leaves when it strikes fast, built once and
 -- moved every frame. A handful of parts and two emitters: cheap.
@@ -350,26 +380,36 @@ function EffectsController:flyOrb(rig, view, now, slot)
 	rig.orbMoveClock = rig.orbMoveClock or {}
 	local frame = OrbFlight.clock(rig.orbMoveClock, id, view.moveClock or view.moveFrame or 0, rig.orbLast)
 	local shown = { state = view.state, moveFrame = frame }
-	local o = OrbFlight.offset(shown, move, role, now, rig.orbMoveClock.from)
+	-- (the spring's target a little ahead on the path: followed, the matter is on time, in step
+	-- with her fist, not trailing behind it into it)
+	local ahead = { state = view.state, moveFrame = OrbFlight.leadFrame(shown, move) }
+	local o = OrbFlight.offset(ahead, move, role, now, rig.orbMoveClock.from)
 	rig.orbLast = o
 	-- (from where the body is drawn: the presentation spacing may set it a little apart)
 	local x = if rig.root then rig.root.Position.X else view.x
-	local target = Vector3.new(x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
+	local z0 = self.config.PlaneZ
+	local target = { x + view.facing * o.fwd, view.y + o.up, z0 + o.side }
 	local dt = math.clamp(now - (rig.orbClock or now), 0, 0.1)
 	rig.orbClock = now
 	local spring = rig.orbSpring
 	if not spring then
-		spring = { p = { target.X, target.Y, target.Z }, v = { 0, 0, 0 } }
+		spring = {}
 		rig.orbSpring = spring
 	end
 	-- (the spring tightens as a strike starts and loosens after it, never at once)
 	rig.orbTight = (rig.orbTight or 0) + ((if id then 1 else 0) - (rig.orbTight or 0)) * (1 - math.exp(-dt * 14))
-	OrbFlight.follow(spring, { target.X, target.Y, target.Z }, dt, rig.orbTight, { x, view.y })
-	rig.orbPosition = Vector3.new(spring.p[1], spring.p[2], spring.p[3])
-	local velocity = Vector3.new(spring.v[1], spring.v[2], spring.v[3])
+	-- Kept off her own body (Wilhem: « évite quand ça rentre dans ses bras, quand c'est trop
+	-- collé au perso »): her parts as they are drawn this frame (OrbFlight.place, measured by
+	-- tests/OrbClearance.luau and tests/OrbQuality.luau).
+	local form = OrbFlight.form(shown, move, role, now)
+	local boxes = self:orbBodyBoxes(rig)
+	local at = OrbFlight.place(spring, target, dt, rig.orbTight, { x, view.y }, boxes, math.max(form.radius, 0.05),
+		OrbFlight.avoidDirection(view.state, view.facing, o))
+	rig.orbPosition = Vector3.new(at[1], at[2], at[3])
+	local vel = spring.velocity or { 0, 0, 0 }
+	local velocity = Vector3.new(vel[1], vel[2], vel[3])
 	-- the shape: ball <-> disc (morph 0..1); the ball's radius on a soft spring (it pops a
 	-- little past its size on an impact, then settles)
-	local form = OrbFlight.form(shown, move, role, now)
 	local S = OrbFlight.SIZE
 	local disc = form.shape ~= "ball"
 	local flat = form.shape == "puddle"

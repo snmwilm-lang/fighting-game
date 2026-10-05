@@ -58,7 +58,7 @@ StoreConfig.PRODUCTS = {
 	-- Shop styles also sold for Robux (the GOLD ones; still sold for coins in FIGHTERS). Price by
 	-- the fighter's tier (Economy.TIERS): STANDARD / RARE 99, EPIC 149, LEGENDARY 199.
 	{ key = "SKIN_KAI_GOLD", id = 0, robux = 99, style = "KAI GOLD" },
-	{ key = "SKIN_AKEMI_GOLD", id = 0, robux = 149, style = "AKEMI GOLD" },
+	{ key = "SKIN_AKEMI_GOLD", id = 0, robux = 199, style = "AKEMI GOLD" },
 	{ key = "SKIN_SHIN_GOLD", id = 0, robux = 149, style = "SHIN GOLD" },
 	{ key = "SKIN_RAIJIN_GOLD", id = 0, robux = 199, style = "RAIJIN GOLD" },
 	{ key = "SKIN_VENOM_GOLD", id = 0, robux = 99, style = "VENOM GOLD" },

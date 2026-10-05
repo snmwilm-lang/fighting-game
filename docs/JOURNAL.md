@@ -20,8 +20,10 @@ Test : CombatSimulation « tutorial » joue tout le tutoriel dans une vraie simu
 |---|---|---|---|
 | STANDARD | les 8 gratuits | 0 | 1500 |
 | RARE | HIBIKI, KAZAN, SYLVA | 2500 | 2000 |
-| ÉPIQUE | AKEMI, SHIN, YUKINA, KUREN, NOVA | 4000 | 2500 |
-| LÉGENDAIRE | DAICHA, RAIJIN, ASTER, KUROEN | 6000 | 3500 |
+| ÉPIQUE | DAICHA, SHIN, YUKINA, KUREN, NOVA | 4000 | 2500 |
+| LÉGENDAIRE | AKEMI, RAIJIN, ASTER, KUROEN | 6000 | 3500 |
+
+(Wilhem : AKEMI et DAICHA inversés.)
 
 - Le niveau s'affiche dans PERSONNAGES et dans la boutique.
 - Les skins GOLD en Robux suivent aussi le niveau : 99 / 149 / 199 R$ (prix affichés seulement, IDs encore à créer).

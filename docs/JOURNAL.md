@@ -17,7 +17,7 @@ Wilhem : « fais le même genre d'analyse pour chaque perso, pour un rendu le pl
 - RAIJIN : le bout de hampe derrière son poing (1,8 stud, aucune main dessus) traversait son torse en garde et en marche : raccourci à 0,7 stud (833 → 320). Sa main gauche reste sur la hampe (82 % des images, la prise à deux mains n'est pas comptée comme une faute). Reste : des impacts de 2 frames et sa marche, à reprendre pose par pose si besoin.
 - YUKINA : 0. KAZAN : 12 images (une seule route).
 
-Tests : Animation 46 (nouveau : armes hors du corps, pas de saut de jambe de plus de 50° ; l'atterrissage s'écrase en douceur), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK.
+Tests : Animation 45 (nouveau : armes hors du corps, pas de saut de jambe de plus de 50° ; l'atterrissage s'écrase en douceur), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK.
 
 À voir dans Studio : les atterrissages, les coups de pied (jambe qui se repose), la marche de SHIN, la garde de RAIJIN.
 

@@ -106,76 +106,152 @@ local function windUp(path, hit, hand)
 	return hand
 end
 
--- Its place while a strike `frame` of `move` runs (startup, active, recovery).
-local function strikeAt(path, frame, move, orbit, time, role)
+--[[
+	FLUIDITY. A strike's path is a list of keys { t = frame, p = place } joined by one smooth
+	curve (cubic Hermite, Catmull-Rom tangents: the speed never jumps from one key to the
+	next), evaluated at any fractional frame (the client extrapolates the frame between two
+	snapshots). A key may set its tangent: `stop` (the matter pauses there: the gathered
+	wind-up, the end), or `drive` (it arrives at full speed: the impact, followed through a
+	little past the target and back, at most `follow` studs).
+]]
+OrbFlight.FOLLOW_THROUGH = 0.35
+
+local function sub(a, b) return { fwd = a.fwd - b.fwd, up = a.up - b.up, side = a.side - b.side } end
+local function scale(a, k) return { fwd = a.fwd * k, up = a.up * k, side = a.side * k } end
+local function length(a) return math.sqrt(a.fwd * a.fwd + a.up * a.up + a.side * a.side) end
+local ZERO = { fwd = 0, up = 0, side = 0 }
+
+-- The tangents (studs per frame) of every key, then the place at frame `t`.
+function OrbFlight.curve(keys, t)
+	local n = #keys
+	if t <= keys[1].t then return keys[1].p end
+	if t >= keys[n].t then return keys[n].p end
+	local i = 1
+	while keys[i + 1].t < t do i += 1 end
+	local function tangent(k)
+		local key = keys[k]
+		if key.m then return key.m end
+		if key.stop or k == 1 or k == n then return ZERO end
+		local m = scale(sub(keys[k + 1].p, keys[k - 1].p), 1 / math.max(1e-3, keys[k + 1].t - keys[k - 1].t))
+		if key.drive then
+			-- (into the target at the speed it came, but never more than `follow` past it)
+			local before = scale(sub(key.p, keys[k - 1].p), 1 / math.max(1e-3, key.t - keys[k - 1].t))
+			local after = keys[k + 1].t - key.t
+			local speed = length(before)
+			local most = (key.follow or OrbFlight.FOLLOW_THROUGH) / (0.148 * math.max(1, after))
+			m = scale(before, if speed > most then most / speed else 1)
+		end
+		return m
+	end
+	local k0, k1 = keys[i], keys[i + 1]
+	local h = k1.t - k0.t
+	local u = (t - k0.t) / h
+	local m0, m1 = scale(tangent(i), h), scale(tangent(i + 1), h)
+	local u2, u3 = u * u, u * u * u
+	local h00, h10, h01, h11 = 2 * u3 - 3 * u2 + 1, u3 - 2 * u2 + u, -2 * u3 + 3 * u2, u3 - u2
+	local p0, p1 = k0.p, k1.p
+	return {
+		fwd = h00 * p0.fwd + h10 * m0.fwd + h01 * p1.fwd + h11 * m1.fwd,
+		up = h00 * p0.up + h10 * m0.up + h01 * p1.up + h11 * m1.up,
+		side = h00 * p0.side + h10 * m0.side + h01 * p1.side + h11 * m1.side,
+	}
+end
+
+-- The keys of a strike's path (frames: 0 = start, contact = startup + 1, total = the end).
+function OrbFlight.keys(path, move, orbit, role, from)
 	local startup, active, recovery = move.startup, move.active, move.recovery
 	local hit = OrbFlight.strike(move, role)
 	local hand = OrbFlight.hand(hit)
 	local ready = windUp(path, hit, hand)
+	local contact = startup + 1
 	local lead = if path == "arc" or path == "slam" or path == "dive" or path == "spin" or path == "reap" then 4 else 2
 	lead = math.min(lead, math.max(1, startup - 1))
-	if frame <= startup - lead then
-		local u = math.max(frame, 0) / math.max(1, startup - lead)
-		if path == "heavy" then
-			-- M2: drawn back behind her (a short charge), then brought to her hand as she steps in.
-			local back = { fwd = -0.9, up = 4.2, side = 1.0 }
-			if u <= 0.55 then return mix(orbit, back, smooth(u / 0.55 * 1.4)) end
-			return mix(back, ready, smooth((u - 0.55) / 0.45))
-		elseif path == "spin" then
-			-- One turn round her (behind her back, away from the camera), ending at her hand.
-			local a = smooth(u) * math.pi * 2
-			local r = 1.45
-			local o = { fwd = math.cos(a) * r, up = 3.4 + math.sin(a * 0.5) * 0.4, side = math.sin(a) * r }
-			return mix(o, ready, smooth((u - 0.8) / 0.2))
-		elseif path == "blink" then
-			return mix(orbit, ready, smooth(u * 1.6)) -- (in her hand, squeezed: `form`)
-		end
-		return mix(orbit, ready, smooth(u * 1.6))
-	elseif frame <= startup then
-		-- The blow, from where it waited to the point of impact.
-		local u = (frame - (startup - lead)) / lead
-		local o = mix(ready, hit, if path == "slam" or path == "dive" then u * u else u) -- (crushing down: faster and faster)
-		if path == "arc" then o.up += math.sin(u * math.pi) * 1.1
-		elseif path == "reap" then o.side += math.sin(u * math.pi) * 0.5; o.up -= math.sin(u * math.pi) * 0.3
-		elseif path == "spin" then o.side += math.sin(u * math.pi) * 0.6
-		end
-		return o
-	elseif frame <= startup + active then
-		local since = frame - startup - 1
-		local u = since / math.max(1, active - 1)
-		if path == "rise" then
-			return { fwd = hit.fwd, up = hit.up + smooth(u) * 2.4, side = hit.side } -- (on up through it)
-		elseif path == "wrap" then
-			local a = since * 1.9
-			return { fwd = hit.fwd + math.cos(a) * 0.55 - 0.55, up = hit.up + math.sin(a) * 0.35, side = hit.side + math.sin(a) * 0.55 }
-		elseif path == "river" and move.hitInterval then
-			-- From beat to beat: high, low, high... flowing over the target.
-			local beat = math.floor(since / move.hitInterval)
-			local w = (since % move.hitInterval) / move.hitInterval
-			local function at(b) return { fwd = hit.fwd - (b % 3) * 0.3, up = hit.up + (if b % 2 == 0 then 0 else 1.6), side = hit.side + (b % 2) * 0.3 } end
-			return mix(at(beat), at(beat + 1), smooth(w))
-		elseif path == "crescent" then
-			-- A wide half-circle over the target and back toward her (the eclipse's edge).
-			local a = smooth(u) * math.pi
-			return { fwd = hit.fwd - 1.3 + math.cos(a) * 1.3, up = hit.up + math.sin(a) * 1.6, side = hit.side }
-		end
-		-- (multi-hit moves: a little jolt on every beat)
-		local beat = if move.hitInterval then math.floor(since / move.hitInterval) % 2 else 0
-		return { fwd = hit.fwd - beat * 0.4, up = hit.up + beat * 0.3, side = hit.side }
+	local gathered = contact - lead -- (the wind-up ends: gathered, a breath before the blow)
+	local finish, total = startup + active, startup + active + recovery
+	-- (from where the matter was when the move began: chained from another blow, it does not
+	-- jump back to its rest point first)
+	local keys = { { t = 0, p = from or orbit, stop = true } }
+	local function add(t, p, extra)
+		local key = { t = t, p = p }
+		for k, v in extra or {} do key[k] = v end
+		if t > keys[#keys].t + 1e-3 then table.insert(keys, key) end
 	end
-	-- Back to her hand, then to its orbit (the mark clings to the target a moment first).
-	local u = (frame - startup - active) / math.max(1, recovery)
-	local from = hit
-	if path == "rise" then from = { fwd = hit.fwd, up = hit.up + 2.4, side = hit.side }
-	elseif path == "crescent" then from = { fwd = hit.fwd - 2.6, up = hit.up, side = hit.side }
+	-- the wind-up
+	if path == "heavy" then
+		-- M2: drawn back behind her (a short charge), then brought to her hand as she steps in.
+		add(math.max(1, math.floor(gathered * 0.55)), { fwd = -0.9, up = 4.2, side = 1.0 }, { stop = true })
+	elseif path == "spin" then
+		-- One turn round her (toward the camera, behind her back, away), ending at her hand.
+		local r = 1.5
+		for k = 1, 5 do
+			local a = k / 6 * math.pi * 2
+			add(gathered * (0.15 + 0.75 * k / 6), { fwd = math.cos(a) * r, up = 3.4 + math.sin(a * 0.5) * 0.4, side = math.sin(a) * r })
+		end
+	end
+	add(gathered, ready, { stop = path ~= "spin" })
+	-- the blow
+	if path == "arc" then
+		add(contact - lead / 2, { fwd = (ready.fwd + hit.fwd) / 2, up = (ready.up + hit.up) / 2 + 1.3, side = (ready.side + hit.side) / 2 })
+	elseif path == "reap" then
+		add(contact - lead / 2, { fwd = (ready.fwd + hit.fwd) / 2, up = 0.7, side = (ready.side + hit.side) / 2 + 0.5 })
+	elseif path == "spin" then
+		add(contact - lead / 2, { fwd = (ready.fwd + hit.fwd) / 2, up = (ready.up + hit.up) / 2, side = (ready.side + hit.side) / 2 + 0.6 })
+	elseif path == "slam" or path == "dive" then
+		-- (slowly at first, then crushed down faster and faster)
+		add(contact - lead / 2, { fwd = ready.fwd + (hit.fwd - ready.fwd) * 0.25, up = ready.up + (hit.up - ready.up) * 0.25,
+			side = ready.side + (hit.side - ready.side) * 0.25 })
+	end
+	-- the contact and what it does while the blow is active
+	if path == "rise" then
+		add(contact, hit, { drive = true, follow = 0 })
+		add(finish, { fwd = hit.fwd, up = hit.up + 2.4, side = hit.side }, { stop = true }) -- (on up through it)
+	elseif path == "wrap" then
+		add(contact, hit, { drive = true, follow = 0.1 })
+		for frame = contact + 1, finish do
+			local a = (frame - contact) * 1.9
+			add(frame, { fwd = hit.fwd + math.cos(a) * 0.55 - 0.55, up = hit.up + math.sin(a) * 0.35, side = hit.side + math.sin(a) * 0.55 })
+		end
+	elseif path == "river" and move.hitInterval then
+		-- From beat to beat: high, low, high... flowing over the target.
+		add(contact, hit, { drive = true, follow = 0.2 })
+		local b = 1
+		while contact + b * move.hitInterval <= finish do
+			add(contact + b * move.hitInterval, { fwd = hit.fwd - (b % 3) * 0.3, up = hit.up + (if b % 2 == 0 then 0 else 1.6),
+				side = hit.side + (b % 2) * 0.3 })
+			b += 1
+		end
+	elseif path == "crescent" then
+		-- A wide half-circle over the target and back toward her (the eclipse's edge).
+		add(contact, hit, { drive = true, follow = 0.1 })
+		for k = 1, 4 do
+			local a = k / 4 * math.pi
+			add(contact + (finish - contact) * k / 4, { fwd = hit.fwd - 1.3 + math.cos(a) * 1.3, up = hit.up + math.sin(a) * 1.6, side = hit.side })
+		end
 	elseif path == "mark" then
-		if u < 0.4 then return hit end
-		u = (u - 0.4) / 0.6
+		add(contact, hit, { stop = true })
+		add(finish + recovery * 0.4, hit, { stop = true }) -- (it clings to the target a moment)
+	elseif move.hitInterval then
+		-- (multi-hit moves: it pulses into the target on every beat)
+		add(contact, hit, { drive = true, follow = 0.15 })
+		local b = 1
+		while contact + b * move.hitInterval <= finish do
+			local out = b % 2 == 1
+			add(contact + b * move.hitInterval, if out then { fwd = hit.fwd - 0.4, up = hit.up + 0.3, side = hit.side } else hit)
+			b += 1
+		end
+	else
+		add(contact, hit, { drive = true })
+		if finish > contact then add(finish, hit) end
 	end
-	return mix(mix(from, hand, smooth(u * 2)), orbit, smooth((u - 0.5) / 0.5))
+	-- back to her hand, then to its orbit
+	local back = keys[#keys].t
+	add(back + (total - back) * 0.45, hand)
+	add(total, orbit, { stop = true })
+	return keys
 end
 
-function OrbFlight.offset(view, move, role, time)
+-- `from`: where the matter was when this move began (OrbFlight.clock keeps it), if known.
+function OrbFlight.offset(view, move, role, time, from)
 	local state = view.state
 	local crouching = state == "Crouching" or state == "CrouchBlocking" or state == "CrouchBlockstun"
 	local orbit = OrbFlight.orbit(time, crouching)
@@ -187,21 +263,23 @@ function OrbFlight.offset(view, move, role, time)
 		return { fwd = 1.3, up = 0.6, side = 0.9 } -- (dropped by her, rolling on the floor)
 	elseif HURT[state] then
 		-- Knocked away from her by the blow, shaking.
-		return { fwd = -1.6 + math.sin(time * 37) * 0.12, up = 3.6 + math.sin(time * 29) * 0.12, side = 0.8 }
+		return { fwd = -1.6 + math.sin(time * 17) * 0.15, up = 3.6 + math.sin(time * 13) * 0.15, side = 0.8 }
 	elseif state == "Dashing" then
 		return { fwd = -1.3, up = 4, side = 0.5 }
 	elseif state ~= "Attack" or not move then
 		return orbit
 	end
-	local frame = view.moveFrame or 0
+	local frame = math.max(0, view.moveFrame or 0)
 	local path = OrbFlight.path(role)
 	if path == "vortex" then
-		-- The vortex: the orb whirls round her, fast and wide.
+		-- The vortex: the orb whirls round her, fast and wide (eased in from her hand and back).
 		local angle = time * 12
 		local r = 2.7
-		return { fwd = math.cos(angle) * r, up = 3.2 + math.sin(time * 9) * 0.8, side = math.sin(angle) * r }
+		local whirl = { fwd = math.cos(angle) * r, up = 3.2 + math.sin(time * 9) * 0.8, side = math.sin(angle) * r }
+		local w = smooth(frame / 5) * (1 - smooth((frame - move.startup - move.active) / math.max(1, move.recovery * 0.7)))
+		return OrbFlight.clear(mix(if from and frame < 5 then mix(from, orbit, smooth(frame / 5)) else orbit, whirl, w))
 	end
-	return OrbFlight.clear(strikeAt(path, frame, move, orbit, time, role))
+	return OrbFlight.clear(OrbFlight.curve(OrbFlight.keys(path, move, orbit, role, from), frame))
 end
 
 -- Never through her body (the matter passes round her side), never under the deck.
@@ -268,18 +346,49 @@ function OrbFlight.form(view, move, role, time)
 	return { shape = "ball", radius = S.rest * 1.2 + (S.rest - S.rest * 1.2) * smooth(u), stretch = 1 }
 end
 
+-- The move's clock as the client draws it: the frame extrapolated between two snapshots, but
+-- never back (a snapshot that brings a hit-stop the client had not foreseen would pull the
+-- matter back a step: it waits there instead until the move catches up). A new move, or the
+-- same one started again (its frame far back), starts the clock again, and keeps in `c.from`
+-- where the matter was then (`last`: the offset drawn the frame before), so the new path
+-- starts from there. `c` = {} kept per fighter.
+function OrbFlight.clock(c, move, frame, last)
+	if c.frame == nil or move ~= c.move or frame < c.frame - 3 then
+		c.move, c.frame = move, frame
+		c.from = if move and last then { fwd = last.fwd, up = last.up, side = last.side } else nil
+	else
+		c.frame = math.max(c.frame, frame)
+	end
+	return c.frame
+end
+
 -- The client's follow of the matter: a spring toward where `offset` puts it, so it lags a
--- little behind her steps and jumps, overshoots and settles (stiff and tight in a strike, so
--- it still lands on the impact). `s` = { p = {x, y, z}, v = {x, y, z} } is updated in place;
--- `target` = {x, y, z}. Too far (a teleport, a blink): it is there at once.
-OrbFlight.SPRING = { loose = 13, looseDamping = 0.55, tight = 60, tightDamping = 0.9, snap = 7 }
-function OrbFlight.follow(s, target, dt, tight)
+-- little behind her steps and jumps, overshoots a touch and settles; tight in a strike, so it
+-- still lands on the impact. `tight`: 0 (at rest) .. 1 (striking), eased by the client from one
+-- to the other so the spring never changes all at once (true / false: 1 / 0).
+-- `s` = { p = {x, y, z}, v = {x, y, z} } is updated in place; `target` = {x, y, z}.
+-- `body` = {x, y}, her feet as drawn: when they move faster than anything but a teleport (the
+-- blink through the opponent, TELEPORT: `teleport` studs/s), or the matter is too far, it is
+-- there at once and `s.snapped` says so (the client re-forms it there, from nothing).
+-- (Carrying it along with her own motion was tried: it trembles while she walks.)
+OrbFlight.SPRING = { loose = 14, looseDamping = 0.72, tight = 55, tightDamping = 0.88, snap = 7, teleport = 90 }
+function OrbFlight.follow(s, target, dt, tight, body)
 	local k = OrbFlight.SPRING
-	local w, z = if tight then k.tight else k.loose, if tight then k.tightDamping else k.looseDamping
+	local a = if tight == true then 1 elseif type(tight) == "number" then math.clamp(tight, 0, 1) else 0
+	-- (the stiffness blends on a log scale: halfway is a middling spring, not almost the tight one)
+	local w = k.loose * (k.tight / k.loose) ^ a
+	local z = k.looseDamping + (k.tightDamping - k.looseDamping) * a
 	local p, v = s.p, s.v
+	s.snapped = false
+	local moved = false
+	if body and s.body and dt > 0 then
+		local bx, by = body[1] - s.body[1], body[2] - s.body[2]
+		moved = math.sqrt(bx * bx + by * by) / dt > k.teleport
+	end
+	if body then s.body = { body[1], body[2] } end
 	local dx, dy, dz = target[1] - p[1], target[2] - p[2], target[3] - p[3]
-	if dx * dx + dy * dy + dz * dz > k.snap * k.snap then
-		s.p, s.v = { target[1], target[2], target[3] }, { 0, 0, 0 }
+	if moved or dx * dx + dy * dy + dz * dz > k.snap * k.snap then
+		s.p, s.v, s.snapped = { target[1], target[2], target[3] }, { 0, 0, 0 }, true
 		return s
 	end
 	local steps = math.max(1, math.ceil(dt / (1 / 240)))

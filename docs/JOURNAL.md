@@ -1,5 +1,38 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.3 — 5 octobre 2026 · DAICHA : UNE BOULE FLUIDE
+
+Wilhem : « essaie de fluidifier le comportement de l'orbe, vraiment ». Nouvel outil de mesure `tests/OrbQuality.luau` : il rejoue un combat avec la vraie simulation, puis refait le dessin du client comme en jeu (30 images serveur par seconde, affichage à 120 i/s, extrapolation, lissage du corps, ressort) et mesure les à-coups de la boule.
+
+Ce qui saccadait, et ce qui a changé :
+1. **Le temps du coup était arrondi à la frame** (le client lisait `moveFrame` en entier) : la cible avançait par marches, la boule en dents de scie. Le client lit maintenant `moveClock`, la frame non arrondie (`init.client.luau`).
+2. **Ce temps reculait** quand un snapshot apportait un arrêt sur image (hit-stop) que le client n'avait pas prévu : la boule était tirée en arrière d'un pas. `OrbFlight.clock` : le temps ne recule jamais ; un nouveau coup le relance.
+3. **Les trajets étaient des segments raccordés** (la vitesse sautait à chaque phase : préparation, coup, retour). Chaque trajet est maintenant UNE courbe lisse (Hermite, tangentes Catmull-Rom) passant par des clés : repos → rassemblée dans la main (pause) → impact (arrive à pleine vitesse, poursuit un peu au-delà, ≤ 0,35 stud, et revient) → main → repos. `OrbFlight.keys` / `OrbFlight.curve`, testés : la vitesse ne saute nulle part.
+4. **Un coup enchaîné repartait du point de repos** (la boule sautait en arrière puis repartait). Il repart maintenant de là où était la boule (`from`).
+5. **Le ressort changeait d'un coup** entre « repos » et « frappe » : sa raideur passe maintenant en douceur de l'un à l'autre ; au repos il est moins mou (amorti 0,72 au lieu de 0,55 : plus de flottement qui tremble).
+6. **La taille, l'étirement, son orientation, le disque et la flaque** sont tous lissés ; la taille est sur un petit ressort (elle « pop » un peu à l'impact puis se pose) ; la boule ne bascule plus entre deux orientations.
+7. **Téléportation** : détectée par la vitesse du corps ; la boule se reforme à partir de rien là où elle est, au lieu de traverser l'écran.
+8. Le ruban de la boule (Trail) s'allume dès qu'elle vole vite, à sa largeur, et plus seulement pendant les coups de la main gauche.
+
+Essayé et abandonné : « porter » la boule avec le corps (pour qu'elle traîne moins en dash) la faisait trembler en marchant (mesuré).
+
+Mesures (`luau tests/OrbQuality.luau -a all 120`, jitter = tremblement de la vitesse, plus bas = plus fluide) :
+
+| Séquence | Avant (0.23.2) | Après (0.23.3) |
+|---|---|---|
+| combo L L L L | 1,07 | 0,50 |
+| coup lourd | 1,52 | 0,57 |
+| enchaînements L/H | 1,98 | 0,92 |
+| démonstration | 1,28 | 0,58 |
+| coups spéciaux | 1,34 | 0,67 |
+| marche | 0,02 | 0,01 |
+
+Accélérations les plus dures (99e centile) : −15 à −40 %.
+
+Tests : Animation 42 (nouveau : courbe sans saut de vitesse pour chaque coup, temps qui ne recule pas, coup enchaîné, téléportation, ressort, fluidité mesurée sous un plafond), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871. Rien dans le combat n'a changé (cosmétique seulement).
+
+À voir dans Studio : la boule en combo et en dash, l'impact (petit dépassement puis retour), la reformation après TELEPORT.
+
 ## Version 0.23.2 — 5 octobre 2026 · DAICHA : LE COMPORTEMENT DE LA BOULE
 
 Wilhem : « travaille plus sur le comportement de la boule ». La même sphère, menée par elle, a maintenant un trajet propre à chaque coup (`OrbFlight.PATH`, testé un par un) :

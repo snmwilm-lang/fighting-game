@@ -467,6 +467,10 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		local m = MoveData.Moves[state.move]
 		if m then
 			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
+			-- (the same, not rounded: what is drawn smoothly between two ticks, DAICHA's matter)
+			current.moveClock = math.min(state.moveFrame + ahead * Config.TickRate, MoveData.total(m))
+		else
+			current.moveClock = nil
 		end
 		current.intro = world.phase == "Intro" and world.phaseTicks > 50
 		current.victory = (world.phase == "KO" or world.phase == "MatchEnd") and (world.winner == i or world.matchWinner == i)

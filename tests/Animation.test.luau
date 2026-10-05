@@ -1312,6 +1312,59 @@ T.test("DAICHA's matter: every blow its own path (rise, slam, dive, spin, throw,
 	expect(t.p[1] == 30, "the orb does not snap after a teleport")
 end)
 
+T.test("DAICHA's matter flows: one smooth curve per path, a clock that never goes back, chained from where it was, measured fluid", function()
+	local OrbFlight = require("../src/shared/OrbFlight")
+	local roles = MoveData.Kits.DAICHA.Roles
+	-- every path is one curve whose speed never jumps (at its keys too), at any fractional frame
+	for role, id in roles do
+		local m = MoveData.Moves[id]
+		local path = OrbFlight.path(role)
+		if path ~= "vortex" then
+			local keys = OrbFlight.keys(path, m, OrbFlight.orbit(1, false), role)
+			for i = 2, #keys - 1 do
+				local t, e = keys[i].t, 1e-3
+				local a, b, c = OrbFlight.curve(keys, t - e), OrbFlight.curve(keys, t), OrbFlight.curve(keys, t + e)
+				local jump = math.abs((c.fwd - b.fwd) - (b.fwd - a.fwd)) + math.abs((c.up - b.up) - (b.up - a.up))
+					+ math.abs((c.side - b.side) - (b.side - a.side))
+				expect(jump / e < 0.05, string.format("%s: its speed jumps at key %d (frame %.2f)", id, i, t))
+			end
+			-- (and between two frames, at half-frames, it is in between: drawn smoothly at 120 fps)
+			local mid = OrbFlight.offset({ state = "Attack", moveFrame = 1.5 }, m, role, 1)
+			expect(mid.fwd == mid.fwd and mid.up >= 0.6, id .. ": no place at a half frame")
+		end
+	end
+	-- the move's clock never goes back (a hit-stop the client had not foreseen), a new move starts it again
+	local c = {}
+	expect(OrbFlight.clock(c, "DaichaClaw", 3.4) == 3.4, "the clock does not start")
+	expect(OrbFlight.clock(c, "DaichaClaw", 2.6) == 3.4, "the clock goes back")
+	expect(OrbFlight.clock(c, "DaichaClaw", 4.1) == 4.1, "the clock does not go on")
+	local last = { fwd = 3.1, up = 2.2, side = 0.4 }
+	expect(OrbFlight.clock(c, "DaichaStep", 0.5, last) == 0.5 and c.from.fwd == 3.1, "a new move does not restart the clock")
+	-- a blow chained from another starts from where the matter was, not from its rest point
+	local step = MoveData.Moves[roles.Cross]
+	local o = OrbFlight.offset({ state = "Attack", moveFrame = 0 }, step, "Cross", 1, last)
+	expect(math.abs(o.fwd - 3.1) + math.abs(o.up - 2.2) < 0.01, "a chained blow jumps back to the rest point")
+	-- the spring: a teleport of her body re-forms the matter there; its stiffness blends between loose and tight
+	local s = { p = { 0, 3, 0 }, v = { 0, 0, 0 } }
+	OrbFlight.follow(s, { 1, 3, 0 }, 1 / 60, 0, { 0, 0 })
+	OrbFlight.follow(s, { 1.1, 3, 0 }, 1 / 60, 0, { 0.25, 0 }) -- (walking, dashing: followed)
+	expect(not s.snapped, "a dash re-forms the orb")
+	OrbFlight.follow(s, { 5, 3, 0 }, 1 / 60, 0, { 4.25, 0 }) -- (a teleport)
+	expect(s.snapped and s.p[1] == 5, "a teleport does not re-form the orb where she is")
+	local function moved(tight)
+		local q = { p = { 0, 0, 0 }, v = { 0, 0, 0 } }
+		OrbFlight.follow(q, { 1, 0, 0 }, 1 / 60, tight)
+		return q.p[1]
+	end
+	expect(moved(0) < moved(0.5) and moved(0.5) < moved(1), "the spring does not blend from loose to tight")
+	-- measured like in game (snapshots at 30 a second, drawn at 120): fluid
+	local OrbQuality = require("./OrbQuality")
+	for name, most in { routes = 1.3, combo = 0.8, heavy = 1.0, walk = 0.1 } do
+		local q = OrbQuality.measure(name, 120, false)
+		expect(q.jitter < most, string.format("the orb shakes in %s (%.2f, at most %.2f)", name, q.jitter, most))
+	end
+end)
+
 -- ===================================================================== ASURA's four arms
 local FourArms = require("../src/shared/FourArms")
 

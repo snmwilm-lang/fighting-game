@@ -22,6 +22,7 @@ local Store = require(Shared.Store)
 local CharacterData = require(Shared.CharacterData)
 local Taunts = require(Shared.Taunts)
 local Quests = require(Shared.Quests)
+local Economy = require(Shared.Economy)
 local Theme = require(script.Parent.MenuTheme)
 local CurrencyIcons = require(script.Parent.CurrencyIcons)
 
@@ -239,8 +240,9 @@ function ShopPage:describe(e)
 			d.state, d.stateColor = "QUEST · " .. (if quest then quest.how else ""), Theme.VIOLET
 			d.primary = { text = "QUEST", off = true, run = function() self.menu:flash(d.state, Theme.VIOLET) end }
 		else
-			d.state = "🔒 " .. item.coins .. " COINS"
-			d.primary = { text = "BUY " .. item.coins, coins = true, run = function() self.menu:askStyle(name) end }
+			local price = Economy.skinPrice(item.kit)
+			d.state = "🔒 " .. price .. " COINS · " .. Economy.tierOf(item.kit).name
+			d.primary = { text = "BUY " .. price, coins = true, run = function() self.menu:askStyle(name) end }
 			if product then robux("product", product) end
 		end
 	else

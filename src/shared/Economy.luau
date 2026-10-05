@@ -7,7 +7,7 @@
 	  • PvP rewards: a win WIN coins, a loss LOSS (a draw DRAW). The anti-farm rules
 	    (AntiCheat: short matches, the same pair again and again, the daily cap) still apply;
 	    a player who leaves a running match gets nothing.
-	  • Fighters: FREE ones from the start, the others unlocked for FIGHTER_PRICE coins, kept
+	  • Fighters: FREE ones from the start, the others unlocked for their tier's price, kept
 	    forever (profile.ownedKits[kit] = true).
 	  • TRAINING: every fighter, owned or not (to try before buying); it never unlocks one.
 	  • The developer access (src/server/DevAccess.luau, checked by the server): every fighter
@@ -20,8 +20,39 @@ local Economy = {}
 Economy.WIN = 150
 Economy.LOSS = 50
 Economy.DRAW = 100 -- (not set by Wilhem: between the two)
-Economy.FIGHTER_PRICE = 4000
+Economy.FIGHTER_PRICE = 4000 -- (the price of a fighter without a tier: none today)
 Economy.SKIN_PRICE = 2500
+
+-- TIERS (Wilhem: « les persos stylés plus chers, les autres moins chers, des skins cohérents »):
+-- the price of a fighter and of each of its shop styles follow how striking the fighter is.
+-- STANDARD = the free fighters. Change a fighter's tier here; the menu and the server follow.
+Economy.TIERS = table.freeze({
+	STANDARD = table.freeze({ name = "STANDARD", fighter = 0, skin = 1500, color = "B8B8C4" }),
+	RARE = table.freeze({ name = "RARE", fighter = 2500, skin = 2000, color = "4C8EFF" }),
+	EPIC = table.freeze({ name = "EPIC", fighter = 4000, skin = 2500, color = "AB73FF" }),
+	LEGENDARY = table.freeze({ name = "LEGENDARY", fighter = 6000, skin = 3500, color = "FFD23F" }),
+})
+Economy.TIER_OF = table.freeze({
+	KAI = "STANDARD", TARO = "STANDARD", ZEPHYR = "STANDARD", RYUKEN = "STANDARD", HIBECARES = "STANDARD", GORAN = "STANDARD",
+	ELIAN = "STANDARD", VENOM = "STANDARD",
+	HIBIKI = "RARE", KAZAN = "RARE", SYLVA = "RARE",
+	AKEMI = "EPIC", SHIN = "EPIC", YUKINA = "EPIC", KUREN = "EPIC", NOVA = "EPIC",
+	DAICHA = "LEGENDARY", RAIJIN = "LEGENDARY", ASTER = "LEGENDARY", KUROEN = "LEGENDARY",
+})
+function Economy.tierOf(kit)
+	return Economy.TIERS[Economy.TIER_OF[kit] or ""] or Economy.TIERS.EPIC
+end
+-- The coins a locked fighter costs (0 for a free one).
+function Economy.fighterPrice(kit)
+	if Economy.isFree(kit) then return 0 end
+	local tier = Economy.TIER_OF[kit]
+	return if tier then Economy.TIERS[tier].fighter else Economy.FIGHTER_PRICE
+end
+-- The coins a shop style of this fighter costs.
+function Economy.skinPrice(kit)
+	local tier = Economy.TIER_OF[kit]
+	return if tier then Economy.TIERS[tier].skin else Economy.SKIN_PRICE
+end
 
 -- The 8 free fighters (40 % of 20): simple to pick up and every family of play once (all-
 -- rounder, boxer, kicks, power, endurance, grappler, support, attrition); the most striking
@@ -61,9 +92,10 @@ function Economy.buyFighter(profile, kit, roster)
 	if type(profile) ~= "table" or type(kit) ~= "string" or not table.find(roster, kit) then return false, "unknown" end
 	if Economy.owns(profile, kit) then return false, "owned" end
 	local coins = tonumber(profile.coins) or 0
-	if coins < Economy.FIGHTER_PRICE then return false, "coins" end
+	local price = Economy.fighterPrice(kit)
+	if coins < price then return false, "coins" end
 	if type(profile.ownedKits) ~= "table" then profile.ownedKits = {} end
-	profile.coins = coins - Economy.FIGHTER_PRICE
+	profile.coins = coins - price
 	profile.ownedKits[kit] = true
 	return true
 end

@@ -22,6 +22,7 @@ local TauntController = require(script.TauntController)
 local HubController = require(script.HubController)
 local LanguageController = require(script.LanguageController)
 local MenuController = require(script.MenuController)
+local TutorialController = require(script.TutorialController)
 local player = Players.LocalPlayer
 -- Roblox's own player list (top right) covers the lobby's cards: our hub (H) lists the players.
 pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end)
@@ -106,6 +107,8 @@ local settings = {
 	end,
 }
 local menu = MenuController.new(menuRemote, hub, settings) -- main menu (lobby)
+local tutorial = TutorialController.new(input) -- the first-launch tutorial (skippable)
+menu.startTutorial = function() tutorial:start(menuRemote) end
 sounds:watchButtons(menu.gui)
 hud.onMenu = menu:bindLeave()
 -- P: back to the main menu from a match (same as the HUD's ◀ MENU).
@@ -240,6 +243,7 @@ local function onMatchChanged()
 	refreshVisibility()
 	hud:setInMatch(id ~= 0)
 	menu:setInMatch(id ~= 0)
+	tutorial:update(id ~= 0, nil, 0)
 end
 player:GetAttributeChangedSignal("MatchId"):Connect(onMatchChanged)
 task.defer(function()
@@ -314,6 +318,7 @@ remotes:WaitForChild("Events").OnClientEvent:Connect(function(batch)
 			cinematic:onGrade(event)
 		end
 		if world then hud:onEvent(event, world) end
+		tutorial:onEvent(event)
 	end
 end)
 
@@ -522,5 +527,6 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 	input.setFatalReady(mine ~= nil and mine.fatal == "ready")
 	fps += ((1 / math.max(dt, 0.001)) - fps) * math.min(1, dt * 3)
 	hud:update(world, displayed, fps, dt)
+	tutorial:update(currentMatch ~= 0, mine, localSlot)
 end)
 print("[FightingGame] Client ready — 4 kits (T / G), combos (clicks), guard F, special E, ultimate R, avatar R15")

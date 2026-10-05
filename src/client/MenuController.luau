@@ -31,6 +31,7 @@ local Taunts = require(Shared.Taunts)
 local Economy = require(Shared.Economy)
 local Quests = require(Shared.Quests)
 local Theme = require(script.Parent.MenuTheme)
+local Tutorial = require(Shared.Tutorial)
 local ShopPage = require(script.Parent.ShopPage)
 local StoreConfig = require(Shared.StoreConfig)
 local Store = require(Shared.Store)
@@ -52,7 +53,7 @@ local BODY_FONT = Enum.Font.GothamBold
 
 local MenuController = {}
 MenuController.__index = MenuController
-local HOW_TO_PLAY_VERSION = 1 -- (v0.21: hold back to guard)
+local HOW_TO_PLAY_VERSION = 2 -- (the guide's version: Tutorial.VERSION, offered once with the tutorial)
 -- The logo artwork once uploaded to Roblox by Wilhem ("rbxassetid://<id>"; empty: the drawn logo).
 MenuController.LOGO_IMAGE = ""
 -- The drawn logo: "PLAIN" (Wilhem: just BREAKFRAMEZ on black), "BREAKFRAMEZ" (after his art)
@@ -111,7 +112,7 @@ local NEWS = {
 		"DAILY REWARD: come back every day, 7 days in a row for more coins. New lobby and fight music.",
 		"TRAINING: the frame advantage of each exchange (+3 ON HIT, -5 ON BLOCK...): who has the turn, what can be punished." } },
 	{ tag = "UPDATE", title = "SHOP · QUESTS · WEEKLY", color = RED, kanji = "新", lines = {
-		"Fighters to unlock (4000 coins) and styles (2500): FIGHTERS page, try them free in TRAINING.",
+		"Fighters to unlock (RARE 2500, EPIC 4000, LEGENDARY 6000 coins) and their styles: FIGHTERS page, try them free in TRAINING.",
 		"Online: a win 150 coins, a loss 50. Quests give styles. WEEKLY ranking from zero every Monday: its first becomes WEEKLY CHAMPION.",
 		"Match history and REMATCH (RANKING › HISTORY), player card (click your profile), notifications (the bell)." } },
 	{ tag = "NEW", title = "KUROEN · KAZAN'S CLAWS", color = RED, kanji = "蝕", lines = {
@@ -266,14 +267,14 @@ function MenuController.new(remote, hub, settings)
 			self:refreshLocks()
 			self.shop:statusChanged()
 			-- HOW TO PLAY: once per player (and again when the guide changes), out of a match
-			if type(packet.howToPlay) == "number" and packet.howToPlay < HOW_TO_PLAY_VERSION and not self.howShown and not self.inMatch then
+			if type(packet.howToPlay) == "number" and packet.howToPlay < Tutorial.VERSION and not self.howShown and not self.inMatch then
 				self.howShown = true
 				task.spawn(function()
 					-- (after the daily reward's window, never in its place)
 					task.wait(1.5)
 					local waited = 0
 					while self.popupFrame and waited < 60 do task.wait(0.5); waited += 0.5 end
-					self:showHowToPlay()
+					self:showWelcome()
 				end)
 			end
 			if self.page == "settings" then
@@ -751,7 +752,7 @@ function MenuController:buildSelect()
 		corner(pick, 11)
 		-- (locked: a dark veil, the lock and the price; in TRAINING: FREE TRIAL)
 		local lock = new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0,
-			Font = UI_FONT, TextScaled = true, Text = "🔒\n" .. Economy.FIGHTER_PRICE, TextColor3 = GOLD, Visible = false, ZIndex = 9 }, cell)
+			Font = UI_FONT, TextScaled = true, Text = "🔒\n" .. Economy.fighterPrice(name), TextColor3 = GOLD, Visible = false, ZIndex = 9 }, cell)
 		new("UIPadding", { PaddingTop = UDim.new(0.18, 0), PaddingBottom = UDim.new(0.3, 0), PaddingLeft = UDim.new(0.12, 0),
 			PaddingRight = UDim.new(0.12, 0) }, lock)
 		local trial = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.new(1, -4, 0, 14),
@@ -1207,11 +1208,12 @@ function MenuController:askUnlock(kit)
 		return
 	end
 	local coins = tonumber(self.status.coins) or 0
-	if coins < Economy.FIGHTER_PRICE then
-		self:flash(string.format("NOT ENOUGH COINS · %s COSTS %d (YOU HAVE %d) · TRY IT IN TRAINING", kit, Economy.FIGHTER_PRICE, coins), RED)
+	local price = Economy.fighterPrice(kit)
+	if coins < price then
+		self:flash(string.format("NOT ENOUGH COINS · %s COSTS %d (YOU HAVE %d) · TRY IT IN TRAINING", kit, price, coins), RED)
 		return
 	end
-	self:confirm(string.format("UNLOCK %s FOR %d COINS?\nYou have %d coins. It stays yours forever.", kit, Economy.FIGHTER_PRICE, coins),
+	self:confirm(string.format("UNLOCK %s FOR %d COINS?\nYou have %d coins. It stays yours forever.", kit, price, coins),
 		"UNLOCK", function() self.remote:FireServer({ action = "buyFighter", kit = kit }) end)
 end
 
@@ -1220,11 +1222,12 @@ function MenuController:askStyle(name)
 	local item = CharacterData.SHOP[name]
 	if not item then return end
 	local coins = tonumber(self.status.coins) or 0
-	if coins < item.coins then
-		self:flash(string.format("NOT ENOUGH COINS · THIS STYLE COSTS %d (YOU HAVE %d)", item.coins, coins), RED)
+	local price = Economy.skinPrice(item.kit)
+	if coins < price then
+		self:flash(string.format("NOT ENOUGH COINS · THIS STYLE COSTS %d (YOU HAVE %d)", price, coins), RED)
 		return
 	end
-	self:confirm(string.format("BUY THE STYLE %s FOR %d COINS?\nYou have %d coins.", name, item.coins, coins),
+	self:confirm(string.format("BUY THE STYLE %s FOR %d COINS?\nYou have %d coins.", name, price, coins),
 		"BUY", function() self.remote:FireServer({ action = "buySkin", skin = name }) end)
 end
 
@@ -1377,7 +1380,7 @@ function MenuController:refreshStyles(name)
 			action.Text = "EQUIP"
 			action.Activated:Connect(function() self.remote:FireServer({ action = "equip", skin = styleName }) end)
 		elseif item and not quest then
-			action.Text = "      " .. item.coins
+			action.Text = "      " .. Economy.skinPrice(item.kit)
 			CurrencyIcons.make("coins", action, 18, UDim2.fromOffset(5, 11))
 			action.Activated:Connect(function() self:askStyle(styleName) end)
 		else
@@ -1399,6 +1402,8 @@ function MenuController:drawKitInfo(name)
 	self.galleryKit = name
 	local level = kit.Difficulty or 2
 	self.galleryName.Text = name .. " " .. kit.Kanji .. " · " .. kit.Role .. " · " .. string.rep("★", level) .. string.rep("☆", 3 - level)
+		.. " · " .. Economy.tierOf(name).name
+	self.galleryName.TextColor3 = Color3.fromHex(Economy.tierOf(name).color):Lerp(GOLD, 0.35)
 	local lines = { kit.Description, "", "Health " .. kit.Stats.MaxHealth .. " · speed " .. kit.Stats.WalkSpeed }
 	if kit.Passive then table.insert(lines, "Passive: " .. kit.Passive.Name) end
 	table.insert(lines, "Ultimates: " .. MoveData.Moves[kit.Ultimates.Rush].name .. " · " .. MoveData.Moves[kit.Ultimates.Awaken].name
@@ -1413,11 +1418,13 @@ function MenuController:drawKitInfo(name)
 	elseif s.dev then
 		self.galleryState.Text, self.galleryState.TextColor3 = "DEVELOPER ACCESS · NOT BOUGHT", Theme.VIOLET
 	else
-		self.galleryState.Text, self.galleryState.TextColor3 = string.format("🔒 LOCKED · %d COINS · YOU HAVE %d", Economy.FIGHTER_PRICE, coins), RED
+		local tier = Economy.tierOf(name)
+		self.galleryState.Text, self.galleryState.TextColor3 = string.format("🔒 %s · %d COINS · YOU HAVE %d", tier.name, Economy.fighterPrice(name), coins),
+			Color3.fromHex(tier.color)
 	end
 	self.galleryUnlock.Visible = not owned
 	local picks = tonumber(s.freePicks) or 0
-	self.galleryUnlock.Text = if picks > 0 then "TAKE FREE (" .. picks .. " LEFT)" else "UNLOCK · " .. Economy.FIGHTER_PRICE
+	self.galleryUnlock.Text = if picks > 0 then "TAKE FREE (" .. picks .. " LEFT)" else "UNLOCK · " .. Economy.fighterPrice(name)
 	self.galleryFavorite.Text = if s.hero == name then "★ YOUR FAVORITE" else "★ FAVORITE"
 	-- the style shown: the one equipped (or the first), unless the player picked another one of this fighter
 	local current = self.galleryStyleName
@@ -1763,7 +1770,9 @@ function MenuController:buildSettings()
 	-- HOW TO PLAY (the guide shown once at the start)
 	self.settings.howto = function() self:showHowToPlay() end
 	self.settings.howtoState = function() return "" end
-	for order, entry in { { "howto", "HOW TO PLAY" }, { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
+	self.settings.tutorial = function() if self.startTutorial then self.startTutorial() end end
+	self.settings.tutorialState = function() return "▶" end
+	for order, entry in { { "tutorial", "TUTORIAL" }, { "howto", "HOW TO PLAY" }, { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
 		{ "language", "LANGUAGE" }, { "taunts", "OPPONENT TAUNTS" }, { "tauntKey", "TAUNT WHEEL KEY (PC)" }, { "title", "TITLE SHOWN" },
 		{ "dev", "DEVELOPER ACCESS" } } do
 		local key, name = entry[1], entry[2]
@@ -1841,7 +1850,7 @@ function MenuController:buildBottom()
 			Text = string.rep("★", kit.Difficulty or 2) .. string.rep("☆", 3 - (kit.Difficulty or 2)), TextColor3 = GOLD,
 			TextXAlignment = Enum.TextXAlignment.Center })
 		local lock = label(tile, { Position = UDim2.fromOffset(0, 94), Size = UDim2.fromOffset(78, 16), Font = UI_FONT, TextSize = 11,
-			Text = "🔒 " .. Economy.FIGHTER_PRICE, TextColor3 = GOLD, BackgroundTransparency = 0, BackgroundColor3 = INK,
+			Text = "🔒 " .. Economy.fighterPrice(name), TextColor3 = GOLD, BackgroundTransparency = 0, BackgroundColor3 = INK,
 			TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 3 })
 		self.rosterLocks = self.rosterLocks or {}
 		self.rosterLocks[name] = lock
@@ -2142,6 +2151,30 @@ function MenuController:showHowToPlay()
 	}
 	for i, l in lines do line(list, i, l[1], l[2], 15) end
 	self.remote:FireServer({ action = "howToPlay", version = HOW_TO_PLAY_VERSION })
+end
+
+-- WELCOME (first launch): the TUTORIAL (2 minutes, skippable) or straight to the game.
+function MenuController:showWelcome()
+	if self.inMatch then return end
+	local list, close = self:popup("WELCOME TO BREAKFRAMEZ", 600, 400)
+	line(list, 1, "New here? A short TUTORIAL shows the controls and how a fight works: move, attack, combos, guard, specials and ultimates.", WHITE, 15)
+	line(list, 2, "About 2 minutes, in TRAINING with KAI. You can skip it at any time, and replay it from SETTINGS.", GREY, 13)
+	local row = new("Frame", { LayoutOrder = 3, Size = UDim2.new(1, -8, 0, 64), BackgroundTransparency = 1, ZIndex = 53 }, list)
+	local start = Theme.button(row, { Position = UDim2.fromOffset(0, 8), Size = UDim2.new(0.6, -6, 0, 52), BackgroundColor3 = Theme.RED,
+		Font = DISPLAY, TextSize = 26, Text = "▶ START THE TUTORIAL", ZIndex = 54 }, GOLD)
+	local skip = Theme.button(row, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 8), Size = UDim2.new(0.4, -6, 0, 52),
+		Font = DISPLAY, TextSize = 24, Text = "SKIP", ZIndex = 54 })
+	start.Activated:Connect(function()
+		close()
+		if self.startTutorial then self.startTutorial() end
+	end)
+	skip.Activated:Connect(function()
+		close()
+		self.remote:FireServer({ action = "howToPlay", version = Tutorial.VERSION })
+		self:notify("TUTORIAL: SETTINGS › TUTORIAL, whenever you want", GREY)
+	end)
+	self.dialogYes = start
+	task.defer(function() self:gamepadFocus(true) end)
 end
 
 -- DAILY REWARD: the coins of the day and the 7-day series (Economy.DAILY), once a day.

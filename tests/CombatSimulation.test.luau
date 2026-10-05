@@ -165,6 +165,59 @@ test("training: frame advantage after a hit or a guard (+ the attacker first, - 
 	expect(#measure(true, false) == 0, "the advantage is measured outside TRAINING")
 end)
 
+test("tutorial: every step can be done for real in a training match, the dummy attacks for the guard steps", function()
+	local Tutorial = require("../src/shared/Tutorial")
+	local world = closeWorld(4, true)
+	local state = Tutorial.new()
+	local stepTicks, reached = 0, {}
+	for tick = 1, 20000 do
+		if state.done then break end
+		local step = Tutorial.current(state)
+		stepTicks += 1
+		local me, foe = world.fighters[1], world.fighters[2]
+		local toward = if foe.x > me.x then 1 else -1
+		local i = input()
+		local id = step.id
+		local near = math.abs(foe.x - me.x) <= 3.2
+		if id == "move" then i.axis = if stepTicks < 30 then -1 else 1
+		elseif id == "jump" then i.jump = stepTicks % 30 == 1
+		elseif id == "dash" then i.dash = stepTicks % 30 == 1
+		elseif id == "light" then if near then i.light = stepTicks % 14 == 0 else i.axis = toward end
+		elseif id == "heavy" then if near then i.heavy = stepTicks % 40 == 0 else i.axis = toward end
+		elseif id == "combo" then
+			if near then
+				local beat = stepTicks % 60
+				i.light = beat == 1 or beat == 9 or beat == 17
+				i.heavy = beat == 25
+			else i.axis = toward end
+		elseif id == "guard" then i.axis = -toward
+		elseif id == "low" then i.axis, i.crouch = -toward, true
+		elseif id == "special" then i.special = stepTicks % 40 == 1
+		elseif id == "ultimate" then i.ultimate = stepTicks % 30 == 1 end
+		local dummy = Tutorial.dummyInput(step.dummy, foe, me, world.tick, Sim.neutralInput())
+		local events = Sim.step(world, { i, dummy })
+		if world.cinematic then
+			-- (an ultimate's cinematic: let it play)
+		end
+		local moved = Tutorial.observe(state, 1, { kind = "frame", me = me }, Moves)
+		for _, e in events do moved = Tutorial.observe(state, 1, e, Moves) or moved end
+		if moved then
+			reached[id] = true
+			stepTicks = 0
+		end
+		expect(stepTicks < 3000, "the tutorial is stuck on " .. id)
+		if stepTicks >= 3000 then break end
+	end
+	expect(state.done, "the tutorial never ends (step " .. state.step .. ")")
+	for _, step in Tutorial.STEPS do expect(reached[step.id], "step " .. step.id .. " was never done") end
+	-- the dummy only attacks on the guard steps, never moves on STILL
+	local still = Tutorial.dummyInput("STILL", { x = 0 }, { x = 1 }, 70, Sim.neutralInput())
+	expect(still.axis == 0 and not still.light, "the STILL dummy acts")
+	local low = Tutorial.dummyInput("LOW", { x = 0 }, { x = 1 }, 70, Sim.neutralInput())
+	expect(low.crouch and low.light, "the LOW dummy does not sweep")
+	expect(Tutorial.observe(Tutorial.new(), 1, { kind = "Hit", attacker = 2 }, Moves) == false, "the dummy's hits count for the player")
+end)
+
 test("blocked hits never KO", function()
 	local world = closeWorld(3, false)
 	world.fighters[2].hp = 5

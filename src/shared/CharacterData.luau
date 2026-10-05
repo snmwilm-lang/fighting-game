@@ -291,9 +291,8 @@ local BASE_ORDER = table.freeze({
 	["KUROEN SHIN"] = table.freeze({ "TRUE EMPEROR" }),
 })
 
--- The price of a shop style in coins (Economy.SKIN_PRICE), and the shop styles won by a
--- QUEST instead of bought (src/shared/Quests.luau: its rewards, kept equal by a test).
-local SKIN_PRICE = 2500
+-- The shop styles won by a QUEST instead of bought (src/shared/Quests.luau: its rewards, kept
+-- equal by a test). Their price in coins follows the fighter's tier (Economy.skinPrice).
 local QUEST = table.freeze({
 	["KAI INFERNO"] = true, ["HIBECARES ABYSS"] = true, ["TARO SAKURA"] = true, ["ZEPHYR ABYSS"] = true,
 	["RYUKEN PHANTOM"] = true, ["GORAN SAKURA"] = true, ["ELIAN ABYSS"] = true, ["VENOM INFERNO"] = true,
@@ -312,7 +311,7 @@ for i, kit in SHOP_KITS do
 		colors.SkinTone = base and base.SkinTone or "C98F6E"
 		colors.Title = theme -- (shown after the fighter's name: "KAI GOLD", not "KAI KAI GOLD")
 		Skins[name] = style(kit, name, colors)
-		SHOP[name] = table.freeze({ kit = kit, theme = theme, coins = SKIN_PRICE, quest = QUEST[name] == true })
+		SHOP[name] = table.freeze({ kit = kit, theme = theme, quest = QUEST[name] == true })
 		table.insert(STYLE_ORDER[kit], name)
 	end
 end
@@ -346,17 +345,19 @@ function CharacterData.canWear(name, profile, dev)
 	return Skins[name] ~= nil
 end
 
--- Buys a shop style with coins (the server calls it on the saved profile). Returns true, or
--- false and why: "unknown", "quest" (won by a quest, not sold), "owned", "coins".
-function CharacterData.buy(profile, name)
+-- Buys a shop style with coins (the server calls it on the saved profile, with its price:
+-- Economy.skinPrice of its fighter). Returns true, or false and why: "unknown", "quest" (won by
+-- a quest, not sold), "owned", "coins".
+function CharacterData.buy(profile, name, price)
 	local item = SHOP[name]
 	if not item or type(profile) ~= "table" then return false, "unknown" end
 	if item.quest then return false, "quest" end
 	if type(profile.ownedSkins) ~= "table" then profile.ownedSkins = {} end
 	if profile.ownedSkins[name] then return false, "owned" end
 	local coins = tonumber(profile.coins) or 0
-	if coins < item.coins then return false, "coins" end
-	profile.coins = coins - item.coins
+	if type(price) ~= "number" or price <= 0 then return false, "unknown" end
+	if coins < price then return false, "coins" end
+	profile.coins = coins - price
 	profile.ownedSkins[name] = true
 	return true
 end

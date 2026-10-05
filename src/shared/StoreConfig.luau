@@ -55,13 +55,14 @@ StoreConfig.PRODUCTS = {
 	{ key = "COINS_1000", id = 0, robux = 99, name = "1,000 COINS", coins = 1000 },
 	{ key = "COINS_3000", id = 0, robux = 249, name = "3,000 COINS", coins = 3000, tag = "POPULAR" },
 	{ key = "COINS_7500", id = 0, robux = 499, name = "7,500 COINS", coins = 7500, tag = "BEST VALUE" },
-	-- Shop styles also sold for Robux (the GOLD ones; still sold for coins in FIGHTERS).
-	{ key = "SKIN_KAI_GOLD", id = 0, robux = 149, style = "KAI GOLD" },
+	-- Shop styles also sold for Robux (the GOLD ones; still sold for coins in FIGHTERS). Price by
+	-- the fighter's tier (Economy.TIERS): STANDARD / RARE 99, EPIC 149, LEGENDARY 199.
+	{ key = "SKIN_KAI_GOLD", id = 0, robux = 99, style = "KAI GOLD" },
 	{ key = "SKIN_AKEMI_GOLD", id = 0, robux = 149, style = "AKEMI GOLD" },
 	{ key = "SKIN_SHIN_GOLD", id = 0, robux = 149, style = "SHIN GOLD" },
-	{ key = "SKIN_RAIJIN_GOLD", id = 0, robux = 149, style = "RAIJIN GOLD" },
-	{ key = "SKIN_VENOM_GOLD", id = 0, robux = 149, style = "VENOM GOLD" },
-	{ key = "SKIN_HIBIKI_GOLD", id = 0, robux = 149, style = "HIBIKI GOLD" },
+	{ key = "SKIN_RAIJIN_GOLD", id = 0, robux = 199, style = "RAIJIN GOLD" },
+	{ key = "SKIN_VENOM_GOLD", id = 0, robux = 99, style = "VENOM GOLD" },
+	{ key = "SKIN_HIBIKI_GOLD", id = 0, robux = 99, style = "HIBIKI GOLD" },
 	{ key = "SKIN_KUREN_GOLD", id = 0, robux = 149, style = "KUREN GOLD" },
 	{ key = "SKIN_NOVA_GOLD", id = 0, robux = 149, style = "NOVA GOLD" },
 }

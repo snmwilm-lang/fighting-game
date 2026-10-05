@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.22.0 — 5 octobre 2026 · TUTORIEL, PRIX PAR PERSO
+
+Demande de Wilhem : un petit tutoriel des commandes au premier lancement (qu'on peut passer), et des prix différents par perso : plus chers pour les plus stylés, skins aux prix cohérents.
+
+**Tutoriel** (`src/shared/Tutorial.luau`, pur ; `src/client/TutorialController.luau`) :
+- au premier lancement, une fenêtre BIENVENUE propose LANCER LE TUTORIEL ou PASSER ;
+- on peut le refaire depuis PARAMÈTRES › TUTORIEL ; COMMENT JOUER reste aussi dans PARAMÈTRES ;
+- 10 étapes en ENTRAÎNEMENT avec KAI : bouger, sauter, dash, 3 coups légers, coup lourd, combo de 4, garde en reculant (le mannequin attaque), garde basse (il balaie), spéciale, ultime ;
+- chaque étape affiche les touches de l'appareil utilisé (clavier, manette ou tactile) et passe toute seule quand le joueur l'a vraiment faite (sur ses vrais coups, gardes et mouvements) ;
+- le bouton PASSER marche à tout moment ; quitter le match arrête le tutoriel ;
+- le serveur fait attaquer le mannequin (champ `tutor` du paquet d'entrée, entraînement solo seulement, valeurs contrôlées) ; le combat reste la simulation normale.
+
+Test : CombatSimulation « tutorial » joue tout le tutoriel dans une vraie simulation jusqu'au bout.
+
+**Prix par perso** (`Economy.TIERS`, `Economy.TIER_OF`) :
+
+| Niveau | Persos | Prix du perso | Prix d'un skin |
+|---|---|---|---|
+| STANDARD | les 8 gratuits | 0 | 1500 |
+| RARE | HIBIKI, KAZAN, SYLVA | 2500 | 2000 |
+| ÉPIQUE | AKEMI, SHIN, YUKINA, KUREN, NOVA | 4000 | 2500 |
+| LÉGENDAIRE | DAICHA, RAIJIN, ASTER, KUROEN | 6000 | 3500 |
+
+- Le niveau s'affiche dans PERSONNAGES et dans la boutique.
+- Les skins GOLD en Robux suivent aussi le niveau : 99 / 149 / 199 R$ (prix affichés seulement, IDs encore à créer).
+
+Tests : Lobby 40 (niveaux cohérents, gratuits = STANDARD, les skins suivent leur perso, textes en français), CombatSimulation 130.
+
 ## Version 0.21.1 — 5 octobre 2026 · CORRECTIFS DE LA CAPTURE MOBILE
 
 Capture de Wilhem sur téléphone (« y'a plein de problèmes ») :

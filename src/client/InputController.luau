@@ -27,6 +27,7 @@ function InputController.start(remote)
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
 	local cinematicTick = nil -- function: the cinematic tick shown on screen (QTE lag compensation)
+	local tutorMode = nil -- TUTORIAL: the dummy's behaviour asked for this step (server-checked)
 	local tauntSlot = 0 -- QUICK TRASH TALK: the wheel slot (1..6) to send with the next packet
 	local lockSuspended = false -- (the taunt wheel needs the cursor a moment)
 	local function has(action)
@@ -250,7 +251,8 @@ function InputController.start(remote)
 				reset = pulses.reset, dummy = pulses.dummy, ultiConditions = pulses.ultiConditions,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
 				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0,
-				cinTick = cinematicTick and cinematicTick() or nil, taunt = if tauntSlot > 0 then tauntSlot else nil })
+				cinTick = cinematicTick and cinematicTick() or nil, taunt = if tauntSlot > 0 then tauntSlot else nil,
+				tutor = tutorMode })
 			tauntSlot = 0
 			table.clear(presses)
 			previousAxis, previousCrouch, previousBlock, keepalive, sinceAxis = axis, crouch, block, 0, 0
@@ -270,6 +272,8 @@ function InputController.start(remote)
 		nextFoeKit = function() pulses.foeKit = true end,
 		setStance = function(rank) pulses["stance" .. rank] = true end, -- TARO: 1 CLASSIQUE, 2 ESQUIVE
 		setCinematicTick = function(source) cinematicTick = source end,
+		-- TUTORIAL: what the training dummy does on this step (Tutorial.DUMMIES; nil = off)
+		setTutor = function(mode) tutorMode = mode end,
 		-- QUICK TRASH TALK: send the taunt of wheel slot `slot` (the server picks the text).
 		taunt = function(slot) tauntSlot = slot end,
 		suspendMouseLock = function(on) lockSuspended = on end,

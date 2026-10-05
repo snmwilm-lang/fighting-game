@@ -39,6 +39,7 @@ local Economy = require(Shared.Economy)
 local Quests = require(Shared.Quests)
 local DevAccess = require(script.DevAccess)
 local Champions = require(script.Champions)
+local Tutorial = require(Shared.Tutorial)
 local StoreConfig = require(Shared.StoreConfig)
 local Store = require(Shared.Store)
 local storeIdx = Store.index(StoreConfig) -- (the SHOP: passes, products, cosmetics by key and id)
@@ -1333,7 +1334,8 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		-- SHOP: a style bought with coins (price and ownership checked here, never by the client).
 		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
 		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
-			local ok, why = CharacterData.buy(client.profile, packet.skin)
+			local item = CharacterData.SHOP[packet.skin]
+			local ok, why = CharacterData.buy(client.profile, packet.skin, item and Economy.skinPrice(item.kit))
 			if ok then
 				saveProfile(player, client, true)
 				menuStatus(player, packet.skin)
@@ -1607,11 +1609,15 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	-- QUICK TRASH TALK: only a slot number of the player's saved wheel (never a text).
 	local taunt = packet.taunt
 	if taunt ~= nil and (not finite(taunt) or taunt % 1 ~= 0 or taunt < 0 or taunt > Taunts.SLOTS) then return suspect(player, "malformed") end
+	-- TUTORIAL: the dummy's behaviour for the step (TRAINING only, a known name or nothing)
+	local tutor = packet.tutor
+	if tutor ~= nil and (typeof(tutor) ~= "string" or not Tutorial.DUMMIES[tutor]) then return suspect(player, "malformed") end
 	client.lastSeq = packet.seq
 	local slot = match.slots[client.slot]
 	if slot.owner ~= player then return end
 	local world = match.world
 	local training = match.mode == "TRAINING"
+	match.tutor = if training and isSolo(match) then tutor else nil
 	if packet.reset and training and now - client.lastReset > 1 then
 		client.lastReset = now
 		resetAll(match)
@@ -1932,6 +1938,9 @@ local function stepMatch(match, dt)
 				inputs[i] = slot.input
 			elseif match.brain then
 				inputs[i] = match.brain:think(world, i)
+			elseif match.tutor then
+				-- (the tutorial's dummy: still, or attacking for the guard steps; inputs only)
+				inputs[i] = Tutorial.dummyInput(match.tutor, world.fighters[i], world.fighters[3 - i], world.tick, Sim.neutralInput())
 			else
 				inputs[i] = Sim.neutralInput()
 				inputs[i].block = match.mode == "TRAINING" and DUMMY_MODES[match.dummyMode].block == true

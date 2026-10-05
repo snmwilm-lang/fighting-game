@@ -315,21 +315,23 @@ test("shop styles: two per fighter, locked until bought with coins, the price ch
 		local style = CharacterData.Skins[name]
 		expect(style and style.Kit == item.kit, name .. " is not its fighter's style")
 		expect(table.find(CharacterData.StyleOrder[item.kit], name) ~= nil, name .. " is missing from " .. item.kit .. "'s styles")
-		expect(item.coins > 0 and style.SkinTone ~= nil, name .. " has no price or no skin tone")
+		expect(style.SkinTone ~= nil, name .. " has no skin tone")
 	end
 	expect(count == 2 * 20, "expected 2 shop styles for each of the 20 fighters, got " .. count)
 	local profile = { coins = 1000, ownedSkins = {} }
 	expect(not CharacterData.canWear("KAI GOLD", profile), "a shop style is worn without being bought")
 	expect(CharacterData.canWear("CLASSIC", profile) and not CharacterData.canWear("AWAKENED", profile), "free / earned styles are wrong")
-	local price = CharacterData.SHOP["KAI GOLD"].coins
-	local ok, why = CharacterData.buy(profile, "KAI GOLD")
+	local price = 1500
+	local ok, why = CharacterData.buy(profile, "KAI GOLD", price)
 	expect(not ok and why == "coins" and profile.coins == 1000, "bought without enough coins")
 	profile.coins = price + 5
-	expect(CharacterData.buy(profile, "KAI GOLD") and profile.coins == 5 and CharacterData.canWear("KAI GOLD", profile), "a purchase failed")
-	ok, why = CharacterData.buy(profile, "KAI GOLD")
+	expect(CharacterData.buy(profile, "KAI GOLD", price) and profile.coins == 5 and CharacterData.canWear("KAI GOLD", profile), "a purchase failed")
+	ok, why = CharacterData.buy(profile, "KAI GOLD", price)
 	expect(not ok and why == "owned" and profile.coins == 5, "a style was paid twice")
-	expect(not CharacterData.buy(profile, "CLASSIC") and not CharacterData.buy(profile, "NOPE"), "a free or unknown style was sold")
-	expect(not CharacterData.buy({ coins = -1 }, "KAI GOLD"), "a debt bought a style")
+	expect(not CharacterData.buy(profile, "CLASSIC", price) and not CharacterData.buy(profile, "NOPE", price), "a free or unknown style was sold")
+	expect(not CharacterData.buy({ coins = -1 }, "KAI GOLD", price), "a debt bought a style")
+	expect(not CharacterData.buy({ coins = 99999 }, "TARO GOLD", nil) and not CharacterData.buy({ coins = 99999 }, "TARO GOLD", 0),
+		"a style was sold without a price")
 	-- (an old profile without the field)
 	expect(not CharacterData.canWear("KAI GOLD", { coins = 0 }), "a profile without ownedSkins wears a shop style")
 end)
@@ -616,7 +618,7 @@ test("economy, styles, quests and titles: every new menu line reads in French", 
 	end
 end)
 
-test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAINING tries them all", function()
+test("economy: PvP 150 / 50, 8 free fighters, priced by tier, kept forever, TRAINING tries them all", function()
 	local Economy = require("../src/shared/Economy")
 	local AC = require("../src/server/AntiCheat")
 	expect(Economy.pvpCoins("win") == 150 and Economy.pvpCoins("loss") == 50 and Economy.pvpCoins("left") == 0, "the PvP rewards are wrong")
@@ -640,10 +642,11 @@ test("economy: PvP 150 / 50, 8 free fighters, 4000 to unlock, kept forever, TRAI
 	end
 	expect(locked == 12, locked .. " fighters locked instead of 12")
 	-- buying: price, no debt, once, a boss or an unknown name never sold
-	local buyer = { coins = 3999 }
+	local akemi = Economy.fighterPrice("AKEMI")
+	local buyer = { coins = akemi - 1 }
 	local ok, why = Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder)
-	expect(not ok and why == "coins" and buyer.coins == 3999, "bought without the coins")
-	buyer.coins = 4100
+	expect(not ok and why == "coins" and buyer.coins == akemi - 1, "bought without the coins")
+	buyer.coins = akemi + 100
 	expect(Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder) and buyer.coins == 100, "the purchase of AKEMI failed")
 	ok, why = Economy.buyFighter(buyer, "AKEMI", MoveData.KitOrder)
 	expect(not ok and why == "owned" and buyer.coins == 100, "AKEMI was paid twice")
@@ -704,23 +707,47 @@ test("developer access: listed ids or the game's owner, never Studio's test play
 		"the access cannot be switched off")
 end)
 
-test("styles: 2500 coins, quest styles not sold, equipped style kept only while it is yours", function()
+test("tiers: every fighter has one, the free ones are STANDARD, striking ones cost more, styles follow their fighter", function()
+	local Economy = require("../src/shared/Economy")
+	local CharacterData = require("../src/shared/CharacterData")
+	local order = { STANDARD = 1, RARE = 2, EPIC = 3, LEGENDARY = 4 }
+	for _, kit in MoveData.KitOrder do
+		local tier = Economy.TIER_OF[kit]
+		expect(tier and Economy.TIERS[tier], kit .. " has no tier")
+		expect((tier == "STANDARD") == Economy.isFree(kit), kit .. ": free and STANDARD disagree")
+	end
+	for a, ta in Economy.TIERS do
+		for b, tb in Economy.TIERS do
+			if order[a] < order[b] then
+				expect(ta.fighter < tb.fighter and ta.skin < tb.skin, a .. " is not cheaper than " .. b)
+			end
+		end
+	end
+	expect(Economy.fighterPrice("KAI") == 0 and Economy.fighterPrice("KUROEN") > Economy.fighterPrice("HIBIKI"), "fighter prices")
+	expect(Economy.skinPrice("KUROEN") > Economy.skinPrice("KAI"), "a legendary fighter's style is not dearer")
+	for name, item in CharacterData.SHOP do
+		expect(Economy.skinPrice(item.kit) == Economy.tierOf(item.kit).skin, name .. " is not priced by its fighter's tier")
+	end
+	local p = { coins = 3500 }
+	expect(CharacterData.buy(p, "KUROEN GOLD", Economy.skinPrice("KUROEN")) or CharacterData.SHOP["KUROEN GOLD"] == nil, "a legendary style")
+end)
+
+test("styles: quest styles not sold, equipped style kept only while it is yours", function()
 	local CharacterData = require("../src/shared/CharacterData")
 	local Quests = require("../src/shared/Quests")
 	for name, item in CharacterData.SHOP do
-		expect(item.coins == 2500, name .. " costs " .. item.coins)
 		expect(item.quest == (Quests.BY_REWARD[name] ~= nil), name .. ": quest mark and quest list disagree")
 	end
 	for _, q in Quests.LIST do
 		expect(CharacterData.SHOP[q.reward] ~= nil and CharacterData.QUEST[q.reward], q.id .. "'s reward " .. q.reward .. " is not a quest style")
 	end
 	local p = { coins = 99999 }
-	local ok, why = CharacterData.buy(p, "KAI INFERNO")
+	local ok, why = CharacterData.buy(p, "KAI INFERNO", 1500)
 	expect(not ok and why == "quest" and p.coins == 99999, "a quest style was sold")
 	-- equip: worn only if it is the fighter's and still yours
 	p.equipped = { KAI = "KAI GOLD" }
 	expect(CharacterData.styleFor("KAI", p, nil, false) == "CLASSIC", "an unbought style is worn")
-	CharacterData.buy(p, "KAI GOLD")
+	CharacterData.buy(p, "KAI GOLD", 1500)
 	expect(CharacterData.styleFor("KAI", p, nil, false) == "KAI GOLD", "the equipped style is not worn")
 	expect(CharacterData.styleFor("KAI", p, "KAI GOLD", false) ~= "KAI GOLD", "both slots wear the same style")
 	p.equipped.TARO = "KAI GOLD"
@@ -1028,6 +1055,28 @@ test("win streak: counted wins in a row, a loss or leaving ends it, a draw or an
 	expect(Economy.streak(p, "loss", true) == 0 and p.bestStreak == 3, "a loss did not end it (or the best was lost)")
 	Economy.streak(p, "win", true)
 	expect(Economy.streak(p, "left", false) == 0, "leaving did not end it")
+end)
+
+test("tutorial and tiers: every line reads in French", function()
+	local Locale = require("../src/shared/Locale")
+	local Tutorial = require("../src/shared/Tutorial")
+	local Economy = require("../src/shared/Economy")
+	local lines = { "WELCOME TO BREAKFRAMEZ", "▶ START THE TUTORIAL", "SKIP", "SKIP ✕", "CLOSE ✕", "TUTORIAL", "TUTORIAL · 3 / 10",
+		"TUTORIAL COMPLETE", "YOU'RE READY! ✓", "TUTORIAL: SETTINGS › TUTORIAL, whenever you want",
+		"New here? A short TUTORIAL shows the controls and how a fight works: move, attack, combos, guard, specials and ultimates.",
+		"About 2 minutes, in TRAINING with KAI. You can skip it at any time, and replay it from SETTINGS.",
+		"Keep training here as long as you like, or ◀ MENU to fight the CPU or other players online.",
+		"🔒 LEGENDARY · 6000 COINS · YOU HAVE 120", "🔒 2500 COINS · EPIC" }
+	for _, step in Tutorial.STEPS do
+		table.insert(lines, step.title)
+		table.insert(lines, step.text)
+		for _, k in step.keys do table.insert(lines, k) end
+	end
+	for _, tier in Economy.TIERS do table.insert(lines, tier.name) end
+	for _, line in lines do
+		local fr = Locale.translate(line, "FR")
+		expect(fr ~= line or Locale.SAME[line], "no French for: " .. line)
+	end
 end)
 
 T.finish()

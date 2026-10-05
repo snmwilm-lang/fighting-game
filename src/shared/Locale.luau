@@ -1193,7 +1193,7 @@ Locale.SAME = {
 	["EZ 😂"] = true, ["BOZO 🤡"] = true, ["TOO SLOW 💀"] = true, ["CRY ABOUT IT 😭"] = true, ["SKILL ISSUE"] = true,
 	["BRO???"] = true, ["YOU GOOD? 💀"] = true, ["RUN IT BACK"] = true, ["NICE TRY"] = true, ["LOL"] = true,
 	["SIT DOWN"] = true, ["WHAT WAS THAT?!"] = true, ["GOD SLAIN 👑"] = true, ["ECLIPSED 🌑"] = true, ["GG, GO NEXT"] = true,
-	["K.O."] = true, ["INFERNO"] = true, ["SAKURA"] = true, ["STYLE"] = true,
+	["K.O."] = true, ["INFERNO"] = true, ["SAKURA"] = true, ["STYLE"] = true, ["BREAKFRAMEZ"] = true,
 	["ASURA"] = true,
 	["KUROEN SHIN"] = true,
 	["CHALLENGE · KUROEN SHIN"] = true,

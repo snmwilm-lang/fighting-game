@@ -17,6 +17,8 @@ v0.18.3 : il restait une bande du décor au-dessus de la barre (la zone des bout
 hors de la zone sûre du menu). Le fond du menu (voile, brume, noir de la barre) est dans un
 ScreenGui à part qui couvre tout l'écran : le noir de la barre monte jusqu'en haut, les boutons
 de Roblox restent posés dessus ; le contenu du menu reste dans la zone sûre.
+v0.18.4 : le logo du menu « K.O. » devient « BREAKFRAMEZ » (sur le trait de pinceau rouge,
+« FIGHTING GAME » dessous) ; les annonces K.O. des combats ne changent pas.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

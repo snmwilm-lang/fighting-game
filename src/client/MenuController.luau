@@ -242,15 +242,16 @@ function MenuController:buildTopBar()
 	local bar = new("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, 78), BackgroundColor3 = Theme.INK,
 		BackgroundTransparency = 0.06, BorderSizePixel = 0 }, self.root)
 	Theme.rule(bar, UDim2.new(0, 28, 1, -1), UDim2.new(1, -56, 0, 1), Theme.LINE, 0.4)
-	local logo = new("Frame", { Position = UDim2.fromOffset(30, 8), Size = UDim2.fromOffset(166, 64), BackgroundTransparency = 1 }, bar)
-	local brush = Theme.rule(logo, UDim2.fromOffset(4, 15), UDim2.fromOffset(113, 34), Theme.RED)
-	brush.Rotation = -9
+	-- The game's name, BREAKFRAMEZ, on a slanted red brush stroke (in the 180 units before the tabs).
+	local logo = new("Frame", { Position = UDim2.fromOffset(26, 8), Size = UDim2.fromOffset(184, 64), BackgroundTransparency = 1 }, bar)
+	local brush = Theme.rule(logo, UDim2.fromOffset(2, 16), UDim2.fromOffset(180, 30), Theme.RED)
+	brush.Rotation = -5
 	Theme.ink(logo, Theme.INK, 0.1)
-	local title = label(logo, { Position = UDim2.fromOffset(6, -6), Size = UDim2.fromOffset(148, 62), Font = DISPLAY,
-		TextSize = 62, Text = "K.O.", TextColor3 = Theme.WHITE, Rotation = -8 })
+	local title = label(logo, { Position = UDim2.fromOffset(0, 6), Size = UDim2.fromOffset(184, 42), Font = DISPLAY,
+		TextScaled = true, Text = "BREAKFRAMEZ", TextColor3 = Theme.WHITE, Rotation = -5, TextXAlignment = Enum.TextXAlignment.Center })
 	stroke(title, 2, INK)
-	label(logo, { Position = UDim2.fromOffset(40, 47), Size = UDim2.fromOffset(138, 14), Font = UI_FONT, TextSize = 10,
-		Text = "FIGHTING GAME", TextColor3 = Theme.WHITE, Rotation = -8 })
+	label(logo, { Position = UDim2.fromOffset(60, 47), Size = UDim2.fromOffset(120, 14), Font = UI_FONT, TextSize = 10,
+		Text = "FIGHTING GAME", TextColor3 = Theme.WHITE, Rotation = -5 })
 	self.tabs = {}
 	local tabs = { { "PLAY", "home" }, { "FIGHTERS", "characters" }, { "RANKING", "ranking" },
 		{ "ACHIEVEMENTS", "achievements" }, { "SETTINGS", "settings" } }

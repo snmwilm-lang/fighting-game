@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.1 — 5 octobre 2026 · DAICHA : ATTAQUES NORMALES (M1 / M2)
+
+D'après la planche « DAICHA ATTAQUES NORMALES » de Wilhem (`OrbFlight.luau`, `EffectsController:flyOrb`) :
+- Au repos, l'orbe reste petite et tout près de sa main (devant la paume, à hauteur de main), avec une légère respiration ; plus d'orbite large autour d'elle.
+- M1 (4 coups) : 1) coup direct, l'orbe file droit avec le poing ; 2) court arc par-dessus ; 3) frappe basse, l'orbe racle le sol (coude, balayette, coup bas) ; 4) dernier impact à bout portant.
+- M2 (coup lourd) : elle ramène l'orbe en arrière, puis avance ; l'orbe grossit pendant la charge ; l'impact est nettement plus gros qu'un coup léger.
+- `OrbFlight.form` reçoit le rôle du coup (léger / lourd) pour la taille.
+
+Tests : Animation 40 (orbe près de la main au repos, coup bas au ras du sol, arc du 2e coup, M2 tiré en arrière et plus gros), CinematicDirector 871, Cinematography 310, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2. Aucune règle de combat, aucun dégât touché : seule la matière (cosmétique) change.
+
+Planches : `luau tests/AnimClip.luau -a DAICHA LLLL 60 2 1.8` (M1) et script « heavy » (M2).
+
 ## Version 0.23.0 — 5 octobre 2026 · DAICHA : LA FORME DE L'OMBRE
 
 Wilhem : « ses animations ne sont pas belles ». Principe donné : « Daicha ne change pas de pouvoir selon l'action ; elle change la FORME de son pouvoir. » En attaque, une sphère ronde et dense ; en défense, la même matière aplatie en disque noir devant elle. Wilhem parle de DAICHA au féminin : textes passés au féminin.

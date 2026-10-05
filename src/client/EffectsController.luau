@@ -266,7 +266,7 @@ function EffectsController:flyOrb(rig, view, now, slot)
 	rig.orbPosition = (rig.orbPosition or target):Lerp(target, 1 - math.exp(-dt * 22))
 	local spin = CFrame.new(rig.orbPosition) * CFrame.Angles(0, now * 2.2, now * 0.7)
 	-- the shape: ball <-> disc (morph 0..1), the ball's radius eased
-	local form = OrbFlight.form(view, move)
+	local form = OrbFlight.form(view, move, id and ROLE_OF[id])
 	local S = OrbFlight.SIZE
 	local disc = form.shape == "disc"
 	rig.orbMorph = (rig.orbMorph or 0) + ((if disc then 1 else 0) - (rig.orbMorph or 0)) * (1 - math.exp(-dt * 18))

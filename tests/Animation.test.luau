@@ -1121,15 +1121,37 @@ end)
 
 test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a sphere, a disc in guard, comes back", function()
 	local OrbFlight = require("../src/shared/OrbFlight")
-	-- Idle: over one period it goes all the way round (in front, behind, both sides), never inside him.
-	local front, back, near, far = false, false, false, false
+	-- Idle (Wilhem's sheet): small, floating just before her hand, never in her body.
 	for i = 0, 40 do
 		local o = OrbFlight.offset({ state = "Idle" }, nil, nil, i / 40 * OrbFlight.ORBIT.period)
-		front, back = front or o.fwd > 1.2, back or o.fwd < -1.2
-		near, far = near or o.side > 1.2, far or o.side < -1.2
-		expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) > 1.4, "the idle orb goes through his body")
+		expect(o.fwd > 0.6 and o.fwd < 1.3 and o.up > 3 and o.up < 3.8, "the idle orb is not by her hand")
+		expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) > 0.9, "the idle orb goes through her body")
 	end
-	expect(front and back and near and far, "the idle orb does not circle him")
+	expect(OrbFlight.form({ state = "Idle" }, nil).radius < 0.4, "the orb is not small at rest")
+	-- Her normals (Wilhem's sheet): the 3rd light blow scrapes the floor, the 2nd follows an
+	-- arc, the heavy one is drawn back first, grows a little, and hits harder.
+	local roles = MoveData.Kits.DAICHA.Roles
+	local function fly(role, frame)
+		local m = MoveData.Moves[roles[role]]
+		return OrbFlight.offset({ state = "Attack", move = roles[role], moveFrame = frame }, m, role, 1), m
+	end
+	local low, lm = fly("Elbow", MoveData.Moves[roles.Elbow].startup + 1)
+	expect(low.up <= 0.9, string.format("the low blow does not scrape the floor (%.2f)", low.up))
+	local _, cm = fly("Cross", 0)
+	local mid = fly("Cross", cm.startup - 2)
+	local hand = OrbFlight.hand(OrbFlight.strike(cm, "Cross"))
+	local hit = OrbFlight.strike(cm, "Cross")
+	expect(mid.up > (hand.up + hit.up) / 2 + 0.5, "the second blow does not arc")
+	local _, sm = fly("Smash", 0)
+	local drawn = fly("Smash", math.floor((sm.startup - 2) * 0.5))
+	expect(drawn.fwd < 0, "the heavy blow does not draw the orb back")
+	local function r(role, m, frame)
+		return OrbFlight.form({ state = "Attack", move = roles[role], moveFrame = frame }, m, role).radius
+	end
+	expect(r("Smash", sm, sm.startup) > r("Smash", sm, 0), "the orb does not grow for the heavy blow")
+	expect(r("Smash", sm, sm.startup + 1) > r("Jab", MoveData.Moves[roles.Jab], MoveData.Moves[roles.Jab].startup + 1),
+		"the heavy impact is not bigger than a light one")
+	local _ = lm
 	-- Every strike: close during the wind-up, at the end of the reach on contact, back on the orbit after.
 	for role, id in MoveData.Kits.DAICHA.Roles do
 		local m = MoveData.Moves[id]

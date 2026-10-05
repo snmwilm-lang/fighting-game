@@ -7,7 +7,7 @@
 	`side` toward the camera), and `form` its shape (a ball of `radius`, or a disc of `radius`
 	and `thickness` facing the opponent). The client draws it there every frame; the pose
 	sheets and storyboards draw it there; the tests check it.
-	  idle, walking, jumping: a sphere circling her at chest height, bobbing;
+	  idle, walking, jumping: a small sphere floating just before her hand, bobbing;
 	  attacking: it leaves its orbit and gathers at her striking hand, compacting (smaller,
 	             denser) during the wind-up; it drives out with the blow to the point of impact,
 	             swelling on contact (the sphere IS the impact); then back to the hand, then
@@ -17,7 +17,9 @@
 ]]
 local OrbFlight = {}
 
-OrbFlight.ORBIT = { radius = 1.9, height = 4.3, period = 2.6, bob = 0.3 }
+-- (Wilhem's sheet: « l'orbe reste petite, proche de sa main ») at rest it floats just before
+-- her hand, bobbing, a small circle.
+OrbFlight.ORBIT = { fwd = 0.95, height = 3.4, side = 0.7, radius = 0.1, period = 2.6, bob = 0.12 }
 local VORTEX = { DragonTornado = true, RisingWind = true }
 local GUARD = { Blocking = true, CrouchBlocking = true, Blockstun = true, CrouchBlockstun = true }
 local HURT = { Hitstun = true, Launched = true, Knockdown = true, KO = true, Crumple = true, GuardBroken = true, GetUp = true }
@@ -34,22 +36,28 @@ end
 -- Her striking hand, where the matter gathers before a blow (toward the camera: never in her body).
 OrbFlight.HAND = { fwd = 0.75, side = 1.05 }
 
--- Its place on the orbit at `time` (lower when he crouches).
+-- Its place at rest at `time`, before her hand (lower when she crouches).
 function OrbFlight.orbit(time, crouching)
 	local o = OrbFlight.ORBIT
 	local angle = time / o.period * math.pi * 2
 	return {
-		fwd = math.cos(angle) * o.radius,
-		up = (if crouching then o.height - 1.3 else o.height) + math.sin(time * 3.1) * o.bob,
-		side = math.sin(angle) * o.radius,
+		fwd = o.fwd + math.cos(angle) * o.radius,
+		up = (if crouching then o.height - 1.2 else o.height) + math.sin(time * 3.1) * o.bob,
+		side = o.side + math.sin(angle) * o.radius,
 	}
 end
 
--- The point a move strikes: the end of its reach, at the middle of its hitbox's height.
-function OrbFlight.strike(move)
+-- Wilhem's sheet, her normals: M1 1 straight from the right hand, 2 a short arc, 3 low, the
+-- orb scraping the floor, 4 close and pushing; M2 (Smash) drawn back first, then driven in.
+local LOW, ARC, HEAVY = { Elbow = true, LowKick = true, Sweep = true }, { Cross = true }, { Smash = true }
+
+-- The point a move strikes: the end of its reach, at the middle of its hitbox's height (the
+-- low strikes: along the floor).
+function OrbFlight.strike(move, role)
 	local box = move and move.hitbox
 	if not box then return { fwd = 1.8, up = 3.4, side = 0.3 } end
-	return { fwd = math.max(1.4, box.far - 0.2), up = math.clamp((box.low + box.high) / 2, 0.8, 5.5), side = 0.3 }
+	local up = if role and LOW[role] then 0.8 else math.clamp((box.low + box.high) / 2, 0.8, 5.5)
+	return { fwd = math.max(1.4, box.far - 0.2), up = up, side = 0.3 }
 end
 
 function OrbFlight.offset(view, move, role, time)
@@ -72,15 +80,29 @@ function OrbFlight.offset(view, move, role, time)
 		local r = 2.7
 		return { fwd = math.cos(angle) * r, up = 3.2 + math.sin(time * 9) * 0.8, side = math.sin(angle) * r }
 	end
-	local hit = OrbFlight.strike(move)
+	local hit = OrbFlight.strike(move, role)
 	local hand = OrbFlight.hand(hit)
+	if role and LOW[role] then hand = { fwd = 0.9, up = 1.2, side = 0.9 } end -- (down by her shin)
 	local out
-	if frame <= startup - 2 then
-		-- The wind-up: out of its orbit into her hand.
-		out = mix(orbit, hand, smooth(math.max(frame, 0) / math.max(1, startup - 2) * 1.6))
+	local lead = if role and ARC[role] then 4 else 2 -- (the arc takes a little longer)
+	if role and HEAVY[role] and frame <= startup - 2 then
+		-- M2: drawn back behind her (a short charge), then brought to her hand as she steps in.
+		local back = { fwd = -0.9, up = 4.2, side = 1.0 }
+		local cut = math.max(1, math.floor((startup - 2) * 0.55))
+		if frame <= cut then
+			out = mix(orbit, back, smooth(math.max(frame, 0) / cut * 1.4))
+		else
+			out = mix(back, hand, smooth((frame - cut) / math.max(1, startup - 2 - cut)))
+		end
+	elseif frame <= startup - lead then
+		-- The wind-up: into her hand.
+		out = mix(orbit, hand, smooth(math.max(frame, 0) / math.max(1, startup - lead) * 1.6))
 	elseif frame <= startup then
-		-- The blow: the sphere drives out with the fist.
-		out = mix(hand, hit, (frame - (startup - 2)) / 2)
+		-- The blow: straight out with the fist; on an arc for the second blow; scraping the
+		-- floor for a low one.
+		local u = (frame - (startup - lead)) / lead
+		out = mix(hand, hit, u)
+		if role and ARC[role] then out.up += math.sin(u * math.pi) * 1.1 end
 	elseif frame <= startup + active then
 		-- (multi-hit moves: a little jolt on every beat)
 		local beat = if move.hitInterval then math.floor((frame - startup - 1) / move.hitInterval) % 2 else 0
@@ -111,19 +133,24 @@ end
 -- The SHAPE of the matter. Attack: a ball compacting during the wind-up, swelling on contact.
 -- Guard: a flat disc facing the opponent. Returns { shape = "ball", radius } or
 -- { shape = "disc", radius, thickness }.
-OrbFlight.SIZE = { rest = 0.45, dense = 0.3, impact = 0.85, disc = 1.8, thickness = 0.16, hurt = 0.35 }
-function OrbFlight.form(view, move)
+OrbFlight.SIZE = { rest = 0.35, dense = 0.26, heavy = 0.55, impact = 0.7, disc = 1.8, thickness = 0.16, hurt = 0.3 }
+function OrbFlight.form(view, move, role)
 	local S = OrbFlight.SIZE
 	local state = view.state
 	if GUARD[state] then return { shape = "disc", radius = S.disc, thickness = S.thickness } end
 	if HURT[state] then return { shape = "ball", radius = S.hurt } end
 	if state ~= "Attack" or not move then return { shape = "ball", radius = S.rest } end
 	local frame, startup, active, recovery = view.moveFrame or 0, move.startup, move.active, move.recovery
+	local heavy = role and HEAVY[role]
 	if frame <= startup then
+		if heavy then -- (M2: it grows a little as she steps in)
+			return { shape = "ball", radius = S.rest + (S.heavy - S.rest) * smooth(frame / math.max(1, startup)) }
+		end
 		return { shape = "ball", radius = S.rest + (S.dense - S.rest) * smooth(frame / math.max(1, startup)) }
 	elseif frame <= startup + active then
 		local since = frame - startup
-		return { shape = "ball", radius = S.impact - (S.impact - S.rest * 1.2) * smooth((since - 2) / math.max(1, active)) }
+		local peak = if heavy then S.impact * 1.3 else S.impact
+		return { shape = "ball", radius = peak - (peak - S.rest * 1.2) * smooth((since - 2) / math.max(1, active)) }
 	end
 	local u = (frame - startup - active) / math.max(1, recovery)
 	return { shape = "ball", radius = S.rest * 1.2 + (S.rest - S.rest * 1.2) * smooth(u) }

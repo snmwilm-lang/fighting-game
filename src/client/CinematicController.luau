@@ -284,7 +284,7 @@ function CinematicController:superFlash(slot, moveId)
 	local energy = Color3.fromHex(data.Energy)
 	local m = MoveData.Moves[moveId or "KaienRush"]
 	self.kanji.Text, self.kanji.TextColor3 = data.Kanji, energy
-	self.charName.Text = data.Name .. " · " .. data.Skin
+	self.charName.Text = data.Name .. " · " .. (data.Title or data.Skin)
 	-- (a boss borrowing another kit's moves names its ultimates itself: ASURA)
 	local theme = Director.THEMES[data.Kit]
 	local cin = MoveData.Cinematics[moveId or "KaienRush"]

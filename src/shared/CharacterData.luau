@@ -26,7 +26,7 @@ local function skin(name, colors)
 	return style("KAI", name, colors)
 end
 
-local Skins = table.freeze({
+local Skins = {
 	CLASSIC = skin("CLASSIC", {
 		Hair = "121216", HairTip = "C8102E",
 		SkinTone = "E3A98A", Eyes = "8E1020",
@@ -237,9 +237,36 @@ local Skins = table.freeze({
 		Shoes = "1E1A16", ShoeAccent = "FF4A1A", Sole = "120E0C",
 		Energy = "FF5A1A", Shield = "FFB21A",
 	}),
-})
+}
 
-local STYLE_ORDER = table.freeze({
+--[[
+	SHOP SKINS (monetization, prepared): two premium skins per playable fighter, from five
+	themes (GOLD, PHANTOM, INFERNO, SAKURA, ABYSS) applied to the fighter's own outfit. Locked
+	until owned (profile.ownedSkins, checked by the server). Price in COINS now; a Robux price
+	needs a developer product id created by Wilhem (SHOP_PRODUCTS, empty: none invented).
+]]
+local THEMES = {
+	GOLD = { Hair = "1A1712", HairTip = "FFD23F", Eyes = "FFD23F", Vest = "14120E", VestTrim = "FFD23F", Shirt = "1E1B16",
+		Sash = "E8B21C", Wraps = "F5E6B0", Pants = "14120E", PantsShade = "0C0A08", Shoes = "1E1B16", ShoeAccent = "FFD23F",
+		Sole = "0C0A08", Energy = "FFD23F", Shield = "FFF1B0" },
+	PHANTOM = { Hair = "F4F6FA", HairTip = "6CF2FF", Eyes = "6CF2FF", Vest = "E9EDF4", VestTrim = "6CF2FF", Shirt = "FFFFFF",
+		Sash = "2A2F3A", Wraps = "C9D3E2", Pants = "E2E7EF", PantsShade = "B8C2D2", Shoes = "2A2F3A", ShoeAccent = "6CF2FF",
+		Sole = "1A1E26", Energy = "6CF2FF", Shield = "FFFFFF" },
+	INFERNO = { Hair = "120808", HairTip = "FF5A1A", Eyes = "FF7A1A", Vest = "1A0C0A", VestTrim = "FF5A1A", Shirt = "2A100C",
+		Sash = "FF3A12", Wraps = "3A1A12", Pants = "160A08", PantsShade = "0C0605", Shoes = "1A0C0A", ShoeAccent = "FF5A1A",
+		Sole = "0C0605", Energy = "FF5A1A", Shield = "FFB21A" },
+	SAKURA = { Hair = "F7C6D8", HairTip = "FFFFFF", Eyes = "E0447A", Vest = "FFFFFF", VestTrim = "F06A9A", Shirt = "FCE8EF",
+		Sash = "F06A9A", Wraps = "FFFFFF", Pants = "F7D6E2", PantsShade = "E8B4C8", Shoes = "FFFFFF", ShoeAccent = "F06A9A",
+		Sole = "E8B4C8", Energy = "FF7AAE", Shield = "FFFFFF" },
+	ABYSS = { Hair = "06121A", HairTip = "1AD6C2", Eyes = "1AD6C2", Vest = "0A1A26", VestTrim = "1AD6C2", Shirt = "10222E",
+		Sash = "0E8C88", Wraps = "1A3A48", Pants = "08141C", PantsShade = "050C12", Shoes = "0A1A26", ShoeAccent = "1AD6C2",
+		Sole = "050C12", Energy = "1AE6D2", Shield = "7AF2FF" },
+}
+local THEME_ORDER = { "GOLD", "PHANTOM", "INFERNO", "SAKURA", "ABYSS" }
+local SHOP_KITS = { "KAI", "TARO", "ZEPHYR", "AKEMI", "RYUKEN", "SHIN", "DAICHA", "HIBECARES", "RAIJIN", "YUKINA", "VENOM",
+	"GORAN", "ASTER", "HIBIKI", "KAZAN", "KUREN", "SYLVA", "ELIAN", "NOVA", "KUROEN" }
+
+local BASE_ORDER = table.freeze({
 	KAI = table.freeze({ "CLASSIC", "NIGHT", "SACRED", "CURSED", "AWAKENED" }), -- (ÉVEILLÉ: won against ASURA)
 	ASURA = table.freeze({ "ASURA" }),
 	TARO = table.freeze({ "BLAZE", "CHAMPION" }),
@@ -264,6 +291,27 @@ local STYLE_ORDER = table.freeze({
 	["KUROEN SHIN"] = table.freeze({ "TRUE EMPEROR" }),
 })
 
+-- The shop skins, generated on each fighter's own first style (its skin tone kept).
+local SHOP = {}
+local STYLE_ORDER = {}
+for kit, order in BASE_ORDER do STYLE_ORDER[kit] = table.clone(order) end
+for i, kit in SHOP_KITS do
+	local base = Skins[BASE_ORDER[kit][1]]
+	for k, offset in { 0, 2 } do
+		local theme = THEME_ORDER[(i + offset - 1) % #THEME_ORDER + 1]
+		local name = kit .. " " .. theme
+		local colors = table.clone(THEMES[theme])
+		colors.SkinTone = base and base.SkinTone or "C98F6E"
+		colors.Title = theme -- (shown after the fighter's name: "KAI GOLD", not "KAI KAI GOLD")
+		Skins[name] = style(kit, name, colors)
+		SHOP[name] = table.freeze({ kit = kit, theme = theme, coins = if k == 1 then 1500 else 2500 })
+		table.insert(STYLE_ORDER[kit], name)
+	end
+end
+for kit, order in STYLE_ORDER do STYLE_ORDER[kit] = table.freeze(order) end
+STYLE_ORDER = table.freeze(STYLE_ORDER)
+Skins = table.freeze(Skins)
+
 local CharacterData = {
 	Skins = Skins,
 	StyleOrder = STYLE_ORDER,
@@ -271,6 +319,36 @@ local CharacterData = {
 	Skins.CLASSIC, -- slot 1
 	Skins.NIGHT, -- slot 2
 }
+
+-- The shop skins: name -> { kit, theme, coins }. A Robux price: SHOP_PRODUCTS[name] = the
+-- developer product id Wilhem creates on Roblox (none invented: empty = coins only).
+CharacterData.SHOP = table.freeze(SHOP)
+CharacterData.SHOP_PRODUCTS = table.freeze({})
+
+-- May this profile wear this style? Achievement styles need their field >= 1, shop skins
+-- must be owned (profile.ownedSkins[name]), the others are free.
+function CharacterData.canWear(name, profile)
+	local lock = CharacterData.LOCKED[name]
+	if lock then return type(profile) == "table" and (tonumber(profile[lock]) or 0) >= 1 end
+	if SHOP[name] then
+		local owned = type(profile) == "table" and profile.ownedSkins
+		return type(owned) == "table" and owned[name] == true
+	end
+	return true
+end
+
+-- Buys a shop skin with coins (the server calls it on the saved profile). Returns true, or
+-- false and why: "unknown", "owned", "coins".
+function CharacterData.buy(profile, name)
+	local item = SHOP[name]
+	if not item or type(profile) ~= "table" then return false, "unknown" end
+	if type(profile.ownedSkins) ~= "table" then profile.ownedSkins = {} end
+	if profile.ownedSkins[name] then return false, "owned" end
+	if (tonumber(profile.coins) or 0) < item.coins then return false, "coins" end
+	profile.coins -= item.coins
+	profile.ownedSkins[name] = true
+	return true
+end
 
 -- Styles to earn (the server checks): the profile field that must be at least 1.
 CharacterData.LOCKED = table.freeze({ ["AWAKENED"] = "asuraGrade", ["DIVINE ECLIPSE"] = "shinGrade" })

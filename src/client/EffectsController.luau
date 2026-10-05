@@ -17,6 +17,7 @@ local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
 local PoseLibrary = require(Shared.PoseLibrary)
 local OrbFlight = require(Shared.OrbFlight)
+local KitFX = require(Shared.KitFX)
 
 local EffectsController = {}
 
@@ -321,30 +322,87 @@ function EffectsController:weaponGuard(slot, rig, view, guarding, color)
 end
 
 -- ===================================================================== every kit's own strikes
--- The combos of the eight fighters never look alike: each kit has its own flourish when a
--- blow goes out (`kitSwing`, on the first contact frame of the move, hit or not) and when it
--- lands (`kitHit`, on the Hit event): ki for KAI, fire round TARO's gloves, wind for ZEPHYR,
--- shadow cuts for AKEMI, cracks of rage for RYUKEN, the blade for SHIN, the orb for DAICHA,
--- stone for HIBECARES.
+-- No two fighters' blows look alike: each speaks its own element (src/shared/KitFX.luau),
+-- when a blow goes out (`kitSwing`, the first contact frame of the move, hit or not), when it
+-- lands (`kitHit`, the Hit event), on the dash (`kitDash`) and in the motes always floating
+-- round the body (`ambient`). The shapes and the element's accent tell the fighter; the
+-- style's ki colour paints the rest (a shop style recolours its effects).
 local FIRE, EMBER = Color3.fromHex("FF7A1A"), Color3.fromHex("FFD45A")
 local STONE = Color3.fromHex("7A6D62")
+local GOLD = Color3.fromHex("FFD23F")
+local FACE = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder facing the camera (a ring seen face on)
+local FLAT = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lying on the floor
+
+-- A ring growing from `from` to `to` studs wide in `life` s (face on, or `flat` on the floor).
+function EffectsController:ring(position, color, from, to, life, flat, thickness, material)
+	local ring = self:part(Vector3.new(thickness or 0.08, from, from), CFrame.new(position) * (if flat then FLAT else FACE), color,
+		Enum.PartType.Cylinder)
+	if material then ring.Material = material end
+	ring.Transparency = 0.1
+	tween(ring, life, { Size = Vector3.new(0.03, to, to), Transparency = 1 })
+	Debris:AddItem(ring, life + 0.05)
+	return ring
+end
+
+-- Small falling pieces (client physics only): drops of poison or blood, embers, leaves.
+function EffectsController:drops(position, color, count, scale, spread, long)
+	for i = 1, if self.reduced then math.ceil(count / 2) else count do
+		local size = (0.12 + math.random() * 0.14) * scale
+		local drop = self:part(Vector3.new(size, size * (long or 1), size), CFrame.new(position
+			+ Vector3.new((math.random() - 0.5) * 0.6, (math.random() - 0.5) * 0.6, 0.3)), color, if long then nil else Enum.PartType.Ball)
+		drop.Anchored = false
+		drop.AssemblyLinearVelocity = Vector3.new((math.random() - 0.5) * (spread or 14), 6 + math.random() * 8, (math.random() - 0.5) * 5)
+		if long then drop.AssemblyAngularVelocity = Vector3.new(math.random() * 8, math.random() * 8, math.random() * 8) end
+		tween(drop, 0.7 + i * 0.03, { Transparency = 1 })
+		Debris:AddItem(drop, 0.8 + i * 0.03)
+	end
+end
+
+-- Thin long pieces thrown out of `position` like a star (ice shards, steel splinters, rays).
+function EffectsController:shards(position, color, count, scale, material, life)
+	local n = if self.reduced then math.ceil(count / 2) else count
+	for i = 1, n do
+		local angle = i / n * math.pi * 2 + math.random() * 0.5
+		local dir = Vector3.new(math.cos(angle), math.sin(angle), 0)
+		local length = (0.9 + math.random() * 0.8) * scale
+		local look = CFrame.lookAt(position, position + dir, Vector3.zAxis)
+		local shard = self:part(Vector3.new(0.14 * scale, 0.14 * scale, length), look * CFrame.new(0, 0, -length / 2 - 0.2), color)
+		if material then
+			shard.Material = material
+			if material == Enum.Material.Ice then shard.Transparency, shard.Reflectance = 0.1, 0.25 end
+		end
+		tween(shard, life or 0.3, { CFrame = look * CFrame.new(0, 0, -length / 2 - 1.6 * scale), Size = Vector3.new(0.03, 0.03, length * 0.6),
+			Transparency = 1 })
+		Debris:AddItem(shard, (life or 0.3) + 0.05)
+	end
+end
+
+-- Square pixels jumping out (NOVA's machines).
+function EffectsController:pixels(position, color, accent, count, scale)
+	for i = 1, if self.reduced then math.ceil(count / 2) else count do
+		local size = (0.22 + math.random() * 0.2) * scale
+		local cube = self:part(Vector3.one * size, CFrame.new(position), if i % 2 == 0 then accent else color)
+		local away = Vector3.new((math.random() - 0.5) * 3, (math.random() - 0.5) * 2.4, 0.4) * scale
+		-- (they jump in two hard steps, like a screen glitch, then vanish)
+		task.delay(0.04, function() if cube.Parent then cube.Position = position + away * 0.5 end end)
+		task.delay(0.09, function() if cube.Parent then cube.Position = position + away end end)
+		tween(cube, 0.24, { Transparency = 1 }, Enum.EasingStyle.Linear)
+		Debris:AddItem(cube, 0.26)
+	end
+end
 
 -- A ki flash: a white core in a ring of the fighter's colour.
 function EffectsController:kiPop(position, color, scale)
 	local core = self:part(Vector3.one * 0.5 * scale, CFrame.new(position), WHITE, Enum.PartType.Ball)
 	tween(core, 0.14, { Size = Vector3.one * 1.8 * scale, Transparency = 1 })
 	Debris:AddItem(core, 0.18)
-	local ring = self:part(Vector3.new(0.06, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
-	tween(ring, 0.2, { Size = Vector3.new(0.06, 3.4, 3.4) * scale, Transparency = 1 })
-	Debris:AddItem(ring, 0.24)
+	self:ring(position, color, 1 * scale, 3.4 * scale, 0.2, false, 0.06 * scale)
 end
 
 -- TARO's glove: a ring of fire round the fist and embers thrown off it.
 function EffectsController:fireRing(position, scale)
-	local ring = self:part(Vector3.new(0.18, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), FIRE, Enum.PartType.Cylinder)
+	local ring = self:ring(position, FIRE, 1 * scale, 3.2 * scale, 0.22, false, 0.18 * scale)
 	ring.Transparency = 0.05
-	tween(ring, 0.22, { Size = Vector3.new(0.05, 3.2, 3.2) * scale, Transparency = 1 })
-	Debris:AddItem(ring, 0.26)
 	local core = self:part(Vector3.one * 0.7 * scale, CFrame.new(position), EMBER, Enum.PartType.Ball)
 	tween(core, 0.16, { Size = Vector3.one * 1.6 * scale, Transparency = 1 })
 	Debris:AddItem(core, 0.2)
@@ -358,10 +416,7 @@ end
 
 -- ZEPHYR's wind: a fast ring of air and two thin gusts.
 function EffectsController:airBurst(position, facing, scale)
-	local ring = self:part(Vector3.new(0.05, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), WHITE, Enum.PartType.Cylinder)
-	ring.Material, ring.Transparency = Enum.Material.ForceField, 0
-	tween(ring, 0.18, { Size = Vector3.new(0.05, 4.2, 4.2) * scale, Transparency = 1 })
-	Debris:AddItem(ring, 0.22)
+	self:ring(position, WHITE, 1 * scale, 4.2 * scale, 0.18, false, 0.05, Enum.Material.ForceField)
 	for i = -1, 1, 2 do
 		local start = position + Vector3.new(-facing * 0.6, i * 0.5 * scale, 0.3)
 		local gust = self:part(Vector3.new(2.2 * scale, 0.06, 0.06), CFrame.new(start + Vector3.new(facing * 1.1 * scale, 0, 0)), WHITE)
@@ -378,77 +433,461 @@ function EffectsController:rageCrack(position, color, scale)
 		local reach = (1.2 + math.random() * 1.2) * scale
 		self:lightning(position, position + Vector3.new(math.cos(angle) * reach, math.sin(angle) * reach, 0.4), color)
 	end
-	local ring = self:part(Vector3.new(0.1, 1, 1) * scale, CFrame.new(position) * CFrame.Angles(0, math.pi / 2, 0), color, Enum.PartType.Cylinder)
-	tween(ring, 0.18, { Size = Vector3.new(0.05, 3.8, 3.8) * scale, Transparency = 1 })
-	Debris:AddItem(ring, 0.22)
+	self:ring(position, color, 1 * scale, 3.8 * scale, 0.18, false, 0.1)
+end
+
+-- The flourish of a blow going out, by verb (KitFX.SWINGS). Each gets: the view of the
+-- attacker, `at` (where the blow reaches), the ki colour, the element's accent, heavy, the
+-- facing, the fighting plane's z and whether it is a kick.
+local SWINGS = {}
+function SWINGS.kiStreak(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 1.4, 0, 0), at + Vector3.new(f * 0.4, 0, 0), color)
+	if heavy then self:kiPop(at, color, 0.8) end
+end
+function SWINGS.fireStreak(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 1.8, 0, 0), at + Vector3.new(f * 0.6, 0, 0), FIRE)
+	if heavy then self:fireRing(at, 1.3) end
+end
+function SWINGS.windCrescent(self, view, at, color, accent, heavy, f, z, kick)
+	self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), if heavy then 3.6 else 3, if kick then -70 else -40, if kick then 80 else 40, WHITE, 0.3, f)
+end
+function SWINGS.shadowSlash(self, view, at, color, accent, heavy, f, z)
+	self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), 2.6, 70, -50, color, 0.5, f)
+	if heavy then self:cut(at + Vector3.new(-f, 1, 0), at + Vector3.new(f, -1, 0), color) end
+end
+function SWINGS.heatStreaks(self, view, at, color, accent, heavy, f, z)
+	for i = -1, 1 do
+		local y = at.Y + i * 0.35
+		self:cut(Vector3.new(at.X - f * 2.4, y, z), Vector3.new(at.X, y, z), color)
+	end
+	if heavy then
+		self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4.5, 0.05, z + 0.5), color)
+		self:smoke(at)
+	end
+end
+function SWINGS.stoneWeight(self, view, at, color, accent, heavy, f, z)
+	self:dust(view.x, 0, f)
+	if heavy then
+		self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4, 0.05, z - 0.5), color)
+		self:debris(Vector3.new(view.x + f * 2.5, 0.3, z), color, 0.8)
+		self.camera:shake(if self.reduced then 0.15 else 0.4, 0.2)
+	end
+end
+-- RAIJIN: the spear's thrust is a bolt running down its whole length; heavy, a strike from the sky.
+function SWINGS.spearBolt(self, view, at, color, accent, heavy, f, z)
+	local from, to = at - Vector3.new(f * 1.2, 0, 0), at + Vector3.new(f * 3.4, 0, 0)
+	self:cut(from, to, accent)
+	self:lightning(from, to, color)
+	if heavy then
+		local ground = Vector3.new(to.X, 0.1, z)
+		self:lightning(ground + Vector3.new(f * 1.5, 11, 0), ground, accent)
+		self:ring(ground, color, 1, 6, 0.3, true, 0.1)
+	end
+end
+-- YUKINA: the two fans, two arcs of frost crossing; heavy, a line of frost along the floor.
+function SWINGS.fanArcs(self, view, at, color, accent, heavy, f, z)
+	local center = Vector3.new(view.x + f * 0.5, at.Y, z)
+	self:arc(center, 2.7, 110, -30, accent, 0.4, f)
+	self:arc(center + Vector3.new(0, -0.3, 0), 2.4, -60, 70, color, -0.4, f)
+	self:shards(at, accent, 4, 0.5, Enum.Material.Ice, 0.25)
+	if heavy then
+		self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 5, 0.05, z + 0.3), accent)
+		self:debris(Vector3.new(view.x + f * 3, 0.3, z), color, 0.6, "ice")
+	end
+end
+-- VENOM: three thin fang swipes dripping poison; heavy, a spit of venom ahead.
+function SWINGS.fangSwipe(self, view, at, color, accent, heavy, f, z)
+	for i, r in { 2.3, 2.65, 3.0 } do
+		self:arc(Vector3.new(view.x + f * 0.5, at.Y + (i - 2) * 0.2, z), r, 80, -40, if i == 2 then accent else color, 0.3, f)
+	end
+	self:drops(at, accent, 3, 1, 8)
+	if heavy then
+		self:orbDart(at, at + Vector3.new(f * 4, -0.6, 0), accent)
+		task.delay(0.1, function() self:drops(at + Vector3.new(f * 4, -0.6, 0), accent, 6, 1.2, 14) end)
+	end
+end
+-- GORAN: no light show, weight: the floor rings under every blow; heavy, it quakes.
+function SWINGS.titanStomp(self, view, at, color, accent, heavy, f, z)
+	self:ring(Vector3.new(view.x + f * 0.8, 0.08, z), accent, 1.5, if heavy then 9 else 5, 0.35, true, 0.12,
+		Enum.Material.SmoothPlastic)
+	self:dust(view.x + f, 0, f)
+	if heavy then
+		self:dust(view.x + f, 0, -f)
+		self:debris(Vector3.new(view.x + f * 2, 0.3, z), color, 0.7)
+		self.camera:shake(if self.reduced then 0.2 else 0.5, 0.22)
+	end
+end
+-- ASTER: rings of gravity close in on the fist; heavy, a small dark mass at its heart.
+function SWINGS.gravityRings(self, view, at, color, accent, heavy, f, z)
+	for i = 1, if heavy then 3 else 2 do
+		task.delay((i - 1) * 0.04, function()
+			local ring = self:part(Vector3.new(0.06, 3.2, 3.2), CFrame.new(at) * FACE * CFrame.Angles(i * 0.7, 0, 0), if i % 2 == 0 then accent else color,
+				Enum.PartType.Cylinder)
+			ring.Material = Enum.Material.ForceField
+			tween(ring, 0.2, { Size = Vector3.new(0.06, 0.4, 0.4), Transparency = 1 }, Enum.EasingStyle.Quart)
+			Debris:AddItem(ring, 0.25)
+		end)
+	end
+	if heavy then
+		local mass = self:part(Vector3.one * 0.3, CFrame.new(at), VOID, Enum.PartType.Ball)
+		mass.Material = Enum.Material.SmoothPlastic
+		tween(mass, 0.25, { Size = Vector3.one * 1.4, Transparency = 1 })
+		Debris:AddItem(mass, 0.3)
+	end
+end
+-- HIBIKI: sound ripples running ahead of the blow, one after another.
+function SWINGS.soundRipples(self, view, at, color, accent, heavy, f, z)
+	for i = 1, if heavy then 4 else 2 do
+		task.delay((i - 1) * 0.045, function()
+			self:arc(Vector3.new(at.X - f * 1.2 + f * i * 0.7, at.Y, z), 0.9 + i * 0.35, -55, 55, if i % 2 == 0 then accent else color, 0, f)
+		end)
+	end
+end
+-- KAZAN: three claw arcs side by side, steel sparks; heavy, the chain lashes out.
+function SWINGS.tripleClaw(self, view, at, color, accent, heavy, f, z)
+	for i = -1, 1 do
+		self:arc(Vector3.new(view.x + f * 0.5, at.Y + i * 0.38, z), 2.7, 75, -45, if i == 0 then accent else color, 0.25, f)
+	end
+	self:shards(at, Color3.fromHex("FFB04A"), 3, 0.35)
+	if heavy then
+		local from, to = Vector3.new(view.x + f * 0.6, at.Y, z), at + Vector3.new(f * 3.5, 0, 0)
+		for i = 0, 6 do
+			local p = from:Lerp(to, i / 7)
+			local link = self:part(Vector3.new(0.12, 0.3, 0.55), CFrame.lookAt(p, to) * CFrame.Angles(0, 0, if i % 2 == 0 then 0 else math.pi / 2), accent)
+			link.Material = Enum.Material.Metal
+			tween(link, 0.3, { Transparency = 1 })
+			Debris:AddItem(link, 0.35)
+		end
+	end
+end
+-- KUREN: a thick crimson crescent shedding drops; heavy, the blood lance.
+function SWINGS.bloodCrescent(self, view, at, color, accent, heavy, f, z)
+	local center = Vector3.new(view.x + f * 0.6, at.Y, z)
+	self:arc(center, 3, 100, -60, accent, 0.2, f)
+	self:arc(center, 2.6, 100, -60, color, 0.2, f)
+	self:drops(at, accent, 3, 0.9, 8)
+	if heavy then self:cut(at - Vector3.new(f, 0, 0), at + Vector3.new(f * 5, 0, 0), accent) end
+end
+-- SYLVA: a vine whips in a wave, leaves flying; heavy, thorns out of the floor.
+function SWINGS.vineWhip(self, view, at, color, accent, heavy, f, z)
+	local prev = Vector3.new(view.x + f * 0.4, at.Y - 0.4, z)
+	for i = 1, 6 do
+		local p = Vector3.new(view.x + f * (0.4 + i * 0.6), at.Y + math.sin(i * 1.3) * 0.5, z)
+		local seg = self:part(Vector3.new(0.16, 0.16, (p - prev).Magnitude + 0.1), CFrame.lookAt((p + prev) / 2, p), if i % 2 == 0 then accent else color)
+		seg.Material = Enum.Material.Neon
+		task.delay(i * 0.012, function() if seg.Parent then tween(seg, 0.25, { Transparency = 1, Size = seg.Size * Vector3.new(0.3, 0.3, 1) }) end end)
+		Debris:AddItem(seg, 0.35)
+		prev = p
+	end
+	self:drops(at, accent, 3, 1.2, 10, 0.35)
+	if heavy then self:debris(Vector3.new(view.x + f * 2.6, 0.3, z), accent, 0.7, "thorn") end
+end
+-- ELIAN: a warm light from the palm; heavy, a column of light.
+function SWINGS.lightPalm(self, view, at, color, accent, heavy, f, z)
+	local glow = self:part(Vector3.one * 0.6, CFrame.new(at), accent, Enum.PartType.Ball)
+	glow.Transparency = 0.2
+	tween(glow, 0.22, { Size = Vector3.one * 2.2, Transparency = 1 })
+	Debris:AddItem(glow, 0.25)
+	self:ring(at, color, 0.6, 2.6, 0.22, false, 0.05)
+	if heavy then
+		local column = self:part(Vector3.new(10, 1.2, 1.2), CFrame.new(at.X + f, 5, z) * FLAT, accent, Enum.PartType.Cylinder)
+		column.Transparency = 0.3
+		tween(column, 0.4, { Size = Vector3.new(14, 0.1, 0.1), Transparency = 1 })
+		Debris:AddItem(column, 0.45)
+	end
+end
+-- NOVA: the gauntlet's piston: a hard straight blow and steam out of the elbow.
+function SWINGS.pistonPunch(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 1.2, 0, 0), at + Vector3.new(f * 0.8, 0, 0), color)
+	for i = 1, if heavy then 4 else 2 do
+		local puff = self:part(Vector3.one * 0.3, CFrame.new(at - Vector3.new(f * 2, 0, 0)), WHITE)
+		puff.Material, puff.Transparency = Enum.Material.SmoothPlastic, 0.3
+		tween(puff, 0.3, { Position = puff.Position + Vector3.new(-f * (1 + i * 0.4), (math.random() - 0.3) * 1, 0), Size = Vector3.one * 0.8, Transparency = 1 })
+		Debris:AddItem(puff, 0.35)
+	end
+	if heavy then
+		self:cut(at - Vector3.new(f * 4, 0, 0), at - Vector3.new(f * 2, 0, 0), FIRE) -- (the thruster)
+		self:pixels(at, color, accent, 4, 0.8)
+	end
+end
+-- KUROEN: red ki round a black core; heavy, a small black sun on the fist.
+function SWINGS.eclipseStreak(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 1.8, 0, 0), at + Vector3.new(f * 0.5, 0, 0), color)
+	local core = self:part(Vector3.new(0.18, 0.18, 2), CFrame.lookAt(at - Vector3.new(f * 0.7, 0, 0), at), accent)
+	core.Material = Enum.Material.SmoothPlastic
+	tween(core, 0.2, { Transparency = 1 })
+	Debris:AddItem(core, 0.25)
+	if heavy then self:eclipse(at, color, 0.18, 0.3) end
+end
+-- ASURA: four arms, two blows at once: two golden streaks.
+function SWINGS.fourArms(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 1.6, -0.4, 0), at + Vector3.new(f * 0.4, 0.4, 0), accent)
+	self:cut(at - Vector3.new(f * 1.6, 0.5, 0), at + Vector3.new(f * 0.4, -0.5, 0), color)
+	if heavy then self:kiPop(at, accent, 1.1) end
+end
+-- KUROEN SHIN: the eclipse turned to light: white and gold.
+function SWINGS.divineStreak(self, view, at, color, accent, heavy, f, z)
+	self:cut(at - Vector3.new(f * 2, 0, 0), at + Vector3.new(f * 0.6, 0, 0), accent)
+	self:cut(at - Vector3.new(f * 1.4, 0.3, 0), at + Vector3.new(f * 0.3, 0.3, 0), GOLD)
+	if heavy then self:ring(at, GOLD, 1, 4.2, 0.25, false, 0.08) end
+end
+SWINGS.weapon = SWINGS.kiStreak -- (SHIN, DAICHA: their weapon draws it, weaponStrike)
+
+-- The mark of a blow that lands, by verb (KitFX.HITS).
+local HITS = {}
+function HITS.kiPop(self, p, color, accent, s) self:kiPop(p, color, s) end
+function HITS.fireRing(self, p, color, accent, s) self:fireRing(p, s) end
+function HITS.airBurst(self, p, color, accent, s, facing) self:airBurst(p, facing, s) end
+function HITS.shadowCross(self, p, color, accent, s)
+	self:cut(p + Vector3.new(-1.1, 0.9, 0.3) * s, p + Vector3.new(1.1, -0.9, 0.3) * s, color)
+	self:cut(p + Vector3.new(-1.1, -0.9, 0.3) * s, p + Vector3.new(1.1, 0.9, 0.3) * s, color)
+end
+function HITS.rageCrack(self, p, color, accent, s) self:rageCrack(p, color, s) end
+function HITS.rubble(self, p, color, accent, s, facing)
+	self:debris(p, STONE, 0.5 * s)
+	self:dust(p.X, 0, facing)
+end
+function HITS.bladeLine(self, p, color, accent, s, facing)
+	self:cut(p + Vector3.new(-facing * 1.3, 0.6, 0.3), p + Vector3.new(facing * 1.3, -0.6, 0.3), color)
+end
+function HITS.orbBurst(self, p, color, accent, s) self:orbBurst(p, color, 0.7 * s) end
+function HITS.thunderStrike(self, p, color, accent, s)
+	self:lightning(p + Vector3.new((math.random() - 0.5) * 2, 6 * s, 0), p, accent)
+	self:shards(p, accent, 5, 0.6 * s, nil, 0.15)
+end
+function HITS.iceShards(self, p, color, accent, s)
+	self:shards(p, accent, 7, 0.8 * s, Enum.Material.Ice, 0.35)
+	self:ring(p, color, 0.8, 3 * s, 0.25, false, 0.06, Enum.Material.ForceField)
+end
+function HITS.toxicSplash(self, p, color, accent, s)
+	self:ring(p, accent, 0.6, 2.8 * s, 0.22, false, 0.12)
+	self:drops(p, accent, 6, s, 12)
+	local bubble = self:part(Vector3.one * 0.7 * s, CFrame.new(p + Vector3.new(0, 0, 0.4)), color, Enum.PartType.Ball)
+	bubble.Material, bubble.Transparency = Enum.Material.Glass, 0.4
+	tween(bubble, 0.25, { Size = Vector3.one * 1.8 * s, Transparency = 1 })
+	Debris:AddItem(bubble, 0.3)
+end
+function HITS.quake(self, p, color, accent, s, facing)
+	self:ring(Vector3.new(p.X, 0.08, p.Z), accent, 1, 6 * s, 0.4, true, 0.15, Enum.Material.SmoothPlastic)
+	self:debris(Vector3.new(p.X, 0.3, p.Z), color, 0.5 * s)
+	self:dust(p.X, 0, facing)
+	self.camera:shake((if self.reduced then 0.1 else 0.25) * s, 0.15)
+end
+function HITS.implode(self, p, color, accent, s)
+	local ring = self:part(Vector3.new(0.08, 4.5 * s, 4.5 * s), CFrame.new(p) * FACE, accent, Enum.PartType.Cylinder)
+	ring.Material = Enum.Material.ForceField
+	tween(ring, 0.16, { Size = Vector3.new(0.08, 0.3, 0.3) }, Enum.EasingStyle.Quart)
+	Debris:AddItem(ring, 0.17)
+	task.delay(0.15, function() self:kiPop(p, color, 0.9 * s) end)
+end
+function HITS.soundBurst(self, p, color, accent, s)
+	for i = 0, 2 do
+		task.delay(i * 0.05, function() self:ring(p, if i == 1 then accent else color, 0.8, (2.4 + i * 1.2) * s, 0.22, false, 0.05) end)
+	end
+end
+function HITS.clawMarks(self, p, color, accent, s, facing)
+	for i = -1, 1 do
+		local o = Vector3.new(0, i * 0.4, 0.3) * s
+		self:cut(p + o + Vector3.new(-facing * 1.1, 0.7, 0) * s, p + o + Vector3.new(facing * 1.1, -0.7, 0) * s, if i == 0 then accent else color)
+	end
+	self:shards(p, Color3.fromHex("FFB04A"), 4, 0.4 * s, nil, 0.18)
+end
+function HITS.bloodBloom(self, p, color, accent, s)
+	local core = self:part(Vector3.one * 0.6 * s, CFrame.new(p), accent, Enum.PartType.Ball)
+	core.Material = Enum.Material.SmoothPlastic
+	tween(core, 0.2, { Size = Vector3.one * 2 * s, Transparency = 1 })
+	Debris:AddItem(core, 0.25)
+	self:drops(p, accent, 6, s, 12)
+	self:ring(p, color, 0.6, 2.6 * s, 0.2, false, 0.06)
+end
+function HITS.leafBurst(self, p, color, accent, s)
+	self:drops(p, accent, 7, 1.4 * s, 16, 0.3)
+	self:ring(p, color, 0.6, 2.8 * s, 0.22, false, 0.05)
+end
+function HITS.halo(self, p, color, accent, s)
+	local halo = self:ring(p + Vector3.new(0, 1.2, 0), accent, 1.6 * s, 2.2 * s, 0.4, true, 0.12)
+	tween(halo, 0.4, { Position = halo.Position + Vector3.new(0, 1.2, 0), Transparency = 1 })
+	self:kiPop(p, accent, 0.8 * s)
+	self:shards(p, WHITE, 4, 0.7 * s, nil, 0.2)
+end
+function HITS.glitch(self, p, color, accent, s)
+	self:pixels(p, color, accent, 6, s)
+	local scan = self:part(Vector3.new(0.05, 2.6 * s, 0.05), CFrame.new(p + Vector3.new(-1, 0, 0.4)), accent)
+	tween(scan, 0.14, { Position = p + Vector3.new(1, 0, 0.4), Transparency = 1 }, Enum.EasingStyle.Linear)
+	Debris:AddItem(scan, 0.16)
+end
+function HITS.eclipseBurst(self, p, color, accent, s)
+	local sun = self:part(Vector3.one * 0.5 * s, CFrame.new(p + Vector3.new(0, 0, 0.3)), Color3.fromHex("07040C"), Enum.PartType.Ball)
+	sun.Material = Enum.Material.SmoothPlastic
+	tween(sun, 0.18, { Size = Vector3.one * 1.6 * s, Transparency = 1 })
+	Debris:AddItem(sun, 0.22)
+	self:ring(p, color, 1.2, 3.6 * s, 0.22, false, 0.1)
+end
+function HITS.goldenFists(self, p, color, accent, s)
+	self:kiPop(p + Vector3.new(0, 0.5, 0), accent, s)
+	self:kiPop(p - Vector3.new(0, 0.5, 0), color, 0.8 * s)
+end
+function HITS.divineBurst(self, p, color, accent, s)
+	self:kiPop(p, WHITE, 1.2 * s)
+	self:ring(p, GOLD, 1, 4 * s, 0.25, false, 0.08)
+	self:shards(p, GOLD, 6, 0.8 * s, nil, 0.22)
+end
+
+-- The dash, by verb (KitFX.DASHES): what the fighter leaves behind them as they go.
+local DASHES = {}
+local function feet(view, z) return Vector3.new(view.x, 0.2, z) end
+function DASHES.dust(self, view) self:dust(view.x, view.y, view.facing) end
+function DASHES.embers(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:drops(feet(view, z) + Vector3.new(0, 0.6, 0), FIRE, 4, 0.8, 6)
+end
+function DASHES.gust(self, view, color, accent, z)
+	for i = -1, 1 do
+		local start = Vector3.new(view.x, view.y + 2.5 + i * 0.9, z + 0.4)
+		local gust = self:part(Vector3.new(2.4, 0.05, 0.05), CFrame.new(start), WHITE)
+		gust.Transparency = 0.3
+		tween(gust, 0.2, { Position = start - Vector3.new(view.facing * 2.5, 0, 0), Transparency = 1 })
+		Debris:AddItem(gust, 0.22)
+	end
+end
+function DASHES.shade(self, view) end -- (AKEMI: the afterimages are her dash)
+function DASHES.scorch(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:smoke(feet(view, z))
+end
+function DASHES.tremor(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:dust(view.x, view.y, -view.facing)
+end
+function DASHES.sparks(self, view, color, accent, z)
+	self:lightning(feet(view, z) + Vector3.new(-view.facing * 2.5, 0.2, 0), feet(view, z), accent)
+end
+function DASHES.frost(self, view, color, accent, z)
+	self:crack(feet(view, z) - Vector3.new(view.facing * 3, 0.15, 0), feet(view, z) - Vector3.new(0, 0.15, 0), accent)
+end
+function DASHES.venomTrail(self, view, color, accent, z)
+	self:drops(feet(view, z) + Vector3.new(0, 0.8, 0), accent, 3, 0.8, 4)
+end
+function DASHES.stomp(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:ring(feet(view, z) - Vector3.new(0, 0.1, 0), accent, 1, 4, 0.3, true, 0.1, Enum.Material.SmoothPlastic)
+end
+function DASHES.float(self, view, color, accent, z)
+	self:ring(Vector3.new(view.x, view.y + 0.1, z), accent, 0.8, 3, 0.3, true, 0.05, Enum.Material.ForceField)
+end
+function DASHES.beat(self, view, color, accent, z)
+	self:ring(Vector3.new(view.x, view.y + 0.1, z), color, 0.6, 3.4, 0.2, true, 0.05)
+	task.delay(0.1, function() self:ring(Vector3.new(view.x, view.y + 0.1, z), accent, 0.6, 2.6, 0.2, true, 0.05) end)
+end
+function DASHES.chain(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:shards(feet(view, z) + Vector3.new(0, 0.3, 0), Color3.fromHex("FFB04A"), 3, 0.3, nil, 0.15)
+end
+function DASHES.mist(self, view, color, accent, z)
+	for _ = 1, if self.reduced then 2 else 4 do
+		local puff = self:part(Vector3.one * 0.6, CFrame.new(view.x + (math.random() - 0.5), view.y + 1 + math.random() * 2.5, z), accent, Enum.PartType.Ball)
+		puff.Material, puff.Transparency = Enum.Material.SmoothPlastic, 0.45
+		tween(puff, 0.5, { Size = Vector3.one * 1.6, Transparency = 1 })
+		Debris:AddItem(puff, 0.55)
+	end
+end
+function DASHES.petals(self, view, color, accent, z)
+	self:drops(Vector3.new(view.x, view.y + 1.5, z), accent, 4, 1.2, 6, 0.3)
+end
+function DASHES.glow(self, view, color, accent, z)
+	self:drops(Vector3.new(view.x, view.y + 2, z), accent, 3, 0.7, 4)
+end
+function DASHES.thrusters(self, view, color, accent, z)
+	for i = -1, 1, 2 do
+		local from = Vector3.new(view.x - view.facing * 0.4, view.y + 2.6 + i * 0.3, z - 0.3)
+		self:cut(from, from - Vector3.new(view.facing * 2.2, 0.4, 0), FIRE)
+	end
+end
+function DASHES.redShade(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+end
+function DASHES.ripple(self, view, color, accent, z)
+	self:wake(feet(view, z) - Vector3.new(view.facing * 3, 0.15, 0), feet(view, z) - Vector3.new(0, 0.15, 0), color, 0.6)
+end
+function DASHES.warp(self, view, color, accent, z)
+	self:ring(Vector3.new(view.x, view.y + 0.1, z), color, 2.6, 0.4, 0.2, true, 0.06, Enum.Material.ForceField)
+end
+function DASHES.goldShade(self, view, color, accent, z)
+	self:dust(view.x, view.y, view.facing)
+	self:ring(Vector3.new(view.x, view.y + 0.1, z), GOLD, 1, 4, 0.25, true, 0.06)
+end
+
+-- Every verb of KitFX has its drawing (a missing one would silently fall back to KAI's).
+for name in KitFX.SWINGS do assert(SWINGS[name], "KitFX swing without a drawing: " .. name) end
+for name in KitFX.HITS do assert(HITS[name], "KitFX hit without a drawing: " .. name) end
+for name in KitFX.DASHES do assert(DASHES[name], "KitFX dash without a drawing: " .. name) end
+
+local function accentOf(fx)
+	return Color3.fromHex(fx.accent)
 end
 
 -- A blow goes out (first contact frame): the kit's flourish along the strike.
 function EffectsController:kitSwing(view, moveId, color, heavy)
-	local kit = MoveData.MoveKit[moveId] or "KAI"
+	local kit = MoveData.MoveKit[moveId] or view.kit or "KAI"
+	local fx = KitFX.of(kit)
 	local role = ROLE_OF[moveId] or moveId
 	local f, z = view.facing, self.config.PlaneZ
 	local limbs = strikeLimbs(moveId)
-	local footwork = limbs and (table.find(limbs, "RightFoot") or table.find(limbs, "LeftFoot")) ~= nil
+	local kick = limbs and (table.find(limbs, "RightFoot") or table.find(limbs, "LeftFoot")) ~= nil
 	local at = Vector3.new(view.x + f * 2.2, view.y + (if role == "Sweep" or role == "LowKick" then 1 else 3.4), z)
-	if kit == "TARO" then
-		-- the punch drags a streak of fire
-		self:cut(at - Vector3.new(f * 1.8, 0, 0), at + Vector3.new(f * 0.6, 0, 0), FIRE)
-		if heavy then self:fireRing(at, 1.3) end
-	elseif kit == "ZEPHYR" then
-		-- every kick cuts a crescent of wind
-		self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), if heavy then 3.6 else 3, if footwork then -70 else -40,
-			if footwork then 80 else 40, WHITE, 0.3, f)
-	elseif kit == "AKEMI" then
-		-- a thin shadow slash
-		self:arc(Vector3.new(view.x + f * 0.6, at.Y, z), 2.6, 70, -50, color, 0.5, f)
-		if heavy then self:cut(at + Vector3.new(-f, 1, 0), at + Vector3.new(f, -1, 0), color) end
-	elseif kit == "RYUKEN" then
-		-- heat streaks behind the fist
-		for i = -1, 1 do
-			local y = at.Y + i * 0.35
-			self:cut(Vector3.new(at.X - f * 2.4, y, z), Vector3.new(at.X, y, z), color)
-		end
-		if heavy then
-			self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4.5, 0.05, z + 0.5), color)
-		end
-	elseif kit == "HIBECARES" then
-		-- the weight of the blow raises dust at his feet
-		self:dust(view.x, 0, f)
-		if heavy then
-			self:crack(Vector3.new(view.x + f, 0.05, z), Vector3.new(view.x + f * 4, 0.05, z - 0.5), color)
-			self:debris(Vector3.new(view.x + f * 2.5, 0.3, z), color, 0.8)
-			self.camera:shake(if self.reduced then 0.15 else 0.4, 0.2)
-		end
-	else
-		-- KAI: a short ki streak along the blow
-		self:cut(at - Vector3.new(f * 1.4, 0, 0), at + Vector3.new(f * 0.4, 0, 0), color)
-	end
+	SWINGS[fx.swing](self, view, at, color, accentOf(fx), heavy, f, z, kick)
 end
 
 -- A blow lands: the kit's mark on the target.
 function EffectsController:kitHit(moveId, position, color, heavy, facing)
-	local kit = MoveData.MoveKit[moveId] or "KAI"
-	local s = if heavy then 1.5 else 1
-	if kit == "TARO" then
-		self:fireRing(position, s)
-	elseif kit == "ZEPHYR" then
-		self:airBurst(position, facing, s)
-	elseif kit == "AKEMI" then
-		self:cut(position + Vector3.new(-1.1, 0.9, 0.3) * s, position + Vector3.new(1.1, -0.9, 0.3) * s, color)
-		self:cut(position + Vector3.new(-1.1, -0.9, 0.3) * s, position + Vector3.new(1.1, 0.9, 0.3) * s, color)
-	elseif kit == "RYUKEN" then
-		self:rageCrack(position, color, s)
-	elseif kit == "HIBECARES" then
-		self:debris(position, STONE, 0.5 * s)
-		self:dust(position.X, 0, facing)
-	elseif kit == "SHIN" then
-		self:cut(position + Vector3.new(-facing * 1.3, 0.6, 0.3), position + Vector3.new(facing * 1.3, -0.6, 0.3), color)
-	elseif kit == "DAICHA" then
-		self:orbBurst(position, color, 0.7 * s)
-	else
-		self:kiPop(position, color, s)
+	local fx = KitFX.of(MoveData.MoveKit[moveId] or "KAI")
+	HITS[fx.hit](self, position, color, accentOf(fx), if heavy then 1.5 else 1, facing)
+end
+
+-- The dash starts: the afterimages, and what the kit leaves on the floor.
+function EffectsController:kitDash(view, color)
+	local fx = KitFX.of(view.kit)
+	DASHES[fx.dash](self, view, color, accentOf(fx), self.config.PlaneZ)
+end
+
+-- The motes always floating round the fighter (very light: none in reduced mode), and the
+-- strike trails in the element's colours.
+local MOTION = {
+	rise = { accel = Vector3.new(0, 4, 0), speed = NumberRange.new(0.5, 1.5), life = NumberRange.new(1, 1.6), drag = 0 },
+	fall = { accel = Vector3.new(0, -2.5, 0), speed = NumberRange.new(0.6, 1.4), life = NumberRange.new(1.2, 1.8), drag = 1 },
+	drift = { accel = Vector3.new(0, 0.6, 0), speed = NumberRange.new(0.6, 1.2), life = NumberRange.new(1.2, 2), drag = 1.5 },
+	orbit = { accel = Vector3.zero, speed = NumberRange.new(1.5, 2.5), life = NumberRange.new(0.8, 1.2), drag = 3 },
+	flicker = { accel = Vector3.zero, speed = NumberRange.new(3, 6), life = NumberRange.new(0.12, 0.25), drag = 0 },
+}
+function EffectsController:ambient(rig, kitName, energyHex)
+	local torso = RigReader.part(rig.model, "UpperTorso")
+	if not torso then return end
+	local fx = KitFX.of(kitName)
+	local a = fx.ambient
+	local motion = MOTION[a.motion] or MOTION.rise
+	local motes = rig.motes
+	if not motes or not motes.Parent then
+		motes = Instance.new("ParticleEmitter")
+		motes.Name = "KitMotes"
+		motes.LightInfluence, motes.LockedToPart = 0, false
+		motes.SpreadAngle = Vector2.new(180, 180)
+		motes.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.7, 0.4),
+			NumberSequenceKeypoint.new(1, 1) })
+		motes.Parent = torso
+		rig.motes = motes
 	end
+	motes.Color = ColorSequence.new(Color3.fromHex(KitFX.color(a.colors[1], energyHex)), Color3.fromHex(KitFX.color(a.colors[2], energyHex)))
+	motes.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, a.size), NumberSequenceKeypoint.new(1, a.size * 0.3) })
+	motes.Acceleration, motes.Speed, motes.Lifetime, motes.Drag = motion.accel, motion.speed, motion.life, motion.drag
+	motes.LightEmission = if a.motion == "flicker" then 1 else 0.5
+	motes.Rate = KitFX.ambientRate(kitName, self.reduced)
+	rig.motesKit, rig.motesReduced = kitName, self.reduced
+	-- (strike trails and the ki aura's bursts: the element's two colours)
+	local pair = ColorSequence.new(Color3.fromHex(KitFX.color(fx.trail[1], energyHex)), Color3.fromHex(KitFX.color(fx.trail[2], energyHex)))
+	for limb, trail in rig.trails or {} do
+		if limb ~= "Weapon" then trail.Color = pair end
+	end
+	if rig.aura then rig.aura.Color = pair end
 end
 
 -- Smear arc for strong attacks, drawn in the fighting plane in front of the attacker.
@@ -792,6 +1231,11 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if view.revived and not rig.blackAura then rig.blackAura = self:blackAura(rig) end
 	if view.kit == "KUROEN" or rig.dominationAura then self:domination(rig, view.domination or 0, view) end
 	local color = self:energy(slot)
+	local energyHex = CharacterData[slot].Energy
+	if rig.motesKit ~= view.kit or rig.motesReduced ~= self.reduced or rig.motesEnergy ~= energyHex then
+		rig.motesEnergy = energyHex
+		self:ambient(rig, view.kit, energyHex)
+	end
 	local phase = if view.state == "Attack" and MoveData.Moves[view.move]
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
 	local key = if phase then view.move .. phase else view.state
@@ -805,7 +1249,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 				if m.heavy then self:slash(view, view.move, color) end
 			end
 		elseif view.state == "Dashing" then
-			self:dust(view.x, view.y, view.facing)
+			self:kitDash(view, color)
 		elseif view.state == "Knockdown" and previous.key ~= "KO" then
 			self:dust(view.x, view.y, view.facing)
 			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.2)
@@ -946,13 +1390,19 @@ function EffectsController:onEvent(event, views, rigs)
 		return
 	elseif event.kind == "Chilled" or event.kind == "Poison" or event.kind == "Heal" or event.kind == "Reflect"
 		or event.kind == "Armor" or event.kind == "Shackled" or event.kind == "Domination" or event.kind == "Drone" then
-		-- The third sheet's passives: a mark where it happened, in a colour that tells it.
+		-- The third sheet's passives: a mark where it happened, in the element of the one who
+		-- caused it (frost, poison, light, the mirror, the titan's anchor, the shackle, the
+		-- eclipse, the drones).
 		local slot = event.slot or event.defender
 		local position = Vector3.new(event.x or 0, event.y or 3, 0)
 		local colors = { Chilled = "9FE6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "C8F0FF", Armor = "FF4A3A",
 			Shackled = "FFB04A", Domination = "E0102E", Drone = "FF8A2A" }
 		local color = Color3.fromHex(colors[event.kind])
-		self:spark(position, color, if event.kind == "Poison" then 0.5 else 1.2)
+		local verb = ({ Chilled = "iceShards", Poison = "toxicSplash", Heal = "halo", Reflect = "iceShards", Armor = "quake",
+			Shackled = "clawMarks", Domination = "eclipseBurst", Drone = "glitch" })[event.kind]
+		local accent = ({ Chilled = "DFF6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "FFFFFF", Armor = "C9BFC0",
+			Shackled = "E0E0E8", Domination = "0A0204", Drone = "6FE0FF" })[event.kind]
+		HITS[verb](self, position, color, Color3.fromHex(accent), if event.kind == "Poison" then 0.6 else 1, 1)
 		if event.kind == "Heal" or event.kind == "Chilled" then
 			self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 1.6, 0, 360, color, math.pi / 2, 1)
 		elseif event.kind == "Armor" and rigs[slot] then
@@ -1025,43 +1475,201 @@ function EffectsController:onEvent(event, views, rigs)
 	end
 end
 
--- Ki blasts: a glowing core with a ki shell and a short trail, extrapolated between snapshots.
+-- Projectiles, extrapolated between snapshots, each in its thrower's element (KitFX.SHOTS):
+-- KAI's ki blast, ZEPHYR's blade of wind, AKEMI's kunai, RYUKEN's quake along the floor,
+-- SHIN's current, DAICHA's sphere, RAIJIN's bolt, YUKINA's shard, VENOM's cloud, ASTER's well,
+-- HIBIKI's pulse, KUREN's lance, SYLVA's trap, NOVA's drones and shots, KUROEN's black sun.
+-- A shot is a few parts placed round its centre (`pieces`: part, offset), turned to face
+-- where it goes, maybe spinning, and leaving ghosts behind (`ghost`: none, ball or streak).
+local SHOTS = {}
+local function piece(self, list, size, offset, color, shape, material, transparency)
+	local p = self:part(size, CFrame.identity, color, shape)
+	if material then p.Material = material end
+	if transparency then p.Transparency = transparency end
+	table.insert(list, { part = p, offset = offset })
+	return p
+end
+function SHOTS.ball(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.one * 1.1 * scale, CFrame.identity, WHITE, Enum.PartType.Ball)
+	piece(self, list, Vector3.one * 2 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
+	return { pieces = list, ghost = "ball", pulse = 2 }
+end
+function SHOTS.crescent(self, color, accent, scale)
+	local list = {}
+	for i = -3, 3 do
+		local a = i / 3 * 1.1
+		piece(self, list, Vector3.new(0.3, 0.9, 0.12), CFrame.new(-math.cos(a) * 0.9 + 0.9, math.sin(a) * 1.6, 0) * CFrame.Angles(0, 0, -a),
+			if i == 0 then WHITE else color, nil, nil, 0.15)
+	end
+	return { pieces = list, ghost = "streak" }
+end
+function SHOTS.kunai(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(1.4, 0.12, 0.12), CFrame.identity, Color3.fromHex("1A1A22"), nil, Enum.Material.Metal)
+	piece(self, list, Vector3.new(0.4, 0.3, 0.06), CFrame.new(0.8, 0, 0) * CFrame.Angles(0, 0, math.rad(45)), Color3.fromHex("C8C8D0"),
+		nil, Enum.Material.Metal)
+	piece(self, list, Vector3.new(1.6, 0.4, 0.4), CFrame.identity, color, nil, Enum.Material.ForceField, 0)
+	return { pieces = list, ghost = "streak" }
+end
+function SHOTS.wave(self, color, accent, scale)
+	local list = {}
+	for i = 0, 2 do
+		piece(self, list, Vector3.new(0.6, 0.9 + i * 0.35, 1.2), CFrame.new(-i * 0.5, -0.4 + i * 0.15, 0) * CFrame.Angles(0, 0, math.rad(-20)),
+			if i == 0 then color else STONE, nil, if i == 0 then nil else Enum.Material.Slate)
+	end
+	return { pieces = list, ghost = "crack" }
+end
+function SHOTS.slash(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(0.12, 2.8, 0.12), CFrame.identity, WHITE)
+	piece(self, list, Vector3.new(0.5, 3, 0.4), CFrame.identity, color, nil, nil, 0.25)
+	return { pieces = list, ghost = "streak" }
+end
+function SHOTS.sphere(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.one * 1.8 * scale, CFrame.identity, Color3.fromHex("0B0712"), Enum.PartType.Ball, Enum.Material.SmoothPlastic)
+	piece(self, list, Vector3.one * 2.6 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
+	piece(self, list, Vector3.new(0.06, 3.4, 3.4) * scale, CFrame.Angles(0, math.pi / 2, 0.4), color, Enum.PartType.Cylinder, nil, 0.3)
+	return { pieces = list, ghost = "ball", spin = 3 }
+end
+function SHOTS.bolt(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(1.8, 0.25, 0.25), CFrame.identity, WHITE)
+	piece(self, list, Vector3.new(2.2, 0.7, 0.7), CFrame.identity, accent, nil, Enum.Material.ForceField, 0)
+	return { pieces = list, ghost = "bolt" }
+end
+function SHOTS.shard(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(1.6, 0.4, 0.4), CFrame.Angles(math.rad(45), 0, 0), accent, nil, Enum.Material.Ice, 0.1)
+	piece(self, list, Vector3.new(0.9, 0.6, 0.6), CFrame.new(-0.3, 0, 0) * CFrame.Angles(math.rad(45), 0, 0), color, nil, Enum.Material.Ice, 0.2)
+	return { pieces = list, ghost = "streak", spin = 0, roll = 8 }
+end
+function SHOTS.cloud(self, color, accent, scale)
+	local list = {}
+	for i = 1, 4 do
+		local a = i / 4 * math.pi * 2
+		piece(self, list, Vector3.one * (1.4 + i * 0.15) * scale, CFrame.new(math.cos(a) * 0.6, math.sin(a) * 0.5, 0), if i % 2 == 0 then accent else color,
+			Enum.PartType.Ball, Enum.Material.SmoothPlastic, 0.45)
+	end
+	return { pieces = list, ghost = "drip", spin = 1.2 }
+end
+function SHOTS.well(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.one * 0.9 * scale, CFrame.identity, Color3.fromHex("07040C"), Enum.PartType.Ball, Enum.Material.SmoothPlastic)
+	piece(self, list, Vector3.new(0.06, 2.6, 2.6) * scale, CFrame.Angles(0, math.pi / 2, 0), accent, Enum.PartType.Cylinder, Enum.Material.ForceField)
+	piece(self, list, Vector3.new(0.06, 2, 2) * scale, CFrame.Angles(0.9, math.pi / 2, 0), color, Enum.PartType.Cylinder, Enum.Material.ForceField)
+	return { pieces = list, ghost = "none", spin = 5 }
+end
+function SHOTS.pulse(self, color, accent, scale)
+	local list = {}
+	for i = 0, 2 do
+		local size = 3.2 - i * 0.8
+		piece(self, list, Vector3.new(0.08, size, size), CFrame.new(-i * 0.6, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), if i == 1 then accent else color,
+			Enum.PartType.Cylinder, nil, 0.2 + i * 0.2)
+	end
+	return { pieces = list, ghost = "none", pulse = 6 }
+end
+function SHOTS.lance(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(3.4, 0.18, 0.18), CFrame.identity, accent, nil, Enum.Material.SmoothPlastic)
+	piece(self, list, Vector3.new(3.6, 0.5, 0.5), CFrame.identity, color, nil, nil, 0.35)
+	piece(self, list, Vector3.new(0.7, 0.35, 0.35), CFrame.new(1.9, 0, 0) * CFrame.Angles(math.rad(45), 0, 0), WHITE)
+	return { pieces = list, ghost = "drip" }
+end
+function SHOTS.trap(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(0.2, 2.6, 2.6), CFrame.Angles(0, 0, math.pi / 2), color, Enum.PartType.Cylinder, Enum.Material.ForceField, 0)
+	for i = 1, 5 do
+		local a = i / 5 * math.pi * 2
+		piece(self, list, Vector3.new(0.18, 0.9, 0.18), CFrame.new(math.cos(a) * 1, 0.3, math.sin(a) * 1) * CFrame.Angles(math.cos(a) * 0.5, 0, -math.sin(a) * 0.5),
+			accent, nil, Enum.Material.LeafyGrass)
+	end
+	return { pieces = list, ghost = "none", still = true, flat = true }
+end
+function SHOTS.drone(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(0.9, 0.35, 0.7), CFrame.identity, Color3.fromHex("5A5A66"), nil, Enum.Material.Metal)
+	piece(self, list, Vector3.new(1.4, 0.06, 0.25), CFrame.new(0, 0.25, 0), Color3.fromHex("2A2A33"), nil, Enum.Material.Metal)
+	piece(self, list, Vector3.one * 0.22, CFrame.new(0.46, 0, 0), color, Enum.PartType.Ball)
+	return { pieces = list, ghost = "none", still = true, hover = true }
+end
+function SHOTS.bullet(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.new(0.9, 0.22, 0.22), CFrame.identity, WHITE)
+	piece(self, list, Vector3.new(1.3, 0.45, 0.45), CFrame.identity, color, nil, nil, 0.3)
+	return { pieces = list, ghost = "streak" }
+end
+function SHOTS.eclipse(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.one * 1.2 * scale, CFrame.new(0, 0, 0.1), Color3.fromHex("07040C"), Enum.PartType.Ball, Enum.Material.SmoothPlastic)
+	piece(self, list, Vector3.one * 1.8 * scale, CFrame.identity, color, Enum.PartType.Ball, nil, 0.3)
+	return { pieces = list, ghost = "ball", pulse = 3 }
+end
+for name in KitFX.SHOTS do assert(SHOTS[name], "KitFX shot without a drawing: " .. name) end
+
 function EffectsController:updateProjectiles(list, ahead, now)
 	self.projectiles = self.projectiles or {}
 	local alive = {}
 	for _, p in list or {} do
 		alive[p.id] = true
 		local visual = self.projectiles[p.id]
-		local color = self:energy(p.owner)
 		if not visual then
-			-- (a trap lies flat on the floor; a drone is small and metallic)
-			local scale = if p.drone then 0.45 elseif p.trap then 1.3 else 1
-			local core = self:part(Vector3.one * 1.1 * scale, CFrame.new(p.x, p.y, 0), if p.drone then Color3.fromHex("5A5A66") else WHITE, Enum.PartType.Ball)
-			local shell = self:part(Vector3.one * 2 * scale, CFrame.new(p.x, p.y, 0), color, Enum.PartType.Ball)
-			shell.Material, shell.Transparency = Enum.Material.ForceField, 0
+			local color = self:energy(p.owner)
+			local fx = KitFX.of(p.move and MoveData.MoveKit[p.move] or CharacterData[p.owner].Kit)
+			local kind = if p.drone then "drone" elseif p.trap then "trap" else fx.shot
+			visual = SHOTS[kind](self, color, Color3.fromHex(fx.accent), 1)
+			visual.color, visual.accent, visual.trail, visual.born = color, Color3.fromHex(fx.accent), 0, now
 			local light = Instance.new("PointLight")
-			light.Color, light.Range, light.Brightness = color, 12, 3
-			light.Parent = core
-			visual = { core = core, shell = shell, color = color, trail = 0, scale = scale, still = p.drone or p.trap }
+			light.Color, light.Range, light.Brightness = color, 12, if p.drone then 1 else 3
+			light.Parent = visual.pieces[1].part
 			self.projectiles[p.id] = visual
 		end
-		local position = Vector3.new(p.x + p.vx * ahead, p.y, 0.4)
-		local pulse = 1 + 0.12 * math.sin(now * 40)
-		visual.core.CFrame = CFrame.new(position)
-		visual.shell.CFrame = CFrame.new(position)
-		visual.shell.Size = if p.trap then Vector3.new(2.6, 0.3, 2.6) * pulse else Vector3.one * 2 * pulse * visual.scale
-		if not visual.still and now - visual.trail > (if self.reduced then 0.06 else 0.03) then
+		local dir = if (p.vx or 0) < 0 then -1 else 1
+		visual.dir = if p.vx and p.vx ~= 0 then dir else (visual.dir or 1)
+		local y = if visual.flat then 0.15 elseif visual.hover then p.y + math.sin(now * 6) * 0.15 else p.y
+		local position = Vector3.new(p.x + (p.vx or 0) * ahead, y, if visual.flat then self.config.PlaneZ else 0.4)
+		local base = CFrame.new(position) * (if visual.dir < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
+		local turn = if visual.roll then CFrame.Angles(visual.roll * now, 0, 0) else CFrame.identity
+		local spin = if visual.spin then CFrame.Angles(0, 0, now * visual.spin) else CFrame.identity
+		local pulse = if visual.pulse then 1 + 0.06 * visual.pulse * math.sin(now * 40) else 1
+		for i, entry in visual.pieces do
+			local placed = base * turn * spin * entry.offset
+			if pulse ~= 1 and i == #visual.pieces then -- (the outer shell breathes)
+				entry.size = entry.size or entry.part.Size
+				entry.part.Size = entry.size * pulse
+			end
+			entry.part.CFrame = placed
+		end
+		if not visual.still and visual.ghost ~= "none" and now - visual.trail > (if self.reduced then 0.06 else 0.03) then
 			visual.trail = now
-			local ghost = self:part(Vector3.one * 1.3, CFrame.new(position), visual.color, Enum.PartType.Ball)
-			ghost.Transparency = 0.4
-			tween(ghost, 0.2, { Transparency = 1, Size = Vector3.one * 0.3 })
-			Debris:AddItem(ghost, 0.22)
+			if visual.ghost == "ball" then
+				local ghost = self:part(Vector3.one * 1.3, CFrame.new(position), visual.color, Enum.PartType.Ball)
+				ghost.Transparency = 0.4
+				tween(ghost, 0.2, { Transparency = 1, Size = Vector3.one * 0.3 })
+				Debris:AddItem(ghost, 0.22)
+			elseif visual.ghost == "streak" then
+				local ghost = self:part(Vector3.new(1.6, 0.12, 0.12), CFrame.new(position - Vector3.new(visual.dir * 1.2, 0, 0)), visual.color)
+				ghost.Transparency = 0.3
+				tween(ghost, 0.16, { Transparency = 1, Size = Vector3.new(0.4, 0.04, 0.04) })
+				Debris:AddItem(ghost, 0.18)
+			elseif visual.ghost == "bolt" then
+				if math.random() < 0.5 then
+					self:lightning(position, position - Vector3.new(visual.dir * 2.2, (math.random() - 0.5) * 1.2, 0), visual.color)
+				end
+			elseif visual.ghost == "crack" then
+				local floor = Vector3.new(position.X, 0.05, self.config.PlaneZ)
+				local seg = self:part(Vector3.new(0.9, 0.05, 0.3), CFrame.new(floor), visual.color)
+				tween(seg, 0.8, { Transparency = 1 })
+				Debris:AddItem(seg, 0.85)
+			elseif visual.ghost == "drip" then
+				if math.random() < 0.35 then self:drops(position, visual.accent, 1, 0.8, 2) end
+			end
 		end
 	end
 	for id, visual in self.projectiles do
 		if not alive[id] then
-			visual.core:Destroy()
-			visual.shell:Destroy()
+			for _, entry in visual.pieces do entry.part:Destroy() end
 			self.projectiles[id] = nil
 		end
 	end

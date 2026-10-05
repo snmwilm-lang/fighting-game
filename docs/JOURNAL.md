@@ -151,9 +151,26 @@ Tests : CombatSimulation 126, FighterAI 13, CinematicDirector 871, Animation 40,
 - verrou de session : le profil sauvegardé porte le serveur qui le tient (`_session`). Un autre serveur attend qu'il soit libéré : au départ du joueur, ou au bout de 60 s si le serveur est tombé. Plus de doubles écritures lors d'une téléportation.
 - Ça ne marche que dans le jeu publié (MemoryStore, téléportation). Dans Studio, la recherche reste sur le serveur. Non testé dans Roblox.
 
+**Masques et détails de tête** (`RigBuilder.luau`, sans toucher aux silhouettes) : VENOM (museau du respirateur, fentes d'aération, couture lumineuse, bagues métal des filtres, sangles), KAZAN (dents du protège-mâchoire, rivets, plaques de joues), NOVA (deux verres ronds cerclés de métal et un pont sur les lunettes), AKEMI (arête du masque sur le nez, pli sous les yeux), HIBIKI (anneau des écouteurs, micro). `rigcheck check` : tous les corps construits.
+
+**Skins de boutique (monétisation préparée)** (`CharacterData.luau`, serveur, menu) :
+- 2 skins par perso jouable (40 en tout), tirés de 5 thèmes complets : GOLD (OR), PHANTOM (FANTÔME), INFERNO, SAKURA, ABYSS (ABYSSE), posés sur la tenue du perso (sa couleur de peau gardée). Ils sont dans la liste des styles du perso, comme les autres ;
+- prix en pièces : 1500 et 2500. Verrouillés tant qu'ils ne sont pas achetés : le serveur seul vérifie (`CharacterData.canWear`), le changement de style en combat les saute ;
+- achat : page PERSONNAGES › STYLES · BOUTIQUE (couleurs du skin, état GRATUIT / À GAGNER / ACQUIS, bouton avec le prix). Le serveur vérifie le prix et les pièces, débite, note le skin dans le profil (`ownedSkins`) et sauvegarde tout de suite ;
+- Robux : préparé, pas branché. Un prix en Robux demande un produit développeur créé par Wilhem sur Roblox ; son id va dans `CharacterData.SHOP_PRODUCTS["KAI GOLD"] = id`. Tant que la table est vide (aucun id inventé), aucun `ProcessReceipt` n'est installé. Quand il y en a, le skin n'est accordé qu'une fois écrit dans la sauvegarde (sinon Roblox rappelle plus tard) ;
+- test : 2 par perso, verrouillés, prix vérifié, pas de double paiement, pas de dette, aucun id Robux.
+
+**VFX perso par perso** (`src/shared/KitFX.luau` pur et testé, `EffectsController.luau`) :
+- chaque perso a un élément, et tout ce qu'il fait le parle : le coup qui part, la marque sur l'adversaire, le dash, ses projectiles, de petites particules autour du corps, les traînées des membres et les éclats d'aura. Les formes et l'accent de l'élément disent qui frappe ; la couleur de ki du style peint le reste (un skin recolore ses effets) ;
+- KAI ki (traits, anneaux) · TARO feu (traînée de feu, anneaux, braises) · ZEPHYR vent (croissants, rafales) · AKEMI ombre (entailles, X) · RYUKEN rage (traînées de chaleur, fissures rouges, fumée) · SHIN eau et lame (arcs du katana, ligne nette, sillage d'eau) · DAICHA vide (orbe, sphère noire) · HIBECARES pierre (poussière, éboulis) ;
+- nouveaux : RAIJIN foudre (la poussée de lance est un éclair, coup lourd = foudre du ciel, impact en éclair, étincelles au dash, projectile éclair) · YUKINA glace (deux arcs d'éventails croisés, éclats de glace, ligne de givre, flocons qui tombent, projectile éclat qui tourne) · VENOM poison (trois griffures qui gouttent, crachat, éclaboussure et gouttes, nuage toxique) · GORAN titan (pas de lumière : le sol résonne, onde au sol, tremblement) · ASTER gravité (anneaux qui se referment sur le poing, implosion, puits gravitationnel) · HIBIKI son (ondes qui partent devant le coup, anneaux en rafale, pas qui battent la mesure) · KAZAN acier (trois arcs de griffes, marques de griffes, étincelles d'acier, chaîne) · KUREN sang (croissant pourpre, gerbe de gouttes, lance de sang, brume rouge) · SYLVA nature (fouet de liane en vague, feuilles, épines, pétales, piège d'épines) · ELIAN lumière (paume chaude, colonne de lumière, auréole) · NOVA machines (piston et vapeur, pixels qui « glitchent », réacteurs, drones et tirs) · KUROEN éclipse (ki rouge à cœur noir, petit soleil noir) · ASURA (deux coups dorés à la fois) · KUROEN SHIN (blanc et or) ;
+- les marques des passifs (gel, poison, soin, miroir, ancre, entrave, domination, drones) prennent l'élément de leur perso ;
+- légers : petites particules (≤ 4 par seconde), aucune en mode effets réduits, la moitié des morceaux en réduit ; chaque verbe vérifié au chargement (un verbe sans dessin = erreur) ;
+- test « visual identity » (Kits) : chaque perso a son élément, aucun ne partage la paire coup / marque d'un autre, chaque verbe existe, couleurs valides, particules légères et coupées en réduit, chaque lanceur a son propre projectile.
+- non vu dans Roblox (pas de rendu des parts ici) : à regarder en jeu et à doser.
+
 Problèmes ouverts : rien n'a été joué dans Roblox Studio (KUROEN, griffes de KAZAN, auras,
-nouveau boss, page succès). L'UI de GPT (v0.1.7) n'est pas intégrée : le filtre de sécurité
-refuse d'injecter du code venu d'un fichier téléchargé — à appliquer par Wilhem ou à autoriser.
+nouveau boss, page succès, skins de boutique, VFX par perso).
 Prochaine étape : jouer KUROEN contre KAI, TARO, AKEMI, RYUKEN, ZEPHYR, SHIN, GORAN, KAZAN,
 HIBIKI en vrai et ajuster.
 

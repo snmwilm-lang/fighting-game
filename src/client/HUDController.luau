@@ -864,8 +864,8 @@ end
 
 -- Rounds are announced from the snapshot phase so a client joining mid-intro still sees it.
 function HUD:announceRound(round)
-	self:announceText("ROUND " .. round, CharacterData[1].Name .. " " .. CharacterData[1].Skin .. "  VS  "
-		.. CharacterData[2].Name .. " " .. CharacterData[2].Skin)
+	self:announceText("ROUND " .. round, CharacterData[1].Name .. " " .. (CharacterData[1].Title or CharacterData[1].Skin) .. "  VS  "
+		.. CharacterData[2].Name .. " " .. (CharacterData[2].Title or CharacterData[2].Skin))
 end
 
 -- Slanted technique name on a fighter's side.
@@ -973,7 +973,7 @@ function HUD:onEvent(event, world)
 		local main = if event.reason == "Timeout" then "TIME OVER" elseif event.winner == 0 then "DOUBLE K.O." else "K.O."
 		local sub
 		if not world.training then
-			sub = if event.winner == 0 then "DRAW" else CharacterData[event.winner].Name .. " " .. CharacterData[event.winner].Skin .. " WINS THE ROUND"
+			sub = if event.winner == 0 then "DRAW" else CharacterData[event.winner].Name .. " " .. (CharacterData[event.winner].Title or CharacterData[event.winner].Skin) .. " WINS THE ROUND"
 		end
 		if event.perfect and not world.training and event.winner ~= 0 then
 			-- PERFECT: the round won without losing any health. Big and gold for the winner (and
@@ -1113,7 +1113,7 @@ function HUD:update(world, views, fps, dt)
 		b.TextColor3 = if active then Color3.fromHex("FFD23F") else WHITE
 	end
 	if localSlot > 0 then
-		self.skinButton.Text = "STYLE: " .. CharacterData[localSlot].Skin
+		self.skinButton.Text = "STYLE: " .. (CharacterData[localSlot].Title or CharacterData[localSlot].Skin)
 		self.kitButton.Text = "FIGHTER: " .. CharacterData[localSlot].Kit .. " (T)"
 		self.foeKitButton.Text = "OPPONENT: " .. CharacterData[3 - localSlot].Kit .. " (G)"
 	end

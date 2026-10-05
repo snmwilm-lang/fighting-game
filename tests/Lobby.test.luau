@@ -307,6 +307,34 @@ test("every fighter wears its own styles: each style of its list exists and is i
 	end
 end)
 
+test("shop styles: two per fighter, locked until bought with coins, the price checked, no Robux id invented", function()
+	local CharacterData = require("../src/shared/CharacterData")
+	local count = 0
+	for name, item in CharacterData.SHOP do
+		count += 1
+		local style = CharacterData.Skins[name]
+		expect(style and style.Kit == item.kit, name .. " is not its fighter's style")
+		expect(table.find(CharacterData.StyleOrder[item.kit], name) ~= nil, name .. " is missing from " .. item.kit .. "'s styles")
+		expect(item.coins > 0 and style.SkinTone ~= nil, name .. " has no price or no skin tone")
+	end
+	expect(count == 2 * 20, "expected 2 shop styles for each of the 20 fighters, got " .. count)
+	expect(next(CharacterData.SHOP_PRODUCTS) == nil, "a Robux product id was put in without Wilhem")
+	local profile = { coins = 1000, ownedSkins = {} }
+	expect(not CharacterData.canWear("KAI GOLD", profile), "a shop style is worn without being bought")
+	expect(CharacterData.canWear("CLASSIC", profile) and not CharacterData.canWear("AWAKENED", profile), "free / earned styles are wrong")
+	local price = CharacterData.SHOP["KAI GOLD"].coins
+	local ok, why = CharacterData.buy(profile, "KAI GOLD")
+	expect(not ok and why == "coins" and profile.coins == 1000, "bought without enough coins")
+	profile.coins = price + 5
+	expect(CharacterData.buy(profile, "KAI GOLD") and profile.coins == 5 and CharacterData.canWear("KAI GOLD", profile), "a purchase failed")
+	ok, why = CharacterData.buy(profile, "KAI GOLD")
+	expect(not ok and why == "owned" and profile.coins == 5, "a style was paid twice")
+	expect(not CharacterData.buy(profile, "CLASSIC") and not CharacterData.buy(profile, "NOPE"), "a free or unknown style was sold")
+	expect(not CharacterData.buy({ coins = -1 }, "KAI GOLD"), "a debt bought a style")
+	-- (an old profile without the field)
+	expect(not CharacterData.canWear("KAI GOLD", { coins = 0 }), "a profile without ownedSkins wears a shop style")
+end)
+
 test("achievements: each says where it is earned, reads the saved profile, and is in French", function()
 	local Locale = require("../src/shared/Locale")
 	local ids, modes = {}, {}

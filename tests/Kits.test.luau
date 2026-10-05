@@ -744,6 +744,58 @@ test("a coup fatal cancelled from a combo connects, even after a hit that launch
 	end
 end)
 
+test("visual identity: every fighter has its own element, blows, marks, dash and motes (KitFX)", function()
+	local KitFX = require("../src/shared/KitFX")
+	local kits = table.clone(MoveData.KitOrder)
+	table.insert(kits, "ASURA")
+	table.insert(kits, "KUROEN SHIN")
+	local pairs_, elements = {}, {}
+	for _, name in kits do
+		local fx = KitFX.KITS[name]
+		expect(fx ~= nil, name .. " has no visual identity")
+		if fx then
+			expect(KitFX.SWINGS[fx.swing], name .. ": unknown swing " .. tostring(fx.swing))
+			expect(KitFX.HITS[fx.hit], name .. ": unknown hit " .. tostring(fx.hit))
+			expect(KitFX.DASHES[fx.dash], name .. ": unknown dash " .. tostring(fx.dash))
+			expect(KitFX.SHOTS[fx.shot], name .. ": unknown shot " .. tostring(fx.shot))
+			expect(KitFX.MOTIONS[fx.ambient.motion], name .. ": unknown motion " .. tostring(fx.ambient.motion))
+			expect(type(fx.accent) == "string" and #fx.accent == 6, name .. ": the accent is not a hex colour")
+			for _, c in { fx.ambient.colors[1], fx.ambient.colors[2], fx.trail[1], fx.trail[2] } do
+				expect(c == "energy" or (type(c) == "string" and string.match(c, "^%x%x%x%x%x%x$")), name .. ": a bad colour " .. tostring(c))
+			end
+			-- light: motes must never hide the fight, and none in reduced mode
+			expect(fx.ambient.rate > 0 and fx.ambient.rate <= 4 and fx.ambient.size <= 0.5, name .. "'s motes are too heavy")
+			expect(KitFX.ambientRate(name, true) == 0, name .. " keeps motes in reduced mode")
+			-- distinct: no two fighters share their element, nor the pair of blow and mark
+			local key = fx.swing .. "/" .. fx.hit
+			if fx.swing ~= "weapon" then
+				expect(pairs_[key] == nil, name .. " looks like " .. tostring(pairs_[key]) .. " (" .. key .. ")")
+				pairs_[key] = name
+			end
+			expect(elements[fx.element] == nil, name .. " has the same element as " .. tostring(elements[fx.element]))
+			elements[fx.element] = name
+		end
+	end
+	-- the weapon kits draw their strokes with the weapon, and still mark their own hits
+	expect(KitFX.KITS.SHIN.swing == "weapon" and KitFX.KITS.DAICHA.swing == "weapon", "SHIN / DAICHA lost their weapon strokes")
+	expect(KitFX.KITS.SHIN.hit ~= KitFX.KITS.DAICHA.hit, "SHIN and DAICHA mark their hits the same way")
+	-- the style's colour follows: "energy" is the style's ki colour
+	expect(KitFX.color("energy", "ABCDEF") == "ABCDEF" and KitFX.color("112233", "ABCDEF") == "112233", "KitFX.color is wrong")
+	-- every fighter who throws something throws their own element
+	local thrown = {}
+	for id, m in MoveData.Moves do
+		local owner = MoveData.MoveKit[id]
+		if m.projectile and owner and KitFX.KITS[owner] and not m.projectile.trap then
+			local shot = KitFX.KITS[owner].shot
+			if shot ~= "ball" then
+				expect(thrown[shot] == nil or thrown[shot] == owner, owner .. " and " .. tostring(thrown[shot]) .. " throw the same " .. shot)
+				thrown[shot] = owner
+			end
+		end
+	end
+	expect(KitFX.of("NOBODY") == KitFX.KITS.KAI, "an unknown kit does not fall back to KAI")
+end)
+
 test("balance: no kit wins more than 65 % or less than 35 % against the field (CPU vs CPU)", function()
 	local Balance = require("./BalanceKit")
 	for _, level in { 3, 4 } do

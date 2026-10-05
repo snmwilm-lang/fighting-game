@@ -669,10 +669,21 @@ BODIES.VENOM = {
 		spikes(ctx, { { -0.5, 0.9, -0.9, 0.1, -10 }, { -0.25, 1.1, -0.5, -0.1, -30 }, { 0.05, 1.2, 0.3, 0.2, -40 },
 			{ 0.3, 1.0, 0.8, 0, -20 }, { 0.5, 0.8, 1.1, 0.2, -10 }, { -0.1, 0.9, -0.2, 0.5, -80 } }, 3)
 		o("Head", "Mask", Vector3.new(0.9, 0.38, 0.3), CFrame.new(0, -0.3, -0.48), ctx.color("Wraps"))
+		-- the respirator: a snout under the nose, vent slats, a glowing seam, straps to the ears
+		o("Head", "MaskSnout", Vector3.new(0.5, 0.2, 0.16), CFrame.new(0, -0.48, -0.66) * CFrame.Angles(math.rad(180), 0, 0),
+			ctx.color("Wraps"), "WedgePart")
+		for i = -1, 1 do
+			o("Head", "Vent", Vector3.new(0.32, 0.03, 0.04), CFrame.new(0, -0.26 + i * 0.07, -0.64), ctx.ink)
+		end
+		o("Head", "MaskSeam", Vector3.new(0.04, 0.3, 0.04), CFrame.new(0, -0.32, -0.645), ctx.color("Energy")).Material = Enum.Material.Neon
 		for _, sign in { -1, 1 } do
 			local filter = ctx.shaped("Head", "Filter", Vector3.new(0.12, 0.28, 0.28), CFrame.new(sign * 0.36, -0.34, -0.62)
 				* CFrame.Angles(0, math.rad(90), 0), ctx.color("Energy"), Enum.PartType.Cylinder)
 			filter.Material = Enum.Material.Neon
+			-- (a metal rim round each filter)
+			material(ctx.shaped("Head", "FilterRim", Vector3.new(0.06, 0.34, 0.34), CFrame.new(sign * 0.36, -0.34, -0.56)
+				* CFrame.Angles(0, math.rad(90), 0), ctx.ink, Enum.PartType.Cylinder), Enum.Material.Metal)
+			o("Head", "MaskStrap", Vector3.new(0.05, 0.1, 0.5), CFrame.new(sign * 0.52, -0.24, -0.22) * CFrame.Angles(math.rad(-12), 0, 0), ctx.ink)
 		end
 	end,
 	body = function(ctx)
@@ -787,6 +798,12 @@ BODIES.HIBIKI = {
 				ctx.color("Shirt"), Enum.PartType.Cylinder)
 			cup.Material = Enum.Material.SmoothPlastic
 			o("Head", "CupLight", Vector3.new(0.04, 0.4, 0.4), CFrame.new(sign * 0.84, 0, 0.04), ctx.color("Energy")).Material = Enum.Material.Neon
+			-- (a ring round the light, and the arm down to the mic on the right)
+			ctx.shaped("Head", "CupRing", Vector3.new(0.05, 0.56, 0.56), CFrame.new(sign * 0.83, 0, 0.04), ctx.ink, Enum.PartType.Cylinder)
+			if sign > 0 then
+				o("Head", "MicArm", Vector3.new(0.05, 0.05, 0.5), CFrame.new(0.66, -0.3, -0.3) * CFrame.Angles(0, math.rad(-30), 0), ctx.ink)
+				ctx.shaped("Head", "Mic", Vector3.one * 0.11, CFrame.new(0.5, -0.32, -0.54), ctx.color("Energy"), Enum.PartType.Ball).Material = Enum.Material.Neon
+			end
 		end
 		o("Head", "HeadbandArc", Vector3.new(1.4, 0.14, 0.24), CFrame.new(0, 0.74, 0.04), ctx.color("Shirt"))
 	end,
@@ -877,6 +894,17 @@ BODIES.KAZAN = {
 		ctx.ornament("Head", "Collar", Vector3.new(1.16, 0.4, 1.08), CFrame.new(0, -0.44, 0.02), ctx.color("Vest"))
 		-- a predator's look: a steel half-mask over the mouth
 		material(ctx.ornament("Head", "JawGuard", Vector3.new(1.04, 0.36, 0.14), CFrame.new(0, -0.26, -0.55), ctx.color("Wraps")), Enum.Material.Metal)
+		-- its teeth (dark grooves, the middle ones longer), rivets and the cheek plates
+		for i = -2, 2 do
+			ctx.ornament("Head", "GuardTooth", Vector3.new(0.04, if math.abs(i) <= 1 then 0.26 else 0.18, 0.03),
+				CFrame.new(i * 0.16, -0.3 + (if math.abs(i) <= 1 then 0 else 0.04), -0.625), ctx.ink)
+		end
+		for _, sign in { -1, 1 } do
+			material(ctx.shaped("Head", "Rivet", Vector3.one * 0.09, CFrame.new(sign * 0.44, -0.18, -0.63), ctx.color("Energy"), Enum.PartType.Ball),
+				Enum.Material.Metal)
+			material(ctx.ornament("Head", "CheekPlate", Vector3.new(0.1, 0.3, 0.42), CFrame.new(sign * 0.55, -0.24, -0.3), ctx.color("Wraps")),
+				Enum.Material.Metal)
+		end
 	end,
 	body = function(ctx)
 		local o, color, ink = ctx.ornament, ctx.color, ctx.ink
@@ -1022,6 +1050,15 @@ BODIES.NOVA = {
 		lockAt(ctx, "SideCut", -0.2, 0.52, -0.5, 180 + 8, -34, 0.7, 0.4, 0.14, hair, { segments = 2 })
 		local goggles = o("Head", "Goggles", Vector3.new(1.0, 0.24, 0.1), CFrame.new(0, 0.42, -0.55), ctx.color("Energy"))
 		goggles.Material, goggles.Transparency = Enum.Material.Glass, 0.1
+		-- two round lenses in a metal frame, a bridge between them
+		for _, sign in { -1, 1 } do
+			material(ctx.shaped("Head", "GoggleRim", Vector3.new(0.06, 0.34, 0.34), CFrame.new(sign * 0.26, 0.42, -0.61)
+				* CFrame.Angles(0, math.rad(90), 0), ctx.color("Wraps"), Enum.PartType.Cylinder), Enum.Material.Metal)
+			local lens = ctx.shaped("Head", "GoggleLens", Vector3.new(0.04, 0.24, 0.24), CFrame.new(sign * 0.26, 0.42, -0.64)
+				* CFrame.Angles(0, math.rad(90), 0), ctx.color("Energy"), Enum.PartType.Cylinder)
+			lens.Material = Enum.Material.Neon
+		end
+		material(o("Head", "GoggleBridge", Vector3.new(0.14, 0.06, 0.06), CFrame.new(0, 0.44, -0.62), ctx.color("Wraps")), Enum.Material.Metal)
 		o("Head", "GoggleStrap", Vector3.new(1.18, 0.12, 1.1), CFrame.new(0, 0.42, 0), ctx.ink)
 	end,
 	body = function(ctx)
@@ -1431,6 +1468,9 @@ function OUTFITS.AKEMI(o)
 	end
 	o.piece("Head", "HoodEdge", Vector3.new(head.X * 1.16, 0.08, 0.1), CFrame.new(0, head.Y * 0.28, -head.Z * 0.56), o.second)
 	o.piece("Head", "Mask", Vector3.new(head.X * 1.03, head.Y * 0.42, head.Z * 1.03), CFrame.new(0, -head.Y * 0.24, 0), o.main)
+	-- the mask rides up the nose: a ridge in the middle, a fold under the eyes
+	o.piece("Head", "MaskRidge", Vector3.new(head.X * 0.12, head.Y * 0.3, 0.06), CFrame.new(0, -head.Y * 0.2, -head.Z * 0.535), o.main)
+	o.piece("Head", "MaskFold", Vector3.new(head.X * 1.05, 0.05, 0.05), CFrame.new(0, -head.Y * 0.04, -head.Z * 0.53), o.second)
 	o.tail("Head", "MaskTail", Vector3.new(0.16, 1.2, 0.05), CFrame.new(0, -head.Y * 0.1, head.Z * 0.56) * CFrame.Angles(math.rad(-34), 0, 0.15), o.second)
 	for _, side in SIDES do
 		local arm = o.size(side[1] .. "LowerArm")

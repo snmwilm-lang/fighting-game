@@ -2974,7 +2974,7 @@ local KO = {}
 local function koEnd(ctx, frame, W, color)
 	frame.fade = true
 	local data = ctx.characters[W]
-	frame.title = { text = "K.O.", color = color, sub = data.Name .. " " .. data.Skin .. " · VICTORY" }
+	frame.title = { text = "K.O.", color = color, sub = data.Name .. " " .. (data.Title or data.Skin) .. " · VICTORY" }
 end
 
 function KO.TARO(ctx, frame, W, L, w, l, t, side)
@@ -4810,7 +4810,7 @@ local function koScene(ctx, winner, loser, w, l, t)
 		w.pose = "ArmsCrossed"
 		frame.fade = true
 		local data = ctx.characters[W]
-		frame.title = { text = "K.O.", color = RED, sub = data.Name .. " " .. data.Skin .. " · VICTORY" }
+		frame.title = { text = "K.O.", color = RED, sub = data.Name .. " " .. (data.Title or data.Skin) .. " · VICTORY" }
 		frame.shot = shot("ko-wide", At(v(w.x, 10, 46)), At(v(w.x, 6, -20)), 38)
 	end
 	return frame

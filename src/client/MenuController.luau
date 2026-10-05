@@ -187,6 +187,8 @@ function MenuController.new(remote, hub, settings)
 				if self.page == "taunts" then self:refreshTaunts() end
 			end
 			self:refreshProfile()
+			if self.page == "characters" and self.stylesKit then self:refreshStyles(self.stylesKit) end
+			if packet.bought then self:flash("STYLE BOUGHT · " .. packet.bought, GOLD) end
 			if packet.state == "queue" then
 				if self.page ~= "search" then self.searchStart = os.clock() end
 				self:open("search")
@@ -779,10 +781,67 @@ function MenuController:buildCharacters()
 	Theme.heading(page, "FIGHTERS", Theme.RED)
 	self.galleryName = label(page, { Position = UDim2.fromOffset(22, 86), Size = UDim2.new(1, -44, 0, 48), Font = UI_FONT, TextSize = 18, TextWrapped = true,
 		Text = "", TextColor3 = Theme.GOLD })
-	self.galleryText = label(page, { Position = UDim2.fromOffset(22, 146), Size = UDim2.new(1, -44, 0, 344), Font = BODY_FONT, TextSize = 15,
+	self.galleryText = label(page, { Position = UDim2.fromOffset(22, 140), Size = UDim2.new(1, -44, 0, 190), Font = BODY_FONT, TextSize = 14,
 		TextWrapped = true, Text = "Pick a fighter below: it becomes your favorite (in the middle of the menu, preselected for fights).",
 		TextColor3 = WHITE, TextYAlignment = Enum.TextYAlignment.Top })
+	-- STYLES: the fighter's colour styles, the shop ones with their price (bought with coins:
+	-- the server checks and keeps them in the profile). Worn in a fight with the style key.
+	Theme.rule(page, UDim2.fromOffset(22, 338), UDim2.new(1, -44, 0, 1), Theme.LINE)
+	label(page, { Position = UDim2.fromOffset(22, 344), Size = UDim2.new(1, -44, 0, 22), Font = UI_FONT, TextSize = 14,
+		Text = "STYLES · SHOP", TextColor3 = GOLD })
+	self.styleList = new("ScrollingFrame", { Position = UDim2.fromOffset(22, 370), Size = UDim2.new(1, -44, 1, -384), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = GOLD, CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y }, page)
+	new("UIGridLayout", { CellSize = UDim2.fromOffset(250, 52), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder }, self.styleList)
 	return page
+end
+
+-- The styles of `name` in the FIGHTERS page: free, to earn, owned or for sale (BUY).
+function MenuController:refreshStyles(name)
+	local list = self.styleList
+	if not list then return end
+	self.stylesKit = name
+	for _, child in list:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	local s = self.status or {}
+	local owned = s.ownedSkins or {}
+	for i, styleName in CharacterData.StyleOrder[name] or {} do
+		local style = CharacterData.Skins[styleName]
+		local item = CharacterData.SHOP[styleName]
+		local lock = CharacterData.LOCKED[styleName]
+		local row = new("Frame", { LayoutOrder = i, BackgroundColor3 = Theme.PANEL, BorderSizePixel = 0 }, list)
+		Theme.edge(row, if item then Color3.fromHex(style.Energy) else Theme.LINE)
+		-- (swatch: the outfit, its trim and its ki)
+		for k, key in { "Vest", "VestTrim", "Energy" } do
+			new("Frame", { Position = UDim2.fromOffset(6 + (k - 1) * 12, 8), Size = UDim2.fromOffset(10, 36),
+				BackgroundColor3 = Color3.fromHex(style[key]), BorderSizePixel = 0 }, row)
+		end
+		local shown = if item then item.theme else styleName
+		label(row, { Position = UDim2.fromOffset(46, 4), Size = UDim2.fromOffset(130, 22), Font = UI_FONT, TextSize = 14, Text = shown,
+			TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
+		local state, color = "FREE", GREY
+		if lock then
+			local open = (tonumber(s[lock]) or 0) >= 1
+			state, color = if open then "UNLOCKED" else "TO EARN", if open then GOLD else GREY
+		elseif item then
+			state, color = if owned[styleName] then "OWNED" else "SHOP", if owned[styleName] then GOLD else Color3.fromHex(style.Energy)
+		end
+		label(row, { Position = UDim2.fromOffset(46, 26), Size = UDim2.fromOffset(110, 20), Font = BODY_FONT, TextSize = 12, Text = state,
+			TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left })
+		if item and not owned[styleName] then
+			local buy = Theme.button(row, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(78, 38),
+				Text = "      " .. item.coins, TextSize = 14 }, GOLD)
+			CurrencyIcons.make("coins", buy, 20, UDim2.fromOffset(5, 9))
+			buy.Activated:Connect(function()
+				if (s.coins or 0) < item.coins then
+					self:flash("NOT ENOUGH COINS", RED)
+					return
+				end
+				self.remote:FireServer({ action = "buySkin", skin = styleName })
+			end)
+		end
+	end
 end
 
 function MenuController:showKitInfo(name)
@@ -796,6 +855,7 @@ function MenuController:showKitInfo(name)
 	table.insert(lines, "Ultimates: " .. MoveData.Moves[kit.Ultimates.Rush].name .. " · " .. MoveData.Moves[kit.Ultimates.Awaken].name
 		.. " · " .. MoveData.Moves[kit.Ultimates.Gate].name .. (if kit.Ultimates.Fatal then " · " .. MoveData.Moves[kit.Ultimates.Fatal].name else ""))
 	self.galleryText.Text = table.concat(lines, "\n")
+	self:refreshStyles(name)
 end
 
 function MenuController:buildRanking()

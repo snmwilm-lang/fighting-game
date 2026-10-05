@@ -83,6 +83,7 @@ local function defaultProfile()
 		recentOpp = {}, coinDay = 0, coinToday = 0, -- (anti-cheat: today's opponents, the daily coin cap)
 		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
 		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
+		ownedSkins = {}, -- SHOP: the shop styles bought (name -> true, CharacterData.SHOP)
 		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
 		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
 		optTaunts = true, tauntKey = "V", -- SETTINGS: the opponents' taunts shown, the key of the taunt wheel
@@ -560,7 +561,7 @@ function endVersus(match, winnerSlot)
 end
 
 -- What the menu of a player shows: where they are, their rank, the queues.
-function menuStatus(player)
+function menuStatus(player, bought)
 	local client = clients[player]
 	if not client then return end
 	local profile = client.profile or defaultProfile()
@@ -580,6 +581,7 @@ function menuStatus(player)
 			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic,
 				optTaunts = profile.optTaunts, tauntKey = profile.tauntKey } else nil,
 		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
+		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -942,7 +944,7 @@ end)
 -- { action = "start", request = { mode, team, level, queue } } · { action = "cancel" } (leave
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
-	start = true, cancel = true, leave = true, taunts = true }
+	start = true, cancel = true, leave = true, taunts = true, buySkin = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -986,6 +988,18 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			client.profile.taunts = Taunts.sanitize(packet.taunts, client.profile)
 			saveProfile(player, client)
 			menuStatus(player)
+		end
+	elseif action == "buySkin" then
+		-- SHOP: a style bought with coins (price and ownership checked here, never by the client).
+		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+			local ok, why = CharacterData.buy(client.profile, packet.skin)
+			if ok then
+				saveProfile(player, client, true)
+				menuStatus(player, packet.skin)
+			else
+				menuRemote:FireClient(player, { error = if why == "coins" then "NOT ENOUGH COINS" else "STYLE NOT FOR SALE" })
+			end
 		end
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
@@ -1164,11 +1178,12 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 		local mine, other = client.slot, 3 - client.slot
 		-- (Styles to earn, KAI's ÉVEILLÉ and KUROEN's DIVINE, are skipped until won: the CHALLENGES.)
 		local name = match.characters[mine].Skin
-		for _ = 1, 8 do
+		-- (and the shop styles until bought: CharacterData.canWear)
+		for _ = 1, 16 do
 			name = CharacterData.nextSkin(name, match.characters[other].Skin)
-			local lock = CharacterData.LOCKED[name]
-			if not lock or (client.profile and (client.profile[lock] or 0) >= 1) then break end
+			if CharacterData.canWear(name, client.profile) then break end
 		end
+		if not CharacterData.canWear(name, client.profile) then name = match.characters[mine].Skin end
 		match.characters[mine] = CharacterData.Skins[name]
 		rebuildSlot(match, mine)
 	end
@@ -1474,6 +1489,30 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per server, opponent search, server-authoritative combat")
+
+-- SHOP · ROBUX (prepared, off): a shop style sold for Robux needs a developer product created by
+-- Wilhem on Roblox, its id in CharacterData.SHOP_PRODUCTS[name]. While that table is empty
+-- (now: no id is ever invented) nothing is connected and the shop sells for coins only.
+if next(CharacterData.SHOP_PRODUCTS) then
+	local MarketplaceService = game:GetService("MarketplaceService")
+	local byProduct = {}
+	for name, product in CharacterData.SHOP_PRODUCTS do byProduct[product] = name end
+	MarketplaceService.ProcessReceipt = function(receipt)
+		local name = byProduct[receipt.ProductId]
+		local player = Players:GetPlayerByUserId(receipt.PlayerId)
+		local client = player and clients[player]
+		-- (granted only once the purchase is really written in the saved profile; else Roblox
+		-- calls again later)
+		if not name or not client or not client.profile or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		if type(client.profile.ownedSkins) ~= "table" then client.profile.ownedSkins = {} end
+		client.profile.ownedSkins[name] = true
+		if store and not writeProfile(player, client) then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		menuStatus(player, name)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+end
 
 -- The server closing (update, shutdown): every loaded profile is written before it goes
 -- (Roblox waits up to 30 s for this).

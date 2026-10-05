@@ -95,6 +95,33 @@ function TauntController.new(input)
 			self:close()
 		end
 	end)
+	-- Gamepad: R3 (right stick pressed) opens the wheel, the right stick points at a plate,
+	-- letting it go sends that taunt; R3 again closes.
+	local aimed = nil
+	UserInputService.InputBegan:Connect(function(io)
+		if io.KeyCode == Enum.KeyCode.ButtonR3 then
+			if self.open then self:close() else self:openWheel() end
+			aimed = nil
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(io)
+		if io.KeyCode ~= Enum.KeyCode.Thumbstick2 or not self.open then return end
+		local v = Vector2.new(io.Position.X, -io.Position.Y) -- (screen: y down)
+		if v.Magnitude > 0.7 then
+			-- the plate whose direction is the closest (plate i at -90 + (i - 1) * 60 degrees)
+			local angle = math.deg(math.atan2(v.Y, v.X))
+			local slot = math.floor(((angle + 90) % 360 + 30) / 60) % Taunts.SLOTS + 1
+			if slot ~= aimed then
+				aimed = slot
+				for i, plate in self.plates do plate.BackgroundColor3 = if i == slot then Color3.fromHex("5A0A16") else INK end
+			end
+		elseif v.Magnitude < 0.3 and aimed then
+			local slot = aimed
+			aimed = nil
+			for _, plate in self.plates do plate.BackgroundColor3 = INK end
+			if self.plates[slot].Visible then self:pick(slot) end
+		end
+	end)
 	RunService.RenderStepped:Connect(function() self:frame() end)
 	return self
 end

@@ -87,10 +87,15 @@ function InputController.start(remote)
 		stick, touchStick = Vector2.zero, Vector2.zero
 		for k in pulses do pulses[k] = false end
 	end
+	-- (out of a match the fight lets every key through: a gamepad's A / B / D-pad then drive
+	-- the menu's selection instead of being swallowed by the fight's bindings)
+	local function inMatch()
+		return (Players.LocalPlayer:GetAttribute("MatchId") or 0) ~= 0
+	end
 	for action, codes in Bindings do
 		if type(codes) == "table" and action ~= "Mouse" then
 			CAS:BindActionAtPriority("Fight_" .. action, function(_, state, input)
-				if UIS:GetFocusedTextBox() then
+				if UIS:GetFocusedTextBox() or not inMatch() then
 					set(action, input.KeyCode, false)
 					return Enum.ContextActionResult.Pass
 				end
@@ -100,6 +105,10 @@ function InputController.start(remote)
 		end
 	end
 	CAS:BindActionAtPriority("Fight_Stick", function(_, state, input)
+		if not inMatch() then
+			stick = Vector2.zero
+			return Enum.ContextActionResult.Pass
+		end
 		stick = if state == Enum.UserInputState.Cancel or state == Enum.UserInputState.End
 			then Vector2.zero else Vector2.new(input.Position.X, input.Position.Y)
 		return Enum.ContextActionResult.Sink

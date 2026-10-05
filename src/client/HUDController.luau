@@ -384,7 +384,7 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · SELECT: reset"
+			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · R3: taunts · SELECT: reset"
 			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)

@@ -36,6 +36,19 @@ page), donc le clic suivant (ÉQUIPER, FAVORI, DÉBLOQUER, ACHETER…) tombait s
 0,5 s et était perdu. Les aperçus ont maintenant leur propre rythme (hors du tour du menu), le
 client ne demande un aperçu qu'une fois par style, et le délai anti double-clic passe à 0,25 s
 (les achats restent vérifiés, jamais payés deux fois).
+v0.18.8 : mobile et console (« optimise aussi mobile et console, même les touches ») :
+- téléphone (écran tactile sans clavier, écran bas) : le menu prend une toile de 1280 × 720 au
+  lieu de 1600 × 900 (tout est un quart plus gros) ; les panneaux du bas (NOUVEAUTÉS, MES
+  PERSONNAGES) y sont masqués (ils ne tiennent pas sous les pages) ; la colonne de la sélection
+  suit la hauteur de l'écran ;
+- page PERSONNAGES : flèches ◀ ▶ pour passer d'un perso à l'autre (tactile, manette) ;
+- manette : le menu se parcourt avec la sélection de Roblox (croix / stick, A pour valider,
+  B pour revenir) ; chaque page ouverte, chaque question (OUI) et le retour d'un combat placent
+  la sélection sur un bouton utile ; sur la sélection des persos, la croix déplace le curseur ;
+  les commandes du combat laissent passer les touches hors combat (avant, elles avalaient A, B
+  et la croix même dans le menu) ;
+- provocations à la manette : R3 ouvre la roue, le stick droit vise, le relâcher envoie
+  (rien d'autre ne change dans les provocations) ; l'aide des touches manette le dit.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

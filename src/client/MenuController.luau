@@ -125,12 +125,19 @@ function MenuController.new(remote, hub, settings)
 	local function fit()
 		local size = safeCanvas.AbsoluteSize
 		if size.X <= 0 or size.Y <= 0 then return end
-		scale.Scale = math.min(size.X / 1600, size.Y / 900)
+		-- PHONES (a touch screen without keyboard, a short screen): a 1280 x 720 canvas instead,
+		-- so everything is a quarter bigger (at 1600 x 900 the text of a phone came out tiny);
+		-- the two panels of the bottom are left out there (see open), the rest fits.
+		local compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and size.Y < 620
+		local baseW, baseH = if compact then 1280 else 1600, if compact then 720 else 900
+		self.compact = compact
+		scale.Scale = math.min(size.X / baseW, size.Y / baseH)
 		-- The canvas fills the whole screen (it was a centred 1600 x 900 box, leaving empty
 		-- bands on any other shape of screen): at least 1600 x 900 design units, stretched to
 		-- the screen's proportions. Everything is anchored to its edge (navigation on the left,
 		-- pages and fighters on the right, panels at the bottom), so it spreads with it.
-		root.Size = UDim2.fromOffset(math.max(1600, size.X / scale.Scale), math.max(900, size.Y / scale.Scale))
+		root.Size = UDim2.fromOffset(math.max(baseW, size.X / scale.Scale), math.max(baseH, size.Y / scale.Scale))
+		if self.bottomNews and self.page then self:open(self.page) end -- (compact or not: the bottom panels)
 		-- (from the very top of the screen down to the bar's bottom edge: the safe area starts
 		-- below Roblox's buttons, safeCanvas.AbsolutePosition + the top inset)
 		local top = GuiService:GetGuiInset().Y + safeCanvas.AbsolutePosition.Y
@@ -233,6 +240,7 @@ function MenuController.new(remote, hub, settings)
 		self:onKey(input.KeyCode)
 	end)
 	RunService.RenderStepped:Connect(function(dt) self:frame(dt) end)
+	UserInputService.LastInputTypeChanged:Connect(function() self:gamepadFocus(false) end)
 	remote:FireServer({ action = "hello" })
 	return self
 end
@@ -504,7 +512,7 @@ function MenuController:buildSelect()
 	self.p2 = self:selectSide(page, false)
 	-- The column of portraits, the VS emblem above it.
 	-- (it ends above the options panel: at 630 high its last row of fighters slid under it)
-	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.fromOffset(440, 582),
+	local column = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 52), Size = UDim2.new(0, 440, 1, -240),
 		BackgroundColor3 = Theme.INK, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 6 }, page)
 	Theme.rule(column, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 3), Theme.RED)
 	local vs = label(column, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(160, 64), Font = DISPLAY,
@@ -537,6 +545,7 @@ function MenuController:buildSelect()
 			BackgroundColor3 = Theme.VIOLET, BorderSizePixel = 0, Font = UI_FONT, TextSize = 9, Text = "FREE TRIAL", TextColor3 = WHITE,
 			Visible = false, ZIndex = 9 }, cell)
 		cell.MouseEnter:Connect(function() self.kitIndex = i; self:refreshSelect() end)
+		cell.SelectionGained:Connect(function() self.kitIndex = i; self:refreshSelect() end) -- (gamepad)
 		cell.Activated:Connect(function()
 			self.kitIndex = i
 			self:pickKit()
@@ -846,8 +855,19 @@ end
 function MenuController:buildCharacters()
 	local page = rightPage(self, "FIGHTERS", Theme.RED)
 	Theme.heading(page, "FIGHTERS", Theme.RED)
-	self.galleryName = label(page, { Position = UDim2.fromOffset(22, 74), Size = UDim2.new(1, -44, 0, 26), Font = UI_FONT, TextSize = 16,
+	self.galleryName = label(page, { Position = UDim2.fromOffset(22, 74), Size = UDim2.new(1, -140, 0, 26), Font = UI_FONT, TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd, Text = "", TextColor3 = Theme.GOLD })
+	-- ◀ ▶: the previous / next fighter (touch screens and gamepads, where the strip of the
+	-- bottom is not there or far away)
+	for k, step in { -1, 1 } do
+		local arrow = Theme.button(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, if k == 1 then -70 else -22, 0, 72),
+			Size = UDim2.fromOffset(44, 30), Font = UI_FONT, TextSize = 16, Text = if step < 0 then "◀" else "▶", TextColor3 = GOLD }, GOLD)
+		arrow.Activated:Connect(function()
+			local order = MoveData.KitOrder
+			local index = table.find(order, self.galleryKit or "KAI") or 1
+			self:showKitInfo(order[(index - 1 + step) % #order + 1])
+		end)
+	end
 	-- the 3D preview (drag to turn), its frame
 	local holder = new("Frame", { Position = UDim2.fromOffset(22, 104), Size = UDim2.fromOffset(196, 232), BackgroundColor3 = INK,
 		BackgroundTransparency = 0.2, BorderSizePixel = 0 }, page)
@@ -942,6 +962,8 @@ function MenuController:confirm(text, yesText, onYes)
 	local no = Theme.button(box, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -18), Size = UDim2.new(0.5, -26, 0, 48),
 		Font = DISPLAY, TextSize = 26, Text = "CANCEL", ZIndex = 62 })
 	yes.Activated:Connect(function() close(); onYes() end)
+	self.dialogYes = yes
+	task.defer(function() self:gamepadFocus(true) end)
 	no.Activated:Connect(close)
 	shade.Activated:Connect(close)
 end
@@ -1545,8 +1567,8 @@ function MenuController:open(page)
 	end
 	local overlay = page == "select" or page == "search"
 	self.nav.Visible = not overlay
-	self.bottomNews.Visible = not overlay
-	self.bottomRoster.Visible = not overlay
+	self.bottomNews.Visible = not overlay and not self.compact
+	self.bottomRoster.Visible = not overlay and not self.compact
 	local tab = if page == "solo" or page == "online" or overlay then "home" else page
 	for name, entry in self.tabs do
 		local active = name == tab
@@ -1583,6 +1605,28 @@ function MenuController:open(page)
 	else
 		self.bigKanji.Text = "開"
 	end
+	task.defer(function() self:gamepadFocus(true) end)
+end
+
+-- GAMEPAD (console): the menu is driven by Roblox's selection (D-pad / stick to move, A to
+-- press, B to go back). A page opened, a question asked: the selection goes to a sensible
+-- button (the page's first entry, the fighter under the cursor, YES).
+function MenuController:gamepadFocus(force)
+	if not self.gui.Enabled or self.inMatch then return end
+	local last = UserInputService:GetLastInputType()
+	if not string.find(last.Name, "Gamepad") then return end
+	local current = GuiService.SelectedObject
+	if not force and current and current:IsDescendantOf(self.gui) and current.Visible then return end
+	local target
+	if self.dialogYes and self.dialogYes.Parent then
+		target = self.dialogYes
+	elseif self.page == "select" then
+		target = self.kitCells[self.kitIndex] and self.kitCells[self.kitIndex].cell
+	else
+		local tab = if self.page == "solo" or self.page == "online" then "home" else self.page
+		target = self.navItems[tab] and self.navItems[tab].button or self.navItems.home.button
+	end
+	if target then GuiService.SelectedObject = target end
 end
 
 function MenuController:back()
@@ -1606,6 +1650,9 @@ function MenuController:onKey(key)
 		return
 	end
 	if self.page ~= "select" then return end
+	-- (a gamepad with a button selected: Roblox moves the selection and A presses it)
+	if GuiService.SelectedObject and (key == K.ButtonA or key == K.DPadLeft or key == K.DPadRight or key == K.DPadUp
+		or key == K.DPadDown) then return end
 	local n = #MoveData.KitOrder
 	if key == K.Left or key == K.Q or key == K.A or key == K.DPadLeft then
 		self.kitIndex = (self.kitIndex - 2) % n + 1
@@ -1754,6 +1801,11 @@ function MenuController:setInMatch(inMatch)
 	self.inMatch = inMatch
 	self.gui.Enabled = not inMatch
 	self.backdrop.Enabled = not inMatch
+	if inMatch and GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(self.gui) then
+		GuiService.SelectedObject = nil
+	elseif not inMatch then
+		task.defer(function() self:gamepadFocus(true) end)
+	end
 	if not inMatch and self.page == "search" and self.status.state ~= "queue" then self:open("home") end
 	if self.hub then self.hub:setInMatch(inMatch) end
 end

@@ -1202,6 +1202,116 @@ test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a s
 	expect(guard.fwd > 1, "the orb does not shield him")
 end)
 
+T.test("DAICHA's matter: every blow its own path (rise, slam, dive, spin, throw, blink, mark, wrap, river, spear), a spring follow", function()
+	local OrbFlight = require("../src/shared/OrbFlight")
+	local roles = MoveData.Kits.DAICHA.Roles
+	local function get(role) return MoveData.Moves[roles[role]] end
+	local function at(role, frame)
+		return OrbFlight.offset({ state = "Attack", move = roles[role], moveFrame = frame }, get(role), role, 1)
+	end
+	local function form(role, frame)
+		return OrbFlight.form({ state = "Attack", move = roles[role], moveFrame = frame }, get(role), role, 1)
+	end
+	-- every DAICHA role has a named path, and they are not all the same
+	local kinds = {}
+	for role in roles do
+		if OrbFlight.PATH[role] then kinds[OrbFlight.PATH[role]] = true end
+	end
+	local n = 0
+	for _ in kinds do n += 1 end
+	expect(n >= 14, "too few distinct orb paths: " .. n)
+	-- RISING SHADOW: from the floor, on up through the target
+	local up = get("Uppercut")
+	expect(at("Uppercut", up.startup - 3).up < 1.5, "the rising shadow does not start at the floor")
+	expect(at("Uppercut", up.startup + up.active).up > at("Uppercut", up.startup + 1).up + 1.5, "the rising shadow does not rise")
+	-- FALL: raised high over her head, crushed down to the floor
+	local hm = get("Hammer")
+	expect(at("Hammer", hm.startup - 4).up > 6, "the fall is not raised over her head")
+	expect(at("Hammer", hm.startup + 1).up < 2, "the fall is not crushed down")
+	expect(form("Hammer", hm.startup + 1).radius > form("Jab", get("Jab").startup + 1).radius, "the fall's impact is not bigger")
+	-- SHADOW DIVE: from above, down before her
+	local dv = get("AirSmash")
+	expect(at("AirSmash", dv.startup - 3).up > 4.5 and at("AirSmash", dv.startup + 1).up < 2, "the dive does not come down")
+	-- SPIN DRILL: one turn round her (behind her back)
+	local sp, behind = get("SpinKick"), false
+	for frame = 0, sp.startup do
+		if at("SpinKick", frame).fwd < -0.8 then behind = true end
+	end
+	expect(behind, "the spin drill does not turn round her")
+	-- REAPER: from behind her, low
+	local rp = get("Sweep")
+	local w = at("Sweep", rp.startup - 4)
+	expect(w.fwd < 0 and w.up < 1.5, "the reaper does not start low behind her")
+	-- INVERTED SPHERE: the orb IS the thrown sphere, a new one forms in her hand
+	local kb = get("KiBlast")
+	expect(form("KiBlast", kb.startup - 1).radius > OrbFlight.SIZE.rest, "the sphere does not swell before the throw")
+	expect(form("KiBlast", kb.startup + 1).radius < 0.05, "the orb is still there once thrown")
+	expect(math.abs(form("KiBlast", kb.startup + kb.active + kb.recovery).radius - OrbFlight.SIZE.rest) < 0.01, "no new orb forms")
+	-- TELEPORT: squeezed to a point as she vanishes, bursting where she strikes
+	local tp = get("Rising")
+	expect(form("Rising", tp.startup).radius < 0.1, "the orb is not squeezed as she vanishes")
+	expect(form("Rising", tp.startup + 1).radius > 0.8, "the orb does not burst out where she strikes")
+	-- DARK MARK: it clings to the target a moment
+	local mk = get("PalmStrike")
+	local hit = at("PalmStrike", mk.startup + 1)
+	local cling = at("PalmStrike", mk.startup + mk.active + math.floor(mk.recovery * 0.3))
+	expect(math.abs(cling.fwd - hit.fwd) + math.abs(cling.up - hit.up) < 0.01, "the dark mark does not cling")
+	-- EMBRACE: it coils round the target
+	local bb, far = get("BodyBlow"), 0
+	local bh = at("BodyBlow", bb.startup + 1)
+	for frame = bb.startup + 1, bb.startup + bb.active do
+		local o = at("BodyBlow", frame)
+		far = math.max(far, math.abs(o.side - bh.side) + math.abs(o.up - bh.up))
+		expect(math.abs(o.fwd - bh.fwd) < 1.2, "the embrace leaves the target")
+	end
+	expect(far > 0.3, "the embrace does not coil")
+	-- SHADOW CURRENT: from beat to beat, up and down
+	local rv, lo, hi = get("KiFlurry"), math.huge, -math.huge
+	for frame = rv.startup + 1, rv.startup + rv.active do
+		local y = at("KiFlurry", frame).up
+		lo, hi = math.min(lo, y), math.max(hi, y)
+	end
+	expect(hi - lo > 1, "the shadow current does not flow up and down")
+	-- SHADOW ARROW: stretched into an arrow
+	expect(form("DragonFist", get("DragonFist").startup + 2).stretch > 2, "the shadow arrow is not stretched")
+	-- no blow teleports the orb (the client spring smooths the rest)
+	for role, id in roles do
+		local m = MoveData.Moves[id]
+		if m.hitbox and OrbFlight.path(role) ~= "vortex" then
+			local last = at(role, 0)
+			for frame = 1, m.startup + m.active + m.recovery do
+				local o = at(role, frame)
+				local d = math.sqrt((o.fwd - last.fwd) ^ 2 + (o.up - last.up) ^ 2 + (o.side - last.side) ^ 2)
+				expect(d < 3.2, string.format("%s frame %d: the orb jumps %.2f", id, frame, d))
+				last = o
+			end
+		end
+	end
+	-- K.O.: spread on the floor, a puddle; a blow on the guard pushes the disc wider
+	local ko = OrbFlight.offset({ state = "KO" }, nil, nil, 0)
+	expect(ko.up < 0.2 and OrbFlight.form({ state = "KO" }, nil).shape == "puddle", "no puddle at the K.O.")
+	expect(OrbFlight.form({ state = "Blockstun" }, nil).radius > OrbFlight.form({ state = "Blocking" }, nil).radius, "the disc does not give under a blow")
+	-- at rest it breathes, a little
+	local r1, r2 = OrbFlight.form({ state = "Idle" }, nil, nil, 0.6).radius, OrbFlight.form({ state = "Idle" }, nil, nil, 1.9).radius
+	expect(math.abs(r1 - r2) > 0.005 and math.abs(r1 - r2) < 0.06, "the orb does not breathe at rest")
+	-- the spring: lags behind a step, overshoots a little, settles; tight in a strike; snaps on a teleport
+	local s = { p = { 0, 0, 0 }, v = { 0, 0, 0 } }
+	OrbFlight.follow(s, { 1, 0, 0 }, 1 / 60, false)
+	expect(s.p[1] > 0 and s.p[1] < 0.3, "the loose orb does not lag behind")
+	local peak = 0
+	for _ = 1, 120 do
+		OrbFlight.follow(s, { 1, 0, 0 }, 1 / 60, false)
+		peak = math.max(peak, s.p[1])
+	end
+	expect(peak > 1.02 and peak < 1.3, string.format("the loose orb overshoot is off (%.2f)", peak))
+	expect(math.abs(s.p[1] - 1) < 0.01, "the loose orb never settles")
+	local t = { p = { 0, 0, 0 }, v = { 0, 0, 0 } }
+	for _ = 1, 4 do OrbFlight.follow(t, { 2, 0, 0 }, 1 / 60, true) end
+	expect(t.p[1] > 1.6, "the orb lags too far behind a strike")
+	OrbFlight.follow(t, { 30, 0, 0 }, 1 / 60, true)
+	expect(t.p[1] == 30, "the orb does not snap after a teleport")
+end)
+
 -- ===================================================================== ASURA's four arms
 local FourArms = require("../src/shared/FourArms")
 

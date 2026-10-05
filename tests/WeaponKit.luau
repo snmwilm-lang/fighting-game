@@ -75,30 +75,20 @@ function WeaponKit.pieces(kit, parts, energy, flight, which)
 	local grip, spec = WeaponKit.grip(kit, parts, which)
 	local out = {}
 	if not grip then return out end
+	local scale = 1
 	if spec.flies and flight then
 		local at = WeaponKit.flight(flight.view, flight.time)
-		if flight.view.state == "Attack" then
-			-- The chain of shadow from his hand to the orb while he strikes with it.
-			local hx, hy, hz = K.point(grip, 0, 0, 0)
-			local dx, dy, dz = at[1] - hx, at[2] - hy, at[3] - hz
-			local length = math.sqrt(dx * dx + dy * dy + dz * dz)
-			if length > 0.05 then
-				local zx, zy, zz = -dx / length, -dy / length, -dz / length -- the part's -Z toward the orb
-				local ux, uy, uz = 0, 1, 0
-				if math.abs(zy) > 0.95 then ux, uy, uz = 1, 0, 0 end
-				local xx, xy, xz = uy * zz - uz * zy, uz * zx - ux * zz, ux * zy - uy * zx
-				local xl = math.sqrt(xx * xx + xy * xy + xz * xz)
-				xx, xy, xz = xx / xl, xy / xl, xz / xl
-				local yx, yy, yz = zy * xz - zz * xy, zz * xx - zx * xz, zx * xy - zy * xx
-				table.insert(out, { name = "WeaponChain", size = { 0.1, 0.1, length },
-					cframe = { (hx + at[1]) / 2, (hy + at[2]) / 2, (hz + at[3]) / 2, xx, yx, zx, xy, yy, zy, xz, yz, zz },
-					color = energy or "8FD8FF" })
-			end
-		end
+		-- (no chain any more: the matter flies free; drawn at the size OrbFlight.form gives, a
+		-- disc or a puddle drawn as a flat wide orb)
+		local view = flight.view
+		local id = view.state == "Attack" and view.move or nil
+		local form = OrbFlight.form(view, id and MoveData.Moves[id], id and ROLE_OF[id], flight.time)
+		scale = math.max(0.01, form.radius * 2 / 0.9)
 		grip = K.translation(at[1], at[2], at[3])
 	end
 	for _, p in spec.pieces do
-		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(p.x or 0, p.y or 0, p.z or 0)), size = p.size,
+		table.insert(out, { name = "Weapon" .. p.name, cframe = K.mul(grip, K.translation(p.x or 0, p.y or 0, p.z or 0)),
+			size = if scale == 1 then p.size else { p.size[1] * scale, p.size[2] * scale, p.size[3] * scale },
 			color = if p.color == "energy" then energy or "8FD8FF" elseif p.color == "trim" then "C9A227" else p.color })
 	end
 	if spec.pair and not which then

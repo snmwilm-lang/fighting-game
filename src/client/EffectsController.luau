@@ -176,7 +176,7 @@ function EffectsController:weaponStrike(view, moveId, color, rig)
 		local s = ORB[role]
 		if not s then return false end
 		-- Where the flying orb strikes (OrbFlight): the end of the move's reach.
-		local hit = OrbFlight.strike(MoveData.Moves[moveId])
+		local hit = OrbFlight.strike(MoveData.Moves[moveId], role)
 		local at = Vector3.new(view.x + f * hit.fwd, view.y + hit.up, z + hit.side)
 		if s.arc then
 			local a = s.arc
@@ -251,34 +251,59 @@ function EffectsController:orbVortex(center, color)
 	self:tornadoRing(center, color)
 end
 
--- DAICHA's matter, free of her hand: where OrbFlight puts it, eased (it never teleports), in
--- the shape OrbFlight gives (Wilhem: attack = a dense sphere swelling on impact, guard = the
--- same matter spread into a black disc before her), morphing smoothly from one to the other.
+-- DAICHA's matter, free of her hand: where OrbFlight puts it, followed by a spring (it lags a
+-- little behind her steps and jumps, overshoots and settles; tight in a strike; at once after
+-- a teleport), in the shape OrbFlight gives (Wilhem: attack = a dense sphere swelling on
+-- impact, guard = the same matter spread into a black disc before her, a puddle at the K.O.),
+-- morphing smoothly from one to the other, and drawn longer along its flight when it goes fast.
 function EffectsController:flyOrb(rig, view, now, slot)
 	local id = view.state == "Attack" and view.move or nil
 	local move = id and MoveData.Moves[id]
-	local o = OrbFlight.offset(view, move, id and ROLE_OF[id], now)
+	local role = id and ROLE_OF[id]
+	local o = OrbFlight.offset(view, move, role, now)
 	-- (from where the body is drawn: the presentation spacing may set it a little apart)
 	local x = if rig.root then rig.root.Position.X else view.x
 	local target = Vector3.new(x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
 	local dt = math.clamp(now - (rig.orbClock or now), 0, 0.1)
 	rig.orbClock = now
-	rig.orbPosition = (rig.orbPosition or target):Lerp(target, 1 - math.exp(-dt * 22))
-	local spin = CFrame.new(rig.orbPosition) * CFrame.Angles(0, now * 2.2, now * 0.7)
+	local spring = rig.orbSpring
+	if not spring then
+		spring = { p = { target.X, target.Y, target.Z }, v = { 0, 0, 0 } }
+		rig.orbSpring = spring
+	end
+	OrbFlight.follow(spring, { target.X, target.Y, target.Z }, dt, view.state == "Attack")
+	rig.orbPosition = Vector3.new(spring.p[1], spring.p[2], spring.p[3])
+	local velocity = Vector3.new(spring.v[1], spring.v[2], spring.v[3])
 	-- the shape: ball <-> disc (morph 0..1), the ball's radius eased
-	local form = OrbFlight.form(view, move, id and ROLE_OF[id])
+	local form = OrbFlight.form(view, move, role, now)
 	local S = OrbFlight.SIZE
-	local disc = form.shape == "disc"
+	local disc = form.shape ~= "ball"
+	local flat = form.shape == "puddle"
 	rig.orbMorph = (rig.orbMorph or 0) + ((if disc then 1 else 0) - (rig.orbMorph or 0)) * (1 - math.exp(-dt * 18))
 	local wanted = if disc then S.rest else form.radius
 	rig.orbRadius = (rig.orbRadius or wanted) + (wanted - (rig.orbRadius or wanted)) * (1 - math.exp(-dt * 28))
+	if form.radius < 0.05 then rig.orbRadius = 0 end -- (thrown: it IS the projectile now)
 	local m = rig.orbMorph
-	local r = math.max(0.03, rig.orbRadius * (1 - m))
+	local r = rig.orbRadius * (1 - m)
+	-- stretched along its flight (and the arrow's own stretch), its volume kept
+	local speed = velocity.Magnitude
+	local stretch = math.clamp((form.stretch or 1) * (1 + math.min(speed / 45, 1)), 1, 3.2)
+	local frame = if stretch > 1.05 and speed > 0.5
+		then CFrame.lookAt(rig.orbPosition, rig.orbPosition + velocity)
+		elseif stretch > 1.05 then CFrame.new(rig.orbPosition) * CFrame.Angles(0, if view.facing > 0 then -math.pi / 2 else math.pi / 2, 0)
+		else CFrame.new(rig.orbPosition) * CFrame.Angles(0, now * 2.2, now * 0.7)
+	local thin = 1 / math.sqrt(stretch)
 	for _, p in rig.orbParts do
 		if p.Parent then
-			p.CFrame = spin
-			p.Size = Vector3.one * (if p.Name == "KitOrbCore" then r * 0.95 else r * 2)
-			p.Transparency = if m > 0.97 or self.hideOrb then 1 else 0
+			local mesh = p:FindFirstChild("OrbShape")
+			if not mesh then
+				mesh = Instance.new("SpecialMesh")
+				mesh.Name, mesh.MeshType, mesh.Parent = "OrbShape", Enum.MeshType.Sphere, p
+			end
+			mesh.Scale = Vector3.new(thin, thin, stretch)
+			p.CFrame = frame
+			p.Size = Vector3.one * math.max(0.03, if p.Name == "KitOrbCore" then r * 0.95 else r * 2)
+			p.Transparency = if m > 0.97 or self.hideOrb or r < 0.03 then 1 else 0
 		end
 	end
 	if self.hideOrb then m = 0 end -- (an ultimate stages the matter itself)
@@ -290,15 +315,22 @@ function EffectsController:flyOrb(rig, view, now, slot)
 		core.Parent, rim.Parent = rig.model, rig.model
 		rig.orbDisc, rig.orbRim = core, rim
 	end
-	-- (turned toward the camera: edge-on, from the side view, a disc would be a line)
+	-- (a shield turned toward the camera: edge-on, from the side view, a disc would be a line;
+	-- a puddle lies flat on the floor)
 	local f = view.facing
-	local face = CFrame.new(rig.orbPosition) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(42), 0)
-	local d = S.disc * 2 * m
+	local face = if flat then CFrame.new(rig.orbPosition) * CFrame.Angles(0, 0, math.pi / 2)
+		else CFrame.new(rig.orbPosition) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(42), 0)
+	local size = if disc then form.radius else S.disc
+	-- (a blow on the shield: it ripples)
+	if form.shape == "disc" and form.radius > S.disc then size *= 1 + 0.04 * math.sin(now * 50) end
+	local d = size * 2 * m
+	local thick = if disc then form.thickness else S.thickness
 	local hide = m < 0.03
-	rig.orbDisc.Size = Vector3.new(S.thickness, math.max(0.05, d), math.max(0.05, d))
+	rig.orbDisc.Size = Vector3.new(thick, math.max(0.05, d), math.max(0.05, d))
 	rig.orbDisc.CFrame, rig.orbDisc.Transparency = face, if hide then 1 else 0.02
-	rig.orbRim.Size = Vector3.new(S.thickness * 0.5, math.max(0.05, d * 1.08), math.max(0.05, d * 1.08))
-	rig.orbRim.CFrame, rig.orbRim.Transparency = face * CFrame.new(-0.05, 0, 0), if hide then 1 else 0.35
+	rig.orbRim.Size = Vector3.new(thick * 0.5, math.max(0.05, d * 1.08), math.max(0.05, d * 1.08))
+	rig.orbRim.CFrame = face * CFrame.new(if flat then -0.02 else -0.05, 0, 0)
+	rig.orbRim.Transparency = if hide then 1 elseif flat then 0.6 else 0.35
 end
 
 -- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an

@@ -1,5 +1,30 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.2 — 5 octobre 2026 · DAICHA : LE COMPORTEMENT DE LA BOULE
+
+Wilhem : « travaille plus sur le comportement de la boule ». La même sphère, menée par elle, a maintenant un trajet propre à chaque coup (`OrbFlight.PATH`, testé un par un) :
+- RISING SHADOW (montant) : part du sol devant elle et monte à travers la cible.
+- FALL et INVERTED FALL : levée au-dessus de sa tête, puis écrasée au sol (de plus en plus vite), impact plus gros.
+- AIR CLAW / SHADOW DIVE (en l'air) : de haut, plonge devant elle.
+- SPIN DRILL : un tour complet autour d'elle (derrière son dos), puis vers la cible.
+- REAPER (balayette lourde) : part basse derrière elle et faucille vers l'avant.
+- INVERTED SPHERE (spécial) : la boule grossit dans sa main, c'est ELLE qu'elle lance (elle disparaît de sa main), puis une nouvelle se reforme.
+- TELEPORT : comprimée en un point quand elle disparaît, éclate là où elle frappe.
+- DARK MARK : collée sur la cible un instant, en rétrécissant, puis revient.
+- EMBRACE : s'enroule autour de la cible.
+- SHADOW CURRENT : coule d'un temps à l'autre, en haut, en bas.
+- SHADOW ARROW : étirée en flèche.
+- HALF ECLIPSE : un grand demi-cercle au-dessus de la cible.
+- Repos : elle « respire » (taille qui varie très peu). Touchée : rejetée derrière elle et tremble. Au sol : tombée à côté d'elle. K.O. : étalée en flaque au sol. Garde : le disque s'élargit et ondule quand un coup le frappe.
+
+Côté client (`EffectsController:flyOrb`) : la boule suit sa place avec un ressort (`OrbFlight.follow`, pur et testé) : elle traîne un peu derrière ses pas et ses sauts, dépasse et se pose ; serrée pendant un coup pour arriver sur l'impact ; instantanée après une téléportation. Plus elle va vite, plus elle s'étire dans le sens du vol (volume gardé). L'éclat d'impact est placé là où frappe la boule (coups bas compris). Les planches (`WeaponKit`) ne dessinent plus la chaîne et donnent la vraie taille de la boule.
+
+Aucune règle de combat, aucun dégât, aucune frame touchés : tout est cosmétique.
+
+Tests : Animation 41 (nouveau test : chaque trajet, la boule lancée, le ressort), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871.
+
+À voir dans Studio : l'étirement en vol (SpecialMesh Sphere sur la boule), le ressort au repos (pas trop mou), la flaque au K.O.
+
 ## Version 0.23.1 — 5 octobre 2026 · DAICHA : ATTAQUES NORMALES (M1 / M2)
 
 D'après la planche « DAICHA ATTAQUES NORMALES » de Wilhem (`OrbFlight.luau`, `EffectsController:flyOrb`) :

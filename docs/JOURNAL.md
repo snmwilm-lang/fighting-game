@@ -56,6 +56,10 @@ erreur en dessinant la page est écrite dans la Sortie (« FIGHTERS page, … »
 v0.18.10 : la version est écrite sous le logo du menu (on voit d'un coup d'œil quel fichier est
 ouvert : plusieurs fois un ancien fichier a été rouvert) ; le favori change tout de suite à
 l'écran au clic (étoile), le serveur le confirme.
+v0.18.11 : logo du menu dans le style de l'artwork de Wilhem : BREAK blanc argenté sur FRAMEZ
+rouge, contours noirs épais, lueur et trait rouges (dessiné en UI). L'artwork recadré est dans
+`assets/logo/breakframez_logo.png` : une fois envoyé sur Roblox par Wilhem, son id va dans
+`MenuController.LOGO_IMAGE` et l'image remplace le dessin (seulement une fois chargée).
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

@@ -49,6 +49,8 @@ local BODY_FONT = Enum.Font.GothamBold
 
 local MenuController = {}
 MenuController.__index = MenuController
+-- The logo artwork once uploaded to Roblox by Wilhem ("rbxassetid://<id>"; empty: the drawn logo).
+MenuController.LOGO_IMAGE = ""
 
 -- Shared, restrained hover / press / gamepad feedback.
 local juice = Theme.feedback
@@ -251,18 +253,42 @@ function MenuController:buildTopBar()
 	local bar = new("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, 78), BackgroundColor3 = Theme.INK,
 		BackgroundTransparency = 0.06, BorderSizePixel = 0 }, self.root)
 	Theme.rule(bar, UDim2.new(0, 28, 1, -1), UDim2.new(1, -56, 0, 1), Theme.LINE, 0.4)
-	-- The game's name, BREAKFRAMEZ, on a slanted red brush stroke (in the 180 units before the tabs).
-	local logo = new("Frame", { Position = UDim2.fromOffset(26, 8), Size = UDim2.fromOffset(184, 64), BackgroundTransparency = 1 }, bar)
-	local brush = Theme.rule(logo, UDim2.fromOffset(2, 16), UDim2.fromOffset(180, 30), Theme.RED)
-	brush.Rotation = -5
-	Theme.ink(logo, Theme.INK, 0.1)
-	local title = label(logo, { Position = UDim2.fromOffset(0, 6), Size = UDim2.fromOffset(184, 42), Font = DISPLAY,
-		TextScaled = true, Text = "BREAKFRAMEZ", TextColor3 = Theme.WHITE, Rotation = -5, TextXAlignment = Enum.TextXAlignment.Center })
-	stroke(title, 2, INK)
-	label(logo, { Position = UDim2.fromOffset(60, 47), Size = UDim2.fromOffset(120, 14), Font = UI_FONT, TextSize = 10,
-		Text = "FIGHTING GAME", TextColor3 = Theme.WHITE, Rotation = -5 })
+	-- The logo, after Wilhem's art (white-silver BREAK over red FRAMEZ, thick black outlines,
+	-- red glow, a red slash through it): drawn here; once the artwork is uploaded to Roblox, its
+	-- id in MenuController.LOGO_IMAGE shows it instead (only once it has really loaded).
+	local logo = new("Frame", { Name = "Logo", Position = UDim2.fromOffset(22, 2), Size = UDim2.fromOffset(190, 74), BackgroundTransparency = 1,
+		ClipsDescendants = false }, bar)
+	local drawn = new("Frame", { Name = "Drawn", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, logo)
+	-- (the red slash and its glow, behind the letters)
+	local glow = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(176, 40),
+		BackgroundColor3 = Theme.RED, BackgroundTransparency = 0.55, BorderSizePixel = 0, Rotation = -7 }, drawn)
+	new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, glow)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2),
+		NumberSequenceKeypoint.new(1, 1) }) }, glow)
+	new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.52, 0.5), Size = UDim2.fromOffset(4, 78),
+		BackgroundColor3 = Theme.RED, BorderSizePixel = 0, Rotation = 8 }, drawn)
+	local top = label(drawn, { Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(150, 36), Font = DISPLAY, TextScaled = true,
+		Text = "BREAK", TextColor3 = Color3.fromHex("ECECF2"), Rotation = -6, TextXAlignment = Enum.TextXAlignment.Center })
+	stroke(top, 3, INK)
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromHex("FFFFFF"), Color3.fromHex("A9A9B4")) }, top)
+	local bottom = label(drawn, { Position = UDim2.fromOffset(28, 32), Size = UDim2.fromOffset(160, 38), Font = DISPLAY, TextScaled = true,
+		Text = "FRAMEZ", TextColor3 = Color3.fromHex("FF2236"), Rotation = -6, TextXAlignment = Enum.TextXAlignment.Center })
+	stroke(bottom, 3, INK)
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromHex("FF4A5A"), Color3.fromHex("B0081C")) }, bottom)
+	if MenuController.LOGO_IMAGE ~= "" then
+		local picture = new("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = MenuController.LOGO_IMAGE,
+			ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1 }, logo)
+		local function check()
+			if picture.IsLoaded then
+				picture.ImageTransparency = 0
+				drawn.Visible = false
+			end
+		end
+		picture:GetPropertyChangedSignal("IsLoaded"):Connect(check)
+		check()
+	end
 	-- (the version, to know at a glance which file is open)
-	label(logo, { Position = UDim2.fromOffset(4, 50), Size = UDim2.fromOffset(54, 12), Font = BODY_FONT, TextSize = 9,
+	label(logo, { Position = UDim2.fromOffset(0, 62), Size = UDim2.fromOffset(30, 12), Font = BODY_FONT, TextSize = 9,
 		Text = "v" .. CombatConfig.Version, TextColor3 = Theme.MUTED })
 	self.tabs = {}
 	local tabs = { { "PLAY", "home" }, { "FIGHTERS", "characters" }, { "RANKING", "ranking" },

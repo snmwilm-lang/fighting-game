@@ -23,6 +23,12 @@ v0.18.5 : la bande MES PERSONNAGES ne réagit plus au survol (passer la souris a
 perso dans la page PERSONNAGES) : seulement au clic. Dans la page PERSONNAGES, un clic montre le
 perso (le bouton ★ FAVORI en fait le favori) ; ailleurs, un clic sur un perso possédé en fait le
 favori, sur un perso verrouillé ouvre sa page.
+v0.18.6 : boutons du combat simplifiés (capture de Wilhem : 14 boutons en vrac, des trous là où
+certains se cachent). En haut il ne reste que ◀ MENU, ⚙ OUTILS et COMBOS (+ les deux gardes de
+TARO) ; OUTILS ouvre une colonne rangée en sections (PERSO : perso, adversaire, style, apparence ;
+ENTRAÎNEMENT : mannequin, reset, ultimes, entraîneur, cine lab, hitbox ; AFFICHAGE : souris,
+poses, effets, son), fermée par défaut ; un bouton caché n'y laisse plus de trou (liste).
+Les panneaux COMBOS / ENTRAÎNEUR / CINE LAB s'ouvrent à côté de la colonne.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

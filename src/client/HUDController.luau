@@ -218,93 +218,123 @@ function HUD.new(config)
 	-- Status and buttons below the header.
 	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 112), TextSize = 12,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("B9B9C2") })
-	local x, y = 12, 134
-	local function button(name, label, width, callback)
-		if x + width > 660 then x, y = 12, y + 34 end -- wrap to a second row
+	--[[
+		The buttons, tidied (Wilhem: "simplify these UIs"): along the top only ◀ MENU, COMBOS and
+		⚙ TOOLS; TOOLS opens one column, in sections (FIGHTER, TRAINING, DISPLAY), where a hidden
+		button leaves no hole (a list, not fixed places). Closed by default.
+	]]
+	local topRow = new("Frame", { Name = "TopButtons", BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 134),
+		Size = UDim2.fromOffset(600, 30) }, gui)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, topRow)
+	local tools = new("Frame", { Name = "Tools", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0,
+		Position = UDim2.fromOffset(12, 170), Size = UDim2.fromOffset(230, 0), AutomaticSize = Enum.AutomaticSize.Y }, gui)
+	stroke(tools, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	corner(tools, 6)
+	new("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, tools)
+	new("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8) }, tools)
+	self.tools = tools
+	local order = 0
+	local function heading(label)
+		order += 1
+		local h = text(tools, { Name = "Heading", LayoutOrder = order, Text = label, Size = UDim2.new(1, 0, 0, 16), TextSize = 11,
+			Font = UI_FONT, TextColor3 = Color3.fromHex("FFD23F"), TextXAlignment = Enum.TextXAlignment.Left })
+		return h
+	end
+	local function button(name, label, width, callback, parent)
+		order += 1
+		local inRow = parent == topRow
 		local b = new("TextButton", {
-			Name = name, Text = label, Size = UDim2.fromOffset(width, 28), Position = UDim2.fromOffset(x, y),
+			Name = name, Text = label, LayoutOrder = order, Size = if inRow then UDim2.fromOffset(width, 28) else UDim2.new(1, 0, 0, 28),
 			Font = UI_FONT, TextSize = 11, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
-		}, gui)
+		}, parent or tools)
 		stroke(b, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		corner(b, 4)
 		local scale = new("UIScale", {}, b)
-		b.MouseEnter:Connect(function() tween(scale, 0.1, { Scale = 1.06 }) end)
+		b.MouseEnter:Connect(function() tween(scale, 0.1, { Scale = 1.04 }) end)
 		b.MouseLeave:Connect(function() tween(scale, 0.12, { Scale = 1 }) end)
 		b.Activated:Connect(callback)
-		x += width + 8
 		return b
 	end
-	-- Fighter pick first: the own kit (T) and, in solo, the CPU's (G).
 	self.menuButton = button("Menu", "◀ MENU", 84, function()
 		if self.onMenu then self.onMenu() end
-	end)
+	end, topRow)
 	self.menuButton.TextColor3 = Color3.fromHex("FFD23F")
-	self.mouseButton = button("MouseLock", "MOUSE: FREE (CTRL)", 168, function()
-		if self.onMouseLock then self.onMouseLock() end
-	end)
-	self.kitButton = button("Kit", "FIGHTER: KAI (T)", 156, function()
-		if self.onKit then self.onKit() end
-	end)
-	self.foeKitButton = button("FoeKit", "OPPONENT: KAI (G)", 176, function()
-		if self.onFoeKit then self.onFoeKit() end
-	end)
-	self.avatarButton = button("Avatar", "LOOK: AVATAR", 176, function()
-		if self.onAvatar then self.onAvatar() end
-	end)
-	self.skinButton = button("Skin", "STYLE: CLASSIC", 140, function()
-		if self.onSkin then self.onSkin() end
-	end)
-	self.dummyButton = button("Dummy", "DUMMY (M)", 170, function()
-		if self.onDummy then self.onDummy() end
-	end)
-	self.resetButton = button("Reset", "RESET", 84, function()
-		if self.onReset then self.onReset() end
-	end)
-	-- TARO only: his two boxing styles (keys 1 / & and 2 / é).
+	self.toolsButton = button("ToolsToggle", "⚙ TOOLS ▾", 110, function()
+		tools.Visible = not tools.Visible
+		self.toolsButton.Text = if tools.Visible then "⚙ TOOLS ▴" else "⚙ TOOLS ▾"
+	end, topRow)
+	self.combosButton = button("Combos", "COMBOS", 84, function()
+		self.combosPanel.Visible = not self.combosPanel.Visible
+	end, topRow)
+	-- TARO only: his two boxing styles (keys 1 / & and 2 / é), always at hand.
 	self.stanceButtons = {
 		button("Stance1", "1 · CLASSIC (&)", 136, function()
 			if self.onStance then self.onStance(1) end
-		end),
-		button("Stance2", "2 · PEEKABOO (é)", 124, function()
+		end, topRow),
+		button("Stance2", "2 · PEEKABOO (é)", 136, function()
 			if self.onStance then self.onStance(2) end
-		end),
+		end, topRow),
 	}
-	self.combosButton = button("Combos", "COMBOS", 76, function()
-		self.combosPanel.Visible = not self.combosPanel.Visible
+	-- FIGHTER: who fights (T / G in training), the look, the style.
+	self.fighterHeading = heading("FIGHTER")
+	self.kitButton = button("Kit", "FIGHTER: KAI (T)", 0, function()
+		if self.onKit then self.onKit() end
+	end)
+	self.foeKitButton = button("FoeKit", "OPPONENT: KAI (G)", 0, function()
+		if self.onFoeKit then self.onFoeKit() end
+	end)
+	self.skinButton = button("Skin", "STYLE: CLASSIC", 0, function()
+		if self.onSkin then self.onSkin() end
+	end)
+	self.avatarButton = button("Avatar", "LOOK: AVATAR", 0, function()
+		if self.onAvatar then self.onAvatar() end
+	end)
+	-- TRAINING: the dummy, reset, the ultimates' conditions, the combo trainer, the cinematic lab.
+	self.trainingHeading = heading("TRAINING")
+	self.dummyButton = button("Dummy", "DUMMY (M)", 0, function()
+		if self.onDummy then self.onDummy() end
+	end)
+	self.resetButton = button("Reset", "RESET", 0, function()
+		if self.onReset then self.onReset() end
+	end)
+	self.ultiButton = button("UltiConditions", "ULTIMATES: OFF", 0, function()
+		if self.onUltiConditions then self.onUltiConditions() end
 	end)
 	-- Combo trainer: pick a combo in its panel (two categories), the bar at the bottom shows
 	-- what to press and when.
 	self.trainerRoute = 0
-	self.routeButton = button("Route", "TRAINER ▾", 130, function()
+	self.routeButton = button("Route", "TRAINER ▾", 0, function()
 		self.trainerPanel.Visible = not self.trainerPanel.Visible
 	end)
-	-- Training: switch the ultimates' conditions on (ki always full, COUP FATAL ready).
-	self.ultiButton = button("UltiConditions", "ULTIMATES: OFF", 230, function()
-		if self.onUltiConditions then self.onUltiConditions() end
-	end)
-	self.labButton = button("Lab", "CINE LAB", 86, function()
+	self.labButton = button("Lab", "CINE LAB", 0, function()
 		self.labPanel.Visible = not self.labPanel.Visible
+	end)
+	self.debugButton = button("Hitboxes", "HITBOX: OFF", 0, function()
+		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX: ON" else "HITBOX: OFF" end
+	end)
+	-- DISPLAY: the mouse, the poses' rate, the effects, the sound.
+	heading("DISPLAY")
+	self.mouseButton = button("MouseLock", "MOUSE: FREE (CTRL)", 0, function()
+		if self.onMouseLock then self.onMouseLock() end
 	end)
 	local poseButton
 	local function poseLabel(rate)
 		return if rate >= 60 then "POSES: SMOOTH" else "POSES: " .. rate .. "/s"
 	end
-	poseButton = button("PoseRate", poseLabel(self.poseRate), 108, function()
+	poseButton = button("PoseRate", poseLabel(self.poseRate), 0, function()
 		local rates = { 12, 15, 24, 60 }
 		local current = table.find(rates, self.poseRate) or 1
 		self.poseRate = rates[current % #rates + 1]
 		poseButton.Text = poseLabel(self.poseRate)
 	end)
-	self.effectsButton = button("Effects", "EFFECTS: FULL", 118, function()
+	self.effectsButton = button("Effects", "EFFECTS: FULL", 0, function()
 		if self.onEffects then self.effectsButton.Text = if self.onEffects() then "EFFECTS: REDUCED" else "EFFECTS: FULL" end
 	end)
-	self.soundButton = button("Sound", "SOUND: ON", 84, function()
+	self.soundButton = button("Sound", "SOUND: ON", 0, function()
 		if self.onSound then self.soundButton.Text = if self.onSound() then "SOUND: ON" else "SOUND: OFF" end
 	end)
-	self.debugButton = button("Hitboxes", "HITBOX: OFF", 104, function()
-		if self.onDebug then self.debugButton.Text = if self.onDebug() then "HITBOX: ON" else "HITBOX: OFF" end
-	end)
-	local panelY = y + 40 -- panels open below the last row of buttons
+	local panelY = 170 -- (panels open under the top buttons, beside the TOOLS column)
 	local trainer = new("Frame", {
 		Name = "ComboTrainer", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -40),
 		Size = UDim2.fromOffset(6 * 92, 140), BackgroundTransparency = 1, Visible = false,
@@ -336,7 +366,7 @@ function HUD.new(config)
 		new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, frame)
 		return frame
 	end
-	self.combosPanel = panel("CombosPanel", 380, UDim2.fromOffset(12, panelY))
+	self.combosPanel = panel("CombosPanel", 380, UDim2.fromOffset(252, panelY))
 	self.labPanel = panel("LabPanel", 300, UDim2.new(1, -312, 0, panelY))
 	-- The trainer's picker: two scrolling columns (one per category), never taller than the screen.
 	self.trainerPanel = new("Frame", {
@@ -1105,6 +1135,8 @@ function HUD:update(world, views, fps, dt)
 	self.skinButton.Visible = localSlot > 0
 	self.kitButton.Visible = solo and localSlot > 0
 	self.foeKitButton.Visible = solo and localSlot > 0
+	self.trainingHeading.Visible = solo and localSlot > 0
+	self.fighterHeading.Visible = localSlot > 0
 	local stances = mine and MoveData.Kits[mine.kit] and MoveData.Kits[mine.kit].Stances
 	for rank, b in self.stanceButtons do
 		b.Visible = stances ~= nil and localSlot > 0

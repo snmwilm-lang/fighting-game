@@ -991,8 +991,12 @@ function MenuController:showStyle(name)
 	local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
 	local source = folder and folder:FindFirstChild(name)
 	if not source then
-		-- (not built yet: ask for it, show the fighter's first style meanwhile)
-		self.remote:FireServer({ action = "preview", skin = name })
+		-- (not built yet: ask for it once, show the fighter's first style meanwhile)
+		self.previewAsked = self.previewAsked or {}
+		if not self.previewAsked[name] then
+			self.previewAsked[name] = true
+			self.remote:FireServer({ action = "preview", skin = name })
+		end
 		self.galleryWaiting = name
 		local kits = ReplicatedStorage:FindFirstChild("KitPreviews")
 		source = kits and kits:FindFirstChild(style.Kit)

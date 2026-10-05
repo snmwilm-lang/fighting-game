@@ -1079,7 +1079,16 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		return suspect(player, "malformed")
 	end
 	local now = os.clock()
-	if now - client.lastMenu < 0.5 then return end
+	-- (the 3D previews of the FIGHTERS page have their own pace: they used to take the menu's
+	-- turn, and the click that followed them (EQUIP, FAVORITE, UNLOCK...) was dropped)
+	if packet.action == "preview" then
+		if now - (client.lastPreview or -math.huge) < 0.1 then return end
+		client.lastPreview = now
+		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
+		previewStyle(packet.skin)
+		return
+	end
+	if now - client.lastMenu < 0.25 then return end -- (a double click; every purchase is checked anyway)
 	client.lastMenu = now
 	local action = packet.action
 	if action == "hello" then
@@ -1173,10 +1182,6 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			buildHero(player)
 			menuStatus(player)
 		end
-	elseif action == "preview" then
-		-- The 3D preview of a style in the FIGHTERS page (built once per style, shared).
-		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
-		previewStyle(packet.skin)
 	elseif action == "team" then
 		-- The team chosen for a friend's challenge (DÉFIER AMI), without joining a queue.
 		local request = GameModes.validate({ mode = "VERSUS_CPU", team = packet.team, level = 1 }, MoveData.KitOrder)

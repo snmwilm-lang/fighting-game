@@ -29,6 +29,13 @@ TARO) ; OUTILS ouvre une colonne rangée en sections (PERSO : perso, adversaire,
 ENTRAÎNEMENT : mannequin, reset, ultimes, entraîneur, cine lab, hitbox ; AFFICHAGE : souris,
 poses, effets, son), fermée par défaut ; un bouton caché n'y laisse plus de trou (liste).
 Les panneaux COMBOS / ENTRAÎNEUR / CINE LAB s'ouvrent à côté de la colonne.
+v0.18.7 : page PERSONNAGES « remplie de bugs, une fois cliqué on ne peut plus changer ». Cause :
+le serveur n'accepte qu'une demande de menu toutes les 0,5 s et jette les autres sans rien dire ;
+chaque affichage d'un style envoyait une demande d'aperçu 3D (à chaque rafraîchissement de la
+page), donc le clic suivant (ÉQUIPER, FAVORI, DÉBLOQUER, ACHETER…) tombait souvent dans ces
+0,5 s et était perdu. Les aperçus ont maintenant leur propre rythme (hors du tour du menu), le
+client ne demande un aperçu qu'une fois par style, et le délai anti double-clic passe à 0,25 s
+(les achats restent vérifiés, jamais payés deux fois).
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

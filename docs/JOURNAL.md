@@ -23,7 +23,7 @@ Wilhem : « SHIN : effet S + E et augmente la qualité de cette lame ».
 
 Tests :
 - Animation 47 (nouveau : « SHIN's katana is a real katana »), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; `rigcheck` OK.
-- Cinematography 310, CinematicDirector 871 ; Kits relancée.
+- Cinematography 310, CinematicDirector 871, Kits 130 (couvre aussi la 0.23.10).
 - Kits pour la v0.23.9 : 130 OK. Celle de la v0.23.10 a été coupée par la limite de temps : elle est relancée ici.
 - Lame dans le corps (`WeaponClearance SHIN`) : 63 → 76 images sur 1 136. Les nouvelles pièces de la poignée et du tsuba frôlent le poignet et le torse dans quelques coups.
 

@@ -1122,9 +1122,9 @@ kit("DAICHA", {
 	-- Her four ultimates' own timing (Wilhem: ~3, ~5, ~7 and ~10 s at the cinematic's slow
 	-- motion); the same blows and damage as everyone's, spread over her scenes.
 	CinematicTuning = {
-		Rush = { Length = 128, FinalTick = 92, Hits = { 26, 29, 32, 35, 38, 50, 56, 62, 70, 75, 80 } },
+		Rush = { Length = 140, FinalTick = 104, Hits = { 26, 29, 32, 35, 38, 50, 56, 62, 84, 88, 92 } },
 		Awaken = { Length = 200, FinalTick = 166, Hits = { 78, 88, 98, 108, 118, 128, 138 }, PromptTicks = { 74, 94, 114, 134 } },
-		Gate = { Length = 262, FinalTick = 206, Hits = { 198, 202 }, PromptTicks = { 192 } },
+		Gate = { Length = 290, FinalTick = 236, Hits = { 186, 206 }, PromptTicks = { 156 } },
 		Fatal = { Length = 350, FinalTick = 266, PromptTicks = { 244 } },
 	},
 	RouteNames = { "CHAIN", "LAUNCHER", "MARK", "WALL", "FALL", "REAPER", "DISTORTION", "RIVER", "ARROW", "INVERSION", "ECLIPSE" },

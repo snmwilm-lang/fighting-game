@@ -18,7 +18,7 @@
 local DevAccess = {}
 
 -- Wilhem's Roblox UserIds (numbers). Add an id here to give a second account the access.
-DevAccess.IDS = {}
+DevAccess.IDS = { 3288842358 } -- (Wilhem: Laveine972)
 
 -- Is this user a developer? `creatorId` / `creatorIsUser`: game.CreatorId and whether
 -- game.CreatorType is a user (a group-owned game only trusts IDS). `studioSolo`: the server

@@ -4,7 +4,9 @@
 
 Même contenu que la 0.18.0 avec ses deux correctifs (accès développeur dans Studio, onglets du
 haut lisibles), sous un nouveau numéro : Wilhem rouvrait un ancien fichier du même nom. La
-console écrit « 0.18.1 ready » : c'est le bon fichier.
+console écrit « 0.18.1 ready » : c'est le bon fichier. Vérifié par Wilhem dans Studio (capture) :
+onglets lisibles, « developer access: YES », plus de cadenas. Son UserId (3288842358, compte
+Laveine972) est dans `DevAccess.IDS` : l'accès le suit aussi dans le jeu publié, même de groupe.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

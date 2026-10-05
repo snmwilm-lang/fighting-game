@@ -31,6 +31,21 @@ RaijinHold.TARGETS = {
 	-- the guard: the shaft held up across the front, a bar between him and the blow
 	Block = { at = { 0.35, 0.35, -0.75 }, dir = { -0.25, 1, -0.45 }, front = 1.35 },
 	CrouchBlock = { at = { 0.35, 0.3, -0.8 }, dir = { -0.25, 1, -0.55 }, front = 1.3 },
+	-- Wilhem's sheet « RAIJIN AUTO-ATTAQUES ». M1 1 ESTOC: drawn back level, then a quick thrust.
+	["Jab.Startup"] = { at = { 0, 0.25, 0.55 }, dir = { 0, 0.02, -1 }, front = 1.2 },
+	["Jab.Active"] = { at = { 0, 0.55, -1.75 }, dir = { 0, 0.03, -1 }, front = 1.2 },
+	-- 2 BALAYAGE: a short horizontal sweep, from his right across to his left
+	["Cross.Startup"] = { at = { 0.1, 0.4, -0.4 }, dir = { 0.85, 0.08, -0.5 }, front = 1.1 },
+	["Cross.Active"] = { at = { -0.1, 0.45, -0.7 }, dir = { -0.55, 0.05, -0.85 }, front = 1.1 },
+	-- 3 COUP BAS: raised a little, then the point driven down at the floor before him
+	["Elbow.Startup"] = { at = { 0, 0.6, -0.2 }, dir = { 0, 0.3, -1 }, front = 1.2 },
+	["Elbow.Active"] = { at = { 0, 1.0, -0.5 }, dir = { 0, -0.55, -1 }, front = 1.2 },
+	-- 4 ESTOC FINAL: drawn right back, then the deep thrust, a little up (it sends him back)
+	["Kick.Startup"] = { at = { 0, 0.2, 0.15 }, dir = { 0, 0.05, -1 }, front = 1.1 },
+	["Kick.Active"] = { at = { 0, 0.6, -1.2 }, dir = { 0, 0.22, -1 }, front = 1.2 },
+	-- M2: PRÉPARATION the spear raised over his head and drawn back, then PERCÉE with all his weight
+	["Smash.Startup"] = { at = { 0, 1.3, 0.3 }, dir = { 0, -0.15, -1 }, front = 1.2 },
+	["Smash.Active"] = { at = { 0, 0.5, -1.3 }, dir = { 0, 0, -1 }, front = 1.2 },
 	-- running in: the spear carried level, a little up (the stride pumps the arms)
 	RunUpper = { at = { 0, 0.3, -0.6 }, dir = { 0, 0.1, -1 }, front = 1.25 },
 }
@@ -50,7 +65,8 @@ end
 
 -- His body posed with the hold `a` on the base pose `key`: { [name] = { cframe, size } }.
 local function posed(key, a)
-	local base = anim:resolve(Poses.Kits.RAIJIN[key])
+	local role, phase = string.match(key, "^(%a+)%.(%a+)$")
+	local base = anim:resolve(if role then Poses["Raijin" .. role][phase] else Poses.Kits.RAIJIN[key])
 	local pose = table.clone(base)
 	for k, v in holdArms(a) do pose[k] = v end
 	local solved = K.solve(SKEL, pose, 0)
@@ -124,12 +140,12 @@ function RaijinHold.cost(key, a)
 		if not r then return 0 end
 		return math.max(0, r[1] - v, v - r[2])
 	end
-	cost += 0.05 * (over(a[1], "RightShoulder") + over(a[3], "RightElbow") + over(a[4], "RightWrist") + over(a[5], "LeftShoulder")
+	cost += 0.5 * (over(a[1], "RightShoulder") + over(a[3], "RightElbow") + over(a[4], "RightWrist") + over(a[5], "LeftShoulder")
 		+ over(a[7], "LeftElbow"))
-	if math.abs(a[2]) > 95 then cost += 0.05 * (math.abs(a[2]) - 95) end
-	if math.abs(a[6]) > 130 then cost += 0.05 * (math.abs(a[6]) - 130) end
+	if math.abs(a[2]) > 95 then cost += 0.5 * (math.abs(a[2]) - 95) end
+	if math.abs(a[6]) > 130 then cost += 0.5 * (math.abs(a[6]) - 130) end
 	for i = 8, 10 do
-		if a[i] and math.abs(a[i]) > 70 then cost += 0.05 * (math.abs(a[i]) - 70) end
+		if a[i] and math.abs(a[i]) > 70 then cost += 0.5 * (math.abs(a[i]) - 70) end
 	end
 	return cost, inside, math.sqrt((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2), math.deg(math.acos(math.clamp(ax * d[1] + ay * d[2] + az * d[3], -1, 1)))
 end
@@ -173,9 +189,17 @@ if args[1] then
 	local current = {
 		STANCE = { 0, -65, 68, -31, 62, 48, 7, -12, 70, -12 }, Crouch = { 19, -56, 81, -27, 39, 61, -1, 6, 70, 30 },
 		Block = { 12, -18, 72, -1, 37, 76, 69, 16, -70, 6 }, CrouchBlock = { -10, -12, 112, -23, 64, 70, 13, 6, -60, 21 },
-		RunUpper = { 0, -65, 68, -31, 62, 48, 7, -12, 70, -12 },
+		RunUpper = { 18, -34, 68, -12, 48, 49, -2, 15, 3, 33 },
+		["Jab.Startup"] = { 15, -60, -5, 31, 87, 55, 1, -21, 69, -44 }, ["Jab.Active"] = { 45, -59, 6, -39, 65, 8, 30, -18, 3, 0 },
+		["Cross.Startup"] = { -14, -71, 34, 36, 45, 46, 20 }, ["Cross.Active"] = { 123, -79, 10, -76, 116, -55, 9 },
+		["Elbow.Startup"] = { -22, -70, 38, 40, 50, 50, 0 }, ["Elbow.Active"] = { 96, -36, 110, 40, 168, 78, 0 },
+		["Kick.Startup"] = { -15, -80, 75, 0, 50, 49, 18 }, ["Kick.Active"] = { -2, -59, 74, -27, 59, 40, 3 },
+		["Smash.Startup"] = { -22, 76, 95, -11, 80, 35, 0 }, ["Smash.Active"] = { 11, -62, 118, -79, 80, 53, 3 },
 	}
-	local keys = if args[1] == "all" then { "STANCE", "Crouch", "Block", "CrouchBlock", "RunUpper" } else { args[1] }
+	local keys = if args[1] == "all" then { "STANCE", "Crouch", "Block", "CrouchBlock", "RunUpper" }
+		elseif args[1] == "sheet" then { "Jab.Startup", "Jab.Active", "Cross.Startup", "Cross.Active", "Elbow.Startup", "Elbow.Active",
+			"Kick.Startup", "Kick.Active", "Smash.Startup", "Smash.Active" }
+		else { args[1] }
 	for _, key in keys do
 		local c0, in0, f0, a0 = RaijinHold.cost(key, current[key])
 		local start = table.clone(current[key])

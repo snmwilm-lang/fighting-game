@@ -1111,9 +1111,10 @@ Poses.Kits.SHIN = {
 	Block = feet(merge(SHIN, { Root = { 0, 4, 0, -0.5, 0 }, Waist = { -10, 4, 0 },
 		RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 }, LeftShoulder = { 70, 0, 20 }, LeftElbow = { 110, 0, 0 } }), -0.8, 0.85, 0, -8, 8),
 	CrouchBlock = merge(SHIN_CROUCH, { RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 } }),
-	-- (the sword arm trails a little OUT, not across: the blade no longer cuts through his
-	-- right leg at every step; tests/WeaponClearance.luau)
-	RunUpper = upper(SHIN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -16, 10, 0 }, RightShoulder = { -20, 0, 15 }, RightElbow = { 20, 0, 0 },
+	-- (the sword carried before him as he runs, not trailing across: the blade no longer cuts
+	-- through his right leg at every step (tests/WeaponClearance.luau), and his two hands
+	-- stay apart on screen in his walk of the Gate (tests/Cinematography.test.luau))
+	RunUpper = upper(SHIN, { Root = { -10, 0, 0, 0, 0 }, Waist = { -16, 10, 0 }, RightShoulder = { 50, 0, 0 }, RightElbow = { 45, 0, 0 },
 		LeftShoulder = { -30, 0, 20 }, LeftElbow = { 20, 0, 0 } }),
 	BackUpper = upper(SHIN, { Root = { 0, 0, 0, 0, 0 } }),
 	Victory = feet({
@@ -1817,15 +1818,20 @@ do
 	local W = -70 -- the spear on the line of the forearm
 	local function spear(sh, rz, el, wr, l, extra) return arms({ sh, rz, el, wr or W }, l, extra) end
 	-- ESTOC: a straight thrust, the left hand sliding along the shaft.
-	Poses.RaijinJab = stroke(S, spear(40, 10, 90, nil, { 60, -20, 60 }), spear(90, -4, 0, nil, { 86, 12, 30 }), 0.7, 20)
+	Poses.RaijinJab = stroke(S, spear(40, 10, 90, nil, { 60, -20, 60 }), spear(90, -4, 0, nil, { 86, 12, 30 }), 1.0, 20)
 	-- REVERS DE HAMPE: the shaft swung flat from the right, right to left.
 	Poses.RaijinCross = stroke(S, spear(86, 80, 20, nil, { 50, -30, 70 }, { Waist = deg(-6, -40) }),
 		spear(88, -50, 0, nil, { 30, -50, 40 }), 0.35, 40)
-	-- TALON DE LANCE: the butt driven up and back across, the blade low behind.
-	Poses.RaijinElbow = stroke(S, spear(30, -40, 70, -20, { 70, -10, 90 }), spear(122, 30, 10, -40, { 40, -40, 60 }), 0.3, 30)
-	-- TOURNOIEMENT: the spear spun once round the body, the body turning with it.
-	Poses.RaijinKick = stroke(S, spear(88, 90, 0, nil, nil, { Waist = deg(-8, -50) }),
-		spear(90, -90, 0, nil, { 20, -40, 40 }, { Root = { 0, 160, 0, S.Root[4] - 0.08, -0.3 } }), 0.3, 20)
+	-- (Wilhem's sheet « RAIJIN AUTO-ATTAQUES », M1: 1 estoc, 2 balayage court, 3 coup bas, 4
+	-- estoc final; M2: préparation la lance ramenée en arrière, grand mouvement, percée, impact.
+	-- The arms of every phase are solved by tests/RaijinHold.luau: HOLD below.)
+	-- COUP BAS: the point driven down at the floor before him, the body dropping with it.
+	Poses.RaijinElbow = stroke(S, spear(30, -40, 70, -20, { 70, -10, 90 }), spear(122, 30, 10, -40, { 40, -40, 60 }), 0.45, 20)
+	Poses.RaijinElbow.Active = feet(merge(Poses.RaijinElbow.Active, { Root = { 0, -12, 0, S.Root[4] - 0.4, -0.45 },
+		Waist = deg(-26, -14), Neck = deg(24, 6) }), -1.3, 0.75, 0, -18, 10)
+	-- ESTOC FINAL: a deep lunge, the last thrust that sends him back.
+	Poses.RaijinKick = stroke(S, spear(88, 90, 0, nil, nil, { Waist = deg(-8, 26) }),
+		spear(90, -90, 0, nil, { 20, -40, 40 }, { Waist = deg(-10, -24) }), 0.95, 26)
 	-- PERCÉE DU VENTRE: dropped low, the thrust at the belly.
 	Poses.RaijinBodyBlow = stroke(S, spear(20, 20, 110, nil, { 40, -20, 80 }, { Root = { 0, -10, 0, -0.75, 0.3 } }),
 		spear(86, 0, 0, nil, { 80, 10, 20 }, { Root = { 0, -14, 0, -0.78, -0.8 }, Waist = deg(-22, -20) }), 0.8, 10)
@@ -1918,8 +1924,8 @@ do
 			Active = { 30, -51, 0, 20, 73, 21, 0 },
 		},
 		Cross = {
-			Startup = { -14, -71, 34, 36, 45, 46, 20 },
-			Active = { 123, -79, 10, -76, 116, -55, 9 },
+			Startup = { 18, -59, -5, 31, -12, 74, 17, -19, 70, 44 },
+			Active = { 61, -59, 41, -70, -6, -35, 106, 33, -59, 9 },
 		},
 		DragonFist = {
 			Startup = { -7, -25, 0, 38, 13, 43, 0 },
@@ -1932,8 +1938,8 @@ do
 			Active2 = { 55, -51, 0, -50, 41, 4, 34 },
 		},
 		Elbow = {
-			Startup = { -22, -70, 38, 40, 50, 50, 0 },
-			Active = { 96, -36, 110, 40, 168, 78, 0 },
+			Startup = { -12, -65, 6, 27, 66, 41, 20, -38, -70, -24 },
+			Active = { 182, -65, 155, 38, 63, 64, 44, -24, -26, -13 },
 		},
 		Fatal = {
 			Startup = { 70, 25, 0, 30 },
@@ -1948,8 +1954,8 @@ do
 			Active = { -1, -64, 78, -79, 54, 20, 10 },
 		},
 		Jab = {
-			Startup = { -26, -65, 28, 40, 9, 49, 45 },
-			Active = { 45, -44, 40, -64, 66, 24, 8 },
+			Startup = { 15, -60, -5, 31, 87, 55, 1, -21, 69, -44 },
+			Active = { 45, -59, 6, -39, 65, 8, 30, -18, 3, 0 },
 		},
 		KaienRush = {
 			Startup = { 80, -57, 0, 15 },
@@ -1973,8 +1979,8 @@ do
 			Active2 = { 38, -61, 0, -12, 34, 0, 65 },
 		},
 		Kick = {
-			Startup = { -15, -80, 75, 0, 50, 49, 18 },
-			Active = { -2, -59, 74, -27, 59, 40, 3 },
+			Startup = { 16, -58, 3, 34, 16, 55, 4, -17, 70, 34 },
+			Active = { 49, -54, -1, -23, -2, -71, 54, -5, -27, -54 },
 		},
 		LowKick = {
 			Startup = { -34, -62, 40, 40, 34, 51, 1 },
@@ -1994,8 +2000,8 @@ do
 			Active2 = { 48, -72, 0, -67, 16, -42, 33 },
 		},
 		Smash = {
-			Startup = { -22, 76, 95, -11, 80, 35, 0 },
-			Active = { 11, -62, 118, -79, 80, 53, 3 },
+			Startup = { -50, 55, 115, -69, 15, 16, 80, 58, 26, -24 },
+			Active = { 25, -54, 95, -58, 88, 45, 6, 11, 47, -12 },
 		},
 		SpinKick = {
 			Startup = { 145, -62, 48, 35, 168, 58, 54 },
@@ -2014,6 +2020,8 @@ do
 			Active = { 9, 15, 138, -52, 109, 70, 0 },
 		},
 	}
+	-- (Jab, Cross, Elbow, Kick, Smash: Wilhem's sheet « RAIJIN AUTO-ATTAQUES », solved by
+	-- tests/RaijinHold.luau -a sheet)
 	local KIT_HOLD = {
 			-- (solved by tests/RaijinHold.luau: rear hand at the hip, the point at the
 			-- opponent's chest, the front hand up the shaft, the shaft clear of his body)
@@ -3907,18 +3915,23 @@ do
 	local BOTH_HANDS = { RAIJIN = true }
 	local limits = Poses.LIMITS
 	local base = Poses.STANCE
-	local function personal(pose, stance, amount, hands)
+	local function personal(pose, stance, amount, hands, keepArms)
 		local out = table.clone(pose)
 		for _, joint in UPPER do
 			local a, k, b = pose[joint], stance[joint], base[joint]
 			if k or b then
 				a, k, b = a or { 0, 0, 0 }, k or { 0, 0, 0 }, b or { 0, 0, 0 }
 				local v = {}
-				for i = 1, 3 do v[i] = (a[i] or 0) + ((k[i] or 0) - (b[i] or 0)) * amount end
+				local share = if keepArms and table.find(ARMS, joint) then amount * 0.1 else amount
+				for i = 1, 3 do v[i] = (a[i] or 0) + ((k[i] or 0) - (b[i] or 0)) * share end
 				local range = limits[joint]
 				if range then v[1] = math.clamp(v[1], range[1], range[2]) end
 				out[joint] = v
 			end
+		end
+		if keepArms and out.Waist then
+			-- (his own set without the hold's arms: the spearman's chest turned side-on)
+			out.Waist = { out.Waist[1], (out.Waist[2] or 0) + 8, out.Waist[3] or 0 }
 		end
 		if hands then
 			for _, joint in ARMS do
@@ -3935,11 +3948,14 @@ do
 				if shared and not own[name] then
 					local amount = if LYING[name] then 0.35 elseif SHOW[name] then 0.4 else 0.6
 					local hands = BOTH_HANDS[kit] and not LYING[name] and not SHOW[name]
+					-- (a two-handed hold's twisted arms carry over into a show pose only a little: the
+					-- body's set does; else RAIJIN's hands flew apart in his ÉVEIL's skyward shot)
+					local keepArms = BOTH_HANDS[kit] and SHOW[name]
 					if type(shared[1]) == "table" and not shared.Root then
 						-- (a breathing pair: both its poses)
-						own[name] = { personal(shared[1], stance, amount, hands), personal(shared[2], stance, amount, hands) }
+						own[name] = { personal(shared[1], stance, amount, hands, keepArms), personal(shared[2], stance, amount, hands, keepArms) }
 					else
-						own[name] = personal(shared, stance, amount, hands)
+						own[name] = personal(shared, stance, amount, hands, keepArms)
 					end
 				end
 			end

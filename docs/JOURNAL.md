@@ -1,5 +1,19 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.8 — 5 octobre 2026 · RAIJIN : M1 / M2 D'APRÈS LA PLANCHE (+ correctifs 0.23.6–0.23.7)
+
+Wilhem : planche « RAIJIN AUTO-ATTAQUES » (« abuse pas de ma portée, c'est des idées ») : portée et dégâts inchangés, seules les animations changent.
+- **M1, combo 4 coups** : 1 ESTOC (la lance ramenée en arrière, à plat, puis une pique rapide devant soi, plus de fente) ; 2 BALAYAGE (coup horizontal court, de sa droite vers sa gauche) ; 3 COUP BAS (la lance levée puis la pointe enfoncée vers le sol devant lui, le corps qui plonge avec : remplace le TALON DE LANCE) ; 4 ESTOC FINAL (grande fente, la poussée qui projette : remplace la toupie). Noms : LOW STRIKE / COUP BAS, FINAL THRUST / ESTOC FINAL (`Locale.FR`).
+- **M2, coup lourd** : préparation (la lance levée et ramenée en arrière au-dessus de lui), puis la percée avec tout son poids. Le grand mouvement circulaire est le passage de l'un à l'autre (l'armé qui se tend).
+- Les bras de chaque phase sont calculés par `tests/RaijinHold.luau -a sheet` (visée 0 à 6°, sauf la préparation du lourd 14° ; main avant sur la hampe ; hampe hors du corps).
+- Lance dans son corps (`WeaponClearance`) : 232 → 179 images sur 1 136 (833 au départ).
+
+**Correctifs** (régression des 0.23.6 et 0.23.7, vue par la suite Cinematography qui tournait encore à la livraison) :
+- SHIN : son nouveau bras d'épée en marche faisait se superposer ses deux mains à l'écran dans la marche de sa PORTE (16 images, 6 max). Il porte maintenant la lame devant lui en courant : ni la lame dans sa jambe, ni les mains l'une sur l'autre.
+- RAIJIN : sa nouvelle garde passait dans ses poses de mise en scène (« StandTall » de son ÉVEIL) et écartait ses mains en contre-plongée. Ces poses ne reprennent plus qu'un dixième des bras de la garde, et son buste se tourne de profil (pour rester sa pose à lui).
+
+Tests : Animation 45, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits : voir plus bas quand elle finit.
+
 ## Version 0.23.7 — 5 octobre 2026 · RAIJIN : LA GARDE DE LA LANCE REFAITE
 
 Wilhem : « on retaf la position de RAIJIN ». La planche de poses montrait : en marchant la lance piquait vers le sol entre ses jambes, en garde elle pendait verticale la pointe au sol, au repos elle partait vers le bas.

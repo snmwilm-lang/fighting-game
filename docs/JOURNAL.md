@@ -13,6 +13,10 @@ centrée et réduite, avec des bandes vides sur tout écran d'une autre forme (f
 écran large, téléphone). Elle prend maintenant tout l'écran (au moins 1600 × 900 unités,
 étirée aux proportions de l'écran) ; chaque bloc reste collé à son bord (navigation à gauche,
 pages et persos à droite, panneaux en bas, bande noire du haut sur toute la largeur).
+v0.18.3 : il restait une bande du décor au-dessus de la barre (la zone des boutons de Roblox,
+hors de la zone sûre du menu). Le fond du menu (voile, brume, noir de la barre) est dans un
+ScreenGui à part qui couvre tout l'écran : le noir de la barre monte jusqu'en haut, les boutons
+de Roblox restent posés dessus ; le contenu du menu reste dans la zone sûre.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

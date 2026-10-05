@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MoveData = require(Shared.MoveData)
@@ -97,12 +98,18 @@ function MenuController.new(remote, hub, settings)
 	local gui = new("ScreenGui", { Name = "MainMenu", ResetOnSpawn = false, DisplayOrder = 20, IgnoreGuiInset = false, ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, Players.LocalPlayer:WaitForChild("PlayerGui"))
 	self.gui = gui
+	-- The backdrop under the menu covers the WHOLE screen, the band under Roblox's own buttons
+	-- included (the menu itself stays out of it: its safe area): the top bar's black reaches the
+	-- top edge instead of leaving a strip of the 3D stage above it.
+	local backdrop = new("ScreenGui", { Name = "MainMenuBackdrop", ResetOnSpawn = false, DisplayOrder = 19, IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.None }, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	self.backdrop = backdrop
 	-- Vignette over the 3D stage: dark edges, red haze, the hero stays bright in the middle.
-	local vignette = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BorderSizePixel = 0 }, gui)
+	local vignette = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BorderSizePixel = 0 }, backdrop)
 	new("UIGradient", { Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.5, 0.92),
 		NumberSequenceKeypoint.new(0.68, 0.55), NumberSequenceKeypoint.new(1, 0.05) }) }, vignette)
-	local haze = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = DARKRED, BorderSizePixel = 0 }, gui)
+	local haze = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = DARKRED, BorderSizePixel = 0 }, backdrop)
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.6, 0.85), NumberSequenceKeypoint.new(1, 0.55) }) }, haze)
 	-- Measure the usable GUI area, including Roblox and device insets.
@@ -111,7 +118,7 @@ function MenuController.new(remote, hub, settings)
 	-- The design canvas scales to fit this safe area, including on camera replacement.
 	-- (The top bar's black strip spans the whole width, even on wide screens.)
 	local strip = new("Frame", { Size = UDim2.new(1, 0, 0, 78), BackgroundColor3 = INK, BackgroundTransparency = 0.15, BorderSizePixel = 0,
-		ZIndex = 1 }, safeCanvas)
+		ZIndex = 3 }, backdrop)
 	local root = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(1600, 900),
 		BackgroundTransparency = 1, ZIndex = 3 }, safeCanvas)
 	local scale = new("UIScale", {}, root)
@@ -124,11 +131,15 @@ function MenuController.new(remote, hub, settings)
 		-- the screen's proportions. Everything is anchored to its edge (navigation on the left,
 		-- pages and fighters on the right, panels at the bottom), so it spreads with it.
 		root.Size = UDim2.fromOffset(math.max(1600, size.X / scale.Scale), math.max(900, size.Y / scale.Scale))
+		-- (from the very top of the screen down to the bar's bottom edge: the safe area starts
+		-- below Roblox's buttons, safeCanvas.AbsolutePosition + the top inset)
+		local top = GuiService:GetGuiInset().Y + safeCanvas.AbsolutePosition.Y
 		strip.Position = UDim2.fromOffset(0, 0)
-		strip.Size = UDim2.new(1, 0, 0, 78 * scale.Scale)
+		strip.Size = UDim2.new(1, 0, 0, top + 78 * scale.Scale)
 	end
 	fit()
 	safeCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	safeCanvas:GetPropertyChangedSignal("AbsolutePosition"):Connect(fit)
 	self.root = root
 	self.bigKanji = label(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.3, 0.55),
 		Font = Enum.Font.GothamBlack, TextScaled = true, Text = "開", TextColor3 = RED, TextTransparency = 0.88,
@@ -1735,6 +1746,7 @@ function MenuController:setInMatch(inMatch)
 	Theme.reset(self.root)
 	self.inMatch = inMatch
 	self.gui.Enabled = not inMatch
+	self.backdrop.Enabled = not inMatch
 	if not inMatch and self.page == "search" and self.status.state ~= "queue" then self:open("home") end
 	if self.hub then self.hub:setInMatch(inMatch) end
 end

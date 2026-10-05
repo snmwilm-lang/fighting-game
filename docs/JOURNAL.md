@@ -1,5 +1,29 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.9 — 5 octobre 2026 · RAIJIN : LA LANCE SUR LES ÉPAULES · ARMES VIVANTES · GARDE DE DAICHA PLUS BASSE
+
+Wilhem (capture en jeu) : « tu vois le problème du modèle : gère mieux le idle de la lance… il a ses bras dans le corps… ou change la pose : mets-lui une pose comme le bâton de Wukong sur les épaules ». Puis : « pour l'épée de SHIN, tous les persos avec des armes : le minimum de détails qu'il y a sur l'orbe de DAICHA doit être le minimum ». Et, de l'orbe : « la garde est trop haute, descends-la un peu ».
+
+**RAIJIN**
+- Le solveur (`tests/RaijinHold.luau`) mesure maintenant aussi ses **bras dans son corps** (toute leur longueur contre torse, hanches, tête) et les interdit. Avant : 2,16 au repos, 1 à 1,7 dans la plupart des coups. Toutes ses tenues sont recalculées : garde, accroupi, blocage, course, et les 10 poses du M1/M2.
+- **Au repos : la lance sur les épaules**, derrière la nuque, les deux poignets posés dessus, inclinée (la pointe sort devant et en haut, sinon de côté la tête la cachait), et il respire entre deux poses (la lance se soulève un peu). Sa garde de combat (le départ de chaque coup, la fin de chaque retour) reste la lance pointée vers l'adversaire, maintenant avec les bras dégagés.
+- L'estoc (M1 1) : le corps recule aussi à l'armé (les bras seuls ne pouvaient pas sans rentrer dans le torse).
+
+**Armes vivantes** (nouveau module pur `src/shared/WeaponFX.luau`, dessiné par `EffectsController:weaponDressing`) : l'épée de SHIN, la lance de RAIJIN, les éventails de YUKINA, les griffes de KAZAN ont maintenant au moins ce que l'orbe a :
+- une **lumière** de la couleur de ki du joueur qui respire au repos, s'allume quand le coup se prépare, flashe à l'impact (comme l'orbe) ;
+- le **tranchant** qui brille avec elle, blanc à l'impact ;
+- un **reflet** qui court le long de la lame toutes les ~3 s ;
+- les **particules de leur élément** : gouttes d'eau (SHIN), étincelles (RAIJIN), neige (YUKINA), braises (KAZAN) ;
+- RAIJIN : de petits **éclairs qui rampent le long de la hampe**, plus nombreux quand il arme ;
+- un **ruban** derrière la lame quand elle va vite (SHIN l'avait déjà), et des **copies fantômes** dans les coups rapides.
+Une lumière, un émetteur et un reflet par lame ; effets réduits : moins de particules, ni fantômes ni éclairs.
+
+**DAICHA** : le disque de garde est descendu (centré sur sa poitrine, plus sur son visage).
+
+Tests : Animation 46 (nouveau : les armes respirent, s'allument, flashent, le reflet), Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits relancée.
+
+À voir dans Studio : la lance sur les épaules, la lumière et les particules des 4 armes (un rendu ne s'en approche pas), le disque de garde.
+
 ## Version 0.23.8 — 5 octobre 2026 · RAIJIN : M1 / M2 D'APRÈS LA PLANCHE (+ correctifs 0.23.6–0.23.7)
 
 Wilhem : planche « RAIJIN AUTO-ATTAQUES » (« abuse pas de ma portée, c'est des idées ») : portée et dégâts inchangés, seules les animations changent.
@@ -12,7 +36,7 @@ Wilhem : planche « RAIJIN AUTO-ATTAQUES » (« abuse pas de ma portée, c'est d
 - SHIN : son nouveau bras d'épée en marche faisait se superposer ses deux mains à l'écran dans la marche de sa PORTE (16 images, 6 max). Il porte maintenant la lame devant lui en courant : ni la lame dans sa jambe, ni les mains l'une sur l'autre.
 - RAIJIN : sa nouvelle garde passait dans ses poses de mise en scène (« StandTall » de son ÉVEIL) et écartait ses mains en contre-plongée. Ces poses ne reprennent plus qu'un dixième des bras de la garde, et son buste se tourne de profil (pour rester sa pose à lui).
 
-Tests : Animation 45, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits : voir plus bas quand elle finit.
+Tests : Animation 45, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits 130 (vérifié après la livraison).
 
 ## Version 0.23.7 — 5 octobre 2026 · RAIJIN : LA GARDE DE LA LANCE REFAITE
 

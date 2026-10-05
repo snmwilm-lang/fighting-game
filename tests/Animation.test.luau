@@ -1355,6 +1355,38 @@ T.test("DAICHA's matter looks alive: a corona, motes and a light that breathe at
 	expect(thrown.light == 0 and thrown.halo == 0 and thrown.sats == 0, "the thrown orb still shines in her hand")
 end)
 
+T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()
+	local WeaponFX = require("../src/shared/WeaponFX")
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	for kit, cfg in WeaponFX.KITS do
+		-- (the parts it lights are the weapon's own pieces)
+		local spec, names = WeaponSpec[kit], {}
+		for _, p in spec.pieces do names[p.name] = true end
+		expect(names[cfg.blade] and names[cfg.edge] and (not cfg.shaft or names[cfg.shaft]), kit .. ": WeaponFX names a piece its weapon has not")
+		expect(WeaponFX.ELEMENTS[cfg.element] ~= nil, kit .. ": no element")
+		local roles = MoveData.Kits[kit].Roles
+		local rest = WeaponFX.look({ state = "Idle" }, nil, 1)
+		local a, b = WeaponFX.look({ state = "Idle" }, nil, 0.7), WeaponFX.look({ state = "Idle" }, nil, 2.1)
+		expect(math.abs(a.light - b.light) > 0.05, kit .. ": its weapon does not breathe at rest")
+		local m = MoveData.Moves[roles.Smash]
+		local gathered = WeaponFX.look({ state = "Attack", moveFrame = m.startup }, m, 1)
+		local contact = WeaponFX.look({ state = "Attack", moveFrame = m.startup + 1 }, m, 1)
+		local after = WeaponFX.look({ state = "Attack", moveFrame = m.startup + m.active + m.recovery }, m, 1)
+		expect(gathered.glow > rest.glow and gathered.light > rest.light, kit .. ": no burn when the blow gathers")
+		expect(contact.flare > 0.9 and contact.light > gathered.light, kit .. ": no flare on the impact")
+		expect(math.abs(after.light - rest.light) < 0.3, kit .. ": it does not calm down after")
+	end
+	expect(WeaponFX.look({ state = "Blocking" }, nil, 1).glow > WeaponFX.look({ state = "Idle" }, nil, 0).glow - 0.2, "the guard dims the weapon")
+	expect(WeaponFX.look({ state = "KO" }, nil, 1).light < 0.2, "a fallen fighter's weapon still burns")
+	-- the glint runs once down the blade, then rests
+	local seen, idle = 0, 0
+	for i = 0, 319 do
+		local u = WeaponFX.glint(i / 100)
+		if u then seen += 1 else idle += 1 end
+	end
+	expect(seen > 10 and idle > seen * 4, "the glint is never there, or always")
+end)
+
 T.test("DAICHA's matter flows: one smooth curve per path, a clock that never goes back, chained from where it was, measured fluid", function()
 	local OrbFlight = require("../src/shared/OrbFlight")
 	local roles = MoveData.Kits.DAICHA.Roles

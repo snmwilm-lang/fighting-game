@@ -25,15 +25,15 @@ local RaijinHold = {}
 -- `front` = how far up the shaft the front hand holds (anywhere from 0.7 to 1.8 is accepted).
 RaijinHold.TARGETS = {
 	-- the ready stance: rear hand at the right hip, the point at the opponent's chest
-	STANCE = { at = { 0, 0.3, -0.6 }, dir = { 0, -0.12, -1 }, front = 1.25 },
+	STANCE = { at = { 0, 0.45, -0.95 }, dir = { 0, -0.12, -1 }, front = 1.25 },
 	-- crouched: the same line, lower, the point a little up
 	Crouch = { at = { 0, 0.25, -0.6 }, dir = { 0, 0, -1 }, front = 1.2 },
 	-- the guard: the shaft held up across the front, a bar between him and the blow
 	Block = { at = { 0.35, 0.35, -0.75 }, dir = { -0.25, 1, -0.45 }, front = 1.35 },
 	CrouchBlock = { at = { 0.35, 0.3, -0.8 }, dir = { -0.25, 1, -0.55 }, front = 1.3 },
 	-- Wilhem's sheet « RAIJIN AUTO-ATTAQUES ». M1 1 ESTOC: drawn back level, then a quick thrust.
-	["Jab.Startup"] = { at = { 0, 0.25, 0.55 }, dir = { 0, 0.02, -1 }, front = 1.2 },
-	["Jab.Active"] = { at = { 0, 0.55, -1.75 }, dir = { 0, 0.03, -1 }, front = 1.2 },
+	["Jab.Startup"] = { at = { 0, 0.25, 0.85 }, dir = { 0, 0.02, -1 }, front = 1.2 },
+	["Jab.Active"] = { at = { 0, 0.55, -2.0 }, dir = { 0, 0.03, -1 }, front = 1.2 },
 	-- 2 BALAYAGE: a short horizontal sweep, from his right across to his left
 	["Cross.Startup"] = { at = { 0.1, 0.4, -0.4 }, dir = { 0.85, 0.08, -0.5 }, front = 1.1 },
 	["Cross.Active"] = { at = { -0.1, 0.45, -0.7 }, dir = { -0.55, 0.05, -0.85 }, front = 1.1 },
@@ -41,13 +41,24 @@ RaijinHold.TARGETS = {
 	["Elbow.Startup"] = { at = { 0, 0.6, -0.2 }, dir = { 0, 0.3, -1 }, front = 1.2 },
 	["Elbow.Active"] = { at = { 0, 1.0, -0.5 }, dir = { 0, -0.55, -1 }, front = 1.2 },
 	-- 4 ESTOC FINAL: drawn right back, then the deep thrust, a little up (it sends him back)
-	["Kick.Startup"] = { at = { 0, 0.2, 0.15 }, dir = { 0, 0.05, -1 }, front = 1.1 },
+	["Kick.Startup"] = { at = { 0, 0.3, -0.35 }, dir = { 0, 0.05, -1 }, front = 1.1 },
 	["Kick.Active"] = { at = { 0, 0.6, -1.2 }, dir = { 0, 0.22, -1 }, front = 1.2 },
 	-- M2: PRÉPARATION the spear raised over his head and drawn back, then PERCÉE with all his weight
 	["Smash.Startup"] = { at = { 0, 1.3, 0.3 }, dir = { 0, -0.15, -1 }, front = 1.2 },
 	["Smash.Active"] = { at = { 0, 0.5, -1.3 }, dir = { 0, 0, -1 }, front = 1.2 },
+	-- (Wilhem: « gère mieux le idle de la lance, aussi fluide que l'orbe de DAICHA ») the second
+	-- key of his idle: the spear drawn back a little and its point raised, breathing in; the
+	-- idle rhythm sways between the two, the point rising and falling at the opponent
+	Idle2 = { at = { 0, 0.55, -0.8 }, dir = { 0, 0.06, -1 }, front = 1.25 },
+	-- (Wilhem: « mets-lui une pose comme le bâton de Wukong sur les épaules ») at rest: the
+	-- spear laid across his shoulders behind his neck, the right hand out on it by his right
+	-- shoulder, the left wrist hung over it on the other side, the head out past his left
+	-- (tilted across his back, the point out forward and up past his left shoulder: from the
+	-- side camera a level shaft hid behind his head)
+	Shoulders = { neck = true, at = { 0.9, 0.05, 0.55 }, dir = { -1, 0.32, -0.55 }, front = 1.9, frontMin = 1.4, frontMax = 2.3 },
+	Shoulders2 = { neck = true, at = { 0.9, 0.12, 0.55 }, dir = { -1, 0.42, -0.55 }, front = 1.9, frontMin = 1.4, frontMax = 2.3 },
 	-- running in: the spear carried level, a little up (the stride pumps the arms)
-	RunUpper = { at = { 0, 0.3, -0.6 }, dir = { 0, 0.1, -1 }, front = 1.25 },
+	RunUpper = { at = { 0, 0.5, -0.85 }, dir = { 0, 0.35, -1 }, front = 1.25 },
 }
 
 local anim = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKEL,
@@ -66,7 +77,11 @@ end
 -- His body posed with the hold `a` on the base pose `key`: { [name] = { cframe, size } }.
 local function posed(key, a)
 	local role, phase = string.match(key, "^(%a+)%.(%a+)$")
-	local base = anim:resolve(if role then Poses["Raijin" .. role][phase] else Poses.Kits.RAIJIN[key])
+	local raw = if role then Poses["Raijin" .. role][phase]
+		elseif key == "Idle2" or key == "Shoulders2" then Poses.Kits.RAIJIN.Idle[2]
+		elseif key == "Shoulders" then Poses.Kits.RAIJIN.STANCE
+		else Poses.Kits.RAIJIN[key]
+	local base = anim:resolve(raw)
 	local pose = table.clone(base)
 	for k, v in holdArms(a) do pose[k] = v end
 	local solved = K.solve(SKEL, pose, 0)
@@ -85,6 +100,33 @@ end
 
 local FREE = { RightHand = true, RightLowerArm = true, LeftHand = true, LeftLowerArm = true }
 
+-- How deep his arms go into his own torso, hips and head (summed over points along them).
+local ARM_PARTS = { "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" }
+local CORE = { "UpperTorso", "LowerTorso", "Head" }
+function RaijinHold.armsInBody(parts)
+	local total = 0
+	for _, name in ARM_PARTS do
+		local arm = parts[name]
+		if arm then
+			local upper = string.find(name, "UpperArm") ~= nil
+			for i = 0, 6 do
+				local u = i / 6 - 0.5
+				-- (the top of the upper arm sits in the shoulder: not counted)
+				if not (upper and u > 0.15) then
+					local x, y, z = K.point(arm.cframe, 0, u * arm.size[2], 0)
+					for _, core in CORE do
+						local c = parts[core]
+						local lx, ly, lz = K.point(K.inverse(c.cframe), x, y, z)
+						local d = math.min(c.size[1] / 2 + 0.05 - math.abs(lx), c.size[2] / 2 + 0.05 - math.abs(ly), c.size[3] / 2 + 0.05 - math.abs(lz))
+						if d > 0 then total += d end
+					end
+				end
+			end
+		end
+	end
+	return total
+end
+
 -- How far the hold `a` is from the target of `key` (0 = perfect), and its parts.
 function RaijinHold.cost(key, a)
 	local t = RaijinHold.TARGETS[key]
@@ -97,15 +139,20 @@ function RaijinHold.cost(key, a)
 	local hx, hy, hz = (lh[1] + rh[1]) / 2, math.max(lh[2], rh[2]) + 0.6, (lh[3] + rh[3]) / 2
 	local side = if rh[1] > lh[1] then 1 else -1
 	local px, py, pz = hx + t.at[1] * side, hy + t.at[2], hz + t.at[3]
+	if t.neck then
+		-- (from the base of his neck: the top of his chest)
+		local nx, ny, nz = K.point(parts.UpperTorso.cframe, 0, parts.UpperTorso.size[2] / 2, 0)
+		px, py, pz = nx + t.at[1] * side, ny + t.at[2], nz + t.at[3]
+	end
 	local d = norm({ t.dir[1] * side, t.dir[2], t.dir[3] })
 	local cost = 3 * ((gx - px) ^ 2 + (gy - py) ^ 2 + (gz - pz) ^ 2)
 	cost += RaijinHold.AIM * (1 - (ax * d[1] + ay * d[2] + az * d[3]))
 	-- the front hand on the shaft, `front` up from the rear one
 	-- (anywhere from 0.7 to 1.8 up the shaft: the closest point of that stretch)
 	local f = parts.LeftHand.cframe
-	local along = math.clamp((f[1] - gx) * ax + (f[2] - gy) * ay + (f[3] - gz) * az, 0.7, 1.8)
+	local along = math.clamp((f[1] - gx) * ax + (f[2] - gy) * ay + (f[3] - gz) * az, t.frontMin or 0.7, t.frontMax or 1.8)
 	local fx, fy, fz = gx + ax * along, gy + ay * along, gz + az * along
-	cost += 3 * ((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2)
+	cost += RaijinHold.FRONT * ((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2)
 	-- the spear clear of his body, and of the floor
 	local inside = 0
 	for _, piece in WeaponKit.pieces("RAIJIN", parts) do
@@ -124,6 +171,10 @@ function RaijinHold.cost(key, a)
 		end
 	end
 	cost += 20 * inside
+	-- (Wilhem: « il a ses bras dans le corps ») every arm, its whole length (the shoulder's
+	-- own end aside), clear of his torso, hips and head
+	local armsIn = RaijinHold.armsInBody(parts)
+	cost += 30 * armsIn
 	-- the arms clear of the body too (the hands not in the torso)
 	for _, hand in RaijinHold.CLEAR_ARMS do
 		local h = parts[hand].cframe
@@ -147,10 +198,11 @@ function RaijinHold.cost(key, a)
 	for i = 8, 10 do
 		if a[i] and math.abs(a[i]) > 70 then cost += 0.5 * (math.abs(a[i]) - 70) end
 	end
-	return cost, inside, math.sqrt((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2), math.deg(math.acos(math.clamp(ax * d[1] + ay * d[2] + az * d[3], -1, 1)))
+	return cost, inside, math.sqrt((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2), math.deg(math.acos(math.clamp(ax * d[1] + ay * d[2] + az * d[3], -1, 1))), armsIn
 end
 
 RaijinHold.CLEAR_ARMS = { "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm" }
+RaijinHold.FRONT = tonumber(args[5]) or 12
 RaijinHold.AIM = tonumber(args[4]) or 20
 RaijinHold.RESTARTS = tonumber(args[2]) or 6
 function RaijinHold.solve(key, start, seed)
@@ -186,31 +238,33 @@ function RaijinHold.solve(key, start, seed)
 end
 
 if args[1] then
+	-- (the holds in PoseLibrary now: the start of every search)
 	local current = {
 		STANCE = { 0, -65, 68, -31, 62, 48, 7, -12, 70, -12 }, Crouch = { 19, -56, 81, -27, 39, 61, -1, 6, 70, 30 },
 		Block = { 12, -18, 72, -1, 37, 76, 69, 16, -70, 6 }, CrouchBlock = { -10, -12, 112, -23, 64, 70, 13, 6, -60, 21 },
-		RunUpper = { 18, -34, 68, -12, 48, 49, -2, 15, 3, 33 },
+		RunUpper = { -18, -5, 103, -39, 82, 29, 54, 16, -59, -58 }, Idle2 = { 10, -61, 72, -27, 72, 49, 4, -3, 70, -12 },
+		Shoulders = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 }, Shoulders2 = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 },
 		["Jab.Startup"] = { 15, -60, -5, 31, 87, 55, 1, -21, 69, -44 }, ["Jab.Active"] = { 45, -59, 6, -39, 65, 8, 30, -18, 3, 0 },
-		["Cross.Startup"] = { -14, -71, 34, 36, 45, 46, 20 }, ["Cross.Active"] = { 123, -79, 10, -76, 116, -55, 9 },
-		["Elbow.Startup"] = { -22, -70, 38, 40, 50, 50, 0 }, ["Elbow.Active"] = { 96, -36, 110, 40, 168, 78, 0 },
-		["Kick.Startup"] = { -15, -80, 75, 0, 50, 49, 18 }, ["Kick.Active"] = { -2, -59, 74, -27, 59, 40, 3 },
-		["Smash.Startup"] = { -22, 76, 95, -11, 80, 35, 0 }, ["Smash.Active"] = { 11, -62, 118, -79, 80, 53, 3 },
+		["Cross.Startup"] = { 18, -59, -5, 31, -12, 74, 17, -19, 70, 44 }, ["Cross.Active"] = { 61, -59, 41, -70, -6, -35, 106, 33, -59, 9 },
+		["Elbow.Startup"] = { -12, -65, 6, 27, 66, 41, 20, -38, -70, -24 }, ["Elbow.Active"] = { 182, -65, 155, 38, 63, 64, 44, -24, -26, -13 },
+		["Kick.Startup"] = { 16, -58, 3, 34, 16, 55, 4, -17, 70, 34 }, ["Kick.Active"] = { 49, -54, -1, -23, -2, -71, 54, -5, -27, -54 },
+		["Smash.Startup"] = { -50, 55, 115, -69, 15, 16, 80, 58, 26, -24 }, ["Smash.Active"] = { 25, -54, 95, -58, 88, 45, 6, 11, 47, -12 },
 	}
-	local keys = if args[1] == "all" then { "STANCE", "Crouch", "Block", "CrouchBlock", "RunUpper" }
+	local keys = if args[1] == "all" then { "STANCE", "Idle2", "Crouch", "Block", "CrouchBlock", "RunUpper" }
 		elseif args[1] == "sheet" then { "Jab.Startup", "Jab.Active", "Cross.Startup", "Cross.Active", "Elbow.Startup", "Elbow.Active",
 			"Kick.Startup", "Kick.Active", "Smash.Startup", "Smash.Active" }
 		else { args[1] }
 	for _, key in keys do
-		local c0, in0, f0, a0 = RaijinHold.cost(key, current[key])
+		local c0, in0, f0, a0, arm0 = RaijinHold.cost(key, current[key])
 		local start = table.clone(current[key])
 		for i = 8, 10 do start[i] = start[i] or 0 end
 		local best, cost = RaijinHold.solve(key, start, tonumber(args[3]) or 7)
-		local _, inside, front, angle = RaijinHold.cost(key, best)
+		local _, inside, front, angle, arms = RaijinHold.cost(key, best)
 		local r = {}
 		for i, v in best do r[i] = tostring(math.floor(v + 0.5)) end
-		print(string.format("%-11s before: cost %.2f (in body %.2f, front hand %.2f off, aim %.0f°)", key, c0, in0, f0, a0))
-		print(string.format("%-11s after:  cost %.2f (in body %.2f, front hand %.2f off, aim %.0f°)   %s = { %s },", key, cost, inside,
-			front, angle, key, table.concat(r, ", ")))
+		print(string.format("%-11s before: cost %.2f (spear in body %.2f, arms in body %.2f, front hand %.2f off, aim %.0f°)", key, c0, in0, arm0, f0, a0))
+		print(string.format("%-11s after:  cost %.2f (spear in body %.2f, arms in body %.2f, front hand %.2f off, aim %.0f°)   %s = { %s },", key, cost,
+			inside, arms, front, angle, key, table.concat(r, ", ")))
 	end
 end
 

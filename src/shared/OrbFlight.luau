@@ -268,7 +268,9 @@ function OrbFlight.offset(view, move, role, time, from)
 	local crouching = state == "Crouching" or state == "CrouchBlocking" or state == "CrouchBlockstun"
 	local orbit = OrbFlight.orbit(time, crouching)
 	if GUARD[state] then
-		return { fwd = 2.1, up = if crouching then 2.3 else 3.5, side = 0.4 } -- (the disc, before her, clear of her raised arms)
+		-- (the disc, before her, clear of her raised arms; Wilhem: « la garde est trop haute,
+		-- descends-la un peu »: centred on her chest, not her face)
+		return { fwd = 2.1, up = if crouching then 1.9 else 2.9, side = 0.4 }
 	elseif state == "KO" then
 		return { fwd = 1.4, up = 0.06, side = 0.6 } -- (fallen, spread on the floor: a puddle)
 	elseif state == "Knockdown" then

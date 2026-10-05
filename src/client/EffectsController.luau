@@ -17,6 +17,7 @@ local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
 local PoseLibrary = require(Shared.PoseLibrary)
 local OrbFlight = require(Shared.OrbFlight)
+local WeaponFX = require(Shared.WeaponFX)
 local KitFX = require(Shared.KitFX)
 
 local EffectsController = {}
@@ -249,6 +250,155 @@ function EffectsController:orbVortex(center, color)
 		for _, ball in balls do ball:Destroy() end
 	end)
 	self:tornadoRing(center, color)
+end
+
+-- The held weapons, alive (WeaponFX; Wilhem: « le minimum de détails de l'orbe de DAICHA doit
+-- être le minimum »): a light of the player's ki colour that breathes at rest, burns when the
+-- blow gathers and flashes on the impact; the edge glowing with it; a glint running down the
+-- blade; the element's particles off it (water, sparks, snow, embers); for RAIJIN lightning
+-- crawling along the shaft; a ribbon behind it when it swings fast, and fading ghosts of it in
+-- a quick blow. A light, an emitter and a glint per blade: cheap. Built once per rig.
+local function longAxis(size)
+	if size.Z >= size.X and size.Z >= size.Y then return Vector3.zAxis, size.Z end
+	if size.Y >= size.X then return Vector3.yAxis, size.Y end
+	return Vector3.xAxis, size.X
+end
+function EffectsController:weaponDressing(rig, view, now, slot)
+	local kit = view.kit or rig.model:GetAttribute("Kit")
+	local cfg = kit and WeaponFX.KITS[kit]
+	if not cfg then return end
+	local fx = rig.weaponFx
+	if fx and (not fx.blades[1] or not fx.blades[1].part.Parent) then
+		for _, b in fx.blades do if b.glint then b.glint:Destroy() end end
+		fx = nil
+	end
+	if not fx then
+		local color = self:energy(slot or 1)
+		local accent = Color3.fromHex(cfg.accent)
+		local element = WeaponFX.ELEMENTS[cfg.element]
+		fx = { blades = {}, edges = {}, shafts = {}, kit = kit, clock = 0, ghostClock = 0, arcClock = 0, color = color, accent = accent }
+		for _, child in rig.model:GetChildren() do
+			if child:IsA("BasePart") then
+				if child.Name == "Kit" .. cfg.blade then
+					local axis, length = longAxis(child.Size)
+					local b = { part = child, axis = axis, length = length }
+					-- its light
+					b.light = Instance.new("PointLight")
+					b.light.Name, b.light.Color, b.light.Shadows, b.light.Range = "WeaponLight", color, false, 7
+					b.light.Parent = child
+					-- its element, off the blade
+					local e = Instance.new("ParticleEmitter")
+					e.Name = "WeaponElement"
+					e.Color = ColorSequence.new(accent, color)
+					e.LightEmission, e.LightInfluence = element.emission, 0
+					e.Lifetime = NumberRange.new(element.life[1], element.life[2])
+					e.Speed = NumberRange.new(element.speed[1], element.speed[2])
+					e.Acceleration = Vector3.new(0, element.drift, 0)
+					e.SpreadAngle = Vector2.new(180, 180)
+					e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, element.size[1]), NumberSequenceKeypoint.new(1, element.size[2]) })
+					e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+					e.Rate = 0
+					e.Parent = child
+					b.emitter, b.rate = e, element.rate
+					-- its glint: a white streak that runs down the blade
+					b.glint = self:part(Vector3.new(0.12, 0.12, 0.12), CFrame.identity, WHITE)
+					b.glint.Name, b.glint.Transparency, b.glint.Parent = "WeaponGlint", 1, rig.model
+					-- its ribbon (SHIN's blade has one already: attachWeapon)
+					if kit ~= "SHIN" then
+						local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+						a0.Position, a1.Position = axis * (length * 0.45), -axis * (length * 0.5)
+						a0.Parent, a1.Parent = child, child
+						local trail = Instance.new("Trail")
+						trail.Name, trail.Attachment0, trail.Attachment1 = "WeaponRibbon", a0, a1
+						trail.Color = ColorSequence.new(WHITE, color)
+						trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.6, 0.5),
+							NumberSequenceKeypoint.new(1, 1) })
+						trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.15) })
+						trail.Lifetime, trail.MinLength, trail.LightEmission, trail.Enabled = 0.18, 0.02, 1, false
+						trail.Parent = child
+						b.trail = trail
+					end
+					b.last = child.Position
+					table.insert(fx.blades, b)
+				elseif child.Name == "Kit" .. cfg.edge then
+					table.insert(fx.edges, { part = child, color = child.Color, transparency = child.Transparency })
+				elseif cfg.shaft and child.Name == "Kit" .. cfg.shaft then
+					table.insert(fx.shafts, child)
+				end
+			end
+		end
+		if #fx.blades == 0 then return end
+		rig.weaponFx = fx
+	end
+	local dt = math.clamp(now - (fx.clock ~= 0 and fx.clock or now), 0, 0.1)
+	fx.clock = now
+	local id = view.state == "Attack" and view.move or nil
+	local want = WeaponFX.look({ state = view.state, moveFrame = view.moveClock or view.moveFrame }, id and MoveData.Moves[id], now)
+	local look = fx.look or want
+	for k, v in want do look[k] = look[k] + (v - look[k]) * (1 - math.exp(-dt * (if v > look[k] then 30 else 10))) end
+	fx.look = look
+	local reduced = self.reduced
+	for i, b in fx.blades do
+		local part = b.part
+		local pos = part.Position
+		local speed = if dt > 0 then (pos - b.last).Magnitude / dt else 0
+		b.last = pos
+		b.light.Brightness, b.light.Range = look.light, 6 + look.light * 1.5
+		b.emitter.Rate = look.sparks * b.rate * (if reduced then 0.35 else 1)
+		-- the glint (a little offset per blade so a pair does not flash together)
+		local u = WeaponFX.glint(now, i * 0.9)
+		if u and not reduced then
+			local along = b.axis * ((0.5 - u) * b.length * 0.9)
+			b.glint.CFrame = part.CFrame * CFrame.new(along)
+			b.glint.Size = Vector3.new(0.14, 0.14, 0.14) + b.axis * 0.35
+			b.glint.Transparency = 0.1 + 0.6 * math.abs(u - 0.5)
+		elseif b.glint.Transparency < 1 then
+			b.glint.Transparency = 1
+		end
+		-- the ribbon when it swings fast
+		if b.trail then
+			local on = speed > 16
+			if b.trail.Enabled ~= on then b.trail.Enabled = on end
+		end
+		-- ghosts of it in a quick blow
+		if id and speed > 28 and not reduced and now - fx.ghostClock > 0.035 then
+			fx.ghostClock = now
+			local ghost = self:part(part.Size, part.CFrame, fx.color)
+			ghost.Transparency = 0.55
+			tween(ghost, 0.15, { Transparency = 1 })
+			Debris:AddItem(ghost, 0.17)
+		end
+	end
+	-- the edge glows with the breath, white-hot on the impact
+	for _, e in fx.edges do
+		e.part.Transparency = math.clamp(0.55 - 0.55 * look.glow, 0, 1)
+		e.part.Color = e.color:Lerp(WHITE, look.flare * 0.7)
+	end
+	-- RAIJIN: lightning crawling along the shaft, more as the blow gathers
+	if #fx.shafts > 0 and not reduced and now - fx.arcClock > 0.09 and math.random() < look.sparks * 0.55 then
+		fx.arcClock = now
+		local shaft = fx.shafts[1]
+		local axis, length = longAxis(shaft.Size)
+		local a = shaft.CFrame * CFrame.new(axis * ((math.random() - 0.5) * length * 0.9))
+		local b = shaft.CFrame * CFrame.new(axis * ((math.random() - 0.5) * length * 0.9))
+		self:crawl(a.Position, b.Position, fx.color)
+	end
+end
+
+-- A small arc of lightning between two close points (RAIJIN's shaft): thin, quick.
+function EffectsController:crawl(from, to, color)
+	local points = { from }
+	for i = 1, 3 do
+		local jitter = Vector3.new((math.random() - 0.5) * 0.35, (math.random() - 0.5) * 0.35, (math.random() - 0.5) * 0.35)
+		table.insert(points, from:Lerp(to, i / 4) + jitter)
+	end
+	table.insert(points, to)
+	for i = 1, #points - 1 do
+		local p0, p1 = points[i], points[i + 1]
+		local bolt = self:part(Vector3.new(0.06, 0.06, (p1 - p0).Magnitude), CFrame.lookAt((p0 + p1) / 2, p1), if i % 2 == 0 then WHITE else color)
+		tween(bolt, 0.1, { Transparency = 1 })
+		Debris:AddItem(bolt, 0.12)
+	end
 end
 
 -- DAICHA's body as boxes for OrbFlight.avoid (centre, unit axes, half sizes), read off her rig
@@ -1548,6 +1698,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 		rig.orbParts, rig.weaponDone, rig.weaponKind, rig.weaponSince = nil, false, nil, nil
 	end
 	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
+	self:weaponDressing(rig, view, now, slot)
 	if rig.weaponKind == "Sword" then -- (DAICHA's guard is her matter flattened: flyOrb)
 		local guarding = view.state == "Blocking" or view.state == "CrouchBlocking" or view.state == "Blockstun"
 			or view.state == "CrouchBlockstun"

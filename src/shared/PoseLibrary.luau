@@ -1818,7 +1818,9 @@ do
 	local W = -70 -- the spear on the line of the forearm
 	local function spear(sh, rz, el, wr, l, extra) return arms({ sh, rz, el, wr or W }, l, extra) end
 	-- ESTOC: a straight thrust, the left hand sliding along the shaft.
-	Poses.RaijinJab = stroke(S, spear(40, 10, 90, nil, { 60, -20, 60 }), spear(90, -4, 0, nil, { 86, 12, 30 }), 1.0, 20)
+	Poses.RaijinJab = stroke(S, spear(40, 10, 90, nil, { 60, -20, 60 }), spear(90, -4, 0, nil, { 86, 12, 30 }), 1.15, 20)
+	-- (the body draws back too before the pique: the arms alone cannot without going into it)
+	Poses.RaijinJab.Startup = feet(merge(Poses.RaijinJab.Startup, { Root = { 0, 8, 0, S.Root[4] - 0.04, 0.3 } }), -0.8, 0.85, 0, -8, 9)
 	-- REVERS DE HAMPE: the shaft swung flat from the right, right to left.
 	Poses.RaijinCross = stroke(S, spear(86, 80, 20, nil, { 50, -30, 70 }, { Waist = deg(-6, -40) }),
 		spear(88, -50, 0, nil, { 30, -50, 40 }), 0.35, 40)
@@ -1924,8 +1926,8 @@ do
 			Active = { 30, -51, 0, 20, 73, 21, 0 },
 		},
 		Cross = {
-			Startup = { 18, -59, -5, 31, -12, 74, 17, -19, 70, 44 },
-			Active = { 61, -59, 41, -70, -6, -35, 106, 33, -59, 9 },
+			Startup = { 37, -62, -5, 20, 49, 46, -5, -27, 70, 41 },
+			Active = { 119, -81, 69, -68, 3, -6, 112, 67, 17, -7 },
 		},
 		DragonFist = {
 			Startup = { -7, -25, 0, 38, 13, 43, 0 },
@@ -1938,8 +1940,8 @@ do
 			Active2 = { 55, -51, 0, -50, 41, 4, 34 },
 		},
 		Elbow = {
-			Startup = { -12, -65, 6, 27, 66, 41, 20, -38, -70, -24 },
-			Active = { 182, -65, 155, 38, 63, 64, 44, -24, -26, -13 },
+			Startup = { 25, -23, -5, 34, 101, 63, 11, -28, -70, -45 },
+			Active = { 182, -11, 155, 33, 114, 62, 9, -11, -34, -32 },
 		},
 		Fatal = {
 			Startup = { 70, 25, 0, 30 },
@@ -1954,8 +1956,8 @@ do
 			Active = { -1, -64, 78, -79, 54, 20, 10 },
 		},
 		Jab = {
-			Startup = { 15, -60, -5, 31, 87, 55, 1, -21, 69, -44 },
-			Active = { 45, -59, 6, -39, 65, 8, 30, -18, 3, 0 },
+			Startup = { 44, -57, -5, 12, 98, 41, 19, -17, 70, -56 },
+			Active = { 66, -51, -5, -37, 65, 10, 34, -13, 12, -10 },
 		},
 		KaienRush = {
 			Startup = { 80, -57, 0, 15 },
@@ -1979,8 +1981,8 @@ do
 			Active2 = { 38, -61, 0, -12, 34, 0, 65 },
 		},
 		Kick = {
-			Startup = { 16, -58, 3, 34, 16, 55, 4, -17, 70, 34 },
-			Active = { 49, -54, -1, -23, -2, -71, 54, -5, -27, -54 },
+			Startup = { 40, -56, -5, 33, 65, 43, -1, -22, 66, 10 },
+			Active = { 69, -49, -5, -32, 16, -46, 66, -3, -22, -53 },
 		},
 		LowKick = {
 			Startup = { -34, -62, 40, 40, 34, 51, 1 },
@@ -2000,8 +2002,8 @@ do
 			Active2 = { 48, -72, 0, -67, 16, -42, 33 },
 		},
 		Smash = {
-			Startup = { -50, 55, 115, -69, 15, 16, 80, 58, 26, -24 },
-			Active = { 25, -54, 95, -58, 88, 45, 6, 11, 47, -12 },
+			Startup = { -35, 40, 115, -70, 19, 7, 77, 54, -3, -55 },
+			Active = { 57, -54, -5, -10, 119, 47, -2, -22, 70, -50 },
 		},
 		SpinKick = {
 			Startup = { 145, -62, 48, 35, 168, 58, 54 },
@@ -2025,12 +2027,12 @@ do
 	local KIT_HOLD = {
 			-- (solved by tests/RaijinHold.luau: rear hand at the hip, the point at the
 			-- opponent's chest, the front hand up the shaft, the shaft clear of his body)
-			Crouch = { 19, -56, 81, -27, 39, 61, -1, 6, 70, 30 },
+			Crouch = { 51, -54, -5, 27, 88, 41, -2, -19, 70, -10 },
 			Victory = { 140, 0, 0, -40 },
-			STANCE = { 0, -65, 68, -31, 62, 48, 7, -12, 70, -12 },
-			CrouchBlock = { -10, -12, 112, -23, 64, 70, 13, 6, -60, 21 },
-			Block = { 12, -18, 72, -1, 37, 76, 69, 16, -70, 6 },
-			RunUpper = { 18, -34, 68, -12, 48, 49, -2, 15, 3, 33 }, -- (the spear carried level as he runs in)
+			STANCE = { 36, -59, -5, 20, 108, 53, -1, -32, 70, -40 },
+			CrouchBlock = { -12, 0, 104, 1, 98, 55, 23, 30, -5, -4 },
+			Block = { -7, -11, 98, -6, 116, 55, 48, 9, -64, -38 },
+			RunUpper = { -22, -10, 113, -29, 125, 70, 29, 7, -55, -45 }, -- (the spear carried level as he runs in)
 	}
 	-- (7 numbers, or 10: + the right shoulder's twist, the right wrist's turn, the left
 	-- shoulder's twist, so the spear can point anywhere from a hand at the hip: tests/RaijinHold)
@@ -2057,7 +2059,16 @@ do
 	-- His own stance, guard, crouch and victory hold the spear the same way.
 	local kit = KITS.RAIJIN
 	for key, a in KIT_HOLD do kit[key] = merge(kit[key], hold(a)) end
-	kit.Idle = { kit.STANCE, merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 } }) }
+	-- (Wilhem: « gère mieux le idle de la lance, aussi fluide que l'orbe de DAICHA »: his idle
+	-- breathes between two holds, the spear drawn back a little and its point rising, then
+	-- forward and level at the opponent again: solved by tests/RaijinHold.luau, Idle2)
+	-- (then: « mets-lui une pose comme le bâton de Wukong sur les épaules »: at rest the spear
+	-- lies across his shoulders behind his neck, both wrists hung over it, breathing; his fighting
+	-- stance (STANCE: the start of every blow, the end of every recovery) keeps it levelled)
+	local SHOULDERS = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 }
+	local SHOULDERS2 = { 174, 95, 100, -19, 53, -9, 151, 70, -44, -11 }
+	kit.Idle = { merge(kit.STANCE, hold(SHOULDERS)), merge(merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 },
+		Waist = { (kit.STANCE.Waist[1] or 0) - 3, (kit.STANCE.Waist[2] or 0) + 4, 0 } }), hold(SHOULDERS2)) }
 	-- (RunUpper has its own hold, in KIT_HOLD: the stance's pointed the spear at the floor)
 	kit.BackUpper = merge(kit.BackUpper, hold(KIT_HOLD.Block))
 	strike("Raijin", { Jab = R_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,

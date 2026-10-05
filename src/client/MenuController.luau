@@ -1498,12 +1498,14 @@ function MenuController:buildBottom()
 			TextXAlignment = Enum.TextXAlignment.Center, Visible = false, ZIndex = 3 })
 		self.rosterLocks = self.rosterLocks or {}
 		self.rosterLocks[name] = lock
-		tile.MouseEnter:Connect(function() if self.page == "characters" then self:showKitInfo(name) end end)
+		-- (no hover: passing the mouse over the strip showed someone else on the FIGHTERS page)
 		tile.Activated:Connect(function()
 			-- (owned: the favourite; locked: its page, to see it, try it or unlock it)
-			if self:owns(name) then
+			if self.page == "characters" then
+				-- (on the FIGHTERS page a click shows the fighter; FAVORITE there makes it the favourite)
+				self:showKitInfo(name)
+			elseif self:owns(name) then
 				self:makeFavorite(name)
-				if self.page == "characters" then self:showKitInfo(name) end
 			else
 				self.galleryKit = name
 				if self.page ~= "characters" then self:open("characters") else self:showKitInfo(name) end

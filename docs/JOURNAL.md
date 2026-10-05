@@ -19,6 +19,10 @@ ScreenGui à part qui couvre tout l'écran : le noir de la barre monte jusqu'en 
 de Roblox restent posés dessus ; le contenu du menu reste dans la zone sûre.
 v0.18.4 : le logo du menu « K.O. » devient « BREAKFRAMEZ » (sur le trait de pinceau rouge,
 « FIGHTING GAME » dessous) ; les annonces K.O. des combats ne changent pas.
+v0.18.5 : la bande MES PERSONNAGES ne réagit plus au survol (passer la souris affichait un autre
+perso dans la page PERSONNAGES) : seulement au clic. Dans la page PERSONNAGES, un clic montre le
+perso (le bouton ★ FAVORI en fait le favori) ; ailleurs, un clic sur un perso possédé en fait le
+favori, sur un perso verrouillé ouvre sa page.
 
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 

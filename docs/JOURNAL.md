@@ -31,7 +31,7 @@ Aides mises à jour : touches, astuces, README, article NOUVEAUTÉS, guide COMME
 - RANG SUPÉRIEUR / INFÉRIEUR : notification quand un match CLASSÉ change le rang.
 
 Tests : Lobby 38 (nouveaux : récompense du jour, séries, textes en français), CombatSimulation 129, Kits (playlists).
-Équilibrage CPU contre CPU (`Balance -a 4 120`) avec la garde en reculant : en cours au moment de ce commit, chiffres ajoutés au suivant.
+Équilibrage CPU contre CPU (`Balance -a 4 120`, LÉGENDE) avec la garde en reculant : KAI 54, TARO 62, ZEPHYR 41, AKEMI 40, RYUKEN 56, SHIN 36, DAICHA 49, HIBECARES 52, RAIJIN 43, YUKINA 50, VENOM 62, GORAN 55, ASTER 44, HIBIKI 59, KAZAN 48, KUREN 46, SYLVA 47, ELIAN 48, NOVA 48, KUROEN 62 : tous entre 35 et 65 % (SHIN au plus bas, à surveiller).
 
 Problèmes ouverts :
 - rien vérifié dans Roblox Studio ;

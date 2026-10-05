@@ -39,6 +39,7 @@ Correctif après le premier essai de Wilhem dans Studio (« pas le full accès �
 - page PERSONNAGES réorganisée (aperçu, description, état, styles) sans rien dépasser ;
 - fenêtre « Jouer entre amis » : déjà corrigée (centrée dans la zone sûre, au-dessus du menu, bouton INVITER dans un pied fixe) — laissée telle quelle, on y ajoute seulement le titre des joueurs ;
 - texte de fin de défi ASURA : guillemet mal fermé corrigé.
+- onglets du haut (PLAY, FIGHTERS, RANKING…) : un UIGradient posé sur leurs boutons teintait aussi leur texte, noir sur noir, l'onglet actif vide (capture de Wilhem) → couleur unie.
 
 Tests : Lobby 30 (nouveaux : économie, accès développeur, styles 2500 / quêtes / équipement, quêtes, champion de la semaine, textes en français), toutes les autres suites inchangées.
 

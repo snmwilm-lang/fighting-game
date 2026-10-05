@@ -243,7 +243,9 @@ function MenuController:buildTopBar()
 		local b = new("TextButton", { Name = "Tab_" .. tab[2], Position = UDim2.fromOffset(218 + (i - 1) * 167, 0),
 			Size = UDim2.fromOffset(159, 78), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1,
 			Font = UI_FONT, TextSize = 14, Text = tab[1], TextColor3 = Theme.MUTED, AutoButtonColor = false, BorderSizePixel = 0 }, bar)
-		gradient(b, Theme.INK, RED:Lerp(INK, 0.65), 90)
+		-- (a plain colour: a UIGradient on a text button tints its text too, the tabs' names
+		-- came out black on black, the active one invisible)
+		b.BackgroundColor3 = RED:Lerp(INK, 0.6)
 		local underline = Theme.rule(b, UDim2.new(0, 12, 1, -3), UDim2.new(1, -24, 0, 3), Theme.RED)
 		underline.Visible = false
 		b.Activated:Connect(function() self:open(tab[2]) end)

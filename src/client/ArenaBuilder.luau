@@ -434,6 +434,19 @@ function ArenaBuilder.build(mapId)
 	deck(B, map)
 	PROPS[map.props](B, map)
 	air(B, map)
+	-- FILL LIGHT on the fighters (Wilhem's phone capture: on the sunset / lava stages the sun
+	-- is behind them and they read as dark silhouettes). A soft spot from the camera's side
+	-- lights their front on every stage; no shadows (cheap, one light).
+	local fill = Instance.new("Part")
+	fill.Name, fill.Anchored, fill.CanCollide, fill.CanQuery, fill.CanTouch = "FighterFill", true, false, false, false
+	fill.Transparency, fill.CastShadow, fill.Size = 1, false, Vector3.new(0.2, 0.2, 0.2)
+	fill.CFrame = CFrame.lookAt(Vector3.new(0, 9, 18), Vector3.new(0, 3, 0))
+	local spot = Instance.new("SpotLight")
+	spot.Face, spot.Angle, spot.Range, spot.Shadows = Enum.NormalId.Front, 100, 45, false
+	spot.Brightness = map.lighting.fill or 1.4
+	spot.Color = Color3.fromHex(map.lighting.tint or "FFFFFF"):Lerp(Color3.new(1, 1, 1), 0.5)
+	spot.Parent = fill
+	fill.Parent = arena
 	arena.Parent = workspace
 	lighting(map)
 	return arena

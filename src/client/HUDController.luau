@@ -75,14 +75,20 @@ function HUD.new(config)
 
 	-- VISUAL PASS: a dark vignette at the screen's edges (the fighters stand out in the middle)
 	-- and a dark band behind the header (the bars read on every stage, the bright ones too).
+	-- (on their own full-screen layer: inside the HUD's safe area they stopped short of a phone's
+	-- edges and drew hard black bands, Wilhem's capture)
+	local shade = new("ScreenGui", { Name = "CombatShade", ResetOnSpawn = false, DisplayOrder = 4, IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.None }, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	shade.Enabled = screen.Enabled
+	screen:GetPropertyChangedSignal("Enabled"):Connect(function() shade.Enabled = screen.Enabled end)
 	for _, side in { { 0, 0 }, { 1, 180 } } do
 		local edge = new("Frame", { Name = "Vignette", AnchorPoint = Vector2.new(side[1], 0), Position = UDim2.fromScale(side[1], 0),
-			Size = UDim2.fromScale(0.22, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 0 }, gui)
+			Size = UDim2.fromScale(0.22, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 0 }, shade)
 		new("UIGradient", { Rotation = side[2], Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45),
 			NumberSequenceKeypoint.new(1, 1) }) }, edge)
 	end
-	local band = new("Frame", { Name = "HeaderBand", Size = UDim2.new(1, 0, 0, 120), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0,
-		ZIndex = 0 }, gui)
+	local band = new("Frame", { Name = "HeaderBand", Size = UDim2.new(1, 0, 0.2, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0,
+		ZIndex = 0 }, shade)
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25),
 		NumberSequenceKeypoint.new(1, 1) }) }, band)
 	-- Top header: portraits, health, guard, round pips and timer.
@@ -178,11 +184,14 @@ function HUD.new(config)
 			Position = if left then UDim2.fromOffset(barX, 62) else UDim2.new(1, -barX - 26, 0, 62),
 		}), "Energy")
 		stroke(count, 2.5)
+		-- (under the ki bars, never over them: a long line shrinks to fit its box)
 		local ready = text(side, {
 			Name = "UltimateReady", Text = "ULTIMATE READY · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
-			Size = UDim2.fromOffset(150, 14), Position = if left then UDim2.fromOffset(barX + 30, 84) else UDim2.new(1, -barX - 180, 0, 84),
-			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+			Size = UDim2.new(0.6, -30, 0, 14), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
+			Position = if left then UDim2.fromOffset(barX + 30, 86) else UDim2.new(1, -barX - 30, 0, 86),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, TextScaled = true,
 		})
+		new("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 8 }, ready)
 		tint(stroke(ready, 2, energy), "Energy")
 		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
@@ -290,9 +299,9 @@ function HUD.new(config)
 		if self.onMenu then self.onMenu() end
 	end, topRow)
 	self.menuButton.TextColor3 = Color3.fromHex("FFD23F")
-	self.toolsButton = button("ToolsToggle", "⚙ TOOLS ▾", 110, function()
+	self.toolsButton = button("ToolsToggle", "⚙ TOOLS +", 110, function()
 		tools.Visible = not tools.Visible
-		self.toolsButton.Text = if tools.Visible then "⚙ TOOLS ▴" else "⚙ TOOLS ▾"
+		self.toolsButton.Text = if tools.Visible then "⚙ TOOLS −" else "⚙ TOOLS +"
 	end, topRow)
 	self.combosButton = button("Combos", "COMBOS", 84, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
@@ -334,7 +343,7 @@ function HUD.new(config)
 	-- Combo trainer: pick a combo in its panel (two categories), the bar at the bottom shows
 	-- what to press and when.
 	self.trainerRoute = 0
-	self.routeButton = button("Route", "TRAINER ▾", 0, function()
+	self.routeButton = button("Route", "TRAINER +", 0, function()
 		self.trainerPanel.Visible = not self.trainerPanel.Visible
 	end)
 	self.labButton = button("Lab", "CINE LAB", 0, function()
@@ -516,7 +525,7 @@ end
 
 function HUD:refreshRouteButton()
 	local route = self:trainerRoutes()[self.trainerRoute]
-	self.routeButton.Text = if route then "TRAINER ✓" else "TRAINER ▾"
+	self.routeButton.Text = if route then "TRAINER ✓" else "TRAINER +"
 	if self.trainerTitle then
 		self.trainerTitle.Text = if route then route.name .. "  ·  " .. keysShort(route.keys) else ""
 	end

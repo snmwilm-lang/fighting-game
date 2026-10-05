@@ -59,8 +59,10 @@ function HubController.new(remote)
 	self.gui = gui
 	-- HUB MULTI button, top right, big and gold, during a match (the menu has its own PLAYERS
 	-- button); the H key opens / closes the hub too.
-	self.toggle = button(gui, "PLAYERS ON THE SERVER (H)", GOLD, {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 164), Size = UDim2.fromOffset(300, 36), TextSize = 15,
+	-- (small, and only when someone else is on the server; never on a phone, where it sat in the
+	-- middle of the fight over the taunt button: there, ◀ MENU › PLAYERS)
+	self.toggle = button(gui, "👥 1 · H", GOLD, {
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 164), Size = UDim2.fromOffset(96, 28), TextSize = 13,
 		TextColor3 = GOLD, ZIndex = 5, Visible = false,
 	})
 	-- A dim backdrop under the window: it keeps the clicks off the menu behind, and a click on
@@ -159,6 +161,7 @@ function HubController.new(remote)
 		-- (a big server sends a short view: arrivals and departures are only announced while
 		-- everyone fits in it)
 		self.total = packet.total or #self.status
+		self:refreshToggle()
 		if self.total > #self.status then first = true end
 		local me, arrived = Players.LocalPlayer.UserId, nil
 		for _, p in self.status do
@@ -218,8 +221,16 @@ end
 
 -- The menu shows its own PLAYERS button: the gold one is only for matches.
 function HubController:setInMatch(inMatch)
-	self.toggle.Visible = inMatch
+	self.inMatch = inMatch
+	self:refreshToggle()
 	if inMatch then self:setVisible(false) end
+end
+
+function HubController:refreshToggle()
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local others = (self.total or #self.status) > 1
+	self.toggle.Visible = self.inMatch == true and others and not touchOnly
+	self.toggle.Text = "👥 " .. (self.total or #self.status) .. " · H"
 end
 
 function HubController:render()
@@ -228,7 +239,7 @@ function HubController:render()
 	for _, p in self.status do
 		if p.id == me then mine = p end
 	end
-	self.toggle.Text = "PLAYERS ON THE SERVER (H) · " .. (self.total or #self.status)
+	self:refreshToggle()
 	for _, child in self.list:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
 	end

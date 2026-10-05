@@ -1,5 +1,16 @@
 # Journal du projet — état à transmettre
 
+## Version 0.21.1 — 5 octobre 2026 · CORRECTIFS DE LA CAPTURE MOBILE
+
+Capture de Wilhem sur téléphone (« y'a plein de problèmes ») :
+- le bouton « PLAYERS ON THE SERVER (H) » s'affichait en grand au milieu du combat, par-dessus le bouton des provocs. Il devient petit (« 👥 2 · H »), seulement quand quelqu'un d'autre est sur le serveur, et jamais sur un téléphone (là : ◀ MENU › JOUEURS) ;
+- les flèches ▾ ▴ des boutons OUTILS / ENTRAÎNEUR s'affichaient en carré vide sur mobile : remplacées par + / − ;
+- la ligne « 3 BARS · AWAKENING / … » chevauchait les barres de ki : elle passe dessous, dans une boîte à sa taille, et rétrécit si elle est trop longue ;
+- les persos apparaissaient sombres, presque en silhouette, sur les arènes au soleil couchant (le soleil derrière eux) : une lumière d'appoint douce côté caméra éclaire leur face sur toutes les arènes (une seule lumière, sans ombre) ;
+- le vignettage s'arrêtait au bord de la zone sûre du téléphone et faisait des bandes noires nettes : il couvre maintenant tout l'écran.
+
+Rien vérifié dans Studio : à revoir sur téléphone ; Wilhem doit dire les autres problèmes qu'il voit.
+
 ## Version 0.21.0 — 5 octobre 2026 · GARDE EN RECULANT, MUSIQUES, RÉCOMPENSE DU JOUR
 
 Wilhem part 8 h : « bloquer en reculant comme tous les jeux de combat », des mises à jour au

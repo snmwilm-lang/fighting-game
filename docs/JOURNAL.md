@@ -1,5 +1,25 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.7 — 5 octobre 2026 · RAIJIN : LA GARDE DE LA LANCE REFAITE
+
+Wilhem : « on retaf la position de RAIJIN ». La planche de poses montrait : en marchant la lance piquait vers le sol entre ses jambes, en garde elle pendait verticale la pointe au sol, au repos elle partait vers le bas.
+
+Nouvel outil `tests/RaijinHold.luau` : un solveur. On décrit où doit être la lance (la main arrière, la direction de la hampe, la main avant quelque part entre 0,7 et 1,8 stud plus haut sur la hampe) ; il cherche les angles des deux bras (sur le vrai squelette, avec la vraie lance) en évitant que la hampe ou les mains entrent dans son corps ou que la pointe touche le sol, et en respectant les limites des articulations. Les tenues (`KIT_HOLD` de PoseLibrary) acceptent maintenant 10 nombres : + la rotation de l'épaule droite, du poignet droit et de l'épaule gauche (sans elles, une main à la hanche ne pouvait pas viser l'adversaire).
+
+Résultat :
+- **Repos** : la lance tenue à deux mains devant le ventre, pointée sur l'adversaire (écart de visée 4°, avant 26°).
+- **Accroupi** : la même ligne, à l'horizontale (2°).
+- **Garde** : la hampe levée devant lui comme une barre (2°, avant 109° : elle pendait).
+- **Garde basse** : pareil, plus bas (7°, avant 97°).
+- **Marche/course** : sa propre tenue, la lance portée vers l'avant (avant, elle prenait celle du repos et le balancier la faisait piquer vers le sol).
+- Les retours de coups (qui reviennent à mi-chemin vers la garde) suivent la nouvelle garde.
+
+Lance dans son corps (`WeaponClearance`, 4 combats) : 320 → 232 images sur 1 136 (833 avant la 0.23.6). Ce qui reste : des impacts de 2 frames et des retours de coups.
+
+Tests : Animation 45, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK.
+
+À voir dans Studio : sa garde, sa marche, son blocage.
+
 ## Version 0.23.6 — 5 octobre 2026 · TOUS LES PERSOS : PLUS FLUIDES, LES ARMES HORS DU CORPS
 
 Wilhem : « fais le même genre d'analyse pour chaque perso, pour un rendu le plus agréable et fluide ». Mesuré d'abord, pour les 20 persos (scripts de combat réels, vraies poses), avec deux nouveaux outils :

@@ -2015,19 +2015,28 @@ do
 		},
 	}
 	local KIT_HOLD = {
-			Crouch = { -19, -64, 29, 40, 20, 49, 40 },
+			-- (solved by tests/RaijinHold.luau: rear hand at the hip, the point at the
+			-- opponent's chest, the front hand up the shaft, the shaft clear of his body)
+			Crouch = { 19, -56, 81, -27, 39, 61, -1, 6, 70, 30 },
 			Victory = { 140, 0, 0, -40 },
-			STANCE = { -27, -75, 44, 20, 14, 45, 49 },
-			CrouchBlock = { 6, -90, 88, 40, 9, 81, 53 },
-			Block = { -45, -90, 85, 3, 1, 60, 43 },
+			STANCE = { 0, -65, 68, -31, 62, 48, 7, -12, 70, -12 },
+			CrouchBlock = { -10, -12, 112, -23, 64, 70, 13, 6, -60, 21 },
+			Block = { 12, -18, 72, -1, 37, 76, 69, 16, -70, 6 },
+			RunUpper = { 18, -34, 68, -12, 48, 49, -2, 15, 3, 33 }, -- (the spear carried level as he runs in)
 	}
+	-- (7 numbers, or 10: + the right shoulder's twist, the right wrist's turn, the left
+	-- shoulder's twist, so the spear can point anywhere from a hand at the hip: tests/RaijinHold)
 	local function hold(a)
-		return arms({ a[1], a[2], a[3], a[4] }, a[5] and { a[5], a[6], a[7], 0 } or nil)
+		local t = arms({ a[1], a[2], a[3], a[4] }, a[5] and { a[5], a[6], a[7], 0 } or nil)
+		if a[8] then t.RightShoulder = deg(a[1], a[8], a[2]) end
+		if a[9] then t.RightWrist = deg(a[4], 0, a[9]) end
+		if a[10] and a[5] then t.LeftShoulder = deg(a[5], a[10], a[6]) end
+		return t
 	end
 	-- The recovery eases from the blow back to the stance's hold (half way).
 	local function between(a, b)
 		local out = {}
-		for i = 1, 7 do out[i] = if a[i] and b[i] then (a[i] + b[i]) / 2 else b[i] end
+		for i = 1, 10 do out[i] = if a[i] and b[i] then (a[i] + b[i]) / 2 else b[i] end
 		return out
 	end
 	for role, keys in HOLD do
@@ -2041,7 +2050,7 @@ do
 	local kit = KITS.RAIJIN
 	for key, a in KIT_HOLD do kit[key] = merge(kit[key], hold(a)) end
 	kit.Idle = { kit.STANCE, merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 } }) }
-	kit.RunUpper = merge(kit.RunUpper, hold(KIT_HOLD.STANCE))
+	-- (RunUpper has its own hold, in KIT_HOLD: the stance's pointed the spear at the floor)
 	kit.BackUpper = merge(kit.BackUpper, hold(KIT_HOLD.Block))
 	strike("Raijin", { Jab = R_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,
 		DragonTornado = R_, DragonFist = R_, CrescentMoon = R_, RisingWind = R_, KiFlurry = R_, ThunderHeel = R_, SpinKick = R_,

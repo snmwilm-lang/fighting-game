@@ -29,7 +29,7 @@ Mesures (`luau tests/OrbQuality.luau -a all 120`, jitter = tremblement de la vit
 
 Accélérations les plus dures (99e centile) : −15 à −40 %.
 
-Tests : Animation 42 (nouveau : courbe sans saut de vitesse pour chaque coup, temps qui ne recule pas, coup enchaîné, téléportation, ressort, fluidité mesurée sous un plafond), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871. Rien dans le combat n'a changé (cosmétique seulement).
+Tests : Kits 130, Animation 42 (nouveau : courbe sans saut de vitesse pour chaque coup, temps qui ne recule pas, coup enchaîné, téléportation, ressort, fluidité mesurée sous un plafond), Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871. Rien dans le combat n'a changé (cosmétique seulement).
 
 À voir dans Studio : la boule en combo et en dash, l'impact (petit dépassement puis retour), la reformation après TELEPORT.
 

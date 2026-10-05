@@ -119,8 +119,12 @@ function MenuController.new(remote, hub, settings)
 		local size = safeCanvas.AbsoluteSize
 		if size.X <= 0 or size.Y <= 0 then return end
 		scale.Scale = math.min(size.X / 1600, size.Y / 900)
-		-- The root is centred: its top edge sits (height - 900 * scale) / 2 below the screen's.
-		strip.Position = UDim2.fromOffset(0, (size.Y - 900 * scale.Scale) / 2)
+		-- The canvas fills the whole screen (it was a centred 1600 x 900 box, leaving empty
+		-- bands on any other shape of screen): at least 1600 x 900 design units, stretched to
+		-- the screen's proportions. Everything is anchored to its edge (navigation on the left,
+		-- pages and fighters on the right, panels at the bottom), so it spreads with it.
+		root.Size = UDim2.fromOffset(math.max(1600, size.X / scale.Scale), math.max(900, size.Y / scale.Scale))
+		strip.Position = UDim2.fromOffset(0, 0)
 		strip.Size = UDim2.new(1, 0, 0, 78 * scale.Scale)
 	end
 	fit()

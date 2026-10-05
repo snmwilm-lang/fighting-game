@@ -8,6 +8,12 @@ console écrit « 0.18.1 ready » : c'est le bon fichier. Vérifié par Wilhem d
 onglets lisibles, « developer access: YES », plus de cadenas. Son UserId (3288842358, compte
 Laveine972) est dans `DevAccess.IDS` : l'accès le suit aussi dans le jeu publié, même de groupe.
 
+Menu plein écran (« il prend pas tout l'écran ») : la toile du menu était une boîte de 1600 × 900
+centrée et réduite, avec des bandes vides sur tout écran d'une autre forme (fenêtre de Studio,
+écran large, téléphone). Elle prend maintenant tout l'écran (au moins 1600 × 900 unités,
+étirée aux proportions de l'écran) ; chaque bloc reste collé à son bord (navigation à gauche,
+pages et persos à droite, panneaux en bas, bande noire du haut sur toute la largeur).
+
 ## Version 0.18.0 — 5 octobre 2026 · ÉCONOMIE, PERSOS À DÉBLOQUER, SKINS, QUÊTES, CHAMPION
 
 Demande de Wilhem : finaliser l'économie sans refaire l'existant (provocations, classement et

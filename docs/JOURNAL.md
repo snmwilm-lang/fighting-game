@@ -1,5 +1,44 @@
 # Journal du projet — état à transmettre
 
+## Version 0.21.0 — 5 octobre 2026 · GARDE EN RECULANT, MUSIQUES, RÉCOMPENSE DU JOUR
+
+Wilhem part 8 h : « bloquer en reculant comme tous les jeux de combat », des mises à jour au
+choix, et 4 musiques pour le lobby et les combats (les effets sonores viendront après).
+
+**Garde en reculant** (`CombatSimulation.luau`, `CombatConfig.BackBlock`, `ProximityGuardRange`) :
+- tenir la direction opposée à l'adversaire garde ; bas-arrière = garde basse ;
+- en marchant en arrière, rien ne change tant que rien n'arrive (on recule vraiment) ;
+- dès qu'une attaque adverse approche (sa portée + 3), ou qu'un de ses projectiles vole vers le perso, il s'arrête en garde (garde de proximité) ;
+- un coup qui touche pendant qu'on recule est gardé ;
+- jamais en l'air, pendant un dash, sous les coups, au sol ou en se relevant ;
+- avancer ne garde jamais. F / RB marchent toujours ;
+- les règles de garde sont inchangées : coups bas et coups d'en haut, saisies, usure.
+
+Tests : CombatSimulation +3 (recul = garde haute / bas-arrière = basse / marche libre / garde de proximité / avancer ne garde pas / désactivable ; jamais sous les coups ni en l'air ; avantage d'images).
+Aides mises à jour : touches, astuces, README, article NOUVEAUTÉS, guide COMMENT JOUER.
+
+**Musiques** (`assets/music/`, `Music.TRACKS`, `MusicController`) :
+- les 4 morceaux de Wilhem, volume égalisé à −14 LUFS ;
+- lobby : Be And Obey, Funk Break Beat ; combats : Fast Amen Break, Risky Step ;
+- deux par endroit = une playlist (l'un après l'autre, jamais deux fois le même d'affilée) ;
+- ils ne jouent qu'une fois envoyés sur Roblox par Wilhem et leurs IDs collés (aucun inventé) : étapes dans `docs/AUDIO.md`.
+
+**Mises à jour ajoutées** :
+- RÉCOMPENSE DU JOUR (`Economy.claimDaily`) : 100 → 600 pièces sur 7 jours d'affilée, un jour manqué repart au jour 1 ; fenêtre avec les 7 jours, notification, série sur la carte de joueur.
+- AVANTAGE D'IMAGES en entraînement : « +5 AU CONTACT » / « −10 EN GARDE » après chaque échange (événement `FrameAdvantage` de la simulation, entraînement seulement).
+- COMMENT JOUER : guide montré une fois à chaque joueur (anciens compris : il présente la garde en reculant), et dans PARAMÈTRES.
+- SÉRIE DE VICTOIRES en ligne (`Economy.streak`) : notification à partir de 2 victoires d'affilée, 🔥n dans le lobby à partir de 3, série et record sur la carte.
+- RANG SUPÉRIEUR / INFÉRIEUR : notification quand un match CLASSÉ change le rang.
+
+Tests : Lobby 38 (nouveaux : récompense du jour, séries, textes en français), CombatSimulation 129, Kits (playlists).
+Équilibrage CPU contre CPU (`Balance -a 4 120`) avec la garde en reculant : en cours au moment de ce commit, chiffres ajoutés au suivant.
+
+Problèmes ouverts :
+- rien vérifié dans Roblox Studio ;
+- musiques à envoyer sur Roblox ;
+- effets sonores à venir (Wilhem) ;
+- IDs de la boutique à créer.
+
 ## Version 0.20.0 — 5 octobre 2026 · BOUTIQUE ET MONÉTISATION, TESTEURS
 
 Brief « système complet de monétisation » (plan validé par Wilhem : « go »), et « faut que les

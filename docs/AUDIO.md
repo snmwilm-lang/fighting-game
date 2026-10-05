@@ -75,3 +75,27 @@ Sans remplacement, le jeu garde les sons intégrés du client Roblox.
 `Music.CUSTOM` (`src/shared/Music.luau`) et `SoundPalette.CUSTOM`
 (`src/shared/SoundPalette.luau`) acceptent aussi les mêmes noms, avec la valeur
 `"rbxassetid://ID"`.
+
+## Tes musiques (livrées le 5 octobre 2026)
+
+Elles sont dans `assets/music/`, le volume égalisé (-14 LUFS) pour qu'aucune ne soit plus forte que les autres :
+
+| Fichier | Où | Durée |
+|---|---|---|
+| `menu_1_be_and_obey.mp3` | lobby / menus | 4:22 |
+| `menu_2_funk_break_beat.mp3` | lobby / menus | 2:11 |
+| `battle_1_fast_amen_break.mp3` | combats | 1:41 |
+| `battle_2_risky_step.mp3` | combats | 2:10 |
+
+Deux morceaux par endroit forment une playlist : l'un joue jusqu'au bout, puis l'autre (jamais deux fois le même d'affilée).
+
+**Pour les entendre dans le jeu.** Roblox ne lit que les sons envoyés sur Roblox ; je ne peux pas le faire à ta place.
+
+1. Dans Studio : *Fenêtre › Gestionnaire d'assets (Asset Manager) › Importer*, puis choisis les 4 fichiers de `assets/music/`. Ou passe par create.roblox.com › Créations › Audio › Importer.
+2. Attends la modération : quelques minutes, l'audio passe en « Approuvé ».
+3. Copie l'ID de chaque son (clic droit › Copier l'ID).
+4. Colle-le dans `src/shared/Music.luau`, dans `Music.TRACKS`, sous la forme `id = "rbxassetid://123456789"`.
+
+Autre méthode, sans toucher au code : glisse les sons dans *ReplicatedStorage › Audio › Music*, dans un Folder nommé `MENU` (les 2 du lobby) et un Folder nommé `BATTLE` (les 2 de combat).
+
+Les noms de fichiers d'origine viennent de Pixabay (berrydeep, black_kumizhi, rockot), dont la licence autorise l'usage dans un jeu. Garde quand même les pages d'origine en cas de réclamation de droits sur Roblox.

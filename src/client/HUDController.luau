@@ -414,8 +414,8 @@ function HUD.new(config)
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
 		self.help.Visible = not UIS.TouchEnabled
 		self.help.Text = if gamepad
-			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"
-			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
+			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · BACK or RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"
+			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · BACK or F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -967,6 +967,10 @@ function HUD:onEvent(event, world)
 	-- SHIN's PRÉCISION: a hit with the tip of the blade.
 	if event.kind == "Hit" and event.tip then self:callout(event.attacker, "BLADE TIP!") end
 	if event.kind == "Hit" and event.counter then self:callout(event.attacker, "COUNTER!") end
+	-- TRAINING: the frame advantage of the exchange (+: the attacker's turn, -: punishable)
+	if event.kind == "FrameAdvantage" and world and world.training then
+		self:callout(event.attacker, string.format("%+d ON %s", event.frames, if event.blocked then "BLOCK" else "HIT"))
+	end
 	if event.kind == "Hit" and event.combo and event.combo >= 2 then
 		local c = self.combo[event.attacker]
 		c.frame.Visible = true

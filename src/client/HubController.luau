@@ -258,6 +258,7 @@ function HubController:render()
 		local vip = table.find(badges, "VIP") ~= nil
 		local tags = ""
 		for _, badge in badges do tags ..= "[" .. badge .. "] " end
+		if (tonumber(p.streak) or 0) >= 3 then tags ..= "🔥" .. p.streak .. " " end -- (3+ online wins in a row)
 		new("TextLabel", {
 			BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -142, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
 			TextColor3 = if vip then VIP_GOLD elseif p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left,

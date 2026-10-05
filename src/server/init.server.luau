@@ -98,6 +98,9 @@ local function defaultProfile()
 		weekId = 0, weekPoints = 0, -- WEEKLY ranking: the points of the week (Champions)
 		freePicks = 0, picksGiven = false, -- the old testers' free picks (Economy.claimFighter)
 		tester = false, -- TESTERS: every fighter (Economy.makeTester)
+		winStreak = 0, bestStreak = 0, -- WIN STREAK: online wins in a row (a real match), the best
+		howToPlay = 0, -- HOW TO PLAY: the version of the guide already shown (once per player)
+		dailyDay = 0, dailyStreak = 0, -- DAILY REWARD: the last day claimed, the series (Economy.claimDaily)
 		history = {}, -- MATCH HISTORY: the last 10 matches (GameModes.addHistory)
 		-- SHOP (Store, StoreConfig): the Game Passes last confirmed, the cosmetics bought with
 		-- coins, the ones worn, and the Robux receipts already granted (never twice)
@@ -655,6 +658,12 @@ function endVersus(match, winnerSlot, leftSlot)
 			end
 		end
 	end
+	-- WIN STREAK: online wins in a row (a real match only; a draw changes nothing; leaving ends it)
+	for slot, client in { ca, cb } do
+		Economy.streak(client.profile, if slot == leftSlot then "left" elseif winnerSlot == slot then "win"
+			elseif winnerSlot == 0 then "draw" else "loss", share > 0)
+	end
+	for _, player in { a, b } do player:SetAttribute("Streak", clients[player].profile.winStreak or 0) end
 	-- QUESTS: a real match (counted by the anti-farm) moves them; never the one who left.
 	if share > 0 then
 		for slot, client in { ca, cb } do
@@ -690,7 +699,7 @@ function endVersus(match, winnerSlot, leftSlot)
 			questGifts = client.questGifts,
 			result = true, queue = match.queue, won = winnerSlot == i, draw = winnerSlot == 0,
 			rating = client.profile.rating, delta = client.profile.rating - before[i],
-			rank = Matchmaker.rankName(client.profile.rating), coins = gains[i],
+			rank = Matchmaker.rankName(client.profile.rating), coins = gains[i], streak = client.profile.winStreak or 0,
 		})
 		client.questGifts = nil
 	end
@@ -720,6 +729,9 @@ function menuStatus(player, bought, unlocked)
 		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
 		history = profile.history or {}, rematch = client.lastOpponent ~= nil and Players:GetPlayerByUserId(client.lastOpponent) ~= nil,
 		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {}, freePicks = profile.freePicks or 0, tester = profile.tester == true,
+		winStreak = profile.winStreak or 0, bestStreak = profile.bestStreak or 0,
+		dailyStreak = profile.dailyStreak or 0, dailyDay = profile.dailyDay or 0, today = Economy.dayOf(os.time()),
+		howToPlay = if not store or SaveQueue.isLoaded(saves, player.UserId) then profile.howToPlay or 0 else nil,
 		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
 		-- SHOP: passes, cosmetics, what may be bought with Robux (a real id and the policy known)
 		passes = profile.passes or {}, ownedItems = profile.ownedItems or {}, cosmetics = profile.cosmetics or {},
@@ -791,6 +803,7 @@ local function hubStatus()
 		entry.slot = if client and client.match then client.slot else 0
 		entry.title = if player then player:GetAttribute("Title") or "" else "" -- (a challenge title, WEEKLY CHAMPION...)
 		entry.badges = if player then player:GetAttribute("Badges") or "" else "" -- (Game Passes: "VIP,SUPPORTER")
+		entry.streak = if player then player:GetAttribute("Streak") or 0 else 0 -- (online wins in a row)
 		entry.where = if not client then "?"
 			elseif client.match then (if client.match.mode == "VERSUS" then "IN A FIGHT" elseif client.match.mode == "TRAINING" then "TRAINING"
 				elseif GameModes.find(client.match.mode) and GameModes.find(client.match.mode).boss then "VS " .. GameModes.find(client.match.mode).boss
@@ -811,7 +824,7 @@ local function flushHub(force)
 	local list = hubStatus()
 	local parts = {}
 	for _, e in list do
-		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ","), e.title or "", e.badges or "" }, ":"))
+		table.insert(parts, table.concat({ e.id, e.where, tostring(e.sent), table.concat(e.from, ","), e.title or "", e.badges or "", tostring(e.streak or 0) }, ":"))
 	end
 	local key = table.concat(parts, "|")
 	if key == lastHubKey and not force then return end -- (nothing changed: no redraw on every client)
@@ -1171,7 +1184,15 @@ local function joined(player)
 		game.CreatorId, if CREATOR_IS_USER then "user" else "group", if isDev(player) then "YES" else "no"))
 	client.checkPasses = function() checkPasses(player, client) end
 	client.onProfileLoaded = function(saved)
+		player:SetAttribute("Streak", client.profile.winStreak or 0)
 		checkPasses(player, client) -- (a pass bought before the first visit counts too)
+		-- DAILY REWARD (on the loaded profile only: written at once)
+		local coins, streak = Economy.claimDaily(client.profile, Economy.dayOf(os.time()))
+		if coins then
+			saveProfile(player, client, true)
+			menuRemote:FireClient(player, { daily = { coins = coins, streak = streak, cycle = #Economy.DAILY } })
+			menuStatus(player)
+		end
 		if not saved then return end
 		grantChampion(player, client)
 		buildHero(player)
@@ -1253,7 +1274,7 @@ end)
 -- the queue) · { action = "leave" } (back to the menu) · { action = "hello" }.
 local MENU_ACTIONS = { hello = true, hero = true, language = true, options = true, team = true, ranking = true,
 	start = true, cancel = true, leave = true, taunts = true, buySkin = true, buyFighter = true, claimFighter = true, rematch = true, equip = true, title = true,
-	devMode = true, preview = true, buyItem = true, cosmetic = true, robux = true }
+	devMode = true, preview = true, buyItem = true, cosmetic = true, robux = true, howToPlay = true }
 menuRemote.OnServerEvent:Connect(function(player, packet)
 	local client = clients[player]
 	if not client then return end
@@ -1376,6 +1397,15 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			saveProfile(player, client)
 			menuStatus(player)
 			broadcastHub(true)
+		end
+	elseif action == "howToPlay" then
+		-- HOW TO PLAY seen (the version of the guide: shown again only when it changes)
+		if typeof(packet.version) ~= "number" or packet.version % 1 ~= 0 or packet.version < 0 or packet.version > 1000 then
+			return suspect(player, "malformed")
+		end
+		if client.profile then
+			client.profile.howToPlay = packet.version
+			saveProfile(player, client)
 		end
 	elseif action == "buyItem" then
 		-- SHOP · COSMETICS: an item bought with coins (Store.buyItem: price, ownership, never a

@@ -17,7 +17,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Spéciale (invincible au départ) | **E** | Y | SPÉ |
 | Ultime (2 barres de ki, cinématique) | **R** | LT | ULTI |
 | **Coup fatal** (3 barres, ta vie sous 30 %, une fois par match) | **C** | LB | FATAL |
-| Garde | **F maintenu** (F + S : garde basse) | RB | GARDE |
+| Garde | **RECULER** (direction opposée à l'adversaire ; bas-arrière : garde basse) ou **F maintenu** (F + S : garde basse) | stick en arrière ou RB | stick en arrière ou GARDE |
 | Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
 | **Revenir au menu** | **P** ou bouton ◀ MENU | — | bouton |
 | Changer de perso (entraînement) | **T** ou bouton PERSO | — | bouton |
@@ -25,7 +25,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | **Souris bloquée** (curseur caché au centre, façon shift lock) | **Ctrl** ou bouton SOURIS | — | — |
 | Mode du mannequin (entraînement : immobile, garde, CPU ×4) | M ou bouton MANNEQUIN | — | bouton |
 
-**Garde** : elle marche dès la 1ʳᵉ image. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
+**Garde** : comme dans tous les jeux de combat, **reculer garde** : en marchant en arrière, un coup qui arrive est bloqué, et dès qu'une attaque approche le perso s'arrête en garde (bas-arrière = garde basse). F reste possible. Elle marche dès la 1ʳᵉ image. En lâchant la garde, ton jab sort en 3 images (au lieu de 5) :
 de quoi punir celui qui spamme. Les petits coups usent peu la garde, les gros la cassent.
 
 **Niveaux du CPU** : FACILE (débutant, il se fait avoir par le spam), NORMAL, DIFFICILE (lit à
@@ -267,6 +267,10 @@ de l'Issen de Samurai Shodown : **3 barres**, **ta vie sous 30 %**, **une fois p
 
 ## Menu et modes de jeu
 
+**Récompense du jour** : la première visite de chaque jour donne des pièces, de plus en plus
+sur 7 jours d'affilée (100, 150, 200, 250, 300, 400, 600) ; un jour manqué repart au jour 1.
+**COMMENT JOUER** : un guide montré une fois à chaque joueur (et dans PARAMÈTRES).
+
 En arrivant, le **lobby** : ton perso favori en 3D au centre, les modes à droite (MODE EN LIGNE,
 MODE SOLO, ÉQUIPES, ENTRAÎNEMENT), JOUER / PERSONNAGES / CLASSEMENT / JOUEURS / PARAMÈTRES à
 gauche, ton profil en haut (photo, rang, points, victoires), MES PERSONNAGES en bas (un clic :
@@ -393,6 +397,9 @@ la même matière.
   pourquoi un combo casse.
 - **LABO CINÉ** (solo) : lance chaque cinématique de ton perso directement. Avec **HITBOX**
   activé, le nom du plan et le tick s'affichent.
+- **AVANTAGE D'IMAGES** (entraînement) : après chaque échange, « +5 AU CONTACT » / « −10 EN
+  GARDE » au-dessus de l'attaquant : + = l'attaquant agit en premier (sa main), − = le défenseur
+  peut punir.
 - Les appuis faits pendant qu'on se fait frapper sont ignorés (sauf les 4 dernières frames,
   pour un reversal), et maintenir la garde au relevé l'emporte.
 

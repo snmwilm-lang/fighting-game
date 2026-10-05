@@ -485,6 +485,32 @@ local function chooseMove(world, f, grounded, crouching)
 	return nextId, isLink
 end
 
+-- BLOCK BY HOLDING BACK (like every fighting game; Wilhem): holding the direction away from
+-- the opponent guards. Walking back stays walking back until something is coming: an attack of
+-- the opponent winding up or out within ProximityGuardRange, or one of its projectiles flying
+-- at this fighter; then the fighter stands (or crouches, down-back) in its guard. A hit that
+-- lands while walking back is guarded too. The guard key (F / the button) still works.
+local function holdingBack(world, f, input)
+	if world.config.BackBlock == false then return false end
+	local foe = world.fighters[3 - f.slot]
+	if not foe then return false end
+	local toward = if foe.x > f.x then 1 elseif foe.x < f.x then -1 else f.facing
+	return input.axis * toward < -0.5
+end
+local function threatened(world, f)
+	local c, moves = world.config, world.moves
+	local range = c.ProximityGuardRange or 0
+	local foe = world.fighters[3 - f.slot]
+	if foe and foe.move then
+		local m = moves[foe.move]
+		if m and foe.moveFrame <= m.startup + m.active and math.abs(foe.x - f.x) <= range + (if m.hitbox then m.hitbox.far or 0 else 0) then return true end
+	end
+	for _, p in world.projectiles do
+		if p.owner ~= f.slot and math.sign(f.x - p.x) == math.sign(p.vx) and math.abs(f.x - p.x) <= range + 8 then return true end
+	end
+	return false
+end
+
 local function stepFighter(world, f, input, events)
 	local c, moves = world.config, world.moves
 	-- Presses queue in the order typed, so mashing L L L R gives exactly that route.
@@ -550,7 +576,8 @@ local function stepFighter(world, f, input, events)
 	end
 	f.frozen = false
 	PASSIVE.tick(world, f, events)
-	f.holdBlock, f.holdCrouch = input.block, input.crouch
+	f.holdBack = holdingBack(world, f, input)
+	f.holdBlock, f.holdCrouch = input.block or f.holdBack, input.crouch
 	f.dashCooldown = math.max(0, f.dashCooldown - 1)
 	-- Guard release: a light attack started while guarding or just after a blocked hit comes
 	-- out faster (GuardCancelStartup): blocking gives the turn back.
@@ -771,7 +798,9 @@ local function stepFighter(world, f, input, events)
 	end
 
 	local crouched = grounded and input.crouch and f.dashTicks == 0
-	local blocking = grounded and input.block and f.dashTicks == 0
+	-- (back: down-back is the low guard; standing, the guard comes up when an attack is near)
+	local blocking = grounded and f.dashTicks == 0
+		and (input.block or (f.holdBack and (crouched or threatened(world, f))))
 	if input.jump and grounded and not crouched and not blocking and f.dashTicks == 0 then
 		f.vy = stats.JumpVelocity
 		grounded = false
@@ -903,6 +932,9 @@ local function canBlock(d, sourceX, m)
 	if m.grab then return false end -- (GORAN's grabs go through the guard)
 	if not isGrounded(d) or d.move then return false end
 	local guarding = d.blocking or (d.stunKind == "Block" and d.holdBlock)
+		-- (walking back when the hit lands: guarded, like the guard key)
+		or (d.holdBack and d.stun <= 0 and d.dashTicks == 0 and d.knockdown <= 0 and d.getUp <= 0 and not d.launched
+			and (d.state == "Walking" or d.state == "Idle" or d.state == "Crouching"))
 	if not guarding then return false end
 	local side = math.sign(sourceX - d.x)
 	if side ~= 0 and side ~= d.facing then return false end -- attacked from behind
@@ -1907,6 +1939,37 @@ end
 
 -- inputs[slot] = { axis, crouch, jump, dash, block, light, heavy, special, ultimate }.
 -- Returns a list of events.
+-- FRAME ADVANTAGE (TRAINING only, like the training modes of the great fighting games): after
+-- a hit or a guarded hit, the ticks between the moment the attacker can act again and the
+-- moment the defender can. "+3": the attacker acts 3 frames first (its turn); "-5": the
+-- defender does (a punish window). A new hit before both are free restarts the count (a combo
+-- is not measured blow by blow). Event FrameAdvantage { attacker, frames, blocked }.
+local function actionable(f)
+	return f.state ~= "KO" and not f.move and f.stun <= 0 and f.hitstop <= 0 and f.knockdown <= 0 and f.getUp <= 0
+		and not f.launched and isGrounded(f)
+end
+local function stepFrameAdvantage(world, events)
+	local watch = world.advantage
+	for _, e in events do
+		if (e.kind == "Hit" or e.kind == "Block") and e.attacker and e.defender then
+			watch = { attacker = e.attacker, defender = e.defender, blocked = e.kind == "Block", free = {} }
+		end
+	end
+	world.advantage = watch
+	if not watch then return end
+	for _, slot in { watch.attacker, watch.defender } do
+		if not watch.free[slot] and actionable(world.fighters[slot]) then watch.free[slot] = world.tick end
+	end
+	local fa, fd = watch.free[watch.attacker], watch.free[watch.defender]
+	if fa and fd then
+		table.insert(events, { kind = "FrameAdvantage", attacker = watch.attacker, frames = fd - fa, blocked = watch.blocked })
+		world.advantage = nil
+	elseif world.tick - (watch.since or world.tick) > 240 then
+		world.advantage = nil -- (never both free: a knockdown chain, a cinematic)
+	end
+	watch.since = watch.since or world.tick
+end
+
 function CombatSimulation.step(world, inputs)
 	local events = {}
 	world.tick += 1
@@ -1933,7 +1996,10 @@ function CombatSimulation.step(world, inputs)
 		detectHits(world, events)
 		stepProjectiles(world, events)
 		PASSIVE.drones(world, events)
-		if world.training then trainingRefill(world) end
+		if world.training then
+			trainingRefill(world)
+			stepFrameAdvantage(world, events)
+		end
 		-- ULTIMES ON (solo button, `ultimateConditions` = the player's slot): every condition of
 		-- the ultimates met for that fighter, ki always full and health held at 25 % (the COUP
 		-- FATAL's last breath).

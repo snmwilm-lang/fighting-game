@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.20.0",
+	Version = "0.21.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -31,6 +31,8 @@ return table.freeze({
 	-- Combat
 	MaxHealth = 1550, -- KAI's health (each kit has its own, see MoveData.Kits[kit].Stats)
 	MaxGuard = 100,
+	BackBlock = true, -- holding back (away from the opponent) guards, like every fighting game
+	ProximityGuardRange = 3, -- walking back stops into the guard when an attack's reach + this is close (studs)
 	BlockDamageRatio = 0.08, -- the guard reduces damage, it does not cancel it
 	-- COUNTER HIT: a blow that lands while the target is still starting its own attack
 	-- (outside a combo) hits harder, stuns longer and freezes longer: reading the opponent pays.

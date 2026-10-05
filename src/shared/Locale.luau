@@ -83,7 +83,7 @@ Locale.FR = {
 	[": the more he is hurt, the harder he hits (up to +"] = ": plus il est blessé, plus il frappe fort (jusqu'à +",
 	["< 3 bars"] = "< 3 barres",
 	["A four-armed KAI, out of the Gate of Heaven. Massive: he hits far harder, his heavy blows go through yours and he never lets go. Felled once, he rises again in a black aura, stronger still. E: FOUR-ARMED GATLING."] = "Un KAI à quatre bras, sorti de la Porte des Cieux. Massif : il frappe bien plus fort, ses coups lourds passent à travers les vôtres et il ne lâche rien. Abattu une fois, il se relève dans une aura noire, plus fort encore. E : GATLING DES QUATRE BRAS.",
-	["A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"] = "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée · P : menu",
+	["A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · BACK or F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"] = "Q/A · D : bouger · ESPACE : saut · S : bas · CLIC G : coup · CLIC D : lourd · E : spéciale · R : ultime · C : coup fatal · RECULER ou F : garde · SHIFT : dash · T : perso · G : perso CPU · CTRL : souris bloquée · P : menu",
 	["ACCEPT"] = "ACCEPTER",
 	["AIR BACKHAND"] = "REVERS AÉRIEN",
 	["AIR BLADE"] = "LAME AÉRIENNE",
@@ -236,7 +236,7 @@ Locale.FR = {
 	["Looking on every server…"] = "Recherche sur tous les serveurs…",
 	["Widening the search to more ranks…"] = "Recherche élargie à plus de rangs…",
 	["A heavy blow (right click) ends a combo: the opponent flies."] = "Un coup lourd (clic droit) finit un combo : l'adversaire s'envole.",
-	["Guard (F) blocks everything but grabs and overheads (forward + R)."] = "La garde (F) bloque tout sauf les saisies et les coups d'en haut (avant + R).",
+	["Hold BACK (away from the opponent) to guard, down-back for lows; F works too. Grabs and overheads (forward + R) go through."] = "RECULE (dos à l'adversaire) pour garder, bas-arrière contre les coups bas ; F marche aussi. Les saisies et les coups d'en haut (avant + R) passent.",
 	["Every fighter can be tried for free in TRAINING."] = "Chaque perso s'essaie gratuitement en ENTRAÎNEMENT.",
 	["Quests give styles: ACHIEVEMENTS › QUESTS."] = "Les quêtes donnent des styles : SUCCÈS › QUÊTES.",
 	["The WEEKLY ranking starts again every Monday: its first becomes WEEKLY CHAMPION."] = "Le classement de la SEMAINE repart chaque lundi : son premier devient CHAMPION DE LA SEMAINE.",
@@ -1014,7 +1014,7 @@ Locale.FR = {
 	["STEEL CRESCENT"] = "CROISSANT D'ACIER",
 	["STELLAR COLLAPSE"] = "EFFONDREMENT STELLAIRE",
 	["STELLAR PUSH"] = "POUSSÉE STELLAIRE",
-	["STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"] = "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · RB : garde · RT : dash · R3 : provocations · SELECT : replacer · MAINTENIR L3 : menu",
+	["STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · BACK or RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"] = "STICK : bouger · A : saut · X : coup · B : lourd · Y : spéciale · LT : ultime · LB : coup fatal · ARRIÈRE ou RB : garde · RT : dash · R3 : provocations · SELECT : replacer · MAINTENIR L3 : menu",
 	["STILL"] = "IMMOBILE",
 	["STOMP"] = "PIÉTINEMENT",
 	["STONE ELBOW"] = "COUDE DE PIERRE",
@@ -1346,6 +1346,35 @@ Locale.SAME = {
 -- Format lines ("You need %d ki bars (you have %d)..."): matched as patterns, values kept.
 local patterns = {}
 local plain = {} -- first byte -> keys, longest first
+-- DAILY REWARD, BACK GUARD (v0.21)
+for k, v in {
+	["DAILY REWARD"] = "RÉCOMPENSE DU JOUR",
+	["DAY %d · +%d COINS"] = "JOUR %d · +%d PIÈCES",
+	["DAY %d"] = "JOUR %d",
+	["%s ON BLOCK"] = "%s EN GARDE",
+	["HOLD BACK TO GUARD"] = "RECULE POUR GARDER",
+	["HOW TO PLAY"] = "COMMENT JOUER",
+	["⬆ RANK UP · %s"] = "⬆ RANG SUPÉRIEUR · %s",
+	["⬇ RANK DOWN · %s"] = "⬇ RANG INFÉRIEUR · %s",
+	["🔥 %d WINS IN A ROW"] = "🔥 %d VICTOIRES D'AFFILÉE",
+	["WIN STREAK: %d · BEST %d"] = "SÉRIE DE VICTOIRES : %d · RECORD %d",
+	["DAILY STREAK: %d / 7"] = "SÉRIE QUOTIDIENNE : %d / 7",
+	["MOVE: A/Q · D (stick on gamepad and mobile) · JUMP: SPACE · DASH: SHIFT"] = "BOUGER : Q/A · D (stick à la manette et sur mobile) · SAUT : ESPACE · DASH : SHIFT",
+	["GUARD: hold BACK (away from the opponent). DOWN-BACK guards the lows (sweeps). F / RB guard too."] = "GARDE : RECULE (dos à l'adversaire). BAS-ARRIÈRE garde les coups bas (balayages). F / RB gardent aussi.",
+	["Grabs and overheads (forward + R) go through the guard: mix them in to open a turtle."] = "Les saisies et les coups d'en haut (avant + R) passent la garde : mélange-les pour ouvrir un joueur qui se cache.",
+	["ATTACK: LEFT CLICK (light) · RIGHT CLICK (heavy) · E: special. Each press after the previous blow comes out: a CLEAN combo."] = "ATTAQUE : CLIC GAUCHE (léger) · CLIC DROIT (lourd) · E : spéciale. Chaque appui après la sortie du coup précédent : un combo PROPRE.",
+	["ULTIMATES: R once the ki bars are full · C: the FATAL BLOW when the opponent is low."] = "ULTIMES : R quand les barres de ki sont pleines · C : le COUP FATAL quand l'adversaire est bas.",
+	["TRAINING is free with every fighter: the frame advantage (+3 ON HIT, -5 ON BLOCK) tells who has the turn."] = "L'ENTRAÎNEMENT est gratuit avec tous les persos : l'avantage d'images (+3 AU CONTACT, -5 EN GARDE) dit qui a la main.",
+	["Online wins pay coins: unlock fighters and styles (FIGHTERS, SHOP). Come back every day for the DAILY REWARD."] = "Les victoires en ligne rapportent des pièces : débloque persos et styles (PERSOS, BOUTIQUE). Reviens chaque jour pour la RÉCOMPENSE DU JOUR.",
+	["Like every fighting game: hold BACK (away from the opponent) to guard, DOWN-BACK against lows. F / RB still work."] = "Comme dans tous les jeux de combat : RECULE (dos à l'adversaire) pour garder, BAS-ARRIÈRE contre les coups bas. F / RB marchent toujours.",
+	["Walking back, the guard comes up by itself when an attack is near."] = "En reculant, la garde se lève d'elle-même quand une attaque approche.",
+	["DAILY REWARD: come back every day, 7 days in a row for more coins. New lobby and fight music."] = "RÉCOMPENSE DU JOUR : reviens chaque jour, 7 jours de suite pour plus de pièces. Nouvelles musiques du lobby et des combats.",
+	["TRAINING: the frame advantage of each exchange (+3 ON HIT, -5 ON BLOCK...): who has the turn, what can be punished."] = "ENTRAÎNEMENT : l'avantage d'images de chaque échange (+3 AU CONTACT, -5 EN GARDE...) : qui a la main, ce qui se punit.",
+	["%s ON HIT"] = "%s AU CONTACT",
+	["DAILY REWARD · DAY %d · +%d COINS"] = "RÉCOMPENSE DU JOUR · JOUR %d · +%d PIÈCES",
+	["Come back every day: the reward grows for 7 days in a row. A day missed starts again at day 1."] = "Reviens chaque jour : la récompense grandit 7 jours de suite. Un jour manqué, et ça repart au jour 1.",
+} do Locale.FR[k] = v end
+
 -- SHOP (ShopPage, StoreConfig, the server's purchase messages)
 for k, v in {
 	["FEATURED"] = "À LA UNE",

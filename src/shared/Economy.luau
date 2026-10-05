@@ -93,6 +93,40 @@ function Economy.claimFighter(profile, kit, roster)
 	return true
 end
 
+-- DAILY REWARD: the first visit of each day (UTC) gives coins, more each day in a row, over a
+-- 7-day cycle; a day missed starts the series again at day 1. Coins only, never doubled by a
+-- Game Pass. The server gives it on a loaded profile (saved at once).
+Economy.DAILY = table.freeze({ 100, 150, 200, 250, 300, 400, 600 })
+function Economy.dayOf(time)
+	return math.floor(time / 86400)
+end
+-- Returns the coins given and the day of the series (1..7), or nil when already claimed today.
+function Economy.claimDaily(profile, day)
+	if type(profile) ~= "table" or type(day) ~= "number" then return nil end
+	local last = tonumber(profile.dailyDay) or 0
+	if last >= day then return nil end -- (today already, or a clock gone backwards)
+	local streak = if last == day - 1 then (tonumber(profile.dailyStreak) or 0) % #Economy.DAILY + 1 else 1
+	local coins = Economy.DAILY[streak]
+	profile.dailyDay, profile.dailyStreak = day, streak
+	profile.coins = (tonumber(profile.coins) or 0) + coins
+	return coins, streak
+end
+
+-- WIN STREAK (online): a counted win adds one, a counted loss or leaving ends it, a draw or a
+-- match the anti-farm does not count changes nothing. Returns the streak.
+function Economy.streak(profile, result, counted)
+	if type(profile) ~= "table" then return 0 end
+	local n = tonumber(profile.winStreak) or 0
+	if result == "left" or (counted and result == "loss") then
+		n = 0
+	elseif counted and result == "win" then
+		n += 1
+		profile.bestStreak = math.max(tonumber(profile.bestStreak) or 0, n)
+	end
+	profile.winStreak = n
+	return n
+end
+
 -- The coins of a PvP result before the anti-farm share and the daily cap: "win", "loss",
 -- "draw"; a player who left the match ("left") gets nothing.
 function Economy.pvpCoins(result)

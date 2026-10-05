@@ -97,6 +97,74 @@ test("holding block reduces damage and spends guard", function()
 	expect(world.fighters[2].guard < Config.MaxGuard, "guard not spent")
 end)
 
+test("holding back guards (like every fighting game): high standing, low down-back, walking back when nothing comes", function()
+	-- (fighter 2 stands on the right: back = axis +1)
+	local world = closeWorld(3)
+	local events = run(world, 16, function(t) return { input({ light = t == 1 }), input({ axis = 1 }) } end)
+	expect(count(events, "Block") == 1 and count(events, "Hit") == 0, "holding back did not guard the jab")
+	local free = closeWorld(3)
+	local x0 = free.fighters[2].x
+	run(free, 10, function() return { input(), input({ axis = 1 }) } end)
+	expect(free.fighters[2].x > x0 + 0.5 and free.fighters[2].state == "Walking", "back no longer walks back when nothing comes")
+	-- an attack coming: the walk stops into the guard (proximity guard)
+	local near = closeWorld(3)
+	local states = {}
+	run(near, 6, function(t)
+		if t > 1 then states[near.fighters[2].state] = true end
+		return { input({ heavy = t == 1 }), input({ axis = 1 }) }
+	end)
+	expect(states.Blocking, "the guard does not come up when an attack is near")
+	-- the sweep is low: standing back fails, down-back holds
+	local standing = closeWorld(3)
+	local e1 = run(standing, 60, function(t) local i = mash({ "R", "L" }, 6)(t); return { i[1], input({ axis = 1 }) } end)
+	expect(string.find(hitMoves(e1), "Sweep") ~= nil, "standing back guarded a low: " .. hitMoves(e1))
+	local low = closeWorld(3)
+	local e2 = run(low, 60, function(t) local i = mash({ "R", "L" }, 6)(t); return { i[1], input({ axis = 1, crouch = t > 14 }) } end)
+	expect(count(e2, "Block") == 2, "down-back did not hold the sweep")
+	-- forward never guards; the rule can be switched off
+	local forward = closeWorld(3)
+	local e3 = run(forward, 16, function(t) return { input({ light = t == 1 }), input({ axis = -1 }) } end)
+	expect(count(e3, "Hit") == 1, "walking forward guarded")
+	local cfg = table.clone(Config)
+	cfg.BackBlock = false
+	local off = Sim.newWorld(cfg, MoveData, true)
+	off.phase = "Fight"
+	off.fighters[1].x, off.fighters[2].x = -1.5, 1.5
+	local e4 = run(off, 16, function(t) return { input({ light = t == 1 }), input({ axis = 1 }) } end)
+	expect(count(e4, "Hit") == 1, "BackBlock = false still guards")
+end)
+
+test("holding back never guards while being hit, knocked down or in the air", function()
+	local world = closeWorld(3)
+	-- a combo already landing: holding back from its second hit on changes nothing
+	local held = false
+	local events = run(world, 40, function(t)
+		local i = mash({ "L", "L", "L" }, 7)(t)
+		held = held or world.fighters[2].stun > 0 -- (from the first hit on)
+		return { i[1], input({ axis = if held then 1 else 0 }) }
+	end)
+	expect(count(events, "Hit") >= 2, "back blocked out of hitstun: " .. hitMoves(events))
+	local air = closeWorld(3)
+	local e2 = run(air, 30, function(t) return { input({ light = t == 8 }), input({ jump = t == 1, axis = 1 }) } end)
+	expect(count(e2, "Block") == 0, "a fighter in the air guarded by holding back")
+end)
+
+test("training: frame advantage after a hit or a guard (+ the attacker first, - the defender first), once per exchange", function()
+	local function measure(block, training)
+		local world = closeWorld(3, training)
+		local events = run(world, 60, function(t) return { input({ light = t == 1 }), input({ block = block }) } end)
+		local out = {}
+		for _, e in events do if e.kind == "FrameAdvantage" then table.insert(out, e) end end
+		return out
+	end
+	local onBlock, onHit = measure(true, true), measure(false, true)
+	expect(#onBlock == 1 and #onHit == 1, "one measure per exchange: " .. #onBlock .. " / " .. #onHit)
+	expect(onBlock[1].blocked and not onHit[1].blocked and onBlock[1].attacker == 1, "the measure's fields")
+	expect(onBlock[1].frames % 1 == 0 and math.abs(onBlock[1].frames) <= 30, "a strange advantage: " .. onBlock[1].frames)
+	expect(onHit[1].frames > onBlock[1].frames, "a jab is not better on hit than on block: " .. onHit[1].frames .. " vs " .. onBlock[1].frames)
+	expect(#measure(true, false) == 0, "the advantage is measured outside TRAINING")
+end)
+
 test("blocked hits never KO", function()
 	local world = closeWorld(3, false)
 	world.fighters[2].hp = 5

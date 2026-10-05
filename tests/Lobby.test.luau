@@ -979,4 +979,55 @@ test("store: every SHOP line, item, perk and message reads in French", function(
 	end
 end)
 
+test("daily reward: once a day, more each day in a row over 7 days, a missed day starts again, in French", function()
+	local Economy = require("../src/shared/Economy")
+	local Locale = require("../src/shared/Locale")
+	local p = { coins = 0 }
+	local day = Economy.dayOf(1700000000)
+	expect(Economy.claimDaily(p, day) == Economy.DAILY[1] and p.dailyStreak == 1, "day 1")
+	expect(Economy.claimDaily(p, day) == nil and p.coins == Economy.DAILY[1], "claimed twice the same day")
+	local total = p.coins
+	for d = 2, 7 do
+		local coins, streak = Economy.claimDaily(p, day + d - 1)
+		expect(coins == Economy.DAILY[d] and streak == d, "day " .. d .. " of the series")
+		total += coins
+	end
+	expect(p.coins == total, "coins of the series")
+	local coins, streak = Economy.claimDaily(p, day + 7)
+	expect(streak == 1 and coins == Economy.DAILY[1], "the series does not start again after 7 days")
+	coins, streak = Economy.claimDaily(p, day + 10)
+	expect(streak == 1, "a missed day keeps the series")
+	expect(Economy.claimDaily(p, day + 9) == nil, "a clock gone backwards pays again")
+	expect(Economy.claimDaily(nil, day) == nil, "no profile")
+	for _, line in { "DAILY REWARD", "DAY 3 · +200 COINS", "DAY 3", "DAILY REWARD · DAY 3 · +200 COINS",
+		"Come back every day: the reward grows for 7 days in a row. A day missed starts again at day 1.",
+		"Hold BACK (away from the opponent) to guard, down-back for lows; F works too. Grabs and overheads (forward + R) go through.",
+		"+5 ON HIT", "-10 ON BLOCK", "HOLD BACK TO GUARD",
+		"HOW TO PLAY", "DAILY STREAK: 3 / 7", "🔥 4 WINS IN A ROW", "⬆ RANK UP · GOLD", "⬇ RANK DOWN · SILVER", "WIN STREAK: 2 · BEST 7", "MOVE: A/Q · D (stick on gamepad and mobile) · JUMP: SPACE · DASH: SHIFT",
+		"GUARD: hold BACK (away from the opponent). DOWN-BACK guards the lows (sweeps). F / RB guard too.",
+		"Grabs and overheads (forward + R) go through the guard: mix them in to open a turtle.",
+		"ATTACK: LEFT CLICK (light) · RIGHT CLICK (heavy) · E: special. Each press after the previous blow comes out: a CLEAN combo.",
+		"ULTIMATES: R once the ki bars are full · C: the FATAL BLOW when the opponent is low.",
+		"TRAINING is free with every fighter: the frame advantage (+3 ON HIT, -5 ON BLOCK) tells who has the turn.",
+		"Online wins pay coins: unlock fighters and styles (FIGHTERS, SHOP). Come back every day for the DAILY REWARD.",
+		"Like every fighting game: hold BACK (away from the opponent) to guard, DOWN-BACK against lows. F / RB still work.",
+		"Walking back, the guard comes up by itself when an attack is near.",
+		"DAILY REWARD: come back every day, 7 days in a row for more coins. New lobby and fight music.",
+		"TRAINING: the frame advantage of each exchange (+3 ON HIT, -5 ON BLOCK...): who has the turn, what can be punished." } do
+		expect(Locale.translate(line, "FR") ~= line, "no French for: " .. line)
+	end
+end)
+
+test("win streak: counted wins in a row, a loss or leaving ends it, a draw or an uncounted match changes nothing", function()
+	local Economy = require("../src/shared/Economy")
+	local p = {}
+	for _ = 1, 3 do Economy.streak(p, "win", true) end
+	expect(p.winStreak == 3 and p.bestStreak == 3, "three wins")
+	expect(Economy.streak(p, "draw", true) == 3 and Economy.streak(p, "win", false) == 3 and Economy.streak(p, "loss", false) == 3,
+		"a draw or an uncounted match moved the streak")
+	expect(Economy.streak(p, "loss", true) == 0 and p.bestStreak == 3, "a loss did not end it (or the best was lost)")
+	Economy.streak(p, "win", true)
+	expect(Economy.streak(p, "left", false) == 0, "leaving did not end it")
+end)
+
 T.finish()

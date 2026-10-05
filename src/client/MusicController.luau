@@ -5,6 +5,8 @@
 	id in Music.CUSTOM. The slot follows the game (menu, stage, boss, SECOND LIFE); a missing
 	slot falls back on a more general one, and no track at all means silence. Tracks loop and
 	cross-fade; VICTORY / DEFEAT play once over the music. Steps back under the cinematics.
+	Several tracks on a slot (Wilhem's MENU and BATTLE tracks, Music.TRACKS, or a Folder named
+	after the slot holding several Sounds) make a playlist: each plays to its end, then another.
 	SETTINGS › MUSIC turns it off. See docs/AUDIO.md.
 ]]
 local SoundService = game:GetService("SoundService")
@@ -28,19 +30,32 @@ function MusicController.new()
 	return self
 end
 
--- The Sound template of a slot: the Audio › Music folder first, then Music.CUSTOM.
-local function template(slotId)
+-- The Sound templates of a slot: the Audio › Music folder (a Sound, or a Folder of Sounds,
+-- named after the slot), then the uploaded ids (Music.TRACKS, Music.CUSTOM).
+local made = {}
+local function templates(slotId)
+	local out = {}
 	local audio = ReplicatedStorage:FindFirstChild("Audio")
 	local folder = audio and audio:FindFirstChild("Music")
-	local sound = folder and folder:FindFirstChild(slotId)
-	if sound and sound:IsA("Sound") and sound.SoundId ~= "" then return sound end
-	local id = Music.CUSTOM[slotId]
-	if id then
-		local s = Instance.new("Sound")
-		s.Name, s.SoundId, s.Volume = slotId, id, 0.6
-		return s
+	local entry = folder and folder:FindFirstChild(slotId)
+	if entry and entry:IsA("Sound") and entry.SoundId ~= "" then table.insert(out, entry) end
+	if entry and entry:IsA("Folder") then
+		for _, child in entry:GetChildren() do
+			if child:IsA("Sound") and child.SoundId ~= "" then table.insert(out, child) end
+		end
 	end
-	return nil
+	for _, id in Music.idsFor(slotId) do
+		if not made[id] then
+			local s = Instance.new("Sound")
+			s.Name, s.SoundId, s.Volume = slotId, id, 0.6
+			made[id] = s
+		end
+		table.insert(out, made[id])
+	end
+	return out
+end
+local function template(slotId)
+	return templates(slotId)[1]
 end
 
 local function fadeOut(sound)
@@ -49,14 +64,23 @@ local function fadeOut(sound)
 	tween:Play()
 end
 
-function MusicController:play(slotId)
+function MusicController:play(slotId, nextOne)
 	if self.current then fadeOut(self.current); self.current = nil end
 	self.slot = slotId
 	if not slotId or not self.enabled then return end
-	local base = template(slotId)
-	if not base then return end
+	local list = templates(slotId)
+	local index = Music.nextTrack(#list, if nextOne then self.trackIndex else nil, function(n) return math.random(1, n) end)
+	if not index then return end
+	self.trackIndex = index
+	local base = list[index]
 	local sound = base:Clone()
-	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", true, self.group
+	-- (one track: it loops; a playlist: at its end, the next one)
+	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", #list == 1, self.group
+	if #list > 1 then
+		sound.Ended:Once(function()
+			if self.current == sound and self.slot == slotId then self:play(slotId, true) end
+		end)
+	end
 	local target = (base.Volume > 0 and base.Volume or 0.6) * self.level
 	sound:SetAttribute("Base", base.Volume > 0 and base.Volume or 0.6)
 	sound.Volume = 0

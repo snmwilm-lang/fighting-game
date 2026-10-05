@@ -14,6 +14,39 @@ local Music = {}
 -- Slot -> "rbxassetid://..." (optional; the Audio › Music folder works too). Never invented.
 Music.CUSTOM = {}
 
+-- WILHEM'S TRACKS (assets/music, given by Wilhem on 5 October 2026, loudness evened to -14
+-- LUFS). Several tracks on one slot make a playlist: one plays to its end, then another (never
+-- the same twice in a row). `id`: the "rbxassetid://..." Roblox gives once Wilhem uploads the
+-- file (Studio › Asset Manager › Import, or create.roblox.com › Audio); "" until then (no id
+-- invented): a Sound in Audio › Music named after the slot still works too.
+Music.TRACKS = {
+	{ slot = "MENU", file = "assets/music/menu_1_be_and_obey.mp3", title = "Be And Obey", id = "" },
+	{ slot = "MENU", file = "assets/music/menu_2_funk_break_beat.mp3", title = "Funk Break Beat", id = "" },
+	{ slot = "BATTLE", file = "assets/music/battle_1_fast_amen_break.mp3", title = "Fast Amen Break", id = "" },
+	{ slot = "BATTLE", file = "assets/music/battle_2_risky_step.mp3", title = "Risky Step", id = "" },
+}
+
+-- The ids of a slot's tracks: Music.TRACKS (uploaded) then Music.CUSTOM.
+function Music.idsFor(slotId)
+	local out = {}
+	for _, t in Music.TRACKS do
+		if t.slot == slotId and type(t.id) == "string" and string.match(t.id, "^rbxassetid://%d+$") then table.insert(out, t.id) end
+	end
+	local custom = Music.CUSTOM[slotId]
+	if type(custom) == "string" then table.insert(out, custom) end
+	return out
+end
+
+-- The next track of a playlist of `count`: never `last` again when there is another one.
+-- `roll(n)` -> an integer 1..n (math.random in the game, fixed in the tests).
+function Music.nextTrack(count, last, roll)
+	if count <= 0 then return nil end
+	if count == 1 then return 1 end
+	local pick = roll(count - 1)
+	if last and pick >= last then pick += 1 end
+	return pick
+end
+
 -- Every slot, in the order docs/AUDIO.md lists them, with what it is for and the fallback.
 Music.SLOTS = {
 	{ id = "MENU", use = "menus, hub, character select" },

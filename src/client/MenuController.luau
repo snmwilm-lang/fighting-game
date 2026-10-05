@@ -52,6 +52,7 @@ local BODY_FONT = Enum.Font.GothamBold
 
 local MenuController = {}
 MenuController.__index = MenuController
+local HOW_TO_PLAY_VERSION = 1 -- (v0.21: hold back to guard)
 -- The logo artwork once uploaded to Roblox by Wilhem ("rbxassetid://<id>"; empty: the drawn logo).
 MenuController.LOGO_IMAGE = ""
 -- The drawn logo: "PLAIN" (Wilhem: just BREAKFRAMEZ on black), "BREAKFRAMEZ" (after his art)
@@ -95,7 +96,7 @@ local QUEUES = { NORMAL = "NORMAL · no points", RANKED = "RANKED · points and 
 -- The tips shown while searching an opponent.
 local SEARCH_TIPS = {
 	"A heavy blow (right click) ends a combo: the opponent flies.",
-	"Guard (F) blocks everything but grabs and overheads (forward + R).",
+	"Hold BACK (away from the opponent) to guard, down-back for lows; F works too. Grabs and overheads (forward + R) go through.",
 	"Every fighter can be tried for free in TRAINING.",
 	"Quests give styles: ACHIEVEMENTS › QUESTS.",
 	"The WEEKLY ranking starts again every Monday: its first becomes WEEKLY CHAMPION.",
@@ -104,6 +105,11 @@ local SEARCH_TIPS = {
 
 -- WHAT'S NEW: the tiles of the bottom; a click opens the NEWS centre (every article).
 local NEWS = {
+	{ tag = "UPDATE", title = "HOLD BACK TO GUARD", color = Theme.BLUE, kanji = "守", lines = {
+		"Like every fighting game: hold BACK (away from the opponent) to guard, DOWN-BACK against lows. F / RB still work.",
+		"Walking back, the guard comes up by itself when an attack is near.",
+		"DAILY REWARD: come back every day, 7 days in a row for more coins. New lobby and fight music.",
+		"TRAINING: the frame advantage of each exchange (+3 ON HIT, -5 ON BLOCK...): who has the turn, what can be punished." } },
 	{ tag = "UPDATE", title = "SHOP · QUESTS · WEEKLY", color = RED, kanji = "新", lines = {
 		"Fighters to unlock (4000 coins) and styles (2500): FIGHTERS page, try them free in TRAINING.",
 		"Online: a win 150 coins, a loss 50. Quests give styles. WEEKLY ranking from zero every Monday: its first becomes WEEKLY CHAMPION.",
@@ -236,6 +242,8 @@ function MenuController.new(remote, hub, settings)
 			end
 		elseif packet.questGifts then
 			self:questFlash(packet.questGifts)
+		elseif packet.daily then
+			self:showDaily(packet.daily)
 		elseif packet.purchased then
 			self.shop:purchased(packet.purchased)
 		elseif packet.rematchSent then
@@ -257,6 +265,17 @@ function MenuController.new(remote, hub, settings)
 			if self.page == "select" then self:refreshSelect() end
 			self:refreshLocks()
 			self.shop:statusChanged()
+			-- HOW TO PLAY: once per player (and again when the guide changes), out of a match
+			if type(packet.howToPlay) == "number" and packet.howToPlay < HOW_TO_PLAY_VERSION and not self.howShown and not self.inMatch then
+				self.howShown = true
+				task.spawn(function()
+					-- (after the daily reward's window, never in its place)
+					task.wait(1.5)
+					local waited = 0
+					while self.popupFrame and waited < 60 do task.wait(0.5); waited += 0.5 end
+					self:showHowToPlay()
+				end)
+			end
 			if self.page == "settings" then
 				for _, refresh in self.settingRefresh or {} do refresh() end
 			end
@@ -489,6 +508,8 @@ function MenuController:showPlayerCard()
 		{ "FIGHTERS: " .. owned .. " / " .. #MoveData.KitOrder, WHITE, 15 },
 		{ "ACHIEVEMENTS: " .. achievements .. " · QUESTS: " .. questsDone .. " / " .. #Quests.LIST, WHITE, 15 },
 		{ "BEST SURVIVAL: " .. (s.survivalBest or 0), WHITE, 15 },
+		{ string.format("WIN STREAK: %d · BEST %d", s.winStreak or 0, s.bestStreak or 0), WHITE, 15 },
+		{ if (s.dailyStreak or 0) > 0 and (s.today or 0) - (s.dailyDay or 0) <= 1 then "DAILY STREAK: " .. s.dailyStreak .. " / 7" else "", GOLD, 15 },
 		{ "COINS: " .. (s.coins or 0), GOLD, 15 },
 	}
 	for i, e in entries do
@@ -1739,7 +1760,10 @@ function MenuController:buildSettings()
 	self.settings.devState = function()
 		return if self.status.dev then "ON · ALL FIGHTERS" else "OFF · NEW PLAYER"
 	end
-	for order, entry in { { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
+	-- HOW TO PLAY (the guide shown once at the start)
+	self.settings.howto = function() self:showHowToPlay() end
+	self.settings.howtoState = function() return "" end
+	for order, entry in { { "howto", "HOW TO PLAY" }, { "effects", "EFFECTS" }, { "sound", "SOUND" }, { "music", "MUSIC" }, { "mouse", "MOUSE LOCKED (CTRL)" },
 		{ "language", "LANGUAGE" }, { "taunts", "OPPONENT TAUNTS" }, { "tauntKey", "TAUNT WHEEL KEY (PC)" }, { "title", "TITLE SHOWN" },
 		{ "dev", "DEVELOPER ACCESS" } } do
 		local key, name = entry[1], entry[2]
@@ -2102,6 +2126,53 @@ function MenuController:reward(kind, amount)
 	end)
 end
 
+-- HOW TO PLAY: the basics, shown once to every player (HOW_TO_PLAY_VERSION: raise it to show
+-- a new version again), and from the NEWS.
+function MenuController:showHowToPlay()
+	if self.inMatch then return end
+	local list = self:popup("HOW TO PLAY", 640, 520)
+	local lines = {
+		{ "MOVE: A/Q · D (stick on gamepad and mobile) · JUMP: SPACE · DASH: SHIFT", WHITE },
+		{ "GUARD: hold BACK (away from the opponent). DOWN-BACK guards the lows (sweeps). F / RB guard too.", GOLD },
+		{ "Grabs and overheads (forward + R) go through the guard: mix them in to open a turtle.", WHITE },
+		{ "ATTACK: LEFT CLICK (light) · RIGHT CLICK (heavy) · E: special. Each press after the previous blow comes out: a CLEAN combo.", WHITE },
+		{ "ULTIMATES: R once the ki bars are full · C: the FATAL BLOW when the opponent is low.", WHITE },
+		{ "TRAINING is free with every fighter: the frame advantage (+3 ON HIT, -5 ON BLOCK) tells who has the turn.", WHITE },
+		{ "Online wins pay coins: unlock fighters and styles (FIGHTERS, SHOP). Come back every day for the DAILY REWARD.", GREY },
+	}
+	for i, l in lines do line(list, i, l[1], l[2], 15) end
+	self.remote:FireServer({ action = "howToPlay", version = HOW_TO_PLAY_VERSION })
+end
+
+-- DAILY REWARD: the coins of the day and the 7-day series (Economy.DAILY), once a day.
+function MenuController:showDaily(d)
+	local coins, streak = tonumber(d.coins) or 0, tonumber(d.streak) or 1
+	local list = self:popup("DAILY REWARD", 620, 330)
+	line(list, 1, string.format("DAY %d · +%d COINS", streak, coins), GOLD, 20)
+	local row = new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -8, 0, 96), BackgroundTransparency = 1, ZIndex = 53 }, list)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }, row)
+	for day, amount in Economy.DAILY do
+		local done, today = day < streak, day == streak
+		local tile = new("Frame", { Size = UDim2.new(1 / #Economy.DAILY, -6, 1, 0), BorderSizePixel = 0, ZIndex = 53,
+			BackgroundColor3 = if today then DARKRED elseif done then PANEL2 else PANEL }, row)
+		Theme.edge(tile, if today then GOLD elseif done then Theme.LINE else Theme.LINE)
+		label(tile, { Size = UDim2.new(1, 0, 0, 24), Font = UI_FONT, TextSize = 11, Text = "DAY " .. day, ZIndex = 54,
+			TextColor3 = if today then GOLD else GREY, TextXAlignment = Enum.TextXAlignment.Center })
+		local icon = CurrencyIcons.make("coins", tile, 28, UDim2.new(0.5, -14, 0, 26))
+		icon.ZIndex = 54
+		label(tile, { Position = UDim2.fromOffset(0, 58), Size = UDim2.new(1, 0, 0, 30), Font = DISPLAY, TextSize = 20,
+			Text = if done then "✓" else tostring(amount), ZIndex = 54, TextColor3 = if today then WHITE elseif done then GOLD else GREY,
+			TextXAlignment = Enum.TextXAlignment.Center })
+		if today then
+			local scale = new("UIScale", { Scale = 0.6 }, tile)
+			TweenService:Create(scale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end
+	end
+	line(list, 3, "Come back every day: the reward grows for 7 days in a row. A day missed starts again at day 1.", GREY)
+	self:notify(string.format("DAILY REWARD · DAY %d · +%d COINS", streak, coins), GOLD)
+	self:reward("coins", coins)
+end
+
 -- A quest done: its style is given (a toast after the result).
 function MenuController:questFlash(gifts)
 	if type(gifts) ~= "table" or #gifts == 0 then return end
@@ -2153,6 +2224,21 @@ function MenuController:showResult(packet)
 			.. " PTS · " .. (packet.rank or "") .. " " .. (packet.rating or ""), if packet.won then GOLD else RED)
 	else
 		self:flash(if packet.won then "VICTORY!" elseif packet.draw then "DRAW" else "DEFEAT", if packet.won then GOLD else RED)
+	end
+	-- RANK UP / DOWN (RANKED): the rank changed with this match
+	local before = self.status and self.status.rank
+	if packet.queue == "RANKED" and before and packet.rank and packet.rank ~= before then
+		local up = (packet.delta or 0) > 0
+		task.delay(1.4, function()
+			self:notify(string.format(if up then "⬆ RANK UP · %s" else "⬇ RANK DOWN · %s", packet.rank), if up then GOLD else RED)
+		end)
+	end
+	-- WIN STREAK (online): from 2 wins in a row
+	if packet.queue and packet.won and (packet.streak or 0) >= 2 then
+		local streak = packet.streak
+		task.delay(2.2, function()
+			self:notify(string.format("🔥 %d WINS IN A ROW", streak), Color3.fromHex("FF7A1A"))
+		end)
 	end
 	self.toastUntil = os.clock() + 5
 end

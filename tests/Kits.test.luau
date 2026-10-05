@@ -541,6 +541,22 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	expect(Music.resolve("TEMPLE", only("TEMPLE", "BATTLE")) == "TEMPLE", "a stage's own track is not played")
 	expect(Music.resolve("MENU", only("BATTLE")) == nil, "the menu borrows the fight music")
 	expect(Music.resolve("TEMPLE", only()) == nil, "no track is not silence")
+	-- Wilhem's tracks: playlists on MENU and BATTLE, never the same track twice in a row, no id invented
+	local menu, battle = 0, 0
+	for _, t in Music.TRACKS do
+		expect(Music.BY_ID[t.slot] ~= nil and string.find(t.file, "^assets/music/.+%.mp3$") ~= nil, "a track without a slot or a file")
+		expect(t.id == "" or string.match(t.id, "^rbxassetid://%d+$") ~= nil, t.file .. ": a malformed id")
+		if t.slot == "MENU" then menu += 1 elseif t.slot == "BATTLE" then battle += 1 end
+	end
+	expect(menu >= 2 and battle >= 2, "the lobby and the fights have no playlist")
+	for last = 1, 4 do
+		for roll = 1, 3 do
+			local pick = Music.nextTrack(4, last, function() return roll end)
+			expect(pick ~= last and pick >= 1 and pick <= 4, "the same track twice in a row")
+		end
+	end
+	expect(Music.nextTrack(1, 1, function() return 1 end) == 1 and Music.nextTrack(0, nil, function() return 1 end) == nil, "short playlists")
+	expect(#Music.idsFor("NOWHERE") == 0, "an unknown slot has tracks")
 	expect(Music.volume({ cinematic = true }) < Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "the music does not step back under a cinematic")
 	expect(Music.volume({ phase = "Fight", hp = { 0.2, 0.9 } }) > Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "a clutch moment does not raise it")
 	expect(next(Music.CUSTOM) == nil and next(Palette.CUSTOM) == nil, "an audio id was invented")

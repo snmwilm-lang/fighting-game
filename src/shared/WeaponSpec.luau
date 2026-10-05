@@ -55,6 +55,9 @@ WeaponSpec.RAIJIN = {
 		{ name = "Collar", size = { 0.26, 0.26, 0.16 }, z = -3.62, color = "trim", material = "Metal" },
 		{ name = "SpearHead", size = { 0.1, 0.38, 0.95 }, z = -4.15, color = "D6DCE8", material = "Metal" },
 		{ name = "Edge", size = { 0.11, 0.06, 0.85 }, y = 0.2, z = -4.1, color = "energy", material = "Neon" },
+		-- (Wilhem's sheet: a red tassel tied under the head)
+		{ name = "Tassel", size = { 0.05, 0.75, 0.1 }, y = -0.42, z = -3.5, color = "B3121E" },
+		{ name = "Tassel2", size = { 0.05, 0.58, 0.09 }, x = 0.07, y = -0.34, z = -3.44, color = "8E0E18" },
 	},
 	base = -3.6, tip = -4.6,
 }

@@ -57,6 +57,13 @@ RaijinHold.TARGETS = {
 	-- side camera a level shaft hid behind his head)
 	Shoulders = { neck = true, at = { 0.9, 0.05, 0.55 }, dir = { -1, 0.32, -0.55 }, front = 1.9, frontMin = 1.4, frontMax = 2.3 },
 	Shoulders2 = { neck = true, at = { 0.9, 0.12, 0.55 }, dir = { -1, 0.42, -0.55 }, front = 1.9, frontMin = 1.4, frontMax = 2.3 },
+	-- (then, Wilhem's sheet « IDLE / MARCHE »: the spear on ONE shoulder, the right hand holding
+	-- it just before that shoulder, the other arm hanging; walking, the same. Wilhem: « la pointe
+	-- de la lance peut être vers l'arrière pendant l'idle » : the point back and up past his left
+	-- shoulder, behind his head, the butt down in front)
+	Carry = { neck = true, at = { 0.6, -0.1, -0.4 }, dir = { -0.45, 0.26, 0.86 }, rest = { 0.55, 0.05, 0 }, hang = { 8, -12, 14 } },
+	Carry2 = { neck = true, at = { 0.6, -0.05, -0.38 }, dir = { -0.45, 0.32, 0.84 }, rest = { 0.55, 0.05, 0 }, hang = { 4, -14, 20 } },
+	CarryRun = { neck = true, at = { 0.6, -0.1, -0.4 }, dir = { -0.45, 0.4, 0.8 }, rest = { 0.55, 0.05, 0 }, hang = { 8, -12, 14 } },
 	-- running in: the spear carried level, a little up (the stride pumps the arms)
 	RunUpper = { at = { 0, 0.5, -0.85 }, dir = { 0, 0.35, -1 }, front = 1.25 },
 }
@@ -79,11 +86,19 @@ local function posed(key, a)
 	local role, phase = string.match(key, "^(%a+)%.(%a+)$")
 	local raw = if role then Poses["Raijin" .. role][phase]
 		elseif key == "Idle2" or key == "Shoulders2" then Poses.Kits.RAIJIN.Idle[2]
-		elseif key == "Shoulders" then Poses.Kits.RAIJIN.STANCE
+		elseif key == "Shoulders" or key == "Carry" then Poses.Kits.RAIJIN.STANCE
+		elseif key == "Carry2" then Poses.Kits.RAIJIN.Idle[2]
+		elseif key == "CarryRun" then Poses.Kits.RAIJIN.RunUpper
 		else Poses.Kits.RAIJIN[key]
 	local base = anim:resolve(raw)
 	local pose = table.clone(base)
-	for k, v in holdArms(a) do pose[k] = v end
+	local t = RaijinHold.TARGETS[key]
+	local arms = holdArms(a)
+	if t and t.hang then
+		-- (one hand on the spear: the other arm hangs, relaxed)
+		arms.LeftShoulder, arms.LeftElbow, arms.LeftWrist = { t.hang[1], 0, t.hang[2] }, { t.hang[3], 0, 0 }, { 0, 0, 0 }
+	end
+	for k, v in arms do pose[k] = v end
 	local solved = K.solve(SKEL, pose, 0)
 	local parts = {}
 	for name, f in solved do
@@ -148,11 +163,20 @@ function RaijinHold.cost(key, a)
 	local cost = 3 * ((gx - px) ^ 2 + (gy - py) ^ 2 + (gz - pz) ^ 2)
 	cost += RaijinHold.AIM * (1 - (ax * d[1] + ay * d[2] + az * d[3]))
 	-- the front hand on the shaft, `front` up from the rear one
+	-- the shaft resting on a shoulder (`rest`: a point of his chest's top, in its own axes)
+	if t.rest then
+		local rx, ry, rz = K.point(parts.UpperTorso.cframe, t.rest[1] * side * parts.UpperTorso.size[1] / 2,
+			parts.UpperTorso.size[2] / 2 + t.rest[2], t.rest[3])
+		local u = (rx - gx) * ax + (ry - gy) * ay + (rz - gz) * az
+		local cx, cy, cz = gx + ax * u, gy + ay * u, gz + az * u
+		local dist = math.sqrt((rx - cx) ^ 2 + (ry - cy) ^ 2 + (rz - cz) ^ 2)
+		cost += 8 * (dist - 0.12) ^ 2
+	end
 	-- (anywhere from 0.7 to 1.8 up the shaft: the closest point of that stretch)
 	local f = parts.LeftHand.cframe
 	local along = math.clamp((f[1] - gx) * ax + (f[2] - gy) * ay + (f[3] - gz) * az, t.frontMin or 0.7, t.frontMax or 1.8)
 	local fx, fy, fz = gx + ax * along, gy + ay * along, gz + az * along
-	cost += RaijinHold.FRONT * ((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2)
+	if not t.hang then cost += RaijinHold.FRONT * ((f[1] - fx) ^ 2 + (f[2] - fy) ^ 2 + (f[3] - fz) ^ 2) end
 	-- the spear clear of his body, and of the floor
 	local inside = 0
 	for _, piece in WeaponKit.pieces("RAIJIN", parts) do
@@ -244,6 +268,8 @@ if args[1] then
 		Block = { 12, -18, 72, -1, 37, 76, 69, 16, -70, 6 }, CrouchBlock = { -10, -12, 112, -23, 64, 70, 13, 6, -60, 21 },
 		RunUpper = { -18, -5, 103, -39, 82, 29, 54, 16, -59, -58 }, Idle2 = { 10, -61, 72, -27, 72, 49, 4, -3, 70, -12 },
 		Shoulders = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 }, Shoulders2 = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 },
+		Carry = { 168, 84, 155, -38, 8, -12, 14, -36, -70, 0 }, Carry2 = { 168, 84, 155, -39, 4, -14, 20, -36, -70, 0 },
+		CarryRun = { 136, 39, 155, -20, 8, -12, 14, -60, -70, 0 },
 		["Jab.Startup"] = { 15, -60, -5, 31, 87, 55, 1, -21, 69, -44 }, ["Jab.Active"] = { 45, -59, 6, -39, 65, 8, 30, -18, 3, 0 },
 		["Cross.Startup"] = { 18, -59, -5, 31, -12, 74, 17, -19, 70, 44 }, ["Cross.Active"] = { 61, -59, 41, -70, -6, -35, 106, 33, -59, 9 },
 		["Elbow.Startup"] = { -12, -65, 6, 27, 66, 41, 20, -38, -70, -24 }, ["Elbow.Active"] = { 182, -65, 155, 38, 63, 64, 44, -24, -26, -13 },

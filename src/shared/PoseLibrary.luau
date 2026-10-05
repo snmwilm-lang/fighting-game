@@ -2032,7 +2032,7 @@ do
 			STANCE = { 36, -59, -5, 20, 108, 53, -1, -32, 70, -40 },
 			CrouchBlock = { -12, 0, 104, 1, 98, 55, 23, 30, -5, -4 },
 			Block = { -7, -11, 98, -6, 116, 55, 48, 9, -64, -38 },
-			RunUpper = { -22, -10, 113, -29, 125, 70, 29, 7, -55, -45 }, -- (the spear carried level as he runs in)
+			RunUpper = { 65, 19, 155, -46, 8, -12, 14, 26, -67, 0 }, -- (walking, the spear on his shoulder as at rest)
 	}
 	-- (7 numbers, or 10: + the right shoulder's twist, the right wrist's turn, the left
 	-- shoulder's twist, so the spear can point anywhere from a hand at the hip: tests/RaijinHold)
@@ -2062,13 +2062,16 @@ do
 	-- (Wilhem: « gère mieux le idle de la lance, aussi fluide que l'orbe de DAICHA »: his idle
 	-- breathes between two holds, the spear drawn back a little and its point rising, then
 	-- forward and level at the opponent again: solved by tests/RaijinHold.luau, Idle2)
-	-- (then: « mets-lui une pose comme le bâton de Wukong sur les épaules »: at rest the spear
-	-- lies across his shoulders behind his neck, both wrists hung over it, breathing; his fighting
-	-- stance (STANCE: the start of every blow, the end of every recovery) keeps it levelled)
-	local SHOULDERS = { 173, 92, 99, -18, 47, -9, 149, 70, -44, -8 }
-	local SHOULDERS2 = { 174, 95, 100, -19, 53, -9, 151, 70, -44, -11 }
-	kit.Idle = { merge(kit.STANCE, hold(SHOULDERS)), merge(merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 },
-		Waist = { (kit.STANCE.Waist[1] or 0) - 3, (kit.STANCE.Waist[2] or 0) + 4, 0 } }), hold(SHOULDERS2)) }
+	-- (then, Wilhem's sheet « IDLE / MARCHE »: at rest and walking, the spear lies on his right
+	-- shoulder, his right hand holding it just before it, the point back and up past his left
+	-- shoulder behind his head (« la pointe vers l'arrière »), the butt down in front, his left
+	-- arm hanging; it breathes between two keys. His fighting stance (STANCE:
+	-- the start of every blow, the end of every recovery) keeps it levelled at the opponent.
+	-- Solved by tests/RaijinHold.luau: Carry, Carry2, CarryRun)
+	local CARRY = { 136, 68, 155, -17, 8, -12, 14, -50, -45, 0 }
+	local CARRY2 = { 137, 61, 155, -20, 4, -14, 20, -52, -58, 0 }
+	kit.Idle = { merge(kit.STANCE, hold(CARRY)), merge(merge(kit.STANCE, { Root = { 0, kit.STANCE.Root[2], 0, kit.STANCE.Root[4] - 0.08, 0 },
+		Waist = { (kit.STANCE.Waist[1] or 0) - 3, (kit.STANCE.Waist[2] or 0) + 4, 0 } }), hold(CARRY2)) }
 	-- (RunUpper has its own hold, in KIT_HOLD: the stance's pointed the spear at the floor)
 	kit.BackUpper = merge(kit.BackUpper, hold(KIT_HOLD.Block))
 	strike("Raijin", { Jab = R_, Cross = R_, Elbow = R_, Kick = R_, BodyBlow = R_, Uppercut = R_, PalmStrike = B_,

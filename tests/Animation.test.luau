@@ -760,6 +760,8 @@ test("R6: guard arms point at the opponent, pitched down; standing legs stay clo
 		for _, state in { "Idle", "Blocking" } do -- (runs swing the arms: AKEMI's trail behind)
 			local parts = settled({ state = state, kit = kit })
 			for _, arm in { "Left Arm", "Right Arm" } do
+				-- (RAIJIN at rest: the spear on his right shoulder, the left arm hanging, Wilhem's sheet)
+				if kit == "RAIJIN" and state == "Idle" then continue end
 				local _, y, z = tip(parts[arm])
 				expect(y < -0.1 and y > -0.9, string.format("%s %s: R6 %s pitched %.2f (want down, not hanging)", kit, state, arm, y))
 				expect(-z > 0.25, string.format("%s %s: R6 %s does not point forward (%.2f)", kit, state, arm, -z))

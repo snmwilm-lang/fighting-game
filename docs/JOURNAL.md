@@ -1,5 +1,19 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.10 — 5 octobre 2026 · RAIJIN : LA LANCE SUR UNE ÉPAULE, POINTE EN ARRIÈRE (PLANCHE DE WILHEM)
+
+Wilhem (planche « IDLE / VUE AVANT / CÔTÉ / ARRIÈRE / MARCHE ») : « t'as pas compris, lance sur les épaules je veux dire ça », puis « la pointe de la lance peut être vers l'arrière pendant l'idle, regarde l'image ».
+- **Au repos et en marchant** : la lance posée sur **l'épaule droite**, tenue par la main droite juste devant l'épaule, **la pointe derrière lui, en haut**, au-dessus de son épaule gauche, derrière la tête. Le talon descend devant lui. Le **bras gauche pend**, détendu. Le repos respire entre deux poses (`CARRY` / `CARRY2`). La marche garde la même prise (`RunUpper`). La garde de combat (départ et fin de chaque coup) reste la lance pointée vers l'adversaire.
+- Calculé par `tests/RaijinHold.luau` (cibles `Carry`, `Carry2`, `CarryRun` : main près du cou, direction de la hampe, hampe posée sur l'épaule `rest`, bras gauche pendant `hang`). Résultat : visée à 4–9° de la cible, lance et bras hors du corps.
+- **Pompon rouge** sous le fer de lance (`WeaponSpec` : `Tassel`, `Tassel2`).
+- Test R6 « bras en garde » d'Animation : le repos de RAIJIN est exempté (son bras gauche pend exprès, d'après la planche).
+- Lance dans son corps (`WeaponClearance`) : 214 → 183 images sur 1 136. Le reste vient de coups déjà existants (KiFlurry, RisingWind, Sweep).
+
+Tests : Animation 46, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits relancée (0.23.9 : 130 OK).
+
+À voir dans Studio : la lance sur l'épaule (repos et marche), le pompon.
+Prochaine étape (demandée par Wilhem) : détailler SHIN, puis les éventails de YUKINA, le poison de VENOM, les griffes de KAZAN, les bombes de SYLVA.
+
 ## Version 0.23.9 — 5 octobre 2026 · RAIJIN : LA LANCE SUR LES ÉPAULES · ARMES VIVANTES · GARDE DE DAICHA PLUS BASSE
 
 Wilhem (capture en jeu) : « tu vois le problème du modèle : gère mieux le idle de la lance… il a ses bras dans le corps… ou change la pose : mets-lui une pose comme le bâton de Wukong sur les épaules ». Puis : « pour l'épée de SHIN, tous les persos avec des armes : le minimum de détails qu'il y a sur l'orbe de DAICHA doit être le minimum ». Et, de l'orbe : « la garde est trop haute, descends-la un peu ».

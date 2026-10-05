@@ -31,6 +31,8 @@ de la semaine, audit des menus, accès développeur.
 
 **Accès développeur** (`src/server/DevAccess.luau`, côté serveur seulement, testé) : les UserId de `DevAccess.IDS` et le propriétaire du jeu quand il appartient à un compte (game.CreatorId). Jamais les joueurs de test de Studio (UserId négatifs). Tous les persos dans tous les modes et tous les styles, sans rien écrire comme acheté ; PARAMÈTRES › ACCÈS DÉVELOPPEUR (visible seulement pour un développeur) le coupe pour jouer en nouveau joueur, et le remet.
 
+Correctif après le premier essai de Wilhem dans Studio (« pas le full accès ») : une place non publiée a CreatorId 0 (et un jeu de groupe n'a pas de propriétaire joueur), donc personne n'avait l'accès. Maintenant, dans Studio, le compte qui joue SEUL (Play) l'a ; un test à plusieurs joueurs ou un joueur de test (UserId négatif) jamais. La console (Output) écrit à chaque arrivée : nom, UserId, propriétaire de la place, accès oui / non — pour mettre l'UserId de Wilhem dans `DevAccess.IDS` (indispensable si le jeu publié appartient à un groupe).
+
 **Audit des menus** :
 - sélection : la colonne des persos (630 px) passait sous le panneau d'options (dernière rangée à moitié cachée) → 582 px ;
 - PARAMÈTRES devient une liste qui défile (avec les nouvelles lignes, la page débordait) ;

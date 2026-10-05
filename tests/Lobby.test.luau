@@ -649,6 +649,10 @@ test("developer access: listed ids or the game's owner, never Studio's test play
 	expect(Dev.isDev(777, 777, true) and not Dev.isDev(778, 777, true), "the owner of the game is not the only one")
 	expect(not Dev.isDev(-1, -1, true) and not Dev.isDev(-2, 777, true), "a Studio test player got the access")
 	expect(not Dev.isDev(777, 777, false), "a group game trusts its group id as a player")
+	-- Roblox Studio, place not published (owner 0) or a group's: the account playing alone has it
+	expect(Dev.isDev(4242, 0, true, true) and Dev.isDev(4242, 99, false, true), "Studio's lone player (the editor) has no access")
+	expect(not Dev.isDev(4242, 0, true, false), "a Studio test with several players gave the access")
+	expect(not Dev.isDev(-1, 0, true, true), "a Studio test player (negative id) got the access")
 	table.insert(Dev.IDS, 555)
 	expect(Dev.isDev(555, 777, true), "a listed id has no access")
 	table.remove(Dev.IDS)

@@ -115,8 +115,14 @@ end
 -- The developer access (DevAccess: the listed UserIds and the game's owner; never everyone in
 -- Studio), on unless the developer switched it off in SETTINGS.
 local CREATOR_IS_USER = game.CreatorType == Enum.CreatorType.User
+local IN_STUDIO = RunService:IsStudio()
+local function isDev(player)
+	-- (in Studio: only while this player is alone on the test server)
+	local studioSolo = IN_STUDIO and #Players:GetPlayers() == 1 and Players:GetPlayers()[1] == player
+	return DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER, studioSolo)
+end
 local function devOn(player, client)
-	return DevAccess.active(DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER), client and client.profile)
+	return DevAccess.active(isDev(player), client and client.profile)
 end
 local saves = SaveQueue.new() -- when to write (SaveQueue: spacing, batches, never an unloaded profile)
 local function loadProfile(player, client)
@@ -629,7 +635,7 @@ function menuStatus(player, bought, unlocked)
 		ownedSkins = profile.ownedSkins or {}, bought = bought, -- (SHOP: the styles bought)
 		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {},
 		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
-		isDev = DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER), dev = devOn(player, client),
+		isDev = isDev(player), dev = devOn(player, client),
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
@@ -982,6 +988,9 @@ local function joined(player)
 		team = { "KAI" },
 	}
 	clients[player] = client
+	-- (the Output says who has the developer access: the UserId to put in DevAccess.IDS)
+	print(string.format("[FightingGame] %s · UserId %d · place owner %d (%s) · developer access: %s", player.Name, player.UserId,
+		game.CreatorId, if CREATOR_IS_USER then "user" else "group", if isDev(player) then "YES" else "no"))
 	client.onProfileLoaded = function()
 		grantChampion(player, client)
 		buildHero(player)
@@ -1158,7 +1167,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	elseif action == "devMode" then
 		-- The developer access switched off / on (only for a developer: DevAccess).
 		if typeof(packet.on) ~= "boolean" then return suspect(player, "malformed") end
-		if client.profile and DevAccess.isDev(player.UserId, game.CreatorId, CREATOR_IS_USER) then
+		if client.profile and isDev(player) then
 			client.profile.devOff = not packet.on
 			saveProfile(player, client)
 			buildHero(player)

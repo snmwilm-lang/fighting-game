@@ -340,6 +340,64 @@ function CinematicController:finish()
 		if typeof(prop) == "Instance" then prop:Destroy() end
 	end
 	self.props = {}
+	self:drawMatter(nil)
+	self.usesMatter, self.effects.hideOrb = false, false
+end
+
+-- DAICHA's black matter, staged every frame by the director (frame.matter): one shape per
+-- entry, a ball, a disc facing `normal`, a puddle on the floor or an upright wave; a black
+-- core with a thin rim of her ki colour. A pool of parts, reused from frame to frame.
+local MATTER_BLACK = Color3.fromHex("0B0712")
+function CinematicController:drawMatter(list)
+	self.matterPool = self.matterPool or {}
+	local pool = self.matterPool
+	local n = if list then #list else 0
+	for i = 1, math.max(n, #pool) do
+		local m = list and list[i]
+		local item = pool[i]
+		if m and not item then
+			local core = Instance.new("Part")
+			core.Anchored, core.CanCollide, core.CanQuery, core.CanTouch, core.CastShadow = true, false, false, false, false
+			core.Material, core.Color, core.Size, core.Name = Enum.Material.SmoothPlastic, MATTER_BLACK, Vector3.one, "Matter"
+			local mesh = Instance.new("SpecialMesh")
+			mesh.Parent = core
+			local rim = core:Clone()
+			rim.Material, rim.Transparency, rim.Name = Enum.Material.Neon, 0.55, "MatterRim"
+			core.Parent, rim.Parent = self.effects.folder, self.effects.folder
+			item = { core = core, rim = rim, mesh = mesh, rimMesh = rim:FindFirstChildOfClass("SpecialMesh") }
+			pool[i] = item
+		end
+		if item then
+			if not m then
+				item.core.Transparency, item.rim.Transparency = 1, 1
+			else
+				local pos = Vector3.new(m.pos.x, m.pos.y, m.pos.z or 0)
+				local r = m.radius
+				local cf, scale
+				if m.shape == "disc" or m.shape == "puddle" then
+					-- (a cylinder mesh stands along Y: turned so its axis is the disc's normal)
+					local n3 = if m.shape == "puddle" then Vector3.yAxis else Vector3.new(m.normal.x, m.normal.y, m.normal.z or 0).Unit
+					local side = if math.abs(n3.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis
+					local right = side:Cross(n3).Unit
+					cf = CFrame.fromMatrix(pos, right, n3)
+					item.mesh.MeshType, item.rimMesh.MeshType = Enum.MeshType.Cylinder, Enum.MeshType.Cylinder
+					scale = Vector3.new(r * 2, if m.shape == "puddle" then 0.1 else 0.22, r * 2)
+				elseif m.shape == "wave" then
+					cf = CFrame.new(pos)
+					item.mesh.MeshType, item.rimMesh.MeshType = Enum.MeshType.Sphere, Enum.MeshType.Sphere
+					scale = Vector3.new(r * 2, math.max(0.1, m.height or r * 2), r * 2)
+				else
+					cf = CFrame.new(pos)
+					item.mesh.MeshType, item.rimMesh.MeshType = Enum.MeshType.Sphere, Enum.MeshType.Sphere
+					scale = Vector3.one * r * 2
+				end
+				item.core.CFrame, item.mesh.Scale, item.core.Transparency = cf, scale, 0
+				item.rim.CFrame, item.rimMesh.Scale = cf, scale * 1.06 + Vector3.new(0, 0.02, 0)
+				item.rim.Color = if m.color then Color3.fromHex(m.color) else MATTER_BLACK
+				item.rim.Transparency = if m.color == "0B0712" then 1 else 0.6
+			end
+		end
+	end
 end
 
 -- Runs `fn` once per staged moment (memo keys are reset at every new cinematic).
@@ -477,6 +535,7 @@ function CinematicController:applyFx(frame)
 			elseif kind == "cut" then fx:cut(vec(request.from), vec(request.to), color)
 			elseif kind == "eclipse" then prop = fx:eclipse(vec(request.pos), color, request.scale or 1, request.life)
 			elseif kind == "smoke" then fx:smoke(vec(request.pos))
+			elseif kind == "matterBurst" then fx:matterBurst(vec(request.pos), color, request.scale or 1)
 			else prop = self:themed(kind, request, color or Color3.new(1, 1, 1))
 			end
 			if prop then table.insert(self.props, prop) end
@@ -547,6 +606,10 @@ function CinematicController:applyFrame(frame)
 		tween(self.fade, 0.35, { BackgroundTransparency = 0 })
 	end
 	self:applyFx(frame)
+	self:drawMatter(frame.matter)
+	-- (DAICHA's scenes stage her matter themselves: her fighting sphere hides meanwhile)
+	if frame.matter then self.usesMatter = true end
+	self.effects.hideOrb = self.usesMatter == true
 	self.pending = frame.shot
 end
 

@@ -251,10 +251,13 @@ function EffectsController:orbVortex(center, color)
 	self:tornadoRing(center, color)
 end
 
--- DAICHA's orb, free of his hand: where OrbFlight puts it, eased (it never teleports).
-function EffectsController:flyOrb(rig, view, now)
+-- DAICHA's matter, free of her hand: where OrbFlight puts it, eased (it never teleports), in
+-- the shape OrbFlight gives (Wilhem: attack = a dense sphere swelling on impact, guard = the
+-- same matter spread into a black disc before her), morphing smoothly from one to the other.
+function EffectsController:flyOrb(rig, view, now, slot)
 	local id = view.state == "Attack" and view.move or nil
-	local o = OrbFlight.offset(view, id and MoveData.Moves[id], id and ROLE_OF[id], now)
+	local move = id and MoveData.Moves[id]
+	local o = OrbFlight.offset(view, move, id and ROLE_OF[id], now)
 	-- (from where the body is drawn: the presentation spacing may set it a little apart)
 	local x = if rig.root then rig.root.Position.X else view.x
 	local target = Vector3.new(x + view.facing * o.fwd, view.y + o.up, self.config.PlaneZ + o.side)
@@ -262,10 +265,40 @@ function EffectsController:flyOrb(rig, view, now)
 	rig.orbClock = now
 	rig.orbPosition = (rig.orbPosition or target):Lerp(target, 1 - math.exp(-dt * 22))
 	local spin = CFrame.new(rig.orbPosition) * CFrame.Angles(0, now * 2.2, now * 0.7)
+	-- the shape: ball <-> disc (morph 0..1), the ball's radius eased
+	local form = OrbFlight.form(view, move)
+	local S = OrbFlight.SIZE
+	local disc = form.shape == "disc"
+	rig.orbMorph = (rig.orbMorph or 0) + ((if disc then 1 else 0) - (rig.orbMorph or 0)) * (1 - math.exp(-dt * 18))
+	local wanted = if disc then S.rest else form.radius
+	rig.orbRadius = (rig.orbRadius or wanted) + (wanted - (rig.orbRadius or wanted)) * (1 - math.exp(-dt * 28))
+	local m = rig.orbMorph
+	local r = math.max(0.03, rig.orbRadius * (1 - m))
 	for _, p in rig.orbParts do
-		if p.Parent then p.CFrame = spin end
+		if p.Parent then
+			p.CFrame = spin
+			p.Size = Vector3.one * (if p.Name == "KitOrbCore" then r * 0.95 else r * 2)
+			p.Transparency = if m > 0.97 or self.hideOrb then 1 else 0
+		end
 	end
-	if rig.orbChain then rig.orbChain.Enabled = view.state == "Attack" end
+	if self.hideOrb then m = 0 end -- (an ultimate stages the matter itself)
+	if not rig.orbDisc or not rig.orbDisc.Parent then
+		local core = self:part(Vector3.new(0.16, 0.1, 0.1), CFrame.identity, VOID, Enum.PartType.Cylinder)
+		core.Material, core.Name = Enum.Material.SmoothPlastic, "MatterDisc"
+		local rim = self:part(Vector3.new(0.08, 0.1, 0.1), CFrame.identity, self:energy(slot or 1), Enum.PartType.Cylinder)
+		rim.Material, rim.Transparency, rim.Name = Enum.Material.Neon, 0.35, "MatterRim"
+		core.Parent, rim.Parent = rig.model, rig.model
+		rig.orbDisc, rig.orbRim = core, rim
+	end
+	-- (turned toward the camera: edge-on, from the side view, a disc would be a line)
+	local f = view.facing
+	local face = CFrame.new(rig.orbPosition) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(42), 0)
+	local d = S.disc * 2 * m
+	local hide = m < 0.03
+	rig.orbDisc.Size = Vector3.new(S.thickness, math.max(0.05, d), math.max(0.05, d))
+	rig.orbDisc.CFrame, rig.orbDisc.Transparency = face, if hide then 1 else 0.02
+	rig.orbRim.Size = Vector3.new(S.thickness * 0.5, math.max(0.05, d * 1.08), math.max(0.05, d * 1.08))
+	rig.orbRim.CFrame, rig.orbRim.Transparency = face * CFrame.new(-0.05, 0, 0), if hide then 1 else 0.35
 end
 
 -- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
@@ -1081,7 +1114,8 @@ function EffectsController:attachWeapon(slot, rig)
 		rig.weaponHand = if blade then "RightHand" else "LeftHand"
 		rig.weaponKind = if blade then "Sword" else "Orb"
 		if orb then
-			-- DAICHA's orb is set free: it flies round him (OrbFlight), moved every frame.
+			-- DAICHA's matter is set free: it flies round her (OrbFlight) and changes shape, moved
+			-- every frame (a sphere to strike, a disc to guard).
 			rig.orbParts = {}
 			local free = {}
 			for _, name in { "KitShadowOrb", "KitOrbCore" } do
@@ -1100,25 +1134,6 @@ function EffectsController:attachWeapon(slot, rig)
 			end
 			for p in free do p.Anchored, p.Massless = true, true end
 			rig.orbPosition = orb.Position
-			-- The chain of shadow between his hand and the orb, shown while he strikes with it
-			-- (the orb swings like a nunchaku, see OrbFlight).
-			local holder = rig.model:FindFirstChild("LeftHand") or rig.model:FindFirstChild("Left Arm")
-			if holder and holder:IsA("BasePart") then
-				local c0, c1 = Instance.new("Attachment"), Instance.new("Attachment")
-				c0.Name, c1.Name = "OrbChainHand", "OrbChainOrb"
-				c0.Position = Vector3.new(0, -holder.Size.Y * 0.3, 0)
-				c0.Parent, c1.Parent = holder, orb
-				local chain = Instance.new("Beam")
-				chain.Name = "OrbChain"
-				chain.Attachment0, chain.Attachment1 = c0, c1
-				chain.Width0, chain.Width1 = 0.18, 0.09
-				chain.Color = ColorSequence.new(Color3.fromHex("140A20"), self:energy(slot))
-				chain.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 0.35) })
-				chain.LightEmission, chain.FaceCamera, chain.Segments = 0.6, true, 1
-				chain.Enabled = false
-				chain.Parent = holder
-				rig.orbChain = chain
-			end
 		end
 	end
 	return true
@@ -1298,8 +1313,8 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if rig.orbParts and rig.orbParts[1] and not rig.orbParts[1].Parent then
 		rig.orbParts, rig.weaponDone, rig.weaponKind, rig.weaponSince = nil, false, nil, nil
 	end
-	if rig.orbParts then self:flyOrb(rig, view, now) end
-	if rig.weaponKind then
+	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
+	if rig.weaponKind == "Sword" then -- (DAICHA's guard is her matter flattened: flyOrb)
 		local guarding = view.state == "Blocking" or view.state == "CrouchBlocking" or view.state == "Blockstun"
 			or view.state == "CrouchBlockstun"
 		self:weaponGuard(slot, rig, view, guarding, color)
@@ -2190,6 +2205,19 @@ function EffectsController:eclipse(center, color, scale, life)
 	glow.Parent = corona
 	if life then Debris:AddItem(model, life) end
 	return model
+end
+
+-- DAICHA: black droplets of matter bursting off an impact, rimmed with her ki colour.
+function EffectsController:matterBurst(center, color, scale)
+	for i = 1, if self.reduced then 5 else 12 do
+		local angle = i / 12 * math.pi * 2 + math.random() * 0.4
+		local size = (0.25 + math.random() * 0.35) * scale
+		local drop = self:part(Vector3.one * size, CFrame.new(center), if i % 4 == 0 then color else VOID, Enum.PartType.Ball)
+		drop.Material = if i % 4 == 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		local out = Vector3.new(math.cos(angle), math.sin(angle) * 0.8 + 0.3, (math.random() - 0.3) * 0.8) * (2.2 + math.random() * 1.8) * scale
+		tween(drop, 0.45, { Position = center + out, Size = Vector3.one * size * 0.3, Transparency = 1 }, Enum.EasingStyle.Quad)
+		Debris:AddItem(drop, 0.5)
+	end
 end
 
 -- A few grey puffs rising (RYUKEN's smoking fists).

@@ -50,6 +50,12 @@ Kit.play(kit, kind, style, hp, 0, function(info)
 				fmt(piece.size[1]), fmt(piece.size[2]), fmt(piece.size[3]), piece.color))
 		end
 	end
+	-- DAICHA's matter this frame (a ball, a disc, a puddle, a wave)
+	for _, m in frame.matter or {} do
+		local n = m.normal or { x = 0, y = 1, z = 0 }
+		print(string.format("MATTER %s %s %s %s %s %s %s %s %s %s", m.shape, fmt(m.pos.x), fmt(m.pos.y), fmt(m.pos.z or 0), fmt(m.radius),
+			fmt(m.height or 0), fmt(n.x), fmt(n.y), fmt(n.z or 0), m.color or "FFFFFF"))
+	end
 	for _, entry in seen do
 		local fx, age = entry.fx, info.tick - entry.tick
 		local shown = if fx.life then age <= fx.life * 60 else age <= 14 or fx.keep or fx.kind == "gate"

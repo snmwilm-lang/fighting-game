@@ -39,6 +39,9 @@ def parse(path):
             # optional 20th field: the shape (W = WedgePart, else a block)
             frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False, hexc(f[18]) if len(f) > 18 else None,
                                         f[19] if len(f) > 19 else 'B'))
+        elif f[0] == 'MATTER' and frames:
+            frames[-1].setdefault('matter', []).append({'shape': f[1], 'pos': tuple(map(float, f[2:5])), 'r': float(f[5]),
+                'h': float(f[6]), 'n': tuple(map(float, f[7:10])), 'color': hexc(f[10])})
         elif f[0] == 'FX' and frames:
             frames[-1]['fx'].append({'kind': f[1], 'age': int(f[2]), 'pos': tuple(map(float, f[3:6])),
                 'from': tuple(map(float, f[6:9])), 'to': tuple(map(float, f[9:12])), 'radius': float(f[12]),
@@ -286,6 +289,26 @@ def render_frame(fr, label):
                 r = abs(edge[0] - p[0]) or 4
                 d.ellipse([p[0]-r*1.18, p[1]-r*1.18, p[0]+r*1.18, p[1]+r*1.18], fill=col + (150,))
                 d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=(7,4,12,255))
+    # DAICHA's matter: a black ball, a disc (sampled ring), a puddle, a wave (an upright drop)
+    for m in fr.get('matter', []):
+        pos, r, col = m['pos'], m['r'], m['color']
+        if m['shape'] in ('ball', 'wave'):
+            p = proj(pos)
+            top = proj((pos[0], pos[1] + (m['h']/2 if m['shape'] == 'wave' else r), pos[2]))
+            side = proj((pos[0] + r, pos[1], pos[2]))
+            if p and top and side:
+                rx = max(2, abs(side[0] - p[0])); ry = max(2, abs(top[1] - p[1]))
+                d.ellipse([p[0]-rx-2, p[1]-ry-2, p[0]+rx+2, p[1]+ry+2], fill=col + (140,))
+                d.ellipse([p[0]-rx, p[1]-ry, p[0]+rx, p[1]+ry], fill=(11,7,18,255))
+        else:
+            n = m['n'] if m['shape'] == 'disc' else (0.0, 1.0, 0.0)
+            nn = norm(n)
+            ref = (1.0, 0.0, 0.0) if abs(nn[1]) > 0.9 else (0.0, 1.0, 0.0)
+            u = norm(cross(ref, nn)); w = cross(nn, u)
+            pts = [proj((pos[0] + (u[0]*math.cos(t) + w[0]*math.sin(t))*r, pos[1] + (u[1]*math.cos(t) + w[1]*math.sin(t))*r,
+                         pos[2] + (u[2]*math.cos(t) + w[2]*math.sin(t))*r)) for t in [i/24*2*math.pi for i in range(24)]]
+            if all(pts):
+                d.polygon([q[:2] for q in pts], fill=(11,7,18,235), outline=col + (230,))
     g = fr['grade'] + '0000000000'
     if g[2] == '1': img = img.convert('L').convert('RGB')
     elif g[1] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,10,20)), 0.45)

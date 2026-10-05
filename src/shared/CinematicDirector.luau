@@ -1915,274 +1915,336 @@ function KIT.SHIN.Gate(ctx, frame, a, d, tick, dir)
 	end
 end
 
--- ---------------------------------------------------------------- DAICHA 闇 · inverted shadow
+-- ---------------------------------------------------------------- DAICHA 闇 · the shape of shadow
+--[[
+	Wilhem: « Daicha ne change pas de pouvoir selon l'action ; elle change la FORME de son
+	pouvoir. » ATTACK = the matter compacted into a sphere (round her fist, thrown, or the
+	impact itself); DEFENCE / PUSH = the same matter spread flat into a black disc. Every
+	scene below is that one black matter changing shape (frame.matter, drawn every frame by
+	the client: a ball, a flat disc, a puddle on the floor, a wave rising from it).
+]]
 
 local DAICHA_CLAWS = { "Jab", "Cross", "Elbow", "Kick", "SpinKick", "PalmStrike", "BodyBlow" }
 
 KIT.DAICHA = {}
 
--- A pool of shadow on the floor where he rises.
-local function pool(frame, key, a, color)
-	arc(frame, key, v(a.x, 0.08, a.z or 0), 1.3, 0, 360, color, math.pi / 2, 1)
+-- The black matter this frame: a ball (radius r), a disc (radius r, its face toward `normal`),
+-- a puddle (a disc lying on the floor) or a wave (an upright drop, r wide and `h` tall).
+local function matter(frame, shape, pos, r, color, normal, h)
+	frame.matter = frame.matter or {}
+	table.insert(frame.matter, { shape = shape, pos = pos, radius = math.max(0.02, r), color = color, normal = normal, height = h })
 end
 
--- DOMAINE OBSCUR: he never touches the target. His seal spreads under it; his orb splits in
--- his raised hand, 2 then 4 orbs; they leave him and crown the target, darting into it one by
--- one (seen over his shoulder, then close); 8 orbs on two crossed rings (from straight above,
--- the camera turning with them); a vortex of orbs lifts the target (from below, the world
--- upside down); every orb flies up and merges into the SPHÈRE INVERSÉE, which falls on it;
--- the domain implodes.
+-- Black droplets of matter bursting off an impact.
+local function matterBurst(frame, key, pos, color, scale)
+	table.insert(frame.fx, { key = key, kind = "matterBurst", pos = pos, color = color, scale = scale or 1 })
+end
+
+-- DARK DOMAIN (~3 s): she charges, the matter a big sphere round her fist; the first impact
+-- grinds into the target; she flattens it at once into a disc that shoves the target back;
+-- she rounds it again for quick blows, swells it huge, and the last blow sends the target
+-- flying across the deck.
 function KIT.DAICHA.Rush(ctx, frame, a, d, tick, dir)
 	local cin, moves = ctx.cin, ctx.moveData.Moves
 	local data = ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local color = ctx.characters[A].Energy
 	local cx = center(ctx, d)
-	local H = data.Hits
+	local H, F = data.Hits, data.FinalTick
 	frame.grade.inverse = true
-	if tick < data.FinalTick then
-		d.x, d.state = cx, "Hitstun"
-		table.insert(frame.fx, { key = "domaine-seal", kind = "kanjiSeal", pos = v(cx, 0.06, 0), color = color,
-			text = ctx.characters[A].Kanji, keep = true })
-	end
 	local k = hitsBefore(H, tick)
 	local beat = if k > 0 then tick - H[k] else 0
-	local home = cx - dir * 6.4
-	local torso = v(cx, 3.6, 0.3)
-	-- The formations: where they start, their centre, radius, orbs, spin (turns/s) and tilt.
-	local crown = { from = H[1], to = H[5], c = v(cx, 3.6, 0), r = 2.6, n = 4, spin = 0.6, tilt = 0.2 }
-	local swarm = { from = H[5], to = H[8] + 4, c = v(cx, 3.4, 0), r = 3, n = 4, spin = 0.9, tilt = 0.6 }
-	local vortex = { from = H[8] + 4, to = H[11] + 4, c = v(cx, 4, 0), r = 2.2, n = 4, spin = 1.6, tilt = 0.08 }
-	local function form(key, f, offsetY, sign, radius)
-		local c = v(f.c.x, f.c.y + (offsetY or 0), 0)
-		orbs(frame, key, c, radius or f.r, f.n, color, (f.to - f.from) / 60, f.spin * (sign or 1), 0, f.tilt * (sign or 1))
-		return c
+	local home, gap = cx - dir * 6, 2.9
+	-- the target's place: pushed back by the disc (hits 6-8), then flying after the last blow
+	local push = smooth(progress(tick, H[6] - 2, H[8] + 6)) * 3
+	local tx = cx + dir * push
+	d.x, d.state = tx, "Hitstun"
+	local function fist(r)
+		matter(frame, "ball", v(a.x + dir * 1.45, 3.7, 0.5), r, color)
 	end
-	local function dart(key, f, c, i, sign, radius)
-		local turn = f.spin * (sign or 1) * (tick - f.from) / 60
-		orbDart(frame, key, crownAt(c, radius or f.r, f.n, i, turn, f.tilt * (sign or 1)), torso, color)
-	end
-	if tick < 12 then
-		a.x, a.facing, a.pose = home, dir, "Levitate"
-		frame.shot = frameOn("daicha-domaine-open", dir, { a }, { yaw = 36, pitch = -14, fill = 0.9, fov = 38, roll = 16, focus = P(A, "Head") })
+	if tick < 10 then
+		-- The matter flows into her fist and rounds into a sphere.
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "Cross"), false)
+		fist(lerp(0.45, 1.1, smooth(tick / 10)))
+		frame.shot = frameOn("daicha-domain-clench", dir, { a }, { yaw = 30, pitch = -10, fill = 0.9, fov = 36, band = "bust",
+			focus = P(A, "RightHand") })
 	elseif tick < H[1] then
-		-- His orb splits in his raised hand: 2 orbs, then 4.
-		a.x, a.facing = home, dir
-		attack(a, moves, role(ctx, "KiBlast"), false)
-		local hand = v(home + dir * 0.9, 6.6, 0.3)
-		if tick < 17 then
-			orbs(frame, "domaine-split2", hand, 1.1, 2, color, 5 / 60, 1.4, 0, 0.5)
-		else
-			orbs(frame, "domaine-split4", hand, 1.5, 4, color, (H[1] - 17) / 60, 1.4, 0, 0.5)
-		end
-		frame.shot = frameOn("daicha-domaine-split", dir, { a, { point = true, x = hand.x, y = hand.y + 1.2, z = 0 } }, { yaw = 24,
-			pitch = -6, fill = 0.9, fov = 38, band = "bust", roll = -12, focus = P(A, "Head") })
-	elseif k < 5 then
-		-- The crown: four orbs circle the target; on each blow one darts into it.
-		a.x, a.facing = home, dir
-		attack(a, moves, role(ctx, "Elbow"), beat < 4)
-		local c = form("domaine-crown", crown)
-		dart("domaine-dart" .. k, crown, c, (k - 1) % crown.n + 1)
-		d.hitstop = if beat < 4 then 1 else 0
-		if beat < 2 then spark(frame, "domaine-hit" .. k, torso, color, 1) end
-		if k <= 2 then
-			frame.shot = frameOn("daicha-domaine-crown", dir, { a, d }, { yaw = -3, pitch = 12, fill = 0.68, fov = 44, roll = -8,
-				focus = P(D, "UpperTorso") })
-		else
-			frame.shot = frameOn("daicha-domaine-ring", dir, { d, { point = true, x = cx - crown.r, y = 3.6, z = 0 },
-				{ point = true, x = cx + crown.r, y = 3.6, z = 0 } }, { yaw = 30, pitch = 14, fill = 0.8, fov = 40, roll = 10,
-				focus = P(D, "UpperTorso") })
-		end
-	elseif tick < swarm.to then
-		-- The swarm: eight orbs on two crossed rings, two darts a blow, seen from straight
-		-- above with the camera turning with them.
-		a.x, a.facing = home, dir
+		-- The charge, the sphere round her fist.
+		a.x, a.facing = lerp(home, cx - dir * gap, progress(tick, 10, H[1]) ^ 2), dir
+		attack(a, moves, role(ctx, "Cross"), false)
+		fist(1.1)
+		frame.speedLines = color
+		frame.shot = frameOn("daicha-domain-charge", dir, { a, d }, { yaw = 64, pitch = -6, fill = 0.8, fov = 44, focus = P(A, "UpperTorso") })
+	elseif k <= 5 and tick < H[5] + 6 then
+		-- First impact: the sphere grinds into the target.
+		a.x, a.facing = cx - dir * gap, dir
+		attack(a, moves, role(ctx, "Cross"), true)
+		local pulse = if beat < 2 then 0.25 else 0
+		matter(frame, "ball", v(cx - dir * 0.7, 3.6, 0.5), 1.2 + pulse, color)
+		d.hitstop = if beat < 3 then 1 else 0
+		if beat < 2 then spark(frame, "domain-grind" .. k, v(cx - dir * 0.4, 3.8, 0.8), color, 1.1) end
+		if k == 1 then matterBurst(frame, "domain-burst1", v(cx - dir * 0.4, 3.8, 0.6), color, 1) end
+		frame.shot = frameOn("daicha-domain-impact", dir, { a, d }, { yaw = 118, pitch = -4, fill = 0.92, fov = 40,
+			focus = P(D, "UpperTorso") })
+	elseif tick < H[6] then
+		-- Flattened at once: the sphere becomes a disc before her fist.
+		a.x, a.facing = cx - dir * gap, dir
+		attack(a, moves, role(ctx, "PalmStrike"), false)
+		local p = smooth(progress(tick, H[5] + 6, H[6]))
+		matter(frame, "disc", v(cx - dir * 1.1, 3.5, 0.4), lerp(1.2, 2.5, p), color, v(dir * 0.8, 0, 0.6))
+		frame.shot = frameOn("daicha-domain-flatten", dir, { a, d }, { yaw = 34, pitch = 2, fill = 0.82, fov = 40, focus = P(A, "UpperTorso") })
+	elseif k <= 8 and tick < H[8] + 6 then
+		-- The disc shoves the target back, blow after blow.
+		a.x, a.facing = tx - dir * gap, dir
 		attack(a, moves, role(ctx, "PalmStrike"), beat < 4)
-		local c1 = form("domaine-swarm1", swarm, -0.4, 1)
-		local c2 = form("domaine-swarm2", swarm, 0.4, -1)
-		dart("domaine-dart" .. k .. "a", swarm, c1, k % swarm.n + 1, 1)
-		dart("domaine-dart" .. k .. "b", swarm, c2, (k + 2) % swarm.n + 1, -1)
-		d.hitstop = if beat < 4 then 1 else 0
-		if beat < 2 then spark(frame, "domaine-hit" .. k, torso, color, 1.2) end
-		frame.shot = frameOn("daicha-domaine-swarm", dir, { d, { point = true, x = cx - 3.4, y = 3.4, z = 0 },
-			{ point = true, x = cx + 3.4, y = 3.4, z = 0 } }, { yaw = lerp(0, 140, progress(tick, swarm.from, swarm.to)), pitch = 76,
-			fill = 0.72, fov = 44, focus = P(D, "UpperTorso") })
-	elseif tick < vortex.to then
-		-- The vortex: three spinning rings stacked up the target lift it off the deck.
-		a.x, a.facing, a.pose = home, dir, "Levitate"
-		d.y, d.pose = lerp(0, 2.2, smooth(progress(tick, vortex.from, vortex.to))), "Launched"
-		local rings = {}
-		for i = 1, 3 do
-			rings[i] = form("domaine-vortex" .. i, vortex, (i - 2) * 2.2 + 0.4, if i == 2 then -1 else 1, vortex.r - (i - 1) * 0.3)
-		end
-		if k >= 9 then
-			for i = 1, 3 do
-				dart("domaine-dart" .. k .. "-" .. i, vortex, rings[i], (k + i) % vortex.n + 1, if i == 2 then -1 else 1, vortex.r - (i - 1) * 0.3)
-			end
-		end
-		d.hitstop = if k >= 9 and beat < 4 then 1 else 0
-		frame.shot = frameOn("daicha-domaine-under", dir, { d, { point = true, x = cx, y = 8, z = 0 } }, { yaw = 6, pitch = -24, fill = 0.68,
-			fov = 50, roll = 180, focus = P(D, "UpperTorso") })
-	elseif tick < data.FinalTick then
-		-- Every orb flies up and merges into the black sphere over the target.
-		local sky = v(cx, 10.5, 0)
-		a.x, a.facing = home, dir
-		attack(a, moves, role(ctx, "KiBlast"), false)
-		d.y, d.pose = 2.2, "Launched"
-		local n = tick - vortex.to
-		local angle = n * 2.4
-		orbDart(frame, "domaine-merge" .. n, v(cx + math.cos(angle) * 2.4, 1.6 + (n % 3) * 2.2, math.sin(angle) * 2.4), sky, color)
-		eclipse(frame, "domaine-sphere", sky, color, 0.55, (data.FinalTick + 4 - vortex.to) / 60)
-		frame.shot = frameOn("daicha-domaine-merge", dir, { a, d, { point = true, x = sky.x, y = sky.y + 2, z = 0 } }, { yaw = 20,
-			pitch = -18, fill = 0.7, fov = 52, roll = -8, focus = P(D, "UpperTorso") })
-	elseif tick < data.FinalTick + 12 then
-		-- The sphere falls on it; the domain implodes.
-		local p = progress(tick, data.FinalTick, data.FinalTick + 6)
-		a.x, a.y, a.facing = home, 0, dir
-		attack(a, moves, role(ctx, "KiBlast"), true)
-		d.y = math.max(d.y, lerp(2.2, 0, p))
-		orbDart(frame, "domaine-fall", v(cx, 10.5, 0), v(cx, 1, 0), color)
-		eclipse(frame, "domaine-crush", v(cx, 1.4, 0), color, 0.5, 0.35)
-		impact(frame, "domaine-slam", v(cx, 2, 0.6), color, 3)
-		for i = 1, 4 do ring(frame, "domaine-implode" .. i, cx, 8 - i * 1.6, 0.1, color) end
-		frame.shot = frameOn("daicha-domaine-crush", dir, { a, d }, { yaw = 4, pitch = 72, fill = 0.5, fov = 48, roll = 24, focus = P(D, "UpperTorso") })
+		matter(frame, "disc", v(tx - dir * 1.1, 3.5, 0.4), 2.5 + (if beat < 2 then 0.3 else 0), color, v(dir * 0.8, 0, 0.6))
+		d.hitstop = if beat < 3 then 1 else 0
+		if beat < 2 then spark(frame, "domain-shove" .. k, v(tx - dir * 0.9, 3.5, 0.9), color, 1.3) end
+		frame.shot = frameOn("daicha-domain-shove", dir, { a, d }, { yaw = 8, pitch = 4, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+	elseif tick < H[11] + 5 then
+		-- Rounded again: quick blows with the sphere round her fist.
+		a.x, a.facing = tx - dir * gap, dir
+		local rounded = smooth(progress(tick, H[8] + 6, H[9]))
+		attack(a, moves, role(ctx, if k % 2 == 0 then "Jab" else "Elbow"), k >= 9 and beat < 4)
+		fist(lerp(0.6, 1.0, rounded))
+		d.hitstop = if k >= 9 and beat < 3 then 1 else 0
+		if k >= 9 and beat < 2 then spark(frame, "domain-jab" .. k, v(tx - dir * 0.5, 3.7, 0.8), color, 1) end
+		frame.shot = frameOn("daicha-domain-reform", dir, { a, d }, { yaw = -28, pitch = 2, fill = 0.8, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < F then
+		-- She swells the sphere huge, pulled back over her shoulder.
+		a.x, a.facing = tx - dir * gap, dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		local p = smooth(progress(tick, H[11] + 5, F))
+		matter(frame, "ball", v(a.x - dir * 0.4, 4.4 + p * 0.8, 0.6), lerp(1.0, 2.3, p), color)
+		frame.aura = A
+		frame.shot = frameOn("daicha-domain-swell", dir, { a, { point = true, x = a.x, y = 7.4, z = 0.6 } }, { yaw = 26, pitch = -18,
+			fill = 0.82, fov = 42, focus = P(A, "Head") })
+	elseif tick < F + 18 then
+		-- The last blow: the sphere is the impact; the target flies across the deck.
+		local p = progress(tick, F, F + 18)
+		a.x, a.facing = tx - dir * gap, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		d.x, d.y, d.pose = tx + dir * lerp(0, 5, easeOutArc(p)), math.sin(p * math.pi) * 2.6, "Launched"
+		matter(frame, "ball", v(lerp(tx - dir * 0.6, d.x, p), 3.6 + d.y * 0.5, 0.5), lerp(2.3, 1.2, p), color)
+		impact(frame, "domain-blast", v(tx, 3.6, 0.6), color, 3.2)
+		matterBurst(frame, "domain-burst2", v(tx, 3.6, 0.6), color, 2)
+		frame.shot = frameOn("daicha-domain-blast", dir, { a, d }, { yaw = 56, pitch = -6, fill = 0.58, fov = 48, focus = P(D, "UpperTorso") })
 	else
-		a.x, a.y, a.facing, a.pose = home, 0, dir, "Levitate"
-		frame.shot = frameOn("daicha-domaine-close", dir, { a }, { yaw = -34, pitch = -6, fill = 0.8, fov = 40, roll = -10, focus = P(A, "Head") })
+		-- The matter comes back to her hand, small and round again.
+		local p = progress(tick, F + 18, F + 34)
+		a.x, a.facing, a.pose = tx - dir * gap, dir, "Levitate"
+		d.x, d.y, d.pose = tx + dir * 5, 0, "Launched"
+		matter(frame, "ball", v(lerp(d.x, a.x + dir * 0.7, smooth(p)), lerp(2, 4.2, smooth(p)), 0.5), lerp(1.2, 0.45, p), color)
+		frame.shot = frameOn("daicha-domain-after", dir, { a }, { yaw = -34, pitch = -6, fill = 0.8, fov = 40, focus = P(A, "Head") })
 	end
 end
 
--- RIVIÈRE D'OMBRES: his eyes upside down turning right side up, a river of shadow flowing
--- along the floor to the target (filmed at floor level), the river dragging it to him, the
--- blows rising out of its own shadow at mirrored places, a violet helix lifting it, the
--- river pulling it back down into the floor.
+-- RIVER OF SHADOWS (~5 s): the sphere drops from her palm and turns liquid on the floor; a
+-- black stream snakes to the target and coils round its feet; it rises in waves that strike
+-- it one after the other (the rhythm prompts); she calls every drop back into her hand and
+-- ends it with one blow at point-blank range.
 function KIT.DAICHA.Awaken(ctx, frame, a, d, tick, dir, color)
 	local cin, moves = ctx.cin, ctx.moveData.Moves
 	local data = ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local cx = center(ctx, d)
-	local last = data.Hits[#data.Hits]
-	local tx, home = cx - dir * 2, cx - dir * 5.6 -- where the river leaves the target, and DAICHA
+	local H, F = data.Hits, data.FinalTick
+	local last = H[#H]
+	local home = cx - dir * 5.2
+	local palm = v(home + dir * 0.6, 6.2, 0.4)
 	frame.grade.crimson, frame.grade.inverse = false, true
-	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
-	if tick < 24 then
-		frame.kanjiBack = ctx.characters[A].Kanji
-		a.x, a.facing, a.pose = home, dir, "Levitate"
-		frame.shot = frameOn("daicha-riviere-gaze", dir, { a }, { yaw = 36, pitch = 2, fill = 1.05, fov = 28, band = "bust",
-			roll = lerp(180, 0, smooth(progress(tick, 0, 24))), focus = P(A, "Head") })
-	elseif tick < 46 then
-		a.x, a.facing, a.pose = home, dir, "Levitate"
-		local n = (tick - 24) // 3
-		ring(frame, "riviere-flow" .. n, lerp(home, cx, (n % 8) / 7), 1.2, 0.08, color)
-		frame.shot = frameOn("daicha-riviere-flow", dir, { a, d }, { yaw = 72, pitch = -2, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
-	elseif tick < data.Hits[1] then
-		local p = smooth(progress(tick, 46, data.Hits[1]))
-		a.x, a.facing, a.pose = home, dir, "Levitate"
-		d.x, d.y, d.pose = lerp(cx, tx, p), 0.6, "Launched"
-		if tick % 3 == 0 then ring(frame, "riviere-drag" .. tick, d.x, 1.6, 0.08, color) end
-		frame.shot = frameOn("daicha-riviere-drag", dir, { a, d }, { yaw = -14, pitch = 12, fill = 0.66, fov = 42, roll = -14,
-			focus = P(D, "UpperTorso") })
-	elseif tick < last + 4 then
-		local k = math.max(1, hitsBefore(data.Hits, tick))
-		d.x, d.y = tx, lerp(0.6, 2, progress(tick, data.Hits[1], last))
-		local mirror = k % 2 == 0
-		around(a, tx, dir, (if mirror then 0.78 else 0.22) * math.pi, 2.7, d.y - 0.4)
-		attack(a, moves, role(ctx, DAICHA_CLAWS[(k * 2) % #DAICHA_CLAWS + 1]), true)
-		a.ghost = true
-		d.hitstop = if tick - data.Hits[k] < 5 then 1 else 0
-		if tick - data.Hits[k] < 2 then frame.impact = { key = "riviere-hit" .. k, color = color } end
-		spark(frame, "riviere-hit" .. k, v(tx, d.y + 3.4, 0.6), color, 1.2)
-		if k == 3 or k == 4 then
-			frame.shot = frameOn("daicha-riviere-under", dir, { a, d }, { yaw = 6, pitch = -22, fill = 0.7, fov = 46, roll = 180,
-				focus = P(D, "UpperTorso") })
-		else
-			frame.shot = frameOn("daicha-riviere-strike", dir, { a, d }, { yaw = if mirror then 54 else -14, pitch = 6, fill = 0.74, fov = 40,
-				roll = if mirror then 12 else -12, focus = P(D, "UpperTorso") })
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	local lift = lerp(0, 2.2, smooth(progress(tick, H[1], last + 4)))
+	-- (the coil round the target's feet, turning)
+	local function coil(n, r, y)
+		for i = 1, n do
+			local angle = tick / 60 * 4 + i / n * math.pi * 2
+			matter(frame, "puddle", v(cx + math.cos(angle) * r, y or 0.06, math.sin(angle) * r), 0.45, color)
 		end
-	elseif tick < data.FinalTick then
-		local p = progress(tick, last + 4, data.FinalTick)
-		a.x, a.z, a.lookDir, a.y, a.facing, a.pose = tx - dir * 3, nil, nil, 0, dir, "Levitate"
-		d.x, d.y, d.pose = tx, lerp(2, 8, smooth(p)), "Launched"
-		table.insert(frame.fx, { key = "riviere-helix", kind = "dragonHelix", pos = v(tx, 0, 0), color = color })
-		frame.shot = frameOn("daicha-riviere-helix", dir, { a, d }, { yaw = lerp(-40, 40, p), pitch = -18, fill = 0.66, fov = 50, focus = P(A, "Head") })
-	elseif tick < data.FinalTick + 16 then
-		a.x, a.y, a.facing = tx - dir * 3, 0, dir
+	end
+	if tick < 20 then
+		-- The sphere rests over her raised palm.
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "KiBlast"), false)
+		matter(frame, "ball", palm, 0.7, color)
+		frame.kanjiBack = ctx.characters[A].Kanji
+		frame.shot = frameOn("daicha-river-palm", dir, { a, { point = true, x = palm.x, y = palm.y + 0.6, z = palm.z } }, { yaw = 28,
+			pitch = -8, fill = 0.92, fov = 34, band = "bust", focus = P(A, "Head") })
+	elseif tick < 34 then
+		-- She lets it fall: it hits the floor and spreads into a puddle.
+		local p = progress(tick, 20, 30)
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		if p < 1 then
+			matter(frame, "ball", v(palm.x, lerp(palm.y, 0.6, p * p), palm.z), 0.7, color)
+		else
+			matter(frame, "puddle", v(palm.x, 0.05, palm.z), lerp(0.7, 1.6, progress(tick, 30, 34)), color)
+		end
+		frame.shot = frameOn("daicha-river-drop", dir, { a, { point = true, x = palm.x, y = 0.4, z = palm.z } }, { yaw = 22, pitch = -12,
+			fill = 0.8, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < 70 then
+		-- A black stream snakes along the floor to the target, then coils round its feet.
+		local p = progress(tick, 34, 64)
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		matter(frame, "puddle", v(palm.x, 0.05, palm.z), lerp(1.6, 0.4, p), color)
+		for j = 0, 6 do
+			local s = math.max(0, p - j * 0.05)
+			if s > 0 then
+				local x = lerp(palm.x, cx, s)
+				matter(frame, "puddle", v(x, 0.06, math.sin(s * 9) * 1.1), 0.75 - j * 0.06, color)
+			end
+		end
+		if tick >= 60 then coil(5, 1.3) end
+		frame.shot = frameOn("daicha-river-snake", dir, { d, { point = true, x = lerp(palm.x, cx, p), y = 0.3, z = 0 } }, { yaw = 40,
+			pitch = 30, fill = 0.66, fov = 44, focus = P(D, "LeftFoot") })
+	elseif tick < last + 6 then
+		-- The waves: each prompt, a wave rises out of the coil and strikes the target.
+		local k = math.max(1, hitsBefore(H, tick))
+		local beat = tick - H[k]
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, DAICHA_CLAWS[(k * 2) % #DAICHA_CLAWS + 1]), beat >= 0 and beat < 5)
+		d.y, d.pose = lift, "Launched"
+		coil(5, 1.3)
+		for j = math.max(1, k - 1), k do
+			local since = tick - (H[j] - 4)
+			if since >= 0 and since < 14 then
+				local angle = j * 2.1
+				local h = 4.6 * math.sin(math.clamp(since / 14, 0, 1) * math.pi)
+				matter(frame, "wave", v(cx + math.cos(angle) * 1.2, h / 2, math.sin(angle) * 1.2), 0.55, color, nil, h)
+			end
+		end
+		d.hitstop = if beat >= 0 and beat < 4 then 1 else 0
+		if beat >= 0 and beat < 2 then
+			frame.impact = { key = "river-wave" .. k, color = color }
+			spark(frame, "river-wave" .. k, v(cx, lift + 3.4, 0.7), color, 1.2)
+		end
+		local high = (k // 2) % 2 == 1
+		frame.shot = frameOn(if high then "daicha-river-waves-high" else "daicha-river-waves-low", dir, { a, d }, { yaw = if high then 40 else 74,
+			pitch = if high then 34 else -16, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+	elseif tick < F - 10 then
+		-- She calls the matter back: every drop flies into her hand, a sphere again.
+		local p = smooth(progress(tick, last + 6, F - 10))
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "KiBlast"), false)
+		d.y, d.pose = 2.2, "Launched"
+		local hand = v(home + dir * 1.2, 3.8, 0.5)
+		for i = 1, 5 do
+			local angle = i * 1.26
+			local from = v(cx + math.cos(angle) * 1.3, 0.2, math.sin(angle) * 1.3)
+			matter(frame, "ball", v(lerp(from.x, hand.x, p), lerp(from.y, hand.y, p) + math.sin(p * math.pi) * 1.5, lerp(from.z, hand.z, p)),
+				0.35, color)
+		end
+		matter(frame, "ball", hand, lerp(0.3, 1.2, p), color)
+		frame.shot = frameOn("daicha-river-gather", dir, { a }, { yaw = -24, pitch = -4, fill = 0.9, fov = 36, band = "bust", focus = P(A, "Head") })
+	elseif tick < F then
+		-- She steps in, the sphere round her fist.
+		local p = smooth(progress(tick, F - 10, F))
+		a.x, a.facing = lerp(home, cx - dir * 2.9, p), dir
+		attack(a, moves, role(ctx, "Finale"), false)
+		d.y, d.pose = 2.2, "Launched"
+		matter(frame, "ball", v(a.x + dir * 1.45, 3.8, 0.5), 1.2, color)
+		frame.shot = frameOn("daicha-river-step", dir, { a, d }, { yaw = 50, pitch = -2, fill = 0.76, fov = 40, focus = P(A, "UpperTorso") })
+	elseif tick < F + 16 then
+		-- The blow at point-blank range: the sphere bursts on the target.
+		local p = progress(tick, F, F + 16)
+		a.x, a.facing = cx - dir * 2.9, dir
 		attack(a, moves, role(ctx, "Finale"), true)
-		impact(frame, "riviere-fall", v(tx, 0.5, 0.6), color, 3)
-		for i = 1, 3 do ring(frame, "riviere-swallow" .. i, tx, i * 1.8, 0.08, color) end
-		frame.shot = frameOn("daicha-riviere-crash", dir, { a, d }, { yaw = -8, pitch = 66, fill = 0.5, fov = 46, roll = -20, focus = P(A, "UpperTorso") })
+		d.y, d.pose = lerp(2.2, 0, p), "Launched"
+		matter(frame, "ball", v(cx - dir * 0.4, 3.4, 0.5), lerp(1.2, 2.4, p) * (1 - p * 0.6), color)
+		impact(frame, "river-impact", v(cx, 3.2, 0.6), color, 3)
+		frame.shot = frameOn("daicha-river-impact", dir, { a, d }, { yaw = 112, pitch = -6, fill = 0.86, fov = 40, focus = P(D, "UpperTorso") })
 	else
-		a.x, a.y, a.facing, a.pose = tx - dir * 3, 0, dir, "Levitate"
+		a.x, a.y, a.facing, a.pose = cx - dir * 2.9, 0, dir, "Levitate"
+		d.y, d.pose = 0, "Launched"
+		matter(frame, "ball", v(a.x + dir * 0.7, 4.2, 0.5), 0.45, color)
 		title(ctx, frame, color, "闇 · DAICHA")
-		frame.shot = frameOn("daicha-riviere-mirror", dir, { a }, { yaw = 30, pitch = -8, fill = 0.8, fov = 38, roll = 10, focus = P(A, "Head") })
+		frame.shot = frameOn("daicha-river-end", dir, { a }, { yaw = 30, pitch = -8, fill = 0.8, fov = 38, roll = 10, focus = P(A, "Head") })
 	end
 end
 
--- 蝕 ÉCLIPSE TOTALE: a black sun rises over the deck (seen from the floor), the target lifted
--- off the floor, DAICHA at every mirror of it (jump cuts), the claw and the dark mark, the
--- world upside down at totality (press R), the corona striking down in a flash.
+-- 蝕 TOTAL ECLIPSE (~7 s): she throws her sphere into the sky; up there it flattens into a
+-- giant disc, an eclipse; seen from behind the target, looking up; she closes her hand
+-- (press R) and the disc comes down at once, swallows the screen: a black flash, the target
+-- crushed into the deck.
 function KIT.DAICHA.Gate(ctx, frame, a, d, tick, dir)
 	local cin, moves = ctx.cin, ctx.moveData.Moves
 	local data = ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local color = ctx.characters[A].Energy
 	local cx = center(ctx, d)
+	local F, prompt = data.FinalTick, data.PromptTicks[1]
+	local sky = v(cx, 18, 0)
+	local home = cx - dir * 5
 	frame.grade.inverse = true
-	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
-	eclipse(frame, "eclipse-sun", v(cx, 17, -8), color, 1)
-	if tick < 30 then
-		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
-		d.state = "Idle"
-		frame.shot = frameOn("daicha-eclipse-sky", dir, { a, d, { point = true, x = cx, y = 17, z = -8 } }, { yaw = 12, pitch = -26, fill = 0.7,
-			fov = 56, focus = P(A, "UpperTorso") })
-	elseif tick < 70 then
-		local p = progress(tick, 30, 70)
-		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
-		d.y, d.pose = lerp(0, 2.6, smooth(p)), "Launched"
-		frame.shot = frameOn("daicha-eclipse-lift", dir, { a, d }, { yaw = -20, pitch = -8, fill = 0.72, fov = 42, roll = lerp(0, 18, p),
-			focus = P(D, "UpperTorso") })
-	elseif tick < data.Hits[1] - 6 then
-		local step = (tick - 70) // 7
-		local mirror = step % 2 == 1
-		d.y, d.pose = 2.6, "Launched"
-		around(a, cx, dir, (if mirror then 0.75 else 0.25) * math.pi + (step % 3) * 0.08, 3, 1.2)
-		a.pose, a.ghost = "Levitate", true
-		pool(frame, "eclipse-pool" .. step, a, color)
-		local view = (step // 2) % 2 == 1 -- (the camera changes side every two blinks)
-		frame.shot = frameOn(if view then "daicha-eclipse-mirror-r" else "daicha-eclipse-mirror-l", dir, { a, d },
-			{ yaw = if view then 64 else -40, pitch = 4, fill = 0.72, fov = 40, roll = if view then -14 else 14, focus = P(D, "UpperTorso") })
-	elseif tick < data.PromptTicks[1] - 14 then
-		d.y, d.pose = 2.6, "Launched"
-		a.x, a.z, a.lookDir, a.y, a.facing = cx - dir * 2.6, nil, nil, 1.2, dir
-		local second = tick >= data.Hits[2]
-		attack(a, moves, role(ctx, if second then "PalmStrike" else "Jab"), tick >= data.Hits[1])
-		if second then
-			table.insert(frame.fx, { key = "eclipse-mark", kind = "kanjiSeal", pos = v(cx, 0.06, 0), color = color,
-				text = ctx.characters[A].Kanji, keep = true })
+	if tick < F then d.x, d.state = cx, "Idle" end
+	-- the disc in the sky: a sphere flying up, flattening, then crashing down
+	local function disc()
+		if tick < 14 then return end
+		if tick < 40 then
+			local p = progress(tick, 14, 40)
+			matter(frame, "ball", v(lerp(home + dir * 0.8, sky.x, p), lerp(4.6, sky.y, easeOutArc(p)), 0), 0.8, color)
+		elseif tick < F - 10 then
+			local p = smooth(progress(tick, 40, 96))
+			matter(frame, "disc", sky, lerp(0.9, 9, p), color, v(0, -1, 0.25))
+		else
+			local p = progress(tick, F - 10, F)
+			matter(frame, "disc", v(cx, lerp(sky.y, 1, p * p), 0), lerp(9, 12, p), color, v(0, -1, 0.25))
 		end
-		frame.shot = frameOn("daicha-eclipse-mark", dir, { a, d }, { yaw = 30, pitch = 2, fill = 0.8, fov = 38, roll = 8, focus = P(D, "UpperTorso") })
-	elseif tick < data.FinalTick then
-		-- Totality: the world upside down, his hand raised to the black sun.
-		d.y, d.pose = 2.6, "Launched"
-		a.x, a.y, a.facing = cx - dir * 2.8, 0, dir
-		attack(a, moves, role(ctx, "Finale"), false)
-		frame.grade.mono = tick >= data.PromptTicks[1] - 4
-		frame.shot = frameOn("daicha-eclipse-totality", dir, { a, d }, { yaw = -30, pitch = -14, fill = lerp(0.8, 1.0, progress(tick,
-			data.PromptTicks[1] - 14, data.FinalTick)), fov = 38, roll = 180, focus = P(A, "UpperTorso") })
-	elseif tick < data.FinalTick + 22 then
-		a.x, a.facing = cx - dir * 2.8, dir
+	end
+	disc()
+	if tick >= 96 and tick < F - 10 then eclipse(frame, "eclipse-corona", v(cx, sky.y, -1.5), color, 1.4, (F - 106) / 60 / (ctx.config.CinematicTimeScale or 1)) end
+	if tick < 24 then
+		-- The sphere in her hand, then thrown up.
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "KiBlast"), tick >= 14)
+		if tick < 14 then matter(frame, "ball", v(home + dir * 0.9, 4.2, 0.5), 0.8, color) end
+		frame.shot = frameOn("daicha-eclipse-throw", dir, { a }, { yaw = 30, pitch = -10, fill = 0.9, fov = 36, band = "bust", focus = P(A, "Head") })
+	elseif tick < 60 then
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		frame.shot = frameOn("daicha-eclipse-rise", dir, { a, { point = true, x = sky.x, y = lerp(8, sky.y, progress(tick, 24, 44)), z = 0 } },
+			{ yaw = 14, pitch = -24, fill = 0.7, fov = 54, focus = P(A, "UpperTorso") })
+	elseif tick < 116 then
+		-- Up there it flattens into a giant disc: an eclipse over the deck.
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		frame.shot = frameOn("daicha-eclipse-disc", dir, { a, d, { point = true, x = sky.x, y = sky.y + 3, z = 0 } }, { yaw = lerp(4, 18,
+			progress(tick, 60, 116)), pitch = -22, fill = 0.6, fov = 60, focus = P(D, "Head") })
+	elseif tick < 156 then
+		-- Behind the target, looking up at the black sun.
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		frame.shot = frameOn("daicha-eclipse-gaze", dir, { d, { point = true, x = sky.x, y = sky.y - 2, z = 0 } }, { yaw = 135, pitch = -44,
+			fill = lerp(0.72, 0.8, progress(tick, 116, 156)), fov = 70, focus = P(D, "Head") })
+	elseif tick < F - 10 then
+		-- Her open hand raised to the disc... she closes it (press R).
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "Finale"), tick >= prompt)
+		frame.grade.mono = tick >= prompt - 4
+		frame.shot = frameOn("daicha-eclipse-hand", dir, { a }, { yaw = 24, pitch = -6, fill = lerp(0.9, 1.02, progress(tick, 156, F - 10)),
+			fov = 30, band = "bust", focus = P(A, "Head") })
+	elseif tick < F then
+		-- The disc crashes down and swallows the screen.
+		a.x, a.facing = home, dir
 		attack(a, moves, role(ctx, "Finale"), true)
-		impact(frame, "eclipse-flash", v(cx, 3.4, 0.6), color, 3.4)
-		for i = 1, 3 do
-			table.insert(frame.fx, { key = "eclipse-bolt" .. i, kind = "lightning", from = v(cx + (i - 2) * 3, 17, -8), to = v(cx, 3, 0.4), color = color })
-		end
-		frame.shot = frameOn("daicha-eclipse-flash", dir, { a, d, { point = true, x = cx, y = 12, z = -6 } }, { yaw = 46, pitch = -10, fill = 0.6,
-			fov = 54, focus = P(D, "UpperTorso") })
+		frame.black = progress(tick, F - 6, F)
+		local fall = progress(tick, F - 10, F)
+		frame.shot = frameOn("daicha-eclipse-fall", dir, { d, { point = true, x = cx, y = math.max(6, lerp(sky.y, 1, fall * fall)), z = 0 } },
+			{ yaw = 20, pitch = -18, fill = 0.66,
+			fov = 52, focus = P(D, "Head") })
+	elseif tick < F + 22 then
+		-- A black flash.
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		d.y, d.pose = 0, "DownFace"
+		frame.black = 1 - progress(tick, F + 14, F + 22)
+		if tick < F + 4 then frame.impact = { key = "eclipse-crush", color = color } end
+		frame.shot = frameOn("daicha-eclipse-black", dir, { d }, { yaw = 10, pitch = 20, fill = 0.6, fov = 44, focus = P(D, "UpperTorso") })
 	else
-		a.x, a.y, a.facing, a.pose = cx - dir * 3.4, 0, dir, "Levitate"
+		-- The target crushed into the deck, the matter spread flat under it.
+		a.x, a.facing, a.pose = home, dir, "Levitate"
+		d.y, d.pose = 0, "DownFace"
+		matter(frame, "puddle", v(cx, 0.05, 0), lerp(2.6, 1.9, progress(tick, F + 22, F + 54)), color)
+		table.insert(frame.fx, { key = "eclipse-crater", kind = "shockwave", pos = v(cx, 0, 0), color = color })
 		local t = kitOf(ctx).GateTitle
 		frame.title = { text = t.text, color = color, sub = t.sub }
-		frame.shot = frameOn("daicha-eclipse-dawn", dir, { a }, { yaw = 40, pitch = -12, fill = 0.78, fov = 40, focus = P(A, "Head") })
+		frame.shot = frameOn("daicha-eclipse-crushed", dir, { a, d }, { yaw = 16, pitch = 48, fill = 0.66, fov = 44, focus = P(D, "UpperTorso") })
 	end
 end
 
@@ -2863,51 +2925,104 @@ function FATAL.SHIN(ctx, frame, a, d, tick, dir)
 	end
 end
 
--- DAICHA 虚 NÉANT: a black sun opens behind the target and pulls it in, the orbs spinning
--- round it; he closes his hand and the void collapses on it.
+-- DAICHA 虚 THE VOID (~10 s): the matter binds the target where it stands; she walks to it
+-- without hurry; her sphere passes behind it and swells until it swallows it whole; close on
+-- her face as she closes her fist (press C): the sphere crushes down to a point; half a
+-- second of silence; a black explosion; the screen black with 虚 THE VOID; then she calmly
+-- takes her sphere back.
 function FATAL.DAICHA(ctx, frame, a, d, tick, dir)
 	local cin, moves = ctx.cin, ctx.moveData.Moves
 	local data = ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local color = ctx.characters[A].Energy
-	local F = data.FinalTick
+	local F, prompt = data.FinalTick, data.PromptTicks[1]
 	local cx = center(ctx, d)
-	local hole = { point = true, x = cx + dir * 3, y = 9, z = -10 }
-	frame.grade.inverse = tick < F + 24
-	-- (the black sun lasts until the void collapses: life in seconds of slowed-down play)
-	eclipse(frame, "neant-sun", v(hole.x, hole.y, hole.z), color, 0.9, (F + 24) / 60 / (ctx.config.CinematicTimeScale or 1))
-	if tick < 36 then
-		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
-		d.x, d.state = cx, "Hitstun"
-		frame.shot = frameOn("daicha-neant-summon", dir, { a, hole }, { yaw = -42, pitch = -10, fill = 0.7, fov = 40, focus = P(A, "UpperTorso") })
-	elseif tick < 100 then
-		local p = smooth(progress(tick, 36, 100))
-		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
-		d.x, d.y, d.state, d.pose = lerp(cx, cx + dir * 1.5, p), lerp(0, 5, p), "Hitstun", "Launched"
-		if tick == 40 then orbs(frame, "neant-crown", v(d.x, 5.5, 0), 2.4, 6, color, 3, 0.6, 0, 0.5) end
-		if (tick - 36) % 8 == 0 then
-			table.insert(frame.fx, { key = "neant-dart" .. tick, kind = "orbDart", from = v(a.x + dir, 4, 0.4), to = v(d.x, d.y + 3, 0.4),
-				color = color })
+	local home, near = cx - dir * 7.5, cx - dir * 4.4
+	local core = v(cx, 3, 0)
+	frame.grade.inverse = tick < F + 6
+	if tick < F then d.x, d.state = cx, "Hitstun" end
+	-- (the bands of matter holding it, until the sphere swallows it)
+	local function bands(r)
+		for i, y in { 1.2, 2.7, 4.2 } do matter(frame, "disc", v(cx, y, 0), r + (i - 2) * 0.1, color, v(0, 1, 0)) end
+	end
+	if tick < 40 then
+		-- The matter lashes out and binds the target.
+		a.x, a.facing = home, dir
+		attack(a, moves, role(ctx, "KiBlast"), tick >= 8)
+		bands(lerp(1.9, 0.95, smooth(progress(tick, 8, 32))))
+		frame.shot = frameOn("daicha-void-bind", dir, { a, d }, { yaw = 30, pitch = -4, fill = 0.66, fov = 42, focus = P(D, "UpperTorso") })
+	elseif tick < 150 then
+		-- She walks to it, calmly.
+		local p = progress(tick, 40, 150)
+		a.x, a.facing, a.state, a.vx = lerp(home, near, p), dir, "Walking", dir * 1.6
+		bands(0.95)
+		matter(frame, "ball", v(a.x + dir * 0.7, 4.2, 0.6), 0.45, color)
+		if tick < 95 then
+			frame.shot = frameOn("daicha-void-walk", dir, { a }, { yaw = 70, pitch = -10, fill = 0.82, fov = 38, focus = P(A, "Head") })
+		else
+			frame.shot = frameOn("daicha-void-approach", dir, { a, d }, { yaw = 118, pitch = -4, fill = 0.8, fov = 44, focus = P(A, "Head") })
 		end
-		frame.shot = frameOn("daicha-neant-pull", dir, { a, d }, { yaw = 30, pitch = 2, fill = 0.55, fov = 40, focus = P(D, "UpperTorso") })
-	elseif tick < F then
-		a.x, a.facing = cx - dir * 5, dir
+	elseif tick < 200 then
+		-- Her sphere passes behind the target and swells.
+		local p = progress(tick, 150, 180)
+		a.x, a.facing, a.pose = near, dir, "Levitate"
+		bands(0.95)
+		local behind = v(cx + dir * 1.4, 3.2, -1.4)
+		local from = v(near + dir * 0.7, 4.2, 0.6)
+		local at = v(lerp(from.x, behind.x, smooth(p)), lerp(from.y, behind.y, p) + math.sin(p * math.pi) * 1.2, lerp(from.z, behind.z, smooth(p)))
+		matter(frame, "ball", at, lerp(0.45, 2.6, smooth(progress(tick, 176, 200))), color)
+		frame.shot = frameOn("daicha-void-grow", dir, { d, { point = true, x = behind.x, y = behind.y + 2, z = behind.z } }, { yaw = -22,
+			pitch = -6, fill = 0.66, fov = 44, focus = P(D, "Head") })
+	elseif tick < 226 then
+		-- It swallows the target whole.
+		local p = smooth(progress(tick, 200, 220))
+		a.x, a.facing, a.pose = near, dir, "Levitate"
+		matter(frame, "ball", v(lerp(cx + dir * 1.4, cx, p), lerp(3.2, core.y, p), lerp(-1.4, 0, p)), lerp(2.6, 3.0, p), color)
+		frame.shot = frameOn("daicha-void-swallow", dir, { a, d }, { yaw = 34, pitch = -2, fill = 0.64, fov = 42, focus = P(D, "UpperTorso") })
+	elseif tick < prompt then
+		-- Close on her: she closes her fist (press C).
+		a.x, a.facing = near, dir
 		attack(a, moves, role(ctx, "Finale"), false)
-		d.x, d.y, d.state, d.pose = cx + dir * 1.5, 5, "Hitstun", "Launched"
-		frame.grade.void = true
-		frame.shot = frameOn("daicha-neant-grip", dir, { a }, { yaw = 24, pitch = -4, fill = 0.75, fov = 30, band = "bust", focus = P(A, "Head") })
-	elseif tick < F + 24 then
-		-- The void closes on it.
-		a.x, a.facing = cx - dir * 5, dir
+		matter(frame, "ball", core, 3.0, color)
+		frame.shot = frameOn("daicha-void-fist", dir, { a }, { yaw = -40, pitch = -4, fill = lerp(0.96, 1.06, progress(tick, 226, prompt)),
+			fov = 28, band = "bust", focus = P(A, "Head") })
+	elseif tick < F - 16 then
+		-- The sphere crushes down to a point.
+		local p = progress(tick, prompt, F - 16)
+		a.x, a.facing = near, dir
 		attack(a, moves, role(ctx, "Finale"), true)
-		d.x, d.y, d.pose = cx + dir * 1.5, 5, "Launched"
-		impact(frame, "neant-collapse", v(hole.x, hole.y, 0.6), "0B0712", 3)
-		frame.shot = frameOn("daicha-neant-collapse", dir, { a, d }, { yaw = 0, pitch = 0, fill = 0.6, fov = 40, focus = P(D, "UpperTorso") })
+		matter(frame, "ball", core, lerp(3.0, 0.06, p * p), color)
+		frame.shot = frameOn("daicha-void-crush", dir, { a, d }, { yaw = 8, pitch = 0, fill = 0.62, fov = 40, focus = P(D, "UpperTorso") })
+	elseif tick < F then
+		-- Half a second of silence: a point of black, nothing moves.
+		a.x, a.facing = near, dir
+		attack(a, moves, role(ctx, "Finale"), true)
+		matter(frame, "ball", core, 0.06, color)
+		frame.silence = true
+		frame.shot = frameOn("daicha-void-silence", dir, { { point = true, x = core.x, y = core.y, z = 0 }, d }, { yaw = 0, pitch = 0, fill = 0.4,
+			fov = 34, focus = P(D, "UpperTorso") })
+	elseif tick < F + 40 then
+		-- A black explosion, then the screen black: 虚 THE VOID.
+		local p = progress(tick, F, F + 8)
+		a.x, a.facing, a.pose = near, dir, "Levitate"
+		d.y, d.pose = 0, "DownFace"
+		if p < 1 then matter(frame, "ball", core, lerp(0.06, 7, p), "0B0712") end
+		if tick < F + 4 then
+			impact(frame, "void-blast", v(cx, 3, 0.6), "0B0712", 3.6)
+			matterBurst(frame, "void-burst", v(cx, 3, 0.6), color, 2.4)
+		end
+		frame.black = progress(tick, F + 4, F + 10)
+		if tick >= F + 10 then frame.title = { text = "虚", color = color, sub = "THE VOID" } end
+		frame.shot = frameOn("daicha-void-black", dir, { a, d }, { yaw = 20, pitch = 6, fill = 0.6, fov = 46, focus = P(D, "UpperTorso") })
 	else
-		a.x, a.facing, a.pose = cx - dir * 5, dir, "Levitate"
-		d.x = cx + dir * 1.5
-		FATAL.fall(cin, d, tick, F + 24, 5)
-		frame.shot = frameOn("daicha-neant-after", dir, { a, d }, { yaw = -16, pitch = 4, fill = 0.55, fov = 38, focus = P(A, "UpperTorso") })
+		-- The light comes back: the target on the deck; she calmly takes her sphere back.
+		local p = smooth(progress(tick, F + 40, F + 64))
+		a.x, a.facing, a.pose = near, dir, "Levitate"
+		d.x = cx
+		FATAL.fall(cin, d, tick, F + 40, 0.4)
+		frame.black = 1 - progress(tick, F + 40, F + 48)
+		matter(frame, "ball", v(lerp(cx, near + dir * 0.7, p), lerp(1, 4.2, p) + math.sin(p * math.pi), lerp(0, 0.6, p)), 0.45, color)
+		frame.shot = frameOn("daicha-void-return", dir, { a, d }, { yaw = 28, pitch = 4, fill = 0.6, fov = 40, focus = P(A, "UpperTorso") })
 		FATAL.title(ctx, frame, tick, F, color)
 	end
 end

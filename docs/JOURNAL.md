@@ -1,5 +1,31 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.0 — 5 octobre 2026 · DAICHA : LA FORME DE L'OMBRE
+
+Wilhem : « ses animations ne sont pas belles ». Principe donné : « Daicha ne change pas de pouvoir selon l'action ; elle change la FORME de son pouvoir. » En attaque, une sphère ronde et dense ; en défense, la même matière aplatie en disque noir devant elle. Wilhem parle de DAICHA au féminin : textes passés au féminin.
+
+**En combat** (`OrbFlight.luau`, `EffectsController:flyOrb`) :
+- Fini le nunchaku. Pendant la préparation d'un coup, la matière quitte son orbite et se rassemble dans sa main en se compactant (sphère plus petite et plus dense).
+- Elle part avec le coup jusqu'au point d'impact, où elle gonfle (la sphère est l'impact), puis revient à la main et à son orbite.
+- En garde (haute ou basse), elle s'étale en un large disque noir bordé de sa couleur de ki, tourné vers l'adversaire. Le passage sphère ↔ disque se fait en douceur.
+- Les anneaux de garde et la chaîne d'avant sont retirés.
+- Nouveau `OrbFlight.form` (boule / disque, rayon, épaisseur), testé.
+
+**Ses 4 ultimes refaits selon la description de Wilhem** (`CinematicDirector`, nouvelle « matière » dessinée image par image : boule, disque, flaque, vague) :
+1. DARK DOMAIN, ruée (~3,5 s) : elle fonce, la matière en grosse sphère autour du poing ; premier impact qui broie la cible ; la sphère s'aplatit d'un coup en disque qui repousse la cible ; elle la reforme en sphère pour des coups rapides ; elle la gonfle énorme ; le dernier coup projette l'ennemi à travers l'arène ; la matière revient dans sa main.
+2. RIVER OF SHADOWS, éveil (~5,5 s) : la sphère tombe de sa paume et devient liquide ; un flot noir serpente jusqu'à la cible et s'enroule autour de ses pieds ; des vagues en jaillissent et la frappent une à une, au rythme des touches ; elle rappelle toute la matière dans sa main ; un impact à bout portant.
+3. 蝕 TOTAL ECLIPSE, porte (~7 s) : elle lance la sphère dans le ciel ; là-haut elle s'aplatit en disque géant, une éclipse (couronne) ; plan derrière la cible qui regarde le ciel ; elle ferme la main (touche R) ; le disque s'écrase et avale l'écran ; flash noir ; la cible écrasée au sol sur une flaque de matière.
+4. 虚 THE VOID, coup fatal (~10 s) : la matière immobilise la cible (anneaux) ; elle marche tranquillement vers elle ; la sphère passe derrière la cible, grossit et l'avale entière ; gros plan, elle ferme le poing (touche C) ; la sphère se comprime d'un coup jusqu'à un point ; une demi-seconde de silence ; explosion noire ; écran noir avec 虚 THE VOID ; retour caméra, elle récupère calmement sa sphère.
+
+Durées propres à DAICHA (`CinematicTuning`), mêmes coups et mêmes dégâts qu'avant. Nouvel effet « éclat de matière » (gouttes noires), signature de sa ruée. Le storyboard dessine maintenant la matière (`MATTER`).
+
+Tests :
+- Animation : forme de la matière (se compacte, gonfle à l'impact, disque en garde).
+- CinematicDirector : la ruée de DAICHA va maintenant au contact (son poing), signature « matterBurst ».
+- Cinématographie et directeur relancés.
+
+À voir dans Studio par Wilhem : rendu réel de la matière (sphère, disque, flaque, vagues), lisibilité du disque de garde.
+
 ## Version 0.22.0 — 5 octobre 2026 · TUTORIEL, PRIX PAR PERSO
 
 Demande de Wilhem : un petit tutoriel des commandes au premier lancement (qu'on peut passer), et des prix différents par perso : plus chers pour les plus stylés, skins aux prix cohérents.

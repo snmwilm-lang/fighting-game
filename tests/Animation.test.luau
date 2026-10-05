@@ -1119,7 +1119,7 @@ test("SHIN's katana never stands up out of the floor when he is down or getting 
 	end
 end)
 
-test("DAICHA's orb flies round him: circles when idle, out of his body, strikes at the end of the reach and comes back", function()
+test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a sphere, a disc in guard, comes back", function()
 	local OrbFlight = require("../src/shared/OrbFlight")
 	-- Idle: over one period it goes all the way round (in front, behind, both sides), never inside him.
 	local front, back, near, far = false, false, false, false
@@ -1145,24 +1145,36 @@ test("DAICHA's orb flies round him: circles when idle, out of his body, strikes 
 			expect(math.abs(back.fwd - orbit.fwd) + math.abs(back.side - orbit.side) < 0.01, id .. ": the orb never returns to its orbit")
 		end
 	end
-	-- Like a nunchaku: during a strike it never goes through him nor under the deck, and with
-	-- the time to wind up it spins round behind his hand before whipping out.
-	local spun = 0
+	-- (Wilhem) its FORM: during a strike it never goes through her nor under the deck; it
+	-- gathers at her hand during the wind-up, compacting (a smaller ball), and swells on contact.
+	local gathered = 0
 	for role, id in MoveData.Kits.DAICHA.Roles do
 		local m = MoveData.Moves[id]
 		if m.hitbox and role ~= "DragonTornado" and role ~= "RisingWind" then
-			local behind = false
 			for frame = 0, m.startup + m.active + m.recovery do
 				local o = OrbFlight.offset({ state = "Attack", move = id, moveFrame = frame }, m, role, 1)
 				expect(o.up >= 0.6, string.format("%s frame %d: the orb is under the deck", id, frame))
 				expect(math.sqrt(o.fwd ^ 2 + o.side ^ 2) >= 0.9 or o.up > 6.2,
-					string.format("%s frame %d: the orb goes through his body", id, frame))
-				if frame <= m.startup and o.fwd < OrbFlight.NUNCHAKU.pivotFwd - 0.6 then behind = true end
+					string.format("%s frame %d: the orb goes through her body", id, frame))
 			end
-			if behind then spun += 1 end
+			local wind = OrbFlight.offset({ state = "Attack", move = id, moveFrame = m.startup - 2 }, m, role, 1)
+			local hand = OrbFlight.hand(OrbFlight.strike(m))
+			if m.startup >= 5 and math.abs(wind.fwd - hand.fwd) + math.abs(wind.up - hand.up) < 0.6 then gathered += 1 end
+			local function radius(frame)
+				local f = OrbFlight.form({ state = "Attack", move = id, moveFrame = frame }, m)
+				expect(f.shape == "ball", id .. ": a strike that is not a sphere")
+				return f.radius
+			end
+			expect(radius(m.startup) < radius(0), id .. ": the matter does not compact during the wind-up")
+			expect(radius(m.startup + 1) > radius(0) * 1.5, id .. ": the sphere does not swell on contact")
 		end
 	end
-	expect(spun >= 6, string.format("the orb only spins round his hand on %d strikes", spun))
+	expect(gathered >= 6, string.format("the matter only gathers in her hand on %d strikes", gathered))
+	-- Guard: the same matter flattened into a wide disc before her; idle: a sphere again.
+	local disc = OrbFlight.form({ state = "Blocking" }, nil)
+	expect(disc.shape == "disc" and disc.radius > 1.4 and disc.thickness < 0.3, "the guard is not a flat disc")
+	expect(OrbFlight.form({ state = "CrouchBlockstun" }, nil).shape == "disc", "the low guard is not a disc")
+	expect(OrbFlight.form({ state = "Idle" }, nil).shape == "ball", "the idle matter is not a sphere")
 	-- Guard: a shield before him.
 	local guard = OrbFlight.offset({ state = "Blocking" }, nil, nil, 0)
 	expect(guard.fwd > 1, "the orb does not shield him")

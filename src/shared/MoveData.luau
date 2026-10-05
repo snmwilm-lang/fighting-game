@@ -1113,12 +1113,20 @@ kit("SHIN", {
 kit("DAICHA", {
 	Kanji = "闇", Role = "ZONING",
 	Difficulty = 3,
-	Description = "Mysterious: controls space. INVERTED SPHERE (S + E), TELEPORT, and INVERTED SHADOW: his dash goes through the opponent.",
+	Description = "Mysterious: controls space. INVERTED SPHERE (S + E), TELEPORT, and INVERTED SHADOW: her dash goes through the opponent.",
 	Roles = DAICHA,
 	Stats = { MaxHealth = 1500, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
 	-- OMBRE INVERSÉE: a forward dash within Range studs of the opponent blinks through to
 	-- Gap studs behind them, untouchable for Invuln ticks; Cooldown before the next dash.
 	Passive = { Type = "Blink", Name = "INVERTED SHADOW", Range = 5, Gap = 1.8, Invuln = 10, Cooldown = 54 },
+	-- Her four ultimates' own timing (Wilhem: ~3, ~5, ~7 and ~10 s at the cinematic's slow
+	-- motion); the same blows and damage as everyone's, spread over her scenes.
+	CinematicTuning = {
+		Rush = { Length = 128, FinalTick = 92, Hits = { 26, 29, 32, 35, 38, 50, 56, 62, 70, 75, 80 } },
+		Awaken = { Length = 200, FinalTick = 166, Hits = { 78, 88, 98, 108, 118, 128, 138 }, PromptTicks = { 74, 94, 114, 134 } },
+		Gate = { Length = 262, FinalTick = 206, Hits = { 198, 202 }, PromptTicks = { 192 } },
+		Fatal = { Length = 350, FinalTick = 266, PromptTicks = { 244 } },
+	},
 	RouteNames = { "CHAIN", "LAUNCHER", "MARK", "WALL", "FALL", "REAPER", "DISTORTION", "RIVER", "ARROW", "INVERSION", "ECLIPSE" },
 	FullRouteNames = { "DISTORTION", "RIVER", "ARROW", "INVERSION", "WALL", "ECLIPSE" },
 	GateTitle = { text = "蝕", sub = "TOTAL ECLIPSE" },

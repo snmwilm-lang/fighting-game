@@ -500,7 +500,7 @@ end)
 test("every rush (R) is staged its own way: own effects, own way of fighting", function()
 	-- Each kit's rush asks for effects only it uses.
 	local SIGNATURE = { KAI = { "kiBeam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },
-		RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "orbs", "orbDart" }, HIBECARES = { "rockLine" } }
+		RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "matterBurst" }, HIBECARES = { "rockLine" } }
 	for name, theme in Director.THEMES do SIGNATURE[name] = { theme.fx.line, theme.fx.burst, theme.fx.ground } end
 	local staging = {}
 	for _, kit in KITS do staging[kit] = rushStaging(kit) end
@@ -512,9 +512,8 @@ test("every rush (R) is staged its own way: own effects, own way of fighting", f
 			end
 		end
 	end
-	-- DAICHA never touches the target: his orbs do; RYUKEN juggles it up high; every step
-	-- of HIBECARES shakes the deck.
-	expect(staging.DAICHA.closest >= 4, string.format("DAICHA comes %.1f studs from the target", staging.DAICHA.closest))
+	-- (DAICHA strikes with her matter round her fist now: Wilhem's DARK DOMAIN) RYUKEN juggles it
+	-- up high; every step of HIBECARES shakes the deck.
 	for kit, s in staging do
 		expect(s.closest >= 1.2, string.format("%s's rush walks through the target (%.1f studs)", kit, s.closest))
 	end

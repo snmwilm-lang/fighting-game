@@ -1,16 +1,19 @@
 --[[
-	DAICHA's shadow orb flies on its own around him (pure: no Roblox API, no require). From his
-	view (state, move and frame), his move's data, the move's role (its combo slot: the vortex
-	roles whirl the orb) and the time, `offset` gives where the orb is, relative to his feet:
-	`fwd` toward the side he faces, `up`, and `side` toward the camera (+Z). The client moves the
-	orb there every frame; the pose sheets and storyboards draw it there; the tests check it.
-	  idle, walking, jumping: it circles him at chest height, bobbing;
-	  attacking: like a nunchaku on a chain of shadow from his hand: it leaves its orbit and
-	             spins round his hand during the wind-up (one full turn, overhead and behind),
-	             whips out on an arc to the point of impact (the end of the move's reach) for the
-	             contact, carries on round, down and back under, and returns to its orbit;
-	  guarding:  it holds before him as a shield;
-	  hit:       it drifts back behind him.
+	DAICHA's shadow matter (pure: no Roblox API, no require). Wilhem: « elle ne change pas de
+	pouvoir selon l'action ; elle change la FORME de son pouvoir »: ATTACK = a round, dense
+	sphere; DEFENCE = the same matter spread flat into a black disc before her.
+	From her view (state, move and frame), the move's data, its role and the time, `offset`
+	gives where the matter is, relative to her feet (`fwd` toward the side she faces, `up`,
+	`side` toward the camera), and `form` its shape (a ball of `radius`, or a disc of `radius`
+	and `thickness` facing the opponent). The client draws it there every frame; the pose
+	sheets and storyboards draw it there; the tests check it.
+	  idle, walking, jumping: a sphere circling her at chest height, bobbing;
+	  attacking: it leaves its orbit and gathers at her striking hand, compacting (smaller,
+	             denser) during the wind-up; it drives out with the blow to the point of impact,
+	             swelling on contact (the sphere IS the impact); then back to the hand, then
+	             to its orbit;
+	  guarding:  it flattens into a wide black disc, a shield before her;
+	  hit:       it drifts back behind her, small.
 ]]
 local OrbFlight = {}
 
@@ -28,15 +31,8 @@ local function mix(a, b, t)
 	return { fwd = a.fwd + (b.fwd - a.fwd) * t, up = a.up + (b.up - a.up) * t, side = a.side + (b.side - a.side) * t }
 end
 
--- The nunchaku: the hand it spins round, the short chain of the wind-up, the share of the
--- startup spent whipping out, how far round it carries on after the contact.
-OrbFlight.NUNCHAKU = { pivotFwd = 0.7, chain = 1.3, side = 1.2, whip = 0.4, follow = 1.3 }
-
--- A point of the circle of radius r round the pivot p, at `angle` (radians: 0 = straight
--- ahead, pi / 2 = straight up), in his fighting plane (never under the deck).
-local function round(p, r, angle, side)
-	return { fwd = p.fwd + math.cos(angle) * r, up = math.max(0.6, p.up + math.sin(angle) * r), side = side }
-end
+-- Her striking hand, where the matter gathers before a blow (toward the camera: never in her body).
+OrbFlight.HAND = { fwd = 0.75, side = 1.05 }
 
 -- Its place on the orbit at `time` (lower when he crouches).
 function OrbFlight.orbit(time, crouching)
@@ -61,7 +57,7 @@ function OrbFlight.offset(view, move, role, time)
 	local crouching = state == "Crouching" or state == "CrouchBlocking" or state == "CrouchBlockstun"
 	local orbit = OrbFlight.orbit(time, crouching)
 	if GUARD[state] then
-		return { fwd = 1.6, up = if crouching then 2.4 else 3.6, side = 0.3 }
+		return { fwd = 1.5, up = if crouching then 2.3 else 3.5, side = 0.2 } -- (the disc, before her)
 	elseif HURT[state] then
 		return { fwd = -1.6, up = 3.6, side = 0.8 }
 	elseif state == "Dashing" then
@@ -76,40 +72,61 @@ function OrbFlight.offset(view, move, role, time)
 		local r = 2.7
 		return { fwd = math.cos(angle) * r, up = 3.2 + math.sin(time * 9) * 0.8, side = math.sin(angle) * r }
 	end
-	local n = OrbFlight.NUNCHAKU
 	local hit = OrbFlight.strike(move)
-	local pivot = { fwd = n.pivotFwd, up = math.clamp(hit.up + 0.3, 2.6, 4.6) }
-	local reach = math.max(n.chain, math.sqrt((hit.fwd - pivot.fwd) ^ 2 + (hit.up - pivot.up) ^ 2))
-	local aim = math.atan2(hit.up - pivot.up, hit.fwd - pivot.fwd)
-	local cocked = aim + math.pi * 0.6 -- up and behind, where the whip starts
-	local whip = math.max(2, math.floor(startup * n.whip + 0.5))
-	if frame <= startup - whip then
-		-- The wind-up: out of its orbit into a turn round his hand (a full one when there is
-		-- time, half of one for a quick move), ending cocked.
-		local u = math.max(frame, 0) / math.max(1, startup - whip)
-		local turns = math.clamp((startup - whip) / 8, 0.5, 1)
-		local spin = round(pivot, n.chain, cocked - (1 - u) * turns * math.pi * 2, n.side)
-		return mix(orbit, spin, smooth(u * 3))
+	local hand = OrbFlight.hand(hit)
+	local out
+	if frame <= startup - 2 then
+		-- The wind-up: out of its orbit into her hand.
+		out = mix(orbit, hand, smooth(math.max(frame, 0) / math.max(1, startup - 2) * 1.6))
 	elseif frame <= startup then
-		-- The whip: over the top to the point of impact, faster and faster, the chain paying out.
-		local u = (frame - (startup - whip)) / whip
-		local at = round(pivot, n.chain + (reach - n.chain) * u, cocked + (aim - cocked) * u * u, n.side + (hit.side - n.side) * u)
-		return at
+		-- The blow: the sphere drives out with the fist.
+		out = mix(hand, hit, (frame - (startup - 2)) / 2)
 	elseif frame <= startup + active then
 		-- (multi-hit moves: a little jolt on every beat)
 		local beat = if move.hitInterval then math.floor((frame - startup - 1) / move.hitInterval) % 2 else 0
-		return { fwd = hit.fwd - beat * 0.4, up = hit.up + beat * 0.3, side = hit.side }
+		out = { fwd = hit.fwd - beat * 0.4, up = hit.up + beat * 0.3, side = hit.side }
+	else
+		-- Back to her hand, then to its orbit.
+		local u = (frame - startup - active) / math.max(1, recovery)
+		out = mix(mix(hit, hand, smooth(u * 2)), orbit, smooth((u - 0.5) / 0.5))
 	end
-	-- Follow-through: it carries on round, down and back under his hand, then rejoins its orbit.
+	return OrbFlight.clear(out)
+end
+
+-- Never through her body (the matter passes round her side), never under the deck.
+function OrbFlight.clear(o)
+	o.up = math.max(0.6, o.up)
+	if o.up < 6.2 and o.fwd * o.fwd + o.side * o.side < 1 then
+		o.side = math.sqrt(1 - math.min(1, o.fwd * o.fwd))
+	end
+	return o
+end
+
+-- Where her striking hand holds the matter before the blow (at the height of the impact).
+function OrbFlight.hand(hit)
+	local h = OrbFlight.HAND
+	return { fwd = h.fwd, up = math.clamp(hit.up, 2.4, 4.6), side = h.side }
+end
+
+-- The SHAPE of the matter. Attack: a ball compacting during the wind-up, swelling on contact.
+-- Guard: a flat disc facing the opponent. Returns { shape = "ball", radius } or
+-- { shape = "disc", radius, thickness }.
+OrbFlight.SIZE = { rest = 0.45, dense = 0.3, impact = 0.85, disc = 1.8, thickness = 0.16, hurt = 0.35 }
+function OrbFlight.form(view, move)
+	local S = OrbFlight.SIZE
+	local state = view.state
+	if GUARD[state] then return { shape = "disc", radius = S.disc, thickness = S.thickness } end
+	if HURT[state] then return { shape = "ball", radius = S.hurt } end
+	if state ~= "Attack" or not move then return { shape = "ball", radius = S.rest } end
+	local frame, startup, active, recovery = view.moveFrame or 0, move.startup, move.active, move.recovery
+	if frame <= startup then
+		return { shape = "ball", radius = S.rest + (S.dense - S.rest) * smooth(frame / math.max(1, startup)) }
+	elseif frame <= startup + active then
+		local since = frame - startup
+		return { shape = "ball", radius = S.impact - (S.impact - S.rest * 1.2) * smooth((since - 2) / math.max(1, active)) }
+	end
 	local u = (frame - startup - active) / math.max(1, recovery)
-	local swing = round(pivot, reach + (n.chain - reach) * smooth(u * 1.5), aim - math.pi * n.follow * smooth(u * 1.5),
-		hit.side + (n.side - hit.side) * smooth(u * 3))
-	local out = mix(swing, orbit, smooth((u - 0.5) / 0.5))
-	-- (passing back by him, the chain swings it round his side, never through his body)
-	if out.up < 6.2 and out.fwd * out.fwd + out.side * out.side < 1 then
-		out.side = math.sqrt(1 - math.min(1, out.fwd * out.fwd))
-	end
-	return out
+	return { shape = "ball", radius = S.rest * 1.2 + (S.rest - S.rest * 1.2) * smooth(u) }
 end
 
 return OrbFlight

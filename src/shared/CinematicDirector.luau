@@ -2249,7 +2249,7 @@ function KIT.DAICHA.Gate(ctx, frame, a, d, tick, dir)
 	elseif tick < giantFrom then
 		-- Close on the target, the spheres bursting round it.
 		a.x, a.facing, a.pose = home, dir, "Levitate"
-		frame.shot = frameOn("daicha-eclipse-hail", dir, { d }, { yaw = 40, pitch = -8, fill = 0.72, fov = 46, focus = P(D, "UpperTorso") })
+		frame.shot = frameOn("daicha-eclipse-hail", dir, { d }, { yaw = 70, pitch = -8, fill = 0.72, fov = 46, focus = P(D, "UpperTorso") })
 	elseif tick < F then
 		-- The last sphere, gigantic, comes down on it.
 		local p = progress(tick, giantFrom, F)

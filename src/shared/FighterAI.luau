@@ -341,6 +341,17 @@ function FighterAI:think(world, slot)
 	if foe.stunKind == "Evade" and (foe.evadeCounter or 0) > 0 and not me.move and me.stun == 0 then
 		self.plan, self.blockTicks, self.blockLow = nil, 16, false
 	end
+	-- AKEMI's counter in our back: read it as often as we would counter (a fresh press of the
+	-- guard in her tight window: let go of it this tick if held, press it the next).
+	if (me.blinkRead or 0) > 0 then
+		if self.readTry == nil then self.readTry = self:chance(self.level.counter) end
+		if self.readTry then
+			input.block = not me.blockHeld
+			return input
+		end
+	else
+		self.readTry = nil
+	end
 	-- AKEMI right after an evade: the counter behind the attacker (as often as it counters).
 	if (me.evadeCounter or 0) > 0 and me.stunKind == "Evade" and me.meter >= (kit.Passive.CounterCost or 0)
 		and self:chance(self.level.counter) then

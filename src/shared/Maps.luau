@@ -13,7 +13,8 @@
 	  light      colour of its lamps (lanterns, neon, lava...)
 	  air        falling or rising particles { kind, colours, rate }
 	  mist       colour of the ground mist
-	  lighting   { clock, brightness, ambient, outdoor, tint, contrast, saturation, bloom,
+	  lighting   { clock, brightness, ambient, outdoor, tint, contrast, saturation, bloom, exposure (the
+	             camera's exposure compensation, ≤ 0: Wilhem, « la luminosité de certaines maps, c'est abusé »),
 	             atmosphere, decay, density, haze }
 ]]
 local Maps = {}
@@ -29,8 +30,8 @@ Maps.LIST = {
 		light = "FF5A4E",
 		air = { kind = "petals", colors = { "FFE3E7", "FF6B7D" }, rate = 9 },
 		mist = "C85060",
-		lighting = { clock = 17.4, brightness = 2.4, ambient = "8E7276", outdoor = "A88286", tint = "FFF0EE", contrast = 0.18,
-			saturation = 0.22, bloom = 0.75, atmosphere = "A8283A", decay = "1F070C", density = 0.32, haze = 1.5 },
+		lighting = { clock = 17.4, brightness = 1.9, ambient = "7E6266", outdoor = "987276", tint = "FFF0EE", contrast = 0.18, exposure = -0.15,
+			saturation = 0.22, bloom = 0.5, atmosphere = "A8283A", decay = "1F070C", density = 0.32, haze = 1.5 },
 	},
 	{
 		id = "FROZEN", name = "FROZEN LAKE", kanji = "氷", props = "ice",
@@ -42,8 +43,8 @@ Maps.LIST = {
 		light = "8FE0FF",
 		air = { kind = "snow", colors = { "FFFFFF", "CFEFFF" }, rate = 16 },
 		mist = "B8E0FF",
-		lighting = { clock = 0.5, brightness = 1.6, ambient = "5A6E90", outdoor = "7A90B8", tint = "E8F4FF", contrast = 0.15,
-			saturation = 0.05, bloom = 0.9, atmosphere = "6A8AB8", decay = "0A1424", density = 0.36, haze = 2 },
+		lighting = { clock = 0.5, brightness = 1.5, ambient = "5A6E90", outdoor = "7A90B8", tint = "E8F4FF", contrast = 0.15, exposure = -0.2,
+			saturation = 0.05, bloom = 0.55, atmosphere = "6A8AB8", decay = "0A1424", density = 0.36, haze = 2 },
 	},
 	{
 		id = "NEON", name = "NEON ROOFTOP", kanji = "街", props = "city",
@@ -56,7 +57,7 @@ Maps.LIST = {
 		air = { kind = "rain", colors = { "B8D8FF", "6A8ACC" }, rate = 40 },
 		mist = "5A3A8A",
 		lighting = { clock = 22, brightness = 1.2, ambient = "4A3A6A", outdoor = "5A4A80", tint = "F0E8FF", contrast = 0.25,
-			saturation = 0.35, bloom = 1.1, atmosphere = "3A2060", decay = "0A0518", density = 0.3, haze = 1.2 },
+			saturation = 0.35, bloom = 0.7, atmosphere = "3A2060", decay = "0A0518", density = 0.3, haze = 1.2 },
 	},
 	{
 		id = "VOLCANO", name = "VOLCANO FORGE", kanji = "炎", props = "volcano",
@@ -68,8 +69,8 @@ Maps.LIST = {
 		light = "FF7A2A",
 		air = { kind = "embers", colors = { "FFE0A0", "FF4A10" }, rate = 22 },
 		mist = "6A2A1A",
-		lighting = { clock = 18.2, brightness = 2, ambient = "8A4A3A", outdoor = "A85A40", tint = "FFE8D8", contrast = 0.28,
-			saturation = 0.25, bloom = 1, atmosphere = "8A2A10", decay = "200804", density = 0.4, haze = 2.2 },
+		lighting = { clock = 18.2, brightness = 1.7, ambient = "8A4A3A", outdoor = "A85A40", tint = "FFE8D8", contrast = 0.28, exposure = -0.1,
+			saturation = 0.25, bloom = 0.6, atmosphere = "8A2A10", decay = "200804", density = 0.4, haze = 2.2 },
 	},
 	{
 		id = "BAMBOO", name = "BAMBOO DOJO", kanji = "竹", props = "bamboo",
@@ -81,8 +82,8 @@ Maps.LIST = {
 		light = "FFE08A",
 		air = { kind = "leaves", colors = { "B8E070", "6AA040" }, rate = 7 },
 		mist = "A8D8A0",
-		lighting = { clock = 9.5, brightness = 2.6, ambient = "8A9A7A", outdoor = "A8B890", tint = "F4FFE8", contrast = 0.12,
-			saturation = 0.18, bloom = 0.6, atmosphere = "A8C890", decay = "4A6A40", density = 0.28, haze = 1.4 },
+		lighting = { clock = 9.5, brightness = 2, ambient = "7A8A6A", outdoor = "98A880", tint = "F4FFE8", contrast = 0.14, exposure = -0.2,
+			saturation = 0.18, bloom = 0.45, atmosphere = "A8C890", decay = "4A6A40", density = 0.28, haze = 1.4 },
 	},
 	{
 		id = "SKY", name = "CLOUD PALACE", kanji = "天", props = "sky",
@@ -94,8 +95,8 @@ Maps.LIST = {
 		light = "FFE8A0",
 		air = { kind = "feathers", colors = { "FFFFFF", "FFE8C0" }, rate = 6 },
 		mist = "FFFFFF",
-		lighting = { clock = 6.4, brightness = 2.8, ambient = "B8A8C8", outdoor = "D8C8E0", tint = "FFF6EC", contrast = 0.1,
-			saturation = 0.2, bloom = 0.85, atmosphere = "F0C8A8", decay = "6A5A90", density = 0.3, haze = 1.6 },
+		lighting = { clock = 6.4, brightness = 2, ambient = "9A8CAA", outdoor = "B8A8C4", tint = "FFF6EC", contrast = 0.14, exposure = -0.3,
+			saturation = 0.2, bloom = 0.5, atmosphere = "F0C8A8", decay = "6A5A90", density = 0.3, haze = 1.6 },
 	},
 }
 

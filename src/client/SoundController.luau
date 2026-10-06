@@ -171,6 +171,8 @@ function SoundController:onEvent(event)
 		if event.counter then self:playAll(ACTIONS.Counter) end
 		if event.cinematic then self:playAll(ACTIONS.Cinematic) end
 		if event.ko then self:playAll(ACTIONS.KO) end
+	elseif kind == "Read" then
+		self:playAll(ACTIONS.BlockSteel) -- (AKEMI's counter read: a sharp guard)
 	elseif kind == "Parry" then
 		self:playAll(if event.absorbed then ACTIONS.Wall else ACTIONS.Parry)
 	elseif kind == "Projectile" then

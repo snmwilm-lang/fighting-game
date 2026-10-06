@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterData = require(Shared.CharacterData)
 local MoveData = require(Shared.MoveData)
+local Theme = require(script.Parent.MenuTheme) -- (the fight's buttons wear the menu's design)
 
 local HUD = {}
 
@@ -265,10 +266,9 @@ function HUD.new(config)
 	local topRow = new("Frame", { Name = "TopButtons", BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 134),
 		Size = UDim2.fromOffset(600, 30) }, gui)
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, topRow)
-	local tools = new("Frame", { Name = "Tools", Visible = false, BackgroundColor3 = INK, BackgroundTransparency = 0.12, BorderSizePixel = 0,
+	local tools = new("Frame", { Name = "Tools", Visible = false, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(12, 170), Size = UDim2.fromOffset(230, 0), AutomaticSize = Enum.AutomaticSize.Y }, gui)
-	stroke(tools, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	corner(tools, 6)
+	Theme.surface(tools, Theme.RED) -- (the menu's panels: gradient, fine edge, red rule on top)
 	new("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, tools)
 	new("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8),
 		PaddingRight = UDim.new(0, 8) }, tools)
@@ -280,25 +280,23 @@ function HUD.new(config)
 			Font = UI_FONT, TextColor3 = Color3.fromHex("FFD23F"), TextXAlignment = Enum.TextXAlignment.Left })
 		return h
 	end
+	-- (Wilhem: « les boutons en combat ont encore l'ancien design, pas celui du menu »: the
+	-- menu's buttons, MenuTheme.button: dark panel, fine edge lit red on hover, press feedback)
 	local function button(name, label, width, callback, parent)
 		order += 1
 		local inRow = parent == topRow
-		local b = new("TextButton", {
-			Name = name, Text = label, LayoutOrder = order, Size = if inRow then UDim2.fromOffset(width, 28) else UDim2.new(1, 0, 0, 28),
-			Font = UI_FONT, TextSize = 11, TextColor3 = WHITE, BackgroundColor3 = INK, AutoButtonColor = true,
-		}, parent or tools)
-		stroke(b, 1.5, RED).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		corner(b, 4)
-		local scale = new("UIScale", {}, b)
-		b.MouseEnter:Connect(function() tween(scale, 0.1, { Scale = 1.04 }) end)
-		b.MouseLeave:Connect(function() tween(scale, 0.12, { Scale = 1 }) end)
+		local b = Theme.button(parent or tools, {
+			Name = name, Text = label, LayoutOrder = order, Size = if inRow then UDim2.fromOffset(width, 30) else UDim2.new(1, 0, 0, 30),
+			Font = Theme.UI, TextSize = 12, TextColor3 = Theme.WHITE,
+		}, Theme.RED)
+		new("UICorner", { CornerRadius = UDim.new(0, 2) }, b)
 		b.Activated:Connect(callback)
 		return b
 	end
 	self.menuButton = button("Menu", "◀ MENU", 84, function()
 		if self.onMenu then self.onMenu() end
 	end, topRow)
-	self.menuButton.TextColor3 = Color3.fromHex("FFD23F")
+	self.menuButton.TextColor3 = Theme.GOLD
 	self.toolsButton = button("ToolsToggle", "⚙ TOOLS +", 110, function()
 		tools.Visible = not tools.Visible
 		self.toolsButton.Text = if tools.Visible then "⚙ TOOLS −" else "⚙ TOOLS +"
@@ -548,10 +546,10 @@ function HUD:fillTrainer()
 	text(panel, { Text = "TRAINER · " .. self:kitData().Name .. "  (pick a combo)", TextSize = 18, Font = UI_FONT,
 		Size = UDim2.new(1, -150, 0, 26), Position = UDim2.fromOffset(10, 6), TextColor3 = RED,
 		TextXAlignment = Enum.TextXAlignment.Left })
-	local off = new("TextButton", {
-		Text = "STOP", Size = UDim2.fromOffset(130, 26), Position = UDim2.new(1, -140, 0, 6), Font = UI_FONT, TextSize = 13,
-		TextColor3 = GREY, BackgroundColor3 = Color3.fromHex("2A1418"), AutoButtonColor = true,
-	}, panel)
+	local off = Theme.button(panel, {
+		Text = "STOP", Size = UDim2.fromOffset(130, 28), Position = UDim2.new(1, -140, 0, 5), Font = Theme.UI, TextSize = 13,
+		TextColor3 = Theme.MUTED,
+	}, Theme.RED)
 	off.Activated:Connect(function() choose(0) end)
 	local routes = self:trainerRoutes()
 	local titles = { "COMBOS ★ AND MOVES  ·  L = left click, R = right click, [E] = E key",
@@ -574,10 +572,11 @@ function HUD:fillTrainer()
 					local m = MoveData.Moves[id]
 					table.insert(names, if m then m.name else tostring(id))
 				end
-				local b = new("TextButton", {
-					Text = "", Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = if selected then Color3.fromHex("3A2A10") else Color3.fromHex("1C1C24"),
-					AutoButtonColor = true, LayoutOrder = index,
-				}, column)
+				local b = Theme.button(column, {
+					Text = "", Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = if selected then Theme.RAISED else Theme.PANEL,
+					LayoutOrder = index,
+				}, Theme.GOLD)
+				if selected then Theme.rule(b, UDim2.fromOffset(0, 0), UDim2.new(0, 3, 1, 0), Theme.GOLD) end
 				text(b, { Text = (if selected then "▶ " else "") .. route.name .. "   " .. keysShort(route.keys), TextSize = 13,
 					Font = UI_FONT, Size = UDim2.new(1, -10, 0, 18), Position = UDim2.fromOffset(6, 3),
 					TextColor3 = if selected then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left })
@@ -711,7 +710,7 @@ function HUD:fillCombos()
 	if passive and passive.Type == "Evade" then
 		table.insert(lines, { "PASSIVE " .. passive.Name .. " (like Ultra Instinct): in neutral, an incoming blow is dodged on its own; "
 			.. (passive.Charges or 1) .. " dodges in reserve, each comes back in " .. math.floor(passive.Cooldown / 60)
-			.. " s (faster when she lands hits). Right after the dodge, L-CLICK or R-CLICK: she reappears behind and strikes. Never against ultimates.", ORANGE })
+			.. " s (faster when she lands hits). Right after the dodge, L-CLICK or R-CLICK: she reappears behind and strikes (a guard pressed just in time reads it). Never against ultimates.", ORANGE })
 	elseif passive and passive.Type == "Rage" then
 		table.insert(lines, { "PASSIVE " .. passive.Name .. ": each blow that lands (not blocked) adds +" .. passive.PerStack * 100 .. " % damage (up to "
 			.. passive.Max .. "), all lost as soon as he is hit.", ORANGE })
@@ -779,10 +778,10 @@ function HUD:fillLab()
 		TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left })
 	local order = 2
 	local function add(label, callback)
-		local b = new("TextButton", {
-			Text = label, Size = UDim2.new(1, 0, 0, 26), Font = UI_FONT, TextSize = 12, TextColor3 = WHITE,
-			BackgroundColor3 = Color3.fromHex("1C1C24"), AutoButtonColor = true, LayoutOrder = order,
-		}, panel)
+		local b = Theme.button(panel, {
+			Text = label, Size = UDim2.new(1, 0, 0, 28), Font = Theme.UI, TextSize = 12, TextColor3 = Theme.WHITE,
+			LayoutOrder = order,
+		}, Theme.RED)
 		order += 1
 		b.Activated:Connect(callback)
 		return b
@@ -999,6 +998,8 @@ function HUD:onEvent(event, world)
 		self:callout(event.defender, label)
 	elseif event.kind == "Blink" and event.counter then
 		self:callout(event.slot, "COUNTER-INSTINCT!")
+	elseif event.kind == "Read" then
+		self:callout(event.slot, "READ!") -- (AKEMI's counter read: guarded in time)
 	elseif event.kind == "Blink" and not event.move then
 		local kit = MoveData.Kits[CharacterData[event.slot].Kit]
 		self:callout(event.slot, (if kit and kit.Passive then kit.Passive.Name else "TELEPORT") .. "!")

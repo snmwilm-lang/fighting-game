@@ -269,6 +269,8 @@ test("stages: six complete stages on the same ground, chosen in the menu or draw
 		expect(map.air and #map.air.colors == 2 and map.air.rate > 0, map.id .. ": no particles")
 		local l = map.lighting
 		expect(l.clock >= 0 and l.clock < 24 and l.brightness > 0 and l.density >= 0 and l.density <= 1, map.id .. ": lighting")
+		-- (Wilhem: « la luminosité de certaines maps, c'est abusé »: never dazzling again)
+		expect(l.brightness <= 2 and l.bloom <= 0.7 and (l.exposure or 0) <= 0, map.id .. ": too bright (brightness, bloom or exposure)")
 		expect(map.kanji and map.props, map.id .. ": no kanji or set dressing")
 	end
 	expect(#Maps.LIST >= 6, "only " .. #Maps.LIST .. " stages")

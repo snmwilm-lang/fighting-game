@@ -586,16 +586,26 @@ local function card(parent, props)
 		TextXAlignment = Enum.TextXAlignment.Center, Rotation = -8 })
 	local compact = props.size.X.Offset < 300
 	local tight = props.size.Y.Offset <= 140
-	local title = label(b, { Name = "CardTitle", Position = UDim2.fromOffset(22, 14), Size = UDim2.new(1, -44, 0, if tight then 34 elseif compact then 40 else 46),
+	local titleHeight = if tight then 34 elseif compact then 40 else 46
+	local title = label(b, { Name = "CardTitle", Position = UDim2.fromOffset(22, 14), Size = UDim2.new(1, -44, 0, titleHeight),
 		Font = DISPLAY, TextSize = if compact then 30 elseif tight then 32 else 40, Text = props.title, TextColor3 = Theme.WHITE,
 		TextScaled = true })
 	new("UITextSizeConstraint", { MaxTextSize = if compact then 30 elseif tight then 32 else 40, MinTextSize = 18 }, title)
+	-- The lines under the title, never over it (Wilhem's capture: on a low card the lines,
+	-- placed from the bottom, ran up under the title): squeezed a little, then the last ones
+	-- dropped if the card is too low for them all.
 	local lines = props.lines or {}
 	local lineHeight = if tight then 18 else 21
-	local linesHeight = #lines * lineHeight
-	for i, line in lines do
-		label(b, { Position = UDim2.new(0, 22, 1, -18 - linesHeight + (i - 1) * lineHeight), Size = UDim2.new(1, -84, 0, lineHeight),
-			Font = BODY_FONT, TextSize = if compact then 11 else 12, Text = line, TextColor3 = Theme.MUTED,
+	local height = props.size.Y.Offset
+	local titleBottom = 14 + titleHeight
+	local room = height - titleBottom - 12
+	local shown = #lines
+	if shown * lineHeight > room then lineHeight = math.max(13, math.floor(room / math.max(1, shown))) end
+	while shown > 1 and shown * lineHeight > room do shown -= 1 end
+	local top = math.max(titleBottom + 2, height - 14 - shown * lineHeight)
+	for i = 1, shown do
+		label(b, { Position = UDim2.fromOffset(22, top + (i - 1) * lineHeight), Size = UDim2.new(1, -84, 0, lineHeight),
+			Font = BODY_FONT, TextSize = if compact or lineHeight < 16 then 11 else 12, Text = lines[i], TextColor3 = Theme.MUTED,
 			TextTruncate = Enum.TextTruncate.AtEnd })
 	end
 	local arrow = new("TextLabel", { Name = "Arrow", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12),

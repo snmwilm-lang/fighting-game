@@ -699,34 +699,43 @@ test("AKEMI: VOILE D'OMBRE evades on its own (2 charges), then recharges", funct
 	expect(find(later, "Evade") ~= nil, "the passive did not recharge")
 end)
 
-test("AKEMI: right after an evade, a press brings her behind the attacker for a counter (½ bar of ki)", function()
-	-- Without the ki, no counter.
-	local broke = kitWorld("KAI", "AKEMI", 3)
-	broke.fighters[2].meter = Kits.AKEMI.Passive.CounterCost - 1
-	local evadedBroke, counterBroke = false, false
-	for t = 1, 60 do
-		for _, e in Sim.step(broke, { input({ light = t == 1 }), input({ light = evadedBroke }) }) do
-			if e.kind == "Evade" then evadedBroke = true end
-			if e.kind == "Blink" and e.counter then counterBroke = true end
+test("AKEMI: right after an evade, a press brings her behind the attacker for a counter (free); a guard pressed right then reads it", function()
+	-- (Wilhem: « remets-moi l'esquive où AKEMI passe dans le dos, rends-la bloquable s'il préshot, timing serré »)
+	local passive = Kits.AKEMI.Passive
+	expect((passive.CounterCost or 0) == 0, "the counter costs ki again")
+	expect(passive.ReadEarly + passive.ReadWindow <= 12, "the read of the counter is not a tight timing")
+	-- guard: nil (no guard), "held" (held all along), or the tick, counted from her reappearing, of a fresh press
+	local function duel(guard)
+		local world = kitWorld("KAI", "AKEMI", 3)
+		local a, d = world.fighters[1], world.fighters[2]
+		d.meter = 0 -- (no ki needed)
+		local evaded, blinkAt, hit, blocked, read = false, nil, false, false, false
+		for t = 1, 70 do
+			local press = evaded and not blinkAt
+			local block = guard == "held" or (type(guard) == "number" and blinkAt ~= nil and t >= blinkAt + guard)
+			for _, e in Sim.step(world, { input({ light = t == 1, block = block }), input({ light = press }) }) do
+				if e.kind == "Evade" then evaded = true end
+				if e.kind == "Blink" and e.counter then blinkAt = t end
+				if e.kind == "Hit" and e.attacker == 2 then hit = true end
+				if e.kind == "Block" and e.attacker == 2 then blocked = true end
+				if e.kind == "Read" then read = true end
+			end
 		end
+		return evaded, blinkAt ~= nil, hit, blocked, read, a, d
 	end
-	expect(evadedBroke and not counterBroke, "countered without the ki")
-	local world = kitWorld("KAI", "AKEMI", 3)
-	local a, d = world.fighters[1], world.fighters[2]
-	d.meter = 100
-	local evaded, counter, hit = false, false, false
-	for t = 1, 60 do
-		local press = evaded and not counter
-		for _, e in Sim.step(world, { input({ light = t == 1 }), input({ light = press }) }) do
-			if e.kind == "Evade" then evaded = true end
-			if e.kind == "Blink" and e.counter then counter = true end
-			if e.kind == "Hit" and e.attacker == 2 then hit = true end
-		end
-	end
-	expect(evaded and counter, "no counter after the evade")
-	expect(d.meter <= 100 - Kits.AKEMI.Passive.CounterCost + 30, "the counter did not cost its ki")
+	local evaded, counter, hit, _, _, a, d = duel(nil)
+	expect(evaded and counter, "no counter after the evade, without any ki")
 	expect(hit, "the counter did not hit the attacker")
 	expect((d.x - a.x) * a.facing < 0 or hit, "she did not come out behind the attacker")
+	-- a guard pressed right after she reappears: read, blocked
+	local _, _, hitRead, blockedRead, read = duel(1)
+	expect(read and blockedRead and not hitRead, "a guard pressed right then did not read the counter")
+	-- too late: the counter lands
+	local _, _, hitLate, _, readLate = duel(passive.ReadWindow + 3)
+	expect(hitLate and not readLate, "a late guard still read the counter")
+	-- a guard held all along is no read
+	local _, _, hitHeld, _, readHeld = duel("held")
+	expect(not readHeld, "a guard held all along read the counter")
 end)
 
 test("AKEMI: every hit she lands brings VOILE D'OMBRE back sooner (2 charges, 18 s each at most)", function()

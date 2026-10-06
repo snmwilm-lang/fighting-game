@@ -397,6 +397,7 @@ end
 local function lighting(map)
 	local l = map.lighting
 	Lighting.ClockTime, Lighting.Brightness = l.clock, l.brightness
+	Lighting.ExposureCompensation = l.exposure or 0 -- (the brightest stages toned down)
 	Lighting.GeographicLatitude = 25
 	Lighting.Ambient, Lighting.OutdoorAmbient = hex(l.ambient), hex(l.outdoor)
 	Lighting.EnvironmentDiffuseScale, Lighting.EnvironmentSpecularScale = 0.15, 0.1
@@ -415,9 +416,10 @@ local function lighting(map)
 	-- (VISUAL PASS: a touch more contrast; the bloom softer on phones, where it washed the
 	-- small screen out)
 	local phone = game:GetService("UserInputService").TouchEnabled and not game:GetService("UserInputService").KeyboardEnabled
-	effect("BloomEffect", "ArenaBloom", { Intensity = l.bloom * (if phone then 0.6 else 1), Size = 28, Threshold = 1.25 })
-	effect("SunRaysEffect", "ArenaSunRays", { Intensity = 0.05, Spread = 0.55 })
-	effect("Atmosphere", "ArenaAtmosphere", { Density = l.density, Offset = 0.1, Color = hex(l.atmosphere), Decay = hex(l.decay), Glare = 0.4,
+	-- (only the truly bright parts bloom: threshold 1.5; the sun's glare and rays softer)
+	effect("BloomEffect", "ArenaBloom", { Intensity = l.bloom * (if phone then 0.6 else 1), Size = 24, Threshold = 1.5 })
+	effect("SunRaysEffect", "ArenaSunRays", { Intensity = 0.03, Spread = 0.5 })
+	effect("Atmosphere", "ArenaAtmosphere", { Density = l.density, Offset = 0.1, Color = hex(l.atmosphere), Decay = hex(l.decay), Glare = 0.15,
 		Haze = l.haze })
 end
 

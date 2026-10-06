@@ -27,6 +27,7 @@ local function newFighter(slot, c, kit, stanceId)
 		evadeCharge = 0, evadeInvuln = 0, dashInvuln = 0, -- passive VOILE D'OMBRE, dash that slips through
 		evadeCharges = kit.Passive and kit.Passive.Charges or stats.AutoEvade and stats.AutoEvade.Charges or 0,
 		evadeCounter = 0, evadeFrom = nil, burstCooldown = 0,
+		blockHeld = false, blockPressTick = -1000, blinkRead = 0, blinkFrom = nil, -- (reading AKEMI's counter)
 		-- Boxer (kit.Weave, TARO): forward dash = weave under high attacks, then DEMPSEY ROLL.
 		weaveTicks = 0, dempseyWindow = 0, dempseyCount = 0, slipSerial = -1, teleportReady = 0,
 		slipCharges = 3, slipCharge = 0, -- boxer's slips ready (see Weave.Charges) and the refill timer
@@ -511,6 +512,19 @@ local function threatened(world, f)
 	return false
 end
 
+-- Reading AKEMI's CONTRE-INSTINCT (Wilhem: « rends-la bloquable par l'adversaire s'il
+-- préshot, mais le timing doit être serré »): a fresh press of the guard just before or just
+-- after she reappears in his back drops the end of his whiffed attack and turns him to her,
+-- guarding. Only a new press counts (a guard held all along reads nothing).
+local function readBlink(world, f, events)
+	local foe = world.fighters[f.blinkFrom or (3 - f.slot)]
+	f.move, f.moveContact, f.moveFrame, f.grace, f.dashTicks = nil, nil, 0, nil, 0
+	table.clear(f.buffer)
+	if foe then f.facing = if foe.x >= f.x then 1 else -1 end
+	f.blocking, f.holdBlock, f.blinkRead = true, true, 0
+	table.insert(events, { kind = "Read", slot = f.slot, x = f.x, y = f.y + 3 })
+end
+
 local function stepFighter(world, f, input, events)
 	local c, moves = world.config, world.moves
 	-- Presses queue in the order typed, so mashing L L L R gives exactly that route.
@@ -541,6 +555,14 @@ local function stepFighter(world, f, input, events)
 			local id = kitOf(world, f).Starters.Ground[if input.heavy then "Heavy" else "Light"]
 			startMove(world, f, id, events, false)
 			table.insert(events, { kind = "Blink", slot = f.slot, x = f.x, counter = true })
+			-- (the attacker may read it: a guard pressed ReadEarly ticks before, or within
+			-- ReadWindow ticks after)
+			a.blinkFrom = f.slot
+			if (world.tick or 0) - a.blockPressTick <= (passive.ReadEarly or 0) then
+				readBlink(world, a, events)
+			else
+				a.blinkRead = passive.ReadWindow or 0
+			end
 			return
 		end
 	end
@@ -575,6 +597,18 @@ local function stepFighter(world, f, input, events)
 		return
 	end
 	f.frozen = false
+	-- (a fresh press of the guard: the read of AKEMI's counter)
+	local pressedBlock = input.block and not f.blockHeld
+	f.blockHeld = input.block == true
+	if pressedBlock then f.blockPressTick = world.tick or 0 end
+	if f.blinkRead > 0 then
+		f.blinkRead -= 1
+		if f.stun > 0 and f.stunKind ~= "Evade" then
+			f.blinkRead = 0 -- (already hit: too late to read it)
+		elseif pressedBlock then
+			readBlink(world, f, events)
+		end
+	end
 	PASSIVE.tick(world, f, events)
 	f.holdBack = holdingBack(world, f, input)
 	f.holdBlock, f.holdCrouch = input.block or f.holdBack, input.crouch

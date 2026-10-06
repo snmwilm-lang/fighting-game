@@ -1,5 +1,28 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.21 — 6 octobre 2026 · L'ESQUIVE D'AKEMI DANS LE DOS · BOUTONS DE COMBAT · CARTES · LUMINOSITÉ
+
+Wilhem : « remets-moi l'esquive où AKEMI passe dans le dos, rends-la juste bloquable par l'adversaire s'il préshot, mais le timing doit être serré » ; « les boutons en combat ont encore l'ancien design, pas celui du menu, fais pareil avec tout » ; « règle aussi les petits bugs graphiques » (capture des modes) ; « la luminosité de certaines maps, c'est abusé ».
+
+**AKEMI, CONTRE-INSTINCT** : après une esquive, L ou R la fait réapparaître dans le dos de l'attaquant et frapper.
+- Le contre est **à nouveau gratuit** : depuis la 0.13.1 il coûtait ½ barre de ki, et sans ki il ne sortait jamais (`CounterCost = 0`).
+- L'attaquant peut le **lire** : un appui **frais** sur la garde, de 3 images avant sa réapparition à 6 images après (`ReadEarly`, `ReadWindow`, environ 0,15 s), annule la fin de son coup raté, le retourne vers elle et il bloque. Une garde maintenue depuis le début ne lit rien, et une fois touché, il est trop tard. Annonce « READ! » (« BIEN LU ! »), son de garde métallique.
+- Le CPU lit aussi le contre, aussi souvent qu'il contre lui-même (selon le niveau).
+- Test (Kits) : contre sans ki, lu par une garde à temps, pas par une garde tardive ni par une garde maintenue.
+- Équilibre : AKEMI à 44 % de victoires en moyenne contre tous les persos (CPU niveau 4, 12 matchs par perso) : dans la fourchette.
+
+**Boutons en combat** : ◀ MENU, ⚙ TOOLS, COMBOS, tous les boutons du panneau TOOLS, STOP et la liste du coach, la liste de test des cinématiques prennent le design du menu (`MenuTheme.button` : panneau sombre, filet qui s'allume au survol, retour à l'appui). Le panneau TOOLS prend les panneaux du menu (`Theme.surface`).
+
+**Cartes des modes** : les lignes de description, placées depuis le bas, remontaient sous le titre. Elles sont maintenant toujours sous le titre, resserrées s'il le faut, et la dernière ligne disparaît si la carte est trop basse.
+
+**Luminosité des arènes** (`Maps`, `ArenaBuilder`) :
+- Luminosité au plus 2 : CLOUD PALACE 2,8 → 2, BAMBOO DOJO 2,6 → 2, SCARLET TEMPLE 2,4 → 1,9, VOLCANO FORGE 2 → 1,7, FROZEN LAKE 1,6 → 1,5.
+- Ambiances des plus claires assombries, bloom au plus 0,7 (seuil 1,5 : seules les vraies lumières bavent).
+- Nouvelle compensation d'exposition par arène (jusqu'à −0,3 sur CLOUD PALACE), éblouissement du soleil 0,4 → 0,15.
+- Test (Lobby) : luminosité ≤ 2, bloom ≤ 0,7, exposition ≤ 0.
+
+Tests : Lobby 40, CombatSimulation 130, FighterAI 13, Fuzz 2 ; test du contre d'AKEMI vérifié à part ; Kits et le reste relancés.
+
 ## Version 0.23.20 — 6 octobre 2026 · ASURA : BURST À 35 %, BRAS CORRIGÉS, DEUX VICTOIRES
 
 Wilhem : « ASURA sort de nos combos : ça ne doit pas être garanti, genre 30-40 %, ou le réserver à la seconde vie, ou un mélange : à la seconde vie c'est 100 % » ; « ce bug avec les bras d'ASURA, les bras du bas se lèvent, règle-le » (capture en cinématique) ; images d'Asura's Wrath (de dos, de face) pour sa pose de fin : « tu peux alterner les deux ».

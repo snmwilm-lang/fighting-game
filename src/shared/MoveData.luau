@@ -1072,10 +1072,12 @@ kit("AKEMI", {
 	-- Ultimates cannot be evaded.
 	-- Like Ultra Instinct Goku (DBFZ): up to Charges evades ready, each recharging in Cooldown
 	-- ticks (one after the other); each hit she lands takes HitRefund ticks off. Right after an
-	-- evade, L or R within CounterWindow ticks: she reappears behind the attacker and strikes,
-	-- for CounterCost ki (half a bar).
+	-- evade, L or R within CounterWindow ticks: she reappears behind the attacker and strikes
+	-- (free again: Wilhem, « remets-moi l'esquive où AKEMI passe dans le dos »). The attacker
+	-- can read it: a fresh press of the guard from ReadEarly ticks before she reappears to
+	-- ReadWindow ticks after turns him to her, guarding (a tight timing: about 0.15 s).
 	Passive = { Type = "Evade", Name = "SHADOW VEIL", Charges = 2, Cooldown = 1080, HitRefund = 20, Invuln = 14,
-		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6, CounterCost = 50 },
+		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6, CounterCost = 0, ReadEarly = 3, ReadWindow = 6 },
 	RouteNames = { "CHAIN", "TAKEOFF", "BREAKTHROUGH", "WALL", "FALL", "REAPER", "WHIRLWIND", "CUTS", "FANG", "ECLIPSE", "CRESCENT" },
 	FullRouteNames = { "WHIRLWIND", "CUTS", "FANG", "ECLIPSE", "WALL", "CRESCENT" },
 	GateTitle = { text = "幻舞", sub = "PHANTOM DANCE" },

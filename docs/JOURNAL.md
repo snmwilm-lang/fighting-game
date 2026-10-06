@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.44 — 6 octobre 2026 · UI FLUIDE : LE MENU PRINCIPAL
+
+- Fond vivant (`MenuController:buildAmbience`) :
+  - 22 braises rouges et dorées montent lentement en tournant et en se balançant, et s'éteignent en haut ;
+  - 3 larges rayons de lumière, rouge, or, rouge, dérivent en biais derrière les panneaux ;
+  - coupé quand le menu est caché et en EFFETS RÉDUITS.
+- Navigation : au survol (ou à la manette), l'entrée glisse de 10 px vers les pages et son kanji s'éclaire.
+- Cartes de mode (EN LIGNE, SOLO, ENTRAÎNEMENT…) : au survol, leur grand kanji glisse et s'éclaire, la flèche avance, et une bande de lumière balaie la carte.
+- Avec les mouvements de base (v0.23.39) : les pages glissent à l'entrée, les cartes arrivent l'une après l'autre, les fenêtres s'ouvrent avec un rebond.
+
+Fichier : `src/client/MenuController.luau`. Tests : Lobby 43. Non vérifié dans Studio.
+
 ## Version 0.23.43 — 6 octobre 2026 · LES ANNONCES DU COMBAT, STYLE JEUX DE COMBAT
 
 Wilhem : « continue le up de qualité, tu peux faire mieux ».

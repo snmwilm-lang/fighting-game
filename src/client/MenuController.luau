@@ -191,6 +191,7 @@ function MenuController.new(remote, hub, settings)
 	safeCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 	safeCanvas:GetPropertyChangedSignal("AbsolutePosition"):Connect(fit)
 	self.root = root
+	self:buildAmbience(gui)
 	self.bigKanji = label(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.3, 0.55),
 		Font = Enum.Font.GothamBlack, TextScaled = true, Text = "開", TextColor3 = RED, TextTransparency = 0.88,
 		TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
@@ -829,6 +830,45 @@ function MenuController:showPlayerCard()
 end
 
 -- A selected destination carries the red brush accent, in both navigation bars.
+-- The menu's living backdrop (UI pass: « une UI fluide, belle, moderne »): embers rising
+-- slowly in red and gold, and three wide rays of light drifting across, behind every panel.
+-- Off with REDUCED EFFECTS (Theme.reduced) and while the menu is hidden.
+function MenuController:buildAmbience(gui)
+	local layer = new("Frame", { Name = "Ambience", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 0 }, gui)
+	local rays = {}
+	for i = 1, 3 do
+		local ray = new("Frame", { Name = "Ray", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0.18, 0, 2.2, 0), Rotation = 24,
+			BackgroundColor3 = if i == 2 then Theme.GOLD else Theme.RED, BackgroundTransparency = 0.93, BorderSizePixel = 0, ZIndex = 0 }, layer)
+		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1) }) }, ray)
+		rays[i] = { frame = ray, phase = i * 0.37, speed = 0.018 + i * 0.006 }
+	end
+	local embers = {}
+	for i = 1, 22 do
+		local size = 4 + (i * 7) % 6
+		local ember = new("Frame", { Name = "Ember", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(size, size), Rotation = 45,
+			BackgroundColor3 = if i % 3 == 0 then Theme.GOLD else Theme.RED, BorderSizePixel = 0, ZIndex = 0 }, layer)
+		embers[i] = { frame = ember, x = (i * 0.618) % 1, t = (i * 0.29) % 1, speed = 0.035 + (i % 5) * 0.012, sway = 0.01 + (i % 4) * 0.006 }
+	end
+	RunService.RenderStepped:Connect(function(dt)
+		local on = gui.Enabled and not Theme.reduced
+		layer.Visible = on
+		if not on then return end
+		local now = os.clock()
+		for _, r in rays do
+			local u = (now * r.speed + r.phase) % 1
+			r.frame.Position = UDim2.fromScale(-0.2 + u * 1.4, 0.5)
+		end
+		for i, e in embers do
+			e.t = (e.t + dt * e.speed) % 1
+			local f = e.frame
+			f.Position = UDim2.fromScale(e.x + math.sin((e.t * 6 + i) * 1.3) * e.sway, 1.05 - e.t * 1.15)
+			f.BackgroundTransparency = 0.35 + 0.65 * math.abs(e.t * 2 - 1)
+			f.Rotation = 45 + e.t * 180
+		end
+	end)
+end
+
 function MenuController:buildNav()
 	local nav = new("Frame", { Name = "Navigation", Position = UDim2.fromOffset(36, 122),
 		Size = UDim2.fromOffset(360, 548), BackgroundTransparency = 1 }, self.root)
@@ -865,8 +905,12 @@ function MenuController:buildNav()
 			TextSize = 30, Text = "›", TextColor3 = Theme.WHITE })
 		local item = { button = b, wash = wash, edge = edge, rail = rail, glyph = glyph, subtitle = subtitle, active = false }
 		self.navItems[entry[1]] = item
+		local base = b.Position
 		local function hover(on)
 			edge.Color = if item.active or on then Theme.RED else Theme.LINE
+			-- (it leans out toward the pages, its kanji lights up)
+			Theme.play(b, 0.22, { Position = if on then base + UDim2.fromOffset(10, 0) else base })
+			Theme.play(glyph, 0.22, { TextTransparency = if on then 0.6 elseif item.active then 0.68 else 0.87 })
 		end
 		b.MouseEnter:Connect(function() hover(true) end)
 		b.MouseLeave:Connect(function() hover(false) end)
@@ -890,9 +934,15 @@ local function card(parent, props)
 	Theme.ink(b, props.color, 0.81)
 	Theme.rule(b, UDim2.fromOffset(0, 0), UDim2.new(0, 3, 1, 0), props.color)
 	local glyphSize = math.min(props.size.Y.Offset - 24, 148)
-	label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 4), Size = UDim2.fromOffset(glyphSize, glyphSize),
+	local glyph = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 4), Size = UDim2.fromOffset(glyphSize, glyphSize),
 		Font = UI_FONT, TextSize = math.floor(glyphSize * 0.85), Text = props.kanji, TextColor3 = props.color, TextTransparency = 0.85,
 		TextXAlignment = Enum.TextXAlignment.Center, Rotation = -8 })
+	-- (a band of light that sweeps the card when it is reached)
+	local glint = new("Frame", { Name = "Glint", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.WHITE, BorderSizePixel = 0,
+		Visible = false, ZIndex = 3 }, b)
+	local band = new("UIGradient", { Rotation = 18, Offset = Vector2.new(-1.2, 0), Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.44, 1), NumberSequenceKeypoint.new(0.5, 0.86),
+		NumberSequenceKeypoint.new(0.56, 1), NumberSequenceKeypoint.new(1, 1) }) }, glint)
 	local compact = props.size.X.Offset < 300
 	local tight = props.size.Y.Offset <= 140
 	local titleHeight = if tight then 34 elseif compact then 40 else 46
@@ -924,6 +974,15 @@ local function card(parent, props)
 	local function focus(on)
 		edge.Color = if on then props.color else props.color:Lerp(Theme.LINE, 0.65)
 		edge.Thickness = if on then 2 else 1
+		-- (its kanji slides in and lights up, the arrow steps forward, the light sweeps it)
+		Theme.play(glyph, 0.3, { Position = if on then UDim2.new(1, -34, 0.5, 4) else UDim2.new(1, -14, 0.5, 4),
+			TextTransparency = if on then 0.62 else 0.85, Rotation = if on then -2 else -8 })
+		Theme.play(arrow, 0.22, { Position = if on then UDim2.new(1, -6, 1, -12) else UDim2.new(1, -12, 1, -12) })
+		if on and not Theme.reduced then
+			glint.Visible = true
+			band.Offset = Vector2.new(-1.2, 0)
+			Theme.play(band, 0.55, { Offset = Vector2.new(1.2, 0) }, Enum.EasingStyle.Quad).Completed:Once(function() glint.Visible = false end)
+		end
 	end
 	b.MouseEnter:Connect(function() focus(true) end)
 	b.MouseLeave:Connect(function() focus(false) end)

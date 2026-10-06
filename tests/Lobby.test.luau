@@ -199,6 +199,30 @@ test("10000 players: the search pairs them fast and right, each hub view stays s
 	expect(os.clock() - t < 1, string.format("10000 views took %.2f s", os.clock() - t))
 end)
 
+-- Wilhem: « affiche tous les titres obtenables et comment en petit en dessous, un design
+-- différent pour chaque titre ».
+test("titles: every title the game gives is listed with how to get it (in French too) and its own look", function()
+	local Locale = require("../src/shared/Locale")
+	local StoreConfig = require("../src/shared/StoreConfig")
+	local catalog = GameModes.titleCatalog(StoreConfig.ITEMS)
+	local byName, looks = {}, {}
+	for _, t in catalog do
+		expect(not byName[t.name], t.name .. " listed twice")
+		byName[t.name] = t
+		expect(type(t.how) == "string" and #t.how > 10, t.name .. " does not say how to get it")
+		expect(Locale.translate(t.how, "FR") ~= t.how, t.name .. ": how to get it has no French")
+		expect(GameModes.TITLE_LOOKS[t.name] ~= nil, t.name .. " has no look of its own")
+		local key = t.look.kanji .. t.look.colors[1] .. t.look.colors[2]
+		expect(not looks[key], t.name .. " looks like " .. tostring(looks[key]))
+		looks[key] = t.name
+	end
+	local granted = { "WEEKLY CHAMPION" }
+	for _, n in GameModes.CHALLENGE_TITLES do table.insert(granted, n) end
+	for _, n in GameModes.SHIN_TITLES do table.insert(granted, n) end
+	for _, item in StoreConfig.ITEMS do if item.kind == "TITLE" then table.insert(granted, item.name) end end
+	for _, n in granted do expect(byName[n] ~= nil, n .. " can be earned but is not in the TITLES window") end
+end)
+
 -- Wilhem: « plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 ».
 test("RANKED in three categories: 1v1, 2v2 and 3v3 each have their own rating and board", function()
 	local profile = { rating = 1234 }

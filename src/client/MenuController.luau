@@ -498,55 +498,87 @@ function MenuController:showNotes()
 	for i, note in self.notes do line(list, i, note.at .. "  ·  " .. note.text, note.color) end
 end
 
--- TITLES (Wilhem: « un accès aux titres pour mettre celui qu'on veut »): every title the player
--- has, one click to wear it (or none); the shop's titles not owned yet show where to get
--- them. The server checks ownership.
+-- TITLES (Wilhem: « un accès aux titres pour mettre celui qu'on veut », then « affiche tous les
+-- titres obtenables et comment en petit en dessous, un design différent pour chaque titre »):
+-- one card per title the game can give (GameModes.titleCatalog), in its own look (kanji,
+-- colours, font), how to get it in small under it; owned ones are worn with a click, the
+-- others are dimmed with a lock. The server checks ownership.
 function MenuController:showTitles()
 	local s = self.status or {}
-	local list = self:popup("TITLES", 520, 500)
+	local list = self:popup("TITLES", 560, 540)
 	local worn = s.title or ""
-	local order = 0
-	local function row(text, color, onClick, on)
-		order += 1
-		local b = Theme.button(list, { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 40), Font = DISPLAY, TextSize = 22,
-			Text = text, TextColor3 = color, BackgroundColor3 = if on then Theme.RAISED else PANEL, ZIndex = 53 }, GOLD)
-		if on then
-			local edge = b:FindFirstChildOfClass("UIStroke")
-			if edge then edge.Color, edge.Thickness = GOLD, 2 end
-		end
-		if onClick then b.Activated:Connect(onClick) end
-		return b
+	local owned = {}
+	for _, t in s.titles or {} do owned[t] = true end
+	local function close()
+		if self.popupFrame then self.popupFrame:Destroy(); self.popupFrame = nil end
 	end
 	local function wear(title)
 		self.remote:FireServer({ action = "title", title = title })
 		self.status.title = title
 		self:flash(if title == "" then "NO TITLE SHOWN" else "TITLE « " .. title .. " » SHOWN", GOLD)
-		if self.popupFrame then self.popupFrame:Destroy(); self.popupFrame = nil end
+		close()
 		self:refreshProfile()
 	end
-	line(list, 0, "Pick the title shown over your fighter and in the lobby.", GREY)
-	row((if worn == "" then "✓ " else "") .. "NO TITLE", WHITE, function() wear("") end, worn == "")
-	local owned = {}
-	for _, t in s.titles or {} do
-		owned[t] = true
-		row((if worn == t then "✓ " else "") .. "« " .. t .. " »", GOLD, function() wear(t) end, worn == t)
-	end
-	-- the shop's titles not owned yet (greyed: where to get them)
-	local first = true
-	for _, item in StoreConfig.ITEMS do
-		if item.kind == "TITLE" and not owned[item.name] then
-			if first then
-				order += 1
-				line(list, order, "TO UNLOCK", GREY, 13)
-				first = false
-			end
-			local how = if item.pass then "WITH THE " .. item.pass .. " PASS" else item.coins .. " COINS · SHOP"
-			row("🔒 « " .. item.name .. " » · " .. how, Theme.MUTED, function()
-				if self.popupFrame then self.popupFrame:Destroy(); self.popupFrame = nil end
-				self:open("shop")
-			end, false)
+	local catalog = GameModes.titleCatalog(StoreConfig.ITEMS)
+	local count = 0
+	for _, t in catalog do if owned[t.name] then count += 1 end end
+	line(list, 0, string.format("%d / %d TITLES · pick the one shown over your fighter and in the lobby.", count, #catalog), GREY)
+	local order = 0
+	local function card(t)
+		order += 1
+		local mine, on = t == nil or owned[t.name], if t then worn == t.name else worn == ""
+		local look = if t then t.look else { kanji = "無", colors = { "B1B2BE", "41434E" }, font = "GothamBlack" }
+		local c1, c2 = Color3.fromHex(look.colors[1]), Color3.fromHex(look.colors[2])
+		local b = Theme.button(list, { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 62), Text = "", BackgroundColor3 = PANEL, ZIndex = 53 },
+			c1)
+		b.BackgroundColor3 = Color3.new(1, 1, 1)
+		gradient(b, c2:Lerp(INK, if mine then 0.55 else 0.82), INK, 0)
+		local edge = b:FindFirstChildOfClass("UIStroke")
+		if edge then
+			edge.Color = if on then GOLD elseif mine then c1:Lerp(Theme.LINE, 0.4) else Theme.LINE
+			edge.Thickness = if on then 2 else 1
 		end
+		-- the kanji in its square
+		local square = new("Frame", { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0, ZIndex = 54 }, b)
+		new("UIGradient", { Rotation = 45, Color = ColorSequence.new(c1, c2) }, square)
+		new("UICorner", { CornerRadius = UDim.new(0, 8) }, square)
+		label(square, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamBlack, TextScaled = true, Text = look.kanji,
+			TextColor3 = INK, TextTransparency = if mine then 0 else 0.4, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 55 })
+		-- the title in its own font and colours
+		local okFont, font = pcall(function() return Enum.Font[look.font] end)
+		if not okFont or not font then font = DISPLAY end
+		local name = label(b, { Position = UDim2.fromOffset(66, 6), Size = UDim2.new(1, -170, 0, 30), Font = font, TextScaled = true,
+			Text = if t then "« " .. t.name .. " »" else "NO TITLE", TextColor3 = WHITE, TextTransparency = if mine then 0 else 0.45,
+			ZIndex = 55 })
+		new("UITextSizeConstraint", { MaxTextSize = 26 }, name)
+		new("UIGradient", { Color = ColorSequence.new(c1, c2) }, name)
+		stroke(name, 1.5)
+		-- how to get it, in small
+		label(b, { Position = UDim2.fromOffset(66, 38), Size = UDim2.new(1, -170, 0, 18), Font = BODY_FONT, TextSize = 11, TextWrapped = true,
+			Text = if t then t.how else "Show no title at all.", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 55 })
+		-- its state, on the right
+		local state = if on then "✓ WORN" elseif mine then "WEAR" else "🔒 LOCKED"
+		local tag = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(90, 26),
+			Font = UI_FONT, TextSize = 12, Text = state, TextColor3 = if on then INK elseif mine then WHITE else Theme.MUTED,
+			BackgroundTransparency = if on then 0 else 1, BackgroundColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 55 })
+		new("UICorner", { CornerRadius = UDim.new(0, 6) }, tag)
+		b.Activated:Connect(function()
+			if mine then
+				wear(if t then t.name else "")
+			elseif t and (t.source == "shop" or t.source == "pass") then
+				close()
+				self:open("shop")
+			else
+				self:flash(t and t.how or "", Theme.MUTED)
+			end
+		end)
 	end
+	card(nil)
+	-- owned first, then the others
+	for _, t in catalog do if owned[t.name] then card(t) end end
+	for _, t in catalog do if not owned[t.name] then card(t) end end
 end
 
 -- PLAYER CARD: who the player is, at a glance (all from the saved profile the server sends).

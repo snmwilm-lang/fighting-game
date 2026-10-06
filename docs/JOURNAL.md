@@ -1,5 +1,24 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.35 — 6 octobre 2026 · LA FENÊTRE DES TITRES
+
+Wilhem (capture) : « rends ça plus beau, affiche tous les titres obtenables et comment, en petit en dessous, donne un design différent à chaque titre ».
+
+- `GameModes.titleCatalog` (pur) liste les 16 titres du jeu et comment les obtenir :
+  - CHAMPION DE LA SEMAINE ;
+  - les 4 titres du défi ASURA et les 4 de KUROEN SHIN ;
+  - les 7 titres de la boutique : 6 en pièces, SUPPORTER avec son pass.
+- `GameModes.TITLE_LOOKS` donne à chaque titre son propre look : un kanji, deux couleurs et une police (Bangers, Michroma, Antique, Creepster, Arcade, PermanentMarker, SpecialElite, FredokaOne, Oswald, GothamBlack).
+- La fenêtre TITRES montre une carte par titre :
+  - le kanji dans un carré dégradé ;
+  - le nom dans sa police et ses couleurs (dégradé, contour) ;
+  - en petit dessous, comment l'obtenir ;
+  - à droite son état : ✓ PORTÉ, PORTER ou 🔒 VERROUILLÉ.
+- Les titres possédés sont en tête, les autres assombris. Un clic sur un titre possédé le porte ; sur un titre de la boutique, il ouvre la boutique ; sinon il rappelle comment l'obtenir. Le compteur « x / 16 TITRES » est en haut.
+- Test (Lobby) : chaque titre que le jeu peut donner est dans la fenêtre, avec comment l'obtenir (traduit en français) et un look différent des autres.
+
+Fichiers : `src/shared/GameModes.luau`, `src/client/MenuController.luau`, `src/shared/Locale.luau`, `tests/Lobby.test.luau`. Tests : Lobby 42. Non vérifié dans Studio.
+
 ## Version 0.23.34 — 6 octobre 2026 · CHOISIR SON TITRE · ARC-EN-CIEL VIP · ONGLETS DU CLASSEMENT
 
 Wilhem : « un accès aux titres pour mettre celui qu'on veut » ; « le rainbow autour de notre icône ou pseudo de combattant, pour comprendre qu'on est VIP » ; « problème d'espace ici aussi » (onglets du classement qui débordaient).

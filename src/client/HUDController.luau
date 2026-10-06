@@ -129,6 +129,14 @@ function HUD.new(config)
 		-- (a shine on its top third, and the bar slanted at its inner end like a blade)
 		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.32, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55,
 			BorderSizePixel = 0, ZIndex = 2 }, bar)
+		-- (UI pass: marks at a quarter, a half and three quarters of the life; a white flash on the
+		-- health left at every blow taken)
+		for _, at in { 0.25, 0.5, 0.75 } do
+			new("Frame", { Name = "Tick", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(if left then at else 1 - at, 0),
+				Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = INK, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 3 }, bar)
+		end
+		local hitFlash = new("Frame", { Name = "HitFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1,
+			BorderSizePixel = 0, ZIndex = 2 }, fill)
 		-- COUP FATAL ready: the bar burns (Wilhem: « un effet sur notre barre de vie comme dans
 		-- Taken »): a crimson aura pulsing around it, a flame running along the health left, the
 		-- bar and the portrait outlined in crimson. Cosmetic: the server says when it is ready.
@@ -183,13 +191,15 @@ function HUD.new(config)
 			Name = "Ki", BackgroundTransparency = 1, Size = UDim2.new(0.6, 0, 0, 12), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
 			Position = if left then UDim2.fromOffset(barX + 30, 70) else UDim2.new(1, -barX - 30, 0, 70),
 		}, side)
-		local segments = {}
+		local segments, segmentEdges = {}, {}
 		for i = 1, config.MaxMeter / config.MeterBar do
 			local segment = new("Frame", {
 				BackgroundColor3 = INK, BorderSizePixel = 0, Size = UDim2.new(1 / 3, -4, 1, 0),
 				Position = if left then UDim2.new((i - 1) / 3, 0, 0, 0) else UDim2.new(1 - i / 3, 4, 0, 0),
 			}, meter)
-			tint(stroke(segment, 1.5, energy), "Energy").ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			local segmentEdge = tint(stroke(segment, 1.5, energy), "Energy")
+			segmentEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			segmentEdges[i] = segmentEdge
 			local segmentFill = tint(new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
 				AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, segment), "Energy")
 			segments[i] = segmentFill
@@ -222,7 +232,8 @@ function HUD.new(config)
 		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
 		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
-		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow,
+		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
+			sideBase = side.Position, lastRatio = 1,
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
@@ -234,6 +245,7 @@ function HUD.new(config)
 	}, header)
 	stroke(timer, 3, WHITE)
 	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 36, Text = "99" })
+	self.timerScale = new("UIScale", { Scale = 1 }, timer) -- (the last 10 s beat: red, a bump each second)
 	self.round = text(header, { Size = UDim2.fromOffset(120, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84),
 		TextSize = 14, Font = UI_FONT, Text = "ROUND 1" })
 	stroke(self.round, 1.5)
@@ -247,8 +259,11 @@ function HUD.new(config)
 		}, gui)
 		local scale = new("UIScale", { Scale = 1 }, frame)
 		local align = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
-		local count = text(frame, { Size = UDim2.new(1, 0, 0, 74), TextSize = 78, TextXAlignment = align, TextColor3 = self.bars[slot].energy })
+		local count = text(frame, { Size = UDim2.new(1, 0, 0, 74), TextSize = 78, TextXAlignment = align, TextColor3 = self.bars[slot].energy,
+			Rotation = if left then -4 else 4 })
 		stroke(count, 4)
+		-- (a light top, a darker foot: the number has volume)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(175, 175, 185)) }, count)
 		local hits = text(frame, { Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 68), TextSize = 30, Text = "HITS!", TextXAlignment = align })
 		stroke(hits, 3)
 		local detail = text(frame, { Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 98), TextSize = 16, Font = UI_FONT, TextXAlignment = align })
@@ -262,6 +277,16 @@ function HUD.new(config)
 		Size = UDim2.new(1, 0, 0, 120), TextSize = 110, Visible = false,
 	})
 	stroke(announce, 6)
+	-- (a dark band unrolls behind the call: ROUND, FIGHT, K.O.; it reads on any stage)
+	local announceBand = new("Frame", { Name = "AnnouncerBand", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46),
+		Size = UDim2.new(0, 0, 0, 170), BackgroundColor3 = INK, BackgroundTransparency = 0.3, BorderSizePixel = 0, Visible = false, ZIndex = 0 }, gui)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.2),
+		NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) }) }, announceBand)
+	for _, y in { 0, 1 } do
+		new("Frame", { AnchorPoint = Vector2.new(0.5, y), Position = UDim2.fromScale(0.5, y), Size = UDim2.new(0.7, 0, 0, 2),
+			BackgroundColor3 = WHITE, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, announceBand)
+	end
+	self.announceBand = announceBand
 	self.announceScale = new("UIScale", { Scale = 1 }, announce)
 	self.announce = announce
 	self.announceSub = text(gui, {
@@ -928,11 +953,13 @@ function HUD:applyLook(slot)
 		end
 	end
 	bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) })
+	bar.healthBucket = nil -- (the health colour is drawn again with the new look)
 	self.callouts[slot].label.TextColor3 = energy
 	self.combo[slot].count.TextColor3 = energy
 end
 
 function HUD:setEffectsReduced(reduced)
+	self.reduced = reduced -- (no shaking header)
 	self.effectsButton.Text = if reduced then "EFFECTS: REDUCED" else "EFFECTS: FULL"
 end
 
@@ -959,6 +986,10 @@ HUD.LOSER_LINES = {
 function HUD:announceText(main, sub, color, size, hold)
 	local a = self.announce
 	a.Text, a.TextColor3, a.Visible, a.TextTransparency = main, color or WHITE, true, 0
+	local band = self.announceBand
+	band.Visible = true
+	band.Size = UDim2.new(0, 0, 0, 170)
+	tween(band, 0.28, { Size = UDim2.new(1, 0, 0, 170) }, Enum.EasingStyle.Quint)
 	-- (size: a bigger title, PERFECT; hold: seconds on screen)
 	self.announceScale.Scale = 2.4 * (size or 1)
 	tween(self.announceScale, 0.22, { Scale = size or 1 }, Enum.EasingStyle.Back)
@@ -968,10 +999,11 @@ function HUD:announceText(main, sub, color, size, hold)
 	task.delay(hold or 1.3, function()
 		if self.announceId ~= id then return end
 		tween(a, 0.25, { TextTransparency = 1 })
+		tween(band, 0.25, { Size = UDim2.new(0, 0, 0, 170) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 		self.announceSub.Visible = false
 		-- Hidden once faded: the text's UIStroke outline does not fade with it.
 		task.delay(0.26, function()
-			if self.announceId == id then a.Visible = false end
+			if self.announceId == id then a.Visible, band.Visible = false, false end
 		end)
 	end)
 end
@@ -1123,6 +1155,32 @@ function HUD:update(world, views, fps, dt)
 		local kit = MoveData.Kits[view.kit] or MoveData.Kits.KAI
 		local ratio = math.clamp(view.hp / (view.maxHp or kit.Stats.MaxHealth), 0, 1)
 		bar.fill.Size = UDim2.fromScale(ratio, 1)
+		-- (UI pass) a blow taken: the health left flashes white; a big one shakes the side
+		if ratio < bar.lastRatio - 0.001 then
+			bar.hitFlash.BackgroundTransparency = 0.1
+			tween(bar.hitFlash, 0.22, { BackgroundTransparency = 1 })
+			if bar.lastRatio - ratio > 0.07 and not self.reduced then
+				local dir = if slot == 1 then -1 else 1
+				bar.side.Position = bar.sideBase + UDim2.fromOffset(dir * 7, 3)
+				tween(bar.side, 0.3, { Position = bar.sideBase }, Enum.EasingStyle.Elastic)
+			end
+		end
+		bar.lastRatio = ratio
+		-- its colour follows the health left: white, amber under half, a red that beats under a quarter
+		local bucket = if ratio > 0.5 then "high" elseif ratio > 0.25 then "mid" else "low"
+		if bucket ~= bar.healthBucket or bucket == "low" then
+			bar.healthBucket = bucket
+			if bucket == "high" then
+				bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE),
+					ColorSequenceKeypoint.new(1, bar.energy) })
+			elseif bucket == "mid" then
+				bar.gradient.Color = ColorSequence.new(Color3.fromHex("FFE9A8"), Color3.fromHex("FFC24A"))
+			else
+				local beat = 0.5 + 0.5 * math.sin(os.clock() * 7)
+				local red = Color3.fromHex("FF2A3D"):Lerp(Color3.fromHex("FF9AA4"), beat * 0.6)
+				bar.gradient.Color = ColorSequence.new(red, Color3.fromHex("C0101F"))
+			end
+		end
 		-- The red trail waits while the combo continues, then catches up.
 		if view.combo == 0 or self.trail[slot] < ratio then
 			self.trail[slot] = math.max(ratio, self.trail[slot] - dt * 0.6)
@@ -1218,6 +1276,12 @@ function HUD:update(world, views, fps, dt)
 			segment.Size = UDim2.fromScale(math.clamp((view.meter - (i - 1) * bars) / bars, 0, 1), 1)
 		end
 		bar.kiCount.Text = tostring(math.floor(view.meter / bars))
+		-- (a full ki bar glows, softly beating)
+		for i, edge in bar.segmentEdges do
+			local full = view.meter >= i * bars
+			edge.Thickness = if full then 2.5 else 1.5
+			edge.Transparency = if full then 0.15 + 0.35 * (0.5 + 0.5 * math.sin(os.clock() * 4 + i)) else 0
+		end
 		local u = kit.Ultimates
 		local ready = view.meter >= MoveData.Moves[u.Rush].meterCost
 		bar.ready.Visible = ready
@@ -1233,7 +1297,13 @@ function HUD:update(world, views, fps, dt)
 	for _, c in self.combo do
 		if c.frame.Visible and os.clock() > c.expires then c.frame.Visible = false end
 	end
-	self.timer.Text = if world.timer < 0 then "∞" else tostring(world.timer)
+	local timerText = if world.timer < 0 then "∞" else tostring(world.timer)
+	if timerText ~= self.timer.Text and world.timer >= 0 and world.timer <= 10 and world.phase == "Fight" then
+		self.timerScale.Scale = 1.25
+		tween(self.timerScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
+	self.timer.Text = timerText
+	self.timer.TextColor3 = if world.timer >= 0 and world.timer <= 10 then Color3.fromHex("FF4A5A") else WHITE
 	self.round.Text = if world.training then "TRAINING"
 		elseif world.mode == "SURVIVAL" then "SURVIVAL · WAVE " .. (world.wave or 1)
 		else "ROUND " .. world.round

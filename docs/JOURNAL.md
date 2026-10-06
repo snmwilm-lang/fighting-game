@@ -1,5 +1,22 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.40 — 6 octobre 2026 · UI FLUIDE : L'ÉCRAN DE COMBAT
+
+Wilhem : « et l'interface en combat aussi : plus design, fluide, belle, clean ; UI globale ». Le combat entre dans le plan, juste après les mouvements de base.
+
+- Barre de vie :
+  - repères à 25, 50 et 75 % ;
+  - flash blanc sur la vie restante à chaque coup encaissé ;
+  - sur un gros coup (plus de 7 % de vie), le côté du joueur tremble (rebond élastique, coupé en EFFETS RÉDUITS) ;
+  - la couleur suit la vie restante : blanc vers la couleur du perso, ambre sous la moitié, rouge qui bat sous le quart (redessinée au changement de skin).
+- Ki : une barre pleine a son contour plus épais, qui brille en battant doucement.
+- Chrono : les 10 dernières secondes passent en rouge, avec un petit sursaut à chaque seconde.
+- Annonces (ROUND, FIGHT, K.O., PERFECT) : une bande sombre fondue sur les bords, avec deux filets blancs, se déroule derrière l'annonce puis se replie. L'annonce se lit sur toutes les arènes.
+- Combo : le chiffre est légèrement penché vers le centre, clair en haut et plus sombre en bas (du volume).
+- Purement visuel : rien ne change dans le combat.
+
+Fichier : `src/client/HUDController.luau`. Tests : Lobby 43. Non vérifié dans Studio.
+
 ## Version 0.23.39 — 6 octobre 2026 · UI FLUIDE, ÉTAPE 1 : LES MOUVEMENTS DE BASE
 
 Wilhem : « passe les prochaines updates à me poser une UI fluide, agréable à regarder, belle, moderne, intéressante ».

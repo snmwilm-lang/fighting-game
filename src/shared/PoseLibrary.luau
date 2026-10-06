@@ -1083,8 +1083,8 @@ local function shinHold(a)
 		LeftShoulder = { a[5], a[10], a[6] }, LeftElbow = { a[7], 0, 0 }, LeftWrist = { 0, 0, 0 },
 	}
 end
-local SHIN_GUARD = shinHold({ 182, -41, -5, -80, 156, 47, 28, 47, -54, -32 })
-local SHIN_CROUCH_GUARD = shinHold({ 169, -41, 2, -80, 168, 53, 20, 43, 10, -44 })
+local SHIN_GUARD = shinHold({ 15, -6, 120, -50, 128, 86, 54, 40, -16, -62 })
+local SHIN_CROUCH_GUARD = shinHold({ 22, -6, 121, -52, 143, 91, 52, 40, -3, -62 })
 -- DAICHA 闇 · upright and calm, the left hand out with its sphere, the right at the hip.
 local DAICHA = feet({
 	Root = { 0, 6, 0, -0.2, 0.05 }, Waist = { 4, 14, 0 }, Neck = { -4, -12, 0 },
@@ -1119,8 +1119,9 @@ Poses.Kits.SHIN = {
 	STANCE = SHIN,
 	Idle = { SHIN, merge(SHIN, { Root = { 0, 12, 0, -0.48, 0 }, RightShoulder = { 54, 0, -6 } }) },
 	Crouch = SHIN_CROUCH,
-	-- (Wilhem's sheet: the katana raised over his head in both hands, the blade across above
-	-- him on a diagonal, the legs wide; arms solved by tests/ShinGuard.luau)
+	-- (Wilhem's sheet: the katana in both hands on a diagonal, the legs wide; then « reste
+	-- cohérent »: the hands before his chest, the blade rising across his front, before his
+	-- face, so it covers his torso and his head; arms solved by tests/ShinGuard.luau)
 	Block = feet(merge(SHIN, merge({ Root = { 0, 4, 0, -0.72, 0 }, Waist = { -4, 4, 0 }, Neck = { -10, -4, 0 } }, SHIN_GUARD)),
 		-0.95, 0.95, 0, -6, 20),
 	CrouchBlock = merge(SHIN_CROUCH, merge({ Waist = { -10, 4, 0 }, Neck = { -12, -4, 0 } }, SHIN_CROUCH_GUARD)),
@@ -1576,7 +1577,7 @@ Poses.ShinFinale = {
 	Recovery = feet(merge(SHIN, blade(deg(80, 0, 105), 10, nil, { Root = { 0, -10, 0, -0.6, -0.4 }, Waist = deg(-20, -20) })),
 		-1.2, 0.5, 0, -14, 8),
 }
--- (Guards: Kits.SHIN Block / CrouchBlock, the katana raised over his head in both hands:
+-- (Guards: Kits.SHIN Block / CrouchBlock, the katana in both hands across his front:
 -- Wilhem's sheet, solved by tests/ShinGuard.luau.)
 -- Down and getting up, the katana never stands up out of the floor like a stake: lying, it
 -- lies along the arm on the deck; kneeling, it is held level before him.

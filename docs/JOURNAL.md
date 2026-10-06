@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.16 — 6 octobre 2026 · LA GARDE DE SHIN, COHÉRENTE
+
+Wilhem : « l'épée de SHIN, elle garde comment ? Reste cohérent ».
+- La garde au-dessus de la tête (0.23.12) laissait **son corps ouvert** : un coup au ventre passait sous le sabre. Les étincelles sortaient du milieu de la lame, là-haut, alors que le coup touchait plus bas.
+- **Nouvelle garde** : toujours les deux mains et la lame en diagonale de la planche, mais **les mains devant la poitrine**. La lame monte **en travers devant lui**, devant son visage, jusqu'au-dessus de la tête : elle couvre le torse et la tête face à l'adversaire. Accroupi : la même, plus bas.
+- Calculée par `tests/ShinGuard.luau` : lame pile dans l'axe, main gauche sur la poignée, rien dans le corps.
+- Test « SHIN's guard » refait : poignée devant la poitrine, lame qui monte devant lui jusqu'au-dessus de la tête.
+- **Étincelles au point d'impact** : elles partent du point de l'arme le plus proche de l'endroit où le coup arrive, et non plus du milieu de l'arme. Ça vaut pour toutes les armes en garde.
+- Les autres gardes étaient déjà devant le corps : KAZAN (X), YUKINA (demi-cercle), RAIJIN (hampe en travers), DAICHA (disque).
+
+Tests : Animation 52 ; le reste est relancé.
+
 ## Version 0.23.15 — 6 octobre 2026 · LES GRIFFES DE KAZAN (PLANCHE) · ÉTINCELLES SUR TOUTES LES ARMES EN GARDE
 
 Wilhem : planche « GRIFFES » (gardes, M1/M2, blocage, contre) ; « oublie le R6, on n'en fait plus ».

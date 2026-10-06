@@ -1069,17 +1069,19 @@ test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15
 	end
 end)
 
-test("SHIN's guard: the katana raised over his head in both hands, the blade rising forward above him (R15, avatar, R6)", function()
-	for label, body in BODIES do
+test("SHIN's guard: the katana in both hands across his front, rising before his face: it covers his body (R15, avatar)", function()
+	for label, skel in { KAI = KAI, AVATAR = AVATAR } do
 		for _, key in { "Block", "CrouchBlock" } do
-			local b, t, torso = weaponLine("SHIN", Poses.Kits.SHIN[key], body[1], body[2])
+			local b, t, torso = weaponLine("SHIN", Poses.Kits.SHIN[key], skel)
 			local dx, dy, dz = t[1] - b[1], t[2] - b[2], t[3] - b[3]
 			local length = math.sqrt(dx * dx + dy * dy + dz * dz)
-			local above = b[2] - torso[2]
-			-- (the hilt over his head: well above his chest; the blade climbing, toward the opponent)
-			expect(above > 1.8, string.format("%s %s: the hilt is only %.2f above his chest (not over his head)", label, key, above))
-			expect(dy / length > 0.2 and dy / length < 0.85, string.format("%s %s: the blade is not on a rising diagonal (%.2f)", label, key, dy / length))
-			expect(-dz / length > 0.3, string.format("%s %s: the blade does not point toward the opponent (%.2f)", label, key, -dz / length))
+			-- (the rig faces -Z: the hilt before his chest, the blade rising past his head, in front
+			-- of him the whole way: Wilhem, « reste cohérent »: a guard over the head left him open)
+			expect(b[3] < torso[3] - 0.6, string.format("%s %s: the hilt is not before his chest (%.2f)", label, key, torso[3] - b[3]))
+			expect(math.abs(b[2] - torso[2]) < 1, string.format("%s %s: the hilt is not at his chest (%.2f)", label, key, b[2] - torso[2]))
+			expect(dy / length > 0.6, string.format("%s %s: the blade does not rise across his front (%.2f)", label, key, dy / length))
+			expect(t[2] > torso[2] + 2, string.format("%s %s: the blade does not cover his head", label, key))
+			expect(t[3] < torso[3] - 0.3, string.format("%s %s: the blade's point is not in front of him", label, key))
 		end
 	end
 end)

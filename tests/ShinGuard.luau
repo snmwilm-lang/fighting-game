@@ -1,6 +1,8 @@
--- SHIN's guard, solved (not a test). Wilhem's sheet: the katana raised over his head in both
--- hands, the blade across above him on a diagonal (a blow from above meets the steel, sparks),
--- the legs wide. For the guard poses (PoseLibrary Kits.SHIN Block / CrouchBlock), the arm
+-- SHIN's guard, solved (not a test). Wilhem's sheet: the katana in both hands, the blade on a
+-- diagonal, the legs wide, a blow meets the steel (sparks). Then Wilhem: « l'épée de SHIN, elle
+-- garde comment ? reste cohérent »: held over his head it left his body open, so the hands are
+-- before his chest and the blade rises across his front, before his face: it covers his
+-- torso and his head from the opponent. For the guard poses (PoseLibrary Kits.SHIN Block / CrouchBlock), the arm
 -- angles that put the right hand above his head, the blade along `dir`, the left hand on the
 -- hilt under the right one, the arms clear of his head and body and the blade clear of him.
 -- Random-restart descent on the 10 numbers of a hold (right shoulder rx, rz, elbow, wrist;
@@ -24,8 +26,8 @@ local ShinGuard = {}
 -- right hand, `dir` the blade (from the hilt to the point), `left` how far down the hilt
 -- (toward the pommel) the left hand holds.
 ShinGuard.TARGETS = {
-	Block = { at = { 0.1, 0.72, -0.45 }, dir = { -0.35, 0.42, -0.84 }, left = 0.3 },
-	CrouchBlock = { at = { 0.1, 0.68, -0.5 }, dir = { -0.35, 0.36, -0.86 }, left = 0.3 },
+	Block = { at = { 0.3, -1.25, -0.95 }, dir = { -0.45, 0.85, -0.25 }, left = 0.3 },
+	CrouchBlock = { at = { 0.3, -1.2, -0.95 }, dir = { -0.45, 0.85, -0.25 }, left = 0.3 },
 }
 
 local anim = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKEL,
@@ -137,7 +139,7 @@ end
 
 if args[1] then
 	-- (the starts: both arms raised over the head)
-	local start = { 165, -20, 40, -70, 165, 30, 50, 0, 0, 0 }
+	local start = { 80, -20, 90, -70, 80, 30, 90, 0, 0, 0 }
 	local keys = if args[1] == "all" then { "Block", "CrouchBlock" } else { args[1] }
 	for _, key in keys do
 		local best = ShinGuard.solve(key, start, tonumber(args[3]) or 7, tonumber(args[2]) or 6)

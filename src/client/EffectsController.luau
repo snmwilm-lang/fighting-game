@@ -1955,7 +1955,12 @@ function EffectsController:onEvent(event, views, rigs)
 				-- RAIJIN's spear, YUKINA's fans): sparks off it where it lands, in its element
 				-- (Wilhem's sheets: the blade meets the blow, a burst of sparks)
 				local tone = BLOCK_SPARKS[held.element] or BLOCK_SPARKS.water
-				local at = steel.Position:Lerp(steel.CFrame * Vector3.new(0, 0, -steel.Size.Z * 0.25), 0.5)
+				-- (where the blow meets the steel: the point of the blade nearest to the hit)
+				local half = steel.Size.Z / 2
+				local a, b = steel.CFrame * Vector3.new(0, 0, half), steel.CFrame * Vector3.new(0, 0, -half)
+				local hit = Vector3.new(position.X, position.Y, a.Z)
+				local u = math.clamp((hit - a):Dot(b - a) / math.max(1e-6, (b - a):Dot(b - a)), 0, 1)
+				local at = a:Lerp(b, u)
 				self:spark(at, tone[1], 1.2)
 				self:shards(at, tone[2], if self.reduced then 5 else 10, 0.55, tone[4] or Enum.Material.Neon, 0.22)
 				self:shards(at, tone[3], if self.reduced then 3 else 6, 0.4, Enum.Material.Neon, 0.3)

@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.38 — 6 octobre 2026 · FENÊTRE DES TITRES, VERSION 2
+
+Wilhem : « tu peux faire plus beau, alors donne-toi » (maquette v2 d'abord, `scratchpad/titles_mock2.py`).
+
+- En haut, une VITRINE : le titre porté comme les autres le voient. On y voit « TOI · PSEUDO », le titre en grand dans sa police (ombre portée, dégradé, contour), un grand médaillon, des coins dorés, son kanji en filigrane, des traits de vitesse, et la brillance s'il a été gagné.
+- COLLECTION x / 16 avec une barre dorée, puis des filtres en pastilles : TOUS, ACQUIS, À DÉBLOQUER.
+- Chaque carte :
+  - fond : lavis de sa couleur, 5 traits de vitesse inclinés, son kanji en grand filigrane à droite, coins à sa couleur s'il est possédé ;
+  - médaillon à double anneau (anneau de couleur, filet noir, disque en dégradé) ;
+  - nom avec ombre portée ;
+  - pastille de rareté, comment l'obtenir et la barre d'avancement ;
+  - bouton PORTER, ✓ PORTÉ ou VERROUILLÉ ;
+  - LÉGENDAIRE et MYTHIQUE : leur contour scintille (dégradé or, ou rouge-or-violet, qui tourne) ;
+  - gagné en jouant : halo qui pulse autour du médaillon, bande de lumière et étoiles.
+- Une seule boucle anime toute la fenêtre et s'arrête quand elle se ferme.
+
+Fichiers : `src/client/MenuController.luau`, `src/shared/Locale.luau`. Tests : Lobby 43. Non vérifié dans Studio.
+
 ## Version 0.23.37 — 6 octobre 2026 · TITRE GAGNÉ ≠ TITRE ACHETÉ, EFFET BRILLANT
 
 Wilhem : « pour la personne qui l'achète, une légère différence avec la personne qui l'a eu en jouant » ; « rajoute des petits effets brillants ».

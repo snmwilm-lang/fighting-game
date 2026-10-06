@@ -1,12 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.18 — 6 octobre 2026 · LES 4 MUSIQUES PARTOUT, PAR EXTRAITS
+
+Wilhem : « oui, tourne partout, par extraits de 30/40 secondes ».
+- Le menu et les combats partagent **les 4 morceaux** (`Music.SHARED`) sur **une seule rotation** (`Music.rotationKey`). Elle continue d'un écran à l'autre et d'un match à l'autre : Be And Obey → Funk Break Beat → Fast Amen Break → Risky Step → … (le premier est tiré au hasard).
+- Chaque morceau joue un **extrait de 30 à 40 s** (`Music.excerpt`), pris à un endroit différent du morceau à chaque fois (jamais tout au début ni tout à la fin), puis un **fondu enchaîné** vers le suivant. Un morceau trop court se joue depuis son début.
+- Le lecteur attend que le morceau soit chargé (pour connaître sa durée), saute à l'extrait, puis le fait monter en fondu.
+- Les arènes et les boss gardent leurs emplacements : sans morceau à elles, elles retombent sur ce même pool.
+- Test (Kits « music ») : menu et combat ont les 4 morceaux et la même rotation ; un extrait dure 30 à 40 s et reste dans le morceau ; un morceau court ou pas encore chargé part du début.
+
+Tests : vérifiés à part ; suite Kits relancée.
+
 ## Version 0.23.17 — 6 octobre 2026 · LES MUSIQUES TOURNENT
 
 Wilhem : « les musiques, alterne-les stp, c'est en boucle les mêmes, j'aime pas, fais-les tourner ».
 - Avant : à chaque changement d'écran (menu → combat → menu), le morceau était **tiré au hasard** sans souvenir du précédent. Avec 2 morceaux par écran, on retombait une fois sur deux sur le même.
 - Maintenant, **rotation** (`Music.rotate`) : chaque écran (MENU, BATTLE…) retient son dernier morceau et passe **toujours au suivant**, à la fin d'un morceau comme d'un match à l'autre. Seul le tout premier est tiré au hasard.
 - Test (Kits « music ») : on simule 4 morceaux joués 8 fois de suite ; chacun revient à son tour, jamais deux fois d'affilée. Dans le jeu : le menu alterne ses 2 morceaux, le combat les siens.
-- Question posée à Wilhem : faire tourner les 4 morceaux partout (menu et combat) ?
+- Wilhem a répondu : les 4 partout, par extraits (0.23.18).
 
 Tests : rotation vérifiée à part. Suite Kits en cours sur la 0.23.16 et la 0.23.17 (pas encore de résultat au moment de pousser).
 

@@ -3,11 +3,12 @@
 	A track is a Sound placed in Studio in ReplicatedStorage › Audio › Music and named after
 	its slot (shared/Music.SLOTS: MENU, BATTLE, TEMPLE..., ASURA, WRATH, VICTORY, DEFEAT), or an
 	id in Music.CUSTOM. The slot follows the game (menu, stage, boss, SECOND LIFE); a missing
-	slot falls back on a more general one, and no track at all means silence. Tracks loop and
+	slot falls back on a more general one, and no track at all means silence. Tracks
 	cross-fade; VICTORY / DEFEAT play once over the music. Steps back under the cinematics.
-	Several tracks on a slot (Wilhem's MENU and BATTLE tracks, Music.TRACKS, or a Folder named
-	after the slot holding several Sounds) make a playlist: each plays to its end, then the next
-	one in turn (Music.rotate), and the rotation carries on across the menus and the matches.
+	Several tracks on a slot (Wilhem's tracks, Music.TRACKS, or a Folder named after the slot
+	holding several Sounds) make a playlist played in turn (Music.rotate), an excerpt of 30 to
+	40 s of each (Music.excerpt), cross-faded. The menu and the fights share all of Wilhem's
+	tracks on one rotation (Music.SHARED), which carries on across the menus and the matches.
 	SETTINGS › MUSIC turns it off. See docs/AUDIO.md.
 ]]
 local SoundService = game:GetService("SoundService")
@@ -70,26 +71,37 @@ function MusicController:play(slotId)
 	self.slot = slotId
 	if not slotId or not self.enabled then return end
 	local list = templates(slotId)
-	-- (each slot rotates through its tracks, remembering the last one across menus and matches)
-	local index = Music.rotate(#list, self.lastTrack[slotId], function(n) return math.random(1, n) end)
+	-- (the tracks in turn, the menu and the fights on one rotation: Music.rotate, rotationKey)
+	local key = Music.rotationKey(slotId)
+	local index = Music.rotate(#list, self.lastTrack[key], function(n) return math.random(1, n) end)
 	if not index then return end
-	self.lastTrack[slotId] = index
+	self.lastTrack[key] = index
 	local base = list[index]
 	local sound = base:Clone()
-	-- (one track: it loops; a playlist: at its end, the next one)
-	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", #list == 1, self.group
-	if #list > 1 then
-		sound.Ended:Once(function()
-			if self.current == sound and self.slot == slotId then self:play(slotId) end
-		end)
-	end
-	local target = (base.Volume > 0 and base.Volume or 0.6) * self.level
-	sound:SetAttribute("Base", base.Volume > 0 and base.Volume or 0.6)
+	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", false, self.group
+	local volume = base.Volume > 0 and base.Volume or 0.6
+	sound:SetAttribute("Base", volume)
 	sound.Volume = 0
 	sound.Parent = self.group
-	sound:Play()
-	TweenService:Create(sound, TweenInfo.new(FADE), { Volume = target }):Play()
 	self.current = sound
+	local function nextOne()
+		if self.current == sound and self.slot == slotId then self:play(slotId) end
+	end
+	sound.Ended:Once(nextOne)
+	-- An excerpt of 30 to 40 s (Music.excerpt), then the next track: wait for the track to
+	-- load (its length), jump to the excerpt, fade it in.
+	task.spawn(function()
+		local waited = 0
+		while not sound.IsLoaded and waited < 6 and sound.Parent do
+			waited += task.wait(0.1)
+		end
+		if self.current ~= sound then return end
+		local part = Music.excerpt(sound.TimeLength, math.random)
+		sound.TimePosition = part.start
+		sound:Play()
+		TweenService:Create(sound, TweenInfo.new(FADE), { Volume = volume * self.level }):Play()
+		task.delay(part.duration, nextOne)
+	end)
 end
 
 -- state = { inMatch, map, boss, wrath, phase, hp = { share1, share2 }, deciding, cinematic }

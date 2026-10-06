@@ -593,6 +593,19 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	end
 	for i = 1, 4 do expect(seenTracks[i] == 2, "the rotation does not play every track in turn") end
 	expect(Music.rotate(2, 2, function() return 1 end) == 1 and Music.rotate(1, 1, function() return 1 end) == 1, "short rotations")
+	-- (Wilhem: « tourne partout, par extraits de 30/40 secondes »)
+	local all = 0
+	for _, t in Music.TRACKS do if t.id ~= "" then all += 1 end end
+	expect(#Music.idsFor("MENU") == all and #Music.idsFor("BATTLE") == all, "the menu and the fights do not share every track")
+	expect(Music.rotationKey("MENU") == Music.rotationKey("BATTLE"), "the menu and the fights do not carry on the same rotation")
+	for _, roll in { 0, 0.5, 0.999 } do
+		local part = Music.excerpt(180, function() return roll end)
+		expect(part.duration >= 30 and part.duration <= 40, "an excerpt is not 30 to 40 s")
+		expect(part.start >= Music.EXCERPT.edge and part.start + part.duration <= 180 - Music.EXCERPT.edge + 1e-6, "an excerpt runs off the track")
+	end
+	local short = Music.excerpt(25, function() return 0.5 end)
+	expect(short.start == 0 and short.duration <= 25, "a short track is not played from its start")
+	expect(Music.excerpt(0, function() return 0.5 end).start == 0, "an unloaded track does not start at 0")
 	expect(Music.volume({ cinematic = true }) < Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "the music does not step back under a cinematic")
 	expect(Music.volume({ phase = "Fight", hp = { 0.2, 0.9 } }) > Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "a clutch moment does not raise it")
 	expect(next(Music.CUSTOM) == nil and next(Palette.CUSTOM) == nil, "an audio id was invented")

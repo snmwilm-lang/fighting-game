@@ -27,11 +27,19 @@ Music.TRACKS = {
 	{ slot = "BATTLE", file = "assets/music/battle_2_risky_step.mp3", title = "Risky Step", id = "rbxassetid://86152672257538" },
 }
 
--- The ids of a slot's tracks: Music.TRACKS (uploaded) then Music.CUSTOM.
+-- (Wilhem: « tourne partout, par extraits de 30/40 secondes »: the menu and the fights share
+-- one playlist of all his tracks, played in turn, an excerpt of each.)
+Music.SHARED = { MENU = true, BATTLE = true }
+Music.EXCERPT = { min = 30, max = 40, edge = 4 }
+
+-- The ids of a slot's tracks: Music.TRACKS (uploaded; every one of them on a SHARED slot)
+-- then Music.CUSTOM.
 function Music.idsFor(slotId)
 	local out = {}
 	for _, t in Music.TRACKS do
-		if t.slot == slotId and type(t.id) == "string" and string.match(t.id, "^rbxassetid://%d+$") then table.insert(out, t.id) end
+		if (t.slot == slotId or Music.SHARED[slotId]) and type(t.id) == "string" and string.match(t.id, "^rbxassetid://%d+$") then
+			table.insert(out, t.id)
+		end
 	end
 	local custom = Music.CUSTOM[slotId]
 	if type(custom) == "string" then table.insert(out, custom) end
@@ -46,6 +54,23 @@ function Music.rotate(count, last, roll)
 	if count <= 0 then return nil end
 	if not last then return roll(count) end
 	return (last % count) + 1
+end
+
+-- The rotation a slot follows: the SHARED slots one and the same (the menu and the fights carry
+-- on the same turn), every other slot its own.
+function Music.rotationKey(slotId)
+	return if Music.SHARED[slotId] then "SHARED" else slotId
+end
+
+-- Which part of a track of `length` seconds to play: { start, duration }, an excerpt of 30 to
+-- 40 s away from the very start and end (`roll()` -> 0..1). A track too short (or a length
+-- not known yet: 0) plays from its start.
+function Music.excerpt(length, roll)
+	local E = Music.EXCERPT
+	local duration = E.min + (E.max - E.min) * roll()
+	if not length or length <= 0 then return { start = 0, duration = duration } end
+	if length < duration + 2 * E.edge then return { start = 0, duration = math.min(duration, length) } end
+	return { start = E.edge + (length - duration - 2 * E.edge) * roll(), duration = duration }
 end
 
 -- The next track of a playlist of `count`: never `last` again when there is another one.

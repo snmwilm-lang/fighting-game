@@ -1875,6 +1875,10 @@ function EffectsController:onEvent(event, views, rigs)
 		end
 		local v = views[event.defender]
 		if v then self:dust(v.x, 0, -v.facing) end
+		if event.behind then
+			-- (the SIDE dodge passed behind the attacker: a ring of shadow where she comes out)
+			self:arc(Vector3.new(event.x, 0.08, self.config.PlaneZ), 1.2, 0, 360, tone, math.pi / 2, 1)
+		end
 		return
 	elseif event.kind == "Blink" then
 		-- DAICHA's OMBRE INVERSÉE / TÉLÉPORTATION: a shadow copy where he was, a pool of

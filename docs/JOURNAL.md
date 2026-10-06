@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.2 — 6 octobre 2026 · AKEMI : L'ESQUIVE QUI PASSE DANS LE DOS
+
+Wilhem : « ça doit être une des animations d'esquive qui la met derrière ».
+
+- La contre-attaque déclenchée par L/R (v0.24.1) est retirée. C'est l'esquive automatique SIDE (20 %) qui fait passer AKEMI dans le dos de l'attaquant, quand il y a la place (`Around` = 2,4).
+- Son coup suivant reste bloquable : elle reste occupée 10 ticks (`React`) de plus que l'attaquant après l'esquive, le temps qu'il se retourne. Tenir la garde le bloque ; reculer l'esquive aussi.
+- Un anneau d'ombre marque l'endroit où elle ressort.
+- Il n'y a aucun combo gratuit : l'attaquant est toujours libre avant elle.
+- Description du perso mise à jour (anglais et français).
+
+Tests : CombatSimulation 149, Kits (9 tests AKEMI, dont « the SIDE dodge passes behind the attacker, and her next blow can be blocked »), Lobby 44. Non vérifié dans Studio.
+
 ## Version 0.24.1 — 6 octobre 2026 · UN SEUL K.O. (POUR DE BON), CONTRE D'AKEMI BLOCABLE
 
 Wilhem : « il y a toujours deux écrans de K.O. » et « AKEMI, le truc où elle esquive et passe derrière l'adversaire : laisse-le, rends-le juste bloquable ».

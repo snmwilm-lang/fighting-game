@@ -715,38 +715,46 @@ test("AKEMI: INSTINCT dodges on its own (3 charges), then each charge comes back
 	expect(find(later, "Evade") ~= nil, "the charges did not come back")
 end)
 
-test("AKEMI: after a dodge, L or R brings her behind the attacker, and he can block it", function()
-	-- (Wilhem: « le truc où elle esquive et passe derrière l'adversaire, laisse-le, rends-le juste bloquable »)
+test("AKEMI: the SIDE dodge passes behind the attacker, and her next blow can be blocked", function()
+	-- (Wilhem: « ça doit être une des animations d'esquive qui la met derrière », « rends-le bloquable »)
 	local passive = Kits.AKEMI.Passive
-	expect((passive.CounterWindow or 0) > 0 and passive.Blockable and passive.HitRefund == nil, "the counter from behind is gone or not blockable")
+	expect((passive.CounterWindow or 0) == 0 and passive.HitRefund == nil, "the old counter from behind (a press) is still there")
 	-- guard: nil (nothing), "key" (the guard key held once she is behind him), "back" (holding away from her)
 	local function duel(guard)
-		local world = kitWorld("KAI", "AKEMI", 3)
-		local a, d = world.fighters[1], world.fighters[2]
-		local evaded, blinkAt, hit, blocked, aFree, hitAt = false, nil, false, false, nil, nil
-		for t = 1, 90 do
-			local press = evaded and not blinkAt
-			local i1 = input({ light = t == 1 })
-			if blinkAt and guard == "key" then i1.block = true end
-			if blinkAt and guard == "back" then i1.axis = if d.x > a.x then -1 else 1 end
-			for _, e in Sim.step(world, { i1, input({ light = press }) }) do
-				if e.kind == "Evade" then evaded = true end
-				if e.kind == "Blink" and e.counter then blinkAt = t end
-				if e.kind == "Hit" and e.attacker == 2 then hit, hitAt = true, hitAt or t end
-				if e.kind == "Block" and e.attacker == 2 then blocked = true end
+		for wait = 0, 120 do
+			local world = kitWorld("KAI", "AKEMI", 3)
+			local a, d = world.fighters[1], world.fighters[2]
+			local behindAt, hit, blocked, aFree, hitAt, pressed = nil, false, false, nil, nil, false
+			for t = 1, 100 + wait do
+				local i1 = input({ light = t == 1 + wait })
+				if behindAt and guard == "key" then i1.block = true end
+				if behindAt and guard == "back" then i1.axis = if d.x > a.x then -1 else 1 end
+				-- (she strikes the moment she can)
+				local i2 = input({ light = behindAt ~= nil and d.stun == 0 and not pressed })
+				if i2.light then pressed = true end
+				for _, e in Sim.step(world, { i1, i2 }) do
+					if e.kind == "Evade" and e.behind then behindAt = t end
+					if e.kind == "Evade" and not e.behind and not behindAt then break end
+					if e.kind == "Hit" and e.attacker == 2 then hit, hitAt = true, hitAt or t end
+					if e.kind == "Block" and e.attacker == 2 then blocked = true end
+				end
+				if behindAt and not aFree and a.move == nil and a.stun == 0 and a.hitstop == 0 then aFree = t end
 			end
-			if blinkAt and not aFree and a.move == nil and a.stun == 0 and a.hitstop == 0 then aFree = t end
+			if behindAt then
+				local side = (d.x - a.x) * a.facing
+				return behindAt, hit, blocked, aFree, hitAt, side
+			end
 		end
-		return evaded, blinkAt, hit, blocked, aFree, hitAt, a, d
+		return nil
 	end
-	local evaded, blinkAt, hit, _, aFree, hitAt, a, d = duel(nil)
-	expect(evaded and blinkAt, "no counter from behind after the dodge")
-	expect(hit, "the counter did not hit an attacker who did nothing")
-	expect(aFree and hitAt and aFree < hitAt - 6, "the attacker was not free (with time to react) before her blow: not blockable")
-	local _, _, hitKey, blockedKey = duel("key")
-	expect(blockedKey and not hitKey, "holding the guard did not block the counter from behind")
-	local _, _, hitBack, blockedBack = duel("back")
-	expect(blockedBack and not hitBack, "holding away from her did not block the counter from behind")
+	local behindAt, hit, _, aFree, hitAt = duel(nil)
+	expect(behindAt, "no SIDE dodge passed behind the attacker")
+	expect(hit, "her blow from behind did not land on an attacker who did nothing")
+	expect(aFree and hitAt and aFree <= hitAt - 10, "the attacker was not free (with time to turn and guard) before her blow")
+	local _, hitKey, blockedKey = duel("key")
+	expect(blockedKey and not hitKey, "holding the guard did not block her blow from behind")
+	local _, hitBack = duel("back")
+	expect(not hitBack, "holding away from her did not keep her blow from behind off (guarded or out of reach)")
 end)
 
 test("AKEMI: no evade while guarding, in a combo or against an ultimate", function()

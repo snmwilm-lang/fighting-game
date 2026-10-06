@@ -47,6 +47,10 @@ Fiches de Wilhem (ZEPHYR, puis KAI et AKEMI). Tout est décidé par le serveur (
 - PV : 1180 → 1050.
 - Le boss KUROEN SHIN garde son ancien instinct.
 
+**Jambes de ZEPHYR** (Wilhem : « des fois il fait le grand écart, ça rend pas très bien ») : dans les coups sautés, la jambe libre est maintenant repliée au lieu d'être tendue à l'opposé (TRIPLE FLIGHT, TAKEOFF, AZURE CRESCENT, CYCLONE, HEAVEN HEEL, FINAL BLADE). Les coups hauts au sol (RISING KICK, HIGH KICK, AXE KICK) montent un peu moins haut. Le pire écart des cuisses, jambes tendues, passe de 156° à 120°. Nouveau test « ZEPHYR never does the splits » (≤ 125° dans tous les scripts de combat). AnimQuality ZEPHYR : à-coups et tremblements inchangés (21/13/8/16), et plus d'interpénétration sur le script « moves ».
+
+**KAI, modes 1/2** : pas besoin. Le RESOLVE se joue avec L/R et la FEINTE avec la touche de garde existante (F, manette, bouton tactile) ; aucune nouvelle touche n'est utilisée.
+
 **Multijoueur** : le serveur juge tout. `Sim.timingSlack` pardonne l'aller-retour de la latence mesurée, jusqu'à `TimingLatencyCap` = 8 ticks : un ping gonflé n'achète rien au-delà.
 
 **Client**
@@ -58,7 +62,7 @@ Fiches de Wilhem (ZEPHYR, puis KAI et AKEMI). Tout est décidé par le serveur (
   - annonces CLASH STEP!, RESOLVE!, FEINT, PERFECT FINISHER ✦, FLOW DODGE!, INSTINCT!
 - Textes en français dans `Locale`.
 
-Tests : CombatSimulation 148 (17 nouveaux : routes L/R identiques dans et hors tempo, Perfect raté sans casse, cap à 3, scaling, latence, fenêtres et anti-mash du Clash Step et du Resolve, aucun combo garanti après, feinte sans boucle, charges et cooldowns indépendants, styles 45/30/20/5, Flow), Animation 53, Lobby 44, FighterAI 15, CinematicDirector 872, PressQueue 4. RESULTS_PLACEHOLDER Non vérifié dans Studio.
+Tests : CombatSimulation 148 (17 nouveaux : routes L/R identiques dans et hors tempo, Perfect raté sans casse, cap à 3, scaling, latence, fenêtres et anti-mash du Clash Step et du Resolve, aucun combo garanti après, feinte sans boucle, charges et cooldowns indépendants, styles 45/30/20/5, Flow), Animation 54, Lobby 44, FighterAI 15, CinematicDirector 872, PressQueue 4. RESULTS_PLACEHOLDER Non vérifié dans Studio.
 
 ## Version 0.23.49 — 6 octobre 2026 · UN SEUL K.O.
 

@@ -958,7 +958,7 @@ Poses.ZephyrHigh = { -- head kick, leaning back
 	Startup = merge(ZEPHYR, { Root = { 0, -20, 0, -0.2, 0 }, RightHip = { 100, 0, 30 }, RightKnee = { -125, 0, 0 } }),
 	Active = merge(ZEPHYR, {
 		Root = { 10, -10, 0, -0.05, 0.1 }, Waist = { 14, -36, -12 }, Neck = { -18, 25, 0 },
-		RightHip = { 142, 0, 26 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -30, 0, 0 },
+		RightHip = { 130, 0, 26 }, RightKnee = { -6, 0, 0 }, RightAnkle = { -30, 0, 0 },
 		LeftShoulder = { 40, 0, -50 }, RightShoulder = { 30, 0, 55 },
 	}),
 	Recovery = merge(ZEPHYR, { RightHip = { 70, 0, 10 }, RightKnee = { -100, 0, 0 } }),
@@ -974,20 +974,20 @@ Poses.ZephyrPlexus = { -- straight heel to the solar plexus
 Poses.ZephyrRiser = { -- straight leg swung up under the chin (launcher)
 	Startup = merge(ZEPHYR_CROUCH, { Waist = { -20, 0, 0 } }),
 	Active = merge(ZEPHYR, {
-		Root = { 18, 0, 0, -0.05, 0 }, Waist = { 10, 0, 0 }, Neck = { -20, 0, 0 },
-		RightHip = { 152, 0, 6 }, RightKnee = { -4, 0, 0 }, RightAnkle = { -20, 0, 0 },
+		Root = { 6, 0, 0, -0.14, 0 }, Waist = { 8, 0, 0 }, Neck = { -14, 0, 0 },
+		RightHip = { 116, 0, 6 }, RightKnee = { -6, 0, 0 }, RightAnkle = { -20, 0, 0 },
 		LeftShoulder = { 20, 0, -50 }, RightShoulder = { 20, 0, 50 },
 	}),
 	Recovery = merge(ZEPHYR, { RightHip = { 60, 0, 5 }, RightKnee = { -90, 0, 0 } }),
 }
 Poses.ZephyrSkyward = { -- climbing vertical kicks, one leg then the other
 	Startup = ZEPHYR_CROUCH,
-	Active = airborne(merge(legs(-10, -30, 150, -4), {
-		Root = { 14, 0, 0, 0.6, 0 }, Waist = { 8, 0, 0 },
+	Active = airborne(merge(legs(50, -105, 128, -6), {
+		Root = { 10, 0, 0, 0.6, 0 }, Waist = { 8, 0, 0 },
 		LeftShoulder = { 20, 0, -60 }, RightShoulder = { 20, 0, 60 },
 	})),
-	Active2 = airborne(merge(legs(150, -4, -10, -30), {
-		Root = { 14, 0, 0, 0.9, 0 }, Waist = { 8, 0, 0 },
+	Active2 = airborne(merge(legs(128, -6, 50, -105), {
+		Root = { 10, 0, 0, 0.9, 0 }, Waist = { 8, 0, 0 },
 		LeftShoulder = { 20, 0, -60 }, RightShoulder = { 20, 0, 60 },
 	})),
 	Recovery = merge(ZEPHYR, legs(40, -70, 20, -50)),
@@ -1053,7 +1053,7 @@ Poses.ZephyrChase = { -- flying side kick at the target
 }
 Poses.ZephyrFinale = { -- jumping spinning hook kick
 	Startup = merge(ZEPHYR_CROUCH, { Root = { 0, -60, 0, -0.95, 0 }, Waist = { -20, -30, 0 } }),
-	Active = airborne(merge(legs(20, -40, 120, -4, -5, 40), {
+	Active = airborne(merge(legs(55, -105, 116, -4, -5, 36), {
 		Root = { 0, 150, 0, 0.5, 0 }, Waist = { 14, 40, 0 }, Neck = { -6, 70, 0 },
 		RightAnkle = { -30, 0, 0 },
 		LeftShoulder = { 40, 0, -60 }, RightShoulder = { 30, 0, 60 },
@@ -3293,7 +3293,7 @@ do
 	-- ENVOL: the jumping scissor kick, the left leg up first.
 	Poses.ZephyrEnvol = {
 		Startup = merge(ZC, { Waist = deg(-22, -10), Neck = deg(20), LeftShoulder = deg(-30, 0, -40), RightShoulder = deg(-30, 0, 40) }),
-		Active = blind(airborne(merge(legs(118, -6, -34, -70), { Root = { -18, 20, 0, 0.6, -0.1 }, Waist = deg(8, -16), Neck = deg(-14),
+		Active = blind(airborne(merge(legs(116, -6, 34, -104), { Root = { -14, 20, 0, 0.6, -0.1 }, Waist = deg(8, -16), Neck = deg(-14),
 			LeftShoulder = deg(30, 0, -80), LeftElbow = deg(20), RightShoulder = deg(50, 0, 70), RightElbow = deg(20) }))),
 		Recovery = merge(Z, legs(36, -64, 24, -50)),
 	}
@@ -3314,9 +3314,9 @@ do
 	-- CYCLONE: the helicopter kick, both legs out flat, turning.
 	Poses.ZephyrCyclone = {
 		Startup = blind(merge(ZC, { Root = { 0, -70, 0, -0.95, 0 }, Waist = deg(-20, -34), LeftShoulder = deg(20, 0, -60), RightShoulder = deg(20, 0, 60) })),
-		Active = blind(airborne(merge(legs(40, -4, 30, -6, -70, 60), { Root = { 0, 0, 0, 0.7, 0 }, Waist = deg(6), Neck = deg(-6),
+		Active = blind(airborne(merge(legs(40, -4, 52, -104, -60, 24), { Root = { 0, 0, 0, 0.7, 0 }, Waist = deg(6), Neck = deg(-6),
 			LeftShoulder = deg(60, 0, -88), LeftElbow = deg(6), RightShoulder = deg(60, 0, 88), RightElbow = deg(6) }))),
-		Active2 = blind(airborne(merge(legs(30, -6, 40, -4, -60, 70), { Root = { 0, 180, 0, 0.95, 0 }, Waist = deg(6), Neck = deg(-6),
+		Active2 = blind(airborne(merge(legs(52, -104, 40, -4, -24, 60), { Root = { 0, 180, 0, 0.95, 0 }, Waist = deg(6), Neck = deg(-6),
 			LeftShoulder = deg(60, 0, -88), LeftElbow = deg(6), RightShoulder = deg(60, 0, 88), RightElbow = deg(6) }))),
 		Recovery = merge(Z, legs(44, -74, 22, -52)),
 	}
@@ -3331,14 +3331,14 @@ do
 	-- TALON CÉLESTE: a leap, the heel dropped from above the head.
 	Poses.ZephyrSkyHeel = {
 		Startup = merge(ZC, { Waist = deg(-26, 10), Neck = deg(22), RightShoulder = deg(-20, 0, 40) }),
-		Active = blind(airborne(merge(legs(-24, -56, 104, -2), { Root = { -26, 0, 0, 0.5, -0.1 }, Waist = deg(-18), Neck = deg(20),
+		Active = blind(airborne(merge(legs(40, -100, 104, -2), { Root = { -26, 0, 0, 0.5, -0.1 }, Waist = deg(-18), Neck = deg(20),
 			LeftShoulder = deg(60, 0, -70), RightShoulder = deg(60, 0, 70) }))),
 		Recovery = merge(Z, legs(34, -56, 22, -44)),
 	}
 	-- HACHE: standing, the straight leg raised past the head, the heel brought down.
 	Poses.ZephyrAxe = {
 		Startup = merge(Z, { Root = { -8, 0, 0, -0.16, 0.15 }, Waist = deg(14), Neck = deg(-10),
-			RightHip = deg(158, 0, 14), RightKnee = deg(-4), RightAnkle = deg(-10), LeftShoulder = deg(30, 0, -60), RightShoulder = deg(30, 0, 60) }),
+			RightHip = deg(126, 0, 14), RightKnee = deg(-8), RightAnkle = deg(-10), LeftShoulder = deg(30, 0, -60), RightShoulder = deg(30, 0, 60) }),
 		Active = merge(Z, { Root = { 6, 0, 0, -0.32, -0.35 }, Waist = deg(-26), Neck = deg(26),
 			RightHip = deg(76, 0, 2), RightKnee = deg(-6), RightAnkle = deg(26),
 			LeftShoulder = deg(-30, 0, -50), LeftElbow = deg(30), RightShoulder = deg(-30, 0, 50), RightElbow = deg(30) }),
@@ -3366,7 +3366,7 @@ do
 	-- CROISSANT D'AZUR: the backflip kick, the leg drawing the crescent.
 	Poses.ZephyrCrescent = {
 		Startup = merge(ZC, { Waist = deg(-16), Neck = deg(14), LeftShoulder = deg(-40, 0, -30), RightShoulder = deg(-40, 0, 30) }),
-		Active = blind(airborne(merge(legs(-14, -40, 136, -4), { Root = { 50, 0, 0, 0.6, 0.1 }, Waist = deg(16), Neck = deg(-30),
+		Active = blind(airborne(merge(legs(48, -104, 124, -4), { Root = { 44, 0, 0, 0.6, 0.1 }, Waist = deg(16), Neck = deg(-30),
 			LeftShoulder = deg(-50, 0, -40), RightShoulder = deg(-50, 0, 40) }))),
 		Active2 = blind(airborne(merge(legs(60, -110, 70, -100), { Root = { 200, 0, 0, 0.9, 0.2 }, Waist = deg(10),
 			LeftShoulder = deg(-20, 0, -50), RightShoulder = deg(-20, 0, 50) }))),

@@ -1803,4 +1803,30 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 	end
 end)
 
+test("ZEPHYR never does the splits: in every fight script, his thighs stay under 125° apart when both legs are straight", function()
+	-- (Wilhem: « des fois il fait le grand écart, ça rend pas très bien »: the free leg tucks,
+	-- the high kicks stay a little lower)
+	local ClipKit = require("./ClipKit")
+	local function sub(a, b) return { a[1] - b[1], a[2] - b[2], a[3] - b[3] } end
+	local function angle(a, b)
+		local la = math.sqrt(a[1] ^ 2 + a[2] ^ 2 + a[3] ^ 2)
+		local lb = math.sqrt(b[1] ^ 2 + b[2] ^ 2 + b[3] ^ 2)
+		return math.deg(math.acos(math.clamp((a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (la * lb), -1, 1)))
+	end
+	for _, name in { "showcase", "routes", "moves", "combo", "heavy", "LRLRLR", "RLRLLR", "LLRRLR", "RRLRLR", "LLLRLR", "LLLLRR" } do
+		ClipKit.play("ZEPHYR", name, 60, function(info)
+			local p = info.parts[1]
+			local function pos(n) local c = p[n].cframe return { c[1], c[2], c[3] } end
+			local pelvis = pos("LowerTorso")
+			local lu, ll, lf = pos("LeftUpperLeg"), pos("LeftLowerLeg"), pos("LeftFoot")
+			local ru, rl, rf = pos("RightUpperLeg"), pos("RightLowerLeg"), pos("RightFoot")
+			if angle(sub(ll, lu), sub(lf, ll)) < 45 and angle(sub(rl, ru), sub(rf, rl)) < 45 then
+				local spread = angle(sub(lu, pelvis), sub(ru, pelvis))
+				local v = info.views[1]
+				expect(spread <= 125, string.format("%s: the splits (%.0f°) in %s frame %s", name, spread, tostring(v.move or v.state), tostring(v.moveFrame)))
+			end
+		end)
+	end
+end)
+
 T.finish()

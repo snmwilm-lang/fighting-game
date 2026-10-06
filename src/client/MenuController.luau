@@ -457,6 +457,7 @@ function MenuController:popup(title, width, height)
 	local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(width or 560, height or 520),
 		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 51, Active = true }, shade)
 	Theme.surface(box, Theme.GOLD)
+	Theme.popIn(shade, box) -- (it opens with a little pop: Theme.popIn)
 	label(box, { Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -80, 0, 40), Font = DISPLAY, TextScaled = true, Text = title,
 		TextColor3 = WHITE, ZIndex = 52 })
 	local close = Theme.button(box, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(40, 40),
@@ -1504,6 +1505,7 @@ function MenuController:confirm(text, yesText, onYes)
 	local box = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(460, 210),
 		BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 61 }, shade)
 	Theme.surface(box, Theme.GOLD)
+	Theme.popIn(shade, box)
 	label(box, { Position = UDim2.fromOffset(20, 18), Size = UDim2.new(1, -40, 0, 100), Font = UI_FONT, TextSize = 17, TextWrapped = true,
 		Text = text, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 62 })
 	local function close()
@@ -2334,13 +2336,10 @@ function MenuController:open(page)
 	for name, frame in self.pages do frame.Visible = name == page end
 	-- (the big ghost kanji only behind the fighter select: in the lobby it sat on the hero)
 	self.bigKanji.Visible = page == "select"
-	-- (the page settles in: a short zoom from slightly smaller)
+	-- (the page comes in: a short slide, its cards one after the other: Theme.enter)
 	local shown = self.pages[page]
-	if shown then
-		local scale = shown:FindFirstChild("PageScale") or new("UIScale", { Name = "PageScale" }, shown)
-		scale.Scale = 0.985
-		TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	end
+	if shown and page ~= self.lastEntered then Theme.enter(shown) end
+	self.lastEntered = page
 	local overlay = page == "select" or page == "search"
 	self.nav.Visible = not overlay
 	self.bottomNews.Visible = not overlay and not self.compact
@@ -2458,7 +2457,7 @@ function MenuController:refreshProfile()
 	for _, min in { 0, 900, 1100, 1300, 1500, 1700 } do
 		if s.rating >= min then floor = min end
 	end
-	self.profileBar.Size = UDim2.fromScale(if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1, 1)
+	Theme.fillTo(self.profileBar, if s.nextRank then math.clamp((s.rating - floor) / (s.nextRank - floor), 0, 1) else 1)
 	-- The wallet rolls up to its new values (a coin gain counts up, the chip pulses).
 	local wallet = GameModes.wallet(s)
 	for _, kind in { "coins", "crystals", "rank" } do self:rollWallet(kind, wallet[kind]) end

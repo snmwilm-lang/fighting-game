@@ -24,6 +24,7 @@ local HubController = require(script.HubController)
 local LanguageController = require(script.LanguageController)
 local MenuController = require(script.MenuController)
 local TutorialController = require(script.TutorialController)
+local MenuTheme = require(script.MenuTheme) -- (REDUCED EFFECTS also calms the menus' motion)
 local player = Players.LocalPlayer
 -- Roblox's own player list (top right) covers the lobby's cards: our hub (H) lists the players.
 pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end)
@@ -66,6 +67,7 @@ local settings = {
 	effects = function()
 		effects.reduced = not effects.reduced
 		hud:setEffectsReduced(effects.reduced)
+		MenuTheme.reduced = effects.reduced
 		saveOptions()
 	end,
 	effectsState = function() return if effects.reduced then "REDUCED" else "FULL" end,
@@ -100,6 +102,7 @@ local settings = {
 		if typeof(o.optReduced) == "boolean" and o.optReduced ~= effects.reduced then
 			effects.reduced = o.optReduced
 			hud:setEffectsReduced(effects.reduced)
+			MenuTheme.reduced = effects.reduced
 		end
 		if typeof(o.optSound) == "boolean" and o.optSound ~= sounds.enabled then sounds:setEnabled(o.optSound) end
 		if typeof(o.optMusic) == "boolean" and o.optMusic ~= music.enabled then music:setEnabled(o.optMusic) end
@@ -158,6 +161,7 @@ hud.onPreviewKO = function()
 end
 hud.onEffects = function()
 	effects.reduced = not effects.reduced
+	MenuTheme.reduced = effects.reduced
 	return effects.reduced
 end
 hud.onSound = function()

@@ -592,7 +592,8 @@ function Animator:evaluate(view, time, poseRate)
 	pose.Root[2] += rhythm.shift * 0.6 * math.sin(phase * 0.5 + 1)
 	local guard = self:solveStance(pose)
 	-- Still for a while: one of his waiting poses (Animator.waiting).
-	local name, w = Animator.waiting(self.kit, tr.stateAge, view.showcase)
+	local name, w = nil, 0
+	if not self.inCinematic then name, w = Animator.waiting(self.kit, tr.stateAge, view.showcase) end
 	local target = name and self:base(name)
 	if target and target.Root then
 		local held = if target.Stance then self:solveStance(self:breathe(target, 0.7, stepped)) else self:resolve(target)
@@ -757,6 +758,7 @@ local AIR_TUCK = {
 function Animator:step(view, other, dt, time, poseRate, cinematic)
 	local kin, skel, springs, tr = self.kin, self.skel, self.springs, self.track
 	self:observe(view, dt, other)
+	self.inCinematic = cinematic == true -- (no waiting pose while a cinematic stages the bodies)
 	local target, key, snap = self:evaluate(view, time, poseRate)
 
 	-- Landing squash on top of grounded stances (feet stay planted, knees absorb).

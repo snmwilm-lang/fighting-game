@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.39 — 6 octobre 2026 · UI FLUIDE, ÉTAPE 1 : LES MOUVEMENTS DE BASE
+
+Wilhem : « passe les prochaines updates à me poser une UI fluide, agréable à regarder, belle, moderne, intéressante ».
+Plan en 5 étapes : (1) mouvements de base, (2) menu principal, (3) sélection des persos, (4) écran de fin de match, (5) classement, carte joueur, réglages, notifications.
+
+- `MenuTheme` : les mouvements communs.
+  - `Theme.enter` : une page entre en glissant de 28 px depuis la droite (Quint, 0,32 s), et ses cartes arrivent l'une après l'autre (décalage de 0,03 s, Back).
+  - `Theme.popIn` : une fenêtre s'ouvre avec un petit rebond (0,9 → 1), monte de 14 px, et son voile s'assombrit en fondu.
+  - `Theme.fillTo` : une barre se remplit en douceur (la progression du rang).
+  - `Theme.button` : un éclat de lumière balaie chaque bouton au survol, ou quand la manette le sélectionne.
+  - Tout cela s'applique aux pages du menu, aux fenêtres (titres, notifications, carte joueur, nouveautés…) et aux confirmations.
+- RÉGLAGES › EFFETS RÉDUITS calme aussi ces mouvements (`Theme.reduced`).
+- Correctif trouvé par les 9 suites (Cinematography, « les deux mains se lisent dans chaque plan », coup fatal de SHIN) :
+  - Cause : la pose d'attente se déclenchait pendant les longues cinématiques, sur le perso qui reçoit les coups.
+  - Correctif : elle est coupée pendant une cinématique (`Animator.inCinematic`).
+
+Tests (9 suites sur 0.23.35) : Lobby 42, CombatSimulation 131, FighterAI 15, CinematicDirector 872, PressQueue 4, Fuzz 2, Animation 53, Kits 131, Cinematography 310 + 1 échec (corrigé, test relancé seul : ok). Lobby 43 sur cette version. Non vérifié dans Studio.
+
 ## Version 0.23.38 — 6 octobre 2026 · FENÊTRE DES TITRES, VERSION 2
 
 Wilhem : « tu peux faire plus beau, alors donne-toi » (maquette v2 d'abord, `scratchpad/titles_mock2.py`).

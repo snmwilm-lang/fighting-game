@@ -9,6 +9,7 @@ local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
 local Animator = require(Shared.Animator)
 local Director = require(Shared.CinematicDirector)
+local Wire = require(Shared.Wire)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -257,7 +258,9 @@ task.defer(function()
 	onMatchChanged()
 end)
 
-remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
+remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(raw)
+	if type(raw) ~= "table" then return end
+	local packet = Wire.decode(raw) -- (short names on the wire, see shared/Wire)
 	if packet.matchId ~= currentMatch then return end -- (a late packet of the previous match)
 	if packet.tick < latestTick and packet.generation == generation then return end
 	latestTick = packet.tick
@@ -427,7 +430,33 @@ local function musicState()
 	return state
 end
 
+-- AUTO PERFORMANCE: a device that stays under LowFps for two 5 s windows in a row (after the
+-- first 15 s, the loading) gets REDUCED EFFECTS once, with a note; the player can turn them
+-- back on in SETTINGS (never switched again in this session, never saved: next time it measures).
+local perf = { time = 0, frames = 0, windows = 0, low = 0, done = false }
+local LOW_FPS = 38
+local function watchFps(dt)
+	if perf.done then return end
+	perf.time += dt
+	perf.frames += 1
+	if perf.time < 5 then return end
+	local fps = perf.frames / perf.time
+	perf.time, perf.frames = 0, 0
+	perf.windows += 1
+	perf.low = if fps < LOW_FPS then perf.low + 1 else 0
+	if perf.windows >= 3 and perf.low >= 2 then
+		perf.done = true
+		if not effects.reduced then
+			effects.reduced = true
+			hud:setEffectsReduced(true)
+			MenuTheme.reduced = true
+			menu:notify("LOW FPS: REDUCED EFFECTS turned on (SETTINGS to change)", Color3.fromHex("FFD23F"))
+		end
+	end
+end
+
 RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.Value + 1, function(dt)
+	watchFps(dt)
 	music:update(musicState())
 	local inCinematic = cinematic.active == true
 	if inCinematic ~= taunts.hiddenByCinematic then

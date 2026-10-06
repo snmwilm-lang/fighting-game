@@ -1588,7 +1588,10 @@ function HUD:update(world, views, fps, dt)
 	if not self.labButton.Visible then self.labPanel.Visible = false end
 	local mine = views[localSlot]
 	local myKit = self:kitData()
-	self:updateTrainer(mine, mine ~= nil and mine.meter >= MoveData.Moves[myKit.Ultimates.Awaken].meterCost)
+	-- (the combo trainer: solo only, the server sends its fields only there)
+	self.routeButton.Visible = world.solo == true and localSlot > 0
+	if not world.solo then self.trainerPanel.Visible = false end
+	self:updateTrainer(if world.solo then mine else nil, mine ~= nil and mine.meter >= MoveData.Moves[myKit.Ultimates.Awaken].meterCost)
 	self.resetButton.Visible = solo and localSlot > 0
 	self.dummyButton.Visible = solo and localSlot > 0
 	self.dummyButton.Text = "DUMMY: " .. world.dummyMode .. " (M)"

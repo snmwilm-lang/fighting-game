@@ -59,7 +59,8 @@ local function kit(arena)
 		local l = B.part("Lantern", size, position, color, Enum.Material.Neon)
 		if shape then l.Shape = shape end
 		local light = Instance.new("PointLight")
-		light.Color, light.Range, light.Brightness, light.Shadows = hex(color), range or 18, 1.6, true
+		-- (no shadows: four shadowed point lights per stage cost every frame; the sun keeps its own)
+		light.Color, light.Range, light.Brightness, light.Shadows = hex(color), range or 18, 1.6, false
 		light.Parent = l
 		return l
 	end

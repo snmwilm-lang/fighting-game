@@ -946,6 +946,7 @@ Locale.FR = {
 	["Kicks only. PERFECT RHYTHM: links on the beat give Sparks (smoother strings). CLASH STEP: attack right as a blow lands to slip it and kick back."] = "Que des coups de pied. RYTHME PARFAIT : les enchaînements dans le tempo donnent des étincelles (combos plus fluides). PAS DE CHOC : attaque pile quand un coup arrive pour l'éviter et repousser d'un coup de pied.",
 	["All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings."] = "Polyvalent : poings, pieds et boule de ki. RÉSOLUTION : appuie sur la touche du coup (L ou R) au moment de l'impact, encaisse et repousse. FEINTE : la garde arrête certains enchaînements.",
 	["GUARD BREAK!"] = "GARDE BRISÉE !",
+	["LOW FPS: REDUCED EFFECTS turned on (SETTINGS to change)"] = "FPS FAIBLES : EFFETS RÉDUITS activés (PARAMÈTRES pour changer)",
 	["CLASH STEP!"] = "PAS DE CHOC !",
 	["CLASH STEP"] = "PAS DE CHOC",
 	["RESOLVE!"] = "RÉSOLUTION !",

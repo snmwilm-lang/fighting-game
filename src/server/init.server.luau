@@ -23,6 +23,7 @@ local Config = require(Shared.CombatConfig)
 local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Sim = require(Shared.CombatSimulation)
+local Wire = require(Shared.Wire)
 local FighterAI = require(Shared.FighterAI)
 local PressQueue = require(Shared.PressQueue)
 local RigReader = require(Shared.RigReader)
@@ -1774,16 +1775,18 @@ local function snapshot(match)
 	local sendRoster = key ~= match.lastRoster or now - match.lastRosterAt > 2
 	if sendRoster then match.lastRoster, match.lastRosterAt = key, now end
 	local list = {}
+	local solo = isSolo(match)
 	for i, slot in match.slots do
 		local f = world.fighters[i]
 		local team = world.teams and world.teams[i]
+		local label, labelOn = Sim.passiveLabel(world, f)
 		list[i] = {
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
 			hp = f.hp, guard = f.guard, meter = f.meter, combo = f.comboHits, comboDamage = f.comboDamage, wins = f.wins,
 			crouching = f.crouching, maxHp = f.maxHp, passive = Sim.passiveGauge(world, f), weave = f.weaveTicks > 0,
 			passiveCharges = Sim.passiveCharges(world, f) or 0,
-			passiveLabel = Sim.passiveLabel(world, f), passiveOn = select(2, Sim.passiveLabel(world, f)), -- (third sheet)
+			passiveLabel = label, passiveOn = labelOn, -- (third sheet)
 			chilled = f.chilled > 0 or nil, tempo = f.tempo > 0 or nil,
 			poisoned = if f.poisonTicks > 0 then f.poison else nil, -- (VENOM's charges on this body: the client shows them)
 			wakeInvuln = f.wakeInvuln, -- (the body blinks while untouchable after getting up)
@@ -1795,8 +1798,9 @@ local function snapshot(match)
 			evadeStyle = if f.stunKind == "Evade" then f.evadeStyle or "" else "", -- AKEMI's dodge (its pose)
 			flow = if f.flowArmed then "armed" elseif f.flowTicks > 0 then "open" else "", -- AKEMI's INSTINCT FLOW
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
-			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
-			dirtyReason = f.dirtyReason or "",
+			-- (the combo trainer's fields: only where it is offered, solo; Wire keeps the rest short)
+			chainKeys = if solo then f.chainKeys else nil, chainClean = if solo then f.chainClean else nil,
+			cancelReady = if solo then Sim.cancelReady(world, f) else nil, dirtyReason = if solo then f.dirtyReason or "" else nil,
 			kit = f.kit, ping = slot.ping and math.floor(slot.ping * 1000 + 0.5) or nil,
 			team = team and team.kits or nil, teamIndex = team and team.index or nil, -- relay teams
 		}
@@ -1827,8 +1831,9 @@ local function snapshot(match)
 		winner = world.winner or -1, matchWinner = world.matchWinner or -1,
 		fighters = list, roster = if sendRoster then names else nil,
 	}
+	local wire = Wire.encode(packet) -- (short field names: a third of the bytes, 30 times a second)
 	for _, player in recipients(match) do
-		snapshotRemote:FireClient(player, packet)
+		snapshotRemote:FireClient(player, wire)
 	end
 end
 
@@ -2040,7 +2045,13 @@ local function stepMatch(match, dt)
 	if since < 0 then since = math.huge end -- (a new world restarts its ticks)
 	if (#batch > 0 and since >= 2) or since >= Config.TickRate / Config.SnapshotRate then
 		match.lastSnapshot = world.tick
-		for i, slot in match.slots do place(slot, world.fighters[i]) end
+		-- (the server-side bodies only need to stay near the action: every client draws its
+		-- own match from the snapshots. Twice a second, not 30 times: far less to replicate
+		-- to every player of the server)
+		if world.tick - (match.lastPlace or -math.huge) >= Config.TickRate / 2 or world.tick < (match.lastPlace or 0) then
+			match.lastPlace = world.tick
+			for i, slot in match.slots do place(slot, world.fighters[i]) end
+		end
 		snapshot(match)
 	end
 end

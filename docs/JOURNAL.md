@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.3 — 6 octobre 2026 · OPTIMISATION POUR LE TEST À 20 (SERVEURS DE 10)
+
+Wilhem : « on va tester le jeu ce soir à 20 : des serveurs de 10 personnes max, et optimise vraiment le jeu ».
+
+- **Serveurs de 10** : le code n'impose pas de taille de serveur, c'est un réglage Roblox de la place (Creator Dashboard ou Studio › Game Settings › Places › la place › Max Players = 10).
+  - Avec 20 joueurs, Roblox remplit deux serveurs de 10.
+  - Le CLASSÉ entre serveurs envoie les deux joueurs dans un serveur privé neuf, donc il n'est jamais bloqué par un serveur plein.
+- **Mesuré d'abord** (`tests/Load.luau -a 10 20`) : la logique serveur ne pèse rien (0,14 ms par tick pour 5 combats, 0,29 ms pour 10). Le vrai poids, c'était le réseau et le rendu.
+- **Réseau : snapshot −40 %.** Le paquet de combat part 30 fois par seconde à chaque joueur en match, et chaque nom de champ était envoyé à chaque fois. Le nouveau module pur `src/shared/Wire.luau` raccourcit les noms à un caractère sur le réseau et les rend en entier à l'arrivée ; le reste du client lit les mêmes noms qu'avant.
+  - Les champs du coach de combo (`chainKeys`, `chainClean`, `cancelReady`, `dirtyReason`) ne partent plus qu'en solo, où le coach est proposé. Le bouton TRAINER + est caché en ligne.
+  - L'étiquette du passif est calculée une seule fois par paquet (deux avant).
+  - Estimation : 1 361 octets → 835 par paquet, soit environ 41 → 25 Ko/s par joueur.
+- **Réplication** : le serveur repositionnait tous les corps de tous les matchs 30 fois par seconde, et ces positions partaient à tous les joueurs du serveur, alors que chaque client dessine son match depuis les snapshots. C'est maintenant 2 fois par seconde.
+- **Rendu** : les 4 lampes de chaque arène ne projettent plus d'ombre (lumières ponctuelles avec ombres, coûteuses à chaque image) ; le soleil garde les siennes.
+- **Mode performance automatique** : un appareil qui reste sous 38 FPS pendant deux fenêtres de 5 s de suite (après 15 s de chargement) passe une fois en EFFETS RÉDUITS. Une note s'affiche (en anglais et en français) et le joueur peut les remettre dans PARAMÈTRES. Ce n'est pas sauvegardé : l'appareil est remesuré à la session suivante.
+
+Tests : Lobby 45 (nouveau : « the fight snapshot on the wire »), FighterAI 15, PressQueue 4. CLAUDE.md : `Wire.luau` ajouté aux modules purs. Non vérifié dans Studio.
+
 ## Version 0.24.2 — 6 octobre 2026 · AKEMI : L'ESQUIVE QUI PASSE DANS LE DOS
 
 Wilhem : « ça doit être une des animations d'esquive qui la met derrière ».

@@ -1202,4 +1202,28 @@ test("HUD textures: every id is a whole number (0 = not uploaded yet, the drawn 
 	expect(UIArt.asset("Nothing") == nil, "an unknown texture has no asset")
 end)
 
+test("the fight snapshot on the wire: short names, everything comes back as it was, unknown fields pass through", function()
+	local Wire = require("../src/shared/Wire")
+	expect(Wire.check(), "Wire: a name twice or more names than codes")
+	local fighter = { roster = nil, skin = "KAI_BASE", custom = { 1, 2 } }
+	for i, name in Wire.FIGHTER do fighter[name] = if i % 3 == 0 then "s" .. i elseif i % 3 == 1 then i * 1.5 else i % 2 == 0 end
+	local packet = { fighters = { fighter, table.clone(fighter) }, roster = { { name = "A" } }, extra = 7 }
+	for i, name in Wire.PACKET do
+		if name ~= "fighters" and name ~= "roster" then packet[name] = i end
+	end
+	local wire = Wire.encode(packet)
+	for k in wire do
+		expect(packet[k] == nil or #k == 1 or k == "extra", "a long name left on the wire: " .. k)
+	end
+	local back = Wire.decode(wire)
+	for k, v in packet do
+		if k ~= "fighters" then expect(back[k] == v, "packet field lost: " .. k) end
+	end
+	for slot = 1, 2 do
+		for k, v in fighter do expect(back.fighters[slot][k] == v, "fighter field lost: " .. k) end
+	end
+	-- (one-letter names would be read as codes: every field of the snapshot is longer, or listed)
+	for _, name in Wire.FIGHTER do expect(#name >= 1, "empty name") end
+end)
+
 T.finish()

@@ -1,5 +1,12 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.46 — 6 octobre 2026 · TEXTURES DU HUD EN LIGNE
+
+- Wilhem a envoyé les 7 textures sur Roblox (en Images). Leurs IDs sont maintenant dans `src/shared/UIArt.luau` : cadres des barres 105285466036643 / 118186509371016, chrono 86141379572910, KI 98110178479026 / 130625196291397, pinceau des annonces 116762484843122, cadre du portrait 79582148341008.
+- Le HUD les affiche à la place du look dessiné.
+
+Tests : Lobby 44. Non vérifié dans Studio : une capture en combat est attendue pour régler tailles et positions.
+
 ## Version 0.23.45 — 6 octobre 2026 · ÉCRAN DE COMBAT : VISAGES 3D ET TEXTURES
 
 Wilhem : « tu penses que tu peux faire mieux ? » puis « vas-y ».

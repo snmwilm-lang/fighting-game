@@ -8,13 +8,13 @@
 local UIArt = {}
 
 UIArt.Images = {
-	BarFrameLeft = { id = 0, file = "hud_bar_frame_left.png", size = { 1024, 96 }, slice = { 60, 20, 964, 76 } },
-	BarFrameRight = { id = 0, file = "hud_bar_frame_right.png", size = { 1024, 96 }, slice = { 60, 20, 964, 76 } },
-	TimerPlate = { id = 0, file = "hud_timer_plate.png", size = { 256, 256 } },
-	KiPlateLeft = { id = 0, file = "hud_ki_plate_left.png", size = { 192, 128 } },
-	KiPlateRight = { id = 0, file = "hud_ki_plate_right.png", size = { 192, 128 } },
-	AnnounceBrush = { id = 0, file = "hud_announce_brush.png", size = { 2048, 384 } },
-	PortraitFrame = { id = 0, file = "hud_portrait_frame.png", size = { 160, 160 } },
+	BarFrameLeft = { id = 105285466036643, file = "hud_bar_frame_left.png", size = { 1024, 96 }, slice = { 60, 20, 964, 76 } },
+	BarFrameRight = { id = 118186509371016, file = "hud_bar_frame_right.png", size = { 1024, 96 }, slice = { 60, 20, 964, 76 } },
+	TimerPlate = { id = 86141379572910, file = "hud_timer_plate.png", size = { 256, 256 } },
+	KiPlateLeft = { id = 98110178479026, file = "hud_ki_plate_left.png", size = { 192, 128 } },
+	KiPlateRight = { id = 130625196291397, file = "hud_ki_plate_right.png", size = { 192, 128 } },
+	AnnounceBrush = { id = 116762484843122, file = "hud_announce_brush.png", size = { 2048, 384 } },
+	PortraitFrame = { id = 79582148341008, file = "hud_portrait_frame.png", size = { 160, 160 } },
 }
 
 -- The asset string of an image, or nil while its id is 0 (the drawn look stays).

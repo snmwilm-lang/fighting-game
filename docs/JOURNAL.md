@@ -113,7 +113,7 @@ Wilhem : « les fatal doivent régénérer les barres de vie, de genre 20 % ».
 
 Fichiers : `src/shared/CombatConfig.luau`, `src/shared/CombatSimulation.luau`, `tests/CombatSimulation.test.luau`.
 
-Tests : CombatSimulation 131 ; FighterAI, Fuzz, Lobby et Balance (`-a 4 120`) en cours.
+Tests : CombatSimulation 131, FighterAI 15, Fuzz 2, Lobby 40. Balance (`-a 4 120`, LÉGENDE) : tous les kits entre 35 et 65 % en moyenne. Extrêmes : SHIN 36 %, ZEPHYR 41 %, AKEMI 42 % ; KUROEN 62 %, TARO 61 %, VENOM 61 %, HIBIKI 58 %. Le soin du fatal ne fait sortir personne des bornes ; SHIN, le plus bas, est à surveiller.
 
 ## Version 0.23.25 — 6 octobre 2026 · KUROEN SHIN : PLUS HUMAIN
 

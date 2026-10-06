@@ -1844,12 +1844,34 @@ function EffectsController:onEvent(event, views, rigs)
 		if rigs[event.defender] then self:flash(rigs[event.defender]) end
 		self.camera:punch(if self.reduced then 0.08 else 0.18, position)
 		return
+	elseif event.kind == "Perfect" then
+		-- ZEPHYR's PERFECT RHYTHM: a tiny, very short flash at the kicking leg (never over the fight).
+		self:spark(Vector3.new(event.x, event.y, self.config.PlaneZ), Color3.fromHex("C8F6FF"), if event.finisher then 0.9 else 0.4)
+		return
+	elseif event.kind == "ClashStep" then
+		-- ZEPHYR's CLASH STEP: a copy of him left on the line of the blow, the blow's arc passing.
+		local rig = rigs[event.slot]
+		if rig then self:afterimage(rig, Color3.fromHex("C8F6FF")) end
+		local v = views[event.slot]
+		if v then
+			self:arc(Vector3.new(v.x, v.y + 3.4, self.config.PlaneZ), 1.6, -40, 90, Color3.new(1, 1, 1), 0, -v.facing)
+		end
+		return
+	elseif event.kind == "Resolve" then
+		-- KAI's RESOLVE: a gold flare where he braces, the floor dust of the slide.
+		self:spark(Vector3.new(event.x, event.y, self.config.PlaneZ), Color3.fromHex("FFD23F"), 1.1)
+		local v = views[event.slot]
+		if v then self:dust(v.x, 0, -v.facing) end
+		self.camera:shake(if self.reduced then 0.06 else 0.14, 0.12)
+		return
 	elseif event.kind == "Evade" then
-		-- AKEMI's VOILE D'OMBRE: a shadow copy left where the hit was aimed.
+		-- AKEMI's INSTINCT: a shadow copy left where the hit was aimed (white for a FLOW DODGE or
+		-- the rare INSTINCT dodge).
 		local rig = rigs[event.defender]
+		local tone = if event.flow or event.style == "INSTINCT" then Color3.new(1, 1, 1) else self:energy(event.defender)
 		if rig then
-			self:afterimage(rig, self:energy(event.defender))
-			if not self.reduced then task.delay(0.06, function() self:afterimage(rig, self:energy(event.defender)) end) end
+			self:afterimage(rig, tone)
+			if not self.reduced then task.delay(0.06, function() self:afterimage(rig, tone) end) end
 		end
 		local v = views[event.defender]
 		if v then self:dust(v.x, 0, -v.facing) end

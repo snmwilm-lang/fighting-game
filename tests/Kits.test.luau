@@ -539,7 +539,7 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 	end
 	for _, kind in { "Block", "GuardBreak", "Clash", "Parry", "Wall", "Evade", "Slip", "Blink", "Stance", "SuperFlash", "Skill",
 		"Prompt", "Perfect", "Graded", "SuperJump", "Bounce", "KO", "Cinematic", "Tip", "Knockdown", "GetUp", "Jump", "Land", "Dash",
-		"Counter", "Revive", "RoundStart", "UiHover", "UiClick" } do
+		"Counter", "Revive", "RoundStart", "UiHover", "UiClick", "Rhythm", "RhythmFinisher", "ClashStep", "Resolve", "Feint", "Flow" } do
 		check(Palette.ACTIONS[kind], "action " .. kind)
 	end
 end)
@@ -695,74 +695,38 @@ test("HIBECARES: ROI DES RUINES hits harder when hurt; MUR DE PIERRE takes half 
 	expect(find(e2, "Parry") ~= nil, "the wall did not stop a low attack")
 end)
 
-test("AKEMI: VOILE D'OMBRE evades on its own (2 charges), then recharges", function()
+test("AKEMI: INSTINCT dodges on its own (3 charges), then each charge comes back after 20 s", function()
 	local world = kitWorld("KAI", "AKEMI", 3)
 	local d = world.fighters[2]
 	local charges = Kits.AKEMI.Passive.Charges
+	expect(charges == 3, "INSTINCT: not 3 charges")
 	for i = 1, charges do
 		world.fighters[1].x = d.x - 3
 		local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
-		expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "jab " .. i .. " was not evaded")
+		expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "jab " .. i .. " was not dodged")
 	end
-	expect(d.hp == d.maxHp, "damage through the evade")
+	expect(d.hp == d.maxHp, "damage through the dodge")
 	world.fighters[1].x = d.x - 3
 	local again = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
-	expect(find(again, "Hit") ~= nil, "evaded with no charge left")
+	expect(find(again, "Hit") ~= nil, "dodged with no charge left")
 	run(world, Kits.AKEMI.Passive.Cooldown, nil)
 	world.fighters[1].x = d.x - 3
 	local later = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
-	expect(find(later, "Evade") ~= nil, "the passive did not recharge")
+	expect(find(later, "Evade") ~= nil, "the charges did not come back")
 end)
 
-test("AKEMI: right after an evade, a press brings her behind the attacker for a counter (free); a guard pressed right then reads it", function()
-	-- (Wilhem: « remets-moi l'esquive où AKEMI passe dans le dos, rends-la bloquable s'il préshot, timing serré »)
+test("AKEMI: no more counter from behind (INSTINCT never grants a free combo)", function()
 	local passive = Kits.AKEMI.Passive
-	expect((passive.CounterCost or 0) == 0, "the counter costs ki again")
-	expect(passive.ReadEarly + passive.ReadWindow <= 12, "the read of the counter is not a tight timing")
-	-- guard: nil (no guard), "held" (held all along), or the tick, counted from her reappearing, of a fresh press
-	local function duel(guard)
-		local world = kitWorld("KAI", "AKEMI", 3)
-		local a, d = world.fighters[1], world.fighters[2]
-		d.meter = 0 -- (no ki needed)
-		local evaded, blinkAt, hit, blocked, read = false, nil, false, false, false
-		for t = 1, 70 do
-			local press = evaded and not blinkAt
-			local block = guard == "held" or (type(guard) == "number" and blinkAt ~= nil and t >= blinkAt + guard)
-			for _, e in Sim.step(world, { input({ light = t == 1, block = block }), input({ light = press }) }) do
-				if e.kind == "Evade" then evaded = true end
-				if e.kind == "Blink" and e.counter then blinkAt = t end
-				if e.kind == "Hit" and e.attacker == 2 then hit = true end
-				if e.kind == "Block" and e.attacker == 2 then blocked = true end
-				if e.kind == "Read" then read = true end
-			end
+	expect((passive.CounterWindow or 0) == 0 and passive.HitRefund == nil, "the old SHADOW VEIL counter or refund is still there")
+	local world = kitWorld("KAI", "AKEMI", 3)
+	local evaded, blink = false, false
+	for t = 1, 70 do
+		for _, e in Sim.step(world, { input({ light = t == 1 }), input({ light = evaded }) }) do
+			if e.kind == "Evade" then evaded = true end
+			if e.kind == "Blink" and e.counter then blink = true end
 		end
-		return evaded, blinkAt ~= nil, hit, blocked, read, a, d
 	end
-	local evaded, counter, hit, _, _, a, d = duel(nil)
-	expect(evaded and counter, "no counter after the evade, without any ki")
-	expect(hit, "the counter did not hit the attacker")
-	expect((d.x - a.x) * a.facing < 0 or hit, "she did not come out behind the attacker")
-	-- a guard pressed right after she reappears: read, blocked
-	local _, _, hitRead, blockedRead, read = duel(1)
-	expect(read and blockedRead and not hitRead, "a guard pressed right then did not read the counter")
-	-- too late: the counter lands
-	local _, _, hitLate, _, readLate = duel(passive.ReadWindow + 3)
-	expect(hitLate and not readLate, "a late guard still read the counter")
-	-- a guard held all along is no read
-	local _, _, hitHeld, _, readHeld = duel("held")
-	expect(not readHeld, "a guard held all along read the counter")
-end)
-
-test("AKEMI: every hit she lands brings VOILE D'OMBRE back sooner (2 charges, 18 s each at most)", function()
-	expect(Kits.AKEMI.Passive.Charges >= 2 and Kits.AKEMI.Passive.Cooldown <= 18 * 60,
-		"VOILE D'OMBRE: fewer than 2 charges or more than 18 s per charge")
-	local world = kitWorld("AKEMI", "KAI", 3)
-	local a = world.fighters[1]
-	a.evadeCharges, a.evadeCharge = 0, 400
-	local events = run(world, 20, function(t) return { input({ light = t == 1 }) } end)
-	expect(find(events, "Hit") ~= nil, "AKEMI's jab did not land")
-	expect(a.evadeCharge <= 400 - Kits.AKEMI.Passive.HitRefund,
-		string.format("a hit did not shorten the recharge (%d left)", a.evadeCharge))
+	expect(evaded and not blink, "a press after the dodge still teleports her behind the attacker")
 end)
 
 test("AKEMI: no evade while guarding, in a combo or against an ultimate", function()
@@ -781,7 +745,7 @@ end)
 
 test("AKEMI: the dash slips through attacks", function()
 	local world = kitWorld("KAI", "AKEMI", 4)
-	world.fighters[2].evadeCharge = 999 -- passive spent: only the dash protects
+	world.fighters[2].evadeCharges, world.fighters[2].evadeCharge = 0, 999 -- passive spent: only the dash protects
 	local events = run(world, 30, function(t)
 		return { input({ light = t == 1 }), input({ dash = t == 4, axis = -1 }) }
 	end)

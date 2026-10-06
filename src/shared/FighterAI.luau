@@ -181,7 +181,7 @@ function FighterAI:pickPlan(meter, cost, fullRoutes, bait, opening)
 			end
 		end
 	end
-	-- Against a ready evade passive (VOILE D'OMBRE), a lone jab spends it first.
+	-- Against a ready evade passive (AKEMI's INSTINCT), a lone jab spends it first.
 	if bait and self:chance(self.level.punish * 0.5) then
 		self.plan, self.step, self.planLength, self.pressedMove = { "L" }, 1, 1, nil
 		return
@@ -315,9 +315,11 @@ function FighterAI:think(world, slot)
 	local canAntiAir = groundSpecial ~= nil and (groundSpecial.lunge or 0) < 12
 	local blink = kit.Passive and kit.Passive.Type == "Blink" and kit.Passive -- DAICHA's OMBRE INVERSÉE
 	local foePassive = world.moveData.Kits[foe.kit or "KAI"].Passive
-	-- An evade (VOILE D'OMBRE) only triggers from neutral: a punish never needs the bait.
+	-- An evade: the boss's only triggers from neutral (a punish never needs the bait); AKEMI's
+	-- INSTINCT dodges whenever she is not already hit (her charges must be spent first).
+	local instinct = foePassive ~= nil and foePassive.Independent
 	local baitEvade = foePassive ~= nil and foePassive.Type == "Evade" and (foe.evadeCharges or 0) > 0
-		and not foe.move and foe.stun == 0 and not foe.launched
+		and (instinct or not foe.move) and foe.stun == 0 and not foe.launched
 
 	-- 1. Continue the current combo plan, one press per move once it made contact.
 	local plan = self.plan

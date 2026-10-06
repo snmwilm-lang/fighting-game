@@ -545,7 +545,12 @@ function Animator:evaluate(view, time, poseRate)
 	elseif state == "CrouchBlocking" then
 		return self:solveStance(self:breathe(self:base("CrouchBlock"), 0.35, stepped)), "CrouchBlock", false
 	elseif state == "Evading" then
-		return self:resolve(self:base("Evade")), "Evade", tr.stateAge < 0.02
+		-- (AKEMI's INSTINCT: the style of the dodge; the others slide back)
+		local style = view.evadeStyle and self:base("Evade" .. view.evadeStyle)
+		return self:resolve(style or self:base("Evade")), "Evade" .. (view.evadeStyle or ""), tr.stateAge < 0.02
+	elseif state == "Feint" then
+		-- (KAI's FEINT: the string stops, back toward the guard)
+		return self:solveStance(self:base("Block")), "Feint", tr.stateAge < 0.02
 	elseif state == "Blockstun" or state == "CrouchBlockstun" then
 		local crouched = state == "CrouchBlockstun"
 		local impact = self:resolve(self:base(if crouched then "CrouchBlockstun" else "Blockstun"))

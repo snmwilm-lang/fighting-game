@@ -372,6 +372,16 @@ local function derive(roles, names, tuning, overrides)
 	end
 end
 
+-- RESOLVE (KAI, kit.Resolve): he took the blow, braces (no invincibility) and answers with a
+-- palm that sends the attacker away; both free again about together: back to neutral.
+Moves.KaiResolve = move({
+	id = "KaiResolve", name = "RESOLVE", kind = "Special", startup = 8, active = 3, recovery = 22,
+	damage = 30, guardDamage = 8, hitstun = 14, blockstun = 12, hitstop = 9,
+	push = 40, blockPush = 34, lunge = 6, noCancel = true,
+	hitbox = { near = 0.2, far = 4.0, low = 1.8, high = 5.0 },
+	heavy = true,
+})
+
 -- ===================================================================== TARO 火 · boxer
 -- Punches only. Fast jabs, heavy hooks, short reach, the toughest body and an iron guard;
 -- crouch + E is a PARRY (counter punch) instead of a projectile.
@@ -470,6 +480,18 @@ derive(ZEPHYR, {
 }, { damage = 1.08, startup = 0, reach = 1.12, recovery = 2 }, {
 	ZephyrBlade = { startup = 11, projectile = { speed = 36, life = 75, damage = 58, halfHeight = 0.7 } },
 	ZephyrPush = { push = 36 },
+})
+
+-- CLASH STEP (ZEPHYR, kit.ClashStep): his body leaves the line of the blow (untouchable while
+-- it passes), then a reflex kick that sends the opponent away. Built so that both are free
+-- again at about the same time, far apart: back to neutral, never a combo (noCancel).
+Moves.ZephyrClashStep = move({
+	id = "ZephyrClashStep", name = "CLASH STEP", kind = "Special", startup = 7, active = 3, recovery = 22,
+	damage = 40, guardDamage = 8, hitstun = 14, blockstun = 12, hitstop = 8,
+	push = 40, blockPush = 34, lunge = 4, noCancel = true,
+	invuln = { from = 1, to = 7 },
+	hitbox = { near = 0.3, far = 4.6, low = 1.6, high = 5.0 },
+	heavy = true,
 })
 
 -- ===================================================================== AKEMI 影 · shadow
@@ -1009,9 +1031,17 @@ MoveData.Cinematics = {}
 kit("KAI", {
 	Kanji = "開", Role = "ALL-ROUNDER",
 	Difficulty = 1, -- 1 = simple to pick up, 3 = technical (shown as stars)
-	Description = "All-rounder: fists, feet and a ki blast.",
+	Description = "All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings.",
 	Roles = KAI_ROLES,
 	Stats = { MaxHealth = 1550, WalkSpeed = 17, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 38 },
+	-- RESOLVE: the blow's button (L for a light, R for a heavy) pressed within Window ticks
+	-- before its impact (latency forgiven, see Sim.timingSlack), the only attack press of the
+	-- last Calm ticks. He takes all the damage, not the stagger, slides Slide back, answers
+	-- with KaiResolve; the attacker's string is broken. Normal blows and route techniques only.
+	Resolve = { Window = 4, Calm = 20, Slide = 14, Move = "KaiResolve" },
+	-- FEINT: after these links made contact, a fresh guard press stops the string: Ticks of
+	-- recovery at least (and never free before the opponent), no invincibility, then Cooldown.
+	Feint = { Moves = { Cross = true, BodyBlow = true, Elbow = true, Smash = true, Sweep = true }, Ticks = 10, Cooldown = 60 },
 	RouteNames = { "CHAIN", "LAUNCHER", "LIVER", "WALL", "AXE KICK", "SWEEP", "TORNADO", "GUST", "DRAGON", "THUNDER", "MOON" },
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "開天", sub = "GATE OF HEAVEN" },
@@ -1052,9 +1082,20 @@ kit("TARO", {
 kit("ZEPHYR", {
 	Kanji = "風", Role = "KICKS",
 	Difficulty = 2,
-	Description = "Kicks only. Long reach, the highest jump, WIND BLADE (S + E).",
+	Description = "Kicks only. PERFECT RHYTHM: links on the beat give Sparks (smoother strings). CLASH STEP: attack right as a blow lands to slip it and kick back.",
 	Roles = ZEPHYR,
 	Stats = { MaxHealth = 1350, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
+	-- PERFECT RHYTHM: a link pressed From..To ticks after the end of the hitstop of the impact
+	-- it follows (latency forgiven) is PERFECT; consecutive perfects are Sparks (Max 3): 1 =
+	-- RecoveryCut less recovery on the new move, 2 = also Momentum more carry, 3 = also Hitstun
+	-- more hitstun on its next impact. A miss only resets the Sparks. PERFECT FINISHER (the
+	-- route's last link on the beat): knockdown +FinisherKnockdown ticks, knockback
+	-- ×FinisherPush, or +FinisherStun ticks of advantage, by what the ending does. No damage.
+	Rhythm = { From = -1, To = 6, Max = 3, RecoveryCut = 0.08, Momentum = 1.1, Hitstun = 1.1,
+		FinisherKnockdown = 12, FinisherPush = 1.2, FinisherStun = 4 },
+	-- CLASH STEP: an L or R from neutral, at most Window ticks into its wind-up (latency
+	-- forgiven) when a blow lands; the attack before it at least Calm ticks older.
+	ClashStep = { Window = 3, Calm = 24, Move = "ZephyrClashStep" },
 	RouteNames = { "CHAIN", "LAUNCHER", "PLEXUS", "WALL", "AXE KICK", "REAP", "CYCLONE", "HUNDRED KICKS", "TAKEOFF", "SKY", "AZURE" },
 	FullRouteNames = { "CYCLONE", "HUNDRED KICKS", "TAKEOFF", "SKY", "WALL", "AZURE" },
 	GateTitle = { text = "旋風", sub = "RAGING CYCLONE" },
@@ -1063,9 +1104,9 @@ kit("ZEPHYR", {
 kit("AKEMI", {
 	Kanji = "影", Role = "EVASION",
 	Difficulty = 3,
-	Description = "Fast and fragile: SHADOW VEIL (2 dodges in reserve, then L or R = counter from behind for ½ ki bar), untouchable dash, KUNAI (S + E).",
+	Description = "Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). Right after, move TOWARD the threat: the next blow is dodged free (FLOW DODGE).",
 	Roles = AKEMI,
-	Stats = { MaxHealth = 1180, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
+	Stats = { MaxHealth = 1050, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
 	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
 	-- hit is evaded: AKEMI slides back (Slide = push speed, about 2.4 studs), untouchable
 	-- for Invuln ticks, unable to act for Recovery ticks (except for the counter below).
@@ -1076,8 +1117,23 @@ kit("AKEMI", {
 	-- (free again: Wilhem, « remets-moi l'esquive où AKEMI passe dans le dos »). The attacker
 	-- can read it: a fresh press of the guard from ReadEarly ticks before she reappears to
 	-- ReadWindow ticks after turns him to her, guarding (a tight timing: about 0.15 s).
-	Passive = { Type = "Evade", Name = "SHADOW VEIL", Charges = 2, Cooldown = 1080, HitRefund = 20, Invuln = 14,
-		Recovery = 24, Slide = 26, CounterWindow = 14, CounterGap = 2.6, CounterCost = 0, ReadEarly = 3, ReadWindow = 6 },
+	-- INSTINCT (Wilhem's sheet): while she has a charge, a blow that would really hit her is
+	-- dodged (100 %), one charge spent; each spent charge comes back after its own Cooldown
+	-- (20 s), all of them in parallel. Styles: which dodge is played (Weight %), how far it
+	-- slides (Slide) or goes around the attacker (Around), how long untouchable (Invuln) and
+	-- busy (Recovery, never less than the attacker's whiffed attack: no free punish).
+	-- INSTINCT FLOW: within FlowWindow ticks after an auto-dodge, moving TOWARD the threat arms
+	-- one FLOW DODGE (no charge) for the next blow (armed FlowHold ticks at most); attacking,
+	-- guarding, backing away or jumping gives it up. Ultimates and grabs are never dodged.
+	Passive = { Type = "Evade", Name = "INSTINCT", Independent = true, Charges = 3, Cooldown = 1200,
+		FlowWindow = 21, FlowHold = 60,
+		Styles = {
+			{ Name = "SLIP", Weight = 45, Slide = 8, Invuln = 12, Recovery = 14 },
+			{ Name = "BACK", Weight = 30, Slide = 30, Invuln = 14, Recovery = 18 },
+			{ Name = "SIDE", Weight = 20, Around = 2.2, Invuln = 14, Recovery = 18 },
+			{ Name = "INSTINCT", Weight = 5, Slide = 3, Invuln = 14, Recovery = 16 },
+		},
+		Flow = { Name = "FLOW", Slide = -6, Invuln = 12, Recovery = 12 } },
 	RouteNames = { "CHAIN", "TAKEOFF", "BREAKTHROUGH", "WALL", "FALL", "REAPER", "WHIRLWIND", "CUTS", "FANG", "ECLIPSE", "CRESCENT" },
 	FullRouteNames = { "WHIRLWIND", "CUTS", "FANG", "ECLIPSE", "WALL", "CRESCENT" },
 	GateTitle = { text = "幻舞", sub = "PHANTOM DANCE" },
@@ -1349,6 +1405,7 @@ end
 moveKit.TaroParry, moveKit.TaroCounter = "TARO", "TARO"
 moveKit.TaroDempseyL, moveKit.TaroDempseyR, moveKit.TaroDempseyFinish = "TARO", "TARO", "TARO"
 moveKit.TaroChampion = "TARO"
+moveKit.ZephyrClashStep, moveKit.KaiResolve = "ZEPHYR", "KAI"
 moveKit.HibecaresWall, moveKit.HibecaresCounter = "HIBECARES", "HIBECARES"
 moveKit.YukinaMirror, moveKit.GoranGrab, moveKit.KuroenEmperorStep = "YUKINA", "GORAN", "KUROEN"
 moveKit.ElianPulse, moveKit.NovaSentinel = "ELIAN", "NOVA"

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.23.49",
+	Version = "0.24.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -50,6 +50,7 @@ return table.freeze({
 	BufferSize = 3, -- presses kept ahead: enough for rhythm, not to type a whole route
 	LateCancelTicks = 6, -- a press this late after a connected move still links (latency)
 	MaxLatencyTicks = 12, -- latency compensation cap (200 ms one way): late links, QTE judged as seen
+	TimingLatencyCap = 8, -- timing reads (PERFECT RHYTHM, CLASH STEP, RESOLVE): at most this much of the round trip forgiven
 	ReversalBufferTicks = 4, -- while stunned / getting up, only presses this close to recovery count
 	ComboScaling = 0.9, -- each hit already taken in the combo multiplies damage by this
 	MinComboScaling = 0.4,

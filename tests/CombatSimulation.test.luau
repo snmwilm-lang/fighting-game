@@ -2051,4 +2051,523 @@ test("COUNTER HIT is a read, never a cheat: not on a string's next blow, not on 
 	expect(jab == nil or not jab.counter, "a jab trade gave a counter hit")
 end)
 
+-- ===================================================================== ZEPHYR, KAI, AKEMI: their own mechanics
+-- (Wilhem's sheets: ZEPHYR's PERFECT RHYTHM and CLASH STEP, KAI's RESOLVE and FEINT, AKEMI's
+-- INSTINCT, INSTINCT FLOW and FLOW DODGE)
+local Kits = MoveData.Kits
+
+local function duelWorld(kit1, kit2, gap)
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, kit1, kit2)
+	world.phase, world.phaseTicks = "Fight", 0
+	world.fighters[1].x, world.fighters[2].x = -gap / 2, gap / 2
+	return world
+end
+
+local function free(f)
+	return f.move == nil and f.stun == 0 and f.hitstop == 0 and not f.launched and f.knockdown == 0 and f.getUp == 0
+end
+
+local function keysOf(text)
+	local list = {}
+	for k in text:gmatch("[LR]") do table.insert(list, k) end
+	return list
+end
+
+-- ZEPHYR plays `keys` on KAI: the first press at once, each next one `offset(step)` ticks
+-- after the end of the hitstop of the impact it follows (2 = on the beat, 7 = late, "early" =
+-- right after the impact, during its hitstop).
+local function beat(keys, offset, latency)
+	local world = duelWorld("ZEPHYR", "KAI", 3)
+	local z = world.fighters[1]
+	z.latencyTicks = latency or 0
+	local events, step, nextAt, lastImpact, maxSparks = {}, 1, 1, nil, 0
+	for _ = 1, 500 do
+		local i = input()
+		if keys[step] and world.tick + 1 == nextAt then
+			if keys[step] == "L" then i.light = true else i.heavy = true end
+			step += 1
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do table.insert(events, e) end
+		maxSparks = math.max(maxSparks, z.sparks)
+		if z.impactTick and z.impactTick ~= lastImpact and keys[step] then
+			lastImpact = z.impactTick
+			local o = offset(step)
+			-- ("early": the tick right after the impact, inside its hitstop, as a mash would)
+			nextAt = if o == "early" then z.impactTick + 1 else z.impactTick + z.impactStop + o + 2 * (latency or 0)
+		end
+		if step > #keys and free(z) and world.tick > 60 then break end
+	end
+	local moves, damage = {}, 0
+	for _, e in events do
+		if e.kind == "Hit" and e.attacker == 1 then
+			if moves[#moves] ~= e.move then table.insert(moves, e.move) end
+			damage += e.damage
+		end
+	end
+	return table.concat(moves, ","), events, maxSparks, damage, world
+end
+
+test("ZEPHYR's PERFECT RHYTHM: every L/R route plays the same on the beat or off it; only the beat gives Sparks", function()
+	local kit = Kits.ZEPHYR
+	for _, list in { kit.Routes, kit.FullRoutes } do
+		for _, route in list do
+			local keys = keysOf(route.keys)
+			local onBeat, eventsOn, sparks = beat(keys, function() return 2 end)
+			local offBeat, eventsOff, sparksOff = beat(keys, function() return "early" end)
+			expect(onBeat == offBeat, string.format("%s: on the beat %s, off it %s", route.keys, onBeat, offBeat))
+			local links = #keys - 1
+			expect(sparks == math.min(3, links), string.format("%s: %d Sparks on the beat for %d links", route.keys, sparks, links))
+			expect(sparksOff == 0 and count(eventsOff, "Perfect") == 0, route.keys .. ": Sparks off the beat")
+			expect(count(eventsOn, "Perfect") == links, route.keys .. ": not every link on the beat was PERFECT")
+		end
+	end
+end)
+
+test("ZEPHYR: a missed beat never breaks the combo, it only resets the Sparks; they cap at 3 (no endless stacking)", function()
+	local keys = keysOf("L R L R L R")
+	-- on the beat, late on the 3rd link, then on the beat again
+	local mixed, events = beat(keys, function(step) return if step == 3 then "early" else 2 end)
+	local clean = beat(keys, function() return 2 end)
+	expect(mixed == clean, "a late link broke the route: " .. mixed .. " / " .. clean)
+	local seen = {}
+	for _, e in events do
+		if e.kind == "Perfect" then table.insert(seen, e.sparks) end
+	end
+	expect(table.concat(seen, ",") == "1,1,2,3", "Sparks after a miss: " .. table.concat(seen, ","))
+	-- the bonuses stop growing at 3 Sparks
+	local _, all, maxSparks = beat(keys, function() return 2 end)
+	expect(maxSparks == 3, "more than 3 Sparks")
+	local rhythm = Kits.ZEPHYR.Rhythm
+	expect(rhythm.Max == 3 and rhythm.RecoveryCut <= 0.1 and rhythm.Momentum <= 1.1 and rhythm.Hitstun <= 1.1, "Spark bonuses too big")
+	for _, e in all do
+		if e.kind == "Perfect" then expect(e.sparks <= 3, "a 4th Spark") end
+	end
+end)
+
+test("ZEPHYR: on the beat is smoother, never stronger: the same damage (combo scaling kept), the finisher only does its job better", function()
+	for _, route in Kits.ZEPHYR.FullRoutes do
+		local keys = keysOf(route.keys)
+		local _, onEvents, _, onDamage = beat(keys, function() return 2 end)
+		local onMoves = beat(keys, function() return 2 end)
+		local offMoves, _, _, offDamage = beat(keys, function() return "early" end)
+		expect(onMoves == offMoves, route.keys .. ": not the same blows on and off the beat")
+		expect(onDamage <= offDamage, string.format("%s: %d damage on the beat, %d off it", route.keys, onDamage, offDamage))
+		local finisher = false
+		for _, e in onEvents do
+			if e.kind == "Perfect" and e.finisher then finisher = true end
+		end
+		expect(finisher, route.keys .. ": no PERFECT FINISHER for a route played on the beat")
+	end
+	-- a knockback ending sends further, a knockdown keeps down longer
+	local _, events, _, _, world = beat(keysOf("L L L L"), function() return 2 end)
+	local _, _, _, _, late = beat(keysOf("L L L L"), function() return "early" end)
+	local kick
+	for _, e in events do if e.kind == "Hit" and e.perfectFinisher then kick = e end end
+	expect(kick ~= nil, "the PERFECT FINISHER did not change the ending")
+	expect(world.fighters[2].knockdown >= late.fighters[2].knockdown, "the PERFECT FINISHER knockdown is not better")
+end)
+
+test("ZEPHYR's beat is judged on the server with the latency forgiven (up to a cap)", function()
+	local keys = keysOf("L R")
+	local _, _, sparks = beat(keys, function() return 2 end, 3) -- (the press arrives 2 x 3 ticks later)
+	expect(sparks == 1, "a far player on the beat got no Spark")
+	local _, _, sparksNear = beat(keys, function() return 8 end, 0)
+	expect(sparksNear == 0, "8 ticks late is still on the beat for a near player")
+	expect(Sim.timingSlack({ config = Config }, { latencyTicks = 100 }) <= (Config.TimingLatencyCap or 8), "no cap on the forgiven latency")
+end)
+
+-- KAI jabs ZEPHYR; ZEPHYR presses `button` at tick `press` (nil: never). Returns what happened.
+local function clash(press, latency, button, mash)
+	local world = duelWorld("KAI", "ZEPHYR", 3)
+	local k, z = world.fighters[1], world.fighters[2]
+	z.latencyTicks = latency or 0
+	local result, kickHit, laterHit, events = "none", false, false, {}
+	for t = 1, 140 do
+		local i2 = input()
+		if mash then
+			i2.light = t % 3 == 1
+		elseif t == press then
+			if (button or "L") == "L" then i2.light = true else i2.heavy = true end
+		end
+		local i1 = input({ light = t == 1 or (mash and t % 40 == 1), block = result == "clash" and free(k) })
+		for _, e in Sim.step(world, { i1, i2 }) do
+			table.insert(events, e)
+			if e.kind == "ClashStep" then result = "clash" end
+			if e.kind == "Hit" and e.defender == 2 and result == "none" then result = "hit" end
+			if e.kind == "Hit" and e.attacker == 2 then
+				if e.move == "ZephyrClashStep" then kickHit = true elseif result == "clash" then laterHit = true end
+			end
+		end
+	end
+	return result, kickHit, laterHit, world, events
+end
+
+test("ZEPHYR's CLASH STEP: only an attack thrown right as the blow lands (3 ticks); earlier he is hit, later too", function()
+	local _, _, _, _, base = clash(nil)
+	local impact
+	for _, e in base do if e.kind == "Hit" and e.defender == 2 then impact = e.tick or impact break end end
+	local window = {}
+	for press = 1, 12 do
+		local result = clash(press)
+		if result == "clash" then table.insert(window, press) end
+	end
+	expect(#window >= 1 and #window <= Kits.ZEPHYR.ClashStep.Window, string.format("CLASH STEP window of %d ticks", #window))
+	expect(clash(window[1] - 1) == "hit", "pressed too early, he was not hit")
+	expect(clash(window[#window] + 1) == "hit", "pressed too late, he was not hit")
+	-- heavy works too; the latency is forgiven up to the cap (a far player may press earlier)
+	expect(clash(window[1], 0, "R") == "clash", "R does not CLASH STEP")
+	expect(clash(window[1] - 2, 1) == "clash", "the latency is not forgiven")
+	expect(clash(window[1] - 4, 0) ~= "clash", "a near player gets the far player's window")
+end)
+
+test("ZEPHYR's CLASH STEP sends away and resets to neutral: no combo after it, no Spark, no free mash", function()
+	local _, base = nil, nil
+	local window
+	for press = 1, 12 do
+		if clash(press) == "clash" then window = press break end
+	end
+	expect(window ~= nil, "no CLASH STEP found")
+	local result, kickHit, laterHit, world = clash(window)
+	expect(result == "clash" and kickHit, "the reflex kick did not land")
+	expect(world.fighters[2].sparks == 0, "a CLASH STEP gave a Spark")
+	expect(not laterHit, "ZEPHYR got a hit in after his CLASH STEP: it started a combo")
+	-- frame by frame: the attacker is free first, far away
+	local w2 = duelWorld("KAI", "ZEPHYR", 3)
+	local k, z = w2.fighters[1], w2.fighters[2]
+	local clashed, kFree, zFree
+	for t = 1, 120 do
+		for _, e in Sim.step(w2, { input({ light = t == 1 }), input({ light = t == window }) }) do
+			if e.kind == "ClashStep" then clashed = t end
+		end
+		if clashed and w2.fighters[1].stun > 0 and not kFree then kFree = -1 end
+		if clashed and kFree == -1 and free(k) then kFree = t end
+		if clashed and kFree and kFree > 0 and free(z) and not zFree then zFree = t end
+	end
+	expect(kFree and kFree > 0 and zFree and kFree <= zFree, "ZEPHYR is free before the attacker after a CLASH STEP")
+	expect(math.abs(k.x - z.x) > 4.5, string.format("still close after the CLASH STEP (%.1f)", math.abs(k.x - z.x)))
+	-- mashing never finds one for free
+	local mashed = clash(nil, 0, "L", true)
+	expect(mashed ~= "clash", "mashing L found a CLASH STEP")
+end)
+
+test("ZEPHYR's CLASH STEP only answers blows (no projectile, no ultimate, not his own mash) and AKEMI keeps her own dodge", function()
+	expect(Kits.AKEMI.ClashStep == nil and Kits.KAI.ClashStep == nil and Kits.ZEPHYR.Passive == nil, "mechanics leaked between kits")
+	local world = duelWorld("KAI", "ZEPHYR", 3)
+	world.fighters[1].meter = Config.MaxMeter
+	local found = false
+	for t = 1, 80 do
+		for _, e in Sim.step(world, { input({ ultimate = t == 1 }), input({ light = t >= 4 and t <= 10 }) }) do
+			if e.kind == "ClashStep" then found = true end
+		end
+	end
+	expect(not found, "an ultimate was CLASH STEPPED")
+end)
+
+-- `attack` ("L" jab, "R" heavy strike, "UP" crouching launcher) by slot 1 on KAI; KAI presses
+-- `button` `early` ticks before the impact (negative: after). Returns the defender's events.
+local function resolveCase(attacker, attack, button, early)
+	local function make()
+		local world = duelWorld(attacker, "KAI", 3)
+		return world, world.fighters[1], world.fighters[2]
+	end
+	local function attackInput(t)
+		local i = input()
+		if t == 1 then
+			if attack == "L" then i.light = true elseif attack == "R" then i.heavy = true else i.heavy, i.crouch = true, true end
+		elseif attack == "UP" and t <= 3 then i.crouch = true end
+		return i
+	end
+	local world, a, kai = make()
+	local impact, baseDamage
+	for t = 1, 60 do
+		for _, e in Sim.step(world, { attackInput(t), input() }) do
+			if e.kind == "Hit" and e.defender == 2 and not impact then impact, baseDamage = t, e.damage end
+		end
+	end
+	world, a, kai = make()
+	local res = { resolved = false, damage = nil, launched = false, laterHit = false, impact = impact, base = baseDamage, world = world }
+	for t = 1, 140 do
+		local i2 = input()
+		if button and t == impact - early then
+			if button == "L" then i2.light = true else i2.heavy = true end
+		end
+		local i1 = attackInput(t)
+		i1.block = res.resolved and free(a)
+		for _, e in Sim.step(world, { i1, i2 }) do
+			if e.kind == "Resolve" then res.resolved = true end
+			if e.kind == "Hit" and e.defender == 2 and not res.damage then res.damage = e.damage end
+			if e.kind == "Hit" and e.attacker == 2 and res.resolved and e.move ~= "KaiResolve" then res.laterHit = true end
+		end
+		if kai.launched or kai.knockdown > 0 then res.launched = true end
+	end
+	return res
+end
+
+test("KAI's RESOLVE: L answers a light, R a heavy, right at the impact; the wrong button, too early or too late fail", function()
+	local window = Kits.KAI.Resolve.Window
+	expect(resolveCase("KAI", "L", "L", 1).resolved, "L against a light: no RESOLVE")
+	expect(resolveCase("KAI", "R", "R", 1).resolved, "R against a heavy: no RESOLVE")
+	expect(resolveCase("KAI", "L", "L", 0).resolved, "L on the very tick of the impact: no RESOLVE")
+	expect(not resolveCase("KAI", "L", "R", 1).resolved, "R against a light was a RESOLVE")
+	expect(not resolveCase("KAI", "R", "L", 1).resolved, "L against a heavy was a RESOLVE")
+	expect(not resolveCase("KAI", "L", "L", window + 2).resolved, "too early was a RESOLVE")
+	expect(not resolveCase("KAI", "L", "L", -1).resolved, "too late was a RESOLVE")
+	expect(not resolveCase("KAI", "L", nil, 0).resolved, "a RESOLVE without a press")
+	-- (it reads the attacker's button whatever the kit)
+	expect(resolveCase("TARO", "R", "R", 2).resolved, "RESOLVE against TARO's heavy failed")
+end)
+
+test("KAI's RESOLVE takes 100 % of the damage, but not the fall; no combo after it, back to neutral", function()
+	local ok = resolveCase("KAI", "L", "L", 1)
+	expect(ok.damage == ok.base, string.format("RESOLVE damage %s instead of %s", tostring(ok.damage), tostring(ok.base)))
+	expect(not ok.laterHit, "KAI got a hit in after his RESOLVE: it started a combo")
+	local heavy = resolveCase("KAI", "R", "R", 2)
+	expect(heavy.damage == heavy.base, "RESOLVE on a heavy did not take the whole damage")
+	local up = resolveCase("KAI", "UP", "R", 1)
+	local upFail = resolveCase("KAI", "UP", nil, 0)
+	expect(upFail.launched, "(the launcher does not launch)")
+	expect(up.resolved and not up.launched, "RESOLVE did not keep KAI on his feet against the launcher")
+	expect(not up.laterHit, "a combo after a RESOLVE on the launcher")
+end)
+
+test("KAI's RESOLVE cannot be mashed: several presses around the impact give nothing", function()
+	local world = duelWorld("KAI", "KAI", 3)
+	local resolved = 0
+	for t = 1, 400 do
+		for _, e in Sim.step(world, { input({ light = t % 30 == 1 }), input({ light = t % 3 == 0, heavy = t % 3 == 1 }) }) do
+			if e.kind == "Resolve" and e.slot == 2 then resolved += 1 end
+		end
+	end
+	expect(resolved == 0, string.format("%d RESOLVE out of a mash", resolved))
+	local world2 = duelWorld("KAI", "KAI", 3)
+	local resolved2 = 0
+	for t = 1, 400 do
+		for _, e in Sim.step(world2, { input({ light = t % 30 == 1 }), input({ light = t % 2 == 0 }) }) do
+			if e.kind == "Resolve" and e.slot == 2 then resolved2 += 1 end
+		end
+	end
+	expect(resolved2 == 0, string.format("%d RESOLVE out of an L mash", resolved2))
+	expect(Kits.ZEPHYR.Resolve == nil and Kits.AKEMI.Resolve == nil and Kits.TARO.Resolve == nil, "RESOLVE leaked to another kit")
+end)
+
+test("KAI's FEINT: some links stop on a guard press; never plus, no invincibility, no loop", function()
+	-- L L then the guard, on a guarding opponent
+	local world = duelWorld("KAI", "KAI", 3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local feinted, aFree, dFree
+	local events = {}
+	for t = 1, 90 do
+		local i1 = input({ light = t == 1 or (a.move == "Jab" and a.moveContact ~= nil and t < 30) })
+		i1.block = a.move == "Cross" and a.moveContact ~= nil and not feinted
+		for _, e in Sim.step(world, { i1, input({ block = true }) }) do
+			table.insert(events, e)
+			if e.kind == "Feint" then feinted = t end
+		end
+		if feinted and not aFree and free(a) and a.stun == 0 then aFree = t end
+		if feinted and not dFree and d.stun == 0 and d.hitstop == 0 then dFree = t end
+	end
+	expect(feinted ~= nil, "no FEINT after L L")
+	expect(dFree and aFree and aFree > dFree - 1 and aFree >= dFree, "the FEINT left KAI free before the guard: plus frames")
+	-- a FEINT on a link that is not listed does nothing
+	expect(Kits.KAI.Feint.Moves.Jab == nil, "the jab can be feinted")
+	-- no loop: mashing L L + guard for 10 s gives at most one FEINT per cooldown
+	local loop = duelWorld("KAI", "KAI", 3)
+	local la = loop.fighters[1]
+	local feints = 0
+	for t = 1, 600 do
+		local i1 = input({ light = t % 4 == 1 })
+		i1.block = la.move == "Cross" and la.moveContact ~= nil
+		for _, e in Sim.step(loop, { i1, input({ block = true }) }) do
+			if e.kind == "Feint" then feints += 1 end
+		end
+	end
+	expect(feints >= 1 and feints <= 600 / Kits.KAI.Feint.Cooldown + 1, string.format("%d FEINTS in 10 s", feints))
+	-- no invincibility: the opponent free first strikes, the blow lands on KAI
+	local open = duelWorld("KAI", "KAI", 3)
+	local oa, od = open.fighters[1], open.fighters[2]
+	local feintAt, hitAfter = nil, false
+	for t = 1, 90 do
+		local i1 = input({ light = t == 1 or (oa.move == "Jab" and oa.moveContact ~= nil and t < 20) })
+		i1.block = oa.move == "Cross" and oa.moveContact ~= nil and not feintAt
+		local i2 = input({ block = not feintAt, light = feintAt ~= nil and free(od) and not hitAfter })
+		for _, e in Sim.step(open, { i1, i2 }) do
+			if e.kind == "Feint" then feintAt = t end
+			if e.kind == "Hit" and e.defender == 1 and feintAt then hitAfter = true end
+		end
+	end
+	expect(feintAt and hitAfter, "the opponent's answer did not land on KAI after his FEINT (invincible?)")
+end)
+
+-- KAI jabs AKEMI at `when` ticks; `akemi(t, world)` gives her input. Returns the events.
+local function instinct(when, akemi, setup)
+	local world = duelWorld("KAI", "AKEMI", 3)
+	if setup then setup(world) end
+	local events = {}
+	local attacks = {}
+	for _, t in when do attacks[t] = true end
+	local last = 0
+	for _, t in when do last = math.max(last, t) end
+	for t = 1, last + 60 do
+		local k, ak = world.fighters[1], world.fighters[2]
+		if attacks[t] then k.x = ak.x - 3 * (if k.x <= ak.x then 1 else -1) end
+		for _, e in Sim.step(world, { input({ light = attacks[t] == true }), if akemi then akemi(t, world) else input() }) do
+			e.tick = t
+			table.insert(events, e)
+		end
+	end
+	return events, world
+end
+
+local function toward(world, t)
+	local k, ak = world.fighters[1], world.fighters[2]
+	return input({ axis = if k.x > ak.x then 1 else -1 })
+end
+
+test("AKEMI's INSTINCT: 3 charges, a blow is always dodged while one is left (one charge each), never at 0", function()
+	expect(Kits.AKEMI.Passive.Charges == 3 and Kits.AKEMI.Passive.Cooldown == 20 * 60, "not 3 charges of 20 s")
+	local world = duelWorld("KAI", "AKEMI", 3)
+	expect(world.fighters[2].evadeCharges == 3, "AKEMI does not start with 3 charges")
+	-- 100 %: whatever the moment (the roll only picks the style)
+	for wait = 0, 59 do
+		local events, w = instinct({ 1 + wait })
+		expect(count(events, "Evade") == 1 and count(events, "Hit") == 0, "a blow was not dodged with a charge left (" .. wait .. ")")
+		expect(w.fighters[2].evadeCharges == 2, "a dodge did not spend exactly one charge")
+	end
+	-- 3 blows, 3 charges, the 4th lands (with its whole damage)
+	local events, w = instinct({ 1, 60, 120, 180 })
+	expect(count(events, "Evade") == 3, string.format("%d dodges for 3 charges", count(events, "Evade")))
+	local hit = find(events, "Hit")
+	expect(hit and hit.tick >= 180 and w.fighters[2].hp == w.fighters[2].maxHp - hit.damage, "at 0 charge the blow did not land")
+end)
+
+test("AKEMI's charges: each its own 20 s cooldown, in parallel; a new dodge never resets the others", function()
+	local events = instinct({ 1, 301, 541 })
+	local dodges, back = {}, {}
+	for _, e in events do
+		if e.kind == "Evade" then table.insert(dodges, e.tick) end
+	end
+	local world = duelWorld("KAI", "AKEMI", 3)
+	local ak = world.fighters[2]
+	local k = world.fighters[1]
+	local attackAt = { [1] = true, [301] = true, [541] = true }
+	for t = 1, 1900 do
+		if attackAt[t] then k.x = ak.x - 3 end
+		for _, e in Sim.step(world, { input({ light = attackAt[t] == true }), input() }) do
+			if e.kind == "EvadeCharge" then table.insert(back, t) end
+		end
+	end
+	expect(#dodges == 3 and #back == 3, string.format("%d dodges, %d charges back", #dodges, #back))
+	for i = 1, 3 do
+		expect(math.abs(back[i] - (dodges[i] + 1200)) <= 1, string.format("charge %d back at %d (dodged at %d)", i, back[i], dodges[i]))
+	end
+	expect(ak.evadeCharges == 3, "not back to 3 charges")
+end)
+
+test("AKEMI's dodge styles: SLIP 45 %, BACK 30 %, SIDE 20 %, INSTINCT 5 % (the roll picks the style only)", function()
+	local passive = Kits.AKEMI.Passive
+	local tally = {}
+	for i = 0, 9999 do
+		local style = Sim.pickStyle(passive, (i + 0.5) / 10000)
+		tally[style.Name] = (tally[style.Name] or 0) + 1
+	end
+	expect(tally.SLIP == 4500 and tally.BACK == 3000 and tally.SIDE == 2000 and tally.INSTINCT == 500, "style weights")
+	local rolled = {}
+	local fake = { tick = 0 }
+	for i = 1, 20000 do
+		fake.tick = i
+		local style = Sim.pickStyle(passive, Sim.evadeRoll(fake, { evadeSerial = i % 7, slot = 2 }))
+		rolled[style.Name] = (rolled[style.Name] or 0) + 1
+	end
+	for name, share in { SLIP = 0.45, BACK = 0.30, SIDE = 0.20, INSTINCT = 0.05 } do
+		expect(math.abs((rolled[name] or 0) / 20000 - share) < 0.03, string.format("%s rolled %.1f %%", name, (rolled[name] or 0) / 200))
+	end
+end)
+
+test("AKEMI's INSTINCT FLOW: after an auto-dodge, moving toward the threat gives ONE free FLOW DODGE", function()
+	-- moving toward her attacker after the dodge: the next blow is a FLOW DODGE (no charge)
+	local dodged
+	local events, w = instinct({ 1, 40, 80 }, function(t, world)
+		if dodged and t > dodged and t < dodged + 12 then return toward(world, t) end
+		return input()
+	end, nil)
+	local list = {}
+	for _, e in events do
+		if e.kind == "Evade" then
+			table.insert(list, if e.flow then "FLOW" else "AUTO")
+		end
+	end
+	-- (the toward input above needs the first dodge's tick: run again knowing it)
+	local first = find(events, "Evade")
+	dodged = first and first.tick
+	events, w = instinct({ 1, 40, 80 }, function(t, world)
+		if t > dodged and t < dodged + 12 then return toward(world, t) end
+		return input()
+	end)
+	list = {}
+	for _, e in events do
+		if e.kind == "Evade" then table.insert(list, (if e.flow then "FLOW" else "AUTO") .. e.charges) end
+	end
+	expect(list[1] == "AUTO2" and list[2] == "FLOW2", "after an auto-dodge and a move forward: " .. table.concat(list, ","))
+	-- one FLOW DODGE only: the third blow takes a charge again
+	expect(list[3] == "AUTO1", "a second FLOW DODGE in a row: " .. table.concat(list, ","))
+	-- the sequence ends there at 0 charge: AUTO (last charge) > FLOW > the blow lands
+	local e2 = instinct({ 1, 40, 80 }, function(t, world)
+		if t > dodged and t < dodged + 12 then return toward(world, t) end
+		return input()
+	end, function(world) world.fighters[2].evadeCharges = 1 end)
+	local kinds = {}
+	for _, e in e2 do
+		if e.kind == "Evade" then table.insert(kinds, if e.flow then "FLOW" else "AUTO") end
+		if e.kind == "Hit" and e.defender == 2 then table.insert(kinds, "HIT") end
+	end
+	expect(table.concat(kinds, ",") == "AUTO,FLOW,HIT", "the dodge chain at 1 charge: " .. table.concat(kinds, ","))
+end)
+
+test("AKEMI's INSTINCT FLOW: never without an auto-dodge; attacking, guarding or backing away gives it up", function()
+	-- moving toward without a dodge before: the blow takes a charge (no flow)
+	local e0 = instinct({ 1 }, function(t, world) return toward(world, t) end)
+	local first = find(e0, "Evade")
+	expect(first and not first.flow, "a FLOW DODGE without an auto-dodge before")
+	local dodged = first.tick
+	for _, case in { "attack", "guard", "back" } do
+		local events = instinct({ 1, 40 }, function(t, world)
+			if t > dodged and t < dodged + 8 then return toward(world, t) end
+			if t == dodged + 9 then
+				if case == "attack" then return input({ light = true }) end
+				if case == "guard" then return input({ block = true }) end
+				local i = toward(world, t)
+				i.axis = -i.axis
+				return i
+			end
+			return input()
+		end)
+		local flows = 0
+		for _, e in events do if e.kind == "Evade" and e.flow then flows += 1 end end
+		expect(flows == 0, case .. " did not give up the INSTINCT FLOW")
+	end
+end)
+
+test("AKEMI: no dodge style (side, flow included) gives a free combo; the attacker is free first", function()
+	local styles = {}
+	for wait = 0, 80 do
+		local world = duelWorld("KAI", "AKEMI", 3)
+		local k, ak = world.fighters[1], world.fighters[2]
+		local dodged, style, kFree, aFree
+		for t = 1, 120 do
+			local press = t == 1 + wait
+			for _, e in Sim.step(world, { input({ light = press }), input() }) do
+				if e.kind == "Evade" then dodged, style = t, e.style end
+			end
+			if dodged and not kFree and free(k) then kFree = t end
+			if dodged and not aFree and free(ak) then aFree = t end
+		end
+		if style then
+			styles[style] = true
+			expect(kFree and aFree and kFree <= aFree, style .. ": AKEMI free before her attacker (a free punish)")
+		end
+	end
+	expect(styles.SLIP and styles.BACK and styles.SIDE, "not every style was seen")
+end)
+
 T.finish()

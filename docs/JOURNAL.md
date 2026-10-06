@@ -1,5 +1,65 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.0 — 6 octobre 2026 · ZEPHYR, KAI, AKEMI : LEURS MÉCANIQUES
+
+Fiches de Wilhem (ZEPHYR, puis KAI et AKEMI). Tout est décidé par le serveur (`CombatSimulation`, pur) ; le client n'affiche que des effets. Les routes L/R, les cinématiques (R de fin, ultimes, fatal) et les autres persos ne changent pas.
+
+**ZEPHYR (`Kits.ZEPHYR.Rhythm`, `ClashStep`)**
+- PERFECT RHYTHM : un enchaînement appuyé de −1 à +6 ticks après la fin du hitstop de l'impact qu'il suit est PARFAIT. Un appui hors tempo enchaîne quand même (le combo ne casse jamais) ; seuls les Sparks repartent à 0.
+- Sparks ✦ (3 au maximum, sans empilement au-delà), sur le coup lancé par l'appui parfait :
+  - 1 Spark : −8 % de recovery ;
+  - 2 Sparks : en plus, +10 % d'élan (il suit un peu mieux l'adversaire, sans le dépasser) ;
+  - 3 Sparks : en plus, +10 % de hitstun sur le prochain impact.
+- Aucun bonus de dégâts : le combo scaling reste le même.
+- PERFECT FINISHER : le dernier coup d'une route dans le tempo, avec assez de liens parfaits avant (2, ou tous sur une route plus courte). Il fait mieux ce que fait déjà la fin de la route, sans dégâts en plus :
+  - knockdown : +12 ticks au sol ;
+  - knockback : ×1,2 ;
+  - fin qui garde l'adversaire proche : +4 ticks d'avantage.
+- CLASH STEP : un L ou R lancé du neutre, au plus 3 ticks avant qu'un coup adverse le touche (coups normaux et techniques des routes ; pas de projectile, d'ultime, de fatal ni de saisie).
+  - Le coup adverse passe dans le vide (corps intouchable 7 ticks), puis il donne un coup de pied réflexe qui repousse fort.
+  - Ce n'est pas un starter de combo (`noCancel`) : l'attaquant est libre avant lui, loin. Pas de Spark.
+  - Trop tôt, c'est une attaque normale ; trop tard, il prend le coup.
+  - Contre le mash : l'attaque d'avant doit dater d'au moins 24 ticks.
+
+**KAI (`Kits.KAI.Resolve`, `Feint`)**
+- RESOLVE : la touche du coup reçu (L contre un léger, R contre un lourd), appuyée 0 à 4 ticks avant l'impact, et seule pression d'attaque des 20 derniers ticks.
+  - Il prend 100 % des dégâts, mais ni le stagger, ni le lancer, ni la chute.
+  - Il glisse, se stabilise et répond d'une poussée ; la chaîne de l'attaquant est cassée (`brokenSerial`) ; retour au neutre.
+  - Mauvaise touche, trop tôt, trop tard ou mash : rien.
+  - Il n'y a pas d'invincibilité.
+- FEINTE : après contact de JAB→CROSS, LIVER, ELBOW, HEAVY STRIKE ou SWEEP, un nouvel appui sur la garde arrête la chaîne.
+  - Sans invincibilité.
+  - Il n'est jamais libre avant l'adversaire (jamais à l'avantage).
+  - Recharge de 60 ticks, donc pas de boucle.
+
+**AKEMI (`Kits.AKEMI.Passive` : INSTINCT)**
+- 3 charges. Tant qu'il en reste une, un coup qui la toucherait vraiment est esquivé à 100 %, même pendant ses attaques. Sinon, rien :
+  - un coup gardé reste gardé ;
+  - les ultimes et les saisies passent.
+- Chaque esquive consomme 1 charge, et chaque charge a son propre cooldown de 20 s, en parallèle.
+- Styles d'esquive (le tirage ne choisit que le style) : SLIP 45 %, BACK 30 %, SIDE 20 % (contourne l'attaquant), INSTINCT 5 % (visuel).
+- INSTINCT FLOW : dans les 21 ticks (0,35 s) après une auto-esquive, avancer vers la menace arme une FLOW DODGE pour le coup suivant :
+  - elle ne coûte aucune charge ;
+  - une seule par auto-esquive ;
+  - attaquer, garder, reculer ou sauter l'annule.
+- Aucune esquive ne donne de punition gratuite : AKEMI reste occupée jusqu'à ce que l'attaquant soit libre.
+- L'ancienne contre-attaque dans le dos et le bonus de recharge par coup réussi sont retirés.
+- PV : 1180 → 1050.
+- Le boss KUROEN SHIN garde son ancien instinct.
+
+**Multijoueur** : le serveur juge tout. `Sim.timingSlack` pardonne l'aller-retour de la latence mesurée, jusqu'à `TimingLatencyCap` = 8 ticks : un ping gonflé n'achète rien au-delà.
+
+**Client**
+- Poses : `ZephyrClashStep`, `KaiResolve`, les 5 styles d'esquive d'AKEMI, la feinte.
+- Effets : petit flash au pied pour un PARFAIT, image rémanente au CLASH STEP, éclat doré au RESOLVE.
+- Sons : `Rhythm`, `RhythmFinisher`, `ClashStep`, `Resolve`, `Feint`, `Flow`, tous tirés des sons existants.
+- HUD :
+  - ligne RHYTHM ✦✦✦ pour ZEPHYR, RESOLVE · FEINT pour KAI, · FLOW pour AKEMI ;
+  - annonces CLASH STEP!, RESOLVE!, FEINT, PERFECT FINISHER ✦, FLOW DODGE!, INSTINCT!
+- Textes en français dans `Locale`.
+
+Tests : CombatSimulation 148 (17 nouveaux : routes L/R identiques dans et hors tempo, Perfect raté sans casse, cap à 3, scaling, latence, fenêtres et anti-mash du Clash Step et du Resolve, aucun combo garanti après, feinte sans boucle, charges et cooldowns indépendants, styles 45/30/20/5, Flow), Animation 53, Lobby 44, FighterAI 15, CinematicDirector 872, PressQueue 4. RESULTS_PLACEHOLDER Non vérifié dans Studio.
+
 ## Version 0.23.49 — 6 octobre 2026 · UN SEUL K.O.
 
 Wilhem : « pourquoi il y a un double message de K.O. ».

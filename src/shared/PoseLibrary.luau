@@ -684,6 +684,28 @@ Poses.Kits = {
 	},
 }
 
+-- AKEMI's INSTINCT dodges (Animator: Evade .. view.evadeStyle): SLIP barely moves the head
+-- and torso off the line, BACK is the slide out of reach (Poses.Evade), SIDE twists around the
+-- blow, INSTINCT is the rare one, arrogant: hands down, a lazy lean at the last instant; FLOW
+-- leans INTO the next blow and lets it pass.
+Poses.Kits.AKEMI.EvadeSLIP = blind(feet(merge(AKEMI, {
+	Root = { 0, 22, 0, -0.68, 0.12 }, Waist = { -6, 34, -22 }, Neck = { 10, -10, -16 },
+}), -0.95, 0.95, 0, -16, 11))
+Poses.Kits.AKEMI.EvadeBACK = Poses.Evade
+Poses.Kits.AKEMI.EvadeSIDE = blind(feet(merge(AKEMI, {
+	Root = { 0, 30, 0, -0.72, 0 }, Waist = { 0, 44, 8 }, Neck = { 6, -36, 0 },
+	LeftShoulder = { -30, 0, -60 }, LeftElbow = { 20, 0, 0 },
+	RightShoulder = { -20, 0, 60 }, RightElbow = { 20, 0, 0 },
+}), -0.95, 0.95, 0, -16, 11))
+Poses.Kits.AKEMI.EvadeINSTINCT = blind(feet({
+	Root = { 0, 10, 0, -0.2, 0.1 }, Waist = { 6, -14, 14 }, Neck = { -6, 10, 6 },
+	LeftShoulder = { 0, 0, -12 }, LeftElbow = { 6, 0, 0 },
+	RightShoulder = { 0, 0, 12 }, RightElbow = { 6, 0, 0 },
+}, -0.35, 0.4, 0, -4, 7))
+Poses.Kits.AKEMI.EvadeFLOW = blind(feet(merge(AKEMI, {
+	Root = { 0, -16, 0, -0.72, -0.25 }, Waist = { -28, -20, 18 }, Neck = { 26, 16, 10 },
+}), -1.05, 0.85, 0, -18, 12))
+
 -- TARO 火 · CLASSIQUE stance: an upright orthodox guard (lead fist out at eye level, rear fist
 -- at the chin, chin tucked, weight centred). The peek-a-boo crouch above is the ESQUIVE one.
 -- The Animator takes Kits[kit .. "_" .. stance] first, then the kit's own poses.
@@ -993,6 +1015,25 @@ Poses.ZephyrPush = { -- big push kick, the sole driving the target away
 	}),
 	Recovery = merge(ZEPHYR, { RightHip = { 62, 0, 5 }, RightKnee = { -100, 0, 0 } }),
 }
+-- ZEPHYR's CLASH STEP: the body sways back out of the line (a hair from the blow), then the
+-- reflex push kick.
+Poses.ZephyrClashStep = {
+	Startup = blind(feet(merge(ZEPHYR, {
+		Root = { 0, 26, 0, -0.6, 0.5 }, Waist = { 22, 30, 0 }, Neck = { -8, -24, 0 },
+		LeftShoulder = { 20, 0, -40 }, LeftElbow = { 40, 0, 0 },
+		RightShoulder = { 10, 0, 40 }, RightElbow = { 40, 0, 0 },
+	}), -0.95, 0.7, 0, -14, 8)),
+	Active = Poses.ZephyrPush.Active,
+	Recovery = Poses.ZephyrPush.Recovery,
+}
+-- KAI's RESOLVE: braced low under the blow (guard up, the feet sliding), then both palms.
+Poses.KaiResolve = {
+	Startup = feet(merge(STANCE, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.78, 0.28 }, Waist = { -18, 4, 0 }, Neck = { 22, 0, 0 } })),
+		-1.0, 0.95, 0, -16, 10),
+	Active = Poses.PalmStrike.Active,
+	Recovery = Poses.PalmStrike.Recovery,
+}
+
 Poses.ZephyrDiveKick = { -- falcon dive: body angled down, one leg spearing forward
 	Startup = merge(ZEPHYR, legs(80, -115, 95, -125)),
 	Active = merge(legs(110, -125, 45, -2), {
@@ -3892,6 +3933,7 @@ Poses.STRIKE = {
 	NovaSentinel = { "LeftHand", "RightHand" },
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
+	ZephyrClashStep = { "RightFoot" }, KaiResolve = { "LeftHand", "RightHand" },
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },
 	TaroChampion = { "RightHand" }, TaroJab = { "LeftHand" }, TaroStraight = { "RightHand" }, TaroRam = { "LeftHand", "RightHand" },
 	-- Wilhem's second sheet: RYUKEN's fists (kick roles too), SHIN's blade, DAICHA's hands,

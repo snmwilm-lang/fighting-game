@@ -1790,6 +1790,9 @@ local function snapshot(match)
 			revived = f.revived or nil, -- ASURA's SECOND LIFE (black aura)
 			domination = if f.domination > 0 then f.domination else nil, -- KUROEN's DOMINATION (his aura)
 			stance = f.stance, -- TARO: "CLASSIC" / "PEEKABOO"
+			sparks = if f.sparks > 0 then f.sparks else nil, -- ZEPHYR's PERFECT RHYTHM
+			evadeStyle = if f.stunKind == "Evade" then f.evadeStyle else nil, -- AKEMI's dodge (its pose)
+			flow = if f.flowArmed then "armed" elseif f.flowTicks > 0 then "open" else nil, -- AKEMI's INSTINCT FLOW
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
 			chainKeys = f.chainKeys, chainClean = f.chainClean, cancelReady = Sim.cancelReady(world, f),
 			dirtyReason = f.dirtyReason or "",

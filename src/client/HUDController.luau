@@ -1349,6 +1349,16 @@ function HUD:onEvent(event, world)
 		self:callout(event.slot, "NO DRONE LEFT")
 	elseif event.kind == "PassiveUsed" and event.cost then
 		self:callout(event.slot, "PACT −" .. event.cost .. " HP")
+	elseif event.kind == "ClashStep" then
+		self:callout(event.slot, "CLASH STEP!")
+	elseif event.kind == "Resolve" then
+		self:callout(event.slot, "RESOLVE!")
+	elseif event.kind == "Feint" then
+		self:callout(event.slot, "FEINT")
+	elseif event.kind == "Perfect" and event.finisher then
+		self:callout(event.slot, "PERFECT FINISHER ✦")
+	elseif event.kind == "Evade" and (event.flow or event.style == "INSTINCT") then
+		self:callout(event.defender, if event.flow then "FLOW DODGE!" else "INSTINCT!")
 	elseif event.kind == "GuardBreak" then
 		-- (a callout on the breaker's side, not the whole screen: Wilhem « le guard break qui prend
 		-- tout l'écran, enlève-moi ça »)
@@ -1487,6 +1497,9 @@ function HUD:update(world, views, fps, dt)
 		if weave and weave.Charges then
 			passive = { Type = "Evade", Name = "DODGES", Charges = weave.Charges }
 		end
+		-- ZEPHYR's Sparks (✦) and KAI's RESOLVE take the passive's place.
+		if not passive and kit.Rhythm then passive = { Type = "Rhythm", Name = "RHYTHM", Max = kit.Rhythm.Max } end
+		if not passive and kit.Resolve then passive = { Type = "Resolve", Name = "RESOLVE" } end
 		bar.passive.Visible = passive ~= nil
 		if passive and view.passiveLabel then
 			-- The third sheet's passives: the simulation writes their line (Sim.passiveLabel).
@@ -1504,11 +1517,17 @@ function HUD:update(world, views, fps, dt)
 			elseif passive.Type == "Tip" then
 				label, ready = passive.Name .. ": BLADE TIP +" .. math.floor(passive.Bonus * 100 + 0.5) .. " %", true
 			elseif passive.Type == "Evade" then
-				-- The evades ready (●) and the seconds before the next one.
+				-- The evades ready (●) and the seconds before the next one; AKEMI's FLOW armed.
 				local charges, most = view.passiveCharges or 0, passive.Charges or 1
 				label = passive.Name .. " " .. string.rep("●", charges) .. string.rep("○", most - charges)
 					.. (if charges < most then " " .. math.ceil(gauge / 60) .. " s" else "")
-				ready = charges > 0
+					.. (if view.flow == "armed" then " · FLOW" else "")
+				ready = charges > 0 or view.flow == "armed"
+			elseif passive.Type == "Rhythm" then
+				local sparks = view.sparks or 0
+				label, ready = passive.Name .. " " .. string.rep("✦", sparks) .. string.rep("·", passive.Max - sparks), sparks > 0
+			elseif passive.Type == "Resolve" then
+				label, ready = passive.Name .. " · FEINT", true
 			else
 				label = if gauge <= 0 then passive.Name .. " ✓" else passive.Name .. " " .. math.ceil(gauge / 60) .. " s"
 				ready = gauge <= 0

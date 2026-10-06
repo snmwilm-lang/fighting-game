@@ -189,6 +189,10 @@ function SoundController:onEvent(event)
 		or kind == "PassiveReady" or kind == "Chilled" or kind == "Poison" or kind == "Armor" or kind == "Heal"
 		or kind == "Reflect" or kind == "Drone" or kind == "Shackled" or kind == "Domination" then
 		self:playAll(ACTIONS[kind])
+	elseif kind == "Perfect" then
+		self:playAll(if event.finisher then ACTIONS.RhythmFinisher else ACTIONS.Rhythm)
+	elseif kind == "ClashStep" or kind == "Resolve" or kind == "Feint" or kind == "Flow" then
+		self:playAll(ACTIONS[kind])
 	elseif kind == "Revive" then
 		self:playAll(ACTIONS.Revive)
 	elseif kind == "Burst" then

@@ -42,6 +42,15 @@ local function newFighter(slot, c, kit, stanceId)
 		domination = kit.Passive and kit.Passive.Type == "Domination" and kit.Passive.Start or 0, dominationIdle = 0, dominationGained = false, shackleHits = 0, shackled = false, secondWindUsed = false,
 		droneCharges = kit.Passive and kit.Passive.Type == "Engineering" and kit.Passive.Charges or 0, droneCharge = 0,
 		armorMove = -1,
+		-- ZEPHYR's PERFECT RHYTHM: consecutive perfect links (Sparks, capped), the bonuses of the
+		-- move they started, the last impact of his own attack (when the beat is judged from).
+		sparks = 0, recoveryCut = 0, momentum = 1, stunBoost = 1, perfectFinisher = false,
+		impactTick = nil, impactStop = 0, moveStartTick = -1000, prevMoveStartTick = -1000, moveButton = nil,
+		-- KAI's RESOLVE (presses read at the moment of an impact) and FEINT; a chain broken by
+		-- a RESOLVE cannot be continued (brokenSerial).
+		attackPresses = {}, brokenSerial = -1, feintCooldown = 0,
+		-- AKEMI's INSTINCT: one cooldown per spent charge, the INSTINCT FLOW after an auto-dodge.
+		evadeTimers = {}, evadeSerial = 0, evadeStyle = nil, flowTicks = 0, flowHold = 0, flowArmed = false, flowUsed = true,
 		x = if slot == 1 then -c.SpawnX else c.SpawnX,
 		y = 0, vx = 0, vy = 0, pushVx = 0,
 		facing = facing,
@@ -171,6 +180,16 @@ end
 CombatSimulation.evadeOf = evadeOf
 local PASSIVE = {} -- the passives of Wilhem's third sheet (defined with applyHit below)
 
+-- Timing read from a player's presses, judged on the server: a press seen at the server came
+-- one way late, and what the player reacted to was shown one way late too. Up to
+-- TimingLatencyCap ticks of that round trip are forgiven (never more: an inflated ping buys
+-- nothing past the cap).
+local function timingSlack(world, f)
+	local c = world.config
+	return math.min(2 * (f.latencyTicks or 0), c.TimingLatencyCap or 8)
+end
+CombatSimulation.timingSlack = timingSlack
+
 -- The fighter's stance (TARO: CLASSIQUE / ESQUIVE), nil for a kit without stances; its
 -- starters (crouch special) and its weave (ESQUIVE only).
 local function stanceOf(world, f)
@@ -258,6 +277,54 @@ local function physics(f, c)
 	return false
 end
 
+-- Is `id`, reached by the keys typed so far, the last move of one of the kit's routes?
+local function routeEnd(kit, keys, id)
+	for _, list in { kit.Routes, kit.FullRoutes } do
+		for _, route in list do
+			if route.keys:gsub("[%s↑]", "") == keys and route.moves[#route.moves] == id then return true end
+		end
+	end
+	return false
+end
+
+-- ZEPHYR's PERFECT RHYTHM (kit.Rhythm): a link pressed right on the beat of the impact it
+-- follows is PERFECT. Consecutive perfects are Sparks (at most Max): 1 shortens the new move's
+-- recovery, 2 also carries it further (momentum), 3 also holds the next blow's target longer
+-- (hitstun). A link off the beat still links (the combo is never broken), the Sparks go back
+-- to 0. No damage bonus at any step: the combo scaling stays the same.
+local function judgeRhythm(world, f, id, entry, isLink, events)
+	local kit = kitOf(world, f)
+	local rhythm = kit.Rhythm
+	f.recoveryCut, f.momentum, f.stunBoost, f.perfectFinisher = 0, 1, 1, false
+	if not rhythm then return end
+	local m = world.moves[id]
+	if not isLink or not entry or not f.impactTick or m.kind == "Ultimate" then
+		f.sparks = 0
+		f.impactTick = nil
+		return
+	end
+	local beat = entry.tick - f.impactTick - timingSlack(world, f) - f.impactStop
+	f.impactTick = nil
+	if beat < rhythm.From or beat > rhythm.To then
+		if f.sparks > 0 then table.insert(events, { kind = "RhythmLost", slot = f.slot }) end
+		f.sparks = 0
+		return
+	end
+	local before = f.sparks
+	f.sparks = math.min(rhythm.Max, f.sparks + 1)
+	if f.sparks >= 1 then f.recoveryCut = math.floor(m.recovery * rhythm.RecoveryCut + 0.5) end
+	if f.sparks >= 2 then f.momentum = rhythm.Momentum end
+	if f.sparks >= 3 then f.stunBoost = rhythm.Hitstun end
+	-- PERFECT FINISHER: the route's last link on the beat, after enough of its links on it too
+	-- (2, or every link of a shorter route).
+	local links = #f.chainKeys - 1
+	if routeEnd(kit, f.chainKeys, id) and before >= math.min(2, links - 1) then
+		f.perfectFinisher = true
+	end
+	table.insert(events, { kind = "Perfect", slot = f.slot, sparks = f.sparks, finisher = f.perfectFinisher or nil, move = id,
+		x = f.x + f.facing * 1.6, y = f.y + 2.4 })
+end
+
 local function startMove(world, f, id, events, isLink)
 	local m = world.moves[id]
 	local entry = table.remove(f.buffer, 1)
@@ -279,6 +346,9 @@ local function startMove(world, f, id, events, isLink)
 	f.moveSerial += 1
 	-- (a fresh attack, thrown from neutral; a link of a string never is: see COUNTER HIT)
 	f.moveFresh = not isLink
+	f.moveButton = letter -- (L or R: what KAI's RESOLVE must answer with)
+	f.prevMoveStartTick, f.moveStartTick = f.moveStartTick, world.tick or 0
+	judgeRhythm(world, f, id, entry, isLink, events)
 	if m.teleport then
 		-- DAICHA's TÉLÉPORTATION: reappears `teleport` studs behind the opponent, facing them.
 		local foe = world.fighters[3 - f.slot]
@@ -378,13 +448,21 @@ local function chooseMove(world, f, grounded, crouching)
 		if not CombatSimulation.fatalReady(world, f) or not grounded then return nil end
 		local current = f.move and moves[f.move]
 		if current then
-			if current.kind == "Ultimate" or current.air or not f.moveContact or f.moveFrame <= current.startup then return nil end
+			if current.kind == "Ultimate" or current.air or not f.moveContact or f.moveFrame <= current.startup
+				or current.noCancel or f.moveSerial == f.brokenSerial then return nil end
 		elseif f.dashTicks > 0 then
 			return nil
 		end
 		local foe = world.fighters[3 - f.slot]
 		f.fatalCombo = foe ~= nil and ((foe.stun > 0 and (foe.stunKind == "Hit" or foe.stunKind == "Crumple")) or foe.launched)
 		return id, current ~= nil
+	end
+	-- A CLASH STEP or a RESOLVE answer is never a combo starter; a chain broken by a RESOLVE
+	-- cannot be continued (nothing links from it, not even an ultimate).
+	local currentSerial = if f.move then f.moveSerial elseif f.grace then f.grace.serial else nil
+	if currentId and (moves[currentId].noCancel or currentSerial == f.brokenSerial) then
+		currentId = nil
+		if f.move then return nil end
 	end
 	if currentId then
 		local current = moves[currentId]
@@ -575,6 +653,36 @@ local function stepFighter(world, f, input, events)
 	-- move that just ended (late window). Nil while the current move is still winding up.
 	local after = if current and f.moveFrame > current.startup then f.moveSerial
 		elseif not f.move and f.grace then f.grace.serial else nil
+	local now = world.tick or 0
+	for i = #f.attackPresses, 1, -1 do
+		if now - f.attackPresses[i].tick > 60 then table.remove(f.attackPresses, i) end
+	end
+	if input.light or input.heavy then
+		table.insert(f.attackPresses, { tick = now, button = if input.light and input.heavy then "Both"
+			elseif input.light then "Light" else "Heavy" })
+	end
+	-- INSTINCT FLOW (AKEMI): after an auto-dodge, moving TOWARD the threat arms the FLOW DODGE;
+	-- attacking, guarding or backing away gives it up.
+	if f.flowTicks > 0 or f.flowArmed then
+		local foe = world.fighters[3 - f.slot]
+		local toward = if foe and foe.x > f.x then 1 elseif foe and foe.x < f.x then -1 else f.facing
+		local push = input.axis * toward
+		local dashAway = input.dash and push < -0.1
+		if input.light or input.heavy or input.special or input.ultimate or input.fatal or input.block
+			or push < -0.5 or dashAway or input.jump then
+			if f.flowArmed or f.flowTicks > 0 then table.insert(events, { kind = "FlowLost", slot = f.slot }) end
+			f.flowTicks, f.flowArmed, f.flowHold = 0, false, 0
+		elseif f.flowTicks > 0 and push > 0.5 and not f.flowArmed then
+			f.flowArmed = true
+			f.flowHold = (evadeOf(world, f) or {}).FlowHold or 60
+			table.insert(events, { kind = "Flow", slot = f.slot, x = f.x, y = f.y + 3 })
+		end
+		f.flowTicks = math.max(0, f.flowTicks - 1)
+		if f.flowArmed then
+			f.flowHold -= 1
+			if f.flowHold <= 0 then f.flowArmed = false end
+		end
+	end
 	for _, field in BUTTON_ORDER do
 		if input[field] and (not locked or remaining <= c.ReversalBufferTicks) then
 			pressed += 1
@@ -583,7 +691,7 @@ local function stepFighter(world, f, input, events)
 				f.chainClean, f.dirtyReason = false, "SPAM"
 			end
 			table.insert(f.buffer, { button = BUTTONS[field], ticks = c.BufferTicks, after = after,
-				forward = input.axis * f.facing > 0.5 })
+				forward = input.axis * f.facing > 0.5, tick = now })
 		end
 	end
 	if pressed > 1 then
@@ -622,7 +730,18 @@ local function stepFighter(world, f, input, events)
 	end
 	-- VOILE D'OMBRE: the charges come back one after the other.
 	local evadePassive = evadeOf(world, f)
-	if evadePassive and f.evadeCharges < (evadePassive.Charges or 1) then
+	if evadePassive and evadePassive.Independent then
+		-- INSTINCT (AKEMI): every spent charge has its own cooldown, all running together.
+		for i = #f.evadeTimers, 1, -1 do
+			f.evadeTimers[i] -= 1
+			if f.evadeTimers[i] <= 0 then
+				table.remove(f.evadeTimers, i)
+				f.evadeCharges = math.min(evadePassive.Charges, f.evadeCharges + 1)
+				table.insert(events, { kind = "EvadeCharge", slot = f.slot, charges = f.evadeCharges })
+			end
+		end
+		f.evadeCharge = if #f.evadeTimers > 0 then math.min(table.unpack(f.evadeTimers)) else 0
+	elseif evadePassive and f.evadeCharges < (evadePassive.Charges or 1) then
 		f.evadeCharge = math.max(0, f.evadeCharge - 1)
 		if f.evadeCharge == 0 then
 			f.evadeCharges += 1
@@ -644,6 +763,7 @@ local function stepFighter(world, f, input, events)
 	f.evadeCounter = math.max(0, f.evadeCounter - 1)
 	f.evadeInvuln = math.max(0, f.evadeInvuln - 1)
 	f.burstCooldown = math.max(0, f.burstCooldown - 1)
+	f.feintCooldown = math.max(0, f.feintCooldown - 1)
 	f.dashInvuln = math.max(0, f.dashInvuln - 1)
 	if f.getUp == 0 then f.wakeInvuln = math.max(0, f.wakeInvuln - 1) end
 	f.weaveTicks = math.max(0, f.weaveTicks - 1)
@@ -691,7 +811,8 @@ local function stepFighter(world, f, input, events)
 			else
 				f.launched, f.juggle = false, 0
 				f.stun, f.stunKind = 0, nil
-				f.knockdown, f.state = c.KnockdownTicks, "Knockdown"
+				f.knockdown, f.state = c.KnockdownTicks + (f.knockdownBonus or 0), "Knockdown"
+				f.knockdownBonus = nil
 			end
 		end
 		return
@@ -704,6 +825,7 @@ local function stepFighter(world, f, input, events)
 			elseif f.stunKind == "Evade" then "Evading"
 			elseif f.stunKind == "GuardBreak" then "GuardBroken"
 			elseif f.stunKind == "Crumple" then "Crumple"
+			elseif f.stunKind == "Feint" then "Feint"
 			else "Hitstun"
 		if f.stun == 0 then
 			if f.stunKind == "GuardBreak" then f.guard = c.MaxGuard end
@@ -714,7 +836,7 @@ local function stepFighter(world, f, input, events)
 	end
 
 	-- Actionable from here: the defender has truly recovered, so any combo on it is over.
-	f.comboHits, f.comboDamage, f.burstRolled = 0, 0, false
+	f.comboHits, f.comboDamage, f.burstRolled, f.knockdownBonus = 0, 0, false, nil
 	f.bounced, f.wallBounced, f.crumpled = false, false, false
 
 	-- Stance switch (TARO: 1 / & = CLASSIQUE, 2 / é = ESQUIVE): in neutral, on the ground,
@@ -730,6 +852,26 @@ local function stepFighter(world, f, input, events)
 		table.insert(events, { kind = "Stance", slot = f.slot, stance = wanted, name = stances[wanted].Name })
 	end
 
+	-- KAI's FEINT (kit.Feint): on some links of his routes, once they made contact, a fresh
+	-- press of the guard stops the string. No invincibility, a short recovery that never ends
+	-- before the opponent is free (never plus: no guaranteed pressure), a cooldown (no loop).
+	local feint = kitOf(world, f).Feint
+	if feint and f.move and feint.Moves[f.move] and f.moveContact and pressedBlock and f.feintCooldown == 0 then
+		local m = moves[f.move]
+		local foe = world.fighters[3 - f.slot]
+		if f.moveFrame > m.startup + m.active or f.moveHits >= (m.hits or 1) then
+			local foeBusy = if foe then foe.stun + foe.hitstop else 0
+			f.move, f.moveContact, f.grace = nil, nil, nil
+			f.stun, f.stunKind, f.vx = math.max(feint.Ticks, foeBusy + 1), "Feint", 0
+			f.feintCooldown = feint.Cooldown
+			f.chainKeys, f.chainClean = "", false
+			table.clear(f.buffer)
+			table.insert(events, { kind = "Feint", slot = f.slot, x = f.x, y = f.y + 3 })
+			f.state = "Feint"
+			physics(f, c)
+			return
+		end
+	end
 	if f.move then
 		local m = moves[f.move]
 		f.moveFrame += 1
@@ -744,7 +886,7 @@ local function stepFighter(world, f, input, events)
 			f.airAttackUsed = false
 			grounded = false
 			table.insert(events, { kind = "SuperJump", attacker = f.slot })
-		elseif f.moveFrame > world.moveData.total(m) then
+		elseif f.moveFrame > world.moveData.total(m) - f.recoveryCut then
 			-- A move that connected keeps its cancels for a few more ticks (network latency).
 			if f.moveContact and f.moveHits >= (m.hits or 1) then
 				-- (longer for a far player: their press left before it reached the server)
@@ -797,9 +939,17 @@ local function stepFighter(world, f, input, events)
 			local target = world.fighters[3 - f.slot]
 			local steering = f.moveFrame <= m.startup + m.active and f.moveHits < (m.hits or 1)
 			local gap = target.x - f.facing * 1.4 - f.x
-			f.vx = if steering then math.clamp(gap * 10, -m.lunge, m.lunge) elseif grounded then 0 else f.vx * 0.9
+			local reach = m.lunge * f.momentum
+			f.vx = if steering then math.clamp(gap * 10, -reach, reach) elseif grounded then 0 else f.vx * 0.9
 		elseif grounded and not m.air then
-			f.vx = if f.moveFrame <= m.startup + m.active then f.facing * m.lunge else 0
+			-- (2 Sparks: the kick carries further and follows the target a little, never past it)
+			local speed = m.lunge * f.momentum
+			if f.momentum > 1 then
+				local target = world.fighters[3 - f.slot]
+				local gap = (target.x - f.x) * f.facing - 1.4
+				speed = math.clamp(gap * 10, m.lunge, speed)
+			end
+			f.vx = if f.moveFrame <= m.startup + m.active then f.facing * speed else 0
 		end
 		if m.rise or m.homing then
 			-- A rising strike, a chase or a finisher on a target in the air: the attacker keeps
@@ -1102,8 +1252,81 @@ end
 -- Passive VOILE D'OMBRE (AKEMI): from neutral (not attacking, not already hit, not
 -- guarding), the next hit is evaded: the fighter slips back, invulnerable for a moment, and
 -- the attack whiffs.
+-- AKEMI's INSTINCT (Passive.Independent): while she has a charge, a blow that would really
+-- hit her (not guarded, not an ultimate, not a grab) is ALWAYS dodged; the roll only picks
+-- HOW (Styles: SLIP, BACK, SIDE, INSTINCT). One charge per auto-dodge, each with its own
+-- cooldown. Then the INSTINCT FLOW: moving toward the threat within FlowWindow ticks arms one
+-- FLOW DODGE of the next blow, free (no charge), once per auto-dodge. Never a free punish: she
+-- is busy at least as long as the attacker's whiffed attack.
+function CombatSimulation.evadeRoll(world, d)
+	local x = math.sin((world.tick or 0) * 91.3458 + d.evadeSerial * 47.853 + d.slot * 13.17) * 24634.6345
+	return x - math.floor(x)
+end
+local function pickStyle(passive, roll)
+	local total = 0
+	for _, style in passive.Styles do total += style.Weight end
+	local at = roll * total
+	for _, style in passive.Styles do
+		at -= style.Weight
+		if at < 0 then return style end
+	end
+	return passive.Styles[#passive.Styles]
+end
+CombatSimulation.pickStyle = pickStyle
+local function tryInstinct(world, a, d, m, events, source, passive)
+	if m.kind == "Ultimate" or m.grab or m.fatal then return false end
+	if d.stun > 0 or d.launched or d.knockdown > 0 or d.getUp > 0 or d.state == "KO" then return false end
+	local sourceX = if source then source.x else a.x
+	if canBlock(d, sourceX, m) then return false end -- a guarded hit stays a guarded hit
+	local flow = d.flowArmed and not d.flowUsed
+	if not flow and d.evadeCharges <= 0 then return false end
+	local style
+	d.evadeSerial += 1
+	if flow then
+		style = passive.Flow
+		d.flowUsed, d.flowArmed, d.flowTicks, d.flowHold = true, false, 0, 0
+	else
+		style = pickStyle(passive, CombatSimulation.evadeRoll(world, d))
+		d.evadeCharges -= 1
+		table.insert(d.evadeTimers, passive.Cooldown)
+		d.flowUsed, d.flowArmed, d.flowTicks = false, false, passive.FlowWindow
+	end
+	local dir = if sourceX >= d.x then 1 else -1
+	local c = world.config
+	d.move, d.moveContact, d.grace, d.dashTicks, d.weaveTicks, d.dempseyWindow = nil, nil, nil, 0, 0, 0
+	d.vx, d.vy, d.y = 0, 0, d.y
+	if style.Around and not source then
+		-- around the attacker, a little behind it when there is room (no free punish: below)
+		local x = math.clamp(a.x + dir * style.Around, c.ArenaMinX + 0.5, c.ArenaMaxX - 0.5)
+		if math.abs(x - a.x) >= style.Around * 0.5 then
+			d.x, d.crossed = x, true
+			dir = -dir
+		end
+		d.pushVx = 0
+	else
+		d.pushVx = -dir * (style.Slide or 0)
+	end
+	d.facing = if a.x >= d.x then 1 else -1
+	-- busy until the attacker is free again (+1): the whiffed attack is never a free punish
+	local left = 0
+	if not source and a.move then
+		local am = world.moves[a.move]
+		left = world.moveData.total(am) - a.moveFrame + a.hitstop
+	end
+	d.stun, d.stunKind = math.max(style.Recovery, left + 1), "Evade"
+	d.evadeInvuln = math.min(style.Invuln, d.stun)
+	d.evadeStyle = style.Name
+	d.evadeCounter = 0
+	table.clear(d.buffer)
+	if not source then a.moveHits = m.hits or 1 end -- the attack whiffs
+	table.insert(events, { kind = "Evade", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3,
+		style = style.Name, flow = flow or nil, charges = d.evadeCharges })
+	return true
+end
+
 local function tryEvade(world, a, d, m, events, source)
 	local passive = evadeOf(world, d)
+	if passive and passive.Independent then return tryInstinct(world, a, d, m, events, source, passive) end
 	if not passive or d.evadeCharges <= 0 or m.kind == "Ultimate" then return false end
 	-- Only from neutral: not in the middle of an own attack, not already hit or down.
 	if d.move or d.stun > 0 or d.launched or d.knockdown > 0 or d.getUp > 0 or d.state == "KO" then return false end
@@ -1391,8 +1614,68 @@ function PASSIVE.drones(world, events)
 end
 CombatSimulation.PASSIVE = PASSIVE
 
+-- The blows a timing read can answer: the normal attacks and the techniques of the L/R
+-- routes, thrown by a fighter (never a projectile, an ultimate, a COUP FATAL or a grab).
+local function readable(m, source)
+	return source == nil and (m.kind == "Normal" or m.kind == "Skill") and not m.grab and not m.fatal and not m.air
+end
+
+-- Starts a move of the kit's own mechanics (no press consumed, not a link).
+local function forceMove(world, f, id)
+	f.moveSerial += 1
+	f.move, f.moveFrame, f.moveContact, f.moveHits, f.lastHitFrame, f.projectileSpawned = id, 1, nil, 0, 0, false
+	f.moveFresh, f.grace, f.dashTicks, f.vx = false, nil, 0, 0
+	f.recoveryCut, f.momentum, f.stunBoost, f.perfectFinisher, f.sparks, f.impactTick = 0, 1, 1, false, 0, nil
+	f.chainKeys, f.chainClean = "", false
+	table.clear(f.buffer)
+end
+
+-- ZEPHYR's CLASH STEP (kit.ClashStep): an L or R thrown from neutral that was only Window
+-- ticks (plus the forgiven latency) into its wind-up when the opponent's blow lands: his body
+-- leaves the line, the blow whiffs, a reflex kick sends the opponent away. Earlier, his attack
+-- just goes on (and may be hit out of its wind-up); later, he is hit. Not out of a mash: the
+-- attack before it must be Calm ticks older. Never a combo starter (noCancel) and gives no Spark.
+local function tryClash(world, a, d, m, events, source)
+	local clash = kitOf(world, d).ClashStep
+	if not clash or not readable(m, source) or not d.move or d.stun > 0 or not isGrounded(d) then return false end
+	local own = world.moves[d.move]
+	if not d.moveFresh or own.kind ~= "Normal" or own.air or d.comboHits > 0 then return false end
+	if d.moveFrame > clash.Window + timingSlack(world, d) then return false end
+	if d.moveStartTick - d.prevMoveStartTick < clash.Calm then return false end
+	d.facing = if a.x >= d.x then 1 else -1
+	forceMove(world, d, clash.Move)
+	a.moveHits = m.hits or 1 -- the blow whiffs: nothing to cancel from
+	a.hitstop, d.hitstop = math.max(a.hitstop, 4), 4
+	table.insert(events, { kind = "ClashStep", slot = d.slot, attacker = a.slot, move = m.id, x = d.x, y = d.y + 3 })
+	return true
+end
+
+-- KAI's RESOLVE (kit.Resolve): the button of the blow (L for a light, R for a heavy) pressed
+-- right at its impact (Window ticks before, plus the forgiven latency). He takes the whole
+-- damage, but not the stagger, the launch or the fall: he braces, slides a little, answers
+-- with a push that sends the attacker away, and the attacker's string is broken. A wrong
+-- button, too early, too late or more than one press in Calm ticks: no RESOLVE.
+local function tryResolve(world, a, d, m, events, source)
+	local resolve = kitOf(world, d).Resolve
+	if not resolve or not readable(m, source) or not isGrounded(d) or d.launched or d.knockdown > 0 or d.getUp > 0 then
+		return false
+	end
+	local want = if a.moveButton == "L" then "Light" elseif a.moveButton == "R" then "Heavy" else nil
+	if not want then return false end
+	local now, slack = world.tick or 0, timingSlack(world, d)
+	local inWindow, recent = nil, 0
+	for _, press in d.attackPresses do
+		if now - press.tick <= resolve.Calm + slack then
+			recent += 1
+			if now - press.tick <= resolve.Window + slack then inWindow = press end
+		end
+	end
+	return recent == 1 and inWindow ~= nil and inWindow.button == want
+end
+
 local function applyHit(world, a, d, m, events, source)
 	local c = world.config
+	if tryClash(world, a, d, m, events, source) then return end
 	if tryParry(world, a, d, m, events, source) or tryEvade(world, a, d, m, events, source) then return end
 	if PASSIVE.armor(world, a, d, m, events) then
 		if not source then a.moveContact, a.hitstop = "Hit", 6 end
@@ -1416,7 +1699,7 @@ local function applyHit(world, a, d, m, events, source)
 	local stop = if final then m.hitstop else (m.multiHitstop or 3)
 	if firstHit and not source then PASSIVE.heal(world, a, m, events) end
 	if canBlock(d, if source then source.x else a.x, m) then
-		if not source then a.moveContact = "Block" end
+		if not source then a.moveContact, a.impactTick = "Block", nil end
 		if m.confirm and not source then a.moveHits = m.hits or 1 end -- (blocked: the flurry stops there)
 		local chip = math.floor(m.damage * c.BlockDamageRatio + 0.5)
 		d.hp = math.max(math.min(d.hp, 1), d.hp - chip)
@@ -1449,6 +1732,7 @@ local function applyHit(world, a, d, m, events, source)
 	end
 
 	if not source then a.moveContact = "Hit" end
+	local resolved = tryResolve(world, a, d, m, events, source)
 	-- COUNTER HIT: a read, never a free reward. Only a slow attack thrown fresh from neutral
 	-- (never a link of the opponent's string: a combo is never broken by it), caught during
 	-- its wind-up, outside any combo, by a blow (not a projectile, not an ultimate).
@@ -1456,6 +1740,7 @@ local function applyHit(world, a, d, m, events, source)
 	local counter = theirs ~= nil and not (d.stats and d.stats.NoCounter) and d.state == "Attack" and d.moveFresh == true and d.moveFrame <= theirs.startup
 		and d.comboHits == 0 and a.comboHits == 0 and not source and firstHit
 		and m.kind ~= "Ultimate" and theirs.kind ~= "Ultimate" and not theirs.invuln and theirs.startup >= (c.CounterMinStartup or 0)
+		and not resolved -- (the RESOLVE press is not punished as a wind-up)
 	local bonus, tip = passiveBonus(world, a, d, m, source)
 	bonus *= PASSIVE.bonus(world, a, m, source)
 	if counter then
@@ -1486,9 +1771,37 @@ local function applyHit(world, a, d, m, events, source)
 	d.comboDamage += damage
 	if m.kind ~= "Ultimate" then gainMeter(a, damage * c.MeterOnHit, c) end
 	gainMeter(d, damage * c.MeterWhenHit, c)
+	if resolved and d.hp > 0 then
+		-- RESOLVE: the whole damage is taken, the stagger is not. He answers, the string breaks.
+		local resolve = kitOf(world, d).Resolve
+		local dir = if a.x >= d.x then 1 else -1
+		d.facing = dir
+		forceMove(world, d, resolve.Move)
+		d.stun, d.stunKind, d.blocking, d.crouching = 0, nil, false, false
+		d.pushVx = -dir * resolve.Slide
+		if not source then
+			a.brokenSerial, a.grace = a.moveSerial, nil
+			a.moveHits = m.hits or 1 -- (the rest of a flurry stops there)
+			a.hitstop = stop
+		end
+		d.hitstop = stop
+		event.kind, event.damage, event.combo, event.comboDamage, event.resolve = "Hit", damage, d.comboHits, d.comboDamage, true
+		event.final = final
+		table.insert(events, event)
+		table.insert(events, { kind = "Resolve", slot = d.slot, attacker = a.slot, x = d.x, y = d.y + 3 })
+		return
+	end
 	d.move, d.moveContact, d.dashTicks, d.grace = nil, nil, 0, nil
 	d.blocking, d.crouching = false, false
 	d.stun, d.stunKind = m.hitstun + (if counter then c.CounterHitstun or 0 else 0), "Hit"
+	-- PERFECT RHYTHM (ZEPHYR): 3 Sparks hold the target a little longer; the impact sets the beat.
+	if not source then
+		if a.stunBoost > 1 then
+			d.stun = math.floor(d.stun * a.stunBoost + 0.5)
+			a.stunBoost = 1 -- (the next impact only)
+		end
+		if final then a.impactTick, a.impactStop = world.tick or 0, stop end
+	end
 	d.calmTicks = 0
 	local airborne = not isGrounded(d) or d.launched
 	if firstHit and (airborne or (final and (m.launch ~= 0 or m.groundBounce))) then
@@ -1536,6 +1849,23 @@ local function applyHit(world, a, d, m, events, source)
 		d.wallBounce = true
 	end
 	applyPush(a, d, if final then m.push else (m.multiPush or 1), c, source)
+	if final and not source and a.perfectFinisher then
+		-- PERFECT FINISHER: the route's ending does its own job a little better (never more
+		-- damage): a knockdown keeps the target down longer, a knockback sends it further, an
+		-- ending that keeps the target close leaves a few more frames to act first.
+		a.perfectFinisher = false
+		local rhythm = kitOf(world, a).Rhythm
+		local kind = m.perfectFinish or (if m.knockdown or (m.launch > 0 and not m.jumpCancel) then "Knockdown"
+			elseif m.push >= 24 or m.wallBounce then "Knockback" else "Advantage")
+		if kind == "Knockdown" then
+			d.knockdownBonus = rhythm.FinisherKnockdown
+		elseif kind == "Knockback" then
+			d.pushVx *= rhythm.FinisherPush
+		else
+			d.stun += rhythm.FinisherStun
+		end
+		event.perfectFinisher = kind
+	end
 	if m.pull and source then
 		-- A hook, a chain, gravity: the target is dragged toward the thrower.
 		local owner = a.x

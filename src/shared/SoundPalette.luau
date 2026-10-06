@@ -241,6 +241,13 @@ local ACTIONS = {
 	Drone = { { "wind", 0.26, 2.2, 0.15 } }, -- NOVA's sentinel takes off
 	Shackled = { { "thud", 0.41, 1.46, nil, "crunch" } }, -- KAZAN's chains bite
 	Domination = { { "boom", 0.38, 1.5, 0.35, "hall" } }, -- KUROEN's DOMINATION rises or is spent
+	-- ZEPHYR, KAI, AKEMI: their own mechanics (small, never over the blows).
+	Rhythm = { { "clash", 0.28, 2.2 } }, -- PERFECT RHYTHM: a bright ring on top of the kick
+	RhythmFinisher = { { "clash", 0.42, 1.7 }, { "boom", 0.18, 2.1, 0.2 } }, -- PERFECT FINISHER
+	ClashStep = { { "dodge", 0.55, 1.3, nil, "echo" } }, -- the blow whistles past ZEPHYR
+	Resolve = { { "guard", 0.6, 0.75 }, { "thud", 0.5, 0.6 } }, -- KAI braces under the blow
+	Feint = { { "dodge", 0.3, 1.5 } }, -- KAI stops his string
+	Flow = { { "wind", 0.25, 1.6, 0.2, "echo" } }, -- AKEMI's INSTINCT FLOW armed
 	-- The fight's big moments.
 	Counter = { { "boom", 0.3, 2.2, 0.2 } }, -- COUNTER HIT: a sharp crack on top
 	Revive = { { "boom", 0.85, 0.45, 1.6, "hall" }, { "thud", 0.85, 0.35 }, { "wind", 0.51, 0.4, 1.2, "echo" } }, -- ASURA rises

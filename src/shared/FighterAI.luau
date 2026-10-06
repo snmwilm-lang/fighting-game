@@ -59,14 +59,22 @@ local function neutral()
 	}
 end
 
--- The CHALLENGE boss (ASURA): a boss, almost without limits (Wilhem: « il doit être vraiment
--- sans limite presque »): reacts in 1 frame, blocks nearly everything high and low, reads
--- every low guard (overhead) and every jump, never drops a combo, always ends on his
--- ultimates, reverses pressure, and charges in (an armored dash) instead of walking into a
--- spear. Not one of the menu's levels.
-FighterAI.Boss = table.freeze({ name = "ASURA", reaction = 1, block = 0.95, lowBlock = 1, combo = 1, aggression = 0.93,
-	antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
-	ultimate = 1, read = 1, charge = true, varied = true, routes = { "hard" } })
+-- The CHALLENGE bosses' brains. KUROEN SHIN, the last boss: almost without limits (Wilhem:
+-- « il doit être vraiment sans limite presque »): reacts in 1 frame, blocks nearly everything
+-- high and low, reads every low guard (overhead) and every jump, never drops a combo, always
+-- ends on his ultimates, reverses pressure, and charges in (an armored dash) instead of
+-- walking into a spear. ASURA, the first boss, below him (Wilhem: « ils doivent pas être
+-- impossibles, juste très compliqués », and KUROEN SHIN the stronger): a slower eye, a guard
+-- that a mix-up opens, reads that a feint fools. Not among the menu's levels.
+FighterAI.Bosses = table.freeze({
+	ASURA = table.freeze({ name = "ASURA", reaction = 4, block = 0.88, lowBlock = 0.95, combo = 1,
+		aggression = 0.9, antiAir = 0.9, punish = 0.9, reversal = 0.45, counter = 0.75, zoning = 0.5, full = 1, promptSpread = 0,
+		decision = 4, ultimate = 1, read = 0.7, charge = true, varied = true, routes = { "hard" } }),
+	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 1, block = 0.95, lowBlock = 1, combo = 1, aggression = 0.93,
+		antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
+		ultimate = 1, read = 1, charge = true, varied = true, routes = { "hard" } }),
+})
+FighterAI.Boss = FighterAI.Bosses.ASURA
 
 -- Does the opponent outreach this fighter (a spear, a sword, long legs)? Its longest neutral
 -- button against ours (the boss charges in only then: walking in, it eats the pokes).
@@ -88,10 +96,10 @@ function FighterAI:outranged(world, slot)
 	return value
 end
 
--- levelIndex: 1 (FACILE) to 4 (LÉGENDE), or "ASURA" (the boss).
+-- levelIndex: 1 (FACILE) to 4 (LÉGENDE), or a boss's name ("ASURA", "KUROEN SHIN").
 function FighterAI.new(levelIndex, seed)
 	return setmetatable({
-		level = if levelIndex == "ASURA" then FighterAI.Boss else FighterAI.Levels[levelIndex],
+		level = FighterAI.Bosses[levelIndex] or FighterAI.Levels[levelIndex],
 		seed = (seed or 1) % 2147483647,
 		history = {},
 		plan = nil, step = 1, pressedMove = nil,

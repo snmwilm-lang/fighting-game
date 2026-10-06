@@ -584,8 +584,8 @@ local function startSolo(player, request)
 	elseif mode == "VERSUS_CPU" then
 		Sim.setLineup(world, request.team, GameModes.cpuTeam(#request.team, MoveData.KitOrder, randomStart()))
 	elseif GameModes.find(mode).boss then
-		-- A boss (ASURA, KUROEN SHIN) against a team of 1 to 3, with the boss's brain.
-		match.level = "ASURA"
+		-- A boss (ASURA, KUROEN SHIN) against a team of 1 to 3, with that boss's own brain.
+		match.level = GameModes.find(mode).boss
 		Sim.setTeams(world, request.team, { GameModes.find(mode).boss })
 	elseif mode == "SURVIVAL" then
 		match.wave, match.seed = 1, randomStart()

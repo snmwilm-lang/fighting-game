@@ -1536,7 +1536,7 @@ test("the low guard is not a fortress: forward + R is an overhead, and crouching
 	expect(wear(true) > wear(false) * 1.3, "crouching, the guard does not wear faster")
 end)
 
-test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors every grounded blow, four arms, no counter hit", function()
+test("ASURA is massive, not taller: a wider body, the same height and reach; ASURA'S WRATH armors his heavies (every grounded blow in his SECOND LIFE), four arms, no counter hit", function()
 	local w = kitDuel("ASURA", "KAI", 3)
 	local a, k = w.fighters[1], w.fighters[2]
 	local al, ar, ab, at = Sim.hurtbox(a, Config)
@@ -1551,7 +1551,12 @@ test("ASURA is massive, not taller: a wider body, the same height and reach; ASU
 		return PASSIVE.armor(w, k, a, Moves.Jab, {})
 	end
 	expect(armored("Smash"), "ASURA'S WRATH did not armor the Smash")
-	expect(armored("Jab"), "ASURA'S WRATH does not armor every grounded blow (a boss, Wilhem: much stronger)")
+	-- (Wilhem: « pas impossibles, juste très compliqués »: in his first life a jab beats his jab;
+	-- risen, every grounded blow is armored)
+	expect(not armored("Jab"), "ASURA'S WRATH armors his jab in his first life")
+	a.revived = true
+	expect(armored("Jab"), "risen, ASURA'S WRATH does not armor every grounded blow")
+	a.revived = nil
 	expect(not armored("AirKick"), "ASURA'S WRATH armors in the air")
 	-- the four arms: a blow of his that lands is followed by the second pair (more damage)
 	local function jabHit(kit)

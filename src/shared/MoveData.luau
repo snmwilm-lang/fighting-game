@@ -1283,13 +1283,15 @@ kit("ASURA", {
 		-- (Wilhem: the BURST is never sure in his first life, 35 % at the 5th blow of a combo;
 		-- risen in his SECOND LIFE, every time)
 		Burst = { Hits = 5, Cooldown = 600, Invuln = 16, Stun = 16, Push = 40, Chance = 0.35, SecondLifeChance = 1 },
-		-- (the second life only brings him back to half health, but there he is a monster:
-		-- every grounded blow armored, hits half as hard again, much faster)
-		SecondLife = { Health = 0.6, DamageDealt = 1.5, Speed = 1.3, RiseTicks = 50, Armor = true } },
+		-- (the second life brings him back under half health, but there he is a monster: every
+		-- grounded blow armored, harder hits, faster; eased so he stays beatable, KUROEN SHIN above him)
+		SecondLife = { Health = 0.45, DamageDealt = 1.3, Speed = 1.15, RiseTicks = 50, Armor = true } },
 	-- ASURA'S WRATH: his heavy grounded normals (Kick, Spin Kick, Hammer, Smash) take one hit
 	-- without flinching (GORAN's armor rule), and so does his forward dash: he charges through
 	-- a poke or a spear.
-	Passive = { Type = "Anchor", Name = "ASURA'S WRATH", Heavy = 0, Absorb = 1, DashArmor = true }, -- (every grounded blow armored)
+	-- (Wilhem: « ils doivent pas être impossibles, juste très compliqués »: in his first life only
+	-- the heavies are armored; risen, every grounded blow)
+	Passive = { Type = "Anchor", Name = "ASURA'S WRATH", Heavy = 60, Absorb = 1, DashArmor = true },
 	RouteNames = { "CHAIN", "LAUNCHER", "LIVER", "WALL", "AXE KICK", "SWEEP", "TORNADO", "GUST", "DRAGON", "THUNDER", "MOON" },
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "阿修羅", sub = "WRATH OF THE FOUR ARMS" },

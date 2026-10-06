@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.22 — 6 octobre 2026 · LES BOSS : TRÈS DURS, PAS IMPOSSIBLES · KUROEN SHIN AU-DESSUS D'ASURA
+
+Wilhem : « ASURA, j'arrive même pas à le battre, un ami a mis 15 essais, tu l'as up depuis ? » ; « SHIN » (le plus fort des deux doit être KUROEN SHIN) ; « ils doivent pas être impossibles, juste très compliqués ».
+
+- ASURA n'avait pas été renforcé depuis 0.20 (seul changement : son BURST passé de sûr à 35 % en 0.23.20, une baisse).
+- Chaque boss a maintenant son propre cerveau (`FighterAI.Bosses`) ; le serveur donne au CPU celui du boss du mode.
+  - KUROEN SHIN garde l'ancien cerveau « presque sans limite » (réaction 1, garde 0,95).
+  - ASURA : réaction 4, garde 0,88 / basse 0,95 (comme LÉGENDE), lectures 0,7, contres 0,75 : une feinte et un mix-up passent.
+- ASURA (`MoveData`) :
+  - ASURA'S WRATH n'arme plus que ses coups lourds dans sa première vie (tous ses coups au sol une fois relevé).
+  - SECONDE VIE : 45 % de vie (au lieu de 60), dégâts ×1,3 (au lieu de 1,5), vitesse ×1,15 (au lieu de 1,3).
+- Mesure (`luau tests/BossTeamReport.luau -a BOSS 8`, équipes LÉGENDE de 3, vie restante du boss à la fin) :
+  - ASURA 77 % → 60 % ; KUROEN SHIN 79 %.
+  - Avec le cerveau des boss côté équipe : ASURA 60 %, KUROEN SHIN 60 % et 1 victoire sur 24.
+- En duel CPU direct, ASURA bat encore KUROEN SHIN (13–3). Sa seconde vie lui donne une deuxième barre, et l'Éveil et le Coup fatal retirent un pourcentage de la vie max : la vie de KUROEN SHIN n'y change presque rien (essayé jusqu'à 4400 PV). Ils ne se croisent jamais en jeu ; contre les joueurs, KUROEN SHIN est le plus dur.
+- Outils :
+  - `BossDuel` : niveau `BOSS` (chaque boss son cerveau) et vie restante du gagnant.
+  - `BossTeamReport` : cerveau de l'équipe en option (`ASURA` = cerveau des boss), seconde vie atteinte, vie restante.
+- Tests :
+  - FighterAI : nouveau test « cerveaux des boss » (KUROEN SHIN plus vif qu'ASURA, ASURA au moins LÉGENDE, KUROEN SHIN finit avec plus de vie qu'ASURA contre les mêmes équipes). Le test « bat LÉGENDE » utilise le cerveau de KUROEN SHIN.
+  - CombatSimulation : armure d'ASURA sur ses lourds, sur tout une fois relevé.
+
+Fichiers : `src/shared/FighterAI.luau`, `src/shared/MoveData.luau`, `src/server/init.server.luau`, `tests/FighterAI.test.luau`, `tests/CombatSimulation.test.luau`, `tests/BossDuel.luau`, `tests/BossTeamReport.luau`.
+
+Tests : FighterAI 14, CombatSimulation 130, Lobby 40, Fuzz 2, PressQueue 4 ; Kits lancé.
+
+Problème ouvert : on ne peut pas mesurer un humain avec le CPU ; à régler selon tes essais (ASURA trop facile ou encore trop dur).
+
 ## Version 0.23.21 — 6 octobre 2026 · L'ESQUIVE D'AKEMI DANS LE DOS · BOUTONS DE COMBAT · CARTES · LUMINOSITÉ
 
 Wilhem : « remets-moi l'esquive où AKEMI passe dans le dos, rends-la juste bloquable par l'adversaire s'il préshot, mais le timing doit être serré » ; « les boutons en combat ont encore l'ancien design, pas celui du menu, fais pareil avec tout » ; « règle aussi les petits bugs graphiques » (capture des modes) ; « la luminosité de certaines maps, c'est abusé ».
@@ -21,7 +49,7 @@ Wilhem : « remets-moi l'esquive où AKEMI passe dans le dos, rends-la juste blo
 - Nouvelle compensation d'exposition par arène (jusqu'à −0,3 sur CLOUD PALACE), éblouissement du soleil 0,4 → 0,15.
 - Test (Lobby) : luminosité ≤ 2, bloom ≤ 0,7, exposition ≤ 0.
 
-Tests : Lobby 40, CombatSimulation 130, FighterAI 13, Fuzz 2 ; test du contre d'AKEMI vérifié à part ; Kits et le reste relancés.
+Tests : Lobby 40, CombatSimulation 130, FighterAI 13, Fuzz 2, Animation 52, CinematicDirector 872, PressQueue 4, Cinematography 310 ; Kits relancé (résultat dans 0.23.22).
 
 ## Version 0.23.20 — 6 octobre 2026 · ASURA : BURST À 35 %, BRAS CORRIGÉS, DEUX VICTOIRES
 

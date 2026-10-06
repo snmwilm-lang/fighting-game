@@ -242,7 +242,7 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 	for seed = 1, 6 do
 		local world = Sim.newWorld(Config, MoveData, false)
 		Sim.setKits(world, "KAI", "KAI")
-		local brains = { FighterAI.new("ASURA", seed), FighterAI.new(4, seed * 7 + 3) }
+		local brains = { FighterAI.new("KUROEN SHIN", seed), FighterAI.new(4, seed * 7 + 3) }
 		for _ = 1, 60 * 60 * 5 do
 			local over = false
 			for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do
@@ -254,7 +254,7 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 			if over then break end
 		end
 	end
-	expect(wins >= 4, "the boss AI won only " .. wins .. " of 6 against LÉGENDE")
+	expect(wins >= 4, "the last boss's AI (KUROEN SHIN) won only " .. wins .. " of 6 against LÉGENDE")
 	-- ASURA himself (second life, armored charge) against long reach played by LÉGENDE: a boss
 	local spear = 0
 	for seed = 1, 6 do
@@ -291,6 +291,41 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 		end
 	end
 	expect(shin >= 5, "KUROEN SHIN won only " .. shin .. " of 6 against LÉGENDE")
+end)
+
+-- Wilhem: « ils doivent pas être impossibles, juste très compliqués », KUROEN SHIN the stronger.
+test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGENDE team", function()
+	local asura, shin = FighterAI.Bosses.ASURA, FighterAI.Bosses["KUROEN SHIN"]
+	expect(FighterAI.new("KUROEN SHIN", 1).level == shin and FighterAI.new("ASURA", 1).level == asura, "each boss has its own brain")
+	expect(shin.reaction < asura.reaction and shin.block > asura.block and shin.read > asura.read,
+		"KUROEN SHIN's eye and guard must be sharper than ASURA's")
+	expect(asura.reaction <= FighterAI.Levels[4].reaction and asura.block >= FighterAI.Levels[4].block,
+		"ASURA's brain must stay at least LÉGENDE's")
+	-- the boss's health left against LÉGENDE teams of 3 (the same teams, the same seeds)
+	local function left(boss)
+		local sum = 0
+		local teams = { { "TARO", "VENOM", "HIBIKI" }, { "KAI", "RYUKEN", "HIBECARES" }, { "KUROEN", "GORAN", "YUKINA" } }
+		for t, team in teams do
+			for i = 1, 3 do
+				local world = Sim.newWorld(Config, MoveData, false)
+				Sim.setKits(world, boss, team[1])
+				Sim.setLineup(world, { boss }, team)
+				local brains = { FighterAI.new(boss, i * 31 + t), FighterAI.new(4, i * 7 + 3 + t) }
+				for _ = 1, 60 * 60 * 10 do
+					local over = false
+					for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do
+						if e.kind == "MatchEnd" then over = true end
+					end
+					if over then break end
+				end
+				local f = world.fighters[1]
+				sum += math.max(0, f.hp) / f.maxHp + (if f.revived then 0 else 1) -- (a second life still to come counts)
+			end
+		end
+		return sum / 9
+	end
+	local a, k = left("ASURA"), left("KUROEN SHIN")
+	expect(k > a, string.format("KUROEN SHIN (%.2f) must end with more left than ASURA (%.2f) against the same teams", k, a))
 end)
 
 test("the same seed replays the same fight", function()

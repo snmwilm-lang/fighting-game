@@ -1,5 +1,26 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.5 — 6 octobre 2026 · CARTE DU CRÉATEUR, COMMANDES DU PROPRIÉTAIRE, MISE À JOUR SANS FERMER
+
+Wilhem : « vu que je suis le owner, mets-moi une carte particulière », « donne-moi la perm de give des trucs in game à des gens avec une ligne dans le chat », « un moyen de mettre à jour sans devoir attendre que tout le monde quitte ».
+
+- **Badge CREATOR** (`DevAccess.isOwner` : les IDs de Wilhem, ou le propriétaire d'un jeu à son nom ; jamais un joueur de test de Studio). Il passe en premier dans l'attribut `Badges`, purement cosmétique, et se voit à trois endroits :
+  - **carte joueur** : plaque dorée « ★ CREATOR · THE ONE WHO MADE BREAKFRAMEZ », kanji 創, reflet qui défile, cadre doré ;
+  - **combat** : tag « ★ CREATOR », nom et bord du portrait en reflet or et blanc (à la place du VIP) ;
+  - **liste des joueurs** : « [★ CREATOR] », ligne bordée d'or.
+- **Commandes du propriétaire dans le chat** (module pur `src/server/Admin.luau`). Le serveur n'écoute que le propriétaire :
+  - `!give <pseudo|me|all> coins 1000`
+  - `!give <pseudo> fighter ZEPHYR` (ou `ALL`)
+  - `!give <pseudo> style <STYLE>`
+  - `!give <pseudo> title <TITRE>`
+  - `!give <pseudo> item <ID>`
+  - `!help`
+  - Le pseudo se reconnaît au début du nom ou du nom affiché. Un objet de Game Pass n'est jamais donné.
+  - Le cadeau est sauvegardé tout de suite, le joueur reçoit « 🎁 Wilhem GAVE YOU … », le propriétaire voit la réponse à l'écran, et chaque don est noté dans l'Output.
+- **Mise à jour** : dans le Creator Dashboard, sur la place, « Migrate to Latest Update » (ou « Restart Servers ») ferme les anciens serveurs et Roblox replace les joueurs dans des serveurs à jour. Le jeu prévient maintenant chaque joueur (annonce « UPDATE » en combat, note dans le menu) et sauvegarde les profils à la fermeture, comme avant.
+
+Tests : Lobby 46 (nouveau : « owner commands »). CLAUDE.md : `Admin.luau` ajouté aux modules serveur purs. Non vérifié dans Studio.
+
 ## Version 0.24.4 — 6 octobre 2026 · CARTE DE RÉSULTAT, CLASSÉ PRÊT POUR 10 000 JOUEURS
 
 Wilhem : « toujours l'UI plus belle » et « gère ça bien : imagine 10 000 personnes sur le jeu, même sur des serveurs de 10 ».

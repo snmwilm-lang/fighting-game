@@ -245,6 +245,11 @@ function MenuController.new(remote, hub, settings)
 			self:flash("NOT POSSIBLE: " .. tostring(packet.error), RED)
 		elseif packet.result then
 			self:showResult(packet)
+		elseif packet.gift then
+			-- (the game's owner gave something: !give in his chat)
+			self:notify("🎁 " .. tostring(packet.from or "") .. " GAVE YOU " .. tostring(packet.gift), GOLD)
+		elseif packet.adminReply then
+			self:flash(tostring(packet.adminReply), GOLD)
 		elseif packet.ranking then
 			-- (only the ranking of the tab shown: a late answer of the other one is ignored)
 			if (packet.board or "all") == self.rankingBoard then
@@ -821,6 +826,38 @@ function MenuController:showPlayerCard()
 		{ if (s.dailyStreak or 0) > 0 and (s.today or 0) - (s.dailyDay or 0) <= 1 then "DAILY STREAK: " .. s.dailyStreak .. " / 7" else "", GOLD, 15 },
 		{ "COINS: " .. (s.coins or 0), GOLD, 15 },
 	}
+	-- THE CREATOR'S CARD (the game's owner, Wilhem): a gold plate on top of his card, the kanji
+	-- 創 (creation), a band of light sweeping it; the card's frame turns gold.
+	local creator = string.find(Players.LocalPlayer:GetAttribute("Badges") or "", "CREATOR", 1, true) ~= nil
+	if creator then
+		local plate = new("Frame", { LayoutOrder = 0, Size = UDim2.new(1, -8, 0, 92), BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0, ZIndex = 53, ClipsDescendants = true }, list)
+		corner(plate, 6)
+		stroke(plate, 2, GOLD)
+		gradient(plate, Color3.fromHex("6B4A0E"), Color3.fromHex("1A1206"), 0)
+		label(plate, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(90, 90), Font = UI_FONT,
+			TextSize = 76, Text = "創", TextColor3 = GOLD, TextTransparency = 0.55, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 54 })
+		local name = label(plate, { Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -120, 0, 44), Font = DISPLAY, TextSize = 42,
+			Text = "★ CREATOR", TextColor3 = Color3.fromHex("FFE9A8"), ZIndex = 55 })
+		stroke(name, 2, INK)
+		local shine = new("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromHex("FFB21A")),
+			ColorSequenceKeypoint.new(0.45, Color3.fromHex("FFE9A8")), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
+			ColorSequenceKeypoint.new(0.55, Color3.fromHex("FFE9A8")), ColorSequenceKeypoint.new(1, Color3.fromHex("FFB21A")) }) }, name)
+		label(plate, { Position = UDim2.fromOffset(18, 56), Size = UDim2.new(1, -120, 0, 24), Font = UI_FONT, TextSize = 14,
+			Text = "THE ONE WHO MADE BREAKFRAMEZ", TextColor3 = GOLD, ZIndex = 55 })
+		local band = new("Frame", { Size = UDim2.new(0, 60, 1.6, 0), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(-0.2, 0.5),
+			Rotation = 20, BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 54 }, plate)
+		task.spawn(function()
+			while plate.Parent do
+				shine.Offset = Vector2.new((os.clock() * 0.5) % 2 - 1, 0)
+				band.Position = UDim2.fromScale(-0.2 + ((os.clock() * 0.35) % 1) * 1.4, 0.5)
+				RunService.RenderStepped:Wait()
+			end
+		end)
+		local box = list.Parent
+		local edge = box and box:FindFirstChildWhichIsA("UIStroke")
+		if edge then edge.Color = GOLD; edge.Thickness = 3 end
+	end
 	for i, e in entries do
 		if e[1] ~= "" then line(list, i, e[1], e[2], e[3]) end
 	end

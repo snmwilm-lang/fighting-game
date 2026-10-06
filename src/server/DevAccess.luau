@@ -33,6 +33,14 @@ function DevAccess.isDev(userId, creatorId, creatorIsUser, studioSolo)
 	return creatorIsUser == true and type(creatorId) == "number" and creatorId > 0 and userId == creatorId
 end
 
+-- The game's owner (Wilhem): his ids above, or the owner of a user-owned game. Never a
+-- Studio test player. Shown to everyone as the CREATOR badge (cosmetic: his special card).
+function DevAccess.isOwner(userId, creatorId, creatorIsUser)
+	if type(userId) ~= "number" or userId <= 0 then return false end
+	if table.find(DevAccess.IDS, userId) then return true end
+	return creatorIsUser == true and type(creatorId) == "number" and creatorId > 0 and userId == creatorId
+end
+
 -- TESTERS: Roblox UserIds (numbers) that get every fighter (Economy.makeTester; not the
 -- developer access: the shop, styles and passes stay as for any player). Old profiles saved
 -- before the fighters were sold are testers too, without being listed here.

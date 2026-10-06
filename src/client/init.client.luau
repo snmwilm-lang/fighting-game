@@ -174,6 +174,13 @@ hud.onDebug = function()
 	return effects.debug
 end
 hud:setEffectsReduced(effects.reduced)
+-- (the server closes for an update: Roblox moves everyone to the new version in a moment)
+menuRemote.OnClientEvent:Connect(function(packet)
+	if typeof(packet) == "table" and packet.updating then
+		hud:announceText("UPDATE", "Moving you to the new version…", Color3.fromHex("FFD23F"), 0.8, 6)
+		menu:notify("UPDATE: moving you to the new version…", Color3.fromHex("FFD23F"))
+	end
+end)
 
 -- Disable Roblox's walking/jumping controls; our abstract input adapter owns them.
 task.spawn(function()

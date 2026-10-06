@@ -334,7 +334,7 @@ function HUD.new(config)
 		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
 		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
-		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
+		self.bars[slot] = { nameRainbow = nameRainbow, rainbowColors = nameRainbow.Color, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
 			sideBase = side.Position, lastRatio = 1, edgeColor = EDGE, kiPanel = panel, face = face, left = left,
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
@@ -1465,10 +1465,28 @@ function HUD:update(world, views, fps, dt)
 			bar.barStroke.Color = bar.edgeColor
 			bar.portraitStroke.Color = bar.energy
 		end
-		-- VIP: the rainbow (the portrait's edge cycles through the hues, the name is striped)
-		local vip = string.find(view.badges or "", "VIP", 1, true) ~= nil
-		bar.nameRainbow.Enabled, bar.vipTag.Visible = vip, vip
-		if vip then
+		-- CREATOR (the game's owner): a gold tag, the portrait's edge and the name in a moving
+		-- gold and white sheen. VIP: the rainbow (the edge cycles through the hues, the name striped).
+		local creator = string.find(view.badges or "", "CREATOR", 1, true) ~= nil
+		local vip = not creator and string.find(view.badges or "", "VIP", 1, true) ~= nil
+		bar.nameRainbow.Enabled, bar.vipTag.Visible = vip or creator, vip or creator
+		if creator ~= bar.creatorLook then
+			bar.creatorLook = creator
+			bar.vipTag.Text = if creator then "★ CREATOR" else "VIP"
+			bar.vipTag.Size = UDim2.fromOffset(if creator then 74 else 30, 14)
+			bar.nameRainbow.Color = if creator then ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromHex("FFB21A")), ColorSequenceKeypoint.new(0.45, Color3.fromHex("FFE9A8")),
+				ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(0.55, Color3.fromHex("FFE9A8")),
+				ColorSequenceKeypoint.new(1, Color3.fromHex("FFB21A")) }) else bar.rainbowColors
+		end
+		if creator then
+			local t = os.clock()
+			bar.nameRainbow.Offset = Vector2.new((t * 0.6) % 2 - 1, 0)
+			bar.player.TextColor3 = WHITE
+			local gold = Color3.fromHex("FFD23F"):Lerp(Color3.new(1, 1, 1), 0.5 + 0.5 * math.sin(t * 3))
+			if not fatal then bar.portraitStroke.Color = gold end
+			bar.vipGlow.Enabled, bar.vipGlow.Color = true, gold
+		elseif vip then
 			local t = os.clock()
 			bar.nameRainbow.Offset = Vector2.new((t * 0.5) % 2 - 1, 0)
 			bar.player.TextColor3 = WHITE

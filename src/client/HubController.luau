@@ -268,12 +268,22 @@ function HubController:render()
 		-- (Game Passes: the VIP / SUPPORTER badges, the VIP's gold name; cosmetic only)
 		local badges = if type(p.badges) == "string" and p.badges ~= "" then string.split(p.badges, ",") else {}
 		local vip = table.find(badges, "VIP") ~= nil
+		local creator = table.find(badges, "CREATOR") ~= nil -- (the game's owner)
+		if creator then
+			-- (his row: a gold edge and a warm gold wash)
+			Theme.edge(row, Color3.fromHex("FFD23F"), 2)
+			local wash = Instance.new("UIGradient")
+			wash.Color = ColorSequence.new(Color3.fromHex("5A3A08"), Theme.PANEL)
+			wash.Parent = row
+			row.BackgroundColor3 = Color3.new(1, 1, 1)
+		end
 		local tags = ""
-		for _, badge in badges do tags ..= "[" .. badge .. "] " end
+		for _, badge in badges do tags ..= (if badge == "CREATOR" then "[★ CREATOR] " else "[" .. badge .. "] ") end
 		if (tonumber(p.streak) or 0) >= 3 then tags ..= "🔥" .. p.streak .. " " end -- (3+ online wins in a row)
 		new("TextLabel", {
 			BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -142, 1, 0), Font = UI_FONT, TextSize = 13, ZIndex = 4,
-			TextColor3 = if vip then VIP_GOLD elseif p.id == me then GOLD else WHITE, TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = if creator then Color3.fromHex("FFE9A8") elseif vip then VIP_GOLD elseif p.id == me then GOLD else WHITE,
+			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			Text = tags .. (if p.id == me then "YOU · " else "") .. p.name .. "  ·  " .. state,
 		}, row)

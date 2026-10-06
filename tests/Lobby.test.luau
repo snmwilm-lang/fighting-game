@@ -1226,4 +1226,49 @@ test("the fight snapshot on the wire: short names, everything comes back as it w
 	for _, name in Wire.FIGHTER do expect(#name >= 1, "empty name") end
 end)
 
+test("owner commands: only the owner, !give coins / fighter / style / title / item, players by name, never a pass item", function()
+	local Admin = require("../src/server/Admin")
+	local DevAccess = require("../src/server/DevAccess")
+	local StoreConfig = require("../src/shared/StoreConfig")
+	local Store = require("../src/shared/Store")
+	local idx = Store.index(StoreConfig)
+	-- who: the owner only (his ids, or the user who owns the game), never a Studio test player
+	expect(DevAccess.isOwner(DevAccess.IDS[1], 0, false), "Wilhem is not the owner")
+	expect(DevAccess.isOwner(42, 42, true) and not DevAccess.isOwner(42, 42, false), "the user-owned game's owner")
+	expect(not DevAccess.isOwner(7, 42, true) and not DevAccess.isOwner(-1, -1, true), "someone else is the owner")
+	-- reading the line
+	expect(Admin.parse("hello") == nil and Admin.parse("!dance") == nil, "a chat line read as a command")
+	local c = Admin.parse("!give Bob coins 1000")
+	expect(c and c.target == "Bob" and c.kind == "coins" and c.amount == 1000, "!give coins not read")
+	local _, why = Admin.parse("!give Bob coins -5")
+	expect(why ~= nil and select(1, Admin.parse("!give Bob coins 99999999")) == nil, "bad amounts accepted")
+	expect(Admin.parse("!help").verb == "help", "!help")
+	-- giving
+	local catalogs = { kits = MoveData.KitOrder, styles = { KAI_NEON = true }, items = idx.item, titles = { "ASURA SLAYER" } }
+	local profile = { coins = 10 }
+	expect(Admin.apply(profile, c, catalogs) and profile.coins == 1010, "coins not given")
+	expect(Admin.apply(profile, Admin.parse("!give me fighter zephyr"), catalogs) and profile.ownedKits.ZEPHYR, "fighter not given")
+	expect(Admin.apply(profile, Admin.parse("!give me fighter all"), catalogs) and profile.ownedKits.KAZAN ~= nil or profile.ownedKits[MoveData.KitOrder[#MoveData.KitOrder]], "every fighter")
+	expect(Admin.apply(profile, Admin.parse("!give me style kai neon"), catalogs) and profile.ownedSkins.KAI_NEON, "style not given")
+	expect(Admin.apply(profile, Admin.parse("!give me title asura slayer"), catalogs) and table.find(profile.titles, "ASURA SLAYER"), "title not given")
+	local shopTitle, passTitle
+	for id, item in idx.item do
+		if item.kind == "TITLE" and not item.pass and not shopTitle then shopTitle = item end
+		if item.pass and not passTitle then passTitle = item end
+	end
+	expect(Admin.apply(profile, Admin.parse("!give me title " .. shopTitle.name), catalogs) and profile.ownedItems[shopTitle.id], "shop title")
+	if passTitle then
+		expect(not Admin.apply(profile, Admin.parse("!give me item " .. passTitle.id), catalogs), "a Game Pass item was given")
+	end
+	expect(not Admin.apply(profile, Admin.parse("!give me fighter NOBODY"), catalogs), "an unknown fighter was given")
+	-- players by name
+	local players = { { id = 1, name = "Laveine972", display = "Wilhem" }, { id = 2, name = "BobTheBuilder", display = "Bob" },
+		{ id = 3, name = "Bobby", display = "Bobby" } }
+	expect(#Admin.targets("me", players, 1) == 1 and Admin.targets("me", players, 1)[1].id == 1, "me")
+	expect(#Admin.targets("all", players, 1) == 3, "all")
+	expect(#Admin.targets("bob", players, 1) == 1 and Admin.targets("bob", players, 1)[1].id == 2, "an exact name first")
+	expect(#Admin.targets("bobt", players, 1) == 1, "the start of a name")
+	expect(#Admin.targets("zz", players, 1) == 0, "nobody")
+end)
+
 T.finish()

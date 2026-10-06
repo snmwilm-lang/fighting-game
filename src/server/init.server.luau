@@ -39,6 +39,7 @@ local Taunts = require(Shared.Taunts)
 local Economy = require(Shared.Economy)
 local Quests = require(Shared.Quests)
 local DevAccess = require(script.DevAccess)
+local Admin = require(script.Admin)
 local Champions = require(script.Champions)
 local Tutorial = require(Shared.Tutorial)
 local StoreConfig = require(Shared.StoreConfig)
@@ -1143,7 +1144,10 @@ local PolicyService = game:GetService("PolicyService")
 local function applyPassLooks(player, client)
 	local profile = client.profile
 	if not profile then return end
-	player:SetAttribute("Badges", table.concat(Store.badges(StoreConfig, profile), ","))
+	local badges = Store.badges(StoreConfig, profile)
+	-- (the game's owner: the CREATOR badge first, his own card and tag; cosmetic only)
+	if DevAccess.isOwner(player.UserId, game.CreatorId, CREATOR_IS_USER) then table.insert(badges, 1, "CREATOR") end
+	player:SetAttribute("Badges", table.concat(badges, ","))
 	player:SetAttribute("NameColor", if Store.hasPass(profile, "VIP") then storeIdx.pass.VIP.nameColor else "")
 	-- (a pass title, a pass emote, a pass aura: only while the pass is owned)
 	if profile.title ~= "" and not Champions.canShow(profile, profile.title) and not Store.passTitle(storeIdx, profile, profile.title) then
@@ -1612,6 +1616,59 @@ task.spawn(function()
 		end
 	end
 end)
+-- ===================================================================== owner commands
+-- The game's owner gives things in game with one chat line (Admin: "!give Pseudo coins 1000",
+-- "!help"). Only the owner (DevAccess.isOwner) is ever listened to; the answer goes to his
+-- screen, the gift is saved at once and the player is told who gave it.
+local adminCatalogs = { kits = MoveData.KitOrder, styles = CharacterData.Skins, items = storeIdx.item, titles = {} }
+for _, name in GameModes.CHALLENGE_TITLES do table.insert(adminCatalogs.titles, name) end
+for _, name in GameModes.SHIN_TITLES do table.insert(adminCatalogs.titles, name) end
+local function ownerCommand(player, text)
+	if not DevAccess.isOwner(player.UserId, game.CreatorId, CREATOR_IS_USER) then return end
+	local cmd, why = Admin.parse(text)
+	if not cmd then
+		if why then menuRemote:FireClient(player, { adminReply = why }) end
+		return
+	end
+	if cmd.verb == "help" then
+		menuRemote:FireClient(player, { adminReply = Admin.HELP })
+		return
+	end
+	local list = {}
+	for p in clients do table.insert(list, { id = p.UserId, name = p.Name, display = p.DisplayName }) end
+	local targets = Admin.targets(cmd.target, list, player.UserId)
+	if #targets == 0 then
+		menuRemote:FireClient(player, { adminReply = "NO PLAYER MATCHES « " .. cmd.target .. " »" })
+		return
+	end
+	local given = {}
+	for _, t in targets do
+		local p = Players:GetPlayerByUserId(t.id)
+		local c = p and clients[p]
+		if c and c.profile and c.profileLoaded then
+			local ok, what = Admin.apply(c.profile, cmd, adminCatalogs)
+			if not ok then
+				menuRemote:FireClient(player, { adminReply = "NOT GIVEN: " .. tostring(what) })
+				return
+			end
+			saveProfile(p, c, true)
+			applyPassLooks(p, c)
+			menuStatus(p)
+			menuRemote:FireClient(p, { gift = what, from = player.DisplayName })
+			table.insert(given, p.DisplayName)
+			print(string.format("[FightingGame] %s gave %s to %s", player.Name, what, p.Name))
+		end
+	end
+	menuRemote:FireClient(player, { adminReply = if #given > 0 then "GIVEN TO " .. table.concat(given, ", ") else "NOBODY READY (profile loading)" })
+end
+local function listenOwner(player)
+	if DevAccess.isOwner(player.UserId, game.CreatorId, CREATOR_IS_USER) then
+		player.Chatted:Connect(function(text) ownerCommand(player, text) end)
+	end
+end
+Players.PlayerAdded:Connect(listenOwner)
+for _, player in Players:GetPlayers() do listenOwner(player) end
+
 for _, player in Players:GetPlayers() do joined(player) end
 
 -- ===================================================================== input
@@ -2085,6 +2142,11 @@ print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per
 -- The server closing (update, shutdown): every loaded profile is written before it goes
 -- (Roblox waits up to 30 s for this).
 game:BindToClose(function()
+	-- (an update: "Migrate to Latest Update" closes the old servers and Roblox moves every
+	-- player to a new one; they are told on screen, and their profiles are saved below)
+	for player in clients do
+		pcall(menuRemote.FireClient, menuRemote, player, { updating = true })
+	end
 	if not store then return end
 	local pending = 0
 	for player, client in clients do

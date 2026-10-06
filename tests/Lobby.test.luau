@@ -1185,4 +1185,21 @@ test("tutorial and tiers: every line reads in French", function()
 	end
 end)
 
+test("HUD textures: every id is a whole number (0 = not uploaded yet, the drawn look stays), each names its PNG", function()
+	local UIArt = require("../src/shared/UIArt")
+	local count = 0
+	for name, image in UIArt.Images do
+		count += 1
+		expect(type(image.id) == "number" and image.id >= 0 and image.id == math.floor(image.id), name .. ": bad id")
+		expect(type(image.file) == "string" and image.file:sub(-4) == ".png", name .. ": no PNG")
+		expect(UIArt.asset(name) == (if image.id == 0 then nil else "rbxassetid://" .. image.id), name .. ": asset string")
+		if image.slice then
+			local l, t, r, b = table.unpack(image.slice)
+			expect(l > 0 and t > 0 and r < image.size[1] and b < image.size[2] and l < r and t < b, name .. ": slice outside the PNG")
+		end
+	end
+	expect(count == 7, "seven textures")
+	expect(UIArt.asset("Nothing") == nil, "an unknown texture has no asset")
+end)
+
 T.finish()

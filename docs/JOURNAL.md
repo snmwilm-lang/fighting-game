@@ -1,5 +1,22 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.45 — 6 octobre 2026 · ÉCRAN DE COMBAT : VISAGES 3D ET TEXTURES
+
+Wilhem : « tu penses que tu peux faire mieux ? » puis « vas-y ».
+
+- Portraits 3D : le losange du portrait devient un emblème carré avec la tête du combattant en 3D (`HUD:setPortrait`, un `ViewportFrame`) :
+  - le modèle vient de `StylePreviews[skin]` (le skin porté), sinon de `KitPreviews[kit]` ;
+  - caméra de trois quarts (FOV 30), tournée vers le centre de l'écran ;
+  - anneau de la couleur du perso, ombre, kanji dans un petit losange au coin ;
+  - redessiné quand le perso ou le skin change (relais 2v2/3v3 compris).
+- Le badge VIP passe sous le portrait (il chevauchait le kanji).
+- Textures du HUD dessinées en PNG (`tools/hudart.py`, fichiers dans `docs/ui_art/`, marges dans le README) : cadres des barres (bouts en biais), plaque hexagonale du chrono, plaques du KI, coup de pinceau des annonces, cadre du portrait.
+- `src/shared/UIArt.luau` (pur) : leurs IDs, tous à 0 tant que Wilhem ne les a pas envoyés sur Roblox. À 0, le HUD garde son look dessiné ; dès qu'un ID est rempli, l'image (9-slice pour les barres) remplace le cadre dessiné.
+
+Fichiers : `src/client/HUDController.luau`, `src/shared/UIArt.luau`, `tools/hudart.py`, `docs/ui_art/`. Tests : Lobby 44 (IDs des textures). Non vérifié dans Studio.
+
+Prochaine étape : Wilhem envoie les 7 PNG (Decals) et donne les IDs ; puis écran de sélection et écran de fin de match.
+
 ## Version 0.23.44 — 6 octobre 2026 · UI FLUIDE : LE MENU PRINCIPAL
 
 - Fond vivant (`MenuController:buildAmbience`) :

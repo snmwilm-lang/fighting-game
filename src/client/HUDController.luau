@@ -8,6 +8,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterData = require(Shared.CharacterData)
 local MoveData = require(Shared.MoveData)
 local Locale = require(Shared.Locale)
+local UIArt = require(Shared.UIArt)
 local Theme = require(script.Parent.MenuTheme) -- (the fight's buttons wear the menu's design)
 
 local HUD = {}
@@ -47,6 +48,26 @@ end
 local function tint(instance, kind)
 	instance:SetAttribute("Tint", kind)
 	return instance
+end
+
+-- A texture of the HUD (UIArt), or nil while Wilhem has not uploaded it yet (the drawn look stays).
+local function art(name, parent, props)
+	local asset = UIArt.asset(name)
+	if asset == nil then return nil end
+	local image = UIArt.Images[name]
+	local label = Instance.new("ImageLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Image = asset
+	if image.slice then
+		local l, t, r, b = table.unpack(image.slice)
+		label.ScaleType = Enum.ScaleType.Slice
+		label.SliceCenter = Rect.new(l, t, r, b)
+		label.SliceScale = 0.5 -- (drawn at 2x)
+	end
+	for key, value in props do label[key] = value end
+	label.Parent = parent
+	return label
 end
 
 local function tween(instance, duration, goal, style, direction)
@@ -114,19 +135,34 @@ function HUD.new(config)
 		local function at(x, y) -- (x from the outer end, mirrored for the right side)
 			return if left then UDim2.fromOffset(x, y) else UDim2.new(1, -x, 0, y)
 		end
-		-- the portrait: a diamond emblem, a ring of the fighter's colour, a thin inner ring, its kanji
+		-- the portrait (SF6, Strive: the fighter's face): a square emblem, the fighter's head in 3D
+		-- (HUD:setPortrait), a ring of the fighter's colour, a thin inner ring; the kanji in a small
+		-- diamond on its lower corner
 		local portrait = new("Frame", {
-			Name = "Portrait", Size = UDim2.fromOffset(58, 58), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = 45,
-			Position = at(42, 46), BackgroundColor3 = INK, BorderSizePixel = 0, ZIndex = 4,
+			Name = "Portrait", Size = UDim2.fromOffset(66, 66), AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = at(42, 46), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 4, ClipsDescendants = true,
 		}, side)
-		local portraitStroke = tint(stroke(portrait, 4, energy), "Energy")
-		local innerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -12, 1, -12),
-			BackgroundTransparency = 1, ZIndex = 4 }, portrait)
-		tint(stroke(innerRing, 1, energy), "Energy").Transparency = 0.5
-		new("Frame", { Name = "Shadow", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(42, 50), Size = UDim2.fromOffset(58, 58), Rotation = 45,
-			BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 3 }, side)
-		local kanji = tint(text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 32, TextColor3 = energy,
-			Font = UI_FONT, ZIndex = 5 }), "Energy")
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(energy:Lerp(INK, 0.55), INK) }, portrait)
+		local portraitStroke = tint(stroke(portrait, 3, energy), "Energy")
+		portraitStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		local face = new("ViewportFrame", { Name = "Face", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 4,
+			Ambient = Color3.fromHex("9A8F9E"), LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.3, -0.6, -1) }, portrait)
+		local portraitFrame = art("PortraitFrame", side, { AnchorPoint = Vector2.new(0.5, 0.5), Position = at(42, 46),
+			Size = UDim2.fromOffset(76, 76), ImageColor3 = energy, ZIndex = 5 })
+		if portraitFrame then
+			tint(portraitFrame, "Energy")
+			portraitStroke.Thickness = 1
+		end
+		local innerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -8, 1, -8),
+			BackgroundTransparency = 1, ZIndex = 5 }, portrait)
+		tint(stroke(innerRing, 1, energy), "Energy").Transparency = 0.6
+		new("Frame", { Name = "Shadow", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(45, 50), Size = UDim2.fromOffset(66, 66),
+			BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 3 }, side)
+		local badge = new("Frame", { Name = "KanjiBadge", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(if left then 72 else 72, 76),
+			Size = UDim2.fromOffset(26, 26), Rotation = 45, BackgroundColor3 = INK, BorderSizePixel = 0, ZIndex = 6 }, side)
+		tint(stroke(badge, 2, energy), "Energy")
+		local kanji = tint(text(badge, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 16, TextColor3 = energy,
+			Font = UI_FONT, ZIndex = 7 }), "Energy")
 		-- the health bar: a light rim, a dark track, the red trail, the health left (it drains toward
 		-- the timer, as in every fighting game)
 		local barX = 84
@@ -139,6 +175,13 @@ function HUD.new(config)
 		}, side)
 		local barStroke = stroke(bar, 1, EDGE)
 		barStroke.Transparency = 0.6
+		-- (the textured frame, once uploaded: slanted ends masked in ink, a light rim)
+		local barFrame = art(if left then "BarFrameLeft" else "BarFrameRight", side, { AnchorPoint = Vector2.new(outer, 0),
+			Size = UDim2.new(1, -barX + 14, 0, 36), Position = at(barX - 10, 27), ZIndex = 3, SliceScale = 36 / 96 })
+		if barFrame then
+			rim.BackgroundTransparency = 1
+			for _, item in rim:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
+		end
 		local trail = new("Frame", { Name = "Trail", BackgroundColor3 = RED, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
 			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, bar)
 		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
@@ -235,6 +278,13 @@ function HUD.new(config)
 			BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0 }, panel)
 		tint(stroke(plate, 3, energy), "Energy")
 		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(40, 40, 52), Color3.new(1, 1, 1)) }, plate)
+		local kiPlate = art(if left then "KiPlateLeft" else "KiPlateRight", plate, { Size = UDim2.new(1, 18, 1, 12),
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ImageColor3 = energy })
+		if kiPlate then
+			tint(kiPlate, "Energy")
+			plate.BackgroundTransparency = 1
+			for _, item in plate:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
+		end
 		local count = text(plate, { Name = "KiCount", Text = "0", TextSize = 44, TextColor3 = WHITE, Size = UDim2.fromScale(1, 1) })
 		stroke(count, 3)
 		local kiLabel = tint(text(panel, { Text = "KI", TextSize = 12, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(78, 14),
@@ -271,12 +321,12 @@ function HUD.new(config)
 			ColorSequenceKeypoint.new(0.8, Color3.fromHSV(0.78, 0.75, 1)), ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 0.75, 1)) }) }, player)
 		local vipTag = text(side, { Name = "VipTag", Visible = false, Text = "VIP", Font = UI_FONT, TextSize = 10, TextColor3 = INK,
 			BackgroundTransparency = 0, BackgroundColor3 = Color3.fromHex("FFD23F"), Size = UDim2.fromOffset(30, 14),
-			AnchorPoint = Vector2.new(0.5, 0), Position = at(42, 86), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
+			AnchorPoint = Vector2.new(0.5, 0), Position = at(34, 84), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
 		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
 		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
 		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
-			sideBase = side.Position, lastRatio = 1, edgeColor = EDGE, kiPanel = panel,
+			sideBase = side.Position, lastRatio = 1, edgeColor = EDGE, kiPanel = panel, face = face, left = left,
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
@@ -292,6 +342,14 @@ function HUD.new(config)
 		BackgroundTransparency = 1 }, timer)
 	stroke(timerRing, 1, EDGE).Transparency = 0.4
 	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 38, Text = "99" })
+	-- (the textured hexagon plate, once uploaded: the diamond steps aside)
+	local timerPlate = art("TimerPlate", header, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
+		Size = UDim2.fromOffset(96, 96), ZIndex = 0 })
+	if timerPlate then
+		timer.BackgroundTransparency, timer.Rotation, self.timer.Rotation = 1, 0, 0
+		timerRing.Visible = false
+		for _, item in timer:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
+	end
 	self.timerScale = new("UIScale", { Scale = 1 }, timer) -- (the last 10 s beat: red, a bump each second)
 	self.round = text(header, { Size = UDim2.fromOffset(92, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 86),
 		TextSize = 11, Font = UI_FONT, Text = "ROUND 1", TextColor3 = Color3.fromHex("FFD23F"), BackgroundTransparency = 0.1,
@@ -343,7 +401,13 @@ function HUD.new(config)
 		Size = UDim2.new(0, 0, 0, 170), BackgroundColor3 = INK, BackgroundTransparency = 0.3, BorderSizePixel = 0, Visible = false, ZIndex = 0 }, gui)
 	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.2),
 		NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) }) }, announceBand)
-	for _, y in { 0, 1 } do
+	-- (the ink brush stroke, once uploaded, in place of the flat band and its two lines)
+	local brush = art("AnnounceBrush", announceBand, { Size = UDim2.fromScale(1, 1.3), AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), ZIndex = 0 })
+	if brush then
+		announceBand.BackgroundTransparency = 1
+	end
+	for _, y in (if brush then {} else { 0, 1 }) do
 		new("Frame", { AnchorPoint = Vector2.new(0.5, y), Position = UDim2.fromScale(0.5, y), Size = UDim2.new(0.7, 0, 0, 2),
 			BackgroundColor3 = WHITE, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, announceBand)
 	end
@@ -1015,6 +1079,40 @@ function HUD:updateTrainer(view, meterFull)
 end
 
 -- Recolours a side of the HUD after its fighter changed kit or style (CLASSIQUE, NUIT...).
+-- The fighter's face in the portrait (SF6 / Strive): the 3D body of its style (or of its kit,
+-- while the style's is not built), a camera on its head, turned three quarters toward the
+-- middle of the screen. Cosmetic; tried again until the body is there.
+function HUD:setPortrait(slot, kit)
+	local bar = self.bars[slot]
+	if not bar then return end
+	local skin = CharacterData[slot] and CharacterData[slot].Skin or ""
+	local key = tostring(kit) .. "/" .. tostring(skin)
+	if bar.portraitKey == key then return end
+	local styles = ReplicatedStorage:FindFirstChild("StylePreviews")
+	local kits = ReplicatedStorage:FindFirstChild("KitPreviews")
+	local source = (styles and styles:FindFirstChild(skin)) or (kits and kit and kits:FindFirstChild(kit))
+	if not source then return end -- (not built yet: tried again next frame)
+	local head0 = source:FindFirstChild("Head")
+	if not head0 then return end
+	bar.portraitKey = key
+	for _, child in bar.face:GetChildren() do
+		if child:IsA("Model") or child:IsA("Camera") then child:Destroy() end
+	end
+	local model = source:Clone()
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then d.Anchored = true end
+	end
+	model.Parent = bar.face
+	local head = model:FindFirstChild("Head")
+	local camera = new("Camera", { FieldOfView = 30 }, bar.face)
+	bar.face.CurrentCamera = camera
+	local look = head.CFrame.LookVector
+	local turn = math.rad(if bar.left then 28 else -28)
+	local dir = CFrame.fromAxisAngle(Vector3.yAxis, turn):VectorToWorldSpace(look)
+	local target = head.Position + Vector3.new(0, -0.25, 0)
+	camera.CFrame = CFrame.lookAt(target + dir * 4.6 + Vector3.new(0, 0.35, 0), target)
+end
+
 function HUD:applyLook(slot)
 	local bar = self.bars[slot]
 	local data = CharacterData[slot]
@@ -1031,11 +1129,13 @@ function HUD:applyLook(slot)
 		if color then
 			if item:IsA("UIStroke") then item.Color = color
 			elseif item:IsA("TextLabel") then item.TextColor3 = color
+			elseif item:IsA("ImageLabel") then item.ImageColor3 = color
 			elseif item:IsA("GuiObject") then item.BackgroundColor3 = color end
 		end
 	end
 	bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) })
 	bar.healthBucket = nil -- (the health colour is drawn again with the new look)
+	bar.portraitKey = nil -- (the face too)
 	self.callouts[slot].label.TextColor3 = energy
 	self.combo[slot].count.TextColor3 = energy
 end
@@ -1290,6 +1390,7 @@ function HUD:update(world, views, fps, dt)
 	for slot, view in views do
 		local bar = self.bars[slot]
 		local kit = MoveData.Kits[view.kit] or MoveData.Kits.KAI
+		self:setPortrait(slot, view.kit) -- (its face; a relay's next fighter changes it)
 		local ratio = math.clamp(view.hp / (view.maxHp or kit.Stats.MaxHealth), 0, 1)
 		bar.fill.Size = UDim2.fromScale(ratio, 1)
 		-- (UI pass) a blow taken: the health left flashes white; a big one shakes the side

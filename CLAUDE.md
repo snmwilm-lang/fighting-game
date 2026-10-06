@@ -7,7 +7,7 @@
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
-  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Economy.luau`, `Quests.luau`, `StoreConfig.luau`, `Store.luau`, `Tutorial.luau` et `WeaponFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Economy.luau`, `Quests.luau`, `StoreConfig.luau`, `Store.luau`, `Tutorial.luau`, `UIArt.luau` et `WeaponFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,

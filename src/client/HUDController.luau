@@ -93,47 +93,68 @@ function HUD.new(config)
 		ZIndex = 0 }, shade)
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25),
 		NumberSequenceKeypoint.new(1, 1) }) }, band)
-	-- Top header: portraits, health, guard, round pips and timer.
-	local header = new("Frame", { Name = "Header", BackgroundTransparency = 1, Size = UDim2.new(1, -24, 0, 104), Position = UDim2.fromOffset(12, 6) }, gui)
+	-- Top header (Wilhem: « inspire-toi des jeux de combat connus »: Street Fighter 6, Guilty Gear
+	-- Strive, Tekken 8, FighterZ): long health bars from the portrait to the timer, the fighter's
+	-- name over them, the guard in chips under them (like the DRIVE gauge), the rounds won next to
+	-- the timer; the KI gauge in the bottom corners (on a phone: under the bars, the thumbs are
+	-- there).
+	local touchLayout = UIS.TouchEnabled and not UIS.KeyboardEnabled
+	local EDGE = Color3.fromRGB(200, 200, 212)
+	local header = new("Frame", { Name = "Header", BackgroundTransparency = 1, Size = UDim2.new(1, -24, 0, 110), Position = UDim2.fromOffset(12, 6) }, gui)
 	for slot = 1, 2 do
 		local data = CharacterData[slot]
 		local energy = Color3.fromHex(data.Energy)
 		local left = slot == 1
+		local outer = if left then 0 else 1 -- (the side's outer end: the portrait's)
 		local side = new("Frame", {
 			Name = "Player" .. slot, BackgroundTransparency = 1,
-			Size = UDim2.new(0.5, -52, 1, 0), Position = if left then UDim2.new() else UDim2.new(0.5, 52, 0, 0),
+			Size = UDim2.new(0.5, -50, 1, 0), Position = if left then UDim2.new() else UDim2.new(0.5, 50, 0, 0),
 		}, header)
-		-- Diamond portrait with the character's kanji.
+		local function at(x, y) -- (x from the outer end, mirrored for the right side)
+			return if left then UDim2.fromOffset(x, y) else UDim2.new(1, -x, 0, y)
+		end
+		-- the portrait: a diamond emblem, a ring of the fighter's colour, a thin inner ring, its kanji
 		local portrait = new("Frame", {
-			Name = "Portrait", Size = UDim2.fromOffset(54, 54), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = 45,
-			Position = if left then UDim2.fromOffset(36, 40) else UDim2.new(1, -36, 0, 40),
-			BackgroundColor3 = INK, BorderSizePixel = 0,
+			Name = "Portrait", Size = UDim2.fromOffset(58, 58), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = 45,
+			Position = at(42, 46), BackgroundColor3 = INK, BorderSizePixel = 0, ZIndex = 4,
 		}, side)
-		local portraitStroke = tint(stroke(portrait, 3, energy), "Energy")
-		local kanji = tint(text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 34, TextColor3 = energy, Font = UI_FONT }), "Energy")
-		local barX = 76
+		local portraitStroke = tint(stroke(portrait, 4, energy), "Energy")
+		local innerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -12, 1, -12),
+			BackgroundTransparency = 1, ZIndex = 4 }, portrait)
+		tint(stroke(innerRing, 1, energy), "Energy").Transparency = 0.5
+		new("Frame", { Name = "Shadow", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(42, 50), Size = UDim2.fromOffset(58, 58), Rotation = 45,
+			BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 3 }, side)
+		local kanji = tint(text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 32, TextColor3 = energy,
+			Font = UI_FONT, ZIndex = 5 }), "Energy")
+		-- the health bar: a light rim, a dark track, the red trail, the health left (it drains toward
+		-- the timer, as in every fighting game)
+		local barX = 84
+		local rim = new("Frame", { Name = "Rim", BackgroundColor3 = Color3.fromRGB(28, 28, 36), BorderSizePixel = 0,
+			Size = UDim2.new(1, -barX + 2, 0, 28), AnchorPoint = Vector2.new(outer, 0), Position = at(barX - 4, 31) }, side)
+		stroke(rim, 1, EDGE).Transparency = 0.3
 		local bar = new("Frame", {
-			Name = "Health", BackgroundColor3 = INK, BorderSizePixel = 0,
-			Size = UDim2.new(1, -barX - 4, 0, 24), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
-			Position = if left then UDim2.fromOffset(barX, 30) else UDim2.new(1, -barX, 0, 30),
+			Name = "Health", BackgroundColor3 = Color3.fromRGB(14, 14, 20), BorderSizePixel = 0,
+			Size = UDim2.new(1, -barX - 2, 0, 22), AnchorPoint = Vector2.new(outer, 0), Position = at(barX - 1, 34),
 		}, side)
-		local barStroke = stroke(bar, 2, WHITE)
+		local barStroke = stroke(bar, 1, EDGE)
+		barStroke.Transparency = 0.6
 		local trail = new("Frame", { Name = "Trail", BackgroundColor3 = RED, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
-			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
+			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, bar)
 		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
-			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
+			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, bar)
 		local gradient = new("UIGradient", {
 			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) }),
 			Rotation = if left then 0 else 180,
 		}, fill)
-		-- (a shine on its top third, and the bar slanted at its inner end like a blade)
-		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.32, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55,
+		-- (its volume: a bright top edge, a darker foot)
+		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.28, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.45,
 			BorderSizePixel = 0, ZIndex = 2 }, bar)
-		-- (UI pass: marks at a quarter, a half and three quarters of the life; a white flash on the
-		-- health left at every blow taken)
-		for _, at in { 0.25, 0.5, 0.75 } do
-			new("Frame", { Name = "Tick", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(if left then at else 1 - at, 0),
-				Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = INK, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 3 }, bar)
+		new("Frame", { Name = "Foot", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0.25, 0),
+			BackgroundColor3 = INK, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 2 }, bar)
+		-- (marks at a quarter, a half and three quarters; a white flash on the health left at every blow)
+		for _, q in { 0.25, 0.5, 0.75 } do
+			new("Frame", { Name = "Tick", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(if left then q else 1 - q, 0),
+				Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 3 }, bar)
 		end
 		local hitFlash = new("Frame", { Name = "HitFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1,
 			BorderSizePixel = 0, ZIndex = 2 }, fill)
@@ -150,70 +171,95 @@ function HUD.new(config)
 				ColorSequenceKeypoint.new(0.5, FATAL_HOT), ColorSequenceKeypoint.new(0.7, FATAL), ColorSequenceKeypoint.new(1, FATAL_DARK) }),
 			Transparency = NumberSequence.new(0.1),
 		}, flame)
+		-- the guard, in six chips under the bar from its inner end (the DRIVE gauge's place): the dark
+		-- chips behind, the lit ones in a container that shrinks toward the timer
+		local CHIP, GAP, CHIPS = 34, 4, 6
 		local guard = new("Frame", {
-			Name = "Guard", BackgroundColor3 = INK, BorderSizePixel = 0,
-			Size = UDim2.new(0.6, 0, 0, 6), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
-			Position = if left then UDim2.fromOffset(barX, 58) else UDim2.new(1, -barX, 0, 58),
+			Name = "Guard", BackgroundTransparency = 1, Size = UDim2.fromOffset(CHIPS * (CHIP + GAP) - GAP, 8),
+			AnchorPoint = Vector2.new(1 - outer, 0), Position = if left then UDim2.new(1, -1, 0, 64) else UDim2.fromOffset(1, 64),
 		}, side)
-		local guardFill = tint(new("Frame", { BackgroundColor3 = Color3.fromHex(data.Shield), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
-			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, guard), "Shield")
-		-- Passive gauge (AKEMI's VOILE D'OMBRE), next to the guard bar.
+		for i = 1, CHIPS do
+			local off = (i - 1) * (CHIP + GAP)
+			new("Frame", { Size = UDim2.fromOffset(CHIP, 8), AnchorPoint = Vector2.new(1 - outer, 0),
+				Position = if left then UDim2.new(1, -off, 0, 0) else UDim2.fromOffset(off, 0), BackgroundColor3 = Color3.fromRGB(26, 28, 36),
+				BorderSizePixel = 0 }, guard)
+		end
+		local guardFill = new("Frame", { Name = "Lit", BackgroundTransparency = 1, ClipsDescendants = true, Size = UDim2.fromScale(1, 1),
+			AnchorPoint = Vector2.new(1 - outer, 0), Position = UDim2.fromScale(1 - outer, 0) }, guard)
+		for i = 1, CHIPS do
+			local off = (i - 1) * (CHIP + GAP)
+			tint(new("Frame", { Size = UDim2.fromOffset(CHIP, 8), AnchorPoint = Vector2.new(1 - outer, 0),
+				Position = if left then UDim2.new(1, -off, 0, 0) else UDim2.fromOffset(off, 0), BackgroundColor3 = Color3.fromHex(data.Shield),
+				BorderSizePixel = 0 }, guardFill), "Shield")
+		end
+		-- the passive's line, under the bar on the outer side
 		local passive = tint(text(side, {
-			Name = "Passive", TextSize = 11, Font = UI_FONT, TextColor3 = energy, Visible = false,
-			Size = UDim2.new(0.4, -barX - 12, 0, 12), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
-			Position = if left then UDim2.new(0.6, barX + 8, 0, 55) else UDim2.new(0.4, -barX - 8, 0, 55),
-			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+			Name = "Passive", TextSize = 12, Font = UI_FONT, TextColor3 = energy, Visible = false,
+			Size = UDim2.new(1, -barX - CHIPS * (CHIP + GAP) - 12, 0, 14), AnchorPoint = Vector2.new(outer, 0), Position = at(barX, 62),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, TextTruncate = Enum.TextTruncate.AtEnd,
 		}), "Energy")
-		stroke(passive, 1.5)
-		local name = text(side, {
-			Name = "Name", Text = data.Name, TextSize = 26, Size = UDim2.new(0, 120, 0, 26),
-			Position = if left then UDim2.fromOffset(barX, 2) else UDim2.new(1, -barX - 120, 0, 2),
-			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
+		stroke(passive, 2)
+		-- the fighter's name over the bar, big and slanted in spirit; the player's name beside it
+		local nameRow = new("Frame", { Name = "NameRow", BackgroundTransparency = 1, Size = UDim2.new(1, -barX - 4, 0, 30),
+			AnchorPoint = Vector2.new(outer, 0), Position = at(barX, 0) }, side)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), VerticalAlignment = Enum.VerticalAlignment.Bottom,
+			HorizontalAlignment = if left then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder }, nameRow)
+		local name = text(nameRow, {
+			Name = "Name", Text = data.Name, TextSize = 32, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X,
+			LayoutOrder = if left then 1 else 2,
 		})
-		stroke(name, 2)
-		local player = tint(text(side, {
-			Name = "PlayerName", TextSize = 12, Font = UI_FONT, TextColor3 = energy,
-			Size = UDim2.new(1, -barX - 130, 0, 20), Position = if left then UDim2.fromOffset(barX + 64, 7) else UDim2.new(0, 0, 0, 7),
-			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
-			TextTruncate = Enum.TextTruncate.AtEnd,
+		stroke(name, 3)
+		local player = tint(text(nameRow, {
+			Name = "PlayerName", TextSize = 13, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(0, 22),
+			AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = if left then 2 else 1,
 		}), "Energy")
+		stroke(player, 2)
+		-- the rounds won: slanted chips under the guard, by the timer
 		local pips = {}
 		for i = 1, math.max(config.RoundsToWin, 3) do -- (3 for a 3v3 relay: a pip per fighter knocked out)
 			local pip = new("Frame", {
-				Size = UDim2.fromOffset(12, 12), Rotation = 45, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = INK, BorderSizePixel = 0,
-				Position = if left then UDim2.new(1, -12 - (i - 1) * 20, 0, 92) else UDim2.new(0, 12 + (i - 1) * 20, 0, 92),
+				Size = UDim2.fromOffset(18, 9), Rotation = if left then -14 else 14, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = INK,
+				BorderSizePixel = 0, Position = if left then UDim2.new(1, -12 - (i - 1) * 24, 0, 86) else UDim2.new(0, 12 + (i - 1) * 24, 0, 86),
 			}, side)
-			stroke(pip, 2, WHITE)
+			stroke(pip, 1.5, EDGE)
 			pips[i] = pip
 		end
-		-- Ki meter: three bars, the count in big type, and a glow when the ultimate is ready.
-		local meter = new("Frame", {
-			Name = "Ki", BackgroundTransparency = 1, Size = UDim2.new(0.6, 0, 0, 12), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
-			Position = if left then UDim2.fromOffset(barX + 30, 70) else UDim2.new(1, -barX - 30, 0, 70),
-		}, side)
+		-- the KI gauge: a plate with the bars' count in big, three long cells, the ultimate's line
+		local panel = new("Frame", { Name = "KiPanel" .. slot, BackgroundTransparency = 1, Size = UDim2.fromOffset(470, 70),
+			AnchorPoint = Vector2.new(outer, if touchLayout then 0 else 1),
+			Position = if touchLayout then (if left then UDim2.new(0, 96, 0, 96) else UDim2.new(1, -96, 0, 96))
+				else (if left then UDim2.new(0, 26, 1, -18) else UDim2.new(1, -26, 1, -18)),
+		}, gui)
+		if touchLayout then new("UIScale", { Scale = 0.7 }, panel) end
+		local function px(x, y) return if left then UDim2.fromOffset(x, y) else UDim2.new(1, -x, 0, y) end
+		local plate = new("Frame", { Name = "Plate", AnchorPoint = Vector2.new(outer, 0), Position = px(0, 18), Size = UDim2.fromOffset(78, 50),
+			BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0 }, panel)
+		tint(stroke(plate, 3, energy), "Energy")
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(40, 40, 52), Color3.new(1, 1, 1)) }, plate)
+		local count = text(plate, { Name = "KiCount", Text = "0", TextSize = 44, TextColor3 = WHITE, Size = UDim2.fromScale(1, 1) })
+		stroke(count, 3)
+		local kiLabel = tint(text(panel, { Text = "KI", TextSize = 12, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(78, 14),
+			AnchorPoint = Vector2.new(outer, 0), Position = px(0, 2) }), "Energy")
+		stroke(kiLabel, 2)
 		local segments, segmentEdges = {}, {}
+		local CELL = 118
 		for i = 1, config.MaxMeter / config.MeterBar do
 			local segment = new("Frame", {
-				BackgroundColor3 = INK, BorderSizePixel = 0, Size = UDim2.new(1 / 3, -4, 1, 0),
-				Position = if left then UDim2.new((i - 1) / 3, 0, 0, 0) else UDim2.new(1 - i / 3, 4, 0, 0),
-			}, meter)
+				BackgroundColor3 = Color3.fromRGB(20, 22, 30), BorderSizePixel = 0, Size = UDim2.fromOffset(CELL, 14),
+				AnchorPoint = Vector2.new(outer, 0), Position = px(90 + (i - 1) * (CELL + 8), 36),
+			}, panel)
 			local segmentEdge = tint(stroke(segment, 1.5, energy), "Energy")
 			segmentEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			segmentEdges[i] = segmentEdge
 			local segmentFill = tint(new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
-				AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, segment), "Energy")
+				AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, segment), "Energy")
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(170, 170, 180)) }, segmentFill)
 			segments[i] = segmentFill
 		end
-		local count = tint(text(side, {
-			Name = "KiCount", Text = "0", TextSize = 30, TextColor3 = energy, Size = UDim2.fromOffset(26, 30),
-			Position = if left then UDim2.fromOffset(barX, 62) else UDim2.new(1, -barX - 26, 0, 62),
-		}), "Energy")
-		stroke(count, 2.5)
-		-- (under the ki bars, never over them: a long line shrinks to fit its box)
-		local ready = text(side, {
+		local ready = text(panel, {
 			Name = "UltimateReady", Text = "ULTIMATE READY · R", TextSize = 14, Font = UI_FONT, TextColor3 = WHITE, Visible = false,
-			Size = UDim2.new(0.6, -30, 0, 14), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
-			Position = if left then UDim2.fromOffset(barX + 30, 86) else UDim2.new(1, -barX - 30, 0, 86),
+			Size = UDim2.fromOffset(370, 16), AnchorPoint = Vector2.new(outer, 0), Position = px(90, 14),
 			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, TextScaled = true,
 		})
 		new("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 8 }, ready)
@@ -227,28 +273,33 @@ function HUD.new(config)
 			ColorSequenceKeypoint.new(0.8, Color3.fromHSV(0.78, 0.75, 1)), ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 0.75, 1)) }) }, player)
 		local vipTag = text(side, { Name = "VipTag", Visible = false, Text = "VIP", Font = UI_FONT, TextSize = 10, TextColor3 = INK,
 			BackgroundTransparency = 0, BackgroundColor3 = Color3.fromHex("FFD23F"), Size = UDim2.fromOffset(30, 14),
-			AnchorPoint = Vector2.new(0.5, 0), Position = if left then UDim2.fromOffset(36, 74) else UDim2.new(1, -36, 0, 74),
-			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+			AnchorPoint = Vector2.new(0.5, 0), Position = at(42, 86), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 6 })
 		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
 		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
 		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
-			sideBase = side.Position, lastRatio = 1,
+			sideBase = side.Position, lastRatio = 1, edgeColor = EDGE, kiPanel = panel,
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
 			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke }
 	end
+	-- the timer: a diamond with a double rim, its number big; the round in a gold pill under it
 	local timer = new("Frame", {
-		Name = "Timer", Size = UDim2.fromOffset(62, 62), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
+		Name = "Timer", Size = UDim2.fromOffset(66, 66), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8),
 		BackgroundColor3 = INK, BorderSizePixel = 0, Rotation = 45,
 	}, header)
 	stroke(timer, 3, WHITE)
-	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 36, Text = "99" })
+	local timerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -10, 1, -10),
+		BackgroundTransparency = 1 }, timer)
+	stroke(timerRing, 1, EDGE).Transparency = 0.4
+	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 38, Text = "99" })
 	self.timerScale = new("UIScale", { Scale = 1 }, timer) -- (the last 10 s beat: red, a bump each second)
-	self.round = text(header, { Size = UDim2.fromOffset(120, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 84),
-		TextSize = 14, Font = UI_FONT, Text = "ROUND 1" })
-	stroke(self.round, 1.5)
+	self.round = text(header, { Size = UDim2.fromOffset(92, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 86),
+		TextSize = 11, Font = UI_FONT, Text = "ROUND 1", TextColor3 = Color3.fromHex("FFD23F"), BackgroundTransparency = 0.1,
+		BackgroundColor3 = Color3.fromRGB(26, 26, 34) })
+	new("UICorner", { CornerRadius = UDim.new(1, 0) }, self.round)
+	stroke(self.round, 1, Color3.fromHex("FFD23F")).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 	-- Combo counters, one per side (shown on the attacker's side).
 	for slot = 1, 2 do
@@ -259,14 +310,26 @@ function HUD.new(config)
 		}, gui)
 		local scale = new("UIScale", { Scale = 1 }, frame)
 		local align = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
-		local count = text(frame, { Size = UDim2.new(1, 0, 0, 74), TextSize = 78, TextXAlignment = align, TextColor3 = self.bars[slot].energy,
-			Rotation = if left then -4 else 4 })
-		stroke(count, 4)
+		-- (the big number and HITS side by side, a line of the fighter's colour, the blow and the damage)
+		local row = new("Frame", { Name = "Row", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 80) }, frame)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Bottom,
+			HorizontalAlignment = if left then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder }, row)
+		local count = text(row, { Size = UDim2.fromOffset(0, 80), AutomaticSize = Enum.AutomaticSize.X, TextSize = 86, TextXAlignment = align,
+			TextColor3 = self.bars[slot].energy, Rotation = if left then -4 else 4, LayoutOrder = if left then 1 else 2 })
+		stroke(count, 5)
 		-- (a light top, a darker foot: the number has volume)
 		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(175, 175, 185)) }, count)
-		local hits = text(frame, { Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 68), TextSize = 30, Text = "HITS!", TextXAlignment = align })
-		stroke(hits, 3)
-		local detail = text(frame, { Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 98), TextSize = 16, Font = UI_FONT, TextXAlignment = align })
+		local hits = text(row, { Size = UDim2.fromOffset(0, 40), AutomaticSize = Enum.AutomaticSize.X, TextSize = 36, Text = "HITS",
+			LayoutOrder = if left then 2 else 1 })
+		stroke(hits, 4)
+		local underline = new("Frame", { Name = "Underline", AnchorPoint = Vector2.new(if left then 0 else 1, 0),
+			Position = if left then UDim2.fromOffset(0, 84) else UDim2.new(1, 0, 0, 84), Size = UDim2.fromOffset(220, 3),
+			BackgroundColor3 = self.bars[slot].energy, BorderSizePixel = 0 }, frame)
+		tint(underline, "Energy")
+		new("UIGradient", { Rotation = if left then 0 else 180, Transparency = NumberSequence.new(0, 1) }, underline)
+		local detail = text(frame, { Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 92), TextSize = 15, Font = UI_FONT,
+			TextXAlignment = align, TextColor3 = Color3.fromHex("FFD23F") })
 		stroke(detail, 2)
 		self.combo[slot] = { frame = frame, scale = scale, count = count, detail = detail, expires = 0 }
 	end
@@ -428,7 +491,7 @@ function HUD.new(config)
 	end)
 	local panelY = 170 -- (panels open under the top buttons, beside the TOOLS column)
 	local trainer = new("Frame", {
-		Name = "ComboTrainer", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -40),
+		Name = "ComboTrainer", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -124), -- (above the KI gauges)
 		Size = UDim2.fromOffset(6 * 92, 140), BackgroundTransparency = 1, Visible = false,
 	}, gui)
 	self.trainer = trainer
@@ -469,7 +532,7 @@ function HUD.new(config)
 	new("UISizeConstraint", { MaxSize = Vector2.new(math.huge, 560) }, self.trainerPanel)
 	self:setKit("KAI")
 
-	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -30), TextSize = 13,
+	self.help = text(gui, { Name = "Help", Size = UDim2.new(1, -24, 0, 22), Position = UDim2.new(0, 12, 1, -100), TextSize = 12,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("D6D6DC") })
 	stroke(self.help, 1.5)
 	local function updateHelp()
@@ -943,7 +1006,9 @@ function HUD:applyLook(slot)
 	bar.kanji.Text, bar.name.Text = data.Kanji, data.Name
 	local energy, shield = Color3.fromHex(data.Energy), Color3.fromHex(data.Shield)
 	bar.energy = energy
-	for _, item in bar.side:GetDescendants() do
+	local items = bar.side:GetDescendants()
+	for _, item in bar.kiPanel:GetDescendants() do table.insert(items, item) end -- (the KI gauge, in its corner)
+	for _, item in items do
 		local kind = item:GetAttribute("Tint")
 		local color = if kind == "Energy" then energy elseif kind == "Shield" then shield else nil
 		if color then
@@ -1199,7 +1264,7 @@ function HUD:update(world, views, fps, dt)
 			bar.barStroke.Color = FATAL
 			bar.portraitStroke.Color = FATAL
 		else
-			bar.barStroke.Color = WHITE
+			bar.barStroke.Color = bar.edgeColor
 			bar.portraitStroke.Color = bar.energy
 		end
 		-- VIP: the rainbow (the portrait's edge cycles through the hues, the name is striped)

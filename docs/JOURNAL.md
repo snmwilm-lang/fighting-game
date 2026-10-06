@@ -1,5 +1,31 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.41 — 6 octobre 2026 · REFONTE DE L'ÉCRAN DE COMBAT (SF6, STRIVE, TEKKEN, FIGHTERZ)
+
+Wilhem : « travaille plus, je t'ai pas demandé des détails, mais de travailler l'interface en jeu ; inspire-toi des jeux de combat connus ». Maquette d'abord (`scratchpad/hud_mock.py`), puis le code.
+
+Haut de l'écran (`HUDController`, en-tête refait) :
+- Portrait : un emblème en losange (58 px) à l'extrémité, anneau de la couleur du perso plus un anneau intérieur fin, ombre portée, kanji.
+- Barre de vie :
+  - longue, du portrait au chrono, avec un liseré clair, une piste sombre, un reflet en haut et un pied plus sombre ;
+  - les repères à 25, 50 et 75 % ;
+  - elle se vide vers le chrono, comme dans tous les jeux de combat ;
+  - le flash, la secousse et la couleur selon la vie de la v0.23.40 sont gardés.
+- Nom du perso en grand (32) au-dessus de la barre, le pseudo du joueur collé à côté, dans la couleur du perso.
+- Garde : 6 segments sous la barre, depuis le chrono (la place de la jauge DRIVE de SF6). Les segments allumés disparaissent vers le centre.
+- Manches gagnées : des pastilles inclinées sous la garde, près du chrono.
+- Passif : sous la barre, côté portrait.
+- Chrono : losange à double liseré, chiffre en 38 ; la manche dans une pastille dorée en dessous.
+
+Jauge de ki (comme la Super / Tension de SF6 et Strive) :
+- Dans les coins du bas : une plaque avec le nombre de barres en grand, l'étiquette KI, 3 longues cellules à dégradé, et la ligne ULTIME PRÊT / ÉVEIL / COUP FATAL au-dessus.
+- Sur téléphone, elle reste sous les barres (réduite à 0,7), car les pouces sont dans les coins du bas.
+- La ligne d'aide et le tableau de combos de l'entraînement remontent au-dessus des jauges.
+
+Combo : le chiffre en 86 avec « HITS » collé à côté, un trait de la couleur du perso qui s'efface, puis le coup et les dégâts en doré.
+
+Fichiers : `src/client/HUDController.luau`, `src/shared/Locale.luau`. Tests : Lobby 43. Non vérifié dans Studio ; maquette jointe.
+
 ## Version 0.23.40 — 6 octobre 2026 · UI FLUIDE : L'ÉCRAN DE COMBAT
 
 Wilhem : « et l'interface en combat aussi : plus design, fluide, belle, clean ; UI globale ». Le combat entre dans le plan, juste après les mouvements de base.

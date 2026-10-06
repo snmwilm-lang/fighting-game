@@ -1,5 +1,13 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.42 — 6 octobre 2026 · BARRE DE VIE SANS SECTIONS
+
+Wilhem : « le découpage en sections des barres de vie, c'est pas obligé, vu qu'à 30 % la barre s'enflamme pour annoncer le coup fatal ».
+
+- Les repères à 25, 50 et 75 % sont retirés : la barre reste d'un seul tenant. Le feu du coup fatal prêt (sous 30 %), le flash, la secousse et la couleur selon la vie restent.
+
+Fichier : `src/client/HUDController.luau`.
+
 ## Version 0.23.41 — 6 octobre 2026 · REFONTE DE L'ÉCRAN DE COMBAT (SF6, STRIVE, TEKKEN, FIGHTERZ)
 
 Wilhem : « travaille plus, je t'ai pas demandé des détails, mais de travailler l'interface en jeu ; inspire-toi des jeux de combat connus ». Maquette d'abord (`scratchpad/hud_mock.py`), puis le code.

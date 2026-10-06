@@ -151,11 +151,8 @@ function HUD.new(config)
 			BorderSizePixel = 0, ZIndex = 2 }, bar)
 		new("Frame", { Name = "Foot", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0.25, 0),
 			BackgroundColor3 = INK, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 2 }, bar)
-		-- (marks at a quarter, a half and three quarters; a white flash on the health left at every blow)
-		for _, q in { 0.25, 0.5, 0.75 } do
-			new("Frame", { Name = "Tick", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(if left then q else 1 - q, 0),
-				Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 3 }, bar)
-		end
+		-- (no marks across it: at 30 % the bar catches fire for the FATAL BLOW, that says enough;
+		-- Wilhem: « le séparage par section, c'est pas forcé »; a white flash at every blow)
 		local hitFlash = new("Frame", { Name = "HitFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1,
 			BorderSizePixel = 0, ZIndex = 2 }, fill)
 		-- COUP FATAL ready: the bar burns (Wilhem: « un effet sur notre barre de vie comme dans

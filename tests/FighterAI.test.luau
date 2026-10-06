@@ -254,7 +254,8 @@ test("ASURA (CHALLENGE boss): far more health than any kit, and its AI beats LÉ
 			if over then break end
 		end
 	end
-	expect(wins >= 4, "the last boss's AI (KUROEN SHIN) won only " .. wins .. " of 6 against LÉGENDE")
+	-- (his guard lets a share of blows through: on the same kit his brain at least matches LÉGENDE)
+	expect(wins >= 3, "the last boss's AI (KUROEN SHIN) won only " .. wins .. " of 6 against LÉGENDE")
 	-- ASURA himself (second life, armored charge) against long reach played by LÉGENDE: a boss
 	local spear = 0
 	for seed = 1, 6 do
@@ -297,8 +298,10 @@ end)
 test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGENDE team", function()
 	local asura, shin = FighterAI.Bosses.ASURA, FighterAI.Bosses["KUROEN SHIN"]
 	expect(FighterAI.new("KUROEN SHIN", 1).level == shin and FighterAI.new("ASURA", 1).level == asura, "each boss has its own brain")
-	expect(shin.reaction < asura.reaction and shin.block > asura.block and shin.read > asura.read,
-		"KUROEN SHIN's eye and guard must be sharper than ASURA's")
+	expect(shin.reaction < asura.reaction and shin.read > asura.read, "KUROEN SHIN's eye and reads must be sharper than ASURA's")
+	-- (Wilhem: « comment SHIN bloque tout, tout le temps ? »): rolled once per blow, a share of
+	-- them gets through his guard, more of the lows
+	expect(shin.guardOnce and shin.block <= 0.85 and shin.lowBlock < shin.block, "KUROEN SHIN must not guard every blow")
 	expect(asura.reaction <= FighterAI.Levels[4].reaction and asura.block >= FighterAI.Levels[4].block,
 		"ASURA's brain must stay at least LÉGENDE's")
 	-- the boss's health left against LÉGENDE teams of 3 (the same teams, the same seeds)
@@ -326,6 +329,31 @@ test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGEN
 	end
 	local a, k = left("ASURA"), left("KUROEN SHIN")
 	expect(k > a, string.format("KUROEN SHIN (%.2f) must end with more left than ASURA (%.2f) against the same teams", k, a))
+end)
+
+test("KUROEN SHIN's guard: rolled once per blow, so some blows land (high and low)", function()
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, "KUROEN SHIN", "KAI")
+	world.phase = "Fight"
+	local guarded, total = { High = 0, Low = 0 }, { High = 0, Low = 0 }
+	local brain = FighterAI.new("KUROEN SHIN", 7)
+	for seed = 1, 200 do
+		for _, guard in { "High", "Low" } do
+			-- the same blow seen on 6 ticks in a row: one roll for all of them
+			local first
+			for tick = 1, 6 do
+				local yes, low = brain:guardRoll({ move = "Jab", serial = seed * 2 + (if guard == "Low" then 1 else 0), guard = guard })
+				local up = yes and (guard ~= "Low" or low)
+				if first == nil then first = up end
+				expect(up == first, "the guard was rolled again on the same blow")
+			end
+			total[guard] += 1
+			if first then guarded[guard] += 1 end
+		end
+	end
+	local high, low = guarded.High / total.High, guarded.Low / total.Low
+	expect(high > 0.65 and high < 0.92, string.format("KUROEN SHIN guards %.0f %% of the high blows", high * 100))
+	expect(low < high, string.format("KUROEN SHIN guards the lows (%.0f %%) as well as the highs", low * 100))
 end)
 
 test("the same seed replays the same fight", function()

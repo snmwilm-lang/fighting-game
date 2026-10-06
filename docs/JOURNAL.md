@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.23 — 6 octobre 2026 · LA GARDE DE KUROEN SHIN
+
+Wilhem : « avec 3 persos je l'emmène à sa deuxième vie et je suis pas le meilleur, donc parfait » (ASURA validé) ; « comment SHIN bloque tout, tout le temps ? ».
+
+- Cause : le CPU retirait au sort sa garde à chaque frame où il voyait venir un coup. Ses 95 % devenaient donc une garde sur presque tous les coups, basse comprise.
+- Correctif : `FighterAI:guardRoll`, avec l'option `guardOnce` des cerveaux.
+  - KUROEN SHIN ne tire sa garde qu'une fois par coup : 80 % des coups hauts, 70 % des bas. Un mix-up passe.
+  - Il garde sa réaction en 1 frame, ses lectures, ses combos et le DIVINE INSTINCT.
+  - Les autres niveaux et ASURA ne changent pas : même suite de tirages, ASURA validé tel quel.
+- Mesure (`BossTeamReport`, équipes LÉGENDE de 3) : KUROEN SHIN finit à 75 % de vie (79 % avant), ASURA à 60 %. KUROEN SHIN reste le plus dur.
+- Tests (FighterAI) :
+  - « garde de KUROEN SHIN » : un seul tirage par coup, entre 65 et 92 % des coups hauts gardés, moins de bas.
+  - Le test du cerveau seul contre LÉGENDE (même kit) demande 3 victoires sur 6 au lieu de 4.
+
+Fichiers : `src/shared/FighterAI.luau`, `tests/FighterAI.test.luau`.
+
+Tests : FighterAI 15, CombatSimulation 130, Fuzz 2, Lobby 40, PressQueue 4 ; Kits relancé.
+
 ## Version 0.23.22 — 6 octobre 2026 · LES BOSS : TRÈS DURS, PAS IMPOSSIBLES · KUROEN SHIN AU-DESSUS D'ASURA
 
 Wilhem : « ASURA, j'arrive même pas à le battre, un ami a mis 15 essais, tu l'as up depuis ? » ; « SHIN » (le plus fort des deux doit être KUROEN SHIN) ; « ils doivent pas être impossibles, juste très compliqués ».

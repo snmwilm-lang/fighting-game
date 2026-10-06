@@ -60,17 +60,19 @@ local function neutral()
 end
 
 -- The CHALLENGE bosses' brains. KUROEN SHIN, the last boss: almost without limits (Wilhem:
--- « il doit être vraiment sans limite presque »): reacts in 1 frame, blocks nearly everything
--- high and low, reads every low guard (overhead) and every jump, never drops a combo, always
+-- « il doit être vraiment sans limite presque »): reacts in 1 frame, reads every low guard
+-- (overhead) and every jump, never drops a combo, always
 -- ends on his ultimates, reverses pressure, and charges in (an armored dash) instead of
--- walking into a spear. ASURA, the first boss, below him (Wilhem: « ils doivent pas être
+-- walking into a spear. His guard is rolled once per blow (`guardOnce`): 4 blows in 5 high,
+-- 7 in 10 low; a mix-up gets through (Wilhem: « comment SHIN bloque tout, tout le temps ? »;
+-- rolled every tick, his 95 % was a guard on every blow). ASURA, the first boss, below him (Wilhem: « ils doivent pas être
 -- impossibles, juste très compliqués », and KUROEN SHIN the stronger): a slower eye, a guard
 -- that a mix-up opens, reads that a feint fools. Not among the menu's levels.
 FighterAI.Bosses = table.freeze({
 	ASURA = table.freeze({ name = "ASURA", reaction = 4, block = 0.88, lowBlock = 0.95, combo = 1,
 		aggression = 0.9, antiAir = 0.9, punish = 0.9, reversal = 0.45, counter = 0.75, zoning = 0.5, full = 1, promptSpread = 0,
 		decision = 4, ultimate = 1, read = 0.7, charge = true, varied = true, routes = { "hard" } }),
-	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 1, block = 0.95, lowBlock = 1, combo = 1, aggression = 0.93,
+	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 1, block = 0.8, lowBlock = 0.7, guardOnce = true, combo = 1, aggression = 0.93,
 		antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
 		ultimate = 1, read = 1, charge = true, varied = true, routes = { "hard" } }),
 })
@@ -117,6 +119,23 @@ function FighterAI:chance(p)
 	return self:random() < p
 end
 
+-- Does it guard this blow, and low? Rolled again each tick it sees the blow coming (a high
+-- chance soon becomes a sure guard), or, for a brain with `guardOnce`, once per blow: its
+-- `block` is then the real share of blows it guards (Wilhem: « comment SHIN bloque tout, tout
+-- le temps ? »).
+function FighterAI:guardRoll(seen)
+	if not self.level.guardOnce then
+		if not self:chance(self.level.block) then return false, false end
+		return true, seen.guard == "Low" and self:chance(self.level.lowBlock)
+	end
+	local key = tostring(seen.move) .. "#" .. tostring(seen.serial)
+	if self.guardKey ~= key then
+		self.guardKey = key
+		self.guardYes, self.guardLowYes = self:chance(self.level.block), self:chance(self.level.lowBlock)
+	end
+	return self.guardYes, self.guardLowYes
+end
+
 -- What the CPU "sees" of a fighter: a light copy pushed into a delayed history.
 local function observe(f, moves)
 	local m = f.move and moves[f.move]
@@ -126,7 +145,7 @@ local function observe(f, moves)
 			elseif f.moveFrame <= m.startup + m.active then "Active" else "Recovery"
 	end
 	return {
-		x = f.x, y = f.y, vx = f.vx, vy = f.vy, move = f.move, phase = phase, guard = m and m.guard,
+		x = f.x, y = f.y, vx = f.vx, vy = f.vy, move = f.move, serial = f.moveSerial, phase = phase, guard = m and m.guard,
 		moveFrame = f.moveFrame, crouching = f.crouching,
 		contact = f.moveContact, airborne = f.y > 0.5, vulnerable = f.stun > 0 or f.launched, down = f.knockdown > 0 or f.getUp > 0,
 	}
@@ -494,9 +513,10 @@ function FighterAI:think(world, slot)
 			input.crouch, input.special = true, true
 			return input
 		end
-		if self:chance(self.level.block) then
+		local guards, low = self:guardRoll(seen)
+		if guards then
 			self.blockTicks = 16
-			self.blockLow = seen.guard == "Low" and self:chance(self.level.lowBlock)
+			self.blockLow = seen.guard == "Low" and low
 			if seen.guard == "High" then self.blockLow = false end
 			if seen.guard ~= "Low" and seen.guard ~= "High" and reads then
 				self.blockLow = reads.lows > reads.highs -- a mid: lean to the opponent's habit

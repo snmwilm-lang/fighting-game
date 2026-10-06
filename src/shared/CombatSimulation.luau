@@ -2143,7 +2143,9 @@ local function detectHits(world, events)
 		local m = hitboxActive(attacker, moves)
 		-- (a grab only takes a fighter standing on the floor and free: never one in hitstun or
 		-- blockstun, so it never extends a combo nor follows a blocked string for free)
-		local ungrabbable = m and m.grab and (not isGrounded(defender) or defender.stun > 0 or defender.launched)
+		-- (the universal GRAB only: GORAN's grabs are combo moves and keep their own rules)
+		local ungrabbable = m and m.grab and (not isGrounded(defender)
+			or (m.id == "Grab" and (defender.stun > 0 or defender.launched)))
 		if m and not isInvulnerable(defender, c, moves) and not ungrabbable then
 			local hx1, hx2, hy1, hy2 = CombatSimulation.hitbox(attacker, m)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(defender, c)
@@ -2163,9 +2165,9 @@ local function detectHits(world, events)
 		end
 		table.insert(events, { kind = "GrabTech", x = (a.x + b.x) / 2, y = 3 })
 		return
-	elseif #pending == 2 and (pending[1][3].grab ~= pending[2][3].grab) then
+	elseif #pending == 2 and ((pending[1][3].id == "Grab") ~= (pending[2][3].id == "Grab")) then
 		for i = #pending, 1, -1 do
-			if pending[i][3].grab then table.remove(pending, i) end
+			if pending[i][3].id == "Grab" then table.remove(pending, i) end
 		end
 	end
 	-- Both hits are decided before either applies, so simultaneous attacks trade.

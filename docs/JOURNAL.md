@@ -1,5 +1,117 @@
 # Journal du projet — état à transmettre
 
+## Version 0.25.0 — 6 octobre 2026 · DASH AÉRIEN, CHOPE, PLUS DE QTE, HUD ALLÉGÉ, IMPACTS, KUROEN SHIN FAILLIBLE
+
+Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HUD, combos, feeling, buffer, caméra) et « nerf léger de KUROEN SHIN : sa perfection, pas ses stats ».
+
+**Conflit d'animation des dashs (cause trouvée)**
+- La simulation n'avait **aucun dash aérien** : un dash pressé en l'air était ignoré (`input.dash and grounded`), l'animation de saut ou de chute continuait.
+- Un saut pressé pendant un dash au sol était perdu (`dashTicks == 0` exigé, et le saut est une impulsion d'un seul tick).
+- Après la physique, tout perso en l'air repassait de force en `Jumping` / `Falling` : aucun état aérien ne pouvait tenir.
+- **Corrigé** :
+  - nouvel état `AirDash` qui garde la pose pendant tout le dash ;
+  - l'Animator a 4 poses (`AirDash`, `AirDashBack`, `AirDashUp`, `AirDashDown`), choisies d'après la vitesse ;
+  - sortie fondue en 0,16 s vers la pose de saut ou de chute ;
+  - test « air dash » d'Animation : jamais de pose de saut pendant le dash, pas d'à-coup.
+
+**Dash aérien (un par saut)**
+- Partage le cooldown du dash (30 ticks). Rendu au sol ou par un super saut. Aucune jauge nouvelle.
+- **Côté** : 10 ticks à 36 en tenant la hauteur, puis la vitesse revient en douceur (8 ticks).
+- **HAUT + DASH** : montée rapide, 40 pendant 8 ticks (environ +4 studs au-dessus du saut).
+- **BAS + DASH** : descente rapide à −72, plus de 2× plus vite qu'une chute. **Atterrissage léger** : 3 ticks, garde possible, les touches attendent puis sortent.
+- Une attaque aérienne peut sortir d'un dash de côté ou vers le haut après 4 ticks (poursuite aérienne), en gardant l'élan. Jamais d'un dash vers le bas (pas d'overhead instantané).
+- **Dash saut** : un saut coupe le dash au sol après 3 ticks et garde 70 % de sa vitesse.
+
+**CHOPE (tous les persos)**
+- Touches :
+  - **J + K** ou les **deux clics** ensemble : le client envoie `grab` si les deux tombent à 0,05 s d'écart ; le jab déjà parti est remplacé, sauf s'il est déjà sorti ;
+  - **garde + J** (F / I + J) ;
+  - **RB + X** à la manette (Wilhem : « X + B c'est relou », « F et J trop éloignés ») ;
+  - bouton **GRAB** sur mobile.
+- Coup `Grab` (`MoveData`) : démarrage 7, actif 3, récupération 30, portée 2,7, 95 dégâts, mise au sol.
+- Elle passe la garde. Elle ne prend jamais un perso en l'air, en hitstun ou blockstun, au relevé, ni en esquive : elle ne prolonge pas de combo.
+- Un coup qui touche au même tick gagne. Chope contre chope = **TECH** : les deux se lâchent, sans dégâts.
+- Ratée, elle se punit. Jamais en reversal sortant d'un coup. Repère vert sur les mains au démarrage.
+- Les CPU NORMAL et plus l'utilisent contre un joueur qui reste en garde.
+
+**QTE retirés** (`Config.CinematicPrompts = false`)
+- Les cinématiques n'affichent plus de touches à presser et font leurs dégâts normaux : ni coupe, ni bonus PARFAIT.
+- Rien d'autre n'en dépendait, aucun mash ajouté.
+- Les règles restent testées avec l'option activée.
+
+**HUD de combat allégé**
+- À gauche, un seul petit bouton ☰ en haut. MENU, COMBOS, les styles de TARO et les outils sont dans sa colonne.
+- La ligne technique (version, FPS, ping) n'apparaît que colonne ouverte.
+- La ligne d'aide (touches) n'apparaît qu'en entraînement.
+- Le rôle du perso a été retiré de la ligne joueur : l'écran de sélection le dit déjà.
+- Le mot « KI » a été retiré (le chiffre et les cases suffisent).
+- Lignes ultime plus courtes : « ULTIMATE · R », « FATAL BLOW · C ».
+
+**Impacts, caméra, feeling**
+- Hiérarchie des impacts dans `KitFX.impact` (pur, testé) :
+  - léger : quasiment pas de tremblement (0,03) ;
+  - lourd ou contre : court (0,16 pendant 0,1 s) ;
+  - finisher (mise au sol, rebond, gel ≥ 14) : fort, avec image d'impact ;
+  - K.O. et ultimes : le plus fort ;
+  - coup gardé : presque rien.
+- Le gel à l'impact grandissait déjà avec la force du coup (MoveData), vérifié par test.
+- **Buffer** : un saut ou un dash pressé un peu tôt (fin d'attaque, gel d'impact, fin de chute) sort dès que possible, dans 6 ticks de mouvement. Ce n'est pas un auto-combo. Exemple : le saut pressé pendant le gel du lanceur fait le super saut.
+
+**KUROEN SHIN : erreurs contextuelles** (`FighterAI`, `mistakes` du boss, sans toucher dégâts, vie, vitesse ni identité)
+- Ce n'est pas un pourcentage d'erreur fixe. Une **tension** (0 à 1) monte avec ce qu'il voit, avec son délai de réaction :
+  - changements de rythme entre attaques ;
+  - dashs et dashs aériens ;
+  - sauts et accroupis ;
+  - allers-retours de distance ;
+  - cross-ups ;
+  - coups ratés exprès juste devant lui (s'il y a réagi) ;
+  - feintes.
+- Elle retombe quand on le laisse tranquille. Le mashing à rythme constant ne compte presque pas.
+- Sous tension, il :
+  - décide plus tard (+1 tick même calme, jusqu'à +6, au carré de la tension) ;
+  - garde moins, parfois à la mauvaise hauteur ;
+  - lâche la garde trop tôt ou la tient trop longtemps (la chope y répond) ;
+  - choisit des routes plus courtes, rate des extensions (mauvais bouton) et des confirmations ;
+  - frappe de trop loin ;
+  - rate ou tente trop tard des punitions ;
+  - mord aux feintes ;
+  - poursuit un adversaire qui se relève au lieu de garder ;
+  - voit ses lectures (anti-air, contre, reversal) émoussées.
+- Calme, il fait la route optimale presque toujours.
+- Mesures (`luau tests/BossProvoke.luau -a 3 "KUROEN SHIN" <style>`, 60 matchs), vie restante du boss à la fin des manches :
+
+  | Adversaire | Avant | Après |
+  |---|---|---|
+  | joueur qui le travaille (LÉGENDE + dashs, rythme, appâts, chopes) | 86 % | 78 % (coups portés 693 → 1 113) |
+  | LÉGENDE seul | 82 % | 76 % |
+  | débutant (NORMAL) | 92 % | 92 % (inchangé) |
+
+  Il gagne toujours tous ces matchs : il reste le boss. Un CPU ne provoque pas aussi bien qu'un humain.
+- Les tests de boss tiennent : il bat toujours LÉGENDE en miroir et finit avec plus de vie qu'ASURA contre les équipes.
+- `BossReport.luau` jouait toujours le cerveau d'ASURA : corrigé.
+
+**Fichiers**
+- Partagés : `CombatSimulation`, `CombatConfig`, `MoveData`, `PoseLibrary`, `Animator`, `FighterAI`, `KitFX`, `Locale`.
+- Client : `InputController`, `HUDController`, `EffectsController`, `SoundController`.
+- Serveur : `init.server`.
+- Tests : `CombatSimulation`, `Animation`, `FighterAI`, `Fuzz`, `BossReport`, `BossProvoke` (nouveau).
+- Doc : `README` (touches).
+
+**Tests**
+- CombatSimulation 162, Animation 56, FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits KITS_RESULT.
+- AnimQuality identique avant et après (aucune régression).
+- Balance : BALANCE_RESULT.
+- Non vérifié dans Studio.
+
+**À tester à la main**
+- Le dash aérien dans les 4 directions, dont le bas puis l'atterrissage.
+- Le dash saut.
+- La chope : J+K, les deux clics, RB+X, le bouton mobile, et une chope contre une chope.
+- Les cinématiques sans QTE.
+- Le HUD (bouton ☰).
+- Les tremblements d'écran.
+- KUROEN SHIN : le travailler avec des dashs, du rythme et des chopes.
+
 ## Version 0.24.5 — 6 octobre 2026 · CARTE DU CRÉATEUR, COMMANDES DU PROPRIÉTAIRE, MISE À JOUR SANS FERMER
 
 Wilhem : « vu que je suis le owner, mets-moi une carte particulière », « donne-moi la perm de give des trucs in game à des gens avec une ligne dans le chat », « un moyen de mettre à jour sans devoir attendre que tout le monde quitte ».

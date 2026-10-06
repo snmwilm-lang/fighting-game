@@ -12,6 +12,8 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | Saut | Espace (ou Z/W) | A | SAUT |
 | Accroupi | S | Bas | BAS / joystick bas |
 | Dash | Shift + direction | RT | DASH |
+| **Dash aérien** (1 par saut) | en l'air : Shift (+ direction) · **bas + Shift** : descente rapide · **haut + Shift** : montée rapide | RT (+ stick bas / haut) | DASH (+ joystick) |
+| **Chope** (passe la garde, courte portée, punissable si ratée) | **J + K** ou **clic gauche + clic droit** ensemble, ou garde + J | **RB + X** (ou X + B) | CHOPE |
 | Attaque légère (combo) | **Clic gauche** (ou J) | X | COUP |
 | Attaque lourde | **Clic droit** (ou K) | B | LOURD |
 | Spéciale (invincible au départ) | **E** | Y | SPÉ |
@@ -19,7 +21,7 @@ noir / blanc / rouge. Le code vit dans `src/` et est synchronisé dans Roblox St
 | **Coup fatal** (3 barres, ta vie sous 30 %, une fois par match) | **C** | LB | FATAL |
 | Garde | **RECULER** (direction opposée à l'adversaire ; bas-arrière : garde basse) ou **F maintenu** (F + S : garde basse) | stick en arrière ou RB | stick en arrière ou GARDE |
 | Spéciale basse (projectile, PARADE de TARO, MUR DE PIERRE d'HIBECARES) | **S + E** | Bas + Y | BAS + SPÉ |
-| **Revenir au menu** | **P** ou bouton ◀ MENU | — | bouton |
+| **Revenir au menu** | **P** ou bouton ☰ puis ◀ MENU | — | bouton |
 | Changer de perso (entraînement) | **T** ou bouton PERSO | — | bouton |
 | Perso du mannequin (entraînement) | **G** ou bouton ADVERSAIRE | — | bouton |
 | **Souris bloquée** (curseur caché au centre, façon shift lock) | **Ctrl** ou bouton SOURIS | — | — |

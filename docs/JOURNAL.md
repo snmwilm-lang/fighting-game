@@ -1,5 +1,31 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.25 — 6 octobre 2026 · KUROEN SHIN : PLUS HUMAIN
+
+Wilhem : « SHIN, il est vraiment trop fort en fait, je sais pas si je suis nul ou s'il est trop fort, mais même les coups aériens il bloque ».
+
+- Cause : en plus de sa garde, le cerveau lisait chaque saut à 100 %. Un saut tout proche le faisait garder debout, et l'anti-air chronométré partait à chaque saut. Il réagissait aussi en 1 frame.
+- Nouveau cerveau de KUROEN SHIN (`FighterAI.Bosses`) :
+
+  | | Avant | Maintenant |
+  |---|---|---|
+  | Réaction | 1 frame | 2 frames |
+  | Lectures (sauts, habitudes) | 1 | 0,75 |
+  | Anti-air | 1 | 0,7 |
+  | Contres | 1 | 0,85 |
+  | Garde par coup | 80 % haut / 70 % bas | 75 % haut / 65 % bas |
+
+  Il garde ses combos sans faute, ses ultimes, le DIVINE INSTINCT et la DOMINATION.
+- Mesure (`BossTeamReport`) :
+  - Équipes LÉGENDE de 3 : il finit à 63 % de vie (75 % avant ; ASURA 60 %).
+  - Équipes au cerveau de boss : 4 victoires sur 24 contre lui (ASURA 0).
+  - Il reste juste au-dessus d'ASURA contre les équipes LÉGENDE, mais il est plus « lisible ».
+- Tests (FighterAI) : KUROEN SHIN ne lit pas tous les sauts (lectures et anti-air sous 1). Sa garde haute tirée une fois par coup reste entre 60 et 88 %. Le test « plus de vie qu'ASURA contre les mêmes équipes » passe toujours.
+
+Fichiers : `src/shared/FighterAI.luau`, `tests/FighterAI.test.luau`.
+
+Tests : FighterAI 15, Fuzz 2, Lobby 40 ; Kits (sur 0.23.21) 130 ; Kits relancé avec le test du chien de garde de la musique.
+
 ## Version 0.23.24 — 6 octobre 2026 · LA BARRE QUI BRÛLE AU COUP FATAL · LA MUSIQUE NE S'ARRÊTE PLUS
 
 Wilhem : « quand on a le fatal, un effet sur notre barre de vie comme dans Taken » ; « des fois la musique s'arrête en combat ».

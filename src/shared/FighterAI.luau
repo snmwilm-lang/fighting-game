@@ -59,12 +59,12 @@ local function neutral()
 	}
 end
 
--- The CHALLENGE bosses' brains. KUROEN SHIN, the last boss: almost without limits (Wilhem:
--- « il doit être vraiment sans limite presque »): reacts in 1 frame, reads every low guard
--- (overhead) and every jump, never drops a combo, always
+-- The CHALLENGE bosses' brains. KUROEN SHIN, the last boss: very hard (Wilhem first: « il doit
+-- être vraiment sans limite presque », then: « SHIN il est vraiment trop fort, même les coups
+-- aériens il bloque »): reacts in 2 frames, reads 3 jumps in 4 (a jump-in can land), never drops a combo, always
 -- ends on his ultimates, reverses pressure, and charges in (an armored dash) instead of
--- walking into a spear. His guard is rolled once per blow (`guardOnce`): 4 blows in 5 high,
--- 7 in 10 low; a mix-up gets through (Wilhem: « comment SHIN bloque tout, tout le temps ? »;
+-- walking into a spear. His guard is rolled once per blow (`guardOnce`): 3 blows in 4 high,
+-- 2 in 3 low; a mix-up gets through (Wilhem: « comment SHIN bloque tout, tout le temps ? »;
 -- rolled every tick, his 95 % was a guard on every blow). ASURA, the first boss, below him (Wilhem: « ils doivent pas être
 -- impossibles, juste très compliqués », and KUROEN SHIN the stronger): a slower eye, a guard
 -- that a mix-up opens, reads that a feint fools. Not among the menu's levels.
@@ -72,9 +72,9 @@ FighterAI.Bosses = table.freeze({
 	ASURA = table.freeze({ name = "ASURA", reaction = 4, block = 0.88, lowBlock = 0.95, combo = 1,
 		aggression = 0.9, antiAir = 0.9, punish = 0.9, reversal = 0.45, counter = 0.75, zoning = 0.5, full = 1, promptSpread = 0,
 		decision = 4, ultimate = 1, read = 0.7, charge = true, varied = true, routes = { "hard" } }),
-	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 1, block = 0.8, lowBlock = 0.7, guardOnce = true, combo = 1, aggression = 0.93,
-		antiAir = 1, punish = 1, reversal = 0.6, counter = 1, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
-		ultimate = 1, read = 1, charge = true, varied = true, routes = { "hard" } }),
+	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 2, block = 0.75, lowBlock = 0.65, guardOnce = true, combo = 1, aggression = 0.93,
+		antiAir = 0.7, punish = 1, reversal = 0.6, counter = 0.85, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
+		ultimate = 1, read = 0.75, charge = true, varied = true, routes = { "hard" } }),
 })
 FighterAI.Boss = FighterAI.Bosses.ASURA
 

@@ -298,7 +298,9 @@ end)
 test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGENDE team", function()
 	local asura, shin = FighterAI.Bosses.ASURA, FighterAI.Bosses["KUROEN SHIN"]
 	expect(FighterAI.new("KUROEN SHIN", 1).level == shin and FighterAI.new("ASURA", 1).level == asura, "each boss has its own brain")
-	expect(shin.reaction < asura.reaction and shin.read > asura.read, "KUROEN SHIN's eye and reads must be sharper than ASURA's")
+	expect(shin.reaction < asura.reaction, "KUROEN SHIN's eye must be sharper than ASURA's")
+	-- (Wilhem: « même les coups aériens il bloque »): a jump-in is not read every time
+	expect(shin.read < 1 and shin.antiAir < 1, "KUROEN SHIN reads every jump")
 	-- (Wilhem: « comment SHIN bloque tout, tout le temps ? »): rolled once per blow, a share of
 	-- them gets through his guard, more of the lows
 	expect(shin.guardOnce and shin.block <= 0.85 and shin.lowBlock < shin.block, "KUROEN SHIN must not guard every blow")
@@ -352,7 +354,7 @@ test("KUROEN SHIN's guard: rolled once per blow, so some blows land (high and lo
 		end
 	end
 	local high, low = guarded.High / total.High, guarded.Low / total.Low
-	expect(high > 0.65 and high < 0.92, string.format("KUROEN SHIN guards %.0f %% of the high blows", high * 100))
+	expect(high > 0.6 and high < 0.88, string.format("KUROEN SHIN guards %.0f %% of the high blows", high * 100))
 	expect(low < high, string.format("KUROEN SHIN guards the lows (%.0f %%) as well as the highs", low * 100))
 end)
 

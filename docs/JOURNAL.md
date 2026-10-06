@@ -62,7 +62,7 @@ Fiches de Wilhem (ZEPHYR, puis KAI et AKEMI). Tout est décidé par le serveur (
   - annonces CLASH STEP!, RESOLVE!, FEINT, PERFECT FINISHER ✦, FLOW DODGE!, INSTINCT!
 - Textes en français dans `Locale`.
 
-Tests : CombatSimulation 148 (17 nouveaux : routes L/R identiques dans et hors tempo, Perfect raté sans casse, cap à 3, scaling, latence, fenêtres et anti-mash du Clash Step et du Resolve, aucun combo garanti après, feinte sans boucle, charges et cooldowns indépendants, styles 45/30/20/5, Flow), Animation 54, Lobby 44, FighterAI 15, CinematicDirector 872, PressQueue 4. RESULTS_PLACEHOLDER Non vérifié dans Studio.
+Tests : CombatSimulation 148 (17 nouveaux : routes L/R identiques dans et hors tempo, Perfect raté sans casse, cap à 3, scaling, latence, fenêtres et anti-mash du Clash Step et du Resolve, aucun combo garanti après, feinte sans boucle, charges et cooldowns indépendants, styles 45/30/20/5, Flow), Animation 54, Lobby 44, FighterAI 15, CinematicDirector 872, PressQueue 4. Fuzz 2, Cinematography 312. Kits : 105 tests passés et aucun échec au moment de la livraison (suite encore en cours). Équilibrage CPU contre CPU (`Balance.luau -a 4 120`) encore en cours : les chiffres viendront dans la version suivante. Non vérifié dans Studio.
 
 ## Version 0.23.49 — 6 octobre 2026 · UN SEUL K.O.
 

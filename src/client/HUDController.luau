@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterData = require(Shared.CharacterData)
 local MoveData = require(Shared.MoveData)
+local Locale = require(Shared.Locale)
 local Theme = require(script.Parent.MenuTheme) -- (the fight's buttons wear the menu's design)
 
 local HUD = {}
@@ -346,6 +347,25 @@ function HUD.new(config)
 		new("Frame", { AnchorPoint = Vector2.new(0.5, y), Position = UDim2.fromScale(0.5, y), Size = UDim2.new(0.7, 0, 0, 2),
 			BackgroundColor3 = WHITE, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, announceBand)
 	end
+	-- (speed lines streaking across the band as a call lands)
+	self.announceStreaks = {}
+	for i = 1, 7 do
+		local streak = new("Frame", { Name = "Streak", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(-0.2, 0.15 + i * 0.1),
+			Size = UDim2.new(0.25, 0, 0, if i % 3 == 0 then 3 else 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.5, BorderSizePixel = 0,
+			Visible = false }, announceBand)
+		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.7, 0.2),
+			NumberSequenceKeypoint.new(1, 1) }) }, streak)
+		self.announceStreaks[i] = streak
+	end
+	-- (a short calls' letters slam in one after the other: ROUND, FIGHT!, K.O., PERFECT)
+	local letters = new("Frame", { Name = "AnnouncerLetters", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.fromOffset(0, 130), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Visible = false }, gui)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, letters)
+	self.announceLetters = letters
+	-- (the whole screen flashes on FIGHT! and K.O.)
+	self.screenFlash = new("Frame", { Name = "ScreenFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1,
+		BorderSizePixel = 0, ZIndex = 20 }, gui)
 	self.announceBand = announceBand
 	self.announceScale = new("UIScale", { Scale = 1 }, announce)
 	self.announce = announce
@@ -1047,25 +1067,80 @@ HUD.LOSER_LINES = {
 
 function HUD:announceText(main, sub, color, size, hold)
 	local a = self.announce
-	a.Text, a.TextColor3, a.Visible, a.TextTransparency = main, color or WHITE, true, 0
 	local band = self.announceBand
 	band.Visible = true
 	band.Size = UDim2.new(0, 0, 0, 170)
 	tween(band, 0.28, { Size = UDim2.new(1, 0, 0, 170) }, Enum.EasingStyle.Quint)
+	-- (speed lines across the band)
+	if not self.reduced then
+		for i, streak in self.announceStreaks do
+			streak.Visible = true
+			streak.Position = UDim2.fromScale(-0.2 - (i % 3) * 0.1, 0.15 + i * 0.1)
+			tween(streak, 0.45 + (i % 4) * 0.07, { Position = UDim2.fromScale(1.25, 0.15 + i * 0.1) }, Enum.EasingStyle.Quart)
+		end
+	end
+	-- FIGHT! and K.O.: the screen flashes (white, red)
+	if (main == "FIGHT!" or main == "K.O.") and not self.reduced then
+		self.screenFlash.BackgroundColor3 = if main == "K.O." then Color3.fromHex("FF2A3D") else WHITE
+		self.screenFlash.BackgroundTransparency = if main == "K.O." then 0.45 else 0.6
+		tween(self.screenFlash, 0.35, { BackgroundTransparency = 1 })
+	end
 	-- (size: a bigger title, PERFECT; hold: seconds on screen)
-	self.announceScale.Scale = 2.4 * (size or 1)
-	tween(self.announceScale, 0.22, { Scale = size or 1 }, Enum.EasingStyle.Back)
+	local box = self.announceLetters
+	for _, child in box:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	local lang = Players.LocalPlayer:GetAttribute("UILanguage")
+	local shown = if lang == "FR" then Locale.translate(main, "FR") else main
+	local short = utf8.len(shown) ~= nil and utf8.len(shown) <= 12
+	if short then
+		-- the letters slam in one after the other, each from big, its top lit
+		a.Visible = false
+		box.Visible = true
+		local s = size or 1
+		local n = 0
+		for _, code in utf8.codes(shown) do
+			n += 1
+			local ch = utf8.char(code)
+			if ch == " " then
+				new("Frame", { Size = UDim2.fromOffset(math.floor(34 * s), 10), BackgroundTransparency = 1, LayoutOrder = n }, box)
+			else
+				local l = text(box, { Name = "Letter", Text = ch, TextSize = math.floor(110 * s), Size = UDim2.fromOffset(0, math.floor(130 * s)),
+					AutomaticSize = Enum.AutomaticSize.X, TextColor3 = color or WHITE, TextTransparency = 1, LayoutOrder = n })
+				l:SetAttribute("Untranslated", true)
+				stroke(l, 6)
+				new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(165, 165, 175)) }, l)
+				local scale = new("UIScale", { Scale = 2.6 }, l)
+				local delay = if self.reduced then 0 else (n - 1) * 0.045
+				task.delay(delay, function()
+					l.TextTransparency = 0
+					tween(scale, 0.24, { Scale = 1 }, Enum.EasingStyle.Back)
+				end)
+			end
+		end
+	else
+		box.Visible = false
+		a.Text, a.TextColor3, a.Visible, a.TextTransparency = main, color or WHITE, true, 0
+		self.announceScale.Scale = 2.4 * (size or 1)
+		tween(self.announceScale, 0.22, { Scale = size or 1 }, Enum.EasingStyle.Back)
+	end
 	self.announceSub.Text, self.announceSub.Visible = sub or "", sub ~= nil
 	self.announceId = (self.announceId or 0) + 1
 	local id = self.announceId
 	task.delay(hold or 1.3, function()
 		if self.announceId ~= id then return end
 		tween(a, 0.25, { TextTransparency = 1 })
+		for _, l in box:GetChildren() do
+			if l:IsA("TextLabel") then tween(l, 0.2, { TextTransparency = 1 }) end
+		end
 		tween(band, 0.25, { Size = UDim2.new(0, 0, 0, 170) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 		self.announceSub.Visible = false
 		-- Hidden once faded: the text's UIStroke outline does not fade with it.
 		task.delay(0.26, function()
-			if self.announceId == id then a.Visible, band.Visible = false, false end
+			if self.announceId == id then
+				a.Visible, band.Visible, box.Visible = false, false, false
+				for _, streak in self.announceStreaks do streak.Visible = false end
+			end
 		end)
 	end)
 end

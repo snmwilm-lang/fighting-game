@@ -1,5 +1,20 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.43 — 6 octobre 2026 · LES ANNONCES DU COMBAT, STYLE JEUX DE COMBAT
+
+Wilhem : « continue le up de qualité, tu peux faire mieux ».
+
+- Annonces courtes (12 caractères au plus : ROUND 1, FIGHT!, K.O., PERFECT, GUARD BREAK…) :
+  - les lettres claquent une par une (0,045 s d'écart), chacune part en grand (2,6) et retombe avec un rebond ;
+  - elles sont éclairées en haut, avec un contour épais ;
+  - les annonces longues gardent l'ancien affichage.
+- Sept traits de vitesse traversent la bande sombre quand l'annonce arrive.
+- FIGHT! : l'écran flashe en blanc. K.O. : l'écran flashe en rouge.
+- Traduction : le jeu en français traduit l'annonce avant de la découper en lettres (« COMBAT ! »). `LanguageController` donne la langue dans l'attribut `UILanguage`.
+- EFFETS RÉDUITS : pas de traits ni de flash, et les lettres arrivent ensemble.
+
+Fichiers : `src/client/HUDController.luau`, `src/client/LanguageController.luau`. Tests : Lobby 43. Non vérifié dans Studio.
+
 ## Version 0.23.42 — 6 octobre 2026 · BARRE DE VIE SANS SECTIONS
 
 Wilhem : « le découpage en sections des barres de vie, c'est pas obligé, vu qu'à 30 % la barre s'enflamme pour annoncer le coup fatal ».

@@ -55,6 +55,7 @@ function LanguageController:set(lang)
 	if lang ~= "AUTO" and lang ~= "EN" and lang ~= "FR" then return end
 	if lang == self.lang then return end
 	self.lang = lang
+	Players.LocalPlayer:SetAttribute("UILanguage", lang) -- (the fight's calls translate themselves letter by letter)
 	for object in self.watched do
 		if object.Parent then
 			self.shown[object] = nil

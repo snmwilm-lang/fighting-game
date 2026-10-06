@@ -208,7 +208,22 @@ function HUD.new(config)
 		})
 		new("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 8 }, ready)
 		tint(stroke(ready, 2, energy), "Energy")
-		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
+		-- VIP (Game Pass): a rainbow running round the portrait and through the player's name, and
+		-- a VIP tag (Wilhem: « le rainbow autour de notre icône ou pseudo pour comprendre qu'on est
+		-- VIP »). Cosmetic: the server's badges.
+		local nameRainbow = new("UIGradient", { Enabled = false, Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0.75, 1)), ColorSequenceKeypoint.new(0.2, Color3.fromHSV(0.15, 0.75, 1)),
+			ColorSequenceKeypoint.new(0.4, Color3.fromHSV(0.33, 0.75, 1)), ColorSequenceKeypoint.new(0.6, Color3.fromHSV(0.55, 0.75, 1)),
+			ColorSequenceKeypoint.new(0.8, Color3.fromHSV(0.78, 0.75, 1)), ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 0.75, 1)) }) }, player)
+		local vipTag = text(side, { Name = "VipTag", Visible = false, Text = "VIP", Font = UI_FONT, TextSize = 10, TextColor3 = INK,
+			BackgroundTransparency = 0, BackgroundColor3 = Color3.fromHex("FFD23F"), Size = UDim2.fromOffset(30, 14),
+			AnchorPoint = Vector2.new(0.5, 0), Position = if left then UDim2.fromOffset(36, 74) else UDim2.new(1, -36, 0, 74),
+			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 3 })
+		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
+		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
+		self.bars[slot] = { nameRainbow = nameRainbow, vipTag = vipTag, vipGlow = vipGlow,
+			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
 			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke }
@@ -1128,6 +1143,19 @@ function HUD:update(world, views, fps, dt)
 		else
 			bar.barStroke.Color = WHITE
 			bar.portraitStroke.Color = bar.energy
+		end
+		-- VIP: the rainbow (the portrait's edge cycles through the hues, the name is striped)
+		local vip = string.find(view.badges or "", "VIP", 1, true) ~= nil
+		bar.nameRainbow.Enabled, bar.vipTag.Visible = vip, vip
+		if vip then
+			local t = os.clock()
+			bar.nameRainbow.Offset = Vector2.new((t * 0.5) % 2 - 1, 0)
+			bar.player.TextColor3 = WHITE
+			local hue = Color3.fromHSV((t * 0.25) % 1, 0.8, 1)
+			if not fatal then bar.portraitStroke.Color = hue end
+			bar.vipGlow.Enabled, bar.vipGlow.Color = true, hue
+		else
+			bar.player.TextColor3 = bar.energy
 		end
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
 		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player .. " · " .. kit.Role

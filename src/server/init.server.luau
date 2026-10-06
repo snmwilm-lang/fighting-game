@@ -1743,6 +1743,7 @@ local function roster(match)
 			owner = if slot.owner then slot.owner.UserId else 0, player = name,
 			character = character and character.Name or "?", skin = character and character.Skin or "",
 			kit = match.world.fighters[i].kit, maxHp = match.world.fighters[i].maxHp,
+			badges = if slot.owner then slot.owner:GetAttribute("Badges") or "" else "", -- (VIP: a rainbow round its portrait)
 		}
 	end
 	return list
@@ -1750,7 +1751,7 @@ end
 local function rosterKey(list)
 	local parts = {}
 	for i, r in list do
-		parts[i] = table.concat({ r.owner, r.player, r.character, r.skin, r.kit, r.maxHp }, "|")
+		parts[i] = table.concat({ r.owner, r.player, r.character, r.skin, r.kit, r.maxHp, r.badges }, "|")
 	end
 	return table.concat(parts, "#")
 end

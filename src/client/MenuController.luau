@@ -498,6 +498,57 @@ function MenuController:showNotes()
 	for i, note in self.notes do line(list, i, note.at .. "  ·  " .. note.text, note.color) end
 end
 
+-- TITLES (Wilhem: « un accès aux titres pour mettre celui qu'on veut »): every title the player
+-- has, one click to wear it (or none); the shop's titles not owned yet show where to get
+-- them. The server checks ownership.
+function MenuController:showTitles()
+	local s = self.status or {}
+	local list = self:popup("TITLES", 520, 500)
+	local worn = s.title or ""
+	local order = 0
+	local function row(text, color, onClick, on)
+		order += 1
+		local b = Theme.button(list, { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 40), Font = DISPLAY, TextSize = 22,
+			Text = text, TextColor3 = color, BackgroundColor3 = if on then Theme.RAISED else PANEL, ZIndex = 53 }, GOLD)
+		if on then
+			local edge = b:FindFirstChildOfClass("UIStroke")
+			if edge then edge.Color, edge.Thickness = GOLD, 2 end
+		end
+		if onClick then b.Activated:Connect(onClick) end
+		return b
+	end
+	local function wear(title)
+		self.remote:FireServer({ action = "title", title = title })
+		self.status.title = title
+		self:flash(if title == "" then "NO TITLE SHOWN" else "TITLE « " .. title .. " » SHOWN", GOLD)
+		if self.popupFrame then self.popupFrame:Destroy(); self.popupFrame = nil end
+		self:refreshProfile()
+	end
+	line(list, 0, "Pick the title shown over your fighter and in the lobby.", GREY)
+	row((if worn == "" then "✓ " else "") .. "NO TITLE", WHITE, function() wear("") end, worn == "")
+	local owned = {}
+	for _, t in s.titles or {} do
+		owned[t] = true
+		row((if worn == t then "✓ " else "") .. "« " .. t .. " »", GOLD, function() wear(t) end, worn == t)
+	end
+	-- the shop's titles not owned yet (greyed: where to get them)
+	local first = true
+	for _, item in StoreConfig.ITEMS do
+		if item.kind == "TITLE" and not owned[item.name] then
+			if first then
+				order += 1
+				line(list, order, "TO UNLOCK", GREY, 13)
+				first = false
+			end
+			local how = if item.pass then "WITH THE " .. item.pass .. " PASS" else item.coins .. " COINS · SHOP"
+			row("🔒 « " .. item.name .. " » · " .. how, Theme.MUTED, function()
+				if self.popupFrame then self.popupFrame:Destroy(); self.popupFrame = nil end
+				self:open("shop")
+			end, false)
+		end
+	end
+end
+
 -- PLAYER CARD: who the player is, at a glance (all from the saved profile the server sends).
 function MenuController:showPlayerCard()
 	local s = self.status or {}
@@ -526,6 +577,9 @@ function MenuController:showPlayerCard()
 	for i, e in entries do
 		if e[1] ~= "" then line(list, i, e[1], e[2], e[3]) end
 	end
+	local choose = Theme.button(list, { LayoutOrder = 100, Size = UDim2.new(1, -8, 0, 40), Font = DISPLAY, TextSize = 22,
+		Text = "CHOOSE MY TITLE", BackgroundColor3 = Theme.RED, ZIndex = 53 }, GOLD)
+	choose.Activated:Connect(function() self:showTitles() end)
 end
 
 -- A selected destination carries the red brush accent, in both navigation bars.
@@ -1475,9 +1529,14 @@ function MenuController:buildRanking()
 	-- the week, from zero every Monday) and the HISTORY
 	self.rankingBoard = "all"
 	self.rankingTabs = {}
+	-- (five tabs sharing the page's width, whatever it is: they overflowed a narrow page)
+	local tabRow = new("Frame", { Position = UDim2.fromOffset(22, 76), Size = UDim2.new(1, -44, 0, 30), BackgroundTransparency = 1 }, page)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, tabRow)
 	for i, tab in { { "all", "1V1" }, { "2v2", "2V2" }, { "3v3", "3V3" }, { "weekly", "WEEKLY" }, { "history", "HISTORY" } } do
-		local b = Theme.button(page, { Position = UDim2.fromOffset(22 + (i - 1) * 124, 76), Size = UDim2.fromOffset(116, 30), Font = UI_FONT,
-			TextSize = 13, Text = tab[2] }, GOLD)
+		local b = Theme.button(tabRow, { LayoutOrder = i, Size = UDim2.new(0.2, -4, 1, 0), Font = UI_FONT,
+			TextSize = 12, Text = tab[2] }, GOLD)
+		new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 8 }, b)
+		b.TextScaled = true
 		b.Activated:Connect(function()
 			self.rankingBoard = tab[1]
 			self.ranking = nil
@@ -1790,12 +1849,7 @@ function MenuController:buildSettings()
 	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, rows)
 	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingRight = UDim.new(0, 8) }, rows)
 	-- TITLE: the titles the player has (challenges, WEEKLY CHAMPION), or none; the server checks.
-	self.settings.title = function()
-		local owned = { "" }
-		for _, t in self.status.titles or {} do table.insert(owned, t) end
-		local index = table.find(owned, self.status.title or "") or 1
-		self.remote:FireServer({ action = "title", title = owned[index % #owned + 1] })
-	end
+	self.settings.title = function() self:showTitles() end
 	self.settings.titleState = function()
 		local t = self.status.title or ""
 		return if t == "" then (if #(self.status.titles or {}) == 0 then "NONE YET" else "HIDDEN") else t

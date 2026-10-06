@@ -1,5 +1,22 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.34 — 6 octobre 2026 · CHOISIR SON TITRE · ARC-EN-CIEL VIP · ONGLETS DU CLASSEMENT
+
+Wilhem : « un accès aux titres pour mettre celui qu'on veut » ; « le rainbow autour de notre icône ou pseudo de combattant, pour comprendre qu'on est VIP » ; « problème d'espace ici aussi » (onglets du classement qui débordaient).
+
+- Titres (`MenuController:showTitles`) :
+  - Une fenêtre TITRES liste « AUCUN TITRE », puis tous les titres possédés ; un clic sur l'un d'eux le porte.
+  - Les titres de la boutique pas encore obtenus sont grisés, avec où les avoir (pièces · boutique, ou le pass) ; un clic ouvre la boutique.
+  - On l'ouvre depuis PARAMÈTRES › TITRE AFFICHÉ (qui faisait seulement défiler les titres) et depuis la carte joueur (bouton CHOISIR MON TITRE).
+  - Le serveur vérifie toujours que le titre est possédé.
+- VIP en combat (`HUDController`) :
+  - Le contour du portrait passe par toutes les couleurs, le pseudo est rayé arc-en-ciel et défile, et une étiquette VIP apparaît sous le portrait.
+  - Le serveur ajoute les badges du joueur (`Badges`) à la composition du match ; c'est purement visuel.
+  - Quand le Coup fatal est prêt, le rouge du fatal passe devant l'arc-en-ciel sur le portrait.
+- Classement : les 5 onglets (1V1, 2V2, 3V3, HEBDO, HISTORIQUE) partagent la largeur de la page, le texte s'adapte, plus rien ne déborde.
+
+Fichiers : `src/client/MenuController.luau`, `src/client/HUDController.luau`, `src/server/init.server.luau`, `src/shared/Locale.luau`. Tests : Lobby 41. Non vérifié dans Studio.
+
 ## Version 0.23.33 — 6 octobre 2026 · « QUOI DE NEUF » EN CARROUSEL
 
 Wilhem (capture des 5 petites tuiles) : « soit tu agrandis, soit tu fais une page updates, soit un carrousel ».

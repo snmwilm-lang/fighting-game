@@ -1438,6 +1438,25 @@ T.test("YUKINA's ICE MIRROR: a hexagon of ice that grows, holds while it reflect
 	expect(WeaponFX.mirror(m, w.to + 3, 0).shown < 1, "the shattered mirror does not fade")
 end)
 
+T.test("VENOM's poison shows on its victim: a green glaze that pulses, bubbles and drips, more with every charge, a flare on each tick", function()
+	local KitFX = require("../src/shared/KitFX")
+	local none = KitFX.poisonLook(0, 1)
+	expect(none.tint == 0 and none.bubbles == 0 and none.drips == 0, "a body without poison looks poisoned")
+	local last
+	for n = 1, 3 do
+		local look = KitFX.poisonLook(n, 0.5)
+		expect(look.tint > 0 and look.bubbles > 0 and look.drips > 0, n .. " charge(s) of poison do not show")
+		if last then
+			expect(look.bubbles > last.bubbles and look.drips > last.drips and look.tint > last.tint, n .. " charges do not show more than " .. (n - 1))
+		end
+		last = look
+	end
+	local a, b = KitFX.poisonLook(2, 0.1), KitFX.poisonLook(2, 0.4)
+	expect(math.abs(a.tint - b.tint) > 0.01, "the glaze does not pulse")
+	expect(KitFX.poisonLook(2, 0.5, 0.02).tint > KitFX.poisonLook(2, 0.5).tint + 0.2, "a tick of poison does not flare")
+	expect(KitFX.poisonLook(9, 0).bubbles == KitFX.POISON.bubbles[3], "more charges than the most are not clamped")
+end)
+
 T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()
 	local WeaponFX = require("../src/shared/WeaponFX")
 	local WeaponSpec = require("../src/shared/WeaponSpec")

@@ -157,4 +157,20 @@ function KitFX.ambientRate(kitName, reduced)
 	return KitFX.of(kitName).ambient.rate
 end
 
+-- VENOM's CONTAMINATION on its victim (Wilhem: « l'effet du poison de VENOM »): how a body
+-- with `charges` (1..3) of poison looks at `time`, and how hard a tick of it (`since` seconds
+-- ago) still shows. { tint 0..1 (a green glaze on the body, pulsing), bubbles (per second,
+-- rising off it), drips (per second, falling) }; nothing at 0 charges.
+KitFX.POISON = { tint = { 0.18, 0.3, 0.42 }, bubbles = { 4, 8, 14 }, drips = { 1.5, 3, 5 }, pulse = 3.2, tick = 0.35 }
+function KitFX.poisonLook(charges, time, since)
+	local P = KitFX.POISON
+	local n = math.clamp(math.floor(charges or 0), 0, #P.tint)
+	if n == 0 then return { tint = 0, bubbles = 0, drips = 0 } end
+	local tint = P.tint[n] * (0.75 + 0.25 * math.sin((time or 0) * P.pulse * math.pi))
+	-- (a tick of poison flares the glaze, then lets it go)
+	if since and since >= 0 and since < P.tick then tint += (1 - since / P.tick) * 0.35 end
+	return { tint = math.min(0.85, tint), bubbles = P.bubbles[n], drips = P.drips[n] }
+end
+
+
 return KitFX

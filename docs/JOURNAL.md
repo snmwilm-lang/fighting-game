@@ -1,5 +1,22 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.14 — 6 octobre 2026 · LE POISON DE VENOM
+
+Wilhem : « l'effet du poison de VENOM ».
+- **Sur la victime** : avant, l'empoisonnement ne se voyait pas sur le corps (le serveur envoyait un drapeau que le client n'utilisait pas). Maintenant, tant qu'elle porte du poison :
+  - une **teinte verte** pulse sur tout son corps (`Highlight`) ;
+  - des **bulles toxiques** montent de son torse et des **gouttes vertes** tombent ;
+  - tout grossit avec les **charges** (1 à 3), et chaque tic de poison fait **flamber** la teinte.
+- Le serveur envoie désormais le nombre de charges (`poisoned` = 1 à 3) : c'est purement cosmétique, le client ne décide de rien.
+- Le dosage est pur (`KitFX.poisonLook`) et testé (Animation « VENOM's poison shows on its victim »). Le dessin est dans `EffectsController:poisonAura`.
+- **BRUME TOXIQUE (S + E)** : avant, 4 boules. Maintenant un cœur sombre, 6 lobes verts gonflés, une **fumée verte** qui bouillonne, des **bulles** qui montent et éclatent, des gouttes en chemin, une lumière verte.
+- Effets réduits : deux fois moins de bulles et de fumée.
+
+Tests : Animation 51, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; Cinematography, CinematicDirector, Kits : relancées.
+
+À voir dans Studio : la teinte et les bulles sur un perso empoisonné, la brume toxique.
+Prochaine étape : les griffes de KAZAN (planche de Wilhem : gardes, M1/M2, blocage avec étincelles), puis les bombes de SYLVA.
+
 ## Version 0.23.13 — 6 octobre 2026 · LES SONS DE WILHEM · MIROIR DE GLACE DE YUKINA
 
 Wilhem a envoyé ses sons (Creator Hub, tous validés) : coups de poing, coups ratés, K.O., garde, dodge et dash, barrage, ultimes, et les bruits d'épée (« tout ce qui est censé faire un bruit métallique en traversant l'être humain », plus le clash métallique).
@@ -33,8 +50,8 @@ Wilhem a envoyé ses sons (Creator Hub, tous validés) : coups de poing, coups r
 - Le minutage est pur (`WeaponFX.mirror`) et testé (Animation « YUKINA's ICE MIRROR »). Le dessin est dans `EffectsController:iceMirror`, avec une durée de vie maximale de 2 s.
 
 Tests :
-- Animation 50, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2.
-- Cinematography, CinematicDirector, Kits : relancées.
+- Animation 50, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871.
+- Kits : relancée.
 
 À voir dans Studio : tous les nouveaux sons (volumes à ajuster à l'oreille si besoin, dans `SoundPalette`), le miroir de glace.
 
@@ -67,7 +84,7 @@ Wilhem : « descends le bouclier » (capture de DAICHA en garde) ; « SHIN, sa g
 
 Tests :
 - Animation 49 (nouveaux : garde de SHIN, éventails, bouclier de DAICHA), Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; `rigcheck` OK.
-- Kits : relancée.
+- Kits 130.
 
 À voir dans Studio : la garde de SHIN et ses étincelles, le bouclier de DAICHA, la garde et les pompons de YUKINA, les musiques.
 Prochaine étape :
@@ -113,7 +130,7 @@ Wilhem (planche « IDLE / VUE AVANT / CÔTÉ / ARRIÈRE / MARCHE ») : « t'as p
 - Test R6 « bras en garde » d'Animation : le repos de RAIJIN est exempté (son bras gauche pend exprès, d'après la planche).
 - Lance dans son corps (`WeaponClearance`) : 214 → 183 images sur 1 136. Le reste vient de coups déjà existants (KiFlurry, RisingWind, Sweep).
 
-Tests : Animation 46, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK ; Kits relancée (0.23.9 : 130 OK).
+Tests : Animation 46, Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, `rigcheck` OK, Kits 130 (vérifiée avec la 0.23.11, qui la contient).
 
 À voir dans Studio : la lance sur l'épaule (repos et marche), le pompon.
 Prochaine étape (demandée par Wilhem) : détailler SHIN, puis les éventails de YUKINA, le poison de VENOM, les griffes de KAZAN, les bombes de SYLVA.

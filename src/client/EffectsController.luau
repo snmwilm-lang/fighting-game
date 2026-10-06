@@ -341,6 +341,56 @@ function EffectsController:iceMirror(slot, rig, view, now, color)
 	end
 end
 
+-- VENOM's CONTAMINATION on its victim (KitFX.poisonLook): while the body carries poison
+-- (view.poisoned: its charges), a green glaze pulses over it, toxic bubbles rise off it and
+-- green drops fall from it, more with every charge; each tick of poison flares the glaze.
+local POISON_GREEN, POISON_DARK = Color3.fromHex("7CFF4A"), Color3.fromHex("2E7D12")
+function EffectsController:poisonAura(slot, rig, view, now)
+	self.poisons = self.poisons or {}
+	local fx = self.poisons[slot]
+	local charges = view.poisoned
+	if type(charges) ~= "number" or charges <= 0 or not rig.model or not rig.model.Parent then
+		if fx then
+			fx.glaze:Destroy()
+			fx.bubbles:Destroy()
+			self.poisons[slot] = nil
+		end
+		return
+	end
+	local torso = rig.model:FindFirstChild("UpperTorso") or rig.model:FindFirstChild("Torso")
+	if not torso then return end
+	if not fx or fx.rig ~= rig or not fx.glaze.Parent then
+		if fx then fx.glaze:Destroy(); fx.bubbles:Destroy() end
+		local glaze = Instance.new("Highlight")
+		glaze.FillColor, glaze.OutlineColor = POISON_GREEN, POISON_DARK
+		glaze.DepthMode = Enum.HighlightDepthMode.Occluded
+		glaze.FillTransparency, glaze.OutlineTransparency = 1, 1
+		glaze.Adornee, glaze.Parent = rig.model, self.folder
+		local bubbles = Instance.new("ParticleEmitter")
+		bubbles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		bubbles.Color = ColorSequence.new(POISON_GREEN, POISON_DARK)
+		bubbles.LightEmission, bubbles.LightInfluence = 0.6, 0.4
+		bubbles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.7, 0.35),
+			NumberSequenceKeypoint.new(1, 0) })
+		bubbles.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		bubbles.Lifetime, bubbles.Speed = NumberRange.new(0.5, 0.9), NumberRange.new(1, 2.4)
+		bubbles.Acceleration, bubbles.SpreadAngle = Vector3.new(0, 2.5, 0), Vector2.new(35, 35)
+		bubbles.EmissionDirection = Enum.NormalId.Top
+		bubbles.Parent = torso
+		fx = { rig = rig, glaze = glaze, bubbles = bubbles, drip = 0 }
+		self.poisons[slot] = fx
+	end
+	local look = KitFX.poisonLook(charges, now, fx.tickAt and now - fx.tickAt)
+	fx.glaze.FillTransparency = 1 - look.tint
+	fx.glaze.OutlineTransparency = 1 - math.min(1, look.tint * 1.6)
+	fx.bubbles.Rate = look.bubbles * (if self.reduced then 0.5 else 1)
+	-- green drops falling off the body
+	if now - fx.drip > 1 / look.drips then
+		fx.drip = now
+		self:drops(torso.Position + Vector3.new((math.random() - 0.5) * 1.2, -0.6, 0.3), POISON_GREEN, 1, 0.7, 2)
+	end
+end
+
 function EffectsController:weaponDressing(rig, view, now, slot)
 	local kit = view.kit or rig.model:GetAttribute("Kit")
 	local cfg = kit and WeaponFX.KITS[kit]
@@ -1725,6 +1775,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
 	self:weaponDressing(rig, view, now, slot)
 	self:iceMirror(slot, rig, view, now, color)
+	self:poisonAura(slot, rig, view, now)
 	-- (no drawn guard any more: SHIN's guard is his katana raised over his head, and the blow
 	-- on it strikes sparks off the steel (onEvent: Block); DAICHA's is her matter flattened:
 	-- flyOrb. Wilhem: « SHIN a un vieil effet bleu quand il bloque »)
@@ -1834,6 +1885,7 @@ function EffectsController:onEvent(event, views, rigs)
 		local accent = ({ Chilled = "DFF6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "FFFFFF", Armor = "C9BFC0",
 			Shackled = "E0E0E8", Domination = "0A0204", Drone = "6FE0FF" })[event.kind]
 		HITS[verb](self, position, color, Color3.fromHex(accent), if event.kind == "Poison" then 0.6 else 1, 1)
+		if event.kind == "Poison" and self.poisons and self.poisons[slot] then self.poisons[slot].tickAt = os.clock() end
 		if event.kind == "Heal" or event.kind == "Chilled" then
 			self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 1.6, 0, 360, color, math.pi / 2, 1)
 		elseif event.kind == "Armor" and rigs[slot] then
@@ -2008,13 +2060,34 @@ function SHOTS.shard(self, color, accent, scale)
 	piece(self, list, Vector3.new(0.9, 0.6, 0.6), CFrame.new(-0.3, 0, 0) * CFrame.Angles(math.rad(45), 0, 0), color, nil, Enum.Material.Ice, 0.2)
 	return { pieces = list, ghost = "streak", spin = 0, roll = 8 }
 end
+-- VENOM's BRUME TOXIQUE (S + E): a slow, rolling cloud of poison: a dark core, swollen green
+-- lobes round it, a thick green smoke boiling off it and bubbles that rise and pop; drips
+-- fall from it as it goes.
 function SHOTS.cloud(self, color, accent, scale)
 	local list = {}
-	for i = 1, 4 do
-		local a = i / 4 * math.pi * 2
-		piece(self, list, Vector3.one * (1.4 + i * 0.15) * scale, CFrame.new(math.cos(a) * 0.6, math.sin(a) * 0.5, 0), if i % 2 == 0 then accent else color,
-			Enum.PartType.Ball, Enum.Material.SmoothPlastic, 0.45)
+	local core = piece(self, list, Vector3.one * 1.3 * scale, CFrame.identity, Color3.fromHex("1E4A0E"), Enum.PartType.Ball,
+		Enum.Material.SmoothPlastic, 0.2)
+	for i = 1, 6 do
+		local a = i / 6 * math.pi * 2
+		piece(self, list, Vector3.one * (1.1 + (i % 3) * 0.25) * scale, CFrame.new(math.cos(a) * 0.75, math.sin(a) * 0.6, (i % 2) * 0.3 - 0.15),
+			if i % 2 == 0 then accent else color, Enum.PartType.Ball, Enum.Material.SmoothPlastic, 0.4)
 	end
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromHex("7CFF4A"), Color3.fromHex("2E7D12"))
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3.2) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Lifetime, smoke.Speed, smoke.Rate = NumberRange.new(0.6, 1.1), NumberRange.new(0.4, 1.2), if self.reduced then 10 else 24
+	smoke.RotSpeed, smoke.SpreadAngle = NumberRange.new(-60, 60), Vector2.new(180, 180)
+	smoke.Parent = core
+	local bubbles = Instance.new("ParticleEmitter")
+	bubbles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	bubbles.Color, bubbles.LightEmission = ColorSequence.new(Color3.fromHex("B6FF8A")), 0.7
+	bubbles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.8, 0.45), NumberSequenceKeypoint.new(1, 0) })
+	bubbles.Lifetime, bubbles.Speed, bubbles.Rate = NumberRange.new(0.4, 0.8), NumberRange.new(1.5, 3), if self.reduced then 6 else 14
+	bubbles.Acceleration, bubbles.SpreadAngle = Vector3.new(0, 3, 0), Vector2.new(60, 60)
+	bubbles.EmissionDirection = Enum.NormalId.Top
+	bubbles.Parent = core
 	return { pieces = list, ghost = "drip", spin = 1.2 }
 end
 function SHOTS.well(self, color, accent, scale)

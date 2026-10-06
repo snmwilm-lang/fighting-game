@@ -199,6 +199,33 @@ test("10000 players: the search pairs them fast and right, each hub view stays s
 	expect(os.clock() - t < 1, string.format("10000 views took %.2f s", os.clock() - t))
 end)
 
+-- Wilhem: « plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 ».
+test("RANKED in three categories: 1v1, 2v2 and 3v3 each have their own rating and board", function()
+	local profile = { rating = 1234 }
+	expect(#Matchmaker.CATEGORIES == 3 and #Matchmaker.BOARDS == 3, "three categories, three boards")
+	expect(Matchmaker.BOARDS[1] == "JeuxCombat_Classement_v1", "the 1v1 board changed name (its ranking would be lost)")
+	expect(Matchmaker.ratingOf(profile, 1) == 1234, "1v1 must stay the profile's rating")
+	expect(Matchmaker.ratingOf(profile, 2) == Matchmaker.START_RATING and not Matchmaker.played(profile, 2),
+		"a 2v2 never played starts at the starting rating, off the board")
+	-- a 2v2 match moves only the 2v2 rating
+	local a, b = { rating = 1000 }, { rating = 1000 }
+	local newA, newB = Matchmaker.elo(Matchmaker.ratingOf(a, 2), Matchmaker.ratingOf(b, 2), 1)
+	Matchmaker.setRating(a, 2, newA)
+	Matchmaker.setRating(b, 2, newB)
+	expect(Matchmaker.ratingOf(a, 2) > 1000 and Matchmaker.ratingOf(b, 2) < 1000, "the 2v2 ratings did not move")
+	expect(a.rating == 1000 and b.rating == 1000, "a 2v2 match moved the 1v1 rating")
+	expect(Matchmaker.ratingOf(a, 3) == Matchmaker.START_RATING, "a 2v2 match moved the 3v3 rating")
+	expect(Matchmaker.played(a, 2) and type(a.ratings["2"]) == "number", "the 2v2 rating is not saved under a string key")
+	-- sizes out of range fall in a category, a broken saved value falls back
+	expect(Matchmaker.category(0) == 1 and Matchmaker.category(7) == 3, "the category of a team size")
+	expect(Matchmaker.ratingOf({ rating = 900, ratings = { ["3"] = "x" } }, 3) == Matchmaker.START_RATING, "a broken 3v3 rating")
+	-- only teams of the same size meet
+	local mm = Matchmaker.new()
+	Matchmaker.enqueue(mm, 1, "RANKED", 1000, 0, 2)
+	Matchmaker.enqueue(mm, 2, "RANKED", 1000, 0, 3)
+	expect(#Matchmaker.pair(mm, 30) == 0, "a 2v2 team met a 3v3 team")
+end)
+
 test("languages: the game is in English, every move, fighter text and menu line has its French (Locale)", function()
 	local Locale = require("../src/shared/Locale")
 	local CharacterData = require("../src/shared/CharacterData")

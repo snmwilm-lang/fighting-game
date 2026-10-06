@@ -57,19 +57,23 @@ end
 -- The match's mini intro (Wilhem: « des mini scènes d'intro, toutes petites »): each fighter
 -- in his own entrance pose, framed in full, the camera out of the bodies, short enough to
 -- leave "ROUND" and "FIGHT" to the usual camera.
-test("the match's mini intro: every fighter on screen in his own pose, short, only at a match's start", function()
+test("the match's mini intro: every fighter on screen in his own pose, short, only at a match's very start", function()
 	local Director = require("../src/shared/CinematicDirector")
 	local Sim = require("../src/shared/CombatSimulation")
 	expect(Director.INTRO_SCENE <= Config.IntroTicks - 20, "the intro scene leaves no time to the ROUND / FIGHT call")
 	for _, kit in KITS do
 		local pose = Director.INTRO_POSE[kit]
 		expect(pose ~= nil, kit .. " has no entrance pose")
-		local failures, seen = {}, { 0, 0 }
+		local failures, seen, shadow = {}, { 0, 0 }, {}
 		Kit.playIntro(kit, "KAI", function(info)
 			local s = info.frame.shot
 			local slot = if info.tick < Director.INTRO_SCENE / 2 then 1 else 2
 			seen[slot] += 1
-			if info.views[slot].pose ~= Director.INTRO_POSE[info.views[slot].kit] then
+			local v = info.views[slot]
+			if Director.INTRO_ACTION[v.kit] then
+				-- (TARO shadowboxes: his own blows in his shot)
+				if v.state == "Attack" then shadow[v.move] = true end
+			elseif v.pose ~= Director.INTRO_POSE[v.kit] then
 				table.insert(failures, "t" .. info.tick .. " not in its entrance pose")
 			end
 			local cam = info.cam
@@ -85,14 +89,24 @@ test("the match's mini intro: every fighter on screen in his own pose, short, on
 			end
 		end)
 		expect(seen[1] > 20 and seen[2] > 20, kit .. ": both fighters are not shown in turn")
+		if Director.INTRO_ACTION[kit] then
+			local blows = 0
+			for _ in shadow do blows += 1 end
+			expect(blows >= 2, kit .. " does not shadowbox in his intro")
+		end
 		expect(#failures == 0, kit .. "\n         " .. table.concat(failures, "\n         ", 1, math.min(#failures, 5)))
 	end
-	-- only at a match's start (round 1) or a relay's new fighter; never in training
+	-- only at a match's start (round 1): not at round 2, nor at a relay's next fighter; never in training
 	local world = Sim.newWorld(Config, MoveData, false)
 	Sim.setKits(world, "KAI", "TARO")
 	expect(Director.introScene(world, Config) == 0, "no intro at the match's start")
 	world.round = 2
 	expect(Director.introScene(world, Config) == nil, "an intro at round 2 of a duel")
+	local relay = Sim.newWorld(Config, MoveData, false)
+	Sim.setLineup(relay, { "KAI", "TARO" }, { "SHIN", "VENOM" })
+	expect(Director.introScene(relay, Config) == 0, "no intro at a relay's start")
+	relay.round = 2
+	expect(Director.introScene(relay, Config) == nil, "an intro again for a relay's next fighter")
 	world.round, world.training = 1, true
 	expect(Director.introScene(world, Config) == nil, "an intro in training")
 end)

@@ -1,5 +1,24 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.29 — 6 octobre 2026 · CLASSÉ 1V1 / 2V2 / 3V3 · INTRO SEULEMENT AU DÉBUT · TARO EN SHADOW
+
+Wilhem : « en 2v2, 3v3, pas besoin de remettre les scènes à chaque nouvelle entrée, seulement la première » ; « en ligne, plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 » ; « TARO, sa scène, c'est du shadow ».
+
+- Intro (`Director.introScene`) : seulement au tout début du match (round 1), plus à chaque nouveau perso d'un relais.
+- TARO : pendant son plan d'intro, il fait du shadow-boxing (jab, jab, direct dans le vide ; `Director.INTRO_ACTION`).
+- Classé par catégorie (`Matchmaker.CATEGORIES`, `ratingOf`, `setRating`, `played`) : la file met déjà face à face des équipes de même taille, chaque taille a maintenant son propre Elo et son propre classement.
+  - 1v1 garde `profile.rating` et le tableau existant (`JeuxCombat_Classement_v1`, rien de perdu) ; le champion de la semaine et les succès lisent toujours le 1v1.
+  - 2v2 et 3v3 sont dans `profile.ratings["2"]` / `["3"]` et sur leurs tableaux (`JeuxCombat_Classement_2v2_v1`, `_3v3_v1`), seulement une fois joués.
+  - Un match classé change seulement l'Elo de sa catégorie. La recherche (sur ce serveur et entre serveurs) utilise l'Elo de la catégorie.
+  - Menu CLASSEMENT : onglets 1V1, 2V2, 3V3, HEBDO, HISTORIQUE, avec ta place dans chaque catégorie.
+- Tests :
+  - Lobby : test « classé en trois catégories ».
+  - Cinematography : l'intro n'est pas rejouée au perso suivant d'un relais, et TARO fait du shadow-boxing.
+
+Fichiers : `src/server/Matchmaker.luau`, `src/server/init.server.luau`, `src/client/MenuController.luau`, `src/shared/CinematicDirector.luau`, `src/shared/Locale.luau`, `tests/Lobby.test.luau`, `tests/Cinematography.test.luau`.
+
+Tests : Lobby 41, CombatSimulation 131, test de l'intro vérifié à part ; Cinematography 311 et Animation 52 (lancés sur 0.23.27-28) ; Kits et Balance en cours.
+
 ## Version 0.23.28 — 6 octobre 2026 · POSES D'ATTENTE · IMAGES DES PASS
 
 Wilhem : « donne des images de pass » ; « des poses différentes dans le menu et le lobby, et quand il bouge pas pendant les combats trop longtemps ».

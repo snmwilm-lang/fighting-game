@@ -5120,7 +5120,7 @@ end
 -- ===================================================================== INTRO
 --[[
 	The mini intro of a match (Wilhem: « des mini scènes d'intro, toutes petites »): at the
-	start of a match, and when a relay brings a new fighter in, a quick hero shot of each
+	start of a match only (not again for a relay's next fighters), a quick hero shot of each
 	fighter in turn, in his own entrance pose, his kanji in big behind him, the camera pushing
 	in a little. INTRO_SCENE ticks out of the round's intro (CombatConfig.IntroTicks): then the
 	usual camera, "ROUND", "FIGHT".
@@ -5134,16 +5134,18 @@ Director.INTRO_POSE = {
 	ELIAN = "StandTall", NOVA = "KiBeamDown", KUROEN = "ArmsCrossed", ASURA = "Roar", ["KUROEN SHIN"] = "StandTall",
 }
 
+-- Instead of a held pose, some fighters move in their shot: TARO shadowboxes (Wilhem: « TARO,
+-- sa scène, c'est du shadow »), his own blows (roles of his kit) thrown into the air in turn.
+Director.INTRO_ACTION = {
+	TARO = { "Jab", "Jab", "Cross" },
+}
+
 -- Is a match intro being shown? Returns the scene tick (0 .. INTRO_SCENE - 1), else nil.
 -- (world: the simulation's, or a client snapshot: phase, phaseTicks, round, fighters)
 function Director.introScene(world, config)
-	if world.training or world.cinematic or world.phase ~= "Intro" then return nil end
-	local relay = false
-	for _, f in world.fighters or {} do
-		if f.team and #f.team > 1 then relay = true end
-	end
-	if world.teams then relay = true end
-	if world.round ~= 1 and not relay then return nil end
+	-- (only the match's very first intro: not at each round, nor at each new fighter of a
+	-- 2v2 / 3v3 relay; Wilhem: « seulement la première »)
+	if world.training or world.cinematic or world.phase ~= "Intro" or world.round ~= 1 then return nil end
 	local t = (config.IntroTicks or 0) - (world.phaseTicks or 0)
 	if t < 0 or t >= Director.INTRO_SCENE then return nil end
 	return t
@@ -5169,6 +5171,23 @@ function Director.intro(ctx, views, t)
 	frame.shot = frameOn("intro-" .. slot, f, { view }, { yaw = 18 - 8 * k, pitch = -16 + 6 * k,
 		fill = 0.8 + 0.12 * k, fov = 32, band = "full", focus = P(slot, "Head") })
 	frame.kanjiBack = kit and kit.Kanji or nil
+	-- (shadowboxing: his blows one after the other, from his shot's first tick)
+	local action = Director.INTRO_ACTION[view.kit]
+	if action and kit then
+		local at = lt
+		for _, roleName in action do
+			local id = kit.Roles[roleName]
+			local m = id and ctx.moveData.Moves[id]
+			if m then
+				local length = m.startup + m.active + m.recovery
+				if at < length then
+					view.pose, view.state, view.move, view.moveFrame = nil, "Attack", id, math.floor(at)
+					break
+				end
+				at -= length
+			end
+		end
+	end
 	return frame
 end
 

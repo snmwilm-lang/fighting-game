@@ -200,13 +200,16 @@ local function loadProfile(player, client)
 		end
 	end)
 end
--- The ranking (CLASSEMENT): an ordered store of the ratings, read 10 at a time.
-local board = nil
+-- The rankings (CLASSEMENT): an ordered store of the ratings per RANKED category (1v1, 2v2,
+-- 3v3: Matchmaker.BOARDS), read 10 at a time. boards[1] is the 1v1 one (the champion's).
+local boards = {}
 local championHistory = {} -- (the champions of the week, read from the shared history: Champions)
-do
-	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "JeuxCombat_Classement_v1")
-	if ok then board = result end
+for size, name in Matchmaker.BOARDS do
+	local ok, result = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, name)
+	if ok then boards[size] = result end
 end
+local board = boards[1]
+local boardWritten = {} -- user id -> { [2] = rating, [3] = rating } last written (2v2, 3v3)
 -- WEEKLY ranking: one ordered store per week (it starts from zero every Monday).
 local weeklyBoards = {}
 local function weeklyBoard(week)
@@ -244,6 +247,16 @@ local function writeProfile(player, client, release)
 	local data = profile
 	local rating = math.floor(data.rating)
 	if board and SaveQueue.boardChanged(saves, id, rating) then pcall(board.SetAsync, board, tostring(id), rating) end
+	-- (the 2v2 and 3v3 boards: once played, when the rating changed)
+	for size = 2, 3 do
+		if boards[size] and Matchmaker.played(data, size) then
+			local value = math.floor(Matchmaker.ratingOf(data, size))
+			boardWritten[id] = boardWritten[id] or {}
+			if boardWritten[id][size] ~= value and pcall(boards[size].SetAsync, boards[size], tostring(id), value) then
+				boardWritten[id][size] = value
+			end
+		end
+	end
 	-- (and the weekly ranking, when the points of the week changed)
 	local week = Champions.week(os.time())
 	local points = Champions.pointsOf(data, week)
@@ -272,10 +285,12 @@ task.spawn(function()
 		end
 	end
 end)
-local boardCache, boardAt, nameCache = nil, -math.huge, {}
-local function topRatings()
-	if boardCache and os.clock() - boardAt < 60 then return boardCache end
+local boardCache, boardAt, nameCache = {}, {}, {}
+local function topRatings(size)
+	size = Matchmaker.category(size)
+	if boardCache[size] and os.clock() - (boardAt[size] or -math.huge) < 60 then return boardCache[size] end
 	local list = {}
+	local board = boards[size]
 	if board then
 		local ok, pages = pcall(board.GetSortedAsync, board, false, 10)
 		if ok and pages then
@@ -291,7 +306,7 @@ local function topRatings()
 			end
 		end
 	end
-	boardCache, boardAt = list, os.clock()
+	boardCache[size], boardAt[size] = list, os.clock()
 	return list
 end
 
@@ -676,13 +691,17 @@ function endVersus(match, winnerSlot, leftSlot)
 			end
 		end
 	end
-	local before = { ca.profile.rating, cb.profile.rating }
+	-- RANKED: the rating of the match's category (1v1, 2v2, 3v3: the teams' size)
+	local size = Matchmaker.category(match.world.teams and #match.world.teams[1].kits or 1)
+	local before = { Matchmaker.ratingOf(ca.profile, size), Matchmaker.ratingOf(cb.profile, size) }
 	if match.queue == "RANKED" and share > 0 then
-		local newA, newB = Matchmaker.elo(ca.profile.rating, cb.profile.rating, scoreA)
-		ca.profile.rating = AntiCheat.scaleRating(before[1], newA, share)
-		cb.profile.rating = AntiCheat.scaleRating(before[2], newB, share)
-		GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
-		GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
+		local newA, newB = Matchmaker.elo(before[1], before[2], scoreA)
+		Matchmaker.setRating(ca.profile, size, AntiCheat.scaleRating(before[1], newA, share))
+		Matchmaker.setRating(cb.profile, size, AntiCheat.scaleRating(before[2], newB, share))
+		if size == 1 then
+			GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
+			GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
+		end
 	end
 	-- MATCH HISTORY (both, the one who left too) and the REMATCH's opponent
 	for i, player in { a, b } do
@@ -690,7 +709,7 @@ function endVersus(match, winnerSlot, leftSlot)
 		local world = match.world
 		GameModes.addHistory(client.profile, { t = now, mode = "VERSUS", queue = match.queue or "NORMAL", opp = other.DisplayName,
 			oppKit = world.kits[3 - i], kit = world.kits[i], r = if winnerSlot == i then "W" elseif winnerSlot == 0 then "D" else "L",
-			coins = gains[i], delta = client.profile.rating - before[i] })
+			coins = gains[i], delta = Matchmaker.ratingOf(client.profile, size) - before[i] })
 		client.lastOpponent = other.UserId
 	end
 	for i, player in { a, b } do
@@ -699,8 +718,9 @@ function endVersus(match, winnerSlot, leftSlot)
 		menuRemote:FireClient(player, {
 			questGifts = client.questGifts,
 			result = true, queue = match.queue, won = winnerSlot == i, draw = winnerSlot == 0,
-			rating = client.profile.rating, delta = client.profile.rating - before[i],
-			rank = Matchmaker.rankName(client.profile.rating), coins = gains[i], streak = client.profile.winStreak or 0,
+			rating = Matchmaker.ratingOf(client.profile, size), delta = Matchmaker.ratingOf(client.profile, size) - before[i],
+			category = Matchmaker.CATEGORIES[size],
+			rank = Matchmaker.rankName(Matchmaker.ratingOf(client.profile, size)), coins = gains[i], streak = client.profile.winStreak or 0,
 		})
 		client.questGifts = nil
 	end
@@ -715,6 +735,10 @@ function menuStatus(player, bought, unlocked)
 		state = if client.match then "match" elseif client.queue then "queue" else "menu",
 		mode = client.match and client.match.mode or nil, queue = client.queue,
 		rating = profile.rating, rank = Matchmaker.rankName(profile.rating), hero = profile.hero, language = profile.language,
+		-- (RANKED by category: 1v1, 2v2, 3v3)
+		ratings = { Matchmaker.ratingOf(profile, 1), Matchmaker.ratingOf(profile, 2), Matchmaker.ratingOf(profile, 3) },
+		ranks = { Matchmaker.rankName(Matchmaker.ratingOf(profile, 1)), Matchmaker.rankName(Matchmaker.ratingOf(profile, 2)),
+			Matchmaker.rankName(Matchmaker.ratingOf(profile, 3)) },
 		nextRank = (function()
 			for _, r in Matchmaker.RANKS do
 				if r.min > profile.rating then return r.min end
@@ -985,7 +1009,8 @@ local function crossStep()
 		if client.queue == "RANKED" and client.queueSince and now - client.queueSince >= GlobalQueue.PUBLISH_AFTER then
 			local p = published[id]
 			if not p or now - p.refreshed >= GlobalQueue.REFRESH then
-				local entry = GlobalQueue.entry(id, client.profile.rating, #client.team, JOB, client.queueSince, client.team, now)
+				local entry = GlobalQueue.entry(id, Matchmaker.ratingOf(client.profile, #client.team), #client.team, JOB, client.queueSince,
+					client.team, now)
 				local ok = pcall(rankedMap.SetAsync, rankedMap, tostring(id), entry, GlobalQueue.STALE + 10, math.floor(entry.rating))
 				if ok then published[id] = { entry = entry, refreshed = now } end
 			end
@@ -1223,9 +1248,11 @@ Players.PlayerRemoving:Connect(function(player)
 			task.spawn(function()
 				writeProfile(player, client, true) -- (the last write releases the session lock)
 				SaveQueue.forget(saves, player.UserId)
+				boardWritten[player.UserId] = nil
 			end)
 		else
 			SaveQueue.forget(saves, player.UserId)
+			boardWritten[player.UserId] = nil
 		end
 		local holder = fightersFolder:FindFirstChild("Lobby_" .. player.UserId)
 		if holder then holder:Destroy() end
@@ -1469,11 +1496,13 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		local request = GameModes.validate({ mode = "VERSUS_CPU", team = packet.team, level = 1 }, MoveData.KitOrder)
 		if request and Economy.teamAllowed(client.profile, request.team, "VERSUS", devOn(player, client)) then client.team = request.team end
 	elseif action == "ranking" then
-		-- ALL TIME (the rating) or WEEKLY (the points of the week)
+		-- RANKED 1v1 ("all"), 2v2, 3v3 (the ratings) or WEEKLY (the points of the week)
 		local weekly = packet.board == "weekly"
+		local size = if packet.board == "2v2" then 2 elseif packet.board == "3v3" then 3 else 1
+		local name = if weekly then "weekly" elseif size == 1 then "all" else packet.board
 		task.spawn(function()
-			local list = if weekly then topWeekly() else topRatings()
-			if clients[player] then menuRemote:FireClient(player, { ranking = list, board = if weekly then "weekly" else "all" }) end
+			local list = if weekly then topWeekly() else topRatings(size)
+			if clients[player] then menuRemote:FireClient(player, { ranking = list, board = name }) end
 		end)
 	elseif action == "start" then
 		local request, reason = GameModes.validate(packet.request, MoveData.KitOrder, Maps.BY_ID)
@@ -1494,7 +1523,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		if request.mode == "VERSUS" then
 			client.queue = request.queue
 			client.queueSince = os.time() -- (the cross-server search publishes after a while)
-			local rating = client.profile and client.profile.rating or Matchmaker.START_RATING
+			local rating = if client.profile then Matchmaker.ratingOf(client.profile, #request.team) else Matchmaker.START_RATING
 			Matchmaker.enqueue(matchmaker, player.UserId, request.queue, rating, now, #request.team)
 			menuStatus(player)
 		else
@@ -1526,7 +1555,8 @@ task.spawn(function()
 				-- One of them left in the meantime: the other one waits again.
 				for _, p in { a, b } do
 					if p and clients[p] and clients[p].queue then
-						Matchmaker.enqueue(matchmaker, p.UserId, clients[p].queue, clients[p].profile.rating, os.clock(), #clients[p].team)
+						Matchmaker.enqueue(matchmaker, p.UserId, clients[p].queue, Matchmaker.ratingOf(clients[p].profile, #clients[p].team), os.clock(),
+							#clients[p].team)
 					end
 				end
 			end

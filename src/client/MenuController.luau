@@ -1462,11 +1462,12 @@ end
 function MenuController:buildRanking()
 	local page = rightPage(self, "RANKING", Theme.GOLD)
 	Theme.heading(page, "RANKING", Theme.GOLD)
-	-- two rankings: ALL TIME (the rating) and WEEKLY (the points of the week, from zero every Monday)
+	-- the RANKED categories (1V1, 2V2, 3V3: one rating each, Matchmaker), WEEKLY (the points of
+	-- the week, from zero every Monday) and the HISTORY
 	self.rankingBoard = "all"
 	self.rankingTabs = {}
-	for i, tab in { { "all", "ALL TIME" }, { "weekly", "WEEKLY" }, { "history", "HISTORY" } } do
-		local b = Theme.button(page, { Position = UDim2.fromOffset(22 + (i - 1) * 172, 76), Size = UDim2.fromOffset(164, 30), Font = UI_FONT,
+	for i, tab in { { "all", "1V1" }, { "2v2", "2V2" }, { "3v3", "3V3" }, { "weekly", "WEEKLY" }, { "history", "HISTORY" } } do
+		local b = Theme.button(page, { Position = UDim2.fromOffset(22 + (i - 1) * 124, 76), Size = UDim2.fromOffset(116, 30), Font = UI_FONT,
 			TextSize = 13, Text = tab[2] }, GOLD)
 		b.Activated:Connect(function()
 			self.rankingBoard = tab[1]
@@ -1535,7 +1536,13 @@ function MenuController:refreshRanking()
 	elseif self.rankingBoard == "weekly" then
 		self.rankingMine.Text = "YOU: " .. (s.weekPoints or 0) .. " PTS THIS WEEK · win 3, draw 1 · from zero every Monday"
 	else
-		self.rankingMine.Text = "YOU: " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " pts · " .. (s.wins or 0) .. " W / " .. (s.losses or 0) .. " L"
+		local size = if self.rankingBoard == "2v2" then 2 elseif self.rankingBoard == "3v3" then 3 else 1
+		if size == 1 then
+			self.rankingMine.Text = "YOU: " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " pts · " .. (s.wins or 0) .. " W / " .. (s.losses or 0) .. " L"
+		else
+			self.rankingMine.Text = "YOU: " .. size .. "V" .. size .. " · " .. ((s.ranks or {})[size] or "BRONZE") .. " · "
+				.. ((s.ratings or {})[size] or 1000) .. " pts"
+		end
 	end
 	local entries = self.ranking
 	if not entries then

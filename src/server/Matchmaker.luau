@@ -133,6 +133,44 @@ function Matchmaker.elo(ratingA, ratingB, scoreA)
 	return math.max(0, math.floor(ratingA + delta + 0.5)), math.max(0, math.floor(ratingB - delta + 0.5))
 end
 
+-- RANKED in three categories (Wilhem: « plusieurs catégories de classement, 1v1 mais aussi
+-- 2v2, 3v3 »): a team of 1, 2 or 3 fighters only meets the same size, and each size has its
+-- own rating and its own board. 1v1 keeps `profile.rating` (the rank, the weekly champion,
+-- the achievements read it); 2v2 and 3v3 live in `profile.ratings` ("2", "3": saved keys).
+Matchmaker.CATEGORIES = { "1V1", "2V2", "3V3" }
+Matchmaker.BOARDS = { "JeuxCombat_Classement_v1", "JeuxCombat_Classement_2v2_v1", "JeuxCombat_Classement_3v3_v1" }
+
+local function category(size)
+	return math.clamp(math.floor(tonumber(size) or 1), 1, 3)
+end
+Matchmaker.category = category
+
+function Matchmaker.ratingOf(profile, size)
+	size = category(size)
+	if size == 1 then return tonumber(profile.rating) or Matchmaker.START_RATING end
+	local ratings = profile.ratings
+	local r = type(ratings) == "table" and tonumber(ratings[tostring(size)]) or nil
+	return r or Matchmaker.START_RATING
+end
+
+-- Has this profile played this category yet (2v2 / 3v3 only reach a board once played)?
+function Matchmaker.played(profile, size)
+	size = category(size)
+	if size == 1 then return true end
+	return type(profile.ratings) == "table" and tonumber(profile.ratings[tostring(size)]) ~= nil
+end
+
+function Matchmaker.setRating(profile, size, value)
+	size = category(size)
+	value = math.max(0, math.floor(tonumber(value) or Matchmaker.START_RATING))
+	if size == 1 then
+		profile.rating = value
+	else
+		if type(profile.ratings) ~= "table" then profile.ratings = {} end
+		profile.ratings[tostring(size)] = value
+	end
+end
+
 function Matchmaker.rankName(rating)
 	local name = Matchmaker.RANKS[1].name
 	for _, rank in Matchmaker.RANKS do

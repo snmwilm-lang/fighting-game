@@ -1397,7 +1397,7 @@ for k, v in {
 	["🔒 %s · %d COINS · YOU HAVE %d"] = "🔒 %s · %d PIÈCES · TU EN AS %d",
 	["🔒 %d COINS · %s"] = "🔒 %d PIÈCES · %s",
 } do if Locale.FR[k] == nil then Locale.FR[k] = v end end
-for _, k in { "STANDARD", "RARE", "JOYSTICK", "SHIFT", "COMBO", "DASH", "ATTACK", "SPEC", "ULTI", "A", "X", "B", "Y", "E", "R", "LT", "RT", "X / B", "ATTACK / HEAVY" } do Locale.SAME[k] = true end
+for _, k in { "1V1", "2V2", "3V3", "STANDARD", "RARE", "JOYSTICK", "SHIFT", "COMBO", "DASH", "ATTACK", "SPEC", "ULTI", "A", "X", "B", "Y", "E", "R", "LT", "RT", "X / B", "ATTACK / HEAVY" } do Locale.SAME[k] = true end
 
 -- DAILY REWARD, BACK GUARD (v0.21)
 for k, v in {

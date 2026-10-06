@@ -1,8 +1,8 @@
 --[[
-	Sound effects, built only from the sounds shipped in every Roblox client's content folder
-	(rbxasset://sounds/...; the full list is SoundPalette.CLIENT_SOUNDS, from the client
-	manifest). No asset id is used or invented. (The old sword sounds, swordslash.wav and the
-	like, are no longer in the client: they played nothing.)
+	Sound effects: Wilhem's own uploads (SoundPalette.UPLOADS: punches, whooshes, guards, the
+	K.O., dashes, the barrage, ultimates, steel) and the sounds shipped in every Roblox client's
+	content folder (rbxasset://sounds/...; SoundPalette.CLIENT_SOUNDS, from the client
+	manifest). No asset id is ever invented.
 
 	Each file is shaped (pitch, length, the engine's sound effects on a few buses) into one
 	coherent palette (src/shared/SoundPalette.luau), until Wilhem supplies the game's own SFX:
@@ -25,6 +25,9 @@ local FILES, BUSES, MATERIALS, ACTIONS = Palette.FILES, Palette.BUSES, Palette.M
 
 local SoundController = {}
 SoundController.__index = SoundController
+
+-- The kits whose guard is a blade (a blow on it rings like steel).
+local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, YUKINA = true }
 
 local function material(kit)
 	return MATERIALS[kit or "KAI"] or MATERIALS.KAI
@@ -59,12 +62,23 @@ function SoundController.new()
 		bus.Parent = group -- nested: its output goes through the main group
 		self.buses[name] = bus
 	end
-	for name, file in FILES do
+	-- (a file, or a group of Wilhem's uploads: SoundPalette.UPLOADS, one take picked per play)
+	local function template(name, file)
 		local sound = Instance.new("Sound")
 		sound.Name, sound.SoundId, sound.SoundGroup = name, file, group
 		sound.Parent = group
-		self.templates[name] = sound
+		return sound
 	end
+	for name, file in FILES do
+		if type(file) == "table" then
+			local takes = {}
+			for i, id in file do takes[i] = template(name .. i, id) end
+			self.templates[name] = takes
+		else
+			self.templates[name] = template(name, file)
+		end
+	end
+	self.kits = {}
 	return self
 end
 
@@ -72,6 +86,7 @@ end
 function SoundController:play(spec, scale)
 	if not self.enabled then return end
 	local template = self.templates[spec[1]]
+	if type(template) == "table" then template = template[math.random(1, #template)] end
 	if not template then return end
 	local sound = template:Clone()
 	sound.Volume = spec[2] * (scale or 1)
@@ -164,6 +179,9 @@ function SoundController:onEvent(event)
 		self:playAll(if event.grade == "PERFECT" then ACTIONS.Perfect else ACTIONS.Graded)
 	elseif kind == "GroundBounce" or kind == "WallBounce" then
 		self:playAll(ACTIONS.Bounce)
+	elseif kind == "Block" and STEEL[self.kits[event.defender] or ""] then
+		-- (a blow on a blade's guard: steel on steel)
+		self:playAll(ACTIONS.BlockSteel)
 	elseif kind == "Blink" or kind == "Block" or kind == "GuardBreak" or kind == "Clash" or kind == "Evade" or kind == "Slip"
 		or kind == "Stance" or kind == "SuperFlash" or kind == "Skill" or kind == "Prompt" or kind == "SuperJump"
 		or kind == "PassiveReady" or kind == "Chilled" or kind == "Poison" or kind == "Armor" or kind == "Heal"
@@ -188,9 +206,15 @@ function SoundController:update(slot, view, moves)
 	local phase = if m then (if view.moveFrame <= m.startup then "S" elseif view.moveFrame <= m.startup + m.active then "A" else "R") else ""
 	local key = view.state .. ":" .. tostring(view.move) .. phase
 	local own = material(view.kit)
+	self.kits[slot] = view.kit
 	if last and last.key ~= key and self.enabled then
 		if phase == "A" and last.phase ~= "A" then
-			self:playAll(if m.heavy or m.meterCost or m.kind == "Ultimate" then own.heavySwing else own.swing)
+			local kit = MoveData.Kits[view.kit or ""]
+			if kit and kit.Roles and kit.Roles.KiFlurry == view.move then
+				self:playAll(ACTIONS.Barrage) -- (a rush of blows)
+			else
+				self:playAll(if m.heavy or m.meterCost or m.kind == "Ultimate" then own.heavySwing else own.swing)
+			end
 		elseif view.state == "Jumping" and last.state ~= "Jumping" then
 			self:playAll(ACTIONS.Jump)
 		elseif view.state == "Dashing" and last.state ~= "Dashing" then

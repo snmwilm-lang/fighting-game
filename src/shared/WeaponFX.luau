@@ -93,4 +93,26 @@ function WeaponFX.glint(time, offset)
 	return smooth(t / g.length)
 end
 
+-- YUKINA's ICE MIRROR (S + E: MoveData YukinaMirror, `reflect` = the frames it sends shots
+-- back): a hexagon of ice before her. It grows out of nothing up to the first reflecting
+-- frame, holds (shimmering) while it reflects, then shatters. Returns nil when there is no
+-- mirror, else { grow 0..1 (its size), shown 0..1 (its opacity), shimmer -1..1, shatter
+-- (true on the first frame after the window: the burst of shards) }.
+WeaponFX.MIRROR = { shatter = 6 }
+function WeaponFX.mirror(move, frame, time)
+	local window = move and move.reflect
+	if not window or not frame then return nil end
+	local from, to = window.from, window.to
+	if frame < 0 or frame > to + WeaponFX.MIRROR.shatter then return nil end
+	local shimmer = math.sin((time or 0) * 9)
+	if frame < from then
+		local g = smooth((frame + 1) / math.max(1, from))
+		return { grow = g, shown = g, shimmer = shimmer, shatter = false }
+	elseif frame <= to then
+		return { grow = 1, shown = 1, shimmer = shimmer, shatter = false }
+	end
+	local k = (frame - to) / WeaponFX.MIRROR.shatter
+	return { grow = 1 + 0.15 * k, shown = 1 - smooth(k), shimmer = shimmer, shatter = frame == to + 1 }
+end
+
 return WeaponFX

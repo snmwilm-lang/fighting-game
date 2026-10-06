@@ -1422,6 +1422,22 @@ T.test("YUKINA's fans are real folding fans: sticks fanning out from a rivet, a 
 	end
 end)
 
+T.test("YUKINA's ICE MIRROR: a hexagon of ice that grows, holds while it reflects, then shatters", function()
+	local WeaponFX = require("../src/shared/WeaponFX")
+	local m = MoveData.Moves.YukinaMirror
+	local w = m.reflect
+	expect(WeaponFX.mirror(MoveData.Moves.Jab, 2, 0) == nil, "a blow without a mirror draws one")
+	local first = WeaponFX.mirror(m, 0, 0)
+	expect(first ~= nil and first.grow < 1, "the mirror does not grow out of nothing")
+	for f = w.from, w.to do
+		local v = WeaponFX.mirror(m, f, f / 60)
+		expect(v.grow == 1 and v.shown == 1 and not v.shatter, "the mirror is not whole while it reflects (frame " .. f .. ")")
+	end
+	expect(WeaponFX.mirror(m, w.to + 1, 0).shatter, "the mirror does not shatter after its window")
+	expect(WeaponFX.mirror(m, w.to + WeaponFX.MIRROR.shatter + 1, 0) == nil, "the shards linger")
+	expect(WeaponFX.mirror(m, w.to + 3, 0).shown < 1, "the shattered mirror does not fade")
+end)
+
 T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()
 	local WeaponFX = require("../src/shared/WeaponFX")
 	local WeaponSpec = require("../src/shared/WeaponSpec")

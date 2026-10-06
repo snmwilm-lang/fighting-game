@@ -263,6 +263,84 @@ local function longAxis(size)
 	if size.Y >= size.X then return Vector3.yAxis, size.Y end
 	return Vector3.xAxis, size.X
 end
+-- YUKINA's ICE MIRROR (S + E): a hexagon of ice standing before her while it reflects
+-- (WeaponFX.mirror: it grows, holds and shimmers, then shatters into shards). Three glass
+-- slabs make the hexagon, a rim of frost runs round it, a snowflake glows in its heart and
+-- a crystal juts from every corner. Cosmetic: the reflection itself is the server's.
+function EffectsController:iceMirror(slot, rig, view, now, color)
+	self.mirrors = self.mirrors or {}
+	local m = view.state == "Attack" and view.move and MoveData.Moves[view.move]
+	local look = m and WeaponFX.mirror(m, view.moveFrame, now)
+	local mirror = self.mirrors[slot]
+	if mirror and (not mirror.model.Parent or mirror.rig ~= rig) then
+		mirror.model:Destroy()
+		mirror, self.mirrors[slot] = nil, nil
+	end
+	if not look then
+		if mirror then mirror.model:Destroy(); self.mirrors[slot] = nil end
+		return
+	end
+	local R = 1.7
+	if not mirror then
+		local model = Instance.new("Model")
+		model.Name = "IceMirror" .. slot
+		local parts = {}
+		local function add(p, base, kind)
+			p.Parent = model
+			table.insert(parts, { part = p, base = base, kind = kind, size = p.Size })
+		end
+		local ice, frost = Color3.fromHex("DFF6FF"), Color3.fromHex("FFFFFF")
+		for i = 0, 2 do
+			local slab = self:part(Vector3.new(0.06, R * math.sqrt(3), R), CFrame.Angles(math.rad(60 * i), 0, 0), ice)
+			slab.Material, slab.Reflectance = Enum.Material.Glass, 0.3
+			add(slab, 0.45, "glass")
+		end
+		for i = 0, 5 do
+			local a0, a1 = math.rad(60 * i), math.rad(60 * (i + 1))
+			local v0 = Vector3.new(0, math.sin(a0) * R, math.cos(a0) * R)
+			local v1 = Vector3.new(0, math.sin(a1) * R, math.cos(a1) * R)
+			local rim = self:part(Vector3.new(0.12, 0.12, R + 0.06), CFrame.lookAt((v0 + v1) / 2, v1), frost)
+			rim.Material = Enum.Material.Neon
+			add(rim, 0, "rim")
+			local spike = self:part(Vector3.new(0.14, 0.14, 0.55), CFrame.lookAt(v0 * 1.12, v0 * 1.4), ice)
+			spike.Material = Enum.Material.Ice
+			add(spike, 0.1, "spike")
+			if i < 3 then
+				local ray = self:part(Vector3.new(0.08, 0.06, R * 1.3), CFrame.lookAt(Vector3.zero, v0), color)
+				ray.Material = Enum.Material.Neon
+				add(ray, 0.2, "flake")
+			end
+		end
+		local light = Instance.new("PointLight")
+		light.Color, light.Range, light.Brightness = Color3.fromHex("BFEFFF"), 10, 1.5
+		light.Parent = parts[1].part
+		model.WorldPivot = CFrame.identity
+		model.Parent = self.folder
+		-- (never left standing if the fight stops mid-mirror: the move lasts well under 1 s)
+		Debris:AddItem(model, 2)
+		mirror = { model = model, parts = parts, scale = 1, rig = rig }
+		self.mirrors[slot] = mirror
+	end
+	-- before her, at her chest, facing the opponent (turned a little toward the camera)
+	local f = view.facing or 1
+	local at = Vector3.new(view.x + f * 1.5, view.y + 3, self.config.PlaneZ + 0.25)
+	local turn = (if f > 0 then 0 else math.pi) - f * math.rad(20)
+	mirror.model:PivotTo(CFrame.new(at) * CFrame.Angles(0, turn, 0) * CFrame.Angles(look.shimmer * 0.04, 0, 0))
+	if math.abs(look.grow - mirror.scale) > 0.02 then
+		mirror.model:ScaleTo(math.max(0.05, look.grow))
+		mirror.scale = look.grow
+	end
+	for _, entry in mirror.parts do
+		local flicker = if entry.kind == "rim" then 0.15 * (0.5 + 0.5 * look.shimmer) else 0
+		entry.part.Transparency = 1 - (1 - entry.base) * look.shown + flicker * look.shown
+	end
+	if look.shatter and not mirror.shattered then
+		mirror.shattered = true
+		self:shards(at, Color3.fromHex("DFF6FF"), if self.reduced then 6 else 14, 0.9, Enum.Material.Ice, 0.45)
+		self:spark(at, Color3.fromHex("BFEFFF"), 1)
+	end
+end
+
 function EffectsController:weaponDressing(rig, view, now, slot)
 	local kit = view.kit or rig.model:GetAttribute("Kit")
 	local cfg = kit and WeaponFX.KITS[kit]
@@ -1646,6 +1724,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 	end
 	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
 	self:weaponDressing(rig, view, now, slot)
+	self:iceMirror(slot, rig, view, now, color)
 	-- (no drawn guard any more: SHIN's guard is his katana raised over his head, and the blow
 	-- on it strikes sparks off the steel (onEvent: Block); DAICHA's is her matter flattened:
 	-- flyOrb. Wilhem: « SHIN a un vieil effet bleu quand il bloque »)

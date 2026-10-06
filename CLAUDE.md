@@ -44,7 +44,9 @@
 - Le client ne décide jamais d'un coup, de la vie ni du KO ; les effets sont cosmétiques.
 - Ne jamais affirmer avoir testé dans Roblox Studio. Pas d'ID d'asset (son, animation,
   texture) inventé. Les sons ne viennent que de `SoundPalette.CLIENT_SOUNDS` (les fichiers
-  réellement livrés avec le client) ; chaque perso garde sa matière sonore.
+  réellement livrés avec le client) ou de `SoundPalette.UPLOADS` (les envois de Wilhem, IDs
+  donnés par lui, par usage : coups, whoosh, garde, K.O., dash, barrage, ultimes, acier) ;
+  chaque perso garde sa matière sonore.
 - Après chaque livraison, mettre à jour `docs/JOURNAL.md` (version, fichiers, tests,
   problèmes ouverts, prochaine étape).
 - Le jeu est écrit en anglais (langue source de la traduction automatique de Roblox). Tout

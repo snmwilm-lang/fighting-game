@@ -1,5 +1,43 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.13 — 6 octobre 2026 · LES SONS DE WILHEM · MIROIR DE GLACE DE YUKINA
+
+Wilhem a envoyé ses sons (Creator Hub, tous validés) : coups de poing, coups ratés, K.O., garde, dodge et dash, barrage, ultimes, et les bruits d'épée (« tout ce qui est censé faire un bruit métallique en traversant l'être humain », plus le clash métallique).
+
+**Sons** (`SoundPalette.UPLOADS`, IDs donnés par Wilhem) :
+
+| Groupe | IDs |
+|---|---|
+| punch | 129256026624539, 111865355769098, 139409887608714, 73380268944822 |
+| whoosh (coups ratés) | 76049977681468, 109621774819971 |
+| ko | 72478322633124, 74488688244165, 122227946848688 |
+| guard | 79524546381696, 119049351358648, 105289989027230 |
+| dodge | 86507046672081, 134668366374910 |
+| barrage | 117966984445030 |
+| ult | 98053537019677, 126278834963397, 118955257919955, 73573430517284 |
+| slash | 76694449914502, 89042507065653, 134739371295430 |
+| clash | 88832606101415 |
+
+- Une entrée de `FILES` peut nommer un groupe : `SoundController` tire **une prise au hasard** à chaque coup, pour que le même coup ne sonne jamais deux fois pareil.
+- **Coups touchés** : `punch` pour les persos à mains nues, `slash` (acier dans le corps) pour SHIN, RAIJIN, KAZAN, VENOM et YUKINA. Chaque perso garde sa hauteur et ses couches propres (l'eau de SHIN, l'écho de DAICHA, la pierre d'HIBECARES…).
+- **Coups dans le vide** : `whoosh`.
+- **Garde** : `guard`. Sur la garde d'un perso à lame (SHIN, RAIJIN, KAZAN, YUKINA) : `clash`, l'acier contre l'acier. Les **Clash** aussi.
+- **K.O.** : `ko` plus un fond d'`ult`. **Dash, esquives, glissade, téléportation** : `dodge`. **Super flash, plans d'ultime** : `ult`.
+- **Barrage** : au départ de la rafale de chaque perso (son rôle KiFlurry).
+- CLAUDE.md : les sons viennent des fichiers du client ou de `SoundPalette.UPLOADS`, jamais d'un ID inventé.
+- Test Kits « sounds » : IDs bien formés et jamais en double ; les poings frappent en `punch`, les lames en `slash`, les élans en `whoosh` ; la garde, le clash, le K.O., le dash, le barrage et l'ultime jouent leur groupe.
+
+**YUKINA, MIROIR DE GLACE (S + E)** : on le voit enfin pendant qu'il agit.
+- Un hexagone de glace devant elle : trois plaques de verre, une bordure de givre néon qui scintille, un flocon lumineux au cœur, un cristal à chaque coin, une lumière.
+- Il grandit jusqu'à la première image de renvoi, tient pendant toute la fenêtre de renvoi, puis **éclate en éclats de glace**.
+- Le minutage est pur (`WeaponFX.mirror`) et testé (Animation « YUKINA's ICE MIRROR »). Le dessin est dans `EffectsController:iceMirror`, avec une durée de vie maximale de 2 s.
+
+Tests :
+- Animation 50, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2.
+- Cinematography, CinematicDirector, Kits : relancées.
+
+À voir dans Studio : tous les nouveaux sons (volumes à ajuster à l'oreille si besoin, dans `SoundPalette`), le miroir de glace.
+
 ## Version 0.23.12 — 6 octobre 2026 · GARDE DE SHIN (PLANCHE) · BOUCLIER DE DAICHA PLUS BAS · ÉVENTAILS DE YUKINA · MUSIQUES
 
 Wilhem : « descends le bouclier » (capture de DAICHA en garde) ; « SHIN, sa garde : inspire-toi de l'image » (planche : le sabre levé à deux mains au-dessus de la tête, en diagonale, jambes écartées, étincelles à l'impact) ; « SHIN a un vieil effet bleu quand il bloque » ; planche des éventails de YUKINA ; les 4 IDs de musique validés.

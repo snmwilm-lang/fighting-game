@@ -483,11 +483,37 @@ test("the HUD gauge of each passive: VOILE D'OMBRE / OMBRE INVERSÉE recharge, R
 	end
 end)
 
-test("sounds: only the client's own sounds, one material per kit (its own hits), one sound per action", function()
+test("sounds: the client's own sounds and Wilhem's uploads only, one material per kit (its own hits), one sound per action", function()
 	local shipped = {}
 	for _, name in Palette.CLIENT_SOUNDS do shipped["rbxasset://sounds/" .. name] = true end
+	-- Wilhem's uploads: well-formed ids, never the same take twice
+	local seen = {}
+	for group, takes in Palette.UPLOADS do
+		expect(#takes > 0, "upload group " .. group .. " is empty")
+		for _, id in takes do
+			expect(string.match(id, "^rbxassetid://%d+$") ~= nil, group .. ": a malformed id " .. id)
+			expect(not seen[id], group .. ": " .. id .. " is listed twice")
+			seen[id] = true
+		end
+	end
 	for name, file in Palette.FILES do
-		expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
+		if type(file) == "table" then
+			expect(Palette.UPLOADS[name] == file, "sound " .. name .. " is a group that is not one of Wilhem's uploads")
+		else
+			expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
+		end
+	end
+	-- the fists land with his punches, the blades with his steel; the swings cut the air
+	local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, VENOM = true, YUKINA = true }
+	for _, name in MoveData.KitOrder do
+		local own = Palette.MATERIALS[name]
+		local want = if STEEL[name] then "slash" else "punch"
+		expect(own.hit[1][1] == want and own.heavyHit[1][1] == want, name .. " does not land with " .. want)
+		expect(own.swing[1][1] == "whoosh", name .. " does not swing with a whoosh")
+	end
+	for kind, group in { Block = "guard", BlockSteel = "clash", Clash = "clash", KO = "ko", Dash = "dodge", Evade = "dodge",
+		Barrage = "barrage", SuperFlash = "ult" } do
+		expect(Palette.ACTIONS[kind] and Palette.ACTIONS[kind][1][1] == group, kind .. " does not play Wilhem's " .. group)
 	end
 	local function check(list, label)
 		expect(type(list) == "table" and #list > 0, label .. " has no sound")

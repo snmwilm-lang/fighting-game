@@ -38,6 +38,16 @@ function Music.idsFor(slotId)
 	return out
 end
 
+-- The next track of a slot's rotation (Wilhem: « les musiques, alterne-les, c'est en boucle
+-- les mêmes, fais-les tourner »): after `last`, always the one after it, round the list; the
+-- first time (`last` nil), a random start (`roll(n)` -> 1..n). Kept per slot across the menus
+-- and the matches, so every track comes round in turn.
+function Music.rotate(count, last, roll)
+	if count <= 0 then return nil end
+	if not last then return roll(count) end
+	return (last % count) + 1
+end
+
 -- The next track of a playlist of `count`: never `last` again when there is another one.
 -- `roll(n)` -> an integer 1..n (math.random in the game, fixed in the tests).
 function Music.nextTrack(count, last, roll)

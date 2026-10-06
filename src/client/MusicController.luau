@@ -6,7 +6,8 @@
 	slot falls back on a more general one, and no track at all means silence. Tracks loop and
 	cross-fade; VICTORY / DEFEAT play once over the music. Steps back under the cinematics.
 	Several tracks on a slot (Wilhem's MENU and BATTLE tracks, Music.TRACKS, or a Folder named
-	after the slot holding several Sounds) make a playlist: each plays to its end, then another.
+	after the slot holding several Sounds) make a playlist: each plays to its end, then the next
+	one in turn (Music.rotate), and the rotation carries on across the menus and the matches.
 	SETTINGS › MUSIC turns it off. See docs/AUDIO.md.
 ]]
 local SoundService = game:GetService("SoundService")
@@ -22,7 +23,7 @@ local FADE = 1.2
 local LEVEL = 0.5 -- (the Music group's volume when on)
 
 function MusicController.new()
-	local self = setmetatable({ enabled = true, slot = nil, theme = "MENU", current = nil, level = 0.85 }, MusicController)
+	local self = setmetatable({ enabled = true, slot = nil, theme = "MENU", current = nil, level = 0.85, lastTrack = {} }, MusicController)
 	local group = Instance.new("SoundGroup")
 	group.Name, group.Volume = "Music", LEVEL
 	group.Parent = SoundService
@@ -64,21 +65,22 @@ local function fadeOut(sound)
 	tween:Play()
 end
 
-function MusicController:play(slotId, nextOne)
+function MusicController:play(slotId)
 	if self.current then fadeOut(self.current); self.current = nil end
 	self.slot = slotId
 	if not slotId or not self.enabled then return end
 	local list = templates(slotId)
-	local index = Music.nextTrack(#list, if nextOne then self.trackIndex else nil, function(n) return math.random(1, n) end)
+	-- (each slot rotates through its tracks, remembering the last one across menus and matches)
+	local index = Music.rotate(#list, self.lastTrack[slotId], function(n) return math.random(1, n) end)
 	if not index then return end
-	self.trackIndex = index
+	self.lastTrack[slotId] = index
 	local base = list[index]
 	local sound = base:Clone()
 	-- (one track: it loops; a playlist: at its end, the next one)
 	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", #list == 1, self.group
 	if #list > 1 then
 		sound.Ended:Once(function()
-			if self.current == sound and self.slot == slotId then self:play(slotId, true) end
+			if self.current == sound and self.slot == slotId then self:play(slotId) end
 		end)
 	end
 	local target = (base.Volume > 0 and base.Volume or 0.6) * self.level

@@ -1,5 +1,15 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.17 — 6 octobre 2026 · LES MUSIQUES TOURNENT
+
+Wilhem : « les musiques, alterne-les stp, c'est en boucle les mêmes, j'aime pas, fais-les tourner ».
+- Avant : à chaque changement d'écran (menu → combat → menu), le morceau était **tiré au hasard** sans souvenir du précédent. Avec 2 morceaux par écran, on retombait une fois sur deux sur le même.
+- Maintenant, **rotation** (`Music.rotate`) : chaque écran (MENU, BATTLE…) retient son dernier morceau et passe **toujours au suivant**, à la fin d'un morceau comme d'un match à l'autre. Seul le tout premier est tiré au hasard.
+- Test (Kits « music ») : on simule 4 morceaux joués 8 fois de suite ; chacun revient à son tour, jamais deux fois d'affilée. Dans le jeu : le menu alterne ses 2 morceaux, le combat les siens.
+- Question posée à Wilhem : faire tourner les 4 morceaux partout (menu et combat) ?
+
+Tests : rotation vérifiée à part. Suite Kits en cours sur la 0.23.16 et la 0.23.17 (pas encore de résultat au moment de pousser).
+
 ## Version 0.23.16 — 6 octobre 2026 · LA GARDE DE SHIN, COHÉRENTE
 
 Wilhem : « l'épée de SHIN, elle garde comment ? Reste cohérent ».
@@ -10,7 +20,7 @@ Wilhem : « l'épée de SHIN, elle garde comment ? Reste cohérent ».
 - **Étincelles au point d'impact** : elles partent du point de l'arme le plus proche de l'endroit où le coup arrive, et non plus du milieu de l'arme. Ça vaut pour toutes les armes en garde.
 - Les autres gardes étaient déjà devant le corps : KAZAN (X), YUKINA (demi-cercle), RAIJIN (hampe en travers), DAICHA (disque).
 
-Tests : Animation 52 ; le reste est relancé.
+Tests : Animation 52, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871 ; Kits en cours.
 
 ## Version 0.23.15 — 6 octobre 2026 · LES GRIFFES DE KAZAN (PLANCHE) · ÉTINCELLES SUR TOUTES LES ARMES EN GARDE
 

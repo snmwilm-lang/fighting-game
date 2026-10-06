@@ -583,6 +583,16 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	end
 	expect(Music.nextTrack(1, 1, function() return 1 end) == 1 and Music.nextTrack(0, nil, function() return 1 end) == nil, "short playlists")
 	expect(#Music.idsFor("NOWHERE") == 0, "an unknown slot has tracks")
+	-- (Wilhem: « fais-les tourner »: a slot's tracks come round in turn, never the same twice)
+	local seenTracks, at = {}, nil
+	for _ = 1, 8 do
+		local nextOne = Music.rotate(4, at, function() return 3 end)
+		expect(nextOne ~= at, "the rotation plays the same track twice in a row")
+		seenTracks[nextOne] = (seenTracks[nextOne] or 0) + 1
+		at = nextOne
+	end
+	for i = 1, 4 do expect(seenTracks[i] == 2, "the rotation does not play every track in turn") end
+	expect(Music.rotate(2, 2, function() return 1 end) == 1 and Music.rotate(1, 1, function() return 1 end) == 1, "short rotations")
 	expect(Music.volume({ cinematic = true }) < Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "the music does not step back under a cinematic")
 	expect(Music.volume({ phase = "Fight", hp = { 0.2, 0.9 } }) > Music.volume({ phase = "Fight", hp = { 0.9, 0.9 } }), "a clutch moment does not raise it")
 	expect(next(Music.CUSTOM) == nil and next(Palette.CUSTOM) == nil, "an audio id was invented")

@@ -1,5 +1,13 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.32 — 6 octobre 2026 · UNE CROIX POUR FERMER LE SHOP
+
+Wilhem : « une croix pour fermer le shop, ou un FERMER ».
+
+- `ShopPage` : une croix rouge en haut à droite de la page (dessinée, `Theme.cross`) ramène au menu principal. Le solde de pièces et le bonus se décalent à sa gauche. Elle marche aussi à la manette (bouton sélectionnable) ; RETOUR ARRIÈRE marche toujours.
+
+Fichier : `src/client/ShopPage.luau`. Non vérifié dans Studio.
+
 ## Version 0.23.31 — 6 octobre 2026 · LES PACKS DE PIÈCES EN VENTE
 
 - `StoreConfig.PRODUCTS` : 1 000 pièces 3716825511, 3 000 pièces 3716825564, 7 500 pièces 3716825606. Ce sont les Developer Products créés par Wilhem, à 99 / 249 / 499 R$.

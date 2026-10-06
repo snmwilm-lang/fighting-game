@@ -61,14 +61,19 @@ function ShopPage.new(menu, root)
 	Theme.surface(page, RED)
 	Theme.heading(page, "SHOP", RED)
 	self.page = page
-	-- the balance (top right)
-	local wallet = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 20), Size = UDim2.fromOffset(150, 40),
+	-- a cross to close the shop (Wilhem: « une croix pour fermer le shop »), back to the menu
+	local close = Theme.button(page, { Name = "ShopClose", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -18, 0, 20),
+		Size = UDim2.fromOffset(40, 40), BackgroundColor3 = RED, Text = "" }, GOLD)
+	Theme.cross(close, 18)
+	close.Activated:Connect(function() menu:open("home") end)
+	-- the balance (top right, left of the cross)
+	local wallet = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -70, 0, 20), Size = UDim2.fromOffset(150, 40),
 		BackgroundColor3 = INK, BorderSizePixel = 0 }, page)
 	Theme.edge(wallet, GOLD)
 	CurrencyIcons.make("coins", wallet, 26, UDim2.fromOffset(8, 7))
 	self.balance = text(wallet, { Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -48, 1, 0), Font = UI_FONT, TextSize = 18,
 		Text = "0", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Right })
-	self.bonus = text(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -182, 0, 30), Size = UDim2.fromOffset(220, 20),
+	self.bonus = text(page, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -230, 0, 30), Size = UDim2.fromOffset(220, 20),
 		Font = UI_FONT, TextSize = 12, Text = "", TextColor3 = GREEN, TextXAlignment = Enum.TextXAlignment.Right })
 	-- the four tabs
 	self.tabButtons = {}

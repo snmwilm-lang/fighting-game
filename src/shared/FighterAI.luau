@@ -82,22 +82,22 @@ FighterAI.Bosses = table.freeze({
 			calm = 0.985, dash = 0.12, height = 0.03, sway = 0.03, cross = 0.35, whiffBait = 0.14, feint = 0.3,
 			rhythm = 0.12, pressure = 0.01,
 			-- what the strain does
-			decision = 1, -- a real decision time on top of his eye (ticks), even calm
-			slow = 6, -- + up to this much under full strain (x strain squared)
-			guardDrop = 0.35, -- share of his guard lost under full strain
-			lowDrop = 0.35, -- of his low guard
-			wrongHeight = 0.25, -- chance to guard the wrong height
-			guardTiming = 12, -- ticks his guard may be let go early or held too long
-			turtle = 0.15, -- more guarding when worked (the GRAB's answer)
+			decision = 0, -- a decision time on top of his eye (ticks) when calm (the strain adds `slow`)
+			slow = 4, -- + up to this much under full strain (x strain squared)
+			guardDrop = 0.25, -- share of his guard lost under full strain
+			lowDrop = 0.25, -- of his low guard
+			wrongHeight = 0.15, -- chance to guard the wrong height
+			guardTiming = 8, -- ticks his guard may be let go early or held too long
+			turtle = 0.1, -- more guarding when worked (the GRAB's answer)
 			optimal = 0.9, -- the optimal route (ultimate ending) when his read is clean
-			safe = 0.4, -- a short safe string instead, under strain
-			extendFail = 0.3, -- an extension he fumbles (the wrong button mid-route)
-			confirm = 0.35, -- a missed hit-confirm (stops on hit, goes on on block)
-			whiff = 0.25, -- swings from too far
-			punishMiss = 0.4, -- a punish missed, or tried too late
+			safe = 0.3, -- a short safe string instead, under strain
+			extendFail = 0.25, -- an extension he fumbles (the wrong button mid-route)
+			confirm = 0.3, -- a missed hit-confirm (stops on hit, goes on on block)
+			whiff = 0.2, -- swings from too far
+			punishMiss = 0.3, -- a punish missed, or tried too late
 			bite = 0.3, -- bites on a feint (a slow blow into it)
 			chase = 0.4, -- chases a waking opponent when he should guard
-			reads = 0.3, -- his reads (anti-air, counter hit, reversal) blunted under full strain
+			reads = 0.2, -- his reads (anti-air, counter hit, reversal) blunted under full strain
 		}) }),
 })
 FighterAI.Boss = FighterAI.Bosses.ASURA
@@ -644,7 +644,20 @@ function FighterAI:think(world, slot)
 			end
 		end
 	end
+	-- Against the GRAB: guarding while the opponent walks in close without attacking, the
+	-- levels that read habits sometimes let go of the guard for a jab (a strike beats a grab).
+	local walkingIn = read > 0 and not seen.move and not seen.airborne and not seen.down and dist < 3.3 and grounded
+		and me.stun == 0 and ((seen.vx or 0) * (me.x - seen.x) > 0.5 or dist < 2.6)
+	local function antiGrab()
+		if walkingIn and self:chance(read * 0.06) then
+			self.blockTicks = 0
+			input.block, input.crouch, input.light = false, false, true
+			return true
+		end
+		return false
+	end
 	if self.blockTicks > 0 and not self.plan then
+		if antiGrab() then return input end
 		self.blockTicks -= 1
 		-- Reads: while guarding, the guard height follows each new attack seen (once per move).
 		if read > 0 and seen.move and seen.phase == "Startup" and seen.guard and self.heightRead ~= opportunityKey(seen, world) then
@@ -797,6 +810,7 @@ function FighterAI:think(world, slot)
 		elseif intent == "retreat" then
 			input.axis = -toward
 		elseif intent == "guard" then
+			if antiGrab() then return input end
 			input.block, input.crouch = true, self.guardLow
 		elseif intent == "attack" then
 			local reach = 4.2
@@ -846,7 +860,7 @@ function FighterAI:think(world, slot)
 			-- (NORMAL and up) use it.
 			if self.grabPlan ~= self.plan then
 				self.grabPlan = self.plan
-				self.grabbing = read > 0 and (self.grabWatch or 0) > 20 and grounded and self:chance(read * 0.5)
+				self.grabbing = read > 0 and (self.grabWatch or 0) > 30 and grounded and self:chance(read * 0.3)
 			end
 			if self.grabbing and dist >= 3 then
 				input.axis = toward

@@ -1172,7 +1172,7 @@ kit("SHIN", {
 	Difficulty = 2,
 	Description = "Swordsman: great reach, quick cuts. PRECISION: a hit with the tip of the blade hurts more.",
 	Roles = SHIN,
-	Stats = { MaxHealth = 1450, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
+	Stats = { MaxHealth = 1520, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 }, -- (0.25.0: 1450 -> 1520, he sat on the 35 % floor)
 	-- PRÉCISION: a hit whose target stands in the outer part of the blade's reach (beyond From
 	-- of it) deals Bonus more.
 	Passive = { Type = "Tip", Name = "PRECISION", From = 0.68, Bonus = 0.12 }, -- (nerfed: from 0.62, +20 %)

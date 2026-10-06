@@ -193,19 +193,34 @@ function GameModes.featProgress(profile, name)
 	return math.min(tonumber(f[feat.stat]) or 0, feat.goal), feat.goal
 end
 
--- Gives every title whose feat is done and not yet owned; returns the new ones.
+-- Gives every title whose feat is done: owned now, and marked EARNED (even when it had been
+-- bought before: the feat upgrades it). Returns the titles newly earned.
 function GameModes.grantFeatTitles(profile)
 	if type(profile.titles) ~= "table" then profile.titles = {} end
+	if type(profile.earnedTitles) ~= "table" then profile.earnedTitles = {} end
 	local given = {}
 	for name, feat in GameModes.TITLE_FEATS do
 		local value = GameModes.featProgress(profile, name)
-		if value and value >= feat.goal and not table.find(profile.titles, name) then
-			table.insert(profile.titles, name)
+		if value and value >= feat.goal and not profile.earnedTitles[name] then
+			profile.earnedTitles[name] = true
+			if not table.find(profile.titles, name) then table.insert(profile.titles, name) end
 			table.insert(given, name)
 		end
 	end
 	table.sort(given)
 	return given
+end
+
+-- Earned by its feat, or only bought? (Wilhem: « pour la personne qui l'achète, une légère
+-- différence avec la personne qui l'a eu en jouant »): the earned one carries a star.
+function GameModes.titleEarned(profile, name)
+	return GameModes.TITLE_FEATS[name] ~= nil and type(profile.earnedTitles) == "table" and profile.earnedTitles[name] == true
+end
+
+-- The title as shown over the fighter and in the lobby: "COMBO ARTIST ★" when earned.
+function GameModes.titleDisplay(profile, name)
+	if type(name) ~= "string" or name == "" then return "" end
+	return if GameModes.titleEarned(profile, name) then name .. " ★" else name
 end
 
 function GameModes.titleCatalog(storeItems)

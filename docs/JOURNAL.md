@@ -1,5 +1,20 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.37 — 6 octobre 2026 · TITRE GAGNÉ ≠ TITRE ACHETÉ, EFFET BRILLANT
+
+Wilhem : « pour la personne qui l'achète, une légère différence avec la personne qui l'a eu en jouant » ; « rajoute des petits effets brillants ».
+
+- Un titre de la boutique gagné par son exploit est marqué GAGNÉ (`profile.earnedTitles`, `GameModes.titleEarned`).
+  - Il s'affiche avec une étoile partout (`titleDisplay` : « COMBO ARTIST ★ ») : au-dessus du héros, dans le lobby, dans le profil et sur la carte joueur.
+  - Acheté seulement, il reste sans étoile.
+  - Un joueur qui l'avait acheté puis réussit l'exploit obtient l'étoile, sans doublon dans sa liste.
+- Fenêtre TITRES :
+  - un titre gagné a un liseré doré, la mention « ★ GAGNÉ EN JOUANT » et un effet brillant : une bande de lumière qui balaie la carte, et 5 petites étoiles ✦ qui scintillent et tournent ;
+  - un titre seulement acheté affiche « ACHETÉ · gagne-le pour avoir son ★ » avec l'avancement de l'exploit.
+- Test (Lobby) : pas d'étoile pour un titre acheté ; l'étoile après l'exploit, sans doublon ; jamais d'étoile sur un titre sans exploit (CHAMPION DE LA SEMAINE, défis).
+
+Fichiers : `src/shared/GameModes.luau`, `src/server/init.server.luau`, `src/client/MenuController.luau`, `src/shared/Locale.luau`, `tests/Lobby.test.luau`. Tests : Lobby 43. Non vérifié dans Studio.
+
 ## Version 0.23.36 — 6 octobre 2026 · LES TITRES DE LA BOUTIQUE SE GAGNENT AUSSI
 
 Wilhem : « certains titres de la boutique devraient être obtenables avec des conditions cohérentes avec leur nom ».

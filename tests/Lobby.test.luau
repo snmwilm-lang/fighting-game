@@ -264,6 +264,16 @@ test("shop titles are also earned by a feat that matches their name; the shop st
 	got = GameModes.grantFeatTitles(p)
 	expect(#got == 1 and got[1] == "FINAL BOSS", "FINAL BOSS not earned by beating both bosses")
 	expect(GameModes.featProgress({}, "COMBO ARTIST") == 0 and GameModes.featProgress({}, "WEEKLY CHAMPION") == nil, "feat progress")
+	-- bought, then earned: the feat upgrades it (its star); bought only: no star
+	local buyer = { titles = { "BREAKER" } }
+	expect(GameModes.titleDisplay(buyer, "BREAKER") == "BREAKER", "a bought title shows a star")
+	expect(GameModes.titleDisplay(p, "BREAKER") == "BREAKER ★", "an earned title has no star")
+	for _ = 1, 25 do GameModes.featEvent(buyer, { kind = "GuardBreak", attacker = 1 }, 1, Moves) end
+	got = GameModes.grantFeatTitles(buyer)
+	expect(#got == 1 and #buyer.titles == 1 and GameModes.titleDisplay(buyer, "BREAKER") == "BREAKER ★",
+		"earning a bought title did not give it its star (or listed it twice)")
+	expect(GameModes.titleDisplay(p, "WEEKLY CHAMPION") == "WEEKLY CHAMPION" and GameModes.titleDisplay(p, "") == "",
+		"a title without feat gets a star")
 end)
 
 -- Wilhem: « plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 ».

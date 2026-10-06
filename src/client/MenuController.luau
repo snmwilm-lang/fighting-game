@@ -552,17 +552,53 @@ function MenuController:showTitles()
 		local okFont, font = pcall(function() return Enum.Font[look.font] end)
 		if not okFont or not font then font = DISPLAY end
 		local name = label(b, { Position = UDim2.fromOffset(66, 6), Size = UDim2.new(1, -170, 0, 30), Font = font, TextScaled = true,
-			Text = if t then "« " .. t.name .. " »" else "NO TITLE", TextColor3 = WHITE, TextTransparency = if mine then 0 else 0.45,
+			Text = if t then "« " .. GameModes.titleDisplay(s, t.name) .. " »" else "NO TITLE", TextColor3 = WHITE,
+			TextTransparency = if mine then 0 else 0.45,
 			ZIndex = 55 })
 		new("UITextSizeConstraint", { MaxTextSize = 26 }, name)
 		new("UIGradient", { Color = ColorSequence.new(c1, c2) }, name)
 		stroke(name, 1.5)
+		-- (a shop title earned by its feat: a star, EARNED and a gold edge; bought only: BOUGHT)
+		local earned = t ~= nil and GameModes.titleEarned(s, t.name)
+		local bought = t ~= nil and mine and t.source == "feat" and not earned
+		if earned and edge and not on then edge.Color, edge.Thickness = GOLD, 2 end
+		-- (earned: shiny, a band of light sweeping the card and little stars twinkling round it)
+		if earned then
+			local shine = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0,
+				BorderSizePixel = 0, ZIndex = 56, Active = false }, b)
+			local band = new("UIGradient", { Rotation = 20, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(0.58, 1),
+				NumberSequenceKeypoint.new(1, 1) }) }, shine)
+			local stars = {}
+			for k = 1, 5 do
+				stars[k] = label(b, { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(14, 14), Font = UI_FONT, TextSize = 12,
+					Text = "✦", TextColor3 = c1:Lerp(WHITE, 0.5), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 57,
+					Position = UDim2.new(0.12 + k * 0.13, 0, if k % 2 == 0 then 0.18 else 0.82, 0) })
+			end
+			task.spawn(function()
+				local start = os.clock() + order * 0.3
+				while b.Parent do
+					local t = os.clock() - start
+					band.Offset = Vector2.new((t * 0.6) % 2.4 - 1.2, 0)
+					for k, star in stars do
+						local w = 0.5 + 0.5 * math.sin(t * 3 + k * 1.7)
+						star.TextTransparency = 1 - w * w
+						star.Rotation = (t * 40 + k * 30) % 360
+					end
+					task.wait(1 / 30)
+				end
+			end)
+		end
 		-- how to get it, in small
 		-- (a feat: its progress; the shop's price too)
 		local how = if t then t.how else "Show no title at all."
 		local value, goal = if t then GameModes.featProgress(s, t.name) else nil, nil
 		if value and not mine then how = how .. " (" .. value .. "/" .. goal .. ")" end
 		if t and t.alt and not mine then how = how .. " " .. t.alt end
+		if earned then how = "★ EARNED BY PLAYING · " .. how
+		elseif bought then
+			how = "BOUGHT · earn it to get its ★: " .. how .. (if value then " (" .. value .. "/" .. goal .. ")" else "")
+		end
 		label(b, { Position = UDim2.fromOffset(66, 36), Size = UDim2.new(1, -170, 0, 24), Font = BODY_FONT, TextSize = 10, TextWrapped = true,
 			Text = how, TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 			TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 55 })
@@ -601,7 +637,7 @@ function MenuController:showPlayerCard()
 	for _, q in Quests.list(s) do if q.done then questsDone += 1 end end
 	local badges = Store.badges(StoreConfig, s)
 	local entries = {
-		{ if (s.title or "") ~= "" then "« " .. s.title .. " »" else "NO TITLE SHOWN", GOLD, 16 },
+		{ if (s.title or "") ~= "" then "« " .. GameModes.titleDisplay(s, s.title) .. " »" else "NO TITLE SHOWN", GOLD, 16 },
 		{ if #badges > 0 then "★ " .. table.concat(badges, " · ") else "", Color3.fromHex("FFD23F"), 15 },
 		{ "RANK " .. (s.rank or "BRONZE") .. " · " .. (s.rating or 1000) .. " PTS", WHITE, 15 },
 		{ "THIS WEEK: " .. (s.weekPoints or 0) .. " PTS", WHITE, 15 },
@@ -2259,7 +2295,7 @@ function MenuController:refreshProfile()
 	for _, kind in { "coins", "crystals", "rank" } do self:rollWallet(kind, wallet[kind]) end
 	self.profileRank.Text ..= " · " .. (s.wins or 0) .. " W"
 	if s.title and s.title ~= "" then
-		self.profileRank.Text = "« " .. s.title .. " » · " .. self.profileRank.Text
+		self.profileRank.Text = "« " .. GameModes.titleDisplay(s, s.title) .. " » · " .. self.profileRank.Text
 		self.profileRank.TextColor3 = GOLD
 	end
 	for name, edge in self.rosterTiles do

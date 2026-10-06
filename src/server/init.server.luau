@@ -768,6 +768,7 @@ function menuStatus(player, bought, unlocked)
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
 		shinGrade = profile.shinGrade,
 		feats = profile.feats, -- (TITLES: the progress of each title's feat)
+		earnedTitles = profile.earnedTitles, -- (TITLES: earned by playing, the star; else bought)
 		weekPoints = Champions.pointsOf(profile, Champions.week(os.time())),
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
@@ -882,7 +883,7 @@ local function buildHero(player)
 	local ticket = client.heroTicket
 	local kit = client.profile and client.profile.hero or "KAI"
 	local look = CharacterData.Skins[CharacterData.styleFor(kit, client.profile, nil, devOn(player, client))]
-	player:SetAttribute("Title", client.profile and client.profile.title or "") -- (shown over the hero and in the hub)
+	player:SetAttribute("Title", if client.profile then GameModes.titleDisplay(client.profile, client.profile.title) else "") -- (over the hero, in the hub)
 	task.spawn(function()
 		local model
 		if client.avatar then
@@ -1128,7 +1129,7 @@ local function applyPassLooks(player, client)
 	if profile.title ~= "" and not Champions.canShow(profile, profile.title) and not Store.passTitle(storeIdx, profile, profile.title) then
 		profile.title = ""
 	end
-	player:SetAttribute("Title", profile.title)
+	player:SetAttribute("Title", GameModes.titleDisplay(profile, profile.title))
 	profile.taunts = Taunts.sanitize(profile.taunts, profile)
 end
 local function checkPasses(player, client)
@@ -1427,7 +1428,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		if typeof(packet.title) ~= "string" then return suspect(player, "malformed") end
 		if client.profile and (Champions.canShow(client.profile, packet.title) or Store.passTitle(storeIdx, client.profile, packet.title)) then
 			client.profile.title = packet.title
-			player:SetAttribute("Title", packet.title)
+			player:SetAttribute("Title", GameModes.titleDisplay(client.profile, packet.title))
 			saveProfile(player, client)
 			menuStatus(player)
 			broadcastHub(true)
@@ -1870,6 +1871,7 @@ local function followFeats(match, events)
 			GameModes.featBosses(client.profile)
 			for _, title in GameModes.grantFeatTitles(client.profile) do
 				menuRemote:FireClient(s.owner, { titleEarned = title })
+				s.owner:SetAttribute("Title", GameModes.titleDisplay(client.profile, client.profile.title)) -- (worn: its star)
 				saveProfile(s.owner, client, true)
 			end
 		end
@@ -1934,7 +1936,7 @@ local function followEvents(match, events)
 					profile.shinGrade = grade
 					profile.title = title or profile.title
 					if title and not table.find(profile.titles, title) then table.insert(profile.titles, title) end
-					owner:SetAttribute("Title", profile.title)
+					owner:SetAttribute("Title", GameModes.titleDisplay(profile, profile.title))
 				end
 				saveProfile(owner, client)
 				menuRemote:FireClient(owner, { result = true, challenge = true, boss = "KUROEN SHIN", coins = gain, won = won, grade = grade, title = title,
@@ -1958,7 +1960,7 @@ local function followEvents(match, events)
 					profile.asuraGrade = grade
 					profile.title = title or profile.title
 					if title and not table.find(profile.titles, title) then table.insert(profile.titles, title) end
-					owner:SetAttribute("Title", profile.title)
+					owner:SetAttribute("Title", GameModes.titleDisplay(profile, profile.title))
 				end
 				saveProfile(owner, client)
 				menuRemote:FireClient(owner, { result = true, challenge = true, coins = gain, won = won, grade = grade, title = title,

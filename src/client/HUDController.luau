@@ -296,9 +296,7 @@ function HUD.new(config)
 			Rotation = if left then -6 else 6 }), "Energy")
 		stroke(count, 2)
 		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(150, 150, 160)) }, count)
-		local kiLabel = tint(text(panel, { Text = "KI", TextSize = 12, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(78, 14),
-			AnchorPoint = Vector2.new(outer, 0), Position = px(0, 2) }), "Energy")
-		stroke(kiLabel, 2)
+		-- (no "KI" word over it: the number and the cells say it, one piece of information once)
 		local segments, segmentEdges = {}, {}
 		local CELL = 118
 		for i = 1, config.MaxMeter / config.MeterBar do
@@ -449,18 +447,18 @@ function HUD.new(config)
 	end
 
 	-- Status and buttons below the header.
-	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(12, 112), TextSize = 12,
+	self.status = text(gui, { Name = "Status", Size = UDim2.new(1, -24, 0, 18), Position = UDim2.fromOffset(56, 126), TextSize = 12,
 		Font = UI_FONT, TextColor3 = Color3.fromHex("B9B9C2") })
 	--[[
 		The buttons, tidied (Wilhem: "simplify these UIs"): along the top only ◀ MENU, COMBOS and
 		⚙ TOOLS; TOOLS opens one column, in sections (FIGHTER, TRAINING, DISPLAY), where a hidden
 		button leaves no hole (a list, not fixed places). Closed by default.
 	]]
-	local topRow = new("Frame", { Name = "TopButtons", BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 134),
-		Size = UDim2.fromOffset(600, 30) }, gui)
+	local topRow = new("Frame", { Name = "TopButtons", BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 120),
+		Size = UDim2.fromOffset(40, 30) }, gui)
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, topRow)
 	local tools = new("Frame", { Name = "Tools", Visible = false, BorderSizePixel = 0,
-		Position = UDim2.fromOffset(12, 170), Size = UDim2.fromOffset(230, 0), AutomaticSize = Enum.AutomaticSize.Y }, gui)
+		Position = UDim2.fromOffset(12, 156), Size = UDim2.fromOffset(230, 0), AutomaticSize = Enum.AutomaticSize.Y }, gui)
 	Theme.surface(tools, Theme.RED) -- (the menu's panels: gradient, fine edge, red rule on top)
 	new("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, tools)
 	new("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8),
@@ -486,25 +484,28 @@ function HUD.new(config)
 		b.Activated:Connect(callback)
 		return b
 	end
-	self.menuButton = button("Menu", "◀ MENU", 84, function()
-		if self.onMenu then self.onMenu() end
-	end, topRow)
-	self.menuButton.TextColor3 = Theme.GOLD
-	self.toolsButton = button("ToolsToggle", "⚙ TOOLS +", 110, function()
+	-- (0.25.0, Wilhem: « la zone de gauche beaucoup plus minimaliste »: one small button at the
+	-- top left, the rest in its column: MENU, COMBOS, TARO's styles, the tools)
+	self.toolsButton = button("ToolsToggle", "☰", 34, function()
 		tools.Visible = not tools.Visible
-		self.toolsButton.Text = if tools.Visible then "⚙ TOOLS −" else "⚙ TOOLS +"
+		if not tools.Visible then self.combosPanel.Visible = false end
 	end, topRow)
-	self.combosButton = button("Combos", "COMBOS", 84, function()
+	self.toolsButton.TextSize = 16
+	self.menuButton = button("Menu", "◀ MENU", 0, function()
+		if self.onMenu then self.onMenu() end
+	end)
+	self.menuButton.TextColor3 = Theme.GOLD
+	self.combosButton = button("Combos", "COMBOS", 0, function()
 		self.combosPanel.Visible = not self.combosPanel.Visible
-	end, topRow)
-	-- TARO only: his two boxing styles (keys 1 / & and 2 / é), always at hand.
+	end)
+	-- TARO only: his two boxing styles (keys 1 / & and 2 / é; his passive line shows the one on).
 	self.stanceButtons = {
-		button("Stance1", "1 · CLASSIC (&)", 136, function()
+		button("Stance1", "1 · CLASSIC (&)", 0, function()
 			if self.onStance then self.onStance(1) end
-		end, topRow),
-		button("Stance2", "2 · PEEKABOO (é)", 136, function()
+		end),
+		button("Stance2", "2 · PEEKABOO (é)", 0, function()
 			if self.onStance then self.onStance(2) end
-		end, topRow),
+		end),
 	}
 	-- FIGHTER: who fights (T / G in training), the look, the style.
 	self.fighterHeading = heading("FIGHTER")
@@ -612,10 +613,10 @@ function HUD.new(config)
 	stroke(self.help, 1.5)
 	local function updateHelp()
 		local gamepad = UIS.PreferredInput == Enum.PreferredInput.Gamepad
-		self.help.Visible = not UIS.TouchEnabled
+		self.help.Visible = not UIS.TouchEnabled and self.trainingHelp == true
 		self.help.Text = if gamepad
-			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · BACK or RB: guard · RT: dash · R3: taunts · SELECT: reset · HOLD L3: menu"
-			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · E: special · R: ultimate · C: fatal blow · BACK or F: guard · SHIFT: dash · T: fighter · G: CPU fighter · CTRL: lock mouse · P: menu"
+			then "STICK: move · A: jump · X: attack · B: heavy · Y: special · LT: ultimate · LB: fatal blow · BACK or RB: guard · RB + X: grab · RT: dash (in the air + up / down) · R3: taunts · HOLD L3: menu"
+			else "A/Q · D: move · SPACE: jump · S: down · LEFT CLICK: attack · RIGHT CLICK: heavy · BOTH CLICKS or J + K: grab · E: special · R: ultimate · C: fatal blow · BACK or F: guard · SHIFT: dash (in the air + up / down) · T: fighter · P: menu"
 	end
 	UIS:GetPropertyChangedSignal("PreferredInput"):Connect(updateHelp)
 	updateHelp()
@@ -1497,7 +1498,7 @@ function HUD:update(world, views, fps, dt)
 			bar.player.TextColor3 = bar.energy
 		end
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
-		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player .. " · " .. kit.Role
+		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player
 		if view.team and #view.team > 1 then
 			-- Relay team: who is out (X), who fights (●), who waits (○).
 			local marks = {}
@@ -1575,12 +1576,12 @@ function HUD:update(world, views, fps, dt)
 		local u = kit.Ultimates
 		local ready = view.meter >= MoveData.Moves[u.Rush].meterCost
 		bar.ready.Visible = ready
-		bar.ready.Text = if view.meter >= MoveData.Moves[u.Awaken].meterCost then "3 BARS · AWAKENING / " .. kit.GateTitle.text
-			else "ULTIMATE READY · R"
+		bar.ready.Text = if view.meter >= MoveData.Moves[u.Awaken].meterCost then "AWAKENING / " .. kit.GateTitle.text
+			else "ULTIMATE · R"
 		-- COUP FATAL (last breath, once per match): announced above everything else.
 		if view.fatal == "ready" then
 			bar.ready.Visible = true
-			bar.ready.Text = "FATAL BLOW READY · C — " .. moveName(kit, "Fatal")
+			bar.ready.Text = "FATAL BLOW · C"
 			bar.ready.TextTransparency = 0.1 * (1 + math.sin(os.clock() * 12))
 		elseif ready then bar.ready.TextTransparency = 0.25 + 0.25 * math.sin(os.clock() * 8) end
 	end
@@ -1599,6 +1600,11 @@ function HUD:update(world, views, fps, dt)
 		else "ROUND " .. world.round
 	-- Training tools only in ENTRAÎNEMENT (the server ignores them elsewhere anyway).
 	local solo = world.solo and (world.mode == nil or world.mode == "TRAINING")
+	-- (the keys' line at the bottom: in training only; in a fight the screen stays clear)
+	if self.trainingHelp ~= (world.training == true) then
+		self.trainingHelp = world.training == true
+		self.help.Visible = not UIS.TouchEnabled and self.trainingHelp
+	end
 	self.labButton.Visible = solo and localSlot > 0
 	self.ultiButton.Visible = solo and localSlot > 0
 	self.ultiButton.Text = if world.ultimateConditions then "ULTIMATES: ON (full ki, 25 % health)" else "ULTIMATES: OFF"
@@ -1658,7 +1664,7 @@ function HUD:update(world, views, fps, dt)
 		if v and v.ping then table.insert(pings, (if slot == localSlot then "YOU " else "OPP. ") .. v.ping .. " ms") end
 	end
 	-- (the technical line: in training, or with TOOLS open; out of the way in a real fight)
-	self.status.Visible = world.training == true or (self.tools ~= nil and self.tools.Visible)
+	self.status.Visible = self.tools ~= nil and self.tools.Visible
 	self.status.Text = string.format("v%s · %s · %d FPS%s%s", self.config.Version,
 		if localSlot == 0 then "SPECTATOR" elseif world.training then "TRAINING"
 			elseif solo then "VS " .. world.dummyMode else "VERSUS", math.floor(fps + 0.5),

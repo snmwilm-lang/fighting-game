@@ -2741,6 +2741,55 @@ test("dash jump: a jump cuts the ground dash once under way and keeps some of it
 	expect(b.y == 0, "a jump cut the dash on its first tick")
 end)
 
+-- ===================================================================== INPUT BUFFER (0.25.0)
+test("input buffer: a jump or a dash pressed during an attack's recovery comes out as it ends (not an auto-combo)", function()
+	for _, kind in { "jump", "dash" } do
+		local world = closeWorld(20)
+		local a = world.fighters[1]
+		run(world, 1, { input({ light = true }) })
+		local m = Moves[a.move]
+		local total = MoveData.total(m)
+		run(world, total - 4) -- 3 ticks before the end of the whiffed jab
+		run(world, 1, { input({ [kind] = true, axis = 1 }) })
+		local out
+		for t = 1, 10 do
+			run(world, 1, { input({ axis = 1 }) })
+			if (kind == "jump" and a.y > 0) or (kind == "dash" and a.state == "Dashing") then out = t break end
+		end
+		expect(out ~= nil and out <= 5, kind .. " pressed in the recovery was lost (" .. tostring(out) .. ")")
+		-- too early: lost
+		local world2 = closeWorld(20)
+		local b = world2.fighters[1]
+		run(world2, 1, { input({ light = true }) })
+		run(world2, 2, function(t) return { input({ [kind] = t == 2 }) } end)
+		local late = false
+		for _ = 1, 40 do
+			run(world2, 1)
+			if b.y > 0 or b.state == "Dashing" then late = true end
+		end
+		expect(not late, kind .. " pressed long before the end still came out")
+	end
+end)
+
+test("input buffer: the jump pressed during a launcher's hitstop still follows it up (super jump)", function()
+	local world = closeWorld(3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local launcher = MoveData.Kits.KAI.Starters.Crouch.Heavy
+	if not Moves[launcher].jumpCancel then launcher = "Uppercut" end
+	local superJump = false
+	local pressed = false
+	for t = 1, 60 do
+		local press = not pressed and a.move ~= nil and a.moveContact == "Hit" and a.hitstop > 2
+		if press then pressed = true end
+		local events = Sim.step(world, { input({ heavy = t == 1, crouch = t <= 2, jump = press }), Sim.neutralInput() })
+		if find(events, "SuperJump") then superJump = true end
+	end
+	expect(pressed, "the launcher never connected")
+	if Moves[a.move or launcher] and Moves[launcher].jumpCancel then
+		expect(superJump, "the jump pressed in the hitstop was lost")
+	end
+end)
+
 -- ===================================================================== GRAB (0.25.0)
 test("grab: goes through a held guard, knocks down, modest damage", function()
 	local world = closeWorld(3)

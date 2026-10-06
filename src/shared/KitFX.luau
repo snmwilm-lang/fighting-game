@@ -172,5 +172,37 @@ function KitFX.poisonLook(charges, time, since)
 	return { tint = math.min(0.85, tint), bubbles = P.bubbles[n], drips = P.drips[n] }
 end
 
+-- IMPACT HIERARCHY (0.25.0, Wilhem: « petits coups presque pas de shake, lourds un shake court,
+-- finisher / ultime un shake fort »): how a landed blow shakes the camera, from the move and
+-- its hit event. A pure table, so the tiers are tested: light < heavy < finisher < ko.
+--   tier: "light" | "heavy" | "finisher" | "ko"; shake = { amplitude, seconds }; punch = the
+--   camera's push toward the impact (0 = none); frame = the impact frame (0, 1 or 2).
+KitFX.IMPACTS = {
+	light = { shake = { 0.03, 0.05 }, punch = 0, frame = 0, spark = 0.9 },
+	heavy = { shake = { 0.16, 0.1 }, punch = 0.06, frame = 0, spark = 1.25 },
+	finisher = { shake = { 0.42, 0.22 }, punch = 0.16, frame = 1, spark = 1.6 },
+	ko = { shake = { 0.75, 0.38 }, punch = 0.45, frame = 2, spark = 1.9 },
+	block = { shake = { 0.02, 0.05 }, punch = 0, frame = 0, spark = 0.8 },
+}
+function KitFX.impactTier(m, event)
+	if event.kind == "Block" then return "block" end
+	if event.ko then return "ko" end
+	-- (a cinematic: its blows are heavy, its last one the strongest)
+	if event.cinematic then return if event.heavy then "ko" else "heavy" end
+	if m and (m.kind == "Ultimate" or m.fatal) then return "ko" end
+	if not m then return if event.heavy then "heavy" else "light" end
+	-- the end of a string: a blow that knocks down, launches, bounces or breaks the guard, a
+	-- skill's last hit, or the strongest freezes (hitstop 14 and up)
+	local final = event.final ~= false
+	if final and (m.knockdown or m.groundBounce or m.wallBounce or m.spike or (m.hitstop or 0) >= 14
+		or (m.kind == "Skill" and (m.hitstop or 0) >= 12)) then
+		return "finisher"
+	end
+	if event.counter or m.heavy or (m.hitstop or 0) >= 10 or m.launch > 0 then return "heavy" end
+	return "light"
+end
+function KitFX.impact(m, event)
+	return KitFX.IMPACTS[KitFX.impactTier(m, event)], KitFX.impactTier(m, event)
+end
 
 return KitFX

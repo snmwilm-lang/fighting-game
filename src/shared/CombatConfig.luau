@@ -24,6 +24,7 @@ return table.freeze({
 	AirCarryTicks = 8, -- after an air dash (or a dash jump) the speed eases back to air control
 	GrabChordTicks = 6, -- a GRAB arriving this soon after a jab started (not out yet) replaces it (L + R chord)
 	GrabTechTicks = 16, -- grab against grab: both let go and step back
+	MoveBufferTicks = 6, -- a jump or a dash pressed this early (moving ticks) still comes out when possible
 	DashJumpTicks = 3, -- a ground dash may be cut by a jump after this long (it keeps some speed)
 	ArenaMinX = -28,
 	ArenaMaxX = 28,

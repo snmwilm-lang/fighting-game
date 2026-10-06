@@ -1971,8 +1971,11 @@ function EffectsController:onEvent(event, views, rigs)
 		local m = MoveData.Moves[event.move]
 		local shakeScale = if self.reduced then 0.4 else 1
 		if event.kind == "Hit" then
-			local heavy = event.heavy or event.ko
-			self:spark(position, attackerColor, if heavy then 1.5 else 1)
+			-- (the impact hierarchy, KitFX.impact: a jab barely moves the camera, a heavy blow a
+			-- short jolt, a finisher a real shake, the K.O. and the ultimates the strongest)
+			local impact, tier = KitFX.impact(m, event)
+			local heavy = tier ~= "light"
+			self:spark(position, attackerColor, impact.spark)
 			local attackerView = views[event.attacker]
 			self:kitHit(event.move, position, attackerColor, heavy, if attackerView then attackerView.facing else 1)
 			if event.tip then
@@ -1980,11 +1983,9 @@ function EffectsController:onEvent(event, views, rigs)
 				self:cut(position - Vector3.new(1.4, 0.5, 0), position + Vector3.new(1.4, 0.5, 0), attackerColor)
 			end
 			if rigs[event.defender] then self:flash(rigs[event.defender]) end
-			self.camera:shake((if heavy then 0.5 else 0.18) * shakeScale, if heavy then 0.25 else 0.12)
-			if heavy then
-				self:impactFrame(attackerColor, if event.ko or event.cinematic then 2 else 1)
-				self.camera:punch(if event.ko then 0.45 else 0.12, position)
-			end
+			self.camera:shake(impact.shake[1] * shakeScale, impact.shake[2])
+			if impact.frame > 0 then self:impactFrame(attackerColor, impact.frame) end
+			if impact.punch > 0 then self.camera:punch(impact.punch, position) end
 		else
 			local defender = views[event.defender]
 			local shieldColor = Color3.fromHex(CharacterData[event.defender].Shield)
@@ -2013,7 +2014,8 @@ function EffectsController:onEvent(event, views, rigs)
 				self:spark(position, Color3.fromHex("FFD23F"), 1.8) -- (no full-screen impact frame: Wilhem)
 				self.camera:shake(0.5 * shakeScale, 0.3)
 			else
-				self.camera:shake(0.1 * shakeScale, 0.08)
+				local blocked = KitFX.IMPACTS.block
+				self.camera:shake(blocked.shake[1] * shakeScale, blocked.shake[2])
 			end
 		end
 		if m and m.launch > 0 and event.kind == "Hit" and views[event.defender] then

@@ -58,6 +58,7 @@ local function newFighter(slot, c, kit, stanceId)
 		dashTicks = 0, dashCooldown = 0, dashDirection = facing,
 		-- AIR DASH: airDash = "" (none), "Side", "Up" or "Down" while it lasts; one per jump.
 		airDash = "", airDashUsed = false, airDashAge = 0, airCarry = 0, landLag = 0,
+		jumpBuf = 0, dashBuf = 0, -- the jump / dash pressed a little early, still waiting (ticks left)
 		hp = stats.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		moveHits = 0, lastHitFrame = 0, projectileSpawned = false,
@@ -626,6 +627,13 @@ local function stepFighter(world, f, input, events)
 	if input.block or input.jump or input.dash then
 		table.clear(f.buffer)
 	end
+	-- INPUT BUFFER for the jump and the dash (like the attacks' queue): pressed a little early
+	-- (the end of an attack, a hitstop, the last frames of a fall), they come out as soon as
+	-- possible, within MoveBufferTicks of moving time. Never out of a hit (only a reversal).
+	if not locked or remaining <= c.ReversalBufferTicks then
+		if input.jump then f.jumpBuf = c.MoveBufferTicks or 6 end
+		if input.dash then f.dashBuf = c.MoveBufferTicks or 6 end
+	end
 	-- VOILE D'OMBRE's counter (AKEMI, like Ultra Instinct): L or R right after an evade, she
 	-- reappears behind the attacker (still in its whiffed attack) and strikes.
 	if f.evadeCounter > 0 and f.stunKind == "Evade" and f.hitstop == 0 and (input.light or input.heavy) then
@@ -725,6 +733,8 @@ local function stepFighter(world, f, input, events)
 		return
 	end
 	f.frozen = false
+	local wantJump, wantDash = (f.jumpBuf or 0) > 0, (f.dashBuf or 0) > 0
+	f.jumpBuf, f.dashBuf = math.max(0, (f.jumpBuf or 0) - 1), math.max(0, (f.dashBuf or 0) - 1)
 	-- (a fresh press of the guard: the read of AKEMI's counter)
 	local pressedBlock = input.block and not f.blockHeld
 	f.blockHeld = input.block == true
@@ -897,13 +907,14 @@ local function stepFighter(world, f, input, events)
 		f.moveFrame += 1
 		-- HIBIKI's TEMPO: recoveries run twice as fast.
 		if f.tempo > 0 and f.moveFrame > m.startup + m.active then f.moveFrame += 1 end
-		if m.jumpCancel and f.moveContact == "Hit" and input.jump and grounded
+		if m.jumpCancel and f.moveContact == "Hit" and wantJump and grounded
 			and f.moveFrame > m.startup + m.active then
 			-- Super jump after a launcher to follow the target.
 			f.move, f.moveContact = nil, nil
 			f.vy = c.SuperJumpVelocity
 			f.vx = input.axis * stats.AirSpeed
 			f.airAttackUsed, f.airDashUsed = false, false
+			f.jumpBuf = 0
 			grounded = false
 			table.insert(events, { kind = "SuperJump", attacker = f.slot })
 		elseif f.moveFrame > world.moveData.total(m) - f.recoveryCut then
@@ -1032,7 +1043,8 @@ local function stepFighter(world, f, input, events)
 		and (input.block or (f.holdBack and (crouched or threatened(world, f))))
 	-- A jump cuts a ground dash once it is under way (a DASH JUMP: it keeps some of the speed).
 	local dashJump = grounded and f.dashTicks > 0 and f.airDash == "" and c.DashTicks - f.dashTicks >= (c.DashJumpTicks or 3)
-	if input.jump and grounded and not crouched and not blocking and (f.dashTicks == 0 or dashJump) then
+	if wantJump and grounded and not crouched and not blocking and (f.dashTicks == 0 or dashJump) then
+		f.jumpBuf = 0
 		f.vy = stats.JumpVelocity
 		grounded = false
 		f.airAttackUsed, f.airDashUsed = false, false
@@ -1041,7 +1053,8 @@ local function stepFighter(world, f, input, events)
 			f.dashTicks, f.airCarry = 0, c.AirCarryTicks or 8
 		end
 	end
-	if input.dash and grounded and not crouched and not blocking and f.dashTicks == 0 and f.dashCooldown == 0 then
+	if wantDash and grounded and not crouched and not blocking and f.dashTicks == 0 and f.dashCooldown == 0 then
+		f.dashBuf = 0
 		f.dashDirection = if math.abs(input.axis) > 0.1 then math.sign(input.axis) else f.facing
 		f.dashTicks = c.DashTicks
 		if f.shackled then
@@ -1078,7 +1091,8 @@ local function stepFighter(world, f, input, events)
 	-- AIR DASH: one per jump (back on the floor, or a super jump, gives it back), sharing the
 	-- dash cooldown. DOWN + DASH falls fast, UP + DASH rises fast, otherwise a straight dash
 	-- that holds its height (toward the stick, or forward).
-	if input.dash and not grounded and f.dashTicks == 0 and f.dashCooldown == 0 and not f.airDashUsed then
+	if wantDash and not grounded and f.dashTicks == 0 and f.dashCooldown == 0 and not f.airDashUsed then
+		f.dashBuf = 0
 		f.airDashUsed, f.airDashAge = true, 0
 		f.dashCooldown = c.DashCooldownTicks
 		f.airDash = if input.crouch then "Down" elseif input.up then "Up" else "Side"

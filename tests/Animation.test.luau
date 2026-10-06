@@ -1521,6 +1521,36 @@ T.test("VENOM's poison shows on its victim: a green glaze that pulses, bubbles a
 	expect(KitFX.poisonLook(9, 0).bubbles == KitFX.POISON.bubbles[3], "more charges than the most are not clamped")
 end)
 
+T.test("impact hierarchy: a jab barely shakes the camera, a heavy blow a little, a finisher more, the K.O. and ultimates most", function()
+	local KitFX = require("../src/shared/KitFX")
+	local M = MoveData.Moves
+	local function tier(id, extra)
+		local event = { kind = "Hit", final = true, heavy = M[id].heavy == true }
+		for k, v in extra or {} do event[k] = v end
+		return KitFX.impactTier(M[id], event), KitFX.impact(M[id], event)
+	end
+	local light, jab = tier("Jab")
+	local heavyTier, smash = tier("Smash")
+	local finTier, finale = tier("Finale")
+	local koTier, ko = tier("Jab", { ko = true })
+	expect(light == "light" and heavyTier == "heavy" and finTier == "finisher" and koTier == "ko",
+		"tiers " .. light .. " / " .. heavyTier .. " / " .. finTier .. " / " .. koTier)
+	expect(jab.shake[1] <= 0.05, "a jab shakes the camera: " .. jab.shake[1])
+	expect(jab.shake[1] < smash.shake[1] and smash.shake[1] < finale.shake[1] and finale.shake[1] < ko.shake[1],
+		"the shakes do not rise with the blow's power")
+	expect(smash.shake[2] <= 0.12, "a heavy blow's shake is not short")
+	expect(tier("Jab", { counter = true }) == "heavy", "a counter hit does not hit harder on screen")
+	expect(tier("Grab") == "finisher", "the grab (a knockdown) is not a finisher's impact")
+	expect(KitFX.impactTier(M.Jab, { kind = "Block" }) == "block" and KitFX.IMPACTS.block.shake[1] <= jab.shake[1],
+		"a blocked blow shakes more than a jab")
+	expect(KitFX.impactTier(M.Kaiten, { kind = "Hit", cinematic = true, heavy = false }) == "heavy"
+		and KitFX.impactTier(M.Kaiten, { kind = "Hit", cinematic = true, heavy = true }) == "ko",
+		"a cinematic's blows: heavy, the last one the strongest")
+	-- (the freeze already grows with the blow, MoveData's hitstop: light < heavy < finisher < K.O.)
+	expect(M.Jab.hitstop < M.Smash.hitstop and M.Smash.hitstop < M.Finale.hitstop and M.Finale.hitstop < Config.KOHitstop,
+		"the hitstop does not rise with the blow's power")
+end)
+
 T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()
 	local WeaponFX = require("../src/shared/WeaponFX")
 	local WeaponSpec = require("../src/shared/WeaponSpec")

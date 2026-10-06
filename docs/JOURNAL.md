@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.49 — 6 octobre 2026 · UN SEUL K.O.
+
+Wilhem : « pourquoi il y a un double message de K.O. ».
+
+- Avant, le HUD annonçait « K.O. » à la fin du round, puis la scène de K.O. (ou la cinématique qui finit le round) affichait son propre « K.O. ». Le HUD se tait maintenant quand :
+  - le round se termine dans une cinématique (coup fatal, FINAL FINISH) ;
+  - le K.O. finit le match (`CinematicDirector.matchDecided`, que `victoryScene` utilise aussi).
+- À la fin du match, le HUD n'affiche plus « X WINS! », puisque la scène dit déjà « K.O. · VICTORY ». Il annonce seulement un match nul ou une fin de match à l'entraînement.
+- Les K.O. de milieu de match (round 1, relais avec encore un perso) gardent l'annonce du HUD.
+
+Tests : Cinematography 312 (nouveau test « one K.O. on screen »), CinematicDirector 872, Lobby 44. Non vérifié dans Studio.
+
 ## Version 0.23.48 — 6 octobre 2026 · BARRE DE VIE VIVANTE, GUARD BREAK DISCRET
 
 Wilhem : « la barre de vie n'est pas assez vivante » et « le guard break qui prend tout l'écran, enlève-moi ça ».

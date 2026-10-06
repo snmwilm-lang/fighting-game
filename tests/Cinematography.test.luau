@@ -172,4 +172,21 @@ test("both hands read in every shot: no angle hides one fist behind the other", 
 	end
 end)
 
+test("one K.O. on screen: the HUD keeps quiet when the K.O. scene ends the match (1v1 rounds, relays)", function()
+	local Director = require("../src/shared/CinematicDirector")
+	local cfg = { RoundsToWin = 2 }
+	local function world(wins, team, index)
+		local l = { wins = 0, team = team, teamIndex = index }
+		return { fighters = { { wins = wins }, l } }
+	end
+	expect(not Director.matchDecided(world(1), cfg, 1), "round 1 won: the HUD says K.O.")
+	expect(Director.matchDecided(world(2), cfg, 1), "match won: the K.O. scene says it")
+	expect(not Director.matchDecided(world(2), cfg, 0), "a draw: never a K.O. scene")
+	expect(not Director.matchDecided(world(3, { "KAI", "TARO" }, 2), cfg, 1), "relay: a fighter left, the HUD says K.O.")
+	expect(Director.matchDecided(world(0, { "KAI", "TARO" }, 3), cfg, 1), "relay: nobody left, the K.O. scene")
+	local w = world(2)
+	w.training = true
+	expect(not Director.matchDecided(w, cfg, 1), "training: no K.O. scene")
+end)
+
 T.finish()

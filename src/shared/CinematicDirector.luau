@@ -5087,6 +5087,20 @@ function Director.cinematic(ctx)
 	return frame
 end
 
+-- Did this round's K.O. end the match (a relay: the loser's team has nobody left; else the
+-- winner has its rounds)? Then the K.O. scene shows the K.O. title itself, and the HUD keeps
+-- quiet (Wilhem: « pourquoi il y a un double message de K.O. »).
+function Director.matchDecided(world, config, winner)
+	if world.training or not winner or winner <= 0 then return false end
+	local w, l = world.fighters[winner], world.fighters[3 - winner]
+	if not w then return false end
+	local team = world.teams and world.teams[3 - winner]
+	local size = if team then #team.kits elseif l and l.team then #l.team else nil
+	local index = if team then team.index elseif l then l.teamIndex else nil
+	if size then return (index or 1) > size end
+	return w.wins >= config.RoundsToWin
+end
+
 -- Is a match-winning K.O. being shown? Returns winner, loser and the scene tick.
 function Director.victoryScene(world, config)
 	if world.training or world.cinematic then return nil end
@@ -5094,17 +5108,8 @@ function Director.victoryScene(world, config)
 	if not winner or winner <= 0 then return nil end
 	local w = world.fighters[winner]
 	if not w then return nil end
-	-- A relay (simulation: world.teams; snapshot: each fighter's team and teamIndex): only
-	-- when the loser's team has nobody left; else the last round to win.
-	local l = world.fighters[3 - winner]
-	local team = world.teams and world.teams[3 - winner]
-	local size = if team then #team.kits elseif l and l.team then #l.team else nil
-	local index = if team then team.index elseif l then l.teamIndex else nil
-	if size then
-		if (index or 1) <= size then return nil end
-	elseif w.wins < config.RoundsToWin then
-		return nil
-	end
+	-- (a relay: simulation world.teams, snapshot each fighter's team and teamIndex)
+	if not Director.matchDecided(world, config, winner) then return nil end
 	local t
 	if world.phase == "KO" then
 		t = config.KOTicks - world.phaseTicks - 40 -- let the body land first

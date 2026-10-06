@@ -508,7 +508,7 @@ end
 -- others are dimmed with a lock. The server checks ownership.
 function MenuController:showTitles()
 	local s = self.status or {}
-	local list = self:popup("TITLES", 560, 540)
+	local list = self:popup("TITLES", 640, 620)
 	local worn = s.title or ""
 	local owned = {}
 	for _, t in s.titles or {} do owned[t] = true end
@@ -518,96 +518,154 @@ function MenuController:showTitles()
 	local function wear(title)
 		self.remote:FireServer({ action = "title", title = title })
 		self.status.title = title
-		self:flash(if title == "" then "NO TITLE SHOWN" else "TITLE « " .. title .. " » SHOWN", GOLD)
+		self:flash(if title == "" then "NO TITLE SHOWN" else "TITLE « " .. GameModes.titleDisplay(s, title) .. " » SHOWN", GOLD)
 		close()
 		self:refreshProfile()
 	end
 	local catalog = GameModes.titleCatalog(StoreConfig.ITEMS)
 	local count = 0
 	for _, t in catalog do if owned[t.name] then count += 1 end end
-	line(list, 0, string.format("%d / %d TITLES · pick the one shown over your fighter and in the lobby.", count, #catalog), GREY)
 	local order = 0
+	local function nextOrder() order += 1; return order end
+
+	-- the collection: how many, a gold bar
+	local head = new("Frame", { LayoutOrder = nextOrder(), Size = UDim2.new(1, -8, 0, 40), BackgroundTransparency = 1, ZIndex = 53 }, list)
+	label(head, { Size = UDim2.fromOffset(150, 16), Font = UI_FONT, TextSize = 13, Text = "COLLECTION  " .. count .. " / " .. #catalog,
+		TextColor3 = GOLD, ZIndex = 54 })
+	local bar = new("Frame", { Position = UDim2.fromOffset(156, 3), Size = UDim2.new(1, -160, 0, 10), BackgroundColor3 = INK,
+		BorderSizePixel = 0, ZIndex = 54 }, head)
+	new("UICorner", { CornerRadius = UDim.new(1, 0) }, bar)
+	local fill = new("Frame", { Size = UDim2.fromScale(math.max(0.02, count / math.max(1, #catalog)), 1), BackgroundColor3 = GOLD,
+		BorderSizePixel = 0, ZIndex = 55 }, bar)
+	new("UICorner", { CornerRadius = UDim.new(1, 0) }, fill)
+	new("UIGradient", { Color = ColorSequence.new(Color3.fromHex("FFE9B0"), GOLD) }, fill)
+	label(head, { Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 0, 14), Font = BODY_FONT, TextSize = 11,
+		Text = "Pick the title shown over your fighter and in the lobby.", TextColor3 = Theme.MUTED, ZIndex = 54 })
+
+	-- a section: its name in gold, a thin rule after it
+	local function section(text)
+		local row = new("Frame", { LayoutOrder = nextOrder(), Size = UDim2.new(1, -8, 0, 20), BackgroundTransparency = 1, ZIndex = 53 }, list)
+		local l = label(row, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, Font = UI_FONT, TextSize = 12, Text = text,
+			TextColor3 = GOLD, ZIndex = 54 })
+		local rule = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.new(1, -170, 0, 1),
+			BackgroundColor3 = Theme.LINE, BorderSizePixel = 0, ZIndex = 54 }, row)
+		local _ = l
+		return rule
+	end
+
+	-- one title: a card in its own colours, its kanji in a medallion, its rarity, how to get
+	-- it (and its progress), WEAR / WORN / LOCKED; earned by playing: a star and it shines.
 	local function card(t)
-		order += 1
-		local mine, on = t == nil or owned[t.name], if t then worn == t.name else worn == ""
-		local look = if t then t.look else { kanji = "無", colors = { "B1B2BE", "41434E" }, font = "GothamBlack" }
-		local c1, c2 = Color3.fromHex(look.colors[1]), Color3.fromHex(look.colors[2])
-		local b = Theme.button(list, { LayoutOrder = order, Size = UDim2.new(1, -8, 0, 62), Text = "", BackgroundColor3 = PANEL, ZIndex = 53 },
-			c1)
-		b.BackgroundColor3 = Color3.new(1, 1, 1)
-		gradient(b, c2:Lerp(INK, if mine then 0.55 else 0.82), INK, 0)
-		local edge = b:FindFirstChildOfClass("UIStroke")
-		if edge then
-			edge.Color = if on then GOLD elseif mine then c1:Lerp(Theme.LINE, 0.4) else Theme.LINE
-			edge.Thickness = if on then 2 else 1
-		end
-		-- the kanji in its square
-		local square = new("Frame", { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = Color3.new(1, 1, 1),
-			BorderSizePixel = 0, ZIndex = 54 }, b)
-		new("UIGradient", { Rotation = 45, Color = ColorSequence.new(c1, c2) }, square)
-		new("UICorner", { CornerRadius = UDim.new(0, 8) }, square)
-		label(square, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamBlack, TextScaled = true, Text = look.kanji,
-			TextColor3 = INK, TextTransparency = if mine then 0 else 0.4, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 55 })
-		-- the title in its own font and colours
-		local okFont, font = pcall(function() return Enum.Font[look.font] end)
-		if not okFont or not font then font = DISPLAY end
-		local name = label(b, { Position = UDim2.fromOffset(66, 6), Size = UDim2.new(1, -170, 0, 30), Font = font, TextScaled = true,
-			Text = if t then "« " .. GameModes.titleDisplay(s, t.name) .. " »" else "NO TITLE", TextColor3 = WHITE,
-			TextTransparency = if mine then 0 else 0.45,
-			ZIndex = 55 })
-		new("UITextSizeConstraint", { MaxTextSize = 26 }, name)
-		new("UIGradient", { Color = ColorSequence.new(c1, c2) }, name)
-		stroke(name, 1.5)
-		-- (a shop title earned by its feat: a star, EARNED and a gold edge; bought only: BOUGHT)
+		local mine = t == nil or owned[t.name] == true
+		local on = if t then worn == t.name else worn == ""
 		local earned = t ~= nil and GameModes.titleEarned(s, t.name)
 		local bought = t ~= nil and mine and t.source == "feat" and not earned
-		if earned and edge and not on then edge.Color, edge.Thickness = GOLD, 2 end
-		-- (earned: shiny, a band of light sweeping the card and little stars twinkling round it)
+		local look = if t then t.look else { kanji = "無", colors = { "B1B2BE", "41434E" }, font = "GothamBlack" }
+		local c1, c2 = Color3.fromHex(look.colors[1]), Color3.fromHex(look.colors[2])
+		if not mine then
+			-- (locked: the same colours, faded toward grey)
+			local function grey(c) local g = (c.R + c.G + c.B) / 3; return c:Lerp(Color3.new(g, g, g), 0.55) end
+			c1, c2 = grey(c1), grey(c2)
+		end
+		local b = Theme.button(list, { LayoutOrder = nextOrder(), Size = UDim2.new(1, -8, 0, 80), Text = "", BackgroundColor3 = INK,
+			ClipsDescendants = true, ZIndex = 53 }, c1)
+		local edge = b:FindFirstChildOfClass("UIStroke")
+		if edge then
+			edge.Color = if on or earned then GOLD elseif mine then c1:Lerp(Theme.LINE, 0.4) else Theme.LINE
+			edge.Thickness = if on or earned then 2 else 1
+		end
+		-- the colour wash from the left, and a band behind the name
+		local wash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = c2:Lerp(INK, 0.35), BorderSizePixel = 0, ZIndex = 53 }, b)
+		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, if mine then 0.2 else 0.6),
+			NumberSequenceKeypoint.new(0.55, if mine then 0.75 else 0.9), NumberSequenceKeypoint.new(1, 1) }) }, wash)
+		local band = new("Frame", { Position = UDim2.fromOffset(56, 10), Size = UDim2.fromOffset(330, 34), BackgroundColor3 = c2,
+			BorderSizePixel = 0, Rotation = 0, ZIndex = 53 }, b)
+		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12,
+			if mine then 0.7 else 0.88), NumberSequenceKeypoint.new(0.8, if mine then 0.75 else 0.9), NumberSequenceKeypoint.new(1, 1) }) }, band)
+		-- the medallion
+		local medal = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(40, 40), Size = UDim2.fromOffset(56, 56),
+			BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 54 }, b)
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }, medal)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(c1, c2) }, medal)
+		new("UIStroke", { Thickness = 2, Color = if mine then WHITE else Theme.MUTED, Transparency = 0.15 }, medal)
+		label(medal, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamBlack, TextScaled = true, Text = look.kanji, TextColor3 = INK,
+			TextTransparency = if mine then 0 else 0.3, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 55 })
+		if not mine then
+			label(medal, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1.05, 1.05), Size = UDim2.fromOffset(20, 20),
+				BackgroundTransparency = 0, BackgroundColor3 = INK, Font = UI_FONT, TextSize = 11, Text = "🔒", TextColor3 = WHITE,
+				TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 56 })
+		end
+		-- the name, in its own font and colours
+		local okFont, font = pcall(function() return Enum.Font[look.font] end)
+		if not okFont or not font then font = DISPLAY end
+		local nameText = if t then "« " .. GameModes.titleDisplay(s, t.name) .. " »" else "NO TITLE"
+		local name = label(b, { Position = UDim2.fromOffset(84, 10), Size = UDim2.new(1, -200, 0, 32), Font = font, TextScaled = true,
+			Text = nameText, TextColor3 = if mine then WHITE else Theme.MUTED, ZIndex = 55 })
+		new("UITextSizeConstraint", { MaxTextSize = 26 }, name)
+		if mine then new("UIGradient", { Rotation = 90, Color = ColorSequence.new(c1:Lerp(WHITE, 0.35), c1) }, name) end
+		stroke(name, 2)
+		-- its rarity
+		local tier = look.tier or "RARE"
+		local tierColor = Color3.fromHex(GameModes.TITLE_TIERS[tier] or "4C8EFF")
+		local pill = label(b, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(84, 15),
+			BackgroundTransparency = 0, BackgroundColor3 = if mine then tierColor else tierColor:Lerp(Theme.LINE, 0.6), Font = UI_FONT,
+			TextSize = 9, Text = tier, TextColor3 = INK, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 56 })
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }, pill)
+		if t == nil then pill.Visible = false end
+		-- how to get it, in small (and its progress)
+		local how = if t then t.how else "Show no title at all."
+		local value, goal = nil, nil
+		if t then value, goal = GameModes.featProgress(s, t.name) end
+		if earned then how = "★ EARNED BY PLAYING · " .. how
+		elseif bought then how = "BOUGHT · earn it to get its ★: " .. how
+		elseif t and t.alt and not mine then how = how .. " " .. t.alt end
+		label(b, { Position = UDim2.fromOffset(84, 44), Size = UDim2.new(1, -200, 0, 16), Font = BODY_FONT, TextSize = 10, TextWrapped = true,
+			Text = how, TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 55 })
+		if value and not earned then
+			local track = new("Frame", { Position = UDim2.fromOffset(84, 63), Size = UDim2.new(1, -250, 0, 6), BackgroundColor3 = Color3.fromRGB(30, 32, 42),
+				BorderSizePixel = 0, ZIndex = 55 }, b)
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }, track)
+			local done = new("Frame", { Size = UDim2.fromScale(math.max(0.03, value / goal), 1), BackgroundColor3 = Color3.fromHex(look.colors[1]),
+				BorderSizePixel = 0, ZIndex = 56 }, track)
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }, done)
+			label(b, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, -160, 0, 66), Size = UDim2.fromOffset(40, 14), Font = UI_FONT,
+				TextSize = 10, Text = value .. "/" .. goal, TextColor3 = WHITE, ZIndex = 55 })
+		end
+		-- its state
+		local state = if on then "✓ WORN" elseif mine then "WEAR" else "LOCKED"
+		local tag = label(b, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(86, 24),
+			Font = UI_FONT, TextSize = 12, Text = state, TextColor3 = if on then INK elseif mine then WHITE else Theme.MUTED,
+			BackgroundTransparency = if on then 0 else 1, BackgroundColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 56 })
+		new("UICorner", { CornerRadius = UDim.new(0, 6) }, tag)
+		if mine and not on then new("UIStroke", { Thickness = 2, Color = c1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, tag) end
+		-- earned by playing: it shines (a band of light sweeping it, little stars twinkling)
 		if earned then
-			local shine = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0,
-				BorderSizePixel = 0, ZIndex = 56, Active = false }, b)
-			local band = new("UIGradient", { Rotation = 20, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1),
-				NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(0.58, 1),
+			local shine = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 57 }, b)
+			local sweep = new("UIGradient", { Rotation = 20, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.44, 1), NumberSequenceKeypoint.new(0.5, 0.72), NumberSequenceKeypoint.new(0.56, 1),
 				NumberSequenceKeypoint.new(1, 1) }) }, shine)
 			local stars = {}
-			for k = 1, 5 do
-				stars[k] = label(b, { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(14, 14), Font = UI_FONT, TextSize = 12,
-					Text = "✦", TextColor3 = c1:Lerp(WHITE, 0.5), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 57,
-					Position = UDim2.new(0.12 + k * 0.13, 0, if k % 2 == 0 then 0.18 else 0.82, 0) })
+			for k, at in { { 0.2, 0.12 }, { 0.42, 0.88 }, { 0.66, 0.14 }, { 0.78, 0.86 }, { 0.3, 0.9 } } do
+				stars[k] = label(b, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(at[1], at[2]), Size = UDim2.fromOffset(14, 14),
+					Font = UI_FONT, TextSize = 12, Text = "✦", TextColor3 = c1:Lerp(WHITE, 0.5), TextXAlignment = Enum.TextXAlignment.Center,
+					ZIndex = 58 })
 			end
+			local glow = new("UIStroke", { Thickness = 2, Color = GOLD, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, medal)
 			task.spawn(function()
-				local start = os.clock() + order * 0.3
+				local start = os.clock() + order * 0.37
 				while b.Parent do
-					local t = os.clock() - start
-					band.Offset = Vector2.new((t * 0.6) % 2.4 - 1.2, 0)
+					local time = os.clock() - start
+					sweep.Offset = Vector2.new((time * 0.55) % 2.6 - 1.3, 0)
 					for k, star in stars do
-						local w = 0.5 + 0.5 * math.sin(t * 3 + k * 1.7)
+						local w = 0.5 + 0.5 * math.sin(time * 3 + k * 1.7)
 						star.TextTransparency = 1 - w * w
-						star.Rotation = (t * 40 + k * 30) % 360
+						star.Rotation = (time * 40 + k * 30) % 360
 					end
+					glow.Transparency = 0.2 + 0.5 * (0.5 + 0.5 * math.sin(time * 2.2))
 					task.wait(1 / 30)
 				end
 			end)
 		end
-		-- how to get it, in small
-		-- (a feat: its progress; the shop's price too)
-		local how = if t then t.how else "Show no title at all."
-		local value, goal = if t then GameModes.featProgress(s, t.name) else nil, nil
-		if value and not mine then how = how .. " (" .. value .. "/" .. goal .. ")" end
-		if t and t.alt and not mine then how = how .. " " .. t.alt end
-		if earned then how = "★ EARNED BY PLAYING · " .. how
-		elseif bought then
-			how = "BOUGHT · earn it to get its ★: " .. how .. (if value then " (" .. value .. "/" .. goal .. ")" else "")
-		end
-		label(b, { Position = UDim2.fromOffset(66, 36), Size = UDim2.new(1, -170, 0, 24), Font = BODY_FONT, TextSize = 10, TextWrapped = true,
-			Text = how, TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
-			TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 55 })
-		-- its state, on the right
-		local state = if on then "✓ WORN" elseif mine then "WEAR" else "🔒 LOCKED"
-		local tag = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(90, 26),
-			Font = UI_FONT, TextSize = 12, Text = state, TextColor3 = if on then INK elseif mine then WHITE else Theme.MUTED,
-			BackgroundTransparency = if on then 0 else 1, BackgroundColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 55 })
-		new("UICorner", { CornerRadius = UDim.new(0, 6) }, tag)
 		b.Activated:Connect(function()
 			if mine then
 				wear(if t then t.name else "")
@@ -619,10 +677,24 @@ function MenuController:showTitles()
 			end
 		end)
 	end
-	card(nil)
-	-- owned first, then the others
-	for _, t in catalog do if owned[t.name] then card(t) end end
-	for _, t in catalog do if not owned[t.name] then card(t) end end
+
+	section("WORN")
+	local wornTitle = nil
+	for _, t in catalog do if t.name == worn and owned[t.name] then wornTitle = t end end
+	card(wornTitle)
+	local yours = {}
+	for _, t in catalog do if owned[t.name] and t ~= wornTitle then table.insert(yours, t) end end
+	if wornTitle or #yours > 0 then
+		section("YOUR TITLES · " .. (#yours + (if wornTitle then 1 else 0)))
+		if wornTitle then card(nil) end -- (NO TITLE, to hide it)
+		for _, t in yours do card(t) end
+	end
+	local locked = {}
+	for _, t in catalog do if not owned[t.name] then table.insert(locked, t) end end
+	if #locked > 0 then
+		section("TO UNLOCK · " .. #locked)
+		for _, t in locked do card(t) end
+	end
 end
 
 -- PLAYER CARD: who the player is, at a glance (all from the saved profile the server sends).

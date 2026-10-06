@@ -115,23 +115,25 @@ end
 -- look (a kanji, two colours, a font: Enum.Font names). The shop's titles come from
 -- StoreConfig.ITEMS (passed in: this module requires nothing).
 GameModes.TITLE_LOOKS = {
-	["WEEKLY CHAMPION"] = { kanji = "王", colors = { "FFD23F", "FF8A00" }, font = "Bangers" },
-	["ASURA SLAYER"] = { kanji = "斬", colors = { "FF5A36", "8A0F14" }, font = "Bangers" },
-	["ARM BREAKER"] = { kanji = "砕", colors = { "FF9A3C", "B5361A" }, font = "GothamBlack" },
-	["ASURA'S EQUAL"] = { kanji = "対", colors = { "FFD27A", "C8541E" }, font = "Michroma" },
-	["ASURA"] = { kanji = "阿", colors = { "FFE9B0", "D4A017" }, font = "Antique" },
-	["GOD SLAYER"] = { kanji = "神", colors = { "FFFFFF", "9AB8FF" }, font = "Bangers" },
-	["ECLIPSE BREAKER"] = { kanji = "蝕", colors = { "C77DFF", "3A0CA3" }, font = "GothamBlack" },
-	["TRUE EMPEROR'S EQUAL"] = { kanji = "皇", colors = { "E0E0FF", "6A4CFF" }, font = "Michroma" },
-	["TRUE EMPEROR"] = { kanji = "真", colors = { "FFFFFF", "FFD23F" }, font = "Antique" },
-	["UNTOUCHABLE"] = { kanji = "影", colors = { "9AF0FF", "1E6BFF" }, font = "Oswald" },
-	["COMBO ARTIST"] = { kanji = "連", colors = { "FF6FD8", "7A2BFF" }, font = "PermanentMarker" },
-	["FRAME PERFECT"] = { kanji = "刻", colors = { "7CFFB2", "0FA36B" }, font = "Arcade" },
-	["NO MERCY"] = { kanji = "鬼", colors = { "FF3D3D", "3A0000" }, font = "Creepster" },
-	["FINAL BOSS"] = { kanji = "魔", colors = { "B06BFF", "FF2A6D" }, font = "Bangers" },
-	["BREAKER"] = { kanji = "破", colors = { "FFB347", "FF3D00" }, font = "SpecialElite" },
-	["SUPPORTER"] = { kanji = "援", colors = { "FF9AC6", "FF4F9A" }, font = "FredokaOne" },
+	["WEEKLY CHAMPION"] = { kanji = "王", colors = { "FFD23F", "FF8A00" }, font = "Bangers", tier = "LEGENDARY" },
+	["ASURA SLAYER"] = { kanji = "斬", colors = { "FF5A36", "8A0F14" }, font = "Bangers", tier = "RARE" },
+	["ARM BREAKER"] = { kanji = "砕", colors = { "FF9A3C", "B5361A" }, font = "GothamBlack", tier = "EPIC" },
+	["ASURA'S EQUAL"] = { kanji = "対", colors = { "FFD27A", "C8541E" }, font = "Michroma", tier = "LEGENDARY" },
+	["ASURA"] = { kanji = "阿", colors = { "FFE9B0", "D4A017" }, font = "Antique", tier = "MYTHIC" },
+	["GOD SLAYER"] = { kanji = "神", colors = { "FFFFFF", "9AB8FF" }, font = "Bangers", tier = "EPIC" },
+	["ECLIPSE BREAKER"] = { kanji = "蝕", colors = { "C77DFF", "3A0CA3" }, font = "GothamBlack", tier = "LEGENDARY" },
+	["TRUE EMPEROR'S EQUAL"] = { kanji = "皇", colors = { "E0E0FF", "6A4CFF" }, font = "Michroma", tier = "MYTHIC" },
+	["TRUE EMPEROR"] = { kanji = "真", colors = { "FFFFFF", "FFD23F" }, font = "Antique", tier = "MYTHIC" },
+	["UNTOUCHABLE"] = { kanji = "影", colors = { "9AF0FF", "1E6BFF" }, font = "Oswald", tier = "EPIC" },
+	["COMBO ARTIST"] = { kanji = "連", colors = { "FF6FD8", "7A2BFF" }, font = "PermanentMarker", tier = "RARE" },
+	["FRAME PERFECT"] = { kanji = "刻", colors = { "7CFFB2", "0FA36B" }, font = "Arcade", tier = "EPIC" },
+	["NO MERCY"] = { kanji = "鬼", colors = { "FF3D3D", "3A0000" }, font = "Creepster", tier = "EPIC" },
+	["FINAL BOSS"] = { kanji = "魔", colors = { "B06BFF", "FF2A6D" }, font = "Bangers", tier = "LEGENDARY" },
+	["BREAKER"] = { kanji = "破", colors = { "FFB347", "FF3D00" }, font = "SpecialElite", tier = "RARE" },
+	["SUPPORTER"] = { kanji = "援", colors = { "FF9AC6", "FF4F9A" }, font = "FredokaOne", tier = "RARE" },
 }
+-- (how rare each title is: its pill in the TITLES window)
+GameModes.TITLE_TIERS = { RARE = "4C8EFF", EPIC = "AB73FF", LEGENDARY = "FFD23F", MYTHIC = "FF466E" }
 local TITLE_HOW = {
 	["WEEKLY CHAMPION"] = "Finish first of the WEEKLY ranking.",
 	["ASURA SLAYER"] = "CHALLENGE: beat ASURA (a team of 3 is enough).",

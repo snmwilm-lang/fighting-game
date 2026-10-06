@@ -13,6 +13,19 @@ Wilhem : « pour la personne qui l'achète, une légère différence avec la per
   - un titre seulement acheté affiche « ACHETÉ · gagne-le pour avoir son ★ » avec l'avancement de l'exploit.
 - Test (Lobby) : pas d'étoile pour un titre acheté ; l'étoile après l'exploit, sans doublon ; jamais d'étoile sur un titre sans exploit (CHAMPION DE LA SEMAINE, défis).
 
+Fenêtre TITRES refaite comme une collection (Wilhem : « prends le temps de rendre ça vraiment beau » ; maquette faite avant, en Python) :
+- En haut, COLLECTION x / 16 avec une barre dorée.
+- Trois sections avec une règle fine : PORTÉ, TES TITRES · n (dont « AUCUN TITRE » pour le cacher), À DÉBLOQUER · n.
+- Chaque carte (80 px) a :
+  - un lavis de sa couleur depuis la gauche, et une bande derrière le nom ;
+  - un médaillon rond en dégradé avec son kanji, cerclé de blanc ;
+  - le nom dans sa police, en dégradé, avec un contour ;
+  - une pastille de rareté (`GameModes.TITLE_TIERS` : RARE, ÉPIQUE, LÉGENDAIRE, MYTHIQUE) ;
+  - comment l'obtenir, et la barre d'avancement de l'exploit (ex. 12/25) ;
+  - à droite : PORTER (cerclé de sa couleur), ✓ PORTÉ (or) ou VERROUILLÉ.
+- Verrouillé : mêmes couleurs passées au gris, cadenas sur le médaillon.
+- Gagné en jouant : liseré et médaillon dorés qui pulsent, bande de lumière qui balaie la carte, étoiles qui scintillent.
+
 Fichiers : `src/shared/GameModes.luau`, `src/server/init.server.luau`, `src/client/MenuController.luau`, `src/shared/Locale.luau`, `tests/Lobby.test.luau`. Tests : Lobby 43. Non vérifié dans Studio.
 
 ## Version 0.23.36 — 6 octobre 2026 · LES TITRES DE LA BOUTIQUE SE GAGNENT AUSSI

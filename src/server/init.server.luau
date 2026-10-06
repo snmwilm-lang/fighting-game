@@ -722,6 +722,10 @@ function endVersus(match, winnerSlot, leftSlot)
 			rating = Matchmaker.ratingOf(client.profile, size), delta = Matchmaker.ratingOf(client.profile, size) - before[i],
 			category = Matchmaker.CATEGORIES[size],
 			rank = Matchmaker.rankName(Matchmaker.ratingOf(client.profile, size)), coins = gains[i], streak = client.profile.winStreak or 0,
+			-- (the result card: the fighter on it, the opponent, the score)
+			kit = match.world.kits[i], skin = match.characters[i] and match.characters[i].Skin or nil,
+			opponent = (if i == 1 then b else a).DisplayName, oppKit = match.world.kits[3 - i],
+			score = { match.world.fighters[i].wins, match.world.fighters[3 - i].wins },
 		})
 		client.questGifts = nil
 	end
@@ -974,17 +978,23 @@ end
 	reserved server starts the RANKED match when both arrived. Published game only: in Studio
 	the calls fail (pcall) and the search stays on this server.
 ]]
-local rankedMap = nil
-do
-	local ok, result = pcall(MemoryStoreService.GetSortedMap, MemoryStoreService, "RankedQueue_v1")
-	if ok then rankedMap = result end
+-- One sorted map per team size (1V1, 2V2, 3V3: only the same sizes meet anyway): with
+-- thousands of servers, the load of the search is spread over three maps instead of one.
+local rankedMaps = {}
+for size = 1, 3 do
+	local ok, result = pcall(MemoryStoreService.GetSortedMap, MemoryStoreService, "RankedQueue_v2_" .. size)
+	if ok then rankedMaps[size] = result end
 end
+local rankedMap = rankedMaps[1] -- (nil in Studio: the search stays on this server)
+local function mapOf(size) return rankedMaps[math.clamp(size or 1, 1, 3)] end
 local published = {} -- user id -> { entry, refreshed }
 local crossPending = {} -- reserved server: code -> { expect, created, started }
 
 local function unpublish(id)
-	if published[id] and rankedMap then
-		task.spawn(function() pcall(rankedMap.RemoveAsync, rankedMap, tostring(id)) end)
+	local p = published[id]
+	local map = p and mapOf(p.entry.size)
+	if map then
+		task.spawn(function() pcall(map.RemoveAsync, map, tostring(id)) end)
 	end
 	published[id] = nil
 end
@@ -1003,6 +1013,7 @@ local function teleportToMatch(player, code, partner)
 	end
 end
 
+local crossBackoff = 0 -- (seconds to wait after the MemoryStore refused a request: throttled)
 local function crossStep()
 	if not rankedMap then return end
 	local now = os.time()
@@ -1014,7 +1025,8 @@ local function crossStep()
 			if not p or now - p.refreshed >= GlobalQueue.REFRESH then
 				local entry = GlobalQueue.entry(id, Matchmaker.ratingOf(client.profile, #client.team), #client.team, JOB, client.queueSince,
 					client.team, now)
-				local ok = pcall(rankedMap.SetAsync, rankedMap, tostring(id), entry, GlobalQueue.STALE + 10, math.floor(entry.rating))
+				local map = mapOf(entry.size)
+				local ok = map ~= nil and pcall(map.SetAsync, map, tostring(id), entry, GlobalQueue.STALE + 10, math.floor(entry.rating))
 				if ok then published[id] = { entry = entry, refreshed = now } end
 			end
 		elseif published[id] then
@@ -1028,7 +1040,10 @@ local function crossStep()
 			continue
 		end
 		-- 1. did another server claim us? then go to its reserved server
-		local okMine, mine = pcall(rankedMap.GetAsync, rankedMap, tostring(id))
+		local map = mapOf(p.entry.size)
+		if not map then continue end
+		local okMine, mine = pcall(map.GetAsync, map, tostring(id))
+		if not okMine then crossBackoff = math.min(30, crossBackoff * 2 + 2) end
 		if okMine and type(mine) == "table" and mine.claim and mine.claim.by ~= JOB then
 			teleportToMatch(player, mine.claim.code, mine.claim.partner)
 			continue
@@ -1036,7 +1051,7 @@ local function crossStep()
 		-- 2. else, as the initiator, look for an opponent near our rating
 		local me = p.entry
 		local reach = GlobalQueue.window(now - me.since)
-		local okRange, items = pcall(rankedMap.GetRangeAsync, rankedMap, Enum.SortDirection.Ascending, 100,
+		local okRange, items = pcall(map.GetRangeAsync, map, Enum.SortDirection.Ascending, 100,
 			{ sortKey = math.floor(me.rating - reach - 1) }, { sortKey = math.floor(me.rating + reach + 1) })
 		if not okRange then continue end
 		local entries = {}
@@ -1048,7 +1063,7 @@ local function crossStep()
 			local okCode, code = pcall(TeleportService.ReserveServer, TeleportService, game.PlaceId)
 			if okCode and code then
 				local claimed = nil
-				pcall(rankedMap.UpdateAsync, rankedMap, tostring(other.id), function(current)
+				pcall(map.UpdateAsync, map, tostring(other.id), function(current)
 					claimed = GlobalQueue.claim(current, code, JOB, os.time(), id)
 					return claimed
 				end, GlobalQueue.STALE + 10)
@@ -1060,8 +1075,12 @@ local function crossStep()
 	end
 end
 task.spawn(function()
+	-- (2 s, plus a different offset per server: a thousand servers never ask all at once;
+	-- slowed down for a while when the MemoryStore throttles)
+	task.wait(Random.new():NextNumber(0, 2))
 	while true do
-		task.wait(2)
+		task.wait(2 + crossBackoff)
+		crossBackoff = math.max(0, crossBackoff - 2)
 		local ok, err = pcall(crossStep)
 		if not ok then warn("[FightingGame] cross-server search: " .. tostring(err)) end
 	end

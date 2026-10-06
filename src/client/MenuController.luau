@@ -2695,6 +2695,9 @@ function MenuController:showResult(packet)
 	end
 	if packet.survival then
 		self:flash("SURVIVAL: " .. packet.survival .. " OPPONENT(S) BEATEN · RECORD " .. (packet.best or 0), GOLD)
+	elseif packet.kit then
+		-- (a fight with a result card: the card says it all)
+		self:resultCard(packet)
 	elseif packet.queue == "RANKED" then
 		local sign = if (packet.delta or 0) >= 0 then "+" else ""
 		self:flash((if packet.won then "VICTORY" elseif packet.draw then "DRAW" else "DEFEAT") .. " · " .. sign .. (packet.delta or 0)
@@ -2718,6 +2721,144 @@ function MenuController:showResult(packet)
 		end)
 	end
 	self.toastUntil = os.clock() + 5
+end
+
+-- The RESULT CARD of a fight (UI pass, after SF6 / Strive): the title slammed on a slanted
+-- band, the fighter in 3D, the opponent and the score, the coins counted up, the RANKED points
+-- and rank, the win streak, then REMATCH / PLAY AGAIN or CONTINUE. Cosmetic: the server's numbers.
+function MenuController:resultCard(packet)
+	if self.resultShade then self.resultShade:Destroy() end
+	local accent = if packet.won then GOLD elseif packet.draw then GREY else RED
+	local shade = new("TextButton", { Name = "ResultShade", Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.3,
+		Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 60 }, self.root)
+	self.resultShade = shade
+	local card = new("Frame", { Name = "ResultCard", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(760, 430), BackgroundColor3 = PANEL, BorderSizePixel = 0, ZIndex = 61, ClipsDescendants = true }, shade)
+	corner(card, 8)
+	stroke(card, 2, accent)
+	gradient(card, Color3.fromRGB(32, 32, 42), Color3.fromRGB(14, 14, 20), 90)
+	-- (the fighter's colour washing in from the left)
+	local kitData = MoveData.Kits[packet.kit or ""]
+	local tint = if kitData then kitColor(packet.kit) else accent
+	local wash = new("Frame", { Size = UDim2.new(0.55, 0, 1, 0), BackgroundColor3 = tint, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 61 }, card)
+	new("UIGradient", { Transparency = NumberSequence.new(0.2, 1) }, wash)
+	-- the slanted band and the title
+	local band = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 22), Size = UDim2.new(1.2, 0, 0, 92),
+		Rotation = -3, BackgroundColor3 = accent, BorderSizePixel = 0, ZIndex = 62 }, card)
+	new("UIGradient", { Color = ColorSequence.new(accent:Lerp(Color3.new(1, 1, 1), 0.25), accent:Lerp(INK, 0.35)), Rotation = 90 }, band)
+	local title = label(band, { Size = UDim2.fromScale(1, 1), Font = DISPLAY, TextSize = 84, ZIndex = 63, TextColor3 = WHITE,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		Text = if packet.won then "VICTORY" elseif packet.draw then "DRAW" else "DEFEAT" })
+	stroke(title, 4, INK)
+	local sub = label(card, { Position = UDim2.fromOffset(0, 120), Size = UDim2.new(1, 0, 0, 22), Font = UI_FONT, TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextColor3 = accent, ZIndex = 63, Text = (if packet.queue == "RANKED" then "RANKED" else "NORMAL") .. " · " .. (packet.category or "1V1") })
+	-- the fighter, in 3D, turning slowly on a ring of light
+	local stage = new("Frame", { Position = UDim2.fromOffset(28, 150), Size = UDim2.fromOffset(260, 260), BackgroundTransparency = 1, ZIndex = 62 }, card)
+	local ring = new("Frame", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.fromOffset(200, 34),
+		BackgroundColor3 = tint, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 62 }, stage)
+	corner(ring, 17)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2),
+		NumberSequenceKeypoint.new(1, 1) }) }, ring)
+	local view = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 63,
+		Ambient = Color3.fromHex("9A8F9E"), LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.4, -0.6, -1) }, stage)
+	local styles, kits = ReplicatedStorage:FindFirstChild("StylePreviews"), ReplicatedStorage:FindFirstChild("KitPreviews")
+	local source = (styles and packet.skin and styles:FindFirstChild(packet.skin)) or (kits and packet.kit and kits:FindFirstChild(packet.kit))
+	local spin
+	if source then
+		local model = source:Clone()
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then d.Anchored = true end
+		end
+		model.Parent = view
+		local cf, size = model:GetBoundingBox()
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 32
+		local distance = size.Y / (2 * math.tan(math.rad(16))) * 1.15
+		camera.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0, size.Y * 0.05, distance), cf.Position)
+		camera.Parent = view
+		view.CurrentCamera = camera
+		local pivot = model:GetPivot()
+		local start = os.clock()
+		spin = RunService.RenderStepped:Connect(function()
+			if not model.Parent then spin:Disconnect() return end
+			model:PivotTo(pivot * CFrame.Angles(0, math.rad(25) * math.sin((os.clock() - start) * 0.6), 0))
+		end)
+	end
+	-- the numbers, on the right
+	local right = new("Frame", { Position = UDim2.fromOffset(320, 156), Size = UDim2.fromOffset(410, 200), BackgroundTransparency = 1, ZIndex = 62 }, card)
+	new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, right)
+	local function row(order, height)
+		return new("Frame", { Size = UDim2.new(1, 0, 0, height), BackgroundTransparency = 1, LayoutOrder = order, ZIndex = 62 }, right)
+	end
+	local vs = row(1, 46)
+	local score = packet.score or { 0, 0 }
+	label(vs, { Size = UDim2.new(1, -110, 1, 0), Font = UI_FONT, TextSize = 18, TextColor3 = GREY, TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 63, Text = "VS " .. tostring(packet.opponent or "?") .. (if packet.oppKit then " · " .. packet.oppKit else "") })
+	local scoreText = label(vs, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0, 110, 1, 0),
+		Font = DISPLAY, TextSize = 46, TextColor3 = WHITE, ZIndex = 63, TextXAlignment = Enum.TextXAlignment.Right,
+		Text = tostring(score[1] or 0) .. " – " .. tostring(score[2] or 0) })
+	stroke(scoreText, 2, INK)
+	new("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = accent, BackgroundTransparency = 0.5, BorderSizePixel = 0, LayoutOrder = 2, ZIndex = 62 }, right)
+	-- coins, counted up
+	local coins = packet.coins or 0
+	local coinRow = row(3, 40)
+	local icon = CurrencyIcons.make("coins", coinRow, 34, UDim2.fromOffset(0, 3))
+	icon.ZIndex = 63
+	local coinText = label(coinRow, { Position = UDim2.fromOffset(44, 0), Size = UDim2.new(1, -44, 1, 0), Font = DISPLAY, TextSize = 36,
+		TextColor3 = CurrencyIcons.COLORS.coins or GOLD, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 63, Text = "+0" })
+	stroke(coinText, 1.5, INK)
+	task.spawn(function()
+		local t0 = os.clock()
+		while coinText.Parent do
+			local u = math.min(1, (os.clock() - t0) / 0.9)
+			coinText.Text = "+" .. math.floor(coins * (1 - (1 - u) ^ 3) + 0.5)
+			if u >= 1 then break end
+			RunService.RenderStepped:Wait()
+		end
+	end)
+	-- RANKED: the points and the rank
+	if packet.queue == "RANKED" then
+		local rankRow = row(4, 34)
+		local delta = packet.delta or 0
+		label(rankRow, { Size = UDim2.new(0.6, 0, 1, 0), Font = UI_FONT, TextSize = 20, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 63, Text = tostring(packet.rank or "") .. " · " .. tostring(packet.rating or "") })
+		local pts = label(rankRow, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0.4, 0, 1, 0), Font = DISPLAY,
+			TextSize = 32, ZIndex = 63, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = if delta >= 0 then GOLD else RED,
+			Text = (if delta >= 0 then "+" else "") .. delta .. " PTS" })
+		stroke(pts, 1.5, INK)
+	end
+	if packet.won and (packet.streak or 0) >= 2 then
+		label(row(5, 26), { Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 18, TextColor3 = Color3.fromHex("FF7A1A"),
+			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 63, Text = string.format("🔥 %d WINS IN A ROW", packet.streak) })
+	end
+	-- the buttons
+	local function close()
+		if spin then spin:Disconnect() end
+		if self.resultShade == shade then self.resultShade = nil end
+		shade:Destroy()
+	end
+	local again = Theme.button(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -20), Size = UDim2.fromOffset(220, 50),
+		BackgroundColor3 = RED, Font = DISPLAY, TextSize = 28, ZIndex = 64,
+		Text = if packet.queue ~= nil then "⚔ REMATCH" else "▶ PLAY AGAIN" }, GOLD)
+	again.Visible = packet.queue ~= nil or self.lastRequest ~= nil
+	again.Activated:Connect(function()
+		close()
+		self:playAgain()
+	end)
+	local continue = Theme.button(card, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -258, 1, -20), Size = UDim2.fromOffset(170, 50),
+		Font = UI_FONT, TextSize = 18, ZIndex = 64, Text = "CONTINUE" }, accent)
+	continue.Activated:Connect(close)
+	shade.Activated:Connect(function() end) -- (a click beside the card does not fall through)
+	self.again.Visible = false -- (the card has its own)
+	Theme.popIn(shade, card, 0.3)
+	if not Theme.reduced then
+		local slam = new("UIScale", { Scale = 2.2 }, title)
+		Theme.play(slam, 0.32, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
+	task.delay(16, function()
+		if shade.Parent then close() end
+	end)
 end
 
 -- In a match the menu hides; back in the menu it shows again.

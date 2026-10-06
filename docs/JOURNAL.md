@@ -1,5 +1,27 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.4 — 6 octobre 2026 · CARTE DE RÉSULTAT, CLASSÉ PRÊT POUR 10 000 JOUEURS
+
+Wilhem : « toujours l'UI plus belle » et « gère ça bien : imagine 10 000 personnes sur le jeu, même sur des serveurs de 10 ».
+
+- **Carte de résultat** (`MenuController:resultCard`) : la fin d'un combat contre un joueur n'est plus un simple bandeau de texte. C'est une carte :
+  - VICTORY, DEFEAT ou DRAW claqué sur une bande inclinée (or, rouge ou gris) ;
+  - le perso du joueur en 3D, avec son style, qui tourne doucement sur un anneau de lumière à sa couleur ;
+  - l'adversaire, son perso et le score des rounds ;
+  - les pièces gagnées, comptées en montant ;
+  - en CLASSÉ, le rang, l'Elo et les points gagnés ou perdus ;
+  - la série de victoires ;
+  - les boutons REVANCHE / REJOUER et CONTINUER.
+  - Fermeture automatique après 16 s. Les montées de rang et les séries gardent leur notification.
+  - Le serveur ajoute au résultat `kit`, `skin`, `opponent`, `oppKit` et `score`.
+- **CLASSÉ entre serveurs, à 1 000 serveurs** :
+  - une file MemoryStore par taille d'équipe (`RankedQueue_v2_1`, `_2`, `_3`) au lieu d'une seule, ce qui divise la charge par trois ;
+  - chaque serveur démarre avec un décalage aléatoire, donc ils n'interrogent jamais tous en même temps ;
+  - quand MemoryStore limite les requêtes, le serveur ralentit (jusqu'à +30 s) puis revient tout seul à 2 s.
+- Le reste tenait déjà la charge : classements en cache 1 minute par serveur, sauvegardes en file (`SaveQueue`), et un CLASSÉ inter-serveurs qui joue dans un serveur privé neuf.
+
+Tests : Kits 130/130 (relance complète sur 0.24.2), Lobby 45. Non vérifié dans Studio.
+
 ## Version 0.24.3 — 6 octobre 2026 · OPTIMISATION POUR LE TEST À 20 (SERVEURS DE 10)
 
 Wilhem : « on va tester le jeu ce soir à 20 : des serveurs de 10 personnes max, et optimise vraiment le jeu ».

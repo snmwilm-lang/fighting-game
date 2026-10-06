@@ -947,6 +947,7 @@ Locale.FR = {
 	["All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings."] = "Polyvalent : poings, pieds et boule de ki. RÉSOLUTION : appuie sur la touche du coup (L ou R) au moment de l'impact, encaisse et repousse. FEINTE : la garde arrête certains enchaînements.",
 	["GUARD BREAK!"] = "GARDE BRISÉE !",
 	["LOW FPS: REDUCED EFFECTS turned on (SETTINGS to change)"] = "FPS FAIBLES : EFFETS RÉDUITS activés (PARAMÈTRES pour changer)",
+	["CONTINUE"] = "CONTINUER",
 	["CLASH STEP!"] = "PAS DE CHOC !",
 	["CLASH STEP"] = "PAS DE CHOC",
 	["RESOLVE!"] = "RÉSOLUTION !",
@@ -1289,7 +1290,7 @@ Locale.FR = {
 
 -- The names written the same way in both languages (a test checks every text is known).
 Locale.SAME = {
-	["INSTINCT"] = true, ["FLOW"] = true, ["SPARKS"] = true,
+	["INSTINCT"] = true, ["FLOW"] = true, ["SPARKS"] = true, ["NORMAL"] = true,
 	["EZ 😂"] = true, ["BOZO 🤡"] = true, ["TOO SLOW 💀"] = true, ["CRY ABOUT IT 😭"] = true, ["SKILL ISSUE"] = true,
 	["BRO???"] = true, ["YOU GOOD? 💀"] = true, ["RUN IT BACK"] = true, ["NICE TRY"] = true, ["LOL"] = true,
 	["SIT DOWN"] = true, ["WHAT WAS THAT?!"] = true, ["GOD SLAIN 👑"] = true, ["ECLIPSED 🌑"] = true, ["GG, GO NEXT"] = true,

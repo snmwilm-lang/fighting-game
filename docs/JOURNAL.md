@@ -1,5 +1,13 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.31 — 6 octobre 2026 · LES PACKS DE PIÈCES EN VENTE
+
+- `StoreConfig.PRODUCTS` : 1 000 pièces 3716825511, 3 000 pièces 3716825564, 7 500 pièces 3716825606. Ce sont les Developer Products créés par Wilhem, à 99 / 249 / 499 R$.
+- Toute la boutique Robux a maintenant ses vrais ID : 3 pass et 3 packs. Les 8 styles GOLD restent à 0 (« BIENTÔT ») tant qu'ils n'ont pas leur produit.
+- À tester par Wilhem dans Studio : l'achat de test d'un pack fait monter le solde une seule fois.
+
+Tests : Lobby 41.
+
 ## Version 0.23.30 — 6 octobre 2026 · LES VRAIS ID DES GAME PASS
 
 - `StoreConfig.PASSES` : VIP 2005377790, DOUBLE REWARDS 2004969709, SUPPORTER 2006943785 (les ID donnés par Wilhem).

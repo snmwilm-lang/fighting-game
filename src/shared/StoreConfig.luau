@@ -52,9 +52,9 @@ StoreConfig.PASSES = {
 -- DEVELOPER PRODUCTS: bought as often as wanted (coins) or once (a style). Granted by the
 -- server's ProcessReceipt only, after the profile is saved.
 StoreConfig.PRODUCTS = {
-	{ key = "COINS_1000", id = 0, robux = 99, name = "1,000 COINS", coins = 1000 },
-	{ key = "COINS_3000", id = 0, robux = 249, name = "3,000 COINS", coins = 3000, tag = "POPULAR" },
-	{ key = "COINS_7500", id = 0, robux = 499, name = "7,500 COINS", coins = 7500, tag = "BEST VALUE" },
+	{ key = "COINS_1000", id = 3716825511, robux = 99, name = "1,000 COINS", coins = 1000 },
+	{ key = "COINS_3000", id = 3716825564, robux = 249, name = "3,000 COINS", coins = 3000, tag = "POPULAR" },
+	{ key = "COINS_7500", id = 3716825606, robux = 499, name = "7,500 COINS", coins = 7500, tag = "BEST VALUE" },
 	-- Shop styles also sold for Robux (the GOLD ones; still sold for coins in FIGHTERS). Price by
 	-- the fighter's tier (Economy.TIERS): STANDARD / RARE 99, EPIC 149, LEGENDARY 199.
 	{ key = "SKIN_KAI_GOLD", id = 0, robux = 99, style = "KAI GOLD" },

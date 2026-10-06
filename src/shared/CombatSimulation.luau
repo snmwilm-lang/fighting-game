@@ -56,7 +56,7 @@ local function newFighter(slot, c, kit, stanceId)
 		pendingBounce = false, bounced = false, wallBounce = false, wallBounced = false, crumpled = false,
 		knockdown = 0, getUp = 0, wakeInvuln = 0, -- wakeInvuln: untouchable just after getting up
 		hitstop = 0, frozen = false,
-		comboHits = 0, comboDamage = 0, calmTicks = 0,
+		comboHits = 0, comboDamage = 0, calmTicks = 0, burstRolled = false,
 		buffer = {}, -- queued presses { button, ticks }, oldest first
 		blocking = false, crouching = false, holdBlock = false, holdCrouch = false,
 		guardWindow = 0, -- ticks left to strike out of the guard (fast light attack)
@@ -680,7 +680,7 @@ local function stepFighter(world, f, input, events)
 	end
 
 	-- Actionable from here: the defender has truly recovered, so any combo on it is over.
-	f.comboHits, f.comboDamage = 0, 0
+	f.comboHits, f.comboDamage, f.burstRolled = 0, 0, false
 	f.bounced, f.wallBounced, f.crumpled = false, false, false
 
 	-- Stance switch (TARO: 1 / & = CLASSIQUE, 2 / é = ESQUIVE): in neutral, on the ground,
@@ -887,6 +887,14 @@ end
 -- SECOND LIFE (Stats.SecondLife: ASURA): the first time he falls, he gets back up, once per
 -- match, with { Health } of his health, wrapped in a black aura, hitting { DamageDealt } as
 -- hard and walking { Speed } as fast for the rest of the match.
+-- The BURST's roll (0..1): deterministic, from the state of the fight (the tick, the combo's
+-- damage, the slot), so the server and a replay agree, yet no player can count on it. The
+-- tests replace it to force a result.
+function CombatSimulation.burstRoll(world, f)
+	local x = math.sin((world.tick or 0) * 12.9898 + (f.comboDamage or 0) * 78.233 + f.slot * 37.719) * 43758.5453
+	return x - math.floor(x)
+end
+
 function CombatSimulation.canRevive(f)
 	return f.stats ~= nil and f.stats.SecondLife ~= nil and not f.revived
 end
@@ -1518,22 +1526,29 @@ local function applyHit(world, a, d, m, events, source)
 		startCinematic(world, a, d, events, m.id)
 	end
 	table.insert(events, event)
-	-- BOSS BURST (Stats.Burst, ASURA): a combo of Hits blows on him breaks. He flares free,
-	-- untouchable a moment, and the attacker is thrown back, stunned: a boss is never looped.
+	-- BOSS BURST (Stats.Burst, ASURA): a combo of Hits blows on him may break. He flares free,
+	-- untouchable a moment, and the attacker is thrown back, stunned. (Wilhem: « ça ne doit pas
+	-- être garanti: 30-40 % de réussite, et 100 % à la seconde vie »: one roll per combo, at its
+	-- Hits-th blow, Chance in his first life, SecondLifeChance once he has risen; a failed roll
+	-- lets that combo run.)
 	local burst = d.stats.Burst
 	if burst and d.state ~= "KO" and d.comboHits >= burst.Hits and d.burstCooldown == 0 and m.kind ~= "Ultimate"
-		and not world.cinematic then
-		local dir = if a.x >= d.x then 1 else -1
-		d.burstCooldown = burst.Cooldown
-		d.stun, d.stunKind, d.launched, d.pendingBounce, d.wallBounce = 0, nil, false, false, false
-		d.juggle, d.hitstop, d.evadeInvuln = 0, 0, burst.Invuln
-		if not source then
-			a.move, a.moveContact, a.dashTicks = nil, nil, 0
-			a.stun, a.stunKind, a.hitstop = burst.Stun, "Hit", 0
-			a.pushVx = dir * burst.Push
-			table.clear(a.buffer)
+		and not world.cinematic and not d.burstRolled then
+		d.burstRolled = true -- (one roll per combo: a failed one lets this combo run)
+		local chance = if d.revived then (burst.SecondLifeChance or 1) else (burst.Chance or 1)
+		if CombatSimulation.burstRoll(world, d) < chance then
+			local dir = if a.x >= d.x then 1 else -1
+			d.burstCooldown = burst.Cooldown
+			d.stun, d.stunKind, d.launched, d.pendingBounce, d.wallBounce = 0, nil, false, false, false
+			d.juggle, d.hitstop, d.evadeInvuln = 0, 0, burst.Invuln
+			if not source then
+				a.move, a.moveContact, a.dashTicks = nil, nil, 0
+				a.stun, a.stunKind, a.hitstop = burst.Stun, "Hit", 0
+				a.pushVx = dir * burst.Push
+				table.clear(a.buffer)
+			end
+			table.insert(events, { kind = "Burst", slot = d.slot, x = d.x, y = d.y + 3 })
 		end
-		table.insert(events, { kind = "Burst", slot = d.slot, x = d.x, y = d.y + 3 })
 	end
 end
 

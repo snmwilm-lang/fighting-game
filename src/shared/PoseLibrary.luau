@@ -3942,6 +3942,21 @@ Poses.LIMITS = table.freeze({
 -- four fists forward (the extra pair is posed by FourArms).
 Poses.Kits.ASURA = thirdKit({ root = { 6, -0.52 }, waist = { -16, 6 }, neck = { 14, -6 }, lead = { 82, 34, 92 },
 	rear = { 78, -34, 98 }, step = { -0.72, 0.78, 12 }, run = { -10, -20 }, win = { 168, 168, 26 } })
+-- ASURA's two victories (Wilhem's images, Asura's Wrath), one round in two (Animator:
+-- VictoryAlt): from the front, the legs wide, every arm flexed, the real pair a double biceps
+-- above his shoulders (the extra pair the same a tier lower: FourArms); from the back, the
+-- arms thrown out round him like a halo, the real pair up in a V. (Root yaws measured in his
+-- K.O. scene, which turns him to the camera: -30 faces it, 170 turns his back to it.)
+Poses.Kits.ASURA.Victory = feet({
+	Root = { 0, -30, 0, -0.5, 0 }, Waist = { 8, 0, 0 }, Neck = { -10, 0, 0 },
+	LeftShoulder = { 90, 0, -95 }, LeftElbow = { 100, 0, 0 }, RightShoulder = { 90, 0, 95 }, RightElbow = { 100, 0, 0 },
+	Look = { 0 },
+}, -1.0, 1.0, 0, 0, 22)
+Poses.Kits.ASURA.VictoryAlt = feet({
+	Root = { 0, 170, 0, -0.3, 0 }, Waist = { -6, 0, 0 }, Neck = { -22, 0, 0 },
+	LeftShoulder = { 150, 0, -50 }, LeftElbow = { 10, 0, 0 }, RightShoulder = { 150, 0, 50 }, RightElbow = { 10, 0, 0 },
+	Look = { 0 },
+}, -0.8, 0.8, 0, 0, 16)
 
 --[[
 	No animation shared (Wilhem: « vérifie qu'aucune animation soit partagée »). The moves, the

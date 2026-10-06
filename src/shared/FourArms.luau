@@ -57,10 +57,15 @@ local KEYS = {
 	sky = { 168, 0, 30, 14, 0 },
 	-- The scenes of his ultimates (CinematicDirector poses): standing tall, the arms hang
 	-- loose and heavy at his sides; arms crossed, the extra pair crosses under the first; the
-	-- power gathering (kiai), spread wide like a deity's halo; kneeling, fists on the ground.
+	-- power gathering (kiai, roar), thrown up and out like a deity's halo; kneeling, fists on
+	-- the ground.
 	proud = { 8, 0, 34, 26, 0 },
 	crossed = { 80, 20, 45, 120, -80 },
 	flare = { 22, 0, 96, 30, 0 },
+	-- His victories: the double biceps of the front one (out a little under the horizontal,
+	-- the forearm folded up), the halo of the back one (thrown out straight, round him).
+	flex = { 0, 0, 82, 95, 90 },
+	halo = { 5, 0, 100, 6, 0 },
 	kneel = { 34, 0, 22, 30, 0 },
 }
 
@@ -68,7 +73,7 @@ local KEYS = {
 local SCENE = {
 	StandTall = "proud", Idle = "proud", Walking = "run", Dash = "run",
 	ArmsCrossed = "crossed",
-	Kiai = "flare", WindGather = "flare", Levitate = "flare", Colossus = "flare", KiBeamDown = "flare",
+	Kiai = "flare", Roar = "flare", WindGather = "flare", Levitate = "flare", Colossus = "flare", KiBeamDown = "flare",
 	Kneel = "kneel",
 	Launched = "hit",
 }
@@ -95,8 +100,15 @@ local BLOCK = { Blocking = true, CrouchBlocking = true, Blockstun = true, Crouch
 local function arm(view, now, moves, side)
 	local state = view.state or "Idle"
 	local breathe = math.sin(now * 2.2 + (if side < 0 then 0 else 1.7))
-	if view.victory or view.pose == "Victory" or view.pose == "Roar" then
-		return mix(KEYS.sky, KEYS.guardHigh, 0.15 + 0.15 * breathe)
+	-- (only the victory raises them to the sky: in the scenes' roar they rose before his face,
+	-- Wilhem: « les bras du bas se lèvent, règle-le »; the roar spreads them wide, SCENE.Roar)
+	if view.victory or view.pose == "Victory" or view.pose == "VictoryAlt" then
+		-- (his two victories, in turn: from the front, a double biceps a tier under the real one;
+		-- the other (VictoryAlt, or an odd round's win), thrown out round him like a halo)
+		if view.pose == "VictoryAlt" or (view.pose ~= "Victory" and (view.wins or 0) % 2 == 1) then
+			return mix(KEYS.halo, KEYS.flare, 0.08 + 0.06 * breathe)
+		end
+		return mix(KEYS.flex, KEYS.guard, 0.05 + 0.05 * breathe)
 	end
 	if LYING[state] or view.pose == "DownFace" then return KEYS.limp end
 	local scene = view.pose and SCENE[view.pose]

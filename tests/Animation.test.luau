@@ -1667,6 +1667,9 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 	-- the scenes of his ultimates (staged poses) and a staged blow without frame data
 	for pose in FourArms.SCENE do table.insert(views, { state = "Idle", pose = pose }) end
 	for _, pose in { "Roar", "Victory", "DownFace" } do table.insert(views, { state = "Idle", pose = pose }) end
+	table.insert(views, { state = "Idle", victory = true, wins = 0, pose = "Victory" })
+	table.insert(views, { state = "Idle", victory = true, wins = 1, pose = "Victory" })
+	table.insert(views, { state = "Idle", pose = "VictoryAlt" })
 	table.insert(views, { state = "Attack", move = "StagedBlow" })
 	local ids = { "AsuraGatling" }
 	for _, id in MoveData.Kits.ASURA.Roles do table.insert(ids, id) end
@@ -1707,6 +1710,29 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 		expect(arm.fist[2] < guard[side].fist[2] - 1.5, side .. ": standing tall, the extra arm keeps its fighting guard")
 		expect(math.abs(flare[side].fist[1]) > math.abs(guard[side].fist[1]) + 0.3, side .. ": the kiai does not spread the extra arms")
 		expect(math.abs(crossed[side].fist[1]) < 1.2 and crossed[side].fist[3] < -0.8, side .. ": arms crossed, the extra pair does not cross in front")
+	end
+	-- (Wilhem: « les bras du bas se lèvent »: outside the victory, the extra fists never rise
+	-- before his face, in any scene, state or blow; raised, they go wide like a halo)
+	local function beforeFace(view)
+		for now = 0, 1.2, 0.1 do
+			for _, arm in asuraArms(view, now) do
+				if arm.fist[2] > 0.8 and math.abs(arm.fist[1]) < 1.8 then return true end
+			end
+		end
+		return false
+	end
+	for _, view in views do
+		if view.pose ~= "Victory" and view.pose ~= "VictoryAlt" then
+			expect(not beforeFace(view), string.format("%s %s %s: the extra fists rise before his face", view.state, tostring(view.pose),
+				tostring(view.move)))
+		end
+	end
+	-- his two victories (Wilhem's images): the front one flexed (forearms up), the back one a halo (arms out straight)
+	local front, back = asuraArms({ state = "Idle", pose = "Victory" }, 0), asuraArms({ state = "Idle", pose = "VictoryAlt" }, 0)
+	for side, arm in front do
+		expect(arm.fist[2] > arm.elbow[2] + 0.5 and math.abs(arm.elbow[1]) > 2, side .. ": the front victory's extra arm is not flexed")
+		local b = back[side]
+		expect(math.abs(b.fist[1]) > 3 and math.abs(b.fist[2] - b.elbow[2]) < 0.6, side .. ": the back victory's extra arm is not thrown out like a halo")
 	end
 	local f1, f2 = asuraArms({ state = "Attack", move = "StagedBlow" }, 0), asuraArms({ state = "Attack", move = "StagedBlow" }, 0.1)
 	expect(math.abs(f1.Left.fist[3] - f2.Left.fist[3]) > 0.2, "a staged blow leaves the extra arms still")

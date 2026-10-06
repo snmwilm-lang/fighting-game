@@ -4698,15 +4698,22 @@ function GEN.KO(T)
 		elseif t < 112 then
 			frame.shot = frameOn("ko-" .. T.id .. "-floor", dir, { l }, { yaw = 24, pitch = 6, fill = 0.66, fov = 40, focus = P(L, "Head") })
 		elseif t < 150 then
-			w.pose = T.pose
+			w.pose = GEN.winPose(ctx, T)
 			frame.shot = frameOn("ko-" .. T.id .. "-stand", dir, { w }, { yaw = -34, pitch = -28, fill = 0.85, fov = 46, focus = P(W, "Head") })
 		else
-			w.pose = T.pose
+			w.pose = GEN.winPose(ctx, T)
 			if t >= 188 then koEnd(ctx, frame, W, color) end
 			frame.shot = frameOn("ko-" .. T.id .. "-wide", dir, { w, l }, { yaw = -20, pitch = 12, fill = 0.36, fov = 40 })
 		end
 		return frame
 	end
+end
+
+-- The winner's last pose of a themed K.O. scene: its `win` poses, one match in turn (the client
+-- counts the K.O. scenes: ctx.koCount), else its own `pose`.
+function GEN.winPose(ctx, T)
+	if T.win then return T.win[(ctx.koCount or 0) % #T.win + 1] end
+	return T.pose
 end
 
 -- Registers a themed kit: its three ultimates, its COUP FATAL and its K.O. scene.
@@ -4718,6 +4725,7 @@ function GEN.add(name, T)
 end
 Director.THEMES = GEN.THEMES
 Director.OPEN, Director.END = GEN.OPEN, GEN.END
+Director.winPose = GEN.winPose
 -- ASURA 阿: KAI out of the Gate of Heaven with four arms. A gatling of four fists (R), the target
 -- thrown up higher at every blow (ÉVEIL), swung round at the end of his arms (PORTE), seized and
 -- crushed (FATAL). Black and gold grade; golden fists of ki, a halo of four arms, a burning seal.
@@ -4726,6 +4734,8 @@ GEN.add("ASURA", {
 	open = { rush = "slam", awaken = "meditate", gate = "silhouette", fatal = "stride" },
 	finish = { rush = "stomp", awaken = "crater", gate = "blowaway", fatal = "pin" },
 	id = "asura", grade = "asura", kanji = "阿", pose = "Roar", rest = "StandTall", seed = 2, step = 5, quake = true,
+	-- (his two victories, one match in turn: Wilhem's images, Asura's Wrath)
+	win = { "Victory", "VictoryAlt" },
 	rush = "gatling", awaken = "juggle", gate = "swing", fatal = "grapple",
 	blows = { "Cross", "Uppercut", "Hammer", "Smash", "BodyBlow", "SpinKick", "Elbow" },
 	fx = { line = "asuraFist", burst = "asuraHalo", ground = "asuraSeal" },

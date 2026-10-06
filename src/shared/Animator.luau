@@ -456,7 +456,8 @@ function Animator:evaluate(view, time, poseRate)
 	end
 	if view.victory then
 		local u = clamp01(tr.victoryAge / 0.35)
-		local victory = self:base("Victory")
+		-- (a kit with two victories, ASURA: they alternate, one round in two)
+		local victory = if (view.wins or 0) % 2 == 1 and self:base("VictoryAlt") then self:base("VictoryAlt") else self:base("Victory")
 		local pose = lerpPose(self:resolve(self:base("STANCE")), self:resolve(victory), settle(u))
 		if u >= 1 then pose = self:solveStance(self:breathe(victory, 0.6, stepped)) end
 		return pose, "Victory", false

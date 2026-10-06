@@ -1272,13 +1272,15 @@ kit("ASURA", {
 	-- ExtraArms: every grounded blow of his that lands is followed by the second pair of arms
 	-- (that share again as damage, a longer stun); blocked, it crushes the guard harder.
 	-- NoCounter: never caught by a COUNTER HIT (a boss reads you, you do not read him).
-	-- Burst: a combo of 5 blows on him breaks (he flares free, the attacker is thrown back,
-	-- stunned): no loop, no long combo, every opening is worth a few blows only.
+	-- Burst: at the 5th blow of a combo on him, a chance to break it (35 %; 100 % in his
+	-- SECOND LIFE): he flares free, the attacker is thrown back, stunned.
 	-- DamageTaken: his hide takes 10 % less from every blow. (The BURST comes back every
 	-- 10 s and shows on his gauge: a player who reads it beats him with short punishes.)
 	Stats = { MaxHealth = 3200, WalkSpeed = 18, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 44, DamageDealt = 1.4,
 		GuardDamageTaken = 0.5, Bulk = 1.2, Reach = 1.25, ExtraArms = 0.35, NoCounter = true, DamageTaken = 0.9,
-		Burst = { Hits = 5, Cooldown = 600, Invuln = 16, Stun = 16, Push = 40 },
+		-- (Wilhem: the BURST is never sure in his first life, 35 % at the 5th blow of a combo;
+		-- risen in his SECOND LIFE, every time)
+		Burst = { Hits = 5, Cooldown = 600, Invuln = 16, Stun = 16, Push = 40, Chance = 0.35, SecondLifeChance = 1 },
 		-- (the second life only brings him back to half health, but there he is a monster:
 		-- every grounded blow armored, hits half as hard again, much faster)
 		SecondLife = { Health = 0.6, DamageDealt = 1.5, Speed = 1.3, RiseTicks = 50, Armor = true } },

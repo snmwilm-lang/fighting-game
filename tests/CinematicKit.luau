@@ -92,6 +92,47 @@ function Kit.play(kit, kind, style, hp, center, onFrame)
 	end
 end
 
+-- The winner's K.O. scene (the end of a match: Director.ko), `kit` the winner, for the
+-- `koCount`-th scene of the session (a kit with two victories shows them in turn). Same
+-- onFrame(info) as Kit.play.
+function Kit.playKO(kit, koCount, onFrame)
+	local world = Sim.newWorld(Config, MoveData, true)
+	Sim.setKits(world, kit, "KAI")
+	world.fighters[1].x, world.fighters[2].x = -1.6, 1.6
+	local anims, anchors = {}, {}
+	for i = 1, 2 do
+		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
+			kits = MoveData.Kits, moveKit = MoveData.MoveKit })
+	end
+	for t = 0, Director.KO_SCENE do
+		local views = {}
+		for i, f in world.fighters do
+			views[i] = { x = f.x, y = 0, vx = 0, vy = 0, facing = if i == 1 then 1 else -1, state = "Idle", hp = f.hp,
+				wins = if i == 1 then Config.RoundsToWin else 0, hitstop = 0, combo = 0, kit = f.kit }
+		end
+		local ctx = { views = views, anchors = anchors, moveData = MoveData, config = Config, characters = CharacterData,
+			koCount = koCount, tick = t }
+		local frame = Director.ko(ctx, 1, 2, views[1], views[2], t)
+		local parts = {}
+		for i = 1, 2 do
+			local v = views[i]
+			local pose, lift = anims[i]:step(v, views[3 - i], 1 / 60, t / 60, 60, true)
+			local solved = K.solve(SKELETON, pose, lift)
+			local root = rootFrame(v, if v.facing > 0 then 0 else math.pi)
+			parts[i] = {}
+			for name, tr in solved do
+				local size = SKELETON.sizes[name]
+				if size and name ~= "HumanoidRootPart" then parts[i][name] = { cframe = K.mul(root, tr), size = size } end
+			end
+		end
+		local s = frame.shot
+		local cx, cy, cz = resolve(s.from, parts)
+		local tx, ty, tz = resolve(s.to, parts)
+		local fx, fy, fz = resolve(s.focus, parts)
+		onFrame({ tick = t, frame = frame, views = views, parts = parts, cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz } })
+	end
+end
+
 -- Distance from a point to a part's box (0 inside).
 function Kit.boxDistance(part, x, y, z)
 	local t, s = part.cframe, part.size

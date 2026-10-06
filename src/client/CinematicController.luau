@@ -305,6 +305,8 @@ end
 
 function CinematicController:begin(kind)
 	self.active, self.kind = true, kind
+	-- (the K.O. scenes played: a kit with two victories shows them in turn, CinematicDirector GEN.winPose)
+	if kind == "ko" then self.koCount = (self.koCount or 0) + 1 end
 	self.hud.gui.Enabled = false
 	self.titleShown, self.memo, self.anchors, self.gate = nil, {}, {}, nil
 	self.cinClock, self.displayTick = nil, nil
@@ -656,7 +658,7 @@ function CinematicController:update(world, views, dt, stale)
 		if self.active then self:finish() end
 		self:begin(kind)
 	end
-	ctx.anchors = self.anchors
+	ctx.anchors, ctx.koCount = self.anchors, self.koCount
 	if cin then
 		-- A smooth, monotonic cinematic clock: it runs at the slow-motion speed between
 		-- snapshots and eases toward the server's tick, so a late or bunched snapshot (a far

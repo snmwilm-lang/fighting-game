@@ -565,4 +565,14 @@ test("every themed kit opens and ends each ultimate its own way: no opening or e
 	end
 end)
 
+test("ASURA's two victories (Wilhem's images): his K.O. scene ends on one, then the other, match after match", function()
+	local Poses = require("../src/shared/PoseLibrary")
+	local T2 = Director.THEMES.ASURA
+	expect(T2.win and #T2.win == 2 and T2.win[1] ~= T2.win[2], "ASURA has no two victories")
+	for _, name in T2.win do expect(Poses.Kits.ASURA[name] ~= nil, "ASURA has no pose " .. name) end
+	local first, second, third = Director.winPose({ koCount = 1 }, T2), Director.winPose({ koCount = 2 }, T2), Director.winPose({ koCount = 3 }, T2)
+	expect(first ~= second and first == third, "the victories do not alternate")
+	expect(Director.winPose({}, Director.THEMES.VENOM) == Director.THEMES.VENOM.pose, "a kit with one victory lost it")
+end)
+
 T.finish()

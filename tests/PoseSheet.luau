@@ -73,6 +73,10 @@ add("Crouching", 40, still("Crouching"))
 add("Blocking", 40, still("Blocking"))
 add("Jumping", 40, still("Jumping", { y = 3, vy = 20 }))
 add("Hitstun", 40, still("Hitstun", { combo = 1 }))
+add("Victory", 40, still("Idle", { victory = true, wins = 0 }))
+if MoveData.Kits[kitName] and Poses.Kits[kitName] and Poses.Kits[kitName].VictoryAlt then
+	add("VictoryAlt", 40, still("Idle", { victory = true, wins = 1 }))
+end
 for _, id in { "Jab", "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Hammer", "Sweep", "LowKick", "AirKick", "BodyBlow",
 	"KiBlast" } do
 	local f, show = attack(id)

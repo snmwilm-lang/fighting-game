@@ -1,5 +1,31 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.20 — 6 octobre 2026 · ASURA : BURST À 35 %, BRAS CORRIGÉS, DEUX VICTOIRES
+
+Wilhem : « ASURA sort de nos combos : ça ne doit pas être garanti, genre 30-40 %, ou le réserver à la seconde vie, ou un mélange : à la seconde vie c'est 100 % » ; « ce bug avec les bras d'ASURA, les bras du bas se lèvent, règle-le » (capture en cinématique) ; images d'Asura's Wrath (de dos, de face) pour sa pose de fin : « tu peux alterner les deux ».
+
+**BURST** (`CombatSimulation`, `MoveData`) :
+- Au 5ᵉ coup d'affilée d'un combo, **un seul tirage** : 35 % en première vie (`Chance`), 100 % en seconde vie (`SecondLifeChance`).
+- Un tirage raté laisse ce combo aller au bout, sans nouvelle chance.
+- Le tirage est **déterministe** (`Sim.burstRoll` : instant, dégâts du combo, emplacement) : serveur et relectures sont d'accord, mais aucun joueur ne peut compter dessus.
+- Test refait : tirage gagnant, tirage perdant, un seul tirage par combo, seconde vie à 100 %, taux réel entre 25 et 45 %.
+
+**Bras d'ASURA** (`FourArms`) :
+- La pose « Roar » (ses ultimes, sa scène de K.O.) levait la deuxième paire comme la victoire, devant son visage. Elle l'ouvre maintenant en éventail horizontal.
+- Test : hors victoire, aucun poing de la deuxième paire ne monte devant le visage (scènes, états, coups).
+
+**Deux victoires**, en alternance d'un match à l'autre :
+- **De face** (`Victory`) : jambes écartées, double biceps, la deuxième paire fait de même un étage plus bas.
+- **De dos** (`VictoryAlt`) : en halo, vrais bras en V, deuxième paire tendue autour de lui.
+- Sa scène de K.O. finit sur l'une puis l'autre (`win` du thème, `Director.winPose`, compteur de scènes du client). En fin de manche, elles alternent aussi.
+- Face et dos mesurés dans la scène : face 0,79 / 0,97, dos −0,54 / −0,83.
+- Tests : forme des deux victoires (Animation), alternance (CinematicDirector).
+- Nouveau mode `luau tests/Storyboard.luau -a KIT KO [n]` : la scène de K.O. d'un perso.
+
+**Duel de boss** (`luau tests/BossDuel.luau -a "KUROEN SHIN" ASURA 10 4`) : aucune erreur, aucune valeur aberrante, aucun perso bloqué. ASURA gagne 10 sur 10 contre KUROEN SHIN (6 secondes vies déclenchées), KUROEN SHIN 10 sur 10 contre KAI, ASURA 10 sur 10 contre KAI. Question posée à Wilhem : quel boss doit être le plus fort ?
+
+Tests : Animation 52, CinematicDirector 872, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; Kits et Cinematography relancées.
+
 ## Version 0.23.19 — 6 octobre 2026 · BRAS D'ASURA · VRAIES CROIX · MUSIQUES DES BOSS
 
 Wilhem : « ASURA, ses bras, la deuxième paire, rends-la agréable » ; « mets une vraie croix » (captures du hub et de la fin du tutoriel) ; les musiques de boss d'ASURA et de KUROEN SHIN.

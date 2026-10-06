@@ -30,7 +30,7 @@
   Gros plan d'une arme seule : `luau tests/WeaponCloseup.luau -a KIT` (pièces `rot` comprises).
   Les tenues de lance de RAIJIN (deux mains, `KIT_HOLD` de PoseLibrary) se calculent avec `luau tests/RaijinHold.luau -a all`,
   la garde de SHIN avec `luau tests/ShinGuard.luau -a all`, celle de YUKINA avec `luau tests/YukinaGuard.luau -a all`,
-  celle de KAZAN avec `luau tests/KazanGuard.luau -a all`.
+  celle de KAZAN avec `luau tests/KazanGuard.luau -a all`. Un duel CPU complet (bosses compris) : `luau tests/BossDuel.luau -a KIT1 KIT2 [n] [niveau]`.
 - Cinématiques : composer les plans avec `frameOn` (angle, plongée, part de l'écran), jamais
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
   (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).

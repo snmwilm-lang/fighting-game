@@ -1792,23 +1792,30 @@ test("KUROEN SHIN (boss): born at ÉCLIPSE, never loses DOMINATION, gets it back
 	expect(k.fighters[1].domination == 0, "KUROEN is born with DOMINATION")
 end)
 
-test("ASURA's BURST: the 5th blow of a combo on him breaks it, the attacker is thrown back, stunned briefly; then a cooldown", function()
+test("ASURA's BURST: at the 5th blow of a combo, a chance to break it (35 %, 100 % in his SECOND LIFE), one roll per combo; then a cooldown", function()
 	local burst = MoveData.Kits.ASURA.Stats.Burst
-	local function hitAt(combo)
-		local w = kitDuel("KAI", "ASURA", 2.4)
+	local realRoll = Sim.burstRoll
+	local function hitAt(combo, roll, revived, w)
+		Sim.burstRoll = function() return roll end
+		w = w or kitDuel("KAI", "ASURA", 2.4)
 		w.training = false
 		local boss = w.fighters[2]
+		boss.revived = revived or boss.revived
 		local events = run(w, 30, function(t)
 			if t == 1 then boss.comboHits, boss.stun, boss.stunKind = combo, 40, "Hit" end
 			return { input({ light = t == 1 }) }
 		end)
+		Sim.burstRoll = realRoll
 		return w, find(events, "Burst")
 	end
-	local _, early = hitAt(burst.Hits - 2) -- the 4th blow: no burst yet
+	-- (Wilhem: « ça ne doit pas être garanti, genre 30-40 %, et 100 % à la seconde vie »)
+	expect(burst.Chance >= 0.3 and burst.Chance <= 0.4 and burst.SecondLifeChance == 1, "the BURST's chances are not 30-40 % / 100 %")
+	local _, early = hitAt(burst.Hits - 2, 0)
 	expect(not early, "ASURA burst before the " .. burst.Hits .. "th blow")
-	local w, e = hitAt(burst.Hits - 1)
-	expect(e and e.slot == 2, "the " .. burst.Hits .. "th blow did not make ASURA burst")
-	local kai, boss = w.fighters[1], w.fighters[2]
+	-- a lucky roll: the 5th blow breaks the combo
+	local w, e = hitAt(burst.Hits - 1, 0)
+	expect(e and e.slot == 2, "a winning roll at the " .. burst.Hits .. "th blow did not make ASURA burst")
+	local boss = w.fighters[2]
 	expect(boss.burstCooldown > 0 and boss.comboHits == 0 or boss.stun == 0, "ASURA is still held after his BURST")
 	expect(burst.Stun <= 20, "the attacker stays stunned too long to guard after a BURST")
 	expect(burst.Cooldown >= 600, "the BURST comes back too often to play around it")
@@ -1817,6 +1824,33 @@ test("ASURA's BURST: the 5th blow of a combo on him breaks it, the attacker is t
 	boss.comboHits, boss.stun, boss.stunKind = burst.Hits, 40, "Hit"
 	local again = find(run(w, 30, function(t) return { input({ light = t == 1 }) } end), "Burst")
 	expect(not again, "ASURA burst again during the cooldown")
+	-- a failed roll in his first life: that combo runs on, no second roll on its next blows
+	local _, missed = hitAt(burst.Hits - 1, 0.9)
+	expect(not missed, "a losing roll still made ASURA burst")
+	local rolls = 0
+	Sim.burstRoll = function() rolls += 1; return 0.9 end
+	local w3 = kitDuel("KAI", "ASURA", 2.4)
+	w3.training = false
+	local held = w3.fighters[2]
+	run(w3, 60, function(t)
+		if t == 1 then held.comboHits, held.stun, held.stunKind = burst.Hits - 1, 60, "Hit" end
+		held.stun, held.stunKind = math.max(held.stun, 30), "Hit" -- (kept in the combo)
+		return { input({ light = t == 1 or t == 20 or t == 40 }) }
+	end)
+	Sim.burstRoll = realRoll
+	expect(held.comboHits > burst.Hits and rolls == 1, string.format("%d rolls in one combo of %d blows", rolls, held.comboHits))
+	-- in his SECOND LIFE, every time
+	local _, wrath = hitAt(burst.Hits - 1, 0.99, true)
+	expect(wrath, "ASURA does not always burst in his SECOND LIFE")
+	-- the real roll: about 35 % over many combos (deterministic, spread)
+	local wins, n = 0, 400
+	local probe = kitDuel("KAI", "ASURA", 2.4)
+	for i = 1, n do
+		probe.tick = i * 7
+		probe.fighters[2].comboDamage = 100 + i * 13
+		if Sim.burstRoll(probe, probe.fighters[2]) < burst.Chance then wins += 1 end
+	end
+	expect(wins / n > 0.25 and wins / n < 0.45, string.format("the BURST's roll wins %.0f %% of the time", wins / n * 100))
 end)
 
 test("KUROEN SHIN's DIVINE INSTINCT: blows in neutral are evaded (2 charges), then they land; the charges come back", function()

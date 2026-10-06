@@ -1842,6 +1842,13 @@ local function stepCinematic(world, events, inputs)
 					d.launched, d.juggle = true, c.MaxJuggleHits -- untouchable until it lands
 					d.vy, d.pushVx = c.UltimateLaunch, dir * c.UltimatePush
 				end
+				-- COUP FATAL: the blow that lands gives the striker back a share of his maximum
+				-- health (Wilhem: « les fatal doivent regen les barres de vie, de genre 20 % »).
+				if state.type == "Fatal" and (c.FatalHeal or 0) > 0 and a.hp > 0 then
+					local before = a.hp
+					a.hp = math.min(a.maxHp, a.hp + math.floor(a.maxHp * c.FatalHeal + 0.5))
+					table.insert(events, { kind = "Heal", slot = a.slot, amount = a.hp - before, x = a.x, y = a.y + 3.5 })
+				end
 			end
 		end
 	end

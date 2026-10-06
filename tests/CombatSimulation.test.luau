@@ -1202,6 +1202,22 @@ test("COUP FATAL: 65 % from a combo, 40 % raw; the missed C prompt costs 40 % of
 	expect(world.fighters[2].hp > 0 and not find(events, "RoundEnd"), "a full-health target did not survive it")
 end)
 
+test("COUP FATAL: the blow that lands heals the striker by 20 % of his maximum health; a dodged one does not", function()
+	local world = fatalWorld(3)
+	local f = world.fighters[1]
+	local before = f.hp
+	local events = playFatal(world, false, true)
+	local heal = find(events, "Heal")
+	local gain = math.floor(f.maxHp * Config.FatalHeal + 0.5)
+	expect(Config.FatalHeal == 0.2, "the COUP FATAL's heal is not 20 %")
+	expect(heal and heal.slot == 1 and heal.amount == gain, "the COUP FATAL did not heal its striker")
+	expect(f.hp == before + gain, string.format("health %d after the COUP FATAL, expected %d", f.hp, before + gain))
+	-- out of reach: it whiffs, no heal
+	local far = fatalWorld(20)
+	local whiff = playFatal(far, false, true)
+	expect(not find(whiff, "CinematicStart") and not find(whiff, "Heal"), "a COUP FATAL that missed healed")
+end)
+
 test("COUP FATAL: kills only a target under half its health (its scene is the K.O. screen), lost if dodged", function()
 	local high = fatalWorld(3, 900) -- (more than half: it hurts, it never kills)
 	local highEvents = playFatal(high, true, true)

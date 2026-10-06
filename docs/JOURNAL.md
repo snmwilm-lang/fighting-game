@@ -1,5 +1,18 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.26 — 6 octobre 2026 · LE COUP FATAL SOIGNE
+
+Wilhem : « les fatal doivent régénérer les barres de vie, de genre 20 % ».
+
+- `CombatConfig.FatalHeal = 0.2`. Le coup final du Coup fatal qui touche rend au lanceur 20 % de sa vie max (plafonnée à la vie max).
+  - Événement `Heal`, déjà affiché par le client.
+  - Un fatal esquivé ou hors de portée ne soigne pas.
+- Test (CombatSimulation) : soin exact de 20 %, rien sur un fatal raté.
+
+Fichiers : `src/shared/CombatConfig.luau`, `src/shared/CombatSimulation.luau`, `tests/CombatSimulation.test.luau`.
+
+Tests : CombatSimulation 131 ; FighterAI, Fuzz, Lobby et Balance (`-a 4 120`) en cours.
+
 ## Version 0.23.25 — 6 octobre 2026 · KUROEN SHIN : PLUS HUMAIN
 
 Wilhem : « SHIN, il est vraiment trop fort en fait, je sais pas si je suis nul ou s'il est trop fort, mais même les coups aériens il bloque ».

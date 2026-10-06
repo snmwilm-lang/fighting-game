@@ -660,6 +660,54 @@ test("a full CPU fight animates without NaN, floor clipping or floating", functi
 	end
 end)
 
+-- Wilhem: « des poses différentes dans le menu et le lobby, et quand il bouge pas pendant les
+-- combats trop longtemps ».
+test("a fighter left still slips into his own waiting poses (in a fight after 5 s, in the menu at once), grounded, never NaN", function()
+	local kits = table.clone(MoveData.KitOrder)
+	table.insert(kits, "ASURA")
+	table.insert(kits, "KUROEN SHIN")
+	for _, kit in kits do
+		local list = Animator.WAITING_POSES[kit]
+		expect(list and #list >= 3, kit .. " has no waiting poses of its own")
+		for _, showcase in { false, true } do
+			local anim = newAnimator(KAI)
+			local seen, firstAt = {}, nil
+			local dt = 1 / 30
+			for k = 1, 30 * 24 do
+				local view = { x = 0, y = 0, vx = 0, vy = 0, facing = 1, state = "Idle", hitstop = 0, combo = 0, kit = kit,
+					showcase = showcase or nil }
+				local pose, lift = anim:step(view, { x = 6, y = 0, state = "Idle" }, dt, k * dt, 30, false)
+				checkPose(pose, kit .. " waiting t" .. k, 3)
+				local name = Animator.waiting(kit, k * dt, showcase)
+				if name then
+					seen[name] = true
+					firstAt = firstAt or k * dt
+				end
+				local solved = K.solve(anim.skel, pose, lift)
+				local body = K.lowest(anim.skel, solved) - anim.skel.floor
+				local feet = math.min(K.footBottom(anim.skel, solved, "Left") or 0, K.footBottom(anim.skel, solved, "Right") or 0)
+					- anim.skel.floor
+				expect(feet > -0.03 and body > -Animator.CORNER_TOLERANCE - 0.03,
+					string.format("%s: clips %.2f through the floor while waiting (t %.1f s)", kit, math.min(feet, body), k * dt))
+				if anim.blendTime == 0 then
+					local reference = support(anim, pose, 0)
+					expect(reference < 0.05, string.format("%s floats %.2f while waiting (t %.1f s)", kit, reference, k * dt))
+				end
+			end
+			local count = 0
+			for _ in seen do count += 1 end
+			expect(count >= 3, string.format("%s: only %d waiting poses in 24 s", kit, count))
+			if showcase then
+				expect(firstAt and firstAt < 2, kit .. ": the menu waits too long for its first pose")
+			else
+				expect(firstAt and firstAt >= Animator.WAITING.after, kit .. ": a waiting pose before 5 s still in a fight")
+			end
+		end
+		-- moving again: back to the guard at once
+		expect(Animator.waiting(kit, 0.5, false) == nil, kit .. ": a waiting pose right after moving")
+	end
+end)
+
 -- ===================================================================== R6
 
 local function r6Skeleton(scale)

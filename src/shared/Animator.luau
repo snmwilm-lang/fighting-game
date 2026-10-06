@@ -123,6 +123,48 @@ local IDLE_RHYTHM = {
 }
 Animator.IDLE_RHYTHM = IDLE_RHYTHM
 
+-- Waiting poses (Wilhem: « des poses différentes dans le menu et le lobby, et quand il bouge pas
+-- pendant les combats trop longtemps »): a fighter left still slips into one of his own poses,
+-- holds it, comes back to his guard, then the next one. In a fight only after `after` seconds
+-- without moving; in the menu and the lobby (view.showcase) almost at once. Cosmetic only.
+Animator.WAITING = { after = 5, showcase = 1.5, cycle = 6.5, blendIn = 0.45, hold = 3.2, blendOut = 0.55 }
+Animator.WAITING_POSES = {
+	KAI = { "ArmsCrossed", "Kiai", "StandTall" }, TARO = { "GloveTap", "ArmsCrossed", "StandTall" },
+	ZEPHYR = { "WindGather", "StandTall", "ArmsCrossed" }, AKEMI = { "ArmsCrossed", "StandTall", "WindGather" },
+	RYUKEN = { "Roar", "GloveTap", "ArmsCrossed" }, SHIN = { "Sheathe", "StandTall", "Iai" },
+	DAICHA = { "Levitate", "ArmsCrossed", "StandTall" }, HIBECARES = { "Colossus", "ArmsCrossed", "Roar" },
+	RAIJIN = { "StandTall", "Kiai", "ArmsCrossed" }, YUKINA = { "Sheathe", "StandTall", "WindGather" },
+	VENOM = { "ArmsCrossed", "GloveTap", "StandTall" }, GORAN = { "Roar", "Colossus", "ArmsCrossed" },
+	ASTER = { "Levitate", "StandTall", "ArmsCrossed" }, HIBIKI = { "GloveTap", "WindGather", "StandTall" },
+	KAZAN = { "Roar", "ArmsCrossed", "GloveTap" }, KUREN = { "Iai", "StandTall", "Sheathe" },
+	SYLVA = { "WindGather", "ArmsCrossed", "StandTall" }, ELIAN = { "StandTall", "Sheathe", "ArmsCrossed" },
+	NOVA = { "WindGather", "ArmsCrossed", "StandTall" }, KUROEN = { "ArmsCrossed", "StandTall", "Roar" },
+	ASURA = { "Roar", "ArmsCrossed", "StandTall" }, ["KUROEN SHIN"] = { "StandTall", "ArmsCrossed", "Kiai" },
+}
+
+-- The waiting pose of a fighter still for `age` seconds: (name, weight 0..1) or nil.
+function Animator.waiting(kit, age, showcase)
+	local W = Animator.WAITING
+	local t = age - (if showcase then W.showcase else W.after)
+	if t <= 0 then return nil end
+	local list = Animator.WAITING_POSES[kit] or Animator.WAITING_POSES.KAI
+	local n = math.floor(t / W.cycle)
+	local u = t - n * W.cycle
+	local w
+	if u < W.blendIn then
+		w = u / W.blendIn
+		w = w * w * (3 - 2 * w)
+	elseif u < W.blendIn + W.hold then
+		w = 1
+	elseif u < W.blendIn + W.hold + W.blendOut then
+		w = 1 - (u - W.blendIn - W.hold) / W.blendOut
+		w = w * w * (3 - 2 * w)
+	else
+		return nil
+	end
+	return list[n % #list + 1], w
+end
+
 local SHAKE_STATES = { Hitstun = true, Launched = true, Blockstun = true, CrouchBlockstun = true, KO = true,
 	Crumple = true, GuardBroken = true }
 local LYING = { Knockdown = true, KO = true }
@@ -548,7 +590,15 @@ function Animator:evaluate(view, time, poseRate)
 	local pose = editable(lerpPose(idle[1], idle[2], b), { "Root", "Waist" })
 	pose.Waist[3] += rhythm.shift * math.sin(phase * 0.5)
 	pose.Root[2] += rhythm.shift * 0.6 * math.sin(phase * 0.5 + 1)
-	return self:solveStance(pose), "Idle", false
+	local guard = self:solveStance(pose)
+	-- Still for a while: one of his waiting poses (Animator.waiting).
+	local name, w = Animator.waiting(self.kit, tr.stateAge, view.showcase)
+	local target = name and self:base(name)
+	if target and target.Root then
+		local held = if target.Stance then self:solveStance(self:breathe(target, 0.7, stepped)) else self:resolve(target)
+		return lerpPose(guard, held, w), "Waiting:" .. name .. (if w < 1 then ":" .. math.floor(w * 20) else ""), false
+	end
+	return guard, "Idle", false
 end
 
 -- ===================================================================== per-frame tracking

@@ -25,6 +25,8 @@ local function hold(ticks, extra)
 end
 ClipKit.SCRIPTS = {
 	walk = { hold(20), hold(50, { axis = 1 }), hold(20), hold(40, { axis = -1 }), hold(20) },
+	-- (standing still 26 s: the three waiting poses in turn, Animator.waiting)
+	wait = { hold(60 * 26) },
 	combo = { hold(16), press("light", 11), press("light", 11), press("light", 11), press("light", 40), hold(10) },
 	heavy = { hold(16), press("heavy", 14), press("heavy", 50), hold(10), press("special", 60), hold(10) },
 	moves = { hold(12), press("heavy", 46), press("special", 56), press("light", 30, { crouch = true }),

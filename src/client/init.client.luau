@@ -397,7 +397,8 @@ local function updateHero(dt, now)
 		if ok then hero.animation, hero.readAt = animation, now end
 	end
 	-- (its own guard: every fighter stands its own way, never the shared arms-up victory pose)
-	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = model:GetAttribute("Kit") }
+	local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = model:GetAttribute("Kit"),
+		showcase = true } -- (its waiting poses in turn: Animator.waiting)
 	hero.animation:update(view, { x = 6, y = 0, state = "Idle" }, dt, now, hud.poseRate, false)
 	local pos = Vector3.new(0, hero.animation.rootHeight, Config.PlaneZ)
 	-- Turned three-quarters toward the camera, like the cover art.

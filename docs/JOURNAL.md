@@ -1,5 +1,32 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.28 — 6 octobre 2026 · POSES D'ATTENTE · IMAGES DES PASS
+
+Wilhem : « donne des images de pass » ; « des poses différentes dans le menu et le lobby, et quand il bouge pas pendant les combats trop longtemps ».
+
+### Poses d'attente (`Animator.waiting`, `WAITING_POSES`)
+- Chaque perso (et chaque boss) a 3 poses d'attente à lui, choisies selon son style. Exemples :
+  - SHIN : lame rengainée, debout, dégainé ;
+  - TARO : tape ses gants, bras croisés, debout ;
+  - HIBECARES : colosse, bras croisés, cri.
+- Immobile, il en prend une (0,45 s), la tient 3,2 s, revient à sa garde, puis passe à la suivante (cycle de 6,5 s).
+  - En combat : seulement après 5 s sans bouger (dès qu'il bouge, retour à la garde).
+  - Dans le menu (sélection, aperçus) et le lobby (`view.showcase`) : après 1,5 s.
+- Purement visuel : la simulation ne change pas.
+- Tests :
+  - Animation : chaque perso a ses 3 poses, aucune avant 5 s en combat, la première avant 2 s dans le menu, au sol sans flotter ni s'enfoncer, jamais de NaN. NOVA : « KiBeamDown » remplacé (il flottait de 0,07 pendant la transition).
+  - `WeaponClearance -a all wait` : 0 image où une arme traverse le corps (nouveau script `wait` de ClipKit, 26 s immobile).
+
+### Images des Game Pass et des packs de pièces
+- `tools/storeart.py` dessine les icônes 512 × 512 (dessinées ici, rien de récupéré ailleurs) dans `docs/store_art/` :
+  - les pass : VIP 王, DOUBLE 倍, SUPPORTER 援 ;
+  - les packs de pièces : 1 000, 3 000, 7 500.
+- À envoyer sur Roblox en créant chaque pass et produit.
+
+Fichiers : `src/shared/Animator.luau`, `src/client/MenuController.luau`, `src/client/init.client.luau`, `tests/Animation.test.luau`, `tests/ClipKit.luau`, `tools/storeart.py`, `docs/store_art/*`.
+
+Tests : test des poses d'attente vérifié à part, WeaponClearance (attente) 0 ; suites longues relancées.
+
 ## Version 0.23.27 — 6 octobre 2026 · SHOP PLUS BEAU · BUG DES SKINS · MINI INTROS
 
 Wilhem : « arranger et améliorer la zone du shop » ; « un petit bug avec les skins quand tu veux les regarder » ; « des mini scènes d'intro toutes petites » ; « le shop, améliore-le visuellement ».

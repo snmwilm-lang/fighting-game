@@ -887,7 +887,8 @@ function MenuController:animatePreviews(dt)
 		if side and side.animation then
 			-- (its own guard, the kit's stance: every fighter stands its own way, never the shared
 			-- arms-up victory pose)
-			local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = side.kit }
+			local view = { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = side.kit,
+				showcase = true } -- (its waiting poses in turn: Animator.waiting)
 			pcall(side.animation.update, side.animation, view, nil, dt, os.clock(), 60, false)
 		end
 	end
@@ -1331,7 +1332,8 @@ function MenuController:animateView(g, dt)
 	if os.clock() - (g.turned or 0) > 4 then g.yaw += dt * 0.35 end
 	if g.root then g.root.CFrame = CFrame.new(0, g.height, 0) * CFrame.Angles(0, g.yaw, 0) end
 	if g.animation then
-		pcall(g.animation.update, g.animation, { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = g.kit },
+		pcall(g.animation.update, g.animation, { state = "Idle", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0, kit = g.kit,
+			showcase = true },
 			nil, dt, os.clock(), 60, false)
 		if g.root then g.root.CFrame = CFrame.new(0, g.height, 0) * CFrame.Angles(0, g.yaw, 0) end
 	end

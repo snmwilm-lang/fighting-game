@@ -1,5 +1,15 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.30 — 6 octobre 2026 · LES VRAIS ID DES GAME PASS
+
+- `StoreConfig.PASSES` : VIP 2005377790, DOUBLE REWARDS 2004969709, SUPPORTER 2006943785 (les ID donnés par Wilhem).
+- Les packs de pièces restent à 0 (« BIENTÔT ») : Wilhem les a créés comme Game Pass (2008844314, 2005521669, 2005575675). Un Game Pass ne s'achète qu'une fois, alors qu'un pack de pièces doit être un Developer Product, rachetable. Ces ID ne sont pas utilisés.
+- À faire par Wilhem :
+  - mettre les 3 pass « En vente » avec leur prix ;
+  - recréer les 3 packs en Developer Products et envoyer leurs ID.
+
+Tests : Lobby 41 (configuration de la boutique cohérente).
+
 ## Version 0.23.29 — 6 octobre 2026 · CLASSÉ 1V1 / 2V2 / 3V3 · INTRO SEULEMENT AU DÉBUT · TARO EN SHADOW
 
 Wilhem : « en 2v2, 3v3, pas besoin de remettre les scènes à chaque nouvelle entrée, seulement la première » ; « en ligne, plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 » ; « TARO, sa scène, c'est du shadow ».

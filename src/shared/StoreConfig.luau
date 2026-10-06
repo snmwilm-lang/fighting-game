@@ -33,17 +33,17 @@ StoreConfig.MAX_COIN_MULTIPLIER = 2.25
 -- once after a purchase in the game.
 StoreConfig.PASSES = {
 	{
-		key = "VIP", id = 0, robux = 299, name = "VIP", color = "FFD23F",
+		key = "VIP", id = 2005377790, robux = 299, name = "VIP", color = "FFD23F",
 		perks = { "VIP badge in the lobby", "Exclusive gold name", "VIP GOLD aura (cosmetic)", "+25% fight coins" },
 		coinBonus = 0.25, badge = "VIP", nameColor = "FFD23F",
 	},
 	{
-		key = "DOUBLE", id = 0, robux = 199, name = "DOUBLE REWARDS", color = "FF2A3D",
+		key = "DOUBLE", id = 2004969709, robux = 199, name = "DOUBLE REWARDS", color = "FF2A3D",
 		perks = { "x2 coins from fights", "Never on Robux purchases" },
 		coinBonus = 1,
 	},
 	{
-		key = "SUPPORTER", id = 0, robux = 99, name = "SUPPORTER", color = "FF6FA8",
+		key = "SUPPORTER", id = 2006943785, robux = 99, name = "SUPPORTER", color = "FF6FA8",
 		perks = { "SUPPORTER badge", "Exclusive SUPPORTER title", "Exclusive RESPECT emote" },
 		badge = "SUPPORTER", title = "SUPPORTER", taunt = "respect",
 	},

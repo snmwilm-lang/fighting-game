@@ -3,7 +3,8 @@
 --   luau tests/Storyboard.luau -a KIT KIND [STYLE|-] [FINISH 0|1] [STEP] > story.txt
 --   python3 tools/storyboard.py story.txt story.png
 -- KIND: Rush, Awaken or Gate, or KO (the winner's K.O. scene at the end of a match; then the
--- third argument is the scene's number in the session: a kit with two victories alternates).
+-- third argument is the scene's number in the session: a kit with two victories alternates),
+-- or Intro (the match's mini intro; the third argument is the opponent's kit).
 -- Bodies are the KAI block rig posed by the real animator.
 local Kit = require("./CinematicKit")
 local WeaponKit = require("./WeaponKit")
@@ -15,7 +16,9 @@ local step = tonumber(args[5]) or 6
 
 local function fmt(n) return string.format("%.3f", n) end
 local seen = {}
-local play = if kind == "KO" then function(_, _, _, _, _, onFrame) Kit.playKO(kit, tonumber(args[3]) or 1, onFrame) end else Kit.play
+local play = if kind == "KO" then function(_, _, _, _, _, onFrame) Kit.playKO(kit, tonumber(args[3]) or 1, onFrame) end
+	elseif kind == "Intro" then function(_, _, _, _, _, onFrame) Kit.playIntro(kit, args[3], onFrame) end
+	else Kit.play
 play(kit, kind, style, hp, 0, function(info)
 	local frame = info.frame
 	for _, fx in frame.fx do

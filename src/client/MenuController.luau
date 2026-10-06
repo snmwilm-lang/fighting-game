@@ -1148,6 +1148,10 @@ function MenuController:styleViewport(holder)
 	local camera = new("Camera", { FieldOfView = 26 }, view)
 	view.CurrentCamera = camera
 	local g = { view = view, world = world, camera = camera, yaw = math.rad(-20), left = true }
+	-- (while the style's own body is being built: the fighter's first look, and this line)
+	g.loading = label(holder, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(1, -8, 0, 14),
+		Font = UI_FONT, TextSize = 11, Text = "LOADING THE STYLE…", TextColor3 = Theme.GOLD, TextXAlignment = Enum.TextXAlignment.Center,
+		Visible = false, ZIndex = 3 })
 	g.hint = label(holder, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 14),
 		Font = BODY_FONT, TextSize = 10, Text = "◀ DRAG TO TURN ▶", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Center })
 	local dragging, lastX = nil, 0
@@ -1271,9 +1275,10 @@ function MenuController:viewStyle(g, name)
 	local source = folder and folder:FindFirstChild(name)
 	if not source then
 		-- (not built yet: ask for it once, show the fighter's first style meanwhile)
+		-- (asked again every 1.5 s while it is not there: a request can be lost)
 		self.previewAsked = self.previewAsked or {}
-		if not self.previewAsked[name] then
-			self.previewAsked[name] = true
+		if os.clock() - (self.previewAsked[name] or -math.huge) > 1.5 then
+			self.previewAsked[name] = os.clock()
 			self.remote:FireServer({ action = "preview", skin = name })
 		end
 		g.waiting = name
@@ -1313,8 +1318,14 @@ function MenuController:animateView(g, dt)
 	if not g then return end
 	if g.waiting then
 		local folder = ReplicatedStorage:FindFirstChild("StylePreviews")
-		if folder and folder:FindFirstChild(g.waiting) then self:viewStyle(g, g.waiting) end
+		-- (there: shown; not yet: viewStyle asks again now and then)
+		self:viewStyle(g, g.waiting)
+		if folder and folder:FindFirstChild(g.waiting or "") == nil and g.waiting then
+			g.loading.Visible = true
+			g.loading.TextTransparency = 0.35 + 0.35 * math.sin(os.clock() * 5)
+		end
 	end
+	if not g.waiting then g.loading.Visible = false end
 	if not g.model then return end
 	-- (it turns slowly by itself until the player turns it)
 	if os.clock() - (g.turned or 0) > 4 then g.yaw += dt * 0.35 end

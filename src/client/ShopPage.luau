@@ -23,6 +23,7 @@ local CharacterData = require(Shared.CharacterData)
 local Taunts = require(Shared.Taunts)
 local Quests = require(Shared.Quests)
 local Economy = require(Shared.Economy)
+local MoveData = require(Shared.MoveData)
 local Theme = require(script.Parent.MenuTheme)
 local CurrencyIcons = require(script.Parent.CurrencyIcons)
 
@@ -116,6 +117,18 @@ function ShopPage:buildPanel()
 		BorderSizePixel = 0, ClipsDescendants = true }, panel)
 	self.artWash = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(hex("2A0A12"), INK) }, art)
 	self.art = art
+	-- (behind the body: the style's kanji in big, a lit floor; a tier badge in the corner)
+	self.watermark = text(art, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromScale(1, 1.1),
+		Font = UI_FONT, TextScaled = true, Text = "", TextColor3 = WHITE, TextTransparency = 0.88, TextXAlignment = Enum.TextXAlignment.Center })
+	self.floor = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.93), Size = UDim2.new(0.8, 0, 0, 26),
+		BackgroundColor3 = WHITE, BackgroundTransparency = 0.55, BorderSizePixel = 0 }, art)
+	new("UICorner", { CornerRadius = UDim.new(1, 0) }, self.floor)
+	self.floorGradient = new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.5, 0.1), NumberSequenceKeypoint.new(1, 1) }) }, self.floor)
+	self.tierBadge = text(art, { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(92, 18), BackgroundTransparency = 0,
+		BackgroundColor3 = INK, Font = UI_FONT, TextSize = 10, Text = "", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 4 })
+	self.tierEdge = Theme.edge(self.tierBadge, GOLD)
 	-- (a style: its body in 3D, the FIGHTERS page's preview)
 	local holder = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, art)
 	self.view = self.menu:styleViewport(holder)
@@ -171,9 +184,14 @@ function ShopPage:entries()
 		end
 	elseif self.kind == "SKIN" then
 		-- (every shop style, fighter by fighter, in the roster's order)
-		local names = {}
+		local names, order = {}, {}
+		for i, kit in MoveData.KitOrder do order[kit] = i end
 		for name in CharacterData.SHOP do table.insert(names, name) end
-		table.sort(names)
+		table.sort(names, function(a, b)
+			local ka, kb = order[CharacterData.SHOP[a].kit] or 99, order[CharacterData.SHOP[b].kit] or 99
+			if ka ~= kb then return ka < kb end
+			return a < b
+		end)
 		for _, name in names do table.insert(out, skinEntry(name)) end
 	else
 		for _, item in StoreConfig.ITEMS do
@@ -327,6 +345,11 @@ local function cardArt(card, e, d)
 		text(art, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(60, 56), Font = UI_FONT,
 			TextSize = 40, Text = style.Kanji or "", TextColor3 = hex(style.Energy), TextTransparency = 0.25,
 			TextXAlignment = Enum.TextXAlignment.Center })
+		-- (whose style it is, in a corner)
+		local tag = text(art, { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 4, 1, -3), Size = UDim2.fromOffset(74, 14),
+			BackgroundTransparency = 0.15, BackgroundColor3 = INK, Font = UI_FONT, TextSize = 9, Text = e.data.kit, TextColor3 = WHITE,
+			TextXAlignment = Enum.TextXAlignment.Center })
+		new("UICorner", { CornerRadius = UDim.new(0, 3) }, tag)
 	elseif e.type == "product" then
 		CurrencyIcons.make("coins", art, 40, UDim2.fromOffset(10, 12))
 		text(art, { Position = UDim2.fromOffset(56, 0), Size = UDim2.new(1, -60, 1, 0), Font = DISPLAY, TextSize = 28,
@@ -377,48 +400,86 @@ function ShopPage:refresh()
 		b.TextColor3 = if kind == self.kind then GOLD else MUTED
 		b.BackgroundColor3 = if kind == self.kind then Theme.RAISED else Theme.PANEL
 	end
-	for _, child in self.grid:GetChildren() do
-		if child:IsA("GuiObject") then child:Destroy() end
-	end
 	local entries = self:entries()
 	local chosen = nil
-	for i, e in entries do
+	for _, e in entries do
 		if keyOf(e) == self.selected then chosen = e end
 	end
 	chosen = chosen or entries[1]
 	self.selected = chosen and keyOf(chosen)
+	-- The grid is rebuilt only when what it lists changed (tab, kind, the status after a
+	-- purchase); a click on a card only moves the highlight, and the scroll stays where it was
+	-- (it went back to the top on every click).
+	local list = self.tab .. "/" .. self.kind .. "/" .. tostring(self.statusSerial or 0)
+	if list ~= self.listKey then
+		local sameTab = self.listKey and self.listKey:match("^[^/]*/[^/]*") == list:match("^[^/]*/[^/]*")
+		local scroll = self.grid.CanvasPosition
+		self.listKey = list
+		self:buildGrid(entries, not sameTab)
+		if sameTab then task.defer(function() self.grid.CanvasPosition = scroll end) else self.grid.CanvasPosition = Vector2.zero end
+	end
+	self:highlight()
+	self:showSelected(chosen)
+end
+
+-- Every card of the grid (cards slide in one after the other when a tab opens).
+function ShopPage:buildGrid(entries, animate)
+	for _, child in self.grid:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	self.cards = {}
 	for i, e in entries do
 		local d = self:describe(e)
-		local on = keyOf(e) == self.selected
 		local card = Theme.button(self.grid, { Name = "ShopCard_" .. e.key, LayoutOrder = i, Text = "", BackgroundColor3 = Theme.PANEL },
 			d.color)
-		local edge = card:FindFirstChildOfClass("UIStroke")
-		if edge and on then edge.Color, edge.Thickness = GOLD, 2 end
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 160)) }, card)
+		-- (a bar of the item's colour along the top)
+		new("Frame", { Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = d.color, BorderSizePixel = 0, ZIndex = card.ZIndex + 1 }, card)
 		cardArt(card, e, d)
 		text(card, { Position = UDim2.fromOffset(8, 72), Size = UDim2.new(1, -16, 0, 20), Font = UI_FONT, TextSize = 12, Text = d.name,
 			TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
 		text(card, { Position = UDim2.fromOffset(8, 94), Size = UDim2.new(1, -16, 0, 34), Font = UI_FONT, TextSize = 11, Text = d.state,
 			TextColor3 = d.stateColor, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top })
 		if d.tag then
-			local tag = text(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(84, 18),
+			local tag = text(card, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 8), Size = UDim2.fromOffset(84, 18),
 				BackgroundTransparency = 0, BackgroundColor3 = RED, Font = UI_FONT, TextSize = 10, Text = d.tag, TextColor3 = WHITE,
-				TextXAlignment = Enum.TextXAlignment.Center })
+				TextXAlignment = Enum.TextXAlignment.Center, ZIndex = card.ZIndex + 2 })
 			new("UICorner", { CornerRadius = UDim.new(0, 4) }, tag)
 		end
-		-- (cards slide in, one after the other)
+		-- (owned or worn: a check in the corner)
+		if d.stateColor == GREEN or d.stateColor == GOLD and d.state:sub(1, 3) == "✓" then
+			local check = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 0, 8), Size = UDim2.fromOffset(20, 20),
+				BackgroundColor3 = d.stateColor, BorderSizePixel = 0, ZIndex = card.ZIndex + 2 }, card)
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }, check)
+			text(check, { Size = UDim2.fromScale(1, 1), Font = UI_FONT, TextSize = 13, Text = "✓", TextColor3 = INK,
+				TextXAlignment = Enum.TextXAlignment.Center, ZIndex = check.ZIndex + 1 })
+		end
 		local scale = card:FindFirstChild("ButtonScale")
-		if scale and not self.reduced then
+		if animate and scale and not self.reduced then
 			scale.Scale = 0.94
 			TweenService:Create(scale, TweenInfo.new(0.16 + math.min(i, 12) * 0.015, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 		end
+		local key = keyOf(e)
 		card.Activated:Connect(function()
-			if self.selected ~= keyOf(e) then
-				self.selected = keyOf(e)
+			if self.selected ~= key then
+				self.selected = key
 				self:refresh()
 			end
 		end)
+		self.cards[key] = { card = card, edge = card:FindFirstChildOfClass("UIStroke"), color = d.color }
 	end
-	self:showSelected(chosen)
+end
+
+-- The selected card: a gold edge, a little raised; the others back to normal.
+function ShopPage:highlight()
+	for key, c in self.cards or {} do
+		local on = key == self.selected
+		if c.edge then
+			c.edge.Color = if on then GOLD else Theme.LINE
+			c.edge.Thickness = if on then 2 else 1
+		end
+		c.card.BackgroundColor3 = if on then Theme.RAISED else Theme.PANEL
+	end
 end
 
 -- The big preview of the selected entry.
@@ -436,6 +497,18 @@ function ShopPage:showSelected(e)
 	self.info.Text = d.info
 	self.state.Text, self.state.TextColor3 = d.state, d.stateColor
 	self.artWash.Color = ColorSequence.new(d.color:Lerp(INK, 0.55), INK)
+	local style = e.type == "skin" and CharacterData.Skins[e.key]
+	self.watermark.Text = if style then (style.Kanji or "") else ""
+	self.watermark.TextColor3 = d.color
+	self.floor.Visible = e.type == "skin"
+	self.floor.BackgroundColor3 = d.color
+	local tier = if e.type == "skin" then Economy.tierOf(e.data.kit) else nil
+	self.tierBadge.Visible = tier ~= nil
+	if tier then
+		self.tierBadge.Text = e.data.kit .. " · " .. tier.name
+		self.tierBadge.TextColor3 = hex(tier.color)
+		self.tierEdge.Color = hex(tier.color)
+	end
 	-- the picture
 	local skin = e.type == "skin"
 	self.viewHolder.Visible = skin
@@ -505,6 +578,7 @@ end
 
 -- The menu's status changed (coins, ownership, passes): the page follows.
 function ShopPage:statusChanged()
+	self.statusSerial = (self.statusSerial or 0) + 1
 	if self.page.Visible then self:refresh() end
 end
 

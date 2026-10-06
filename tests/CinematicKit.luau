@@ -133,6 +133,50 @@ function Kit.playKO(kit, koCount, onFrame)
 	end
 end
 
+-- The match's mini intro (Director.intro): `kit` on the left, `foe` on the right, at their
+-- spawns. Same onFrame(info) as Kit.play.
+function Kit.playIntro(kit, foe, onFrame)
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, kit, foe or "KAI")
+	local anims, anchors = {}, {}
+	for i = 1, 2 do
+		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
+			kits = MoveData.Kits, moveKit = MoveData.MoveKit })
+	end
+	local tick = 0
+	while true do
+		local t = Director.introScene(world, Config)
+		if not t then break end
+		local views = {}
+		for i, f in world.fighters do
+			views[i] = { x = f.x, y = 0, vx = 0, vy = 0, facing = f.facing, state = "Idle", hp = f.hp, wins = 0, hitstop = 0,
+				combo = 0, kit = f.kit, intro = true }
+		end
+		local ctx = { views = views, anchors = anchors, moveData = MoveData, config = Config, characters = CharacterData, tick = t }
+		local frame = Director.intro(ctx, views, t)
+		local parts = {}
+		for i = 1, 2 do
+			local v = views[i]
+			local pose, lift = anims[i]:step(v, views[3 - i], 1 / 60, tick / 60, 60, true)
+			local solved = K.solve(SKELETON, pose, lift)
+			local root = rootFrame(v, if v.facing > 0 then 0 else math.pi)
+			parts[i] = {}
+			for name, tr in solved do
+				local size = SKELETON.sizes[name]
+				if size and name ~= "HumanoidRootPart" then parts[i][name] = { cframe = K.mul(root, tr), size = size } end
+			end
+		end
+		local s = frame.shot
+		local cx, cy, cz = resolve(s.from, parts)
+		local tx, ty, tz = resolve(s.to, parts)
+		local fx, fy, fz = resolve(s.focus, parts)
+		onFrame({ tick = t, frame = frame, views = views, parts = parts, cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz } })
+		tick += 1
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+		if tick > 400 then break end
+	end
+end
+
 -- Distance from a point to a part's box (0 inside).
 function Kit.boxDistance(part, x, y, z)
 	local t, s = part.cframe, part.size

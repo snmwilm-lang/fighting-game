@@ -1,5 +1,35 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.27 — 6 octobre 2026 · SHOP PLUS BEAU · BUG DES SKINS · MINI INTROS
+
+Wilhem : « arranger et améliorer la zone du shop » ; « un petit bug avec les skins quand tu veux les regarder » ; « des mini scènes d'intro toutes petites » ; « le shop, améliore-le visuellement ».
+
+### Bug des skins
+- Cause : le serveur ignorait une demande d'aperçu arrivée moins de 0,1 s après la précédente. Le client, qui la croyait envoyée, ne redemandait jamais. Le style restait donc affiché avec le look de base du perso.
+- Correctif :
+  - Le serveur accepte jusqu'à 12 demandes par seconde.
+  - Le client redemande toutes les 1,5 s tant que l'aperçu manque, et affiche « CHARGEMENT DU STYLE… » pendant ce temps.
+
+### Shop (`ShopPage`)
+- La grille n'est plus reconstruite à chaque clic : seule la sélection bouge, et le défilement reste en place (avant, il revenait en haut).
+- Les skins sont rangés par perso, dans l'ordre du roster, avec le nom du perso sur chaque carte.
+- Les cartes ont un liseré de couleur, un dégradé et une pastille ✓ quand l'objet est possédé ou équipé.
+- L'aperçu montre le kanji du style en grand derrière le corps, un sol éclairé de sa couleur, et un badge perso · rareté (couleur de la rareté).
+
+### Mini intros (`CinematicDirector.intro` / `introScene`)
+- En début de match, et à l'arrivée d'un nouveau perso en relais : un plan héroïque sur chaque perso à tour de rôle (50 ticks chacun).
+  - Il se tourne de trois quarts vers la caméra, dans sa pose d'entrée (`INTRO_POSE`), avec son kanji en fond et une légère avancée de caméra.
+- Ensuite la caméra habituelle reprend, avec « ROUND » (annoncé à la fin de l'intro) et « FIGHT ».
+- Pas d'intro aux rounds 2 et suivants d'un duel, ni en entraînement. Aucune règle de combat ne change.
+- Outil : `luau tests/Storyboard.luau -a KIT Intro ADVERSAIRE 0 10`.
+
+### Tests
+- Cinematography : test « mini intro » (pose d'entrée pour chaque perso et boss, perso entier dans le cadre, caméra hors des corps, assez courte, seulement en début de match).
+
+Fichiers : `src/server/init.server.luau`, `src/client/MenuController.luau`, `src/client/ShopPage.luau`, `src/client/CinematicController.luau`, `src/client/init.client.luau`, `src/shared/CinematicDirector.luau`, `src/shared/Locale.luau`, `tests/CinematicKit.luau`, `tests/Storyboard.luau`, `tests/Cinematography.test.luau`.
+
+Tests : Lobby 40, CinematicDirector 872, PressQueue 4, test de l'intro vérifié à part ; Cinematography complet et Kits à relancer. Non vérifié dans Studio : le shop et l'intro sont à juger en jeu.
+
 ## Version 0.23.26 — 6 octobre 2026 · LE COUP FATAL SOIGNE
 
 Wilhem : « les fatal doivent régénérer les barres de vie, de genre 20 % ».

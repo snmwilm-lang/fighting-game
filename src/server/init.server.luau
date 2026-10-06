@@ -1286,8 +1286,12 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	-- (the 3D previews of the FIGHTERS page have their own pace: they used to take the menu's
 	-- turn, and the click that followed them (EQUIP, FAVORITE, UNLOCK...) was dropped)
 	if packet.action == "preview" then
-		if now - (client.lastPreview or -math.huge) < 0.1 then return end
-		client.lastPreview = now
+		-- (Wilhem: « un petit bug avec les skins quand tu veux les regarder »: a click a tenth of a
+		-- second after another one was dropped and the client never asked again, the style stayed
+		-- on the fighter's first look; now up to 12 a second, and the client asks again anyway)
+		if now - (client.previewWindow or -math.huge) > 1 then client.previewWindow, client.previewCount = now, 0 end
+		client.previewCount = (client.previewCount or 0) + 1
+		if client.previewCount > 12 then return end
 		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
 		previewStyle(packet.skin)
 		return

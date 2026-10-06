@@ -643,6 +643,18 @@ function CinematicController:update(world, views, dt, stale)
 		end
 		self.preview = nil
 	end
+	-- The match's mini intro (Director.intro): each fighter in turn, his entrance pose.
+	local introT = if not cin and not stale then Director.introScene(world, self.config) else nil
+	if introT and views[1] and views[2] then
+		if not self.active or self.kind ~= "intro" then
+			if self.active then self:finish() end
+			self:begin("intro")
+		end
+		ctx.anchors = self.anchors
+		self:applyFrame(Director.intro(ctx, views, introT))
+		self:showDebug("intro", introT, Director.INTRO_SCENE)
+		return true
+	end
 	local winner, loser, koTick
 	if not cin and not stale and world.epoch ~= self.finishEpoch then
 		-- (a FINAL FINISH already played its own K.O. scene for this round)

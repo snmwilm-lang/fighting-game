@@ -54,6 +54,49 @@ local function check(kit, kind, style, hp, center)
 	return failures
 end
 
+-- The match's mini intro (Wilhem: « des mini scènes d'intro, toutes petites »): each fighter
+-- in his own entrance pose, framed in full, the camera out of the bodies, short enough to
+-- leave "ROUND" and "FIGHT" to the usual camera.
+test("the match's mini intro: every fighter on screen in his own pose, short, only at a match's start", function()
+	local Director = require("../src/shared/CinematicDirector")
+	local Sim = require("../src/shared/CombatSimulation")
+	expect(Director.INTRO_SCENE <= Config.IntroTicks - 20, "the intro scene leaves no time to the ROUND / FIGHT call")
+	for _, kit in KITS do
+		local pose = Director.INTRO_POSE[kit]
+		expect(pose ~= nil, kit .. " has no entrance pose")
+		local failures, seen = {}, { 0, 0 }
+		Kit.playIntro(kit, "KAI", function(info)
+			local s = info.frame.shot
+			local slot = if info.tick < Director.INTRO_SCENE / 2 then 1 else 2
+			seen[slot] += 1
+			if info.views[slot].pose ~= Director.INTRO_POSE[info.views[slot].kit] then
+				table.insert(failures, "t" .. info.tick .. " not in its entrance pose")
+			end
+			local cam = info.cam
+			local near = math.huge
+			for _, parts in info.parts do
+				for _, part in parts do near = math.min(near, Kit.boxDistance(part, cam[1], cam[2], cam[3])) end
+			end
+			if near < 1.5 then table.insert(failures, string.format("t%d camera %.2f stud from a body", info.tick, near)) end
+			local project = Kit.projector(cam, info.target, s.fov, s.roll)
+			local minX, maxX, minY, maxY = Kit.bodyBounds(project, info.parts[slot])
+			if not minX or minX < -1 or maxX > 1 or minY < -1 or maxY > 1 then
+				table.insert(failures, "t" .. info.tick .. " the fighter is not whole in the frame")
+			end
+		end)
+		expect(seen[1] > 20 and seen[2] > 20, kit .. ": both fighters are not shown in turn")
+		expect(#failures == 0, kit .. "\n         " .. table.concat(failures, "\n         ", 1, math.min(#failures, 5)))
+	end
+	-- only at a match's start (round 1) or a relay's new fighter; never in training
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, "KAI", "TARO")
+	expect(Director.introScene(world, Config) == 0, "no intro at the match's start")
+	world.round = 2
+	expect(Director.introScene(world, Config) == nil, "an intro at round 2 of a duel")
+	world.round, world.training = 1, true
+	expect(Director.introScene(world, Config) == nil, "an intro in training")
+end)
+
 for _, kit in KITS do
 	local route = MoveData.Kits[kit].FullRoutes[1].name
 	for _, case in { { "Rush" }, { "Awaken", route }, { "Gate" }, { "Gate", nil, 300 }, { "Awaken", route, 300 }, { "Fatal" },

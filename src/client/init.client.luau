@@ -8,6 +8,7 @@ local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
 local Animator = require(Shared.Animator)
+local Director = require(Shared.CinematicDirector)
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -187,6 +188,7 @@ end)
 local world, displayed, rigs, previous = nil, {}, {}, {}
 effects.rigs = rigs
 local generation, epoch, receivedAt, latestTick, lastPhase = -1, -1, 0, -1, nil
+local roundAnnounced = false
 local lastCinematic = nil
 local roster = nil -- last names / looks / kits sent by the server
 -- Many matches share the stage: this client draws only the two fighters of its own match
@@ -289,7 +291,10 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(packet)
 	local cinKey = if packet.cinematic then packet.cinematic.move .. "/" .. packet.cinematic.attacker else nil
 	if cinKey and cinKey ~= lastCinematic then displayed = {} end
 	lastCinematic = cinKey
-	if packet.phase == "Intro" and lastPhase ~= "Intro" then
+	-- "ROUND n" once the match's mini intro (Director.intro) has shown both fighters.
+	if packet.phase == "Intro" and lastPhase ~= "Intro" then roundAnnounced = false end
+	if packet.phase == "Intro" and not roundAnnounced and not Director.introScene(packet, Config) then
+		roundAnnounced = true
 		hud:announceRound(packet.round)
 	end
 	lastPhase = packet.phase

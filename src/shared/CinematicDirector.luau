@@ -5117,4 +5117,59 @@ function Director.victoryScene(world, config)
 	return winner, 3 - winner, math.min(t, Director.KO_SCENE)
 end
 
+-- ===================================================================== INTRO
+--[[
+	The mini intro of a match (Wilhem: « des mini scènes d'intro, toutes petites »): at the
+	start of a match, and when a relay brings a new fighter in, a quick hero shot of each
+	fighter in turn, in his own entrance pose, his kanji in big behind him, the camera pushing
+	in a little. INTRO_SCENE ticks out of the round's intro (CombatConfig.IntroTicks): then the
+	usual camera, "ROUND", "FIGHT".
+]]
+Director.INTRO_SCENE = 100
+-- Each fighter's entrance pose (his kit's own version of it, PoseLibrary).
+Director.INTRO_POSE = {
+	KAI = "Kiai", TARO = "GloveTap", ZEPHYR = "WindGather", AKEMI = "ArmsCrossed", RYUKEN = "Roar", SHIN = "Iai",
+	DAICHA = "Levitate", HIBECARES = "Colossus", RAIJIN = "StandTall", YUKINA = "Sheathe", VENOM = "ArmsCrossed",
+	GORAN = "Roar", ASTER = "Levitate", HIBIKI = "GloveTap", KAZAN = "Roar", KUREN = "Iai", SYLVA = "WindGather",
+	ELIAN = "StandTall", NOVA = "KiBeamDown", KUROEN = "ArmsCrossed", ASURA = "Roar", ["KUROEN SHIN"] = "StandTall",
+}
+
+-- Is a match intro being shown? Returns the scene tick (0 .. INTRO_SCENE - 1), else nil.
+-- (world: the simulation's, or a client snapshot: phase, phaseTicks, round, fighters)
+function Director.introScene(world, config)
+	if world.training or world.cinematic or world.phase ~= "Intro" then return nil end
+	local relay = false
+	for _, f in world.fighters or {} do
+		if f.team and #f.team > 1 then relay = true end
+	end
+	if world.teams then relay = true end
+	if world.round ~= 1 and not relay then return nil end
+	local t = (config.IntroTicks or 0) - (world.phaseTicks or 0)
+	if t < 0 or t >= Director.INTRO_SCENE then return nil end
+	return t
+end
+
+-- One frame of the intro, `t` from 0 to INTRO_SCENE - 1: the first fighter, then the second.
+function Director.intro(ctx, views, t)
+	bodyScales(ctx, views)
+	local frame = newFrame()
+	local half = Director.INTRO_SCENE / 2
+	local slot = if t < half then 1 else 2
+	local lt = t - (slot - 1) * half
+	for i, view in views do
+		view.pose = Director.INTRO_POSE[view.kit] or "Kiai"
+		view.victory = false
+	end
+	local view = views[slot]
+	local kit = ctx.moveData.Kits and ctx.moveData.Kits[view.kit]
+	-- (the one on camera turns three quarters to it, toward the arena's front)
+	local f = view.facing or 1
+	view.lookDir = { x = f * 0.55, z = 0.84 }
+	local k = smooth(math.clamp(lt / half, 0, 1))
+	frame.shot = frameOn("intro-" .. slot, f, { view }, { yaw = 18 - 8 * k, pitch = -16 + 6 * k,
+		fill = 0.8 + 0.12 * k, fov = 32, band = "full", focus = P(slot, "Head") })
+	frame.kanjiBack = kit and kit.Kanji or nil
+	return frame
+end
+
 return Director

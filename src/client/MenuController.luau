@@ -106,6 +106,15 @@ local SEARCH_TIPS = {
 
 -- WHAT'S NEW: the tiles of the bottom; a click opens the NEWS centre (every article).
 local NEWS = {
+	{ tag = "RANKED", title = "RANKED 1V1 · 2V2 · 3V3", color = GOLD, kanji = "位", lines = {
+		"RANKED has three categories now: 1V1, 2V2 and 3V3, each with its own rating and its own ranking (RANKING page).",
+		"The match starts with a short intro of both fighters. Left still, every fighter strikes his own poses." } },
+	{ tag = "UPDATE", title = "BOSSES · FATAL BLOW", color = RED, kanji = "命", lines = {
+		"ASURA and KUROEN SHIN: very hard, never impossible. KUROEN SHIN is the stronger one.",
+		"A FATAL BLOW that lands gives back 20 % of your health; your health bar burns while it is ready." } },
+	{ tag = "SHOP", title = "NEW SHOP", color = Theme.BLUE, kanji = "店", lines = {
+		"A new look for the SHOP: styles sorted by fighter, a bigger preview, Game Passes and coin packs.",
+		"Cosmetics only: nothing in the shop gives an advantage in a fight." } },
 	{ tag = "UPDATE", title = "HOLD BACK TO GUARD", color = Theme.BLUE, kanji = "守", lines = {
 		"Like every fighting game: hold BACK (away from the opponent) to guard, DOWN-BACK against lows. F / RB still work.",
 		"Walking back, the guard comes up by itself when an attack is near.",
@@ -1840,20 +1849,67 @@ function MenuController:buildBottom()
 	Theme.surface(news, Theme.RED)
 	label(news, { Position = UDim2.fromOffset(16, 9), Size = UDim2.fromOffset(300, 26), Font = DISPLAY, TextSize = 24, Text = "WHAT'S NEW", TextColor3 = WHITE })
 	self.bottomNews = news
+	-- A carousel (Wilhem: « agrandis, ou une page, ou un carrousel »): one big card at a time,
+	-- its kanji, tag, title and first line readable; it turns by itself every 6 s (not while
+	-- the pointer is on it), ◀ ▶ and the dots to pick one, a click opens the NEWS centre.
+	local W, H = 612, 118
+	local view = new("Frame", { Position = UDim2.fromOffset(14, 46), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1,
+		ClipsDescendants = true }, news)
+	local track = new("Frame", { Size = UDim2.fromOffset(W * #NEWS, H), BackgroundTransparency = 1 }, view)
 	for i, item in NEWS do
-		local x = 14 + (i - 1) * 154
-		local tile = new("TextButton", { Position = UDim2.fromOffset(x, 46), Size = UDim2.fromOffset(146, 118), BackgroundColor3 = PANEL,
-			BorderSizePixel = 0, ClipsDescendants = true, Text = "", AutoButtonColor = false }, news)
+		local tile = new("TextButton", { Position = UDim2.fromOffset((i - 1) * W, 0), Size = UDim2.fromOffset(W, H), BackgroundColor3 = PANEL,
+			BorderSizePixel = 0, ClipsDescendants = true, Text = "", AutoButtonColor = false }, track)
 		tile.Activated:Connect(function() self:showNews(i) end)
 		tile.BackgroundColor3 = Color3.new(1, 1, 1)
-		Theme.edge(tile, item.color:Lerp(Theme.LINE, 0.6))
+		Theme.edge(tile, item.color:Lerp(Theme.LINE, 0.4))
 		Theme.ink(tile, item.color, 0.87)
-		gradient(tile, item.color:Lerp(INK, 0.35), INK, 90)
-		label(tile, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.fromOffset(80, 66), Font = Enum.Font.GothamBlack,
-			TextScaled = true, Text = item.kanji, TextColor3 = WHITE, TextTransparency = 0.25, TextXAlignment = Enum.TextXAlignment.Center })
-		label(tile, { Position = UDim2.fromOffset(8, 70), Size = UDim2.fromOffset(130, 14), Font = UI_FONT, TextSize = 10, Text = item.tag, TextColor3 = GREY })
-		label(tile, { Position = UDim2.fromOffset(8, 86), Size = UDim2.fromOffset(130, 26), Font = DISPLAY, TextScaled = true, Text = item.title, TextColor3 = WHITE })
+		gradient(tile, item.color:Lerp(INK, 0.3), INK, 0)
+		label(tile, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(110, 106), Font = Enum.Font.GothamBlack,
+			TextScaled = true, Text = item.kanji, TextColor3 = WHITE, TextTransparency = 0.15, TextXAlignment = Enum.TextXAlignment.Center })
+		label(tile, { Position = UDim2.fromOffset(132, 10), Size = UDim2.fromOffset(300, 14), Font = UI_FONT, TextSize = 11, Text = item.tag,
+			TextColor3 = item.color:Lerp(WHITE, 0.45) })
+		label(tile, { Position = UDim2.fromOffset(132, 26), Size = UDim2.new(1, -146, 0, 34), Font = DISPLAY, TextScaled = true, Text = item.title,
+			TextColor3 = WHITE })
+		label(tile, { Position = UDim2.fromOffset(132, 62), Size = UDim2.new(1, -146, 0, 36), Font = BODY_FONT, TextSize = 12, TextWrapped = true,
+			Text = item.lines[1], TextColor3 = Theme.MUTED, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.AtEnd })
+		label(tile, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -6), Size = UDim2.fromOffset(120, 14), Font = UI_FONT,
+			TextSize = 10, Text = "READ MORE ›", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Right })
 	end
+	-- the dots (top right), then ◀ ▶
+	local dots = {}
+	for i in NEWS do
+		local dot = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -86 - (#NEWS - i) * 16, 0, 22),
+			Size = UDim2.fromOffset(10, 10), BackgroundColor3 = Theme.LINE, BorderSizePixel = 0, Text = "", AutoButtonColor = false }, news)
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }, dot)
+		dots[i] = dot
+	end
+	local index, hovered, turned = 1, false, os.clock()
+	local function show(i, instant)
+		index = (i - 1) % #NEWS + 1
+		turned = os.clock()
+		local goal = { Position = UDim2.fromOffset(-(index - 1) * W, 0) }
+		if instant then track.Position = goal.Position
+		else TweenService:Create(track, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), goal):Play() end
+		for k, dot in dots do
+			dot.BackgroundColor3 = if k == index then NEWS[k].color:Lerp(WHITE, 0.3) else Theme.LINE
+			dot.Size = if k == index then UDim2.fromOffset(12, 12) else UDim2.fromOffset(9, 9)
+		end
+	end
+	for i, dot in dots do dot.Activated:Connect(function() show(i) end) end
+	for k, spec in { { "◀", -1, -44 }, { "▶", 1, -14 } } do
+		local arrow = Theme.button(news, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, spec[3], 0, 22), Size = UDim2.fromOffset(26, 24),
+			Font = UI_FONT, TextSize = 12, Text = spec[1], LayoutOrder = k }, GOLD)
+		arrow.Activated:Connect(function() show(index + spec[2]) end)
+	end
+	view.MouseEnter:Connect(function() hovered = true end)
+	view.MouseLeave:Connect(function() hovered = false end)
+	show(1, true)
+	task.spawn(function()
+		while news.Parent do
+			task.wait(0.5)
+			if not hovered and news.Visible and os.clock() - turned > 6 then show(index + 1) end
+		end
+	end)
 	-- MES PERSONNAGES: every fighter (a strip that scrolls); a click makes one the favourite (the lobby hero).
 	local roster = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -28, 1, -28), Size = UDim2.fromOffset(730, 176),
 		BackgroundColor3 = INK, BackgroundTransparency = 0.25, BorderSizePixel = 0 }, self.root)

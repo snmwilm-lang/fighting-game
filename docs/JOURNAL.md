@@ -1,5 +1,17 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.33 — 6 octobre 2026 · « QUOI DE NEUF » EN CARROUSEL
+
+Wilhem (capture des 5 petites tuiles) : « soit tu agrandis, soit tu fais une page updates, soit un carrousel ».
+
+- `MenuController:buildBottom` : un carrousel à la place des 5 petites tuiles, dans le même cadre.
+  - Une grande carte à la fois : gros kanji, étiquette, titre en grand, première ligne de l'article et « LIRE LA SUITE › ».
+  - Il tourne tout seul toutes les 6 s (pas quand la souris est dessus). ◀ ▶ et les points permettent de choisir.
+  - Un clic ouvre le centre des nouveautés avec l'article complet.
+- Trois nouvelles nouveautés en tête : CLASSÉ 1V1 · 2V2 · 3V3 (avec l'intro et les poses), BOSS · COUP FATAL, NOUVELLE BOUTIQUE (traductions françaises dans `Locale`).
+
+Fichiers : `src/client/MenuController.luau`, `src/shared/Locale.luau`. Tests : Lobby 41 (langues). Non vérifié dans Studio.
+
 ## Version 0.23.32 — 6 octobre 2026 · UNE CROIX POUR FERMER LE SHOP
 
 Wilhem : « une croix pour fermer le shop, ou un FERMER ».

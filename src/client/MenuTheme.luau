@@ -145,4 +145,21 @@ function Theme.button(parent, props, accent)
 	return button
 end
 
+-- A real cross (Wilhem: « mets une vraie croix »: the ✕ character is missing from the game's
+-- fonts and showed as an empty box): two white bars crossed at 45°, drawn inside `parent`.
+-- `size` in pixels (the bars' length), `position` / `anchor` of the cross in its parent
+-- (default: centred).
+function Theme.cross(parent, size, position, anchor, color)
+	size = size or 18
+	local box = Theme.new("Frame", { Name = "Cross", BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size),
+		AnchorPoint = anchor or Vector2.new(0.5, 0.5), Position = position or UDim2.fromScale(0.5, 0.5),
+		ZIndex = (parent.ZIndex or 1) + 1 }, parent)
+	for _, angle in { 45, -45 } do
+		Theme.new("Frame", { BorderSizePixel = 0, BackgroundColor3 = color or Color3.new(1, 1, 1), AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1.25, 0, 0, math.max(2, math.floor(size / 6))), Rotation = angle,
+			ZIndex = box.ZIndex }, box)
+	end
+	return box
+end
+
 return Theme

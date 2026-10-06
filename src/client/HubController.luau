@@ -87,8 +87,9 @@ function HubController.new(remote)
 	new("UITextSizeConstraint", { MaxTextSize = 34 }, title)
 	-- A big red close button, easy to see and to hit.
 	local close = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(44, 44),
-		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "✕", TextColor3 = WHITE, AutoButtonColor = true, ZIndex = 3 }, panel)
+		BackgroundColor3 = RED, Font = UI_FONT, TextSize = 26, Text = "", TextColor3 = WHITE, AutoButtonColor = true, ZIndex = 3 }, panel)
 	close.BorderSizePixel = 0
+	Theme.cross(close, 20)
 	Theme.edge(close, RED)
 	Theme.feedback(close)
 	close.Activated:Connect(function() self:setVisible(false) end)

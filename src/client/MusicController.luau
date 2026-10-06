@@ -78,7 +78,9 @@ function MusicController:play(slotId)
 	self.lastTrack[key] = index
 	local base = list[index]
 	local sound = base:Clone()
-	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", false, self.group
+	-- (the menu and the fights: excerpts in turn; a boss's theme: played whole, looping)
+	local excerpts = Music.SHARED[slotId] == true
+	sound.Name, sound.Looped, sound.SoundGroup = "MusicTrack", not excerpts and #list == 1, self.group
 	local volume = base.Volume > 0 and base.Volume or 0.6
 	sound:SetAttribute("Base", volume)
 	sound.Volume = 0
@@ -96,11 +98,11 @@ function MusicController:play(slotId)
 			waited += task.wait(0.1)
 		end
 		if self.current ~= sound then return end
-		local part = Music.excerpt(sound.TimeLength, math.random)
-		sound.TimePosition = part.start
+		local part = if excerpts then Music.excerpt(sound.TimeLength, math.random) else nil
+		sound.TimePosition = if part then part.start else 0
 		sound:Play()
 		TweenService:Create(sound, TweenInfo.new(FADE), { Volume = volume * self.level }):Play()
-		task.delay(part.duration, nextOne)
+		if part then task.delay(part.duration, nextOne) end
 	end)
 end
 

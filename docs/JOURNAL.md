@@ -1,5 +1,28 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.19 — 6 octobre 2026 · BRAS D'ASURA · VRAIES CROIX · MUSIQUES DES BOSS
+
+Wilhem : « ASURA, ses bras, la deuxième paire, rends-la agréable » ; « mets une vraie croix » (captures du hub et de la fin du tutoriel) ; les musiques de boss d'ASURA et de KUROEN SHIN.
+
+**ASURA, la deuxième paire de bras** (`FourArms`) : au repos et en garde, elle se mêlait à la garde principale devant le visage. Elle se tient maintenant en **deux étages**, comme les statues de divinités : la vraie paire garde le visage, la deuxième se tient **plus bas et plus large**, sur les côtés, avant-bras un peu relevés, poings à la ceinture devant les hanches. Elle respire entre deux poses. Le test des quatre bras passe (jamais dans le corps, garde, coups, rafales).
+
+**Vraies croix** : le caractère « ✕ » manque aux polices du jeu et s'affichait en rectangle. `MenuTheme.cross` dessine une croix avec deux barres. Elle remplace le caractère :
+- sur la fermeture des fenêtres du menu ;
+- sur le hub (« WELCOME TO BREAKFRAMEZ ») ;
+- sur PASSER / FERMER du tutoriel.
+
+Dans le HUD, une équipe éliminée est marquée « X ». Locale : « CLOSE » = « FERMER ».
+
+**Musiques des boss** (IDs de Wilhem) :
+- ASURA : Free Boss Fight Loop, 118595491027834 ;
+- KUROEN SHIN : Boss Fight, 80556704569695, sur un emplacement **KUROEN** qui lui est propre (repli sur ASURA).
+
+Le client transmet quel boss on affronte. La seconde vie d'ASURA garde son thème. Les thèmes de boss jouent **en entier et en boucle**, et ne passent jamais dans la rotation menu/combat. Tests Kits « music » : chaque boss a son morceau.
+
+**Question à Wilhem** : le BURST d'ASURA (au 5ᵉ coup d'affilée, il sort du combo, toutes les 10 s) est voulu (« ASURA beaucoup plus fort »). À garder, adoucir ou retirer ?
+
+Tests : Animation 52, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; Kits 130 sur la 0.23.16 ; relancée sur la 0.23.19.
+
 ## Version 0.23.18 — 6 octobre 2026 · LES 4 MUSIQUES PARTOUT, PAR EXTRAITS
 
 Wilhem : « oui, tourne partout, par extraits de 30/40 secondes ».

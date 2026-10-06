@@ -31,10 +31,12 @@ FourArms.SPEC = {
 -- Key poses of each arm ({ pitch, yaw, roll, bend, twist }); Left and Right are mirrored by
 -- the client (yaw, roll and twist take the side's sign).
 local KEYS = {
-	-- The guard of the deity statues: both arms held out to the sides, forearms up, fists
-	-- beside the head, outside the real guard.
-	guard = { 20, 20, 110, 50, 40 },
-	guardHigh = { 10, 10, 116, 60, 50 },
+	-- The guard of the deity statues, in two tiers (Wilhem: « ses bras, la deuxième paire,
+	-- rends-la agréable »: beside the head they tangled with the real guard): the real arms
+	-- guard the face, the extra pair stands lower and wider, out to the sides, forearms rising
+	-- a little, fists at his belt and ahead of his hips. It breathes between the two keys.
+	guard = { 30, 5, 65, 60, 30 },
+	guardHigh = { 34, 6, 62, 66, 30 },
 	-- An attack: drawn back, then thrown straight at the target.
 	draw = { 20, 10, 60, 110, 0 },
 	strike = { 88, 0, 32, 4, 0 },

@@ -25,6 +25,9 @@ Music.TRACKS = {
 	{ slot = "MENU", file = "assets/music/menu_2_funk_break_beat.mp3", title = "Funk Break Beat", id = "rbxassetid://102119957612262" },
 	{ slot = "BATTLE", file = "assets/music/battle_1_fast_amen_break.mp3", title = "Fast Amen Break", id = "rbxassetid://70875466407021" },
 	{ slot = "BATTLE", file = "assets/music/battle_2_risky_step.mp3", title = "Risky Step", id = "rbxassetid://86152672257538" },
+	-- (the bosses' own themes, uploaded straight to Roblox by Wilhem on 6 October 2026: no file here)
+	{ slot = "ASURA", title = "Free Boss Fight Loop", id = "rbxassetid://118595491027834" },
+	{ slot = "KUROEN", title = "Boss Fight", id = "rbxassetid://80556704569695" },
 }
 
 -- (Wilhem: « tourne partout, par extraits de 30/40 secondes »: the menu and the fights share
@@ -37,7 +40,9 @@ Music.EXCERPT = { min = 30, max = 40, edge = 4 }
 function Music.idsFor(slotId)
 	local out = {}
 	for _, t in Music.TRACKS do
-		if (t.slot == slotId or Music.SHARED[slotId]) and type(t.id) == "string" and string.match(t.id, "^rbxassetid://%d+$") then
+		-- (a SHARED slot takes the tracks of every SHARED slot, never a boss's theme)
+		if (t.slot == slotId or (Music.SHARED[slotId] and Music.SHARED[t.slot])) and type(t.id) == "string"
+			and string.match(t.id, "^rbxassetid://%d+$") then
 			table.insert(out, t.id)
 		end
 	end
@@ -95,6 +100,7 @@ Music.SLOTS = {
 	{ id = "SKY", use = "CLOUD PALACE", fallback = "BATTLE" },
 	{ id = "ASURA", use = "boss fights (ASURA, KUROEN SHIN)", fallback = "BATTLE" },
 	{ id = "WRATH", use = "ASURA's SECOND LIFE", fallback = "ASURA" },
+	{ id = "KUROEN", use = "the KUROEN SHIN boss fight", fallback = "ASURA" },
 	{ id = "VICTORY", use = "short jingle: you win the match", stinger = true },
 	{ id = "DEFEAT", use = "short jingle: you lose the match", stinger = true },
 }
@@ -106,6 +112,7 @@ Music.BY_ID = BY_ID
 function Music.themeFor(state)
 	if not state.inMatch then return "MENU" end
 	if state.wrath then return "WRATH" end
+	if state.boss == "KUROEN SHIN" then return "KUROEN" end -- (state.boss: the boss's kit, or true)
 	if state.boss then return "ASURA" end
 	return if BY_ID[state.map or ""] then state.map else "BATTLE"
 end

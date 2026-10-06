@@ -436,7 +436,7 @@ function MenuController:buildTopBar()
 end
 
 -- ===================================================================== popups
--- A window over the menu: a title, a list that scrolls, ✕ (or a click outside) to close.
+-- A window over the menu: a title, a list that scrolls, a cross (or a click outside) to close.
 function MenuController:popup(title, width, height)
 	if self.popupFrame then self.popupFrame:Destroy() end
 	local shade = new("TextButton", { Name = "Popup", Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35,
@@ -448,7 +448,8 @@ function MenuController:popup(title, width, height)
 	label(box, { Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -80, 0, 40), Font = DISPLAY, TextScaled = true, Text = title,
 		TextColor3 = WHITE, ZIndex = 52 })
 	local close = Theme.button(box, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(40, 40),
-		BackgroundColor3 = Theme.RED, Font = UI_FONT, TextSize = 20, Text = "✕", ZIndex = 52 })
+		BackgroundColor3 = Theme.RED, Font = UI_FONT, TextSize = 20, Text = "", ZIndex = 52 })
+	Theme.cross(close, 18)
 	local function closePopup()
 		if self.popupFrame == shade then self.popupFrame = nil end
 		shade:Destroy()

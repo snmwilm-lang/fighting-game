@@ -555,6 +555,11 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	expect(Music.themeFor({ inMatch = false }) == "MENU", "no menu slot")
 	expect(Music.themeFor({ inMatch = true, map = "NEON", boss = true }) == "ASURA", "the bosses have no slot")
 	expect(Music.themeFor({ inMatch = true, boss = true, wrath = true }) == "WRATH", "the SECOND LIFE has no slot")
+	-- (each boss its own theme: Wilhem's uploads)
+	expect(Music.themeFor({ inMatch = true, boss = "ASURA" }) == "ASURA" and Music.themeFor({ inMatch = true, boss = "KUROEN SHIN" }) == "KUROEN",
+		"the bosses do not have their own themes")
+	expect(#Music.idsFor("ASURA") == 1 and #Music.idsFor("KUROEN") == 1 and Music.idsFor("ASURA")[1] ~= Music.idsFor("KUROEN")[1],
+		"ASURA and KUROEN SHIN do not each have their own track")
 	expect(Music.themeFor({ inMatch = true, map = "NOWHERE" }) == "BATTLE", "an unknown stage has no music")
 	-- fallbacks: WRATH -> ASURA -> BATTLE; nothing at all is silence
 	local function only(...)
@@ -570,8 +575,10 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	-- Wilhem's tracks: playlists on MENU and BATTLE, never the same track twice in a row, no id invented
 	local menu, battle = 0, 0
 	for _, t in Music.TRACKS do
-		expect(Music.BY_ID[t.slot] ~= nil and string.find(t.file, "^assets/music/.+%.mp3$") ~= nil, "a track without a slot or a file")
-		expect(t.id == "" or string.match(t.id, "^rbxassetid://%d+$") ~= nil, t.file .. ": a malformed id")
+		-- (a file of assets/music, or uploaded straight to Roblox by Wilhem: then an id)
+		expect(Music.BY_ID[t.slot] ~= nil and ((t.file and string.find(t.file, "^assets/music/.+%.mp3$") ~= nil)
+			or (t.file == nil and t.id ~= "")), "a track without a slot, a file or an id")
+		expect(t.id == "" or string.match(t.id, "^rbxassetid://%d+$") ~= nil, tostring(t.file or t.title) .. ": a malformed id")
 		if t.slot == "MENU" then menu += 1 elseif t.slot == "BATTLE" then battle += 1 end
 	end
 	expect(menu >= 2 and battle >= 2, "the lobby and the fights have no playlist")
@@ -595,7 +602,7 @@ test("music: real tracks only, a slot for the menu, every stage, the bosses, and
 	expect(Music.rotate(2, 2, function() return 1 end) == 1 and Music.rotate(1, 1, function() return 1 end) == 1, "short rotations")
 	-- (Wilhem: « tourne partout, par extraits de 30/40 secondes »)
 	local all = 0
-	for _, t in Music.TRACKS do if t.id ~= "" then all += 1 end end
+	for _, t in Music.TRACKS do if t.id ~= "" and Music.SHARED[t.slot] then all += 1 end end
 	expect(#Music.idsFor("MENU") == all and #Music.idsFor("BATTLE") == all, "the menu and the fights do not share every track")
 	expect(Music.rotationKey("MENU") == Music.rotationKey("BATTLE"), "the menu and the fights do not carry on the same rotation")
 	for _, roll in { 0, 0.5, 0.999 } do

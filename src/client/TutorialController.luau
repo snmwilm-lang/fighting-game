@@ -50,7 +50,10 @@ function TutorialController.new(input)
 	self.keys = text(panel, { Position = UDim2.fromOffset(16, 100), Size = UDim2.new(1, -150, 0, 24), Font = Theme.UI, TextSize = 15,
 		Text = "", TextColor3 = GOLD, BackgroundTransparency = 1 })
 	self.skip = Theme.button(panel, { Name = "Skip", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12),
-		Size = UDim2.fromOffset(120, 34), Font = Theme.UI, TextSize = 13, Text = "SKIP ✕" }, RED)
+		Size = UDim2.fromOffset(120, 34), Font = Theme.UI, TextSize = 13, Text = "SKIP" }, RED)
+	-- (a drawn cross at its right: the ✕ character showed as an empty box)
+	Theme.new("UIPadding", { PaddingRight = UDim.new(0, 22) }, self.skip)
+	Theme.cross(self.skip, 12, UDim2.new(1, 12, 0.5, 0), Vector2.new(0.5, 0.5))
 	self.skip.Activated:Connect(function()
 		if self.active then
 			self:stop(false)
@@ -81,7 +84,7 @@ end
 -- Starts the tutorial: a TRAINING match with KAI (free), then the steps.
 function TutorialController:start(menuRemote)
 	self.active, self.state, self.ended, self.wasInMatch = true, Tutorial.new(), false, false
-	self.skip.Text = "SKIP ✕"
+	self.skip.Text = "SKIP"
 	self.menuRemote = menuRemote
 	menuRemote:FireServer({ action = "start", request = { mode = "TRAINING", team = { "KAI" }, map = Maps.DEFAULT } })
 	-- (offered once: started counts; a moment later, the server takes one menu request at a time)
@@ -119,7 +122,7 @@ function TutorialController:stop(completed)
 	self.body.Text = "Keep training here as long as you like, or ◀ MENU to fight the CPU or other players online."
 	self.keys.Text = ""
 	for _, dot in self.dots do dot.BackgroundColor3 = GREEN end
-	self.skip.Text = "CLOSE ✕"
+	self.skip.Text = "CLOSE"
 	self.ended = true
 	task.delay(8, function()
 		if self.ended and not self.active then self.gui.Enabled = false end

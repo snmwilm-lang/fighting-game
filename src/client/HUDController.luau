@@ -1100,10 +1100,10 @@ function HUD:update(world, views, fps, dt)
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
 		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player .. " · " .. kit.Role
 		if view.team and #view.team > 1 then
-			-- Relay team: who is out (✕), who fights (●), who waits (○).
+			-- Relay team: who is out (X), who fights (●), who waits (○).
 			local marks = {}
 			for i in view.team do
-				marks[i] = if i < (view.teamIndex or 1) then "✕" elseif i == view.teamIndex then "●" else "○"
+				marks[i] = if i < (view.teamIndex or 1) then "X" elseif i == view.teamIndex then "●" else "○"
 			end
 			bar.player.Text ..= "  ·  TEAM " .. table.concat(marks, "")
 		end

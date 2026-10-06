@@ -1,5 +1,22 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.24 — 6 octobre 2026 · LA BARRE QUI BRÛLE AU COUP FATAL · LA MUSIQUE NE S'ARRÊTE PLUS
+
+Wilhem : « quand on a le fatal, un effet sur notre barre de vie comme dans Taken » ; « des fois la musique s'arrête en combat ».
+
+- Coup fatal prêt (`HUDController`, cosmétique, l'état vient du serveur) : la barre de vie brûle.
+  - Une aura cramoisie pulse autour de la barre.
+  - Une flamme cramoisie (rouge sombre → rouge → blanc chaud) défile sur la vie qui reste.
+  - La barre et le portrait sont cerclés de cramoisi ; tout revient à la normale après.
+- Musique :
+  - Chien de garde `Music.stalled` (pur), appelé par `MusicController:watch` à chaque image. Un morceau lancé mais muet depuis 2 s (un `Ended` jamais venu, un flux perdu) laisse place au suivant.
+  - Un morceau qui ne charge pas en 6 s est sauté, au lieu d'attendre en silence.
+- Test (Kits) : chien de garde (pas pendant le chargement ni juste après le départ, pas quand ça joue ; relance après 2 s de silence ; le silence repart à zéro si le morceau rejoue).
+
+Fichiers : `src/client/HUDController.luau`, `src/client/MusicController.luau`, `src/shared/Music.luau`, `tests/Kits.test.luau`.
+
+Tests : chien de garde vérifié à part ; Kits relancé. Non vérifié dans Studio : l'effet de barre est à juger en jeu.
+
 ## Version 0.23.23 — 6 octobre 2026 · LA GARDE DE KUROEN SHIN
 
 Wilhem : « avec 3 persos je l'emmène à sa deuxième vie et je suis pas le meilleur, donc parfait » (ASURA validé) ; « comment SHIN bloque tout, tout le temps ? ».

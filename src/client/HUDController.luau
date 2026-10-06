@@ -14,6 +14,7 @@ local HUD = {}
 local WHITE = Color3.fromHex("F5F5F7")
 local INK = Color3.fromHex("0B0B0E")
 local RED = Color3.fromHex("E0102B")
+local FATAL, FATAL_DARK, FATAL_HOT = Color3.fromHex("FF1E3C"), Color3.fromHex("2A0006"), Color3.fromHex("FFC2A8")
 local DISPLAY = Enum.Font.Bangers
 local UI_FONT = Enum.Font.GothamBlack
 
@@ -108,7 +109,7 @@ function HUD.new(config)
 			Position = if left then UDim2.fromOffset(36, 40) else UDim2.new(1, -36, 0, 40),
 			BackgroundColor3 = INK, BorderSizePixel = 0,
 		}, side)
-		tint(stroke(portrait, 3, energy), "Energy")
+		local portraitStroke = tint(stroke(portrait, 3, energy), "Energy")
 		local kanji = tint(text(portrait, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 34, TextColor3 = energy, Font = UI_FONT }), "Energy")
 		local barX = 76
 		local bar = new("Frame", {
@@ -116,7 +117,7 @@ function HUD.new(config)
 			Size = UDim2.new(1, -barX - 4, 0, 24), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
 			Position = if left then UDim2.fromOffset(barX, 30) else UDim2.new(1, -barX, 0, 30),
 		}, side)
-		stroke(bar, 2, WHITE)
+		local barStroke = stroke(bar, 2, WHITE)
 		local trail = new("Frame", { Name = "Trail", BackgroundColor3 = RED, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
 			AnchorPoint = Vector2.new(if left then 0 else 1, 0), Position = if left then UDim2.new() else UDim2.fromScale(1, 0) }, bar)
 		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
@@ -128,6 +129,19 @@ function HUD.new(config)
 		-- (a shine on its top third, and the bar slanted at its inner end like a blade)
 		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.32, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55,
 			BorderSizePixel = 0, ZIndex = 2 }, bar)
+		-- COUP FATAL ready: the bar burns (Wilhem: « un effet sur notre barre de vie comme dans
+		-- Taken »): a crimson aura pulsing around it, a flame running along the health left, the
+		-- bar and the portrait outlined in crimson. Cosmetic: the server says when it is ready.
+		local aura = new("Frame", { Name = "FatalAura", BackgroundTransparency = 1, Size = UDim2.new(1, 10, 1, 10),
+			Position = UDim2.fromOffset(-5, -5), Visible = false }, bar)
+		local auraStroke = new("UIStroke", { Thickness = 4, Color = FATAL, Transparency = 0.3 }, aura)
+		local flame = new("Frame", { Name = "FatalFlame", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
+			Visible = false }, fill)
+		local flameGradient = new("UIGradient", {
+			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, FATAL_DARK), ColorSequenceKeypoint.new(0.3, FATAL),
+				ColorSequenceKeypoint.new(0.5, FATAL_HOT), ColorSequenceKeypoint.new(0.7, FATAL), ColorSequenceKeypoint.new(1, FATAL_DARK) }),
+			Transparency = NumberSequence.new(0.1),
+		}, flame)
 		local guard = new("Frame", {
 			Name = "Guard", BackgroundColor3 = INK, BorderSizePixel = 0,
 			Size = UDim2.new(0.6, 0, 0, 6), AnchorPoint = Vector2.new(if left then 0 else 1, 0),
@@ -196,7 +210,8 @@ function HUD.new(config)
 		tint(stroke(ready, 2, energy), "Energy")
 		self.bars[slot] = { fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
-			kanji = kanji, name = name, passive = passive }
+			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
+			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke }
 	end
 	local timer = new("Frame", {
 		Name = "Timer", Size = UDim2.fromOffset(62, 62), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
@@ -1098,6 +1113,22 @@ function HUD:update(world, views, fps, dt)
 			self.trail[slot] = math.max(ratio, self.trail[slot] - dt * 0.6)
 		end
 		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
+		-- COUP FATAL ready: the bar burns (aura, flame, crimson outline)
+		local fatal = view.fatal == "ready"
+		bar.aura.Visible, bar.flame.Visible = fatal, fatal
+		if fatal then
+			local t = os.clock()
+			local pulse = 0.5 + 0.5 * math.sin(t * 7)
+			bar.auraStroke.Transparency = 0.1 + 0.5 * pulse
+			bar.auraStroke.Thickness = 3 + 4 * (1 - pulse)
+			bar.flameGradient.Offset = Vector2.new((t * 0.9) % 2 - 1, 0)
+			bar.flameGradient.Rotation = if slot == 1 then 0 else 180
+			bar.barStroke.Color = FATAL
+			bar.portraitStroke.Color = FATAL
+		else
+			bar.barStroke.Color = WHITE
+			bar.portraitStroke.Color = bar.energy
+		end
 		bar.guard.Size = UDim2.fromScale(math.clamp(view.guard / self.config.MaxGuard, 0, 1), 1)
 		bar.player.Text = (if localSlot == slot then "YOU · " else "") .. view.player .. " · " .. kit.Role
 		if view.team and #view.team > 1 then

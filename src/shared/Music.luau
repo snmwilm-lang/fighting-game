@@ -132,6 +132,23 @@ end
 
 -- How loud the music sits: under the cinematics it steps back, and a clutch moment (a fighter
 -- under 30 %, the deciding round) brings it up a little. fight = { phase, hp, deciding, cinematic }
+-- The music's watchdog (Wilhem: « des fois la musique s'arrête en combat »): `w` keeps
+-- `silentSince`; `started` (when the track was started, nil while it loads) and `playing`
+-- come from the Sound. True when the track has been silent too long: the next one then.
+Music.STALL = { grace = 1, silent = 2 }
+function Music.stalled(w, now, started, playing)
+	if not started or playing or now - started < Music.STALL.grace then
+		w.silentSince = nil
+		return false
+	end
+	w.silentSince = w.silentSince or now
+	if now - w.silentSince > Music.STALL.silent then
+		w.silentSince = nil
+		return true
+	end
+	return false
+end
+
 function Music.volume(fight)
 	if fight.cinematic then return 0.45 end
 	if fight.phase == "Fight" then

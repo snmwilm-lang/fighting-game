@@ -544,6 +544,21 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 	end
 end)
 
+test("music: a track gone silent in a fight gives way to the next one (watchdog)", function()
+	local Music = require("../src/shared/Music")
+	local w = {}
+	expect(not Music.stalled(w, 10, nil, false), "a track still loading was skipped")
+	expect(not Music.stalled(w, 10, 9.5, false), "a track just started was skipped")
+	expect(not Music.stalled(w, 20, 10, true), "a playing track was skipped")
+	expect(not Music.stalled(w, 21, 10, false) and not Music.stalled(w, 22.5, 10, false), "skipped before 2 s of silence")
+	expect(Music.stalled(w, 23.5, 10, false), "a silent track was never replaced")
+	expect(w.silentSince == nil, "the watchdog did not reset")
+	-- playing again in between: the silence starts over
+	Music.stalled(w, 30, 10, false)
+	Music.stalled(w, 31, 10, true)
+	expect(not Music.stalled(w, 32.5, 10, false), "the silence did not start over after the track played again")
+end)
+
 test("music: real tracks only, a slot for the menu, every stage, the bosses, and fallbacks to silence", function()
 	local Music = require("../src/shared/Music")
 	local Maps = require("../src/shared/Maps")

@@ -9,7 +9,8 @@
 	holding several Sounds) make a playlist played in turn (Music.rotate), an excerpt of 30 to
 	40 s of each (Music.excerpt), cross-faded. The menu and the fights share all of Wilhem's
 	tracks on one rotation (Music.SHARED), which carries on across the menus and the matches.
-	SETTINGS › MUSIC turns it off. See docs/AUDIO.md.
+	SETTINGS › MUSIC turns it off. A watchdog restarts the rotation if a track goes silent.
+	See docs/AUDIO.md.
 ]]
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
@@ -98,9 +99,12 @@ function MusicController:play(slotId)
 			waited += task.wait(0.1)
 		end
 		if self.current ~= sound then return end
+		-- (a track that would not load: the next one, never a silent fight)
+		if not sound.IsLoaded and #list > 1 then nextOne(); return end
 		local part = if excerpts then Music.excerpt(sound.TimeLength, math.random) else nil
 		sound.TimePosition = if part then part.start else 0
 		sound:Play()
+		sound:SetAttribute("Started", os.clock())
 		TweenService:Create(sound, TweenInfo.new(FADE), { Volume = volume * self.level }):Play()
 		if part then task.delay(part.duration, nextOne) end
 	end)
@@ -111,6 +115,7 @@ function MusicController:update(state)
 	self.theme = Music.themeFor(state)
 	local slot = Music.resolve(self.theme, function(id) return template(id) ~= nil end)
 	if slot ~= self.slot then self:play(slot) end
+	self:watch()
 	local level = Music.volume(state)
 	if level ~= self.level then
 		self.level = level
@@ -118,6 +123,15 @@ function MusicController:update(state)
 			TweenService:Create(self.current, TweenInfo.new(0.5), { Volume = self.current:GetAttribute("Base") * level }):Play()
 		end
 	end
+end
+
+-- The watchdog (Music.stalled; Wilhem: « des fois la musique s'arrête en combat »): a track
+-- started and no longer playing for 2 s (an Ended that never came, a stream lost) gives way
+-- to the next one.
+function MusicController:watch()
+	local sound = self.current
+	if not sound or not self.enabled or not self.slot then self.silentSince = nil; return end
+	if Music.stalled(self, os.clock(), sound:GetAttribute("Started"), sound.IsPlaying) then self:play(self.slot) end
 end
 
 -- A jingle over the music (VICTORY, DEFEAT), when the slot has a track; FIGHT and KO have none.

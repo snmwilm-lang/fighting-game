@@ -1,5 +1,18 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.47 — 6 octobre 2026 · HUD ÉPURÉ (MOINS « DESSINÉ »)
+
+Wilhem, avec des captures de FighterZ, KOF XV et Strive : « c'est très beau, mais c'est trop dessiné ».
+
+- Le chrono n'est plus qu'un grand chiffre (56) avec un contour fin et un léger dégradé, sans plaque ni losange. ROUND 2 s'affiche en petit doré dessous, sans pastille.
+- Portrait : bord fin (1,5) de la couleur du perso ; plus d'anneau intérieur, de cadre texturé ni de losange kanji.
+- Noms plus petits (24) avec un contour fin ; le nom du joueur a un contour de 1.
+- KI : plus de plaque. Le nombre de barres devient un gros chiffre penché à la couleur du perso, comme le « 1 » vert de FighterZ ; les trois cases sont plus fines (10 px, bord 1).
+- Annonces : une bande sombre plus légère, sans le coup de pinceau.
+- Textures : seuls les cadres des barres (bouts en biais) restent utilisés. Les autres IDs restent dans `UIArt`, pour plus tard.
+
+Fichiers : `src/client/HUDController.luau`, `src/shared/UIArt.luau`. Tests : Lobby 44. Non vérifié dans Studio.
+
 ## Version 0.23.46 — 6 octobre 2026 · TEXTURES DU HUD EN LIGNE
 
 - Wilhem a envoyé les 7 textures sur Roblox (en Images). Leurs IDs sont maintenant dans `src/shared/UIArt.luau` : cadres des barres 105285466036643 / 118186509371016, chrono 86141379572910, KI 98110178479026 / 130625196291397, pinceau des annonces 116762484843122, cadre du portrait 79582148341008.

@@ -143,23 +143,14 @@ function HUD.new(config)
 			Position = at(42, 46), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 4, ClipsDescendants = true,
 		}, side)
 		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(energy:Lerp(INK, 0.55), INK) }, portrait)
-		local portraitStroke = tint(stroke(portrait, 3, energy), "Energy")
+		local portraitStroke = tint(stroke(portrait, 1.5, energy), "Energy")
 		portraitStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		local face = new("ViewportFrame", { Name = "Face", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 4,
 			Ambient = Color3.fromHex("9A8F9E"), LightColor = Color3.fromHex("FFF1E0"), LightDirection = Vector3.new(-0.3, -0.6, -1) }, portrait)
-		local portraitFrame = art("PortraitFrame", side, { AnchorPoint = Vector2.new(0.5, 0.5), Position = at(42, 46),
-			Size = UDim2.fromOffset(76, 76), ImageColor3 = energy, ZIndex = 5 })
-		if portraitFrame then
-			tint(portraitFrame, "Energy")
-			portraitStroke.Thickness = 1
-		end
-		local innerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -8, 1, -8),
-			BackgroundTransparency = 1, ZIndex = 5 }, portrait)
-		tint(stroke(innerRing, 1, energy), "Energy").Transparency = 0.6
 		new("Frame", { Name = "Shadow", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(45, 50), Size = UDim2.fromOffset(66, 66),
 			BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 3 }, side)
 		local badge = new("Frame", { Name = "KanjiBadge", AnchorPoint = Vector2.new(0.5, 0.5), Position = at(if left then 72 else 72, 76),
-			Size = UDim2.fromOffset(26, 26), Rotation = 45, BackgroundColor3 = INK, BorderSizePixel = 0, ZIndex = 6 }, side)
+			Size = UDim2.fromOffset(26, 26), Rotation = 45, BackgroundColor3 = INK, BorderSizePixel = 0, ZIndex = 6, Visible = false }, side)
 		tint(stroke(badge, 2, energy), "Energy")
 		local kanji = tint(text(badge, { Text = data.Kanji, Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 16, TextColor3 = energy,
 			Font = UI_FONT, ZIndex = 7 }), "Energy")
@@ -247,15 +238,15 @@ function HUD.new(config)
 			HorizontalAlignment = if left then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
 			SortOrder = Enum.SortOrder.LayoutOrder }, nameRow)
 		local name = text(nameRow, {
-			Name = "Name", Text = data.Name, TextSize = 32, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X,
+			Name = "Name", Text = data.Name, TextSize = 24, Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X,
 			LayoutOrder = if left then 1 else 2,
 		})
-		stroke(name, 3)
+		stroke(name, 1.5)
 		local player = tint(text(nameRow, {
 			Name = "PlayerName", TextSize = 13, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(0, 22),
 			AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = if left then 2 else 1,
 		}), "Energy")
-		stroke(player, 2)
+		stroke(player, 1)
 		-- the rounds won: slanted chips under the guard, by the timer
 		local pips = {}
 		for i = 1, math.max(config.RoundsToWin, 3) do -- (3 for a 3v3 relay: a pip per fighter knocked out)
@@ -278,15 +269,12 @@ function HUD.new(config)
 			BackgroundColor3 = INK, BackgroundTransparency = 0.05, BorderSizePixel = 0 }, panel)
 		tint(stroke(plate, 3, energy), "Energy")
 		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(40, 40, 52), Color3.new(1, 1, 1)) }, plate)
-		local kiPlate = art(if left then "KiPlateLeft" else "KiPlateRight", plate, { Size = UDim2.new(1, 18, 1, 12),
-			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ImageColor3 = energy })
-		if kiPlate then
-			tint(kiPlate, "Energy")
-			plate.BackgroundTransparency = 1
-			for _, item in plate:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
-		end
-		local count = text(plate, { Name = "KiCount", Text = "0", TextSize = 44, TextColor3 = WHITE, Size = UDim2.fromScale(1, 1) })
-		stroke(count, 3)
+		plate.BackgroundTransparency = 1
+		for _, item in plate:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
+		local count = tint(text(plate, { Name = "KiCount", Text = "0", TextSize = 54, TextColor3 = energy, Size = UDim2.fromScale(1, 1),
+			Rotation = if left then -6 else 6 }), "Energy")
+		stroke(count, 2)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(150, 150, 160)) }, count)
 		local kiLabel = tint(text(panel, { Text = "KI", TextSize = 12, Font = UI_FONT, TextColor3 = energy, Size = UDim2.fromOffset(78, 14),
 			AnchorPoint = Vector2.new(outer, 0), Position = px(0, 2) }), "Energy")
 		stroke(kiLabel, 2)
@@ -294,10 +282,10 @@ function HUD.new(config)
 		local CELL = 118
 		for i = 1, config.MaxMeter / config.MeterBar do
 			local segment = new("Frame", {
-				BackgroundColor3 = Color3.fromRGB(20, 22, 30), BorderSizePixel = 0, Size = UDim2.fromOffset(CELL, 14),
+				BackgroundColor3 = Color3.fromRGB(20, 22, 30), BorderSizePixel = 0, Size = UDim2.fromOffset(CELL, 10),
 				AnchorPoint = Vector2.new(outer, 0), Position = px(90 + (i - 1) * (CELL + 8), 36),
 			}, panel)
-			local segmentEdge = tint(stroke(segment, 1.5, energy), "Energy")
+			local segmentEdge = tint(stroke(segment, 1, energy), "Energy")
 			segmentEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			segmentEdges[i] = segmentEdge
 			local segmentFill = tint(new("Frame", { BackgroundColor3 = energy, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1),
@@ -332,30 +320,20 @@ function HUD.new(config)
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
 			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke }
 	end
-	-- the timer: a diamond with a double rim, its number big; the round in a gold pill under it
+	-- the timer: only its number, big and clean (FighterZ, KOF, SF6), the round under it (Wilhem:
+	-- « c'est très beau, mais c'est trop dessiné »: no plate, no thick rims)
 	local timer = new("Frame", {
-		Name = "Timer", Size = UDim2.fromOffset(66, 66), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8),
+		Name = "Timer", Size = UDim2.fromOffset(110, 66), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8),
 		BackgroundColor3 = INK, BorderSizePixel = 0, Rotation = 45,
 	}, header)
-	stroke(timer, 3, WHITE)
-	local timerRing = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -10, 1, -10),
-		BackgroundTransparency = 1 }, timer)
-	stroke(timerRing, 1, EDGE).Transparency = 0.4
-	self.timer = text(timer, { Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 38, Text = "99" })
-	-- (the textured hexagon plate, once uploaded: the diamond steps aside)
-	local timerPlate = art("TimerPlate", header, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2),
-		Size = UDim2.fromOffset(96, 96), ZIndex = 0 })
-	if timerPlate then
-		timer.BackgroundTransparency, timer.Rotation, self.timer.Rotation = 1, 0, 0
-		timerRing.Visible = false
-		for _, item in timer:GetChildren() do if item:IsA("UIStroke") then item.Enabled = false end end
-	end
+	timer.BackgroundTransparency, timer.Rotation = 1, 0
+	self.timer = text(timer, { Size = UDim2.fromScale(1, 1), TextSize = 56, Text = "99" })
+	stroke(self.timer, 2)
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, Color3.fromRGB(190, 190, 200)) }, self.timer)
 	self.timerScale = new("UIScale", { Scale = 1 }, timer) -- (the last 10 s beat: red, a bump each second)
 	self.round = text(header, { Size = UDim2.fromOffset(92, 18), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 86),
-		TextSize = 11, Font = UI_FONT, Text = "ROUND 1", TextColor3 = Color3.fromHex("FFD23F"), BackgroundTransparency = 0.1,
-		BackgroundColor3 = Color3.fromRGB(26, 26, 34) })
-	new("UICorner", { CornerRadius = UDim.new(1, 0) }, self.round)
-	stroke(self.round, 1, Color3.fromHex("FFD23F")).ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		TextSize = 12, Font = UI_FONT, Text = "ROUND 1", TextColor3 = Color3.fromHex("FFD23F") })
+	stroke(self.round, 1)
 
 	-- Combo counters, one per side (shown on the attacker's side).
 	for slot = 1, 2 do
@@ -398,16 +376,10 @@ function HUD.new(config)
 	stroke(announce, 6)
 	-- (a dark band unrolls behind the call: ROUND, FIGHT, K.O.; it reads on any stage)
 	local announceBand = new("Frame", { Name = "AnnouncerBand", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46),
-		Size = UDim2.new(0, 0, 0, 170), BackgroundColor3 = INK, BackgroundTransparency = 0.3, BorderSizePixel = 0, Visible = false, ZIndex = 0 }, gui)
+		Size = UDim2.new(0, 0, 0, 170), BackgroundColor3 = INK, BackgroundTransparency = 0.45, BorderSizePixel = 0, Visible = false, ZIndex = 0 }, gui)
 	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.2),
 		NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) }) }, announceBand)
-	-- (the ink brush stroke, once uploaded, in place of the flat band and its two lines)
-	local brush = art("AnnounceBrush", announceBand, { Size = UDim2.fromScale(1, 1.3), AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5), ZIndex = 0 })
-	if brush then
-		announceBand.BackgroundTransparency = 1
-	end
-	for _, y in (if brush then {} else { 0, 1 }) do
+	for _, y in { 0, 1 } do
 		new("Frame", { AnchorPoint = Vector2.new(0.5, y), Position = UDim2.fromScale(0.5, y), Size = UDim2.new(0.7, 0, 0, 2),
 			BackgroundColor3 = WHITE, BackgroundTransparency = 0.4, BorderSizePixel = 0 }, announceBand)
 	end
@@ -1517,8 +1489,8 @@ function HUD:update(world, views, fps, dt)
 		-- (a full ki bar glows, softly beating)
 		for i, edge in bar.segmentEdges do
 			local full = view.meter >= i * bars
-			edge.Thickness = if full then 2.5 else 1.5
-			edge.Transparency = if full then 0.15 + 0.35 * (0.5 + 0.5 * math.sin(os.clock() * 4 + i)) else 0
+			edge.Thickness = if full then 1.5 else 1
+			edge.Transparency = if full then 0.2 + 0.3 * (0.5 + 0.5 * math.sin(os.clock() * 4 + i)) else 0.5
 		end
 		local u = kit.Ultimates
 		local ready = view.meter >= MoveData.Moves[u.Rush].meterCost

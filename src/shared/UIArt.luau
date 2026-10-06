@@ -3,6 +3,8 @@
 -- each one on Roblox (Creator Dashboard › Decals / Images) and gives its id. An id still 0 keeps the
 -- HUD's drawn look (frames, strokes, gradients). Never an invented id.
 -- Pure: no Roblox API, no require (the HUD builds the ImageLabels).
+-- The clean look (v0.23.47, Wilhem: « trop dessiné ») only wears the bar frames; the others stay
+-- here, uploaded, for a later use.
 -- slice: the 9-slice centre in the PNG's pixels {left, top, right, bottom}; every PNG is drawn
 -- at 2x. size: the PNG's size in pixels.
 local UIArt = {}

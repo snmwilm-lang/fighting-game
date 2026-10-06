@@ -8,7 +8,7 @@ Wilhem : planche « GRIFFES » (gardes, M1/M2, blocage, contre) ; « oublie le R
 - **Étincelles en garde, pour toutes les armes** : quand un coup frappe la garde d'un perso armé, des étincelles jaillissent de son arme, dans la couleur de son élément. Acier orange pour SHIN, acier chauffé au rouge pour KAZAN, crépitement jaune et blanc pour RAIJIN, éclats de givre pour YUKINA.
 - R6 : abandonné (l'option était déjà retirée du jeu). Plus de vérification R6 ajoutée.
 
-Tests : Animation 52, `rigcheck` OK ; le reste est relancé.
+Tests : Animation 52, Cinematography 310, CinematicDirector 871, Kits 130, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; `rigcheck` OK.
 
 Prochaine étape :
 - KAZAN : les coups de la planche (jab rapide, coupe horizontale, verticale, double coup, enchaînement ; grand coup, balayage bas, saut piqué, tourbillon, écrasement).
@@ -26,7 +26,7 @@ Wilhem : « l'effet du poison de VENOM ».
 - **BRUME TOXIQUE (S + E)** : avant, 4 boules. Maintenant un cœur sombre, 6 lobes verts gonflés, une **fumée verte** qui bouillonne, des **bulles** qui montent et éclatent, des gouttes en chemin, une lumière verte.
 - Effets réduits : deux fois moins de bulles et de fumée.
 
-Tests : Animation 51, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; Cinematography, CinematicDirector, Kits : relancées.
+Tests : Animation 51, Cinematography 310, CinematicDirector 871, Kits 130, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2.
 
 À voir dans Studio : la teinte et les bulles sur un perso empoisonné, la brume toxique.
 Prochaine étape : les griffes de KAZAN (planche de Wilhem : gardes, M1/M2, blocage avec étincelles), puis les bombes de SYLVA.
@@ -64,8 +64,7 @@ Wilhem a envoyé ses sons (Creator Hub, tous validés) : coups de poing, coups r
 - Le minutage est pur (`WeaponFX.mirror`) et testé (Animation « YUKINA's ICE MIRROR »). Le dessin est dans `EffectsController:iceMirror`, avec une durée de vie maximale de 2 s.
 
 Tests :
-- Animation 50, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871.
-- Kits : relancée.
+- Animation 50, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2, Cinematography 310, CinematicDirector 871, Kits 130 (vérifiée avec la 0.23.14, qui la contient).
 
 À voir dans Studio : tous les nouveaux sons (volumes à ajuster à l'oreille si besoin, dans `SoundPalette`), le miroir de glace.
 

@@ -530,4 +530,26 @@ test("KUROEN SHIN: bites on a feint when worked, the GRAB answers his guard, a b
 	expect(beginnerWins == 0, "a beginner beat KUROEN SHIN")
 end)
 
+test("the CPU grabs an opponent who sits in its guard up close (NORMAL and up), never EASY", function()
+	local function grabs(level)
+		local world = Sim.newWorld(Config, MoveData, true)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
+		local count = 0
+		for seed = 1, 3 do
+		local brain = FighterAI.new(level, seed)
+		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
+		for _ = 1, 60 * 10 do
+			world.fighters[1].hp, world.fighters[2].hp = world.fighters[1].maxHp, world.fighters[2].maxHp
+			for _, e in Sim.step(world, { brain:think(world, 1), input({ block = true }) }) do
+				if e.kind == "Hit" and e.move == "Grab" then count += 1 end
+			end
+		end
+		end
+		return count
+	end
+	expect(grabs(4) > 0 and grabs(3) > 0, "LÉGENDE / HARD never grab a turtling opponent")
+	expect(grabs(1) == 0, "EASY grabs")
+end)
+
 T.finish()

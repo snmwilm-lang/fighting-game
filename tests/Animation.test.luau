@@ -1521,6 +1521,54 @@ T.test("VENOM's poison shows on its victim: a green glaze that pulses, bubbles a
 	expect(KitFX.poisonLook(9, 0).bubbles == KitFX.POISON.bubbles[3], "more charges than the most are not clamped")
 end)
 
+T.test("air dash: its pose owns the body for the whole dash (no jump / fall pose in between), each kind its own, smooth in and out", function()
+	local Sim = require("../src/shared/CombatSimulation")
+	for _, case in { { "Side", { dash = true, axis = 1 }, "AirDash" }, { "Back", { dash = true, axis = -1 }, "AirDashBack" },
+		{ "Up", { dash = true, up = true }, "AirDashUp" }, { "Down", { dash = true, crouch = true }, "AirDashDown" } } do
+		local world = Sim.newWorld(Config, MoveData, true)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -10, 10
+		local f = world.fighters[1]
+		local anim = newAnimator()
+		local t, last, during, after, wrong, maxJump = 0, nil, 0, 0, 0, 0
+		local dashed = false
+		for frame = 1, 90 do
+			local i = Sim.neutralInput()
+			if frame == 1 then i.jump = true end
+			if frame == 12 then for k, v in case[2] do i[k] = v end end
+			if case[1] == "Down" and frame >= 12 then i.crouch = true end
+			Sim.step(world, { i, Sim.neutralInput() })
+			t += 1 / 60
+			local view = { state = f.state, x = f.x, y = f.y, vx = f.vx, vy = f.vy, facing = f.facing, hitstop = 0, combo = 0 }
+			local pose = anim:step(view, nil, 1 / 60, t, 60, false)
+			checkPose(pose, case[1] .. " air dash frame " .. frame)
+			local family = anim.lastKey and anim.lastKey:match("^[^:]+")
+			if f.state == "AirDash" then
+				dashed = true
+				during += 1
+				if family ~= case[3] then wrong += 1 end
+			elseif dashed and family == "Air" then
+				after += 1
+			end
+			-- (no pop: no joint turns more than this in one frame)
+			if last then
+				for joint, v in pose do
+					local p = last[joint]
+					if p and (joint:find("Hip") or joint:find("Knee") or joint:find("Shoulder") or joint == "Waist") then
+						maxJump = math.max(maxJump, math.abs(v[1] - p[1]))
+					end
+				end
+			end
+			last = {}
+			for joint, v in pose do last[joint] = table.clone(v) end
+		end
+		expect(during >= 3, case[1] .. " air dash never shown")
+		expect(wrong == 0, case[1] .. " air dash: " .. wrong .. " frames showed another pose than " .. case[3])
+		expect(case[1] == "Down" or after > 0, case[1] .. " air dash never went back to the air pose")
+		expect(maxJump < 40, string.format("%s air dash pops: a joint turned %.0f° in one frame", case[1], maxJump))
+	end
+end)
+
 T.test("impact hierarchy: a jab barely shakes the camera, a heavy blow a little, a finisher more, the K.O. and ultimates most", function()
 	local KitFX = require("../src/shared/KitFX")
 	local M = MoveData.Moves

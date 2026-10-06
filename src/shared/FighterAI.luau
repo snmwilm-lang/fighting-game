@@ -54,7 +54,7 @@ FighterAI.Levels = table.freeze({
 
 local function neutral()
 	return {
-		axis = 0, crouch = false, jump = false, dash = false, block = false,
+		axis = 0, crouch = false, jump = false, dash = false, block = false, up = false, grab = false,
 		light = false, heavy = false, special = false, ultimate = false, fatal = false, stance = 0,
 	}
 end
@@ -88,7 +88,7 @@ FighterAI.Bosses = table.freeze({
 			lowDrop = 0.35, -- of his low guard
 			wrongHeight = 0.25, -- chance to guard the wrong height
 			guardTiming = 12, -- ticks his guard may be let go early or held too long
-			turtle = 0.25, -- more guarding when worked (the GRAB's answer)
+			turtle = 0.15, -- more guarding when worked (the GRAB's answer)
 			optimal = 0.9, -- the optimal route (ultimate ending) when his read is clean
 			safe = 0.4, -- a short safe string instead, under strain
 			extendFail = 0.3, -- an extension he fumbles (the wrong button mid-route)
@@ -265,7 +265,7 @@ local function observe(f, moves)
 		x = f.x, y = f.y, vx = f.vx, vy = f.vy, move = f.move, serial = f.moveSerial, phase = phase, guard = m and m.guard,
 		moveFrame = f.moveFrame, crouching = f.crouching,
 		contact = f.moveContact, airborne = f.y > 0.5, vulnerable = f.stun > 0 or f.launched, down = f.knockdown > 0 or f.getUp > 0,
-		dashing = f.state == "Dashing" or f.state == "AirDash", feint = f.state == "Feint",
+		dashing = f.state == "Dashing" or f.state == "AirDash", feint = f.state == "Feint", blocking = f.blocking,
 	}
 end
 
@@ -452,6 +452,12 @@ function FighterAI:think(world, slot)
 	local pressing = if reads then math.min(1, reads.pressure / 4) * read else 0
 	local dx = seen.x - me.x
 	local dist, toward = math.abs(dx), if dx >= 0 then 1 else -1
+	-- (how much guard the opponent has shown lately: the GRAB's cue, see below; it fades slowly)
+	if seen.blocking and not seen.airborne and dist < 5 then
+		self.grabWatch = math.min(120, (self.grabWatch or 0) + 1)
+	else
+		self.grabWatch = math.max(0, (self.grabWatch or 0) - 0.25)
+	end
 	local grounded = me.y <= 0 and me.vy <= 0
 	-- Every kit shares the combo grammar; its own moves, ultimates and specials differ.
 	local kit = world.moveData.Kits[me.kit or "KAI"]
@@ -727,6 +733,7 @@ function FighterAI:think(world, slot)
 		self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
 	end
 
+
 	-- 4. Neutral game: walk, dash, jump in, poke, start combos.
 	if not self.plan and kit.Stances and grounded and not me.move then
 		-- A boxer changes style now and then (seeded, so a seed replays the same fight).
@@ -833,6 +840,21 @@ function FighterAI:think(world, slot)
 				-- A low guard read: open it with the overhead (forward + R), then its follow-up.
 				self.plan = { "R", "L", overhead = true }
 				self.planLength = 2
+			end
+			-- An opponent who sits in its guard: the GRAB instead of the first blow (it goes
+			-- through the guard), walking into its short reach first. The levels that read habits
+			-- (NORMAL and up) use it.
+			if self.grabPlan ~= self.plan then
+				self.grabPlan = self.plan
+				self.grabbing = read > 0 and (self.grabWatch or 0) > 20 and grounded and self:chance(read * 0.5)
+			end
+			if self.grabbing and dist >= 3 then
+				input.axis = toward
+				return input
+			elseif self.grabbing then
+				self.plan, self.grabbing, self.grabWatch = nil, false, 0
+				input.grab = true
+				return input
 			end
 			input.crouch = self.plan.crouch == true
 			if self.plan.overhead then input.axis = toward end

@@ -168,8 +168,9 @@ end
 local SHAKE_STATES = { Hitstun = true, Launched = true, Blockstun = true, CrouchBlockstun = true, KO = true,
 	Crumple = true, GuardBroken = true }
 local LYING = { Knockdown = true, KO = true }
-local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08, AirDash = 0.05, AirDashBack = 0.05, AirDashUp = 0.05,
-	AirDashDown = 0.04, Landing = 0.04 }
+local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08, AirDash = 0.1, AirDashBack = 0.1, AirDashUp = 0.1,
+	AirDashDown = 0.08, Landing = 0.06 }
+local AIR_DASH_EXIT = 0.16 -- (out of an air dash, the body comes back to the jump / fall pose gently)
 
 -- Overlap and follow-through: the upper body follows its key poses through springs, the arms
 -- a little behind the torso and the hands and head behind the arms, so a motion drags,
@@ -520,11 +521,8 @@ function Animator:evaluate(view, time, poseRate)
 		local vy, vx = view.vy or 0, (view.vx or 0) * (view.facing or 1)
 		local name = if vy > 8 then "AirDashUp" elseif vy < -20 then "AirDashDown"
 			elseif vx < 0 then "AirDashBack" else "AirDash"
-		local key = self:resolve(self:base(name))
-		-- (a quick burst into it: out of the jump pose in a few frames, not a cut)
-		local u = clamp01(tr.stateAge / 0.07)
-		if u < 1 then return lerpPose(self:air(vy), key, easeOut(u)), name, false end
-		return key, name, false
+		-- (into it and out of it through the blends: a quick burst, then the air pose eases back)
+		return self:resolve(self:base(name)), name, false
 	elseif state == "Landing" then
 		-- Out of a fast fall: the knees take it, then the stance.
 		return self:resolve(self:base("Land")), "Landing", false
@@ -825,6 +823,7 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 			self.blendStart = time
 			self.blendTime = if instant then 0
 				elseif tr.landAge == 0 then 0.05 -- (a landing: quick, into the squash, but not a cut)
+				elseif last and string.sub(last, 1, 7) == "AirDash" and family == "Air" then AIR_DASH_EXIT
 				else BLEND_TIMES[family] or BLEND_TIMES[last or ""] or 0.07
 		end
 		self.lastKey = key

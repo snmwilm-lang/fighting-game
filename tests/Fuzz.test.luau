@@ -66,7 +66,8 @@ local function check(world, label, tick, last)
 		-- Nobody stays in the same non-neutral state forever.
 		local l = last[i]
 		-- Chained attacks are fine: "stuck" is the same state with the same move.
-		local key = f.state .. ":" .. tostring(f.move)
+		-- (the same move started again, a new GRAB after a whiffed one, is a new attack)
+		local key = f.state .. ":" .. tostring(f.move) .. (if f.move then ":" .. f.moveSerial else "")
 		if l.state == key then l.ticks += 1 else l.state, l.ticks = key, 0 end
 		-- (a cinematic holds both fighters still on purpose: its time does not count)
 		if world.cinematic then l.ticks = 0 end

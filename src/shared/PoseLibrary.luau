@@ -120,6 +120,29 @@ Poses.DashBack = airborne(merge(legs(45, -80, 15, -60), {
 	RightShoulder = { 80, 0, -26 }, RightElbow = { 128, 0, 0 },
 }))
 
+-- AIR DASH: side = the body flat along the dash, legs trailing; back = a guarded hop back;
+-- UP = rising, knees driven up; DOWN = falling feet first, arms up (the fast fall).
+Poses.AirDash = airborne(merge(legs(30, -70, -20, -40), {
+	Root = { -38, 0, 0, 0, 0 }, Waist = { -14, 0, 0 }, Neck = { 40, 0, 0 },
+	LeftShoulder = { -30, 0, -30 }, LeftElbow = { 20, 0, 0 },
+	RightShoulder = { -36, 0, 30 }, RightElbow = { 20, 0, 0 },
+}))
+Poses.AirDashBack = airborne(merge(legs(60, -95, 30, -70), {
+	Root = { 16, 0, 0, 0, 0 }, Waist = { 6, 10, 0 }, Neck = { -6, -10, 0 },
+	LeftShoulder = { 84, 0, 26 }, LeftElbow = { 125, 0, 0 },
+	RightShoulder = { 80, 0, -26 }, RightElbow = { 128, 0, 0 },
+}))
+Poses.AirDashUp = airborne(merge(legs(95, -120, 20, -50), {
+	Root = { -6, 0, 0, 0, 0 }, Waist = { -6, 8, 0 }, Neck = { 18, 0, 0 },
+	LeftShoulder = { 150, 0, -20 }, LeftElbow = { 30, 0, 0 },
+	RightShoulder = { 40, 0, 40 }, RightElbow = { 60, 0, 0 },
+}))
+Poses.AirDashDown = airborne(merge(legs(20, -20, -6, -12), {
+	Root = { 8, 0, 0, 0, 0 }, Waist = { -4, 0, 0 }, Neck = { -10, 0, 0 },
+	LeftShoulder = { 140, 0, -40 }, LeftElbow = { 30, 0, 0 },
+	RightShoulder = { 130, 0, 40 }, RightElbow = { 30, 0, 0 },
+}))
+
 -- ===================================================================== guard
 Poses.Block = feet(merge(STANCE, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.4, 0 } })), -0.82, 0.86, 0, -8, 7)
 Poses.CrouchBlock = merge(CROUCH, GUARD_ARMS)
@@ -1025,6 +1048,25 @@ Poses.ZephyrClashStep = {
 	}), -0.95, 0.7, 0, -14, 8)),
 	Active = Poses.ZephyrPush.Active,
 	Recovery = Poses.ZephyrPush.Recovery,
+}
+-- GRAB (every fighter): both hands reach out low and open (readable), seize, then the throw
+-- over the lead side.
+Poses.Grab = {
+	Startup = feet(merge(STANCE, {
+		Root = { 0, -8, 0, -0.6, 0.15 }, Waist = { -16, -10, 0 }, Neck = { 18, 6, 0 },
+		LeftShoulder = { 70, 0, -38 }, LeftElbow = { 40, 0, 0 },
+		RightShoulder = { 62, 0, 40 }, RightElbow = { 45, 0, 0 },
+	}), -0.85, 0.8, 0, -10, 9),
+	Active = feet(merge(STANCE, {
+		Root = { 0, 4, 0, -0.7, -0.5 }, Waist = { -24, 0, 0 }, Neck = { 20, 0, 0 },
+		LeftShoulder = { 92, 0, -10 }, LeftElbow = { 25, 0, 0 },
+		RightShoulder = { 92, 0, 12 }, RightElbow = { 25, 0, 0 },
+	}), -1.2, 0.55, 0, -20, 8),
+	Recovery = feet(merge(STANCE, {
+		Root = { 0, 34, 0, -0.55, -0.1 }, Waist = { -6, 34, 0 }, Neck = { 6, -24, 0 },
+		LeftShoulder = { 120, 0, -20 }, LeftElbow = { 60, 0, 0 },
+		RightShoulder = { 20, 0, 30 }, RightElbow = { 80, 0, 0 },
+	}), -0.8, 0.8, 0, -8, 9),
 }
 -- KAI's RESOLVE: braced low under the blow (guard up, the feet sliding), then both palms.
 Poses.KaiResolve = {
@@ -3933,7 +3975,7 @@ Poses.STRIKE = {
 	NovaSentinel = { "LeftHand", "RightHand" },
 	TaroDempsey = { "LeftHand", "RightHand" }, TaroRisingHook = { "RightHand" }, TaroChase = { "RightHand" },
 	TaroCounter = { "RightHand" }, TaroParry = {},
-	ZephyrClashStep = { "RightFoot" }, KaiResolve = { "LeftHand", "RightHand" },
+	ZephyrClashStep = { "RightFoot" }, KaiResolve = { "LeftHand", "RightHand" }, Grab = { "LeftHand", "RightHand" },
 	TaroDempseyL = { "LeftHand" }, TaroDempseyR = { "RightHand" }, TaroDempseyFinish = { "RightHand" },
 	TaroChampion = { "RightHand" }, TaroJab = { "LeftHand" }, TaroStraight = { "RightHand" }, TaroRam = { "LeftHand", "RightHand" },
 	-- Wilhem's second sheet: RYUKEN's fists (kick roles too), SHIN's blade, DAICHA's hands,

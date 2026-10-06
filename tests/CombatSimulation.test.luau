@@ -1,6 +1,10 @@
 -- Offline tests for the authoritative simulation. Run from the repository root:
 --   luau tests/CombatSimulation.test.luau
-local Config = require("../src/shared/CombatConfig")
+local ShippedConfig = require("../src/shared/CombatConfig")
+-- (the rhythm prompts are off in the game since 0.25.0, Config.CinematicPrompts; their rules
+-- stay tested here with them on, the shipped behaviour has its own tests at the end)
+local Config = table.clone(ShippedConfig)
+Config.CinematicPrompts = true
 local MoveData = require("../src/shared/MoveData")
 local Sim = require("../src/shared/CombatSimulation")
 local T = require("./TestKit")
@@ -2588,6 +2592,233 @@ test("one K.O. on screen: the server says when a K.O. ends the match or a cinema
 	local early = finish(1)
 	expect(early and early.matchOver == false and Config.RoundsToWin > 1, "a first-round K.O. is flagged as the match's end")
 	expect(early.inCinematic == false, "a plain K.O. is flagged as a cinematic's")
+end)
+
+-- ===================================================================== NO QTE (0.25.0)
+test("no QTE in the game: a cinematic shows no prompt and deals its plain damage (no cut, no bonus)", function()
+	local MD = MoveData
+	for _, id in { "KaienRush", "Awakening", "Kaiten", "Fatal" } do
+		local world = Sim.newWorld(ShippedConfig, MD, true)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
+		local a, d = world.fighters[1], world.fighters[2]
+		a.meter = ShippedConfig.MaxMeter
+		local cinId = MD.Kits.KAI.Ultimates[id] or id
+		if MD.Cinematics[cinId] then
+			Sim.debugCinematic(world, 1, id, MD.Kits.KAI.FullRoutes[1].name)
+			expect(world.cinematic and #world.cinematic.prompts == 0, id .. " still has prompts")
+			local sawPrompt = false
+			for _ = 1, 900 do
+				for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do
+					if e.kind == "Prompt" or e.kind == "PromptGrade" then sawPrompt = true end
+				end
+				if not world.cinematic then break end
+			end
+			expect(not sawPrompt, id .. " judged a prompt")
+		end
+	end
+	expect(ShippedConfig.CinematicPrompts ~= true, "the QTE are still on in the game")
+end)
+
+-- ===================================================================== AIR DASH (0.25.0)
+local function airborneAt(world, slot, ticks)
+	-- jump, then wait `ticks` in the air
+	for t = 1, ticks do
+		local i = { Sim.neutralInput(), Sim.neutralInput() }
+		i[slot] = input({ jump = t == 1 })
+		Sim.step(world, i)
+	end
+end
+
+test("air dash: side = a straight burst that holds its height, once per jump, back on landing", function()
+	local world = closeWorld(20)
+	local a = world.fighters[1]
+	airborneAt(world, 1, 12)
+	local x0, y0 = a.x, a.y
+	local events = run(world, 1, { input({ dash = true, axis = 1 }) })
+	expect(find(events, "AirDash") and a.state == "AirDash" and a.airDash == "Side", "no side air dash: " .. a.state)
+	run(world, Config.AirDashTicks - 2)
+	expect(a.x - x0 > 4.5, "side air dash too short: " .. (a.x - x0))
+	expect(math.abs(a.y - y0) < 0.6, "side air dash lost its height: " .. (a.y - y0))
+	-- a second one in the same jump: refused
+	run(world, Config.DashCooldownTicks)
+	local again = run(world, 1, { input({ dash = true, axis = 1 }) })
+	expect(not find(again, "AirDash"), "two air dashes in one jump")
+	run(world, 120)
+	expect(a.y == 0 and not a.airDashUsed and a.state ~= "AirDash", "air dash not given back on landing")
+	-- (no animation conflict: the jump / fall states never show during the dash)
+end)
+
+test("air dash: UP + DASH rises fast and higher than the jump alone; DOWN + DASH falls much faster", function()
+	local function apex(up)
+		local world = closeWorld(20)
+		local a = world.fighters[1]
+		airborneAt(world, 1, 10)
+		if up then run(world, 1, { input({ dash = true, up = true }) }) end
+		local top = a.y
+		for _ = 1, 90 do
+			run(world, 1)
+			top = math.max(top, a.y)
+		end
+		return top
+	end
+	local plain, boosted = apex(false), apex(true)
+	expect(boosted > plain + 2.5, string.format("UP air dash rises too little: %.1f vs %.1f", boosted, plain))
+	expect(boosted < plain + 8, string.format("UP air dash rises too much: %.1f vs %.1f", boosted, plain))
+	local function fall(down)
+		local world = closeWorld(20)
+		local a = world.fighters[1]
+		airborneAt(world, 1, 20) -- near the apex
+		if down then run(world, 1, { input({ dash = true, crouch = true }) }) end
+		for t = 1, 120 do
+			if a.y <= 0 then return t, a end
+			run(world, 1, { input({ crouch = down }) })
+		end
+		return 999, a
+	end
+	local normal = fall(false)
+	local fast, a = fall(true)
+	expect(fast * 2 <= normal, string.format("fast fall not fast enough: %d ticks vs %d", fast, normal))
+	expect(a.landLag > 0 and a.landLag <= Config.FastFallLandTicks, "no light landing after the fast fall")
+end)
+
+test("air dash: the fast fall lands lightly (short recovery, guard works), never into an instant attack", function()
+	local world = closeWorld(20)
+	local a = world.fighters[1]
+	airborneAt(world, 1, 20)
+	run(world, 1, { input({ dash = true, crouch = true }) })
+	local attacked = false
+	-- L pressed during the fast fall: no air attack comes out of it (no instant overhead)
+	for t = 1, 40 do
+		run(world, 1, { input({ light = t == 2, crouch = true }) })
+		if a.move and a.y > 0 then attacked = true end
+		if a.y <= 0 then break end
+	end
+	expect(not attacked, "an air attack came out of the fast fall")
+	expect(a.state == "Landing" or a.landLag > 0, "no landing after the fast fall: " .. a.state)
+	run(world, Config.FastFallLandTicks + 1)
+	expect(a.landLag == 0 and a.state ~= "Landing", "the fast fall landing lasts too long")
+	-- the guard works during it
+	airborneAt(world, 1, 20)
+	run(world, 1, { input({ dash = true, crouch = true }) })
+	for _ = 1, 40 do
+		run(world, 1, { input({ block = true }) })
+		if a.landLag > 0 then break end
+	end
+	run(world, 1, { input({ block = true }) })
+	expect(a.blocking, "no guard during the fast fall landing")
+end)
+
+test("air dash: an air attack comes out of a side or UP air dash once it is under way (air chase)", function()
+	local world = closeWorld(20)
+	local a = world.fighters[1]
+	airborneAt(world, 1, 8)
+	run(world, 1, { input({ dash = true, axis = 1 }) })
+	run(world, 1, { input({ light = true }) }) -- pressed early: waits in the queue
+	local started
+	for t = 1, Config.AirDashCancelTicks + 4 do
+		run(world, 1)
+		if a.move and not started then started = t end
+	end
+	expect(started ~= nil, "no air attack out of the air dash")
+	expect(a.airDash == "" and a.dashTicks == 0, "the air dash state stayed under the attack")
+	expect(a.airDashUsed, "the attack gave the air dash back")
+end)
+
+test("dash jump: a jump cuts the ground dash once under way and keeps some of its speed", function()
+	local world = closeWorld(20)
+	local a = world.fighters[1]
+	run(world, 1, { input({ dash = true, axis = 1 }) })
+	run(world, Config.DashJumpTicks)
+	run(world, 1, { input({ jump = true, axis = 1 }) })
+	expect(a.y > 0 and a.dashTicks == 0, "the jump during the dash was lost")
+	expect(a.vx > Config.AirSpeed, "the dash jump lost the dash's speed")
+	-- right at the start of the dash: no (the dash commits for a moment)
+	local world2 = closeWorld(20)
+	local b = world2.fighters[1]
+	run(world2, 1, { input({ dash = true, axis = 1 }) })
+	run(world2, 1, { input({ jump = true }) })
+	expect(b.y == 0, "a jump cut the dash on its first tick")
+end)
+
+-- ===================================================================== GRAB (0.25.0)
+test("grab: goes through a held guard, knocks down, modest damage", function()
+	local world = closeWorld(3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local hp = d.hp
+	local events = run(world, 40, function(t) return { input({ grab = t == 1 }), input({ block = true, axis = 1 }) } end)
+	local hit = find(events, "Hit")
+	expect(hit and hit.move == "Grab", "the grab did not take the guarding fighter")
+	expect(hp - d.hp > 50 and hp - d.hp < 140, "grab damage " .. (hp - d.hp))
+	expect(d.launched or d.knockdown > 0 or d.getUp > 0, "the grab does not knock down")
+end)
+
+test("grab: the guard held + L is the grab too (R1 + X), L + R on the same tick as well", function()
+	for _, i in { { block = true, light = true }, { light = true, heavy = true } } do
+		local world = closeWorld(3)
+		local a = world.fighters[1]
+		run(world, 1, { input(i) })
+		run(world, 1)
+		expect(a.move == "Grab", "no grab from " .. (if i.block then "guard + L" else "L + R"))
+	end
+end)
+
+test("grab: the L + R chord replaces the jab its first key started (not out yet), never a jab already out", function()
+	local world = closeWorld(3)
+	local a = world.fighters[1]
+	run(world, 1, { input({ light = true }) })
+	run(world, 2)
+	expect(a.move == MoveData.Kits.KAI.Starters.Ground.Light, "the jab did not start")
+	run(world, 1, { input({ grab = true }) })
+	expect(a.move == "Grab", "the chord did not turn the jab into a grab: " .. tostring(a.move))
+	-- a jab whose fist is out: the grab waits for its end (buffered), never replaces it
+	local world2 = closeWorld(30)
+	local b = world2.fighters[1]
+	run(world2, 1, { input({ light = true }) })
+	run(world2, Moves[b.move].startup + 1)
+	run(world2, 1, { input({ grab = true }) })
+	expect(b.move ~= "Grab", "the grab replaced a jab already out")
+end)
+
+test("grab: whiffs on a fighter in the air, in hitstun or getting up; a whiff is punished", function()
+	-- in the air
+	local world = closeWorld(3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local events = run(world, 30, function(t) return { input({ grab = t == 4 }), input({ jump = t == 1 }) } end)
+	expect(not find(events, "Hit"), "the grab took a fighter in the air")
+	-- whiffed: the opponent punishes during its recovery
+	local world2 = closeWorld(6)
+	local a2, d2 = world2.fighters[1], world2.fighters[2]
+	run(world2, 1, { input({ grab = true }) })
+	run(world2, Moves.Grab.startup + Moves.Grab.active + 1)
+	expect(a2.move == "Grab", "the whiffed grab recovered too fast")
+	d2.x = a2.x + 3
+	local punish = run(world2, 20, function(t) return { nil, input({ light = t == 1 }) } end)
+	local hit = find(punish, "Hit")
+	expect(hit and hit.attacker == 2, "a whiffed grab was not punishable")
+	-- in hitstun: L then the grab right away never grabs the reeling opponent
+	local world3 = closeWorld(3)
+	local d3 = world3.fighters[2]
+	local events3 = run(world3, 40, function(t) return { input({ light = t == 1, grab = t == 9 }) } end)
+	for _, e in events3 do
+		expect(not (e.kind == "Hit" and e.move == "Grab"), "the grab extended a combo")
+	end
+	expect(Moves.Grab.recovery >= 25, "the whiffed grab's recovery is short")
+end)
+
+test("grab: a strike landing on the same tick wins; grab against grab is a tech (no damage)", function()
+	local world = closeWorld(3)
+	local a, d = world.fighters[1], world.fighters[2]
+	local hp1, hp2 = a.hp, d.hp
+	local events = run(world, 30, function(t) return { input({ grab = t == 1 }), input({ grab = t == 1 }) } end)
+	expect(find(events, "GrabTech"), "no tech on grab against grab")
+	expect(a.hp == hp1 and d.hp == hp2, "the tech dealt damage")
+	-- a jab against a grab, both started together: the jab (faster) wins
+	local world2 = closeWorld(3)
+	local a2, d2 = world2.fighters[1], world2.fighters[2]
+	local events2 = run(world2, 30, function(t) return { input({ grab = t == 1 }), input({ light = t == 1 }) } end)
+	local first = find(events2, "Hit")
+	expect(first and first.attacker == 2, "the grab beat a faster jab")
 end)
 
 T.finish()

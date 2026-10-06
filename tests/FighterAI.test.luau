@@ -122,15 +122,18 @@ test("CPU zones with ki blasts at long range", function()
 	expect(blasts >= 1, "LÉGENDE never threw a ki blast")
 end)
 
-test("LÉGENDE earns ÉVEIL ÉCARLATE and nails its rhythm prompts", function()
+test("LÉGENDE earns ÉVEIL ÉCARLATE and nails its rhythm prompts (when the prompts are on)", function()
+	-- (the prompts are off in the game since 0.25.0: Config.CinematicPrompts)
+	local PromptConfig = table.clone(Config)
+	PromptConfig.CinematicPrompts = true
 	local found, grade = false, nil
 	for seed = 1, 12 do
-		local world = Sim.newWorld(Config, MoveData, false)
+		local world = Sim.newWorld(PromptConfig, MoveData, false)
 		world.phase = "Fight"
 		world.fighters[1].x, world.fighters[2].x = -2, 2
 		local brain = FighterAI.new(4, seed * 5)
 		for _ = 1, 60 * 60 do
-			world.fighters[2].meter = Config.MaxMeter
+			world.fighters[2].meter = PromptConfig.MaxMeter
 			world.fighters[1].hp = math.max(world.fighters[1].hp, 900)
 			for _, e in Sim.step(world, { Sim.neutralInput(), brain:think(world, 2) }) do
 				if e.kind == "CinematicStart" and (e.move == "Awakening" or e.move == "Kaiten") then found = true end

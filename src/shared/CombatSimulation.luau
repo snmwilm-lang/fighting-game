@@ -56,6 +56,8 @@ local function newFighter(slot, c, kit, stanceId)
 		facing = facing,
 		state = "Idle",
 		dashTicks = 0, dashCooldown = 0, dashDirection = facing,
+		-- AIR DASH: airDash = "" (none), "Side", "Up" or "Down" while it lasts; one per jump.
+		airDash = "", airDashUsed = false, airDashAge = 0, airCarry = 0, landLag = 0,
 		hp = stats.MaxHealth, guard = c.MaxGuard, guardRegenDelay = 0, meter = 0,
 		move = nil, moveFrame = 0, moveContact = nil, airAttackUsed = false,
 		moveHits = 0, lastHitFrame = 0, projectileSpawned = false,
@@ -229,6 +231,8 @@ end
 function CombatSimulation.neutralInput()
 	return {
 		axis = 0, crouch = false, jump = false, dash = false, block = false,
+		up = false, -- held up (the jump keys): UP + DASH in the air is the fast rise
+		grab = false, -- the GRAB button (touch); also L + R together, or the guard + L
 		light = false, heavy = false, special = false, ultimate = false, fatal = false,
 		stance = 0, -- 1, 2...: switch to the kit's stance of that rank (TARO only)
 	}
@@ -369,6 +373,7 @@ local function startMove(world, f, id, events, isLink)
 	else
 		f.dempseyCount = 0
 	end
+	if f.airDash ~= "" then f.airDash, f.dashTicks, f.airCarry = "", 0, 0 end
 	f.move, f.moveFrame, f.moveContact = id, 1, nil
 	f.moveHits, f.lastHitFrame, f.projectileSpawned = 0, 0, false
 	f.wakeInvuln = 0 -- (the wake-up invincibility is for getting out, not for attacking)
@@ -526,7 +531,11 @@ local function chooseMove(world, f, grounded, crouching)
 		if nextId then currentId = nil end
 	end
 	local isLink = nextId ~= nil and currentId ~= nil
-	if not nextId and not f.move and f.dashTicks == 0 then
+	-- (a side or UP air dash may be cut by an air attack once under way: the air chase; a fast
+	-- fall never: no instant overhead out of it)
+	local airDashOut = f.dashTicks > 0 and (f.airDash == "Side" or f.airDash == "Up")
+		and f.airDashAge >= (world.config.AirDashCancelTicks or 4)
+	if not nextId and not f.move and (f.dashTicks == 0 or airDashOut) then
 		-- Neutral start (also when a late press is not a valid cancel of the finished move).
 		if grounded then
 			nextId = (if crouching then starters.Crouch else starters.Ground)[button]
@@ -658,7 +667,16 @@ local function stepFighter(world, f, input, events)
 	for i = #f.attackPresses, 1, -1 do
 		if now - f.attackPresses[i].tick > 60 then table.remove(f.attackPresses, i) end
 	end
-	if input.light or input.heavy then
+	-- GRAB (universal): input.grab (the client sends it for L + R pressed together: J + K, both
+	-- mouse buttons; or the touch button) or the guard held + L (R1 + X on a gamepad). The jab
+	-- the first key of the pair already started is dropped for the grab (not out yet).
+	-- (never as a reversal out of a hit or a guard: the guard held still wins there)
+	local grabbing = false
+	if not locked and (input.grab or (input.light and (input.heavy or input.block))) then
+		grabbing = true
+		f.grabPress = now
+	end
+	if (input.light or input.heavy) and not grabbing then
 		table.insert(f.attackPresses, { tick = now, button = if input.light and input.heavy then "Both"
 			elseif input.light then "Light" else "Heavy" })
 	end
@@ -685,7 +703,8 @@ local function stepFighter(world, f, input, events)
 		end
 	end
 	for _, field in BUTTON_ORDER do
-		if input[field] and (not locked or remaining <= c.ReversalBufferTicks) then
+		if input[field] and (not locked or remaining <= c.ReversalBufferTicks)
+			and not (grabbing and (field == "light" or field == "heavy")) then
 			pressed += 1
 			if #f.buffer >= c.BufferSize then
 				table.remove(f.buffer, 1)
@@ -884,7 +903,7 @@ local function stepFighter(world, f, input, events)
 			f.move, f.moveContact = nil, nil
 			f.vy = c.SuperJumpVelocity
 			f.vx = input.axis * stats.AirSpeed
-			f.airAttackUsed = false
+			f.airAttackUsed, f.airDashUsed = false, false
 			grounded = false
 			table.insert(events, { kind = "SuperJump", attacker = f.slot })
 		elseif f.moveFrame > world.moveData.total(m) - f.recoveryCut then
@@ -898,6 +917,7 @@ local function stepFighter(world, f, input, events)
 				for i = #f.buffer, 1, -1 do
 					if c.BufferTicks - f.buffer[i].ticks >= c.ReversalBufferTicks then table.remove(f.buffer, i) end
 				end
+				if f.grabPress and now - f.grabPress >= c.ReversalBufferTicks then f.grabPress = nil end
 			end
 			f.move, f.moveContact = nil, nil
 		end
@@ -906,7 +926,30 @@ local function stepFighter(world, f, input, events)
 		f.grace.ticks -= 1
 		if f.grace.ticks < 0 then f.grace = nil end
 	end
+	if f.landLag > 0 and not f.move then
+		-- Out of a fast fall: a short landing (the balance), the guard still works; presses wait
+		-- in the queue and come out right after.
+		f.landLag -= 1
+		f.vx = 0
+		f.blocking = input.block or (f.holdBack and threatened(world, f))
+		f.crouching = false
+		f.state = if f.blocking then "Blocking" else "Landing"
+		physics(f, c)
+		return
+	end
 	local nextId, isLink = chooseMove(world, f, grounded, input.crouch)
+	if f.grabPress and now - f.grabPress > c.BufferTicks then f.grabPress = nil end
+	if f.grabPress and grounded and f.dashTicks == 0 and f.landLag == 0 then
+		local current = f.move and moves[f.move]
+		local starters = startersOf(world, f).Ground
+		local kara = current and not f.moveContact and now - f.moveStartTick <= (c.GrabChordTicks or 6)
+			and f.moveFrame <= current.startup and (f.move == starters.Light or f.move == starters.Heavy)
+		if not current or kara then
+			nextId, isLink = "Grab", false
+			f.grabPress = nil
+			table.clear(f.buffer)
+		end
+	end
 	if nextId then
 		f.grace = nil
 		startMove(world, f, nextId, events, isLink)
@@ -978,18 +1021,25 @@ local function stepFighter(world, f, input, events)
 		if physics(f, c) and m.air then
 			f.move, f.moveContact, f.state = nil, nil, "Idle"
 		end
-		if isGrounded(f) then f.airAttackUsed = false end
+		if isGrounded(f) then f.airAttackUsed, f.airDashUsed, f.airCarry = false, false, 0 end
 		return
 	end
 
+	if f.dashTicks == 0 then f.airDash = "" end
 	local crouched = grounded and input.crouch and f.dashTicks == 0
 	-- (back: down-back is the low guard; standing, the guard comes up when an attack is near)
 	local blocking = grounded and f.dashTicks == 0
 		and (input.block or (f.holdBack and (crouched or threatened(world, f))))
-	if input.jump and grounded and not crouched and not blocking and f.dashTicks == 0 then
+	-- A jump cuts a ground dash once it is under way (a DASH JUMP: it keeps some of the speed).
+	local dashJump = grounded and f.dashTicks > 0 and f.airDash == "" and c.DashTicks - f.dashTicks >= (c.DashJumpTicks or 3)
+	if input.jump and grounded and not crouched and not blocking and (f.dashTicks == 0 or dashJump) then
 		f.vy = stats.JumpVelocity
 		grounded = false
-		f.airAttackUsed = false
+		f.airAttackUsed, f.airDashUsed = false, false
+		if dashJump then
+			f.vx = f.dashDirection * stats.DashSpeed * 0.7
+			f.dashTicks, f.airCarry = 0, c.AirCarryTicks or 8
+		end
 	end
 	if input.dash and grounded and not crouched and not blocking and f.dashTicks == 0 and f.dashCooldown == 0 then
 		f.dashDirection = if math.abs(input.axis) > 0.1 then math.sign(input.axis) else f.facing
@@ -1025,9 +1075,43 @@ local function stepFighter(world, f, input, events)
 			f.dempseyWindow = c.DashTicks + weave.Window
 		end
 	end
+	-- AIR DASH: one per jump (back on the floor, or a super jump, gives it back), sharing the
+	-- dash cooldown. DOWN + DASH falls fast, UP + DASH rises fast, otherwise a straight dash
+	-- that holds its height (toward the stick, or forward).
+	if input.dash and not grounded and f.dashTicks == 0 and f.dashCooldown == 0 and not f.airDashUsed then
+		f.airDashUsed, f.airDashAge = true, 0
+		f.dashCooldown = c.DashCooldownTicks
+		f.airDash = if input.crouch then "Down" elseif input.up then "Up" else "Side"
+		f.dashDirection = if math.abs(input.axis) > 0.1 then math.sign(input.axis) else f.facing
+		f.dashTicks = if f.airDash == "Down" then 90 elseif f.airDash == "Up" then c.AirDashRiseTicks else c.AirDashTicks
+		if f.shackled then
+			-- (KAZAN's ENTRAVE cuts an air dash in half too; the fast fall still goes down)
+			f.shackled = false
+			if f.airDash ~= "Down" then f.dashTicks = math.ceil(f.dashTicks / 2) end
+			table.insert(events, { kind = "ShackleDash", slot = f.slot, x = f.x, y = f.y + 2 })
+		end
+		f.airCarry = 0
+		table.insert(events, { kind = "AirDash", slot = f.slot, dash = f.airDash, x = f.x, y = f.y + 2.5, dir = f.dashDirection })
+	end
 	f.crouching, f.blocking = crouched, blocking
 	local slow = if f.chilled > 0 then f.chillScale else 1 -- (YUKINA's frost, SYLVA's roots)
-	if f.dashTicks > 0 then
+	if f.dashTicks > 0 and f.airDash ~= "" then
+		f.airDashAge += 1
+		f.dashTicks -= 1
+		if f.airDash == "Down" then
+			f.vx = input.axis * stats.AirSpeed * 0.35 * slow
+			f.vy = -c.AirDashFall
+		elseif f.airDash == "Up" then
+			f.vx = input.axis * stats.AirSpeed * 0.5 * slow
+			f.vy = if f.dashTicks == 0 then c.AirDashRiseEnd else c.AirDashRise
+		else
+			f.vx = f.dashDirection * c.AirDashSpeed * slow
+			-- (it holds the height, then gravity takes over gently)
+			f.vy = if f.dashTicks == 0 then 0 else c.Gravity / c.TickRate
+		end
+		if f.dashTicks == 0 then f.airCarry = c.AirCarryTicks or 8 end
+		f.state = "AirDash"
+	elseif f.dashTicks > 0 then
 		f.vx = f.dashDirection * stats.DashSpeed * slow
 		f.dashTicks -= 1
 		f.state = "Dashing"
@@ -1038,14 +1122,31 @@ local function stepFighter(world, f, input, events)
 		f.vx = 0
 		f.state = "Crouching"
 	else
-		f.vx = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed) * slow
+		local want = input.axis * (if grounded then stats.WalkSpeed else stats.AirSpeed) * slow
 			* (if f.revived and stats.SecondLife then stats.SecondLife.Speed or 1 else 1)
+		if not grounded and f.airCarry > 0 then
+			-- (out of an air dash or a dash jump: the speed eases back, no sudden stop)
+			f.airCarry -= 1
+			f.vx += (want - f.vx) * 0.22
+		else
+			f.vx = want
+		end
 		f.state = if math.abs(f.vx) > 0.05 then "Walking" else "Idle"
 	end
+	local fastFall = f.airDash == "Down" and f.dashTicks > 0
 	physics(f, c)
 	if isGrounded(f) then
-		f.airAttackUsed = false
-	else
+		f.airAttackUsed, f.airDashUsed, f.airCarry = false, false, 0
+		if f.airDash ~= "" then
+			if fastFall then
+				-- Fast fall landing: a short recovery (the balance), no more.
+				f.landLag = c.FastFallLandTicks or 3
+				table.insert(events, { kind = "FastFallLand", slot = f.slot, x = f.x, y = 0 })
+			end
+			f.airDash, f.dashTicks = "", 0
+			f.state = "Idle"
+		end
+	elseif f.state ~= "AirDash" then
 		f.state = if f.vy > 0 then "Jumping" else "Falling"
 	end
 end
@@ -1180,9 +1281,13 @@ local function startCinematic(world, a, d, events, moveId)
 		table.insert(plan, { tick = cin.FinalTick, damage = math.max(1, math.floor(cin.FinalDamage * scale + 0.5)), final = true })
 	end
 	-- ÉVEIL ÉCARLATE: rhythm prompts during the rush, taken from the route that was played.
+	-- (0.25.0: the rhythm prompts are off by default, Config.CinematicPrompts: a cinematic is a
+	-- reward to watch, not a minigame; the blows deal their plain damage, no bonus, no cut)
 	local prompts = {}
 	local style = a.awakenStyle
-	if cin.Type == "Gate" or cin.Type == "Fatal" then
+	if not c.CinematicPrompts then
+		-- no prompt
+	elseif cin.Type == "Gate" or cin.Type == "Fatal" then
 		for _, t in cin.PromptTicks do
 			table.insert(prompts, { tick = t, button = cin.PromptButton or "Ultimate", result = nil })
 		end
@@ -2022,12 +2127,31 @@ local function detectHits(world, events)
 	for _, pair in { { a, b }, { b, a } } do
 		local attacker, defender = pair[1], pair[2]
 		local m = hitboxActive(attacker, moves)
-		if m and not isInvulnerable(defender, c, moves) and not (m.grab and not isGrounded(defender)) then
+		-- (a grab only takes a fighter standing on the floor and free: never one in hitstun or
+		-- blockstun, so it never extends a combo nor follows a blocked string for free)
+		local ungrabbable = m and m.grab and (not isGrounded(defender) or defender.stun > 0 or defender.launched)
+		if m and not isInvulnerable(defender, c, moves) and not ungrabbable then
 			local hx1, hx2, hy1, hy2 = CombatSimulation.hitbox(attacker, m)
 			local dx1, dx2, dy1, dy2 = CombatSimulation.hurtbox(defender, c)
 			if hx1 <= dx2 and dx1 <= hx2 and hy1 <= dy2 and dy1 <= hy2 and not slips(world, attacker, defender, m, events) then
 				table.insert(pending, { attacker, defender, m })
 			end
+		end
+	end
+	-- Grab against grab: a TECH, both let go and step back (no damage). Grab against a strike
+	-- landing on the same tick: the strike wins.
+	if #pending == 2 and pending[1][3].grab and pending[2][3].grab and pending[1][3].id == "Grab" and pending[2][3].id == "Grab" then
+		for _, f in { a, b } do
+			local foe = if f == a then b else a
+			f.move, f.moveContact, f.grace = nil, nil, nil
+			f.stun, f.stunKind = c.GrabTechTicks or 16, "Block"
+			f.pushVx = (if f.x < foe.x then -1 else 1) * 16
+		end
+		table.insert(events, { kind = "GrabTech", x = (a.x + b.x) / 2, y = 3 })
+		return
+	elseif #pending == 2 and (pending[1][3].grab ~= pending[2][3].grab) then
+		for i = #pending, 1, -1 do
+			if pending[i][3].grab then table.remove(pending, i) end
 		end
 	end
 	-- Both hits are decided before either applies, so simultaneous attacks trade.

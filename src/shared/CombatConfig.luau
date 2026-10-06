@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.24.5",
+	Version = "0.25.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -15,6 +15,16 @@ return table.freeze({
 	DashSpeed = 38,
 	DashTicks = 9,
 	DashCooldownTicks = 30,
+	-- AIR DASH (one per jump, shares the dash cooldown): side = a straight burst that holds the
+	-- height, UP = a fast rise, DOWN = a fast fall onto the floor with a short landing.
+	AirDashTicks = 10, AirDashSpeed = 36,
+	AirDashRise = 40, AirDashRiseTicks = 8, AirDashRiseEnd = 18,
+	AirDashFall = 72, FastFallLandTicks = 3,
+	AirDashCancelTicks = 4, -- an air attack may come out of a side or UP air dash after this long
+	AirCarryTicks = 8, -- after an air dash (or a dash jump) the speed eases back to air control
+	GrabChordTicks = 6, -- a GRAB arriving this soon after a jab started (not out yet) replaces it (L + R chord)
+	GrabTechTicks = 16, -- grab against grab: both let go and step back
+	DashJumpTicks = 3, -- a ground dash may be cut by a jump after this long (it keeps some speed)
 	ArenaMinX = -28,
 	ArenaMaxX = 28,
 	SpawnX = 7,
@@ -89,6 +99,7 @@ return table.freeze({
 	CinematicImpactScale = 0.3,
 	CinematicImpactTicks = { -4, 16 }, -- around the final blow
 	CinematicGap = 2.6,
+	CinematicPrompts = false, -- the rhythm prompts (QTE) during the cinematics: removed in 0.25.0 (true brings them back)
 	MeterBar = 100,
 	MeterOnHit = 0.18, -- fractions of the damage dealt / received
 	MeterOnBlock = 0.15,

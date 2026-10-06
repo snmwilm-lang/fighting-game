@@ -168,7 +168,8 @@ end
 local SHAKE_STATES = { Hitstun = true, Launched = true, Blockstun = true, CrouchBlockstun = true, KO = true,
 	Crumple = true, GuardBroken = true }
 local LYING = { Knockdown = true, KO = true }
-local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08 }
+local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08, AirDash = 0.05, AirDashBack = 0.05, AirDashUp = 0.05,
+	AirDashDown = 0.04, Landing = 0.04 }
 
 -- Overlap and follow-through: the upper body follows its key poses through springs, the arms
 -- a little behind the torso and the hands and head behind the arms, so a motion drags,
@@ -513,6 +514,20 @@ function Animator:evaluate(view, time, poseRate)
 		return self:solveStance(self:breathe(self:base("Crouch"), 0.6, stepped)), "Crouch", false
 	elseif state == "Jumping" or state == "Falling" then
 		return self:air(view.vy or 0), "Air", false
+	elseif state == "AirDash" then
+		-- The air dash owns the body for its whole length (the jump / fall poses wait), then
+		-- the air pose takes over through the usual blend. Its kind is read from its speed.
+		local vy, vx = view.vy or 0, (view.vx or 0) * (view.facing or 1)
+		local name = if vy > 8 then "AirDashUp" elseif vy < -20 then "AirDashDown"
+			elseif vx < 0 then "AirDashBack" else "AirDash"
+		local key = self:resolve(self:base(name))
+		-- (a quick burst into it: out of the jump pose in a few frames, not a cut)
+		local u = clamp01(tr.stateAge / 0.07)
+		if u < 1 then return lerpPose(self:air(vy), key, easeOut(u)), name, false end
+		return key, name, false
+	elseif state == "Landing" then
+		-- Out of a fast fall: the knees take it, then the stance.
+		return self:resolve(self:base("Land")), "Landing", false
 	elseif state == "Dashing" then
 		local back = (view.vx or 0) * (view.facing or 1) < 0
 		if back then

@@ -14,15 +14,19 @@ local InputController = {}
 local PULSES = {
 	Jump = "jump", Dash = "dash", Reset = "reset", Light = "light", Heavy = "heavy",
 	Special = "special", Ultimate = "ultimate", Fatal = "fatal", Dummy = "dummy", Kit = "kit", FoeKit = "foeKit",
-	Stance1 = "stance1", Stance2 = "stance2",
+	Stance1 = "stance1", Stance2 = "stance2", Grab = "grab",
 }
+-- GRAB: L and R pressed this close together (J + K, both mouse buttons, X + B) send one grab
+-- instead of the second attack (the server drops the jab the first one started). The guard
+-- held + L (R1 + X, F / I + J) is a grab too, read by the server from the packet.
+local CHORD_SECONDS = 0.05
 
 function InputController.start(remote)
 	local keys = {}
 	local pulses = {
 		jump = false, dash = false, reset = false, dummy = false, avatar = false, skin = false, kit = false, foeKit = false,
 		ultiConditions = false,
-		stance1 = false, stance2 = false,
+		stance1 = false, stance2 = false, grab = false,
 	}
 	local stick, touchStick = Vector2.zero, Vector2.zero
 	local blocked, sequence, sinceAxis, keepalive = false, 0, 0, 0
@@ -37,7 +41,20 @@ function InputController.start(remote)
 	-- Attack presses in the order they were made: two clicks between two packets stay two
 	-- clicks, a heavy then a light stays heavy first (see PressQueue).
 	local presses = {}
+	local lastAttack, lastAttackAt = nil, -math.huge
 	local function press(pulse)
+		if pulse == "light" or pulse == "heavy" then
+			local now = os.clock()
+			if lastAttack and lastAttack ~= pulse and now - lastAttackAt <= CHORD_SECONDS then
+				-- the chord: the first press, if still waiting here, goes too
+				local i = table.find(presses, lastAttack)
+				if i then table.remove(presses, i) end
+				pulses.grab = true
+				lastAttack, lastAttackAt = nil, -math.huge
+				return
+			end
+			lastAttack, lastAttackAt = pulse, now
+		end
 		if PressQueue.BUTTONS[pulse] then
 			if #presses < PressQueue.MAX_PACKET then table.insert(presses, pulse) end
 		else
@@ -192,6 +209,7 @@ function InputController.start(remote)
 		Special = { -250, -222, 58, "SPEC", Color3.fromHex("FFB938") },
 		Ultimate = { -152, -254, 62, "ULTI", Color3.fromHex("FF2A3D") },
 		Fatal = { -60, -282, 54, "FATAL", Color3.fromHex("FFFFFF") },
+		Grab = { -352, -96, 54, "GRAB", Color3.fromHex("5BE3A1") },
 	}
 	local ultimateButton, fatalButton
 	for action, info in layout do
@@ -221,7 +239,7 @@ function InputController.start(remote)
 	end)
 
 	local function read()
-		if blocked or UIS:GetFocusedTextBox() then return 0, false, false end
+		if blocked or UIS:GetFocusedTextBox() then return 0, false, false, false end
 		local right, left = has("Right"), has("Left")
 		local axis = (if right then 1 else 0) - (if left then 1 else 0)
 		if right and left then
@@ -233,21 +251,23 @@ function InputController.start(remote)
 			axis = if math.abs(v) > Bindings.Deadzone then math.sign(v) * (math.abs(v) - Bindings.Deadzone) / (1 - Bindings.Deadzone) else 0
 		end
 		local crouch = has("Crouch") or stick.Y < -0.55 or touchStick.Y < -0.55
-		return math.clamp(axis, -1, 1), crouch, has("Block")
+		-- (held up: UP + DASH in the air is the fast rise; the jump keys, the stick up)
+		local up = has("Jump") or stick.Y > 0.55 or touchStick.Y > 0.55
+		return math.clamp(axis, -1, 1), crouch, has("Block"), up
 	end
 	local previousAxis, previousCrouch, previousBlock = 0, false, false
 	RunService.Heartbeat:Connect(function(dt)
 		sinceAxis += dt
 		keepalive += dt
-		local axis, crouch, block = read()
+		local axis, crouch, block, up = read()
 		local pulse = #presses > 0 or tauntSlot > 0
 		for _, pressed in pulses do pulse = pulse or pressed end
 		-- Pulses and button changes go out immediately; analog drift is capped at 30 Hz.
 		local axisChanged = math.abs(axis - previousAxis) > 0.02 and sinceAxis >= 1 / 30
 		if pulse or crouch ~= previousCrouch or block ~= previousBlock or axisChanged or keepalive >= 0.1 then
 			sequence += 1
-			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block,
-				jump = pulses.jump, dash = pulses.dash, presses = table.clone(presses),
+			remote:FireServer({ seq = sequence, axis = axis, crouch = crouch, block = block, up = up,
+				jump = pulses.jump, dash = pulses.dash, grab = pulses.grab, presses = table.clone(presses),
 				reset = pulses.reset, dummy = pulses.dummy, ultiConditions = pulses.ultiConditions,
 				avatar = pulses.avatar, skin = pulses.skin, kit = pulses.kit, foeKit = pulses.foeKit,
 				stance = if pulses.stance2 then 2 elseif pulses.stance1 then 1 else 0,

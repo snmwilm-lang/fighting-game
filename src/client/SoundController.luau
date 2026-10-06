@@ -193,6 +193,10 @@ function SoundController:onEvent(event)
 		self:playAll(if event.finisher then ACTIONS.RhythmFinisher else ACTIONS.Rhythm)
 	elseif kind == "ClashStep" or kind == "Resolve" or kind == "Feint" or kind == "Flow" then
 		self:playAll(ACTIONS[kind])
+	elseif kind == "FastFallLand" then
+		self:playAll(ACTIONS.Land)
+	elseif kind == "GrabTech" then
+		self:playAll(ACTIONS.Block)
 	elseif kind == "Revive" then
 		self:playAll(ACTIONS.Revive)
 	elseif kind == "Burst" then
@@ -223,7 +227,7 @@ function SoundController:update(slot, view, moves)
 			end
 		elseif view.state == "Jumping" and last.state ~= "Jumping" then
 			self:playAll(ACTIONS.Jump)
-		elseif view.state == "Dashing" and last.state ~= "Dashing" then
+		elseif (view.state == "Dashing" or view.state == "AirDash") and last.state ~= view.state then
 			self:playAll(ACTIONS.Dash)
 		elseif view.state == "Knockdown" and last.state ~= "Knockdown" then
 			self:playAll(ACTIONS.Knockdown)

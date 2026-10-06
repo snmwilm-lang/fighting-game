@@ -1677,6 +1677,7 @@ local function finite(n)
 end
 local BOOLEAN_FIELDS = {
 	"crouch", "block", "jump", "dash", "reset", "dummy", "avatar", "skin", "kit", "foeKit", "ultiConditions",
+	"up", "grab",
 }
 
 local function nextKit(kit)
@@ -1783,14 +1784,15 @@ inputRemote.OnServerEvent:Connect(function(player, packet)
 	local input = slot.input
 	-- (ANTI-FARM: the player's real actions in this match: attacks, jumps, dashes, a change of
 	-- direction; holding a key counts once)
-	local acted = #packet.presses > 0 or packet.jump or packet.dash or packet.axis ~= (slot.lastAxis or 0)
+	local acted = #packet.presses > 0 or packet.jump or packet.dash or packet.grab or packet.axis ~= (slot.lastAxis or 0)
 		or packet.block ~= (slot.lastBlock or false)
 	if acted then slot.actions = (slot.actions or 0) + 1 end
 	slot.lastAxis, slot.lastBlock = packet.axis, packet.block
-	input.axis, input.crouch, input.block = packet.axis, packet.crouch, packet.block
+	input.axis, input.crouch, input.block, input.up = packet.axis, packet.crouch, packet.block, packet.up
 	-- Pulses stay set until the next simulation tick consumes them.
 	input.jump = input.jump or packet.jump
 	input.dash = input.dash or packet.dash
+	input.grab = input.grab or packet.grab -- (L + R together, or the touch GRAB button)
 	if stance and stance > 0 then input.stance = stance end -- TARO's style keys (1 / 2)
 	input.cinTick = if cinTick then math.floor(cinTick) else nil
 	-- A taunt: the slot's taunt of the saved wheel, once every Taunts.COOLDOWN s (server
@@ -2105,7 +2107,7 @@ local function stepMatch(match, dt)
 		for _, slot in match.slots do
 			local input = slot.input
 			input.jump, input.dash, input.light, input.heavy, input.special, input.ultimate = false, false, false, false, false, false
-			input.fatal = false
+			input.fatal, input.grab = false, false
 			input.stance = 0
 		end
 	end

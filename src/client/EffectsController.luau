@@ -1730,7 +1730,10 @@ function EffectsController:update(slot, view, rig, previous, now)
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
 	local key = if phase then view.move .. phase else view.state
 	if previous and previous.key ~= key then
-		if phase == "Active" and not view.ghost then -- staged cinematic poses bring their own effects
+		if phase == "Startup" and view.move == "Grab" and not view.ghost then
+			-- The GRAB is telegraphed: a green glint on the open hands as they reach out.
+			self:spark(Vector3.new(view.x + (view.facing or 1) * 1.6, (view.y or 0) + 3.2, 0), Color3.fromHex("5BE3A1"), 0.9)
+		elseif phase == "Active" and not view.ghost then -- staged cinematic poses bring their own effects
 			local m = MoveData.Moves[view.move]
 			-- The weapon kits draw every stroke; the others their own flourish, and a smear on
 			-- their strong attacks.
@@ -1738,7 +1741,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 				self:kitSwing(view, view.move, color, m.heavy)
 				if m.heavy then self:slash(view, view.move, color) end
 			end
-		elseif view.state == "Dashing" then
+		elseif view.state == "Dashing" or view.state == "AirDash" then
 			self:kitDash(view, color)
 		elseif view.state == "Knockdown" and previous.key ~= "KO" then
 			self:dust(view.x, view.y, view.facing)
@@ -1754,7 +1757,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 		self.ghostClock[slot] = now
 		self:afterimage(rig, color)
 	end
-	if view.state == "Dashing" and now - (self.ghostClock[slot] or 0) > 0.045 then
+	if (view.state == "Dashing" or view.state == "AirDash") and now - (self.ghostClock[slot] or 0) > 0.045 then
 		self.ghostClock[slot] = now
 		self:afterimage(rig, color)
 	end
@@ -1818,6 +1821,19 @@ function EffectsController:onEvent(event, views, rigs)
 	elseif event.kind == "SuperJump" then
 		local v = views[event.attacker]
 		if v then self:dust(v.x, 0, v.facing) end
+		return
+	elseif event.kind == "FastFallLand" then
+		-- (the fast fall hits the floor: dust and a small jolt, nothing more)
+		self:dust(event.x, 0, 1)
+		self.camera:shake(if self.reduced then 0.06 else 0.14, 0.1)
+		return
+	elseif event.kind == "AirDash" then
+		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 0.6)
+		return
+	elseif event.kind == "GrabTech" then
+		-- grab against grab: both let go (a white flash between them)
+		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 1.3)
+		self.camera:shake(if self.reduced then 0.08 else 0.18, 0.12)
 		return
 	elseif event.kind == "SuperFlash" then
 		local rig = rigs[event.attacker]

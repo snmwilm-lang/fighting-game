@@ -382,6 +382,17 @@ Moves.KaiResolve = move({
 	heavy = true,
 })
 
+-- GRAB (every fighter): L + R together, the guard + L, or the GRAB button. Short reach, a
+-- visible reach-out, goes through the guard; never takes a fighter in the air, in hitstun or
+-- blockstun, getting up; a strike landing on the same tick wins; grab against grab is a TECH.
+-- Whiffed, its long recovery is punished.
+Moves.Grab = move({
+	id = "Grab", name = "GRAB", kind = "Normal", startup = 7, active = 3, recovery = 30,
+	damage = 95, guardDamage = 0, hitstun = 30, blockstun = 0, hitstop = 12, push = 24, blockPush = 0,
+	launch = 16, knockdown = true, grab = true, noCancel = true,
+	hitbox = { near = 0, far = 2.7, low = 0.5, high = 5.5 },
+})
+
 -- ===================================================================== TARO 火 · boxer
 -- Punches only. Fast jabs, heavy hooks, short reach, the toughest body and an iron guard;
 -- crouch + E is a PARRY (counter punch) instead of a projectile.

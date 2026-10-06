@@ -767,6 +767,7 @@ function menuStatus(player, bought, unlocked)
 		achWins = profile.achWins, achRating = profile.achRating, achSurvival = profile.achSurvival,
 		achAsuraDamage = profile.achAsuraDamage, achAsuraGrade = profile.achAsuraGrade, achShinGrade = profile.achShinGrade,
 		shinGrade = profile.shinGrade,
+		feats = profile.feats, -- (TITLES: the progress of each title's feat)
 		weekPoints = Champions.pointsOf(profile, Champions.week(os.time())),
 		waiting = { NORMAL = Matchmaker.waitingIn(matchmaker, "NORMAL"), RANKED = Matchmaker.waitingIn(matchmaker, "RANKED") },
 		online = #Players:GetPlayers(), matches = (function()
@@ -1852,9 +1853,33 @@ debugRemote.OnServerEvent:Connect(function(player, kind, style, finish)
 end)
 
 -- ===================================================================== simulation
+-- TITLE FEATS (GameModes.TITLE_FEATS): only in real fights; never TRAINING, never an easy CPU.
+local function featsCount(match)
+	if match.mode == "TRAINING" or match.world.training then return false end
+	if match.mode == "VERSUS" or match.mode == "SURVIVAL" then return true end
+	local mode = GameModes.find(match.mode)
+	return (mode and mode.boss ~= nil) or match.level == 4
+end
+-- The feats move with the fight's events; a title earned is given at once (and announced).
+local function followFeats(match, events)
+	if #events == 0 or not featsCount(match) then return end
+	for slot, s in match.slots do
+		local client = s.owner and clients[s.owner]
+		if client and client.profile then
+			for _, event in events do GameModes.featEvent(client.profile, event, slot, MoveData.Moves) end
+			GameModes.featBosses(client.profile)
+			for _, title in GameModes.grantFeatTitles(client.profile) do
+				menuRemote:FireClient(s.owner, { titleEarned = title })
+				saveProfile(s.owner, client, true)
+			end
+		end
+	end
+end
+
 -- Mode rules that follow the simulation's events (SURVIE waves, relay rigs, end of match).
 local function followEvents(match, events)
 	local world = match.world
+	followFeats(match, events)
 	for _, event in events do
 		if event.kind == "RoundEnd" and match.mode == "SURVIVAL" and world.teams then
 			local cpu = world.teams[2]

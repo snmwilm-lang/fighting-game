@@ -143,19 +143,91 @@ local TITLE_HOW = {
 	["TRUE EMPEROR'S EQUAL"] = "CHALLENGE: beat KUROEN SHIN alone.",
 	["TRUE EMPEROR"] = "CHALLENGE: beat KUROEN SHIN alone with half your health left.",
 }
+-- The shop's titles can also be EARNED, by a feat that matches their name (Wilhem: « certains
+-- titres shop devraient être obtenables avec des conditions cohérentes à leur nom »). Counted
+-- only in real fights (the server: online with the anti-farm, or against a LEGEND CPU, a
+-- boss, SURVIVAL; never TRAINING). profile.feats keeps the counters.
+GameModes.TITLE_FEATS = {
+	UNTOUCHABLE = { stat = "perfect", goal = 3, how = "Win 3 rounds PERFECT (without taking a hit) in real fights." },
+	["COMBO ARTIST"] = { stat = "bestCombo", goal = 20, how = "Land a combo of 20 hits in a real fight." },
+	["FRAME PERFECT"] = { stat = "perfectPrompts", goal = 10, how = "Hit every rhythm prompt of an ultimate PERFECT, 10 times." },
+	["NO MERCY"] = { stat = "fatalKO", goal = 5, how = "Finish 5 opponents with a FATAL BLOW." },
+	["FINAL BOSS"] = { stat = "bosses", goal = 2, how = "Beat both bosses: ASURA and KUROEN SHIN." },
+	BREAKER = { stat = "guardBreaks", goal = 25, how = "Break your opponents' guard 25 times in real fights." },
+}
+
+local function feats(profile)
+	if type(profile.feats) ~= "table" then profile.feats = {} end
+	return profile.feats
+end
+
+-- One event of a real fight, seen from `slot` (the player's side): the feats move.
+-- moves: MoveData.Moves (a FATAL BLOW is a move with `fatal`).
+function GameModes.featEvent(profile, event, slot, moves)
+	local f = feats(profile)
+	local kind = event.kind
+	if kind == "Hit" and event.attacker == slot then
+		f.bestCombo = math.max(tonumber(f.bestCombo) or 0, tonumber(event.combo) or 0)
+		local m = moves and event.move and moves[event.move]
+		if event.ko and m and m.fatal then f.fatalKO = (tonumber(f.fatalKO) or 0) + 1 end
+	elseif kind == "GuardBreak" and event.attacker == slot then
+		f.guardBreaks = (tonumber(f.guardBreaks) or 0) + 1
+	elseif kind == "RoundEnd" and event.winner == slot and event.perfect then
+		f.perfect = (tonumber(f.perfect) or 0) + 1
+	elseif kind == "PromptGrade" and event.attacker == slot and event.grade == "PERFECT" then
+		f.perfectPrompts = (tonumber(f.perfectPrompts) or 0) + 1
+	end
+end
+
+-- The bosses beaten (FINAL BOSS): from the challenges' best grades.
+function GameModes.featBosses(profile)
+	local f = feats(profile)
+	f.bosses = (if (tonumber(profile.asuraGrade) or 0) > 0 then 1 else 0) + (if (tonumber(profile.shinGrade) or 0) > 0 then 1 else 0)
+end
+
+-- The progress of a title's feat (value, goal), or nil (a title without feat).
+function GameModes.featProgress(profile, name)
+	local feat = GameModes.TITLE_FEATS[name]
+	if not feat then return nil end
+	local f = type(profile) == "table" and type(profile.feats) == "table" and profile.feats or {}
+	return math.min(tonumber(f[feat.stat]) or 0, feat.goal), feat.goal
+end
+
+-- Gives every title whose feat is done and not yet owned; returns the new ones.
+function GameModes.grantFeatTitles(profile)
+	if type(profile.titles) ~= "table" then profile.titles = {} end
+	local given = {}
+	for name, feat in GameModes.TITLE_FEATS do
+		local value = GameModes.featProgress(profile, name)
+		if value and value >= feat.goal and not table.find(profile.titles, name) then
+			table.insert(profile.titles, name)
+			table.insert(given, name)
+		end
+	end
+	table.sort(given)
+	return given
+end
+
 function GameModes.titleCatalog(storeItems)
 	local list = {}
-	local function add(name, how, source)
+	local function add(name, how, source, alt)
 		local look = GameModes.TITLE_LOOKS[name] or { kanji = "称", colors = { "FFFFFF", "B1B2BE" }, font = "GothamBlack" }
-		table.insert(list, { name = name, how = how, source = source, look = look })
+		table.insert(list, { name = name, how = how, source = source, look = look, alt = alt })
 	end
 	add("WEEKLY CHAMPION", TITLE_HOW["WEEKLY CHAMPION"], "weekly")
 	for _, name in GameModes.CHALLENGE_TITLES do add(name, TITLE_HOW[name], "challenge") end
 	for _, name in GameModes.SHIN_TITLES do add(name, TITLE_HOW[name], "challenge") end
 	for _, item in storeItems or {} do
 		if item.kind == "TITLE" then
-			add(item.name, if item.pass then "With the " .. item.pass .. " Game Pass (SHOP › GAME PASSES)."
-				else "SHOP › COSMETICS › TITLES: " .. tostring(item.coins) .. " coins.", if item.pass then "pass" else "shop")
+			local feat = GameModes.TITLE_FEATS[item.name]
+			local shop = if item.pass then "With the " .. item.pass .. " Game Pass (SHOP › GAME PASSES)."
+				else "SHOP › COSMETICS › TITLES: " .. tostring(item.coins) .. " coins."
+			-- (a feat earns it; the shop sells it too)
+			if feat then
+				add(item.name, feat.how, "feat", "Or buy it: " .. tostring(item.coins) .. " coins (SHOP).")
+			else
+				add(item.name, shop, if item.pass then "pass" else "shop")
+			end
 		end
 	end
 	return list

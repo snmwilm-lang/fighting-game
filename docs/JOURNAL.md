@@ -1,5 +1,31 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.36 — 6 octobre 2026 · LES TITRES DE LA BOUTIQUE SE GAGNENT AUSSI
+
+Wilhem : « certains titres de la boutique devraient être obtenables avec des conditions cohérentes avec leur nom ».
+
+- `GameModes.TITLE_FEATS` (pur), un exploit par titre de la boutique :
+
+  | Titre | Exploit |
+  |---|---|
+  | UNTOUCHABLE | 3 rounds PERFECT (sans prendre un coup) |
+  | COMBO ARTIST | un combo de 20 coups |
+  | FRAME PERFECT | 10 fois tous les rythmes d'un ultime en PERFECT |
+  | NO MERCY | 5 adversaires achevés au COUP FATAL |
+  | FINAL BOSS | battre ASURA et KUROEN SHIN |
+  | BREAKER | 25 gardes brisées |
+
+  Ils restent aussi achetables ; SUPPORTER reste au pass.
+- `featEvent` lit les événements du combat, vus du côté du joueur (les exploits de l'adversaire ne comptent pas). `grantFeatTitles` donne le titre une seule fois, et `featProgress` donne l'avancement.
+- Serveur (`followFeats`) :
+  - Ne compte que les vrais combats : en ligne, SURVIE, défis de boss, CPU LÉGENDE. Jamais l'ENTRAÎNEMENT ni un CPU facile.
+  - Un titre gagné est donné tout de suite, sauvegardé et annoncé (« TITRE OBTENU · « … » »).
+  - L'avancement (`feats`) est envoyé au menu.
+- Fenêtre TITRES : l'exploit, son avancement (ex. 12/25) et « Ou achète-le : 1500 pièces (BOUTIQUE) ».
+- Test (Lobby) : chaque titre de la boutique en pièces a son exploit et reste en vente ; les exploits de l'adversaire ne comptent pas ; un K.O. au jab n'est pas un COUP FATAL ; chaque titre est donné à son seuil, une seule fois ; FINAL BOSS seulement avec les deux boss.
+
+Fichiers : `src/shared/GameModes.luau`, `src/server/init.server.luau`, `src/client/MenuController.luau`, `src/shared/Locale.luau`, `tests/Lobby.test.luau`. Tests : Lobby 43.
+
 ## Version 0.23.35 — 6 octobre 2026 · LA FENÊTRE DES TITRES
 
 Wilhem (capture) : « rends ça plus beau, affiche tous les titres obtenables et comment, en petit en dessous, donne un design différent à chaque titre ».

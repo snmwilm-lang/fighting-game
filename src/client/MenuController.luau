@@ -258,6 +258,9 @@ function MenuController.new(remote, hub, settings)
 			self.shop:purchased(packet.purchased)
 		elseif packet.rematchSent then
 			self:notify("REMATCH SENT TO " .. tostring(packet.rematchSent) .. " · THEY ACCEPT IN THEIR BANNER", GOLD)
+		elseif packet.titleEarned then
+			self:notify("TITLE EARNED · « " .. tostring(packet.titleEarned) .. " » (SETTINGS › TITLE SHOWN)", GOLD)
+			self.toastUntil = os.clock() + 6
 		elseif packet.champion then
 			self:notify("👑 CHAMPION OF THE WEEK · TITLE WEEKLY CHAMPION (SETTINGS › TITLE)", GOLD)
 			self.toastUntil = os.clock() + 8
@@ -555,8 +558,13 @@ function MenuController:showTitles()
 		new("UIGradient", { Color = ColorSequence.new(c1, c2) }, name)
 		stroke(name, 1.5)
 		-- how to get it, in small
-		label(b, { Position = UDim2.fromOffset(66, 38), Size = UDim2.new(1, -170, 0, 18), Font = BODY_FONT, TextSize = 11, TextWrapped = true,
-			Text = if t then t.how else "Show no title at all.", TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left,
+		-- (a feat: its progress; the shop's price too)
+		local how = if t then t.how else "Show no title at all."
+		local value, goal = if t then GameModes.featProgress(s, t.name) else nil, nil
+		if value and not mine then how = how .. " (" .. value .. "/" .. goal .. ")" end
+		if t and t.alt and not mine then how = how .. " " .. t.alt end
+		label(b, { Position = UDim2.fromOffset(66, 36), Size = UDim2.new(1, -170, 0, 24), Font = BODY_FONT, TextSize = 10, TextWrapped = true,
+			Text = how, TextColor3 = Theme.MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 			TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 55 })
 		-- its state, on the right
 		local state = if on then "✓ WORN" elseif mine then "WEAR" else "🔒 LOCKED"
@@ -567,7 +575,7 @@ function MenuController:showTitles()
 		b.Activated:Connect(function()
 			if mine then
 				wear(if t then t.name else "")
-			elseif t and (t.source == "shop" or t.source == "pass") then
+			elseif t and (t.source == "shop" or t.source == "pass" or t.source == "feat") then
 				close()
 				self:open("shop")
 			else

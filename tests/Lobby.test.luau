@@ -223,6 +223,49 @@ test("titles: every title the game gives is listed with how to get it (in French
 	for _, n in granted do expect(byName[n] ~= nil, n .. " can be earned but is not in the TITLES window") end
 end)
 
+-- Wilhem: « certains titres shop devraient être obtenables avec des conditions cohérentes à leur nom ».
+test("shop titles are also earned by a feat that matches their name; the shop still sells them", function()
+	local StoreConfig = require("../src/shared/StoreConfig")
+	local Moves = MoveData.Moves
+	local fatalId = MoveData.Kits.KAI.Ultimates.Fatal
+	for _, item in StoreConfig.ITEMS do
+		if item.kind == "TITLE" and not item.pass then
+			expect(GameModes.TITLE_FEATS[item.name] ~= nil, item.name .. " can only be bought")
+			expect(item.coins and item.coins > 0, item.name .. " is not sold any more")
+		end
+	end
+	local p = { titles = {} }
+	-- seen from slot 1: the opponent's feats never count for us
+	GameModes.featEvent(p, { kind = "Hit", attacker = 2, combo = 30 }, 1, Moves)
+	GameModes.featEvent(p, { kind = "GuardBreak", attacker = 2 }, 1, Moves)
+	expect(#GameModes.grantFeatTitles(p) == 0, "the opponent's combo or guard break gave us a title")
+	-- COMBO ARTIST: a 20-hit combo
+	GameModes.featEvent(p, { kind = "Hit", attacker = 1, combo = 19 }, 1, Moves)
+	expect(#GameModes.grantFeatTitles(p) == 0, "COMBO ARTIST before 20 hits")
+	GameModes.featEvent(p, { kind = "Hit", attacker = 1, combo = 20 }, 1, Moves)
+	local got = GameModes.grantFeatTitles(p)
+	expect(#got == 1 and got[1] == "COMBO ARTIST", "COMBO ARTIST not earned by a 20-hit combo")
+	expect(#GameModes.grantFeatTitles(p) == 0, "a title given twice")
+	-- BREAKER: 25 guard breaks; NO MERCY: 5 FATAL BLOW finishes; UNTOUCHABLE: 3 PERFECT rounds
+	for _ = 1, 25 do GameModes.featEvent(p, { kind = "GuardBreak", attacker = 1 }, 1, Moves) end
+	for _ = 1, 5 do GameModes.featEvent(p, { kind = "Hit", attacker = 1, combo = 1, ko = true, move = fatalId }, 1, Moves) end
+	GameModes.featEvent(p, { kind = "Hit", attacker = 1, combo = 1, ko = true, move = "Jab" }, 1, Moves) -- (a jab K.O. is no FATAL)
+	for _ = 1, 3 do GameModes.featEvent(p, { kind = "RoundEnd", winner = 1, perfect = true }, 1, Moves) end
+	for _ = 1, 10 do GameModes.featEvent(p, { kind = "PromptGrade", attacker = 1, grade = "PERFECT" }, 1, Moves) end
+	got = GameModes.grantFeatTitles(p)
+	expect(table.concat(got, ",") == "BREAKER,FRAME PERFECT,NO MERCY,UNTOUCHABLE", "feats gave: " .. table.concat(got, ","))
+	expect(p.feats.fatalKO == 5, "a jab K.O. counted as a FATAL BLOW finish")
+	-- FINAL BOSS: both bosses beaten
+	p.asuraGrade = 1
+	GameModes.featBosses(p)
+	expect(#GameModes.grantFeatTitles(p) == 0, "FINAL BOSS with one boss beaten")
+	p.shinGrade = 2
+	GameModes.featBosses(p)
+	got = GameModes.grantFeatTitles(p)
+	expect(#got == 1 and got[1] == "FINAL BOSS", "FINAL BOSS not earned by beating both bosses")
+	expect(GameModes.featProgress({}, "COMBO ARTIST") == 0 and GameModes.featProgress({}, "WEEKLY CHAMPION") == nil, "feat progress")
+end)
+
 -- Wilhem: « plusieurs catégories de classement, 1v1 mais aussi 2v2, 3v3 ».
 test("RANKED in three categories: 1v1, 2v2 and 3v3 each have their own rating and board", function()
 	local profile = { rating = 1234 }

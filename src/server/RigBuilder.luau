@@ -1591,6 +1591,15 @@ end
 
 function OUTFITS.YUKINA(o)
 	o.weapon(WeaponSpec.YUKINA)
+	-- (Wilhem's sheet: a red tassel hangs from each fan's rivet; cloth, so it always falls and
+	-- sways (Hang: AnimationController) instead of jutting out of the fist)
+	for _, spec in { WeaponSpec.YUKINA, WeaponSpec.YUKINA.pair } do
+		local hand = o.size(spec.hand)
+		local g = spec.grip
+		local rivet = CFrame.new(0, hand.Y * g.y, g.z) * CFrame.Angles(math.rad(g.tilt), 0, 0) * CFrame.new(0, -0.1, 0)
+		local cord = o.tail(spec.hand, "FanTassel", Vector3.new(0.07, 0.55, 0.07), rivet, Color3.fromHex("B3121E"))
+		if cord then cord:SetAttribute("Hang", true) end
+	end
 	if o.block then return end -- (the block body draws the rest)
 	local waist = o.size("LowerTorso")
 	o.piece("LowerTorso", "Obi", Vector3.new(waist.X * 1.1, math.max(0.4, waist.Y * 0.5), waist.Z * 1.14), CFrame.new(0, waist.Y * 0.1, 0), o.main)
@@ -1792,6 +1801,7 @@ function RigBuilder.applyKit(model, slot, noEmblem, block, data)
 		local p = newPiece(name, size, partColor)
 		hangTail(base, p, frame * pivot)
 		p.Parent = model
+		return p
 	end
 	local outfit = OUTFITS[data.Kit] or OUTFITS.KAI
 	outfit(o)

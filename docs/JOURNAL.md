@@ -1,5 +1,41 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.12 — 6 octobre 2026 · GARDE DE SHIN (PLANCHE) · BOUCLIER DE DAICHA PLUS BAS · ÉVENTAILS DE YUKINA · MUSIQUES
+
+Wilhem : « descends le bouclier » (capture de DAICHA en garde) ; « SHIN, sa garde : inspire-toi de l'image » (planche : le sabre levé à deux mains au-dessus de la tête, en diagonale, jambes écartées, étincelles à l'impact) ; « SHIN a un vieil effet bleu quand il bloque » ; planche des éventails de YUKINA ; les 4 IDs de musique validés.
+
+**SHIN, la garde** :
+- Les deux mains sur la poignée au-dessus de la tête, la lame en diagonale vers l'avant et le haut (environ 30°), les jambes écartées. Accroupi : la même, plus bas.
+- Bras calculés par un nouvel outil, `luau tests/ShinGuard.luau -a all`. Résultat : ni lame ni bras dans le corps, la main gauche sur la poignée.
+- L'ancienne garde, réécrite plus loin dans PoseLibrary, est supprimée.
+- Le **vieil arc bleu** dessiné devant lui en garde est supprimé, ainsi que `weaponGuard`, désormais du code mort. Quand un coup frappe sa garde, des **étincelles orange jaillissent de la lame** (gerbe et éclats).
+- Test : « SHIN's guard: the katana raised over his head in both hands » (R15, avatar, R6). Le test R6 « bras de garde pointés vers le bas » ne s'applique plus à sa garde.
+
+**DAICHA** : le disque de garde descend encore, centré à 2,2 au lieu de 2,9 (accroupi 1,45). Son sommet passe sous le menton. Test ajouté. `OrbClearance` est inchangé.
+
+**YUKINA** :
+- **Éventails** (`WeaponSpec`) : de vrais éventails pliants.
+  - 7 baleines en éventail depuis un rivet, les 2 extérieures plus épaisses.
+  - 6 panneaux de verre glacé, une bordure de givre néon, une pointe de glace au bout de chaque baleine.
+  - Un flocon peint, un joyau sur le rivet.
+  - Ouverture 62° (à 75°, la baleine extérieure entrait dans le bras).
+  - `WeaponClearance YUKINA` : 0 image dans le corps. Test de forme ajouté.
+- **Garde** (planche « GARDE / POSITION DE BASE ») : les deux éventails ouverts côte à côte devant la poitrine forment un demi-cercle face à l'adversaire, posture large et basse. Calculé par `luau tests/YukinaGuard.luau -a all` (baleines à 4–7° de la verticale visée, rien dans le corps).
+- **Pompons rouges** : un à chaque rivet, en tissu. Ils pendent toujours vers le sol et se balancent : nouvelle option `Hang` des bandes de tissu (`RigBuilder` → `AnimationController`).
+
+**Musiques** (`Music.TRACKS`) : les 4 IDs donnés par Wilhem, ce qui donne une playlist de 2 morceaux au menu et 2 en combat.
+- MENU : Be And Obey 108751565199726, Funk Break Beat 102119957612262.
+- BATTLE : Fast Amen Break 70875466407021, Risky Step 86152672257538.
+
+Tests :
+- Animation 49 (nouveaux : garde de SHIN, éventails, bouclier de DAICHA), Cinematography 310, CinematicDirector 871, Lobby 40, CombatSimulation 130, FighterAI 13, PressQueue 4, Fuzz 2 ; `rigcheck` OK.
+- Kits : relancée.
+
+À voir dans Studio : la garde de SHIN et ses étincelles, le bouclier de DAICHA, la garde et les pompons de YUKINA, les musiques.
+Prochaine étape :
+- YUKINA : le MIROIR DE GLACE (S + E) visible pendant qu'il agit, puis les coups de la planche (coup horizontal, vertical, balayage, pique, double coup).
+- Puis le poison de VENOM, les griffes de KAZAN (planche reçue : gardes, M1/M2, blocage avec étincelles), les bombes de SYLVA.
+
 ## Version 0.23.11 — 5 octobre 2026 · SHIN : UN VRAI KATANA, ET SON COURANT TRANCHANT (S + E)
 
 Wilhem : « SHIN : effet S + E et augmente la qualité de cette lame ».

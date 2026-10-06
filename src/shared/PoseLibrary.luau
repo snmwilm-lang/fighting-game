@@ -1074,6 +1074,17 @@ local SHIN = feet({
 	LeftShoulder = { 30, 0, 40 }, LeftElbow = { 60, 0, 0 },
 }, -0.85, 0.85, 0, -8, 8)
 local SHIN_CROUCH = feet(merge(SHIN, { Root = { 0, 12, 0, -1.0, 0 }, Waist = { -24, 22, 0 } }), -0.7, 0.8, 0, -10, 8)
+-- SHIN's guard arms (both hands on the hilt over his head), from a hold of 10 numbers: right
+-- shoulder rx, rz, elbow, wrist; left shoulder rx, rz, elbow; right shoulder twist, right
+-- wrist turn, left shoulder twist (tests/ShinGuard.luau prints them)
+local function shinHold(a)
+	return {
+		RightShoulder = { a[1], a[8], a[2] }, RightElbow = { a[3], 0, 0 }, RightWrist = { a[4], 0, a[9] },
+		LeftShoulder = { a[5], a[10], a[6] }, LeftElbow = { a[7], 0, 0 }, LeftWrist = { 0, 0, 0 },
+	}
+end
+local SHIN_GUARD = shinHold({ 182, -41, -5, -80, 156, 47, 28, 47, -54, -32 })
+local SHIN_CROUCH_GUARD = shinHold({ 169, -41, 2, -80, 168, 53, 20, 43, 10, -44 })
 -- DAICHA 闇 · upright and calm, the left hand out with its sphere, the right at the hip.
 local DAICHA = feet({
 	Root = { 0, 6, 0, -0.2, 0.05 }, Waist = { 4, 14, 0 }, Neck = { -4, -12, 0 },
@@ -1108,9 +1119,11 @@ Poses.Kits.SHIN = {
 	STANCE = SHIN,
 	Idle = { SHIN, merge(SHIN, { Root = { 0, 12, 0, -0.48, 0 }, RightShoulder = { 54, 0, -6 } }) },
 	Crouch = SHIN_CROUCH,
-	Block = feet(merge(SHIN, { Root = { 0, 4, 0, -0.5, 0 }, Waist = { -10, 4, 0 },
-		RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 }, LeftShoulder = { 70, 0, 20 }, LeftElbow = { 110, 0, 0 } }), -0.8, 0.85, 0, -8, 8),
-	CrouchBlock = merge(SHIN_CROUCH, { RightShoulder = { 96, 0, -40 }, RightElbow = { 70, 0, 0 } }),
+	-- (Wilhem's sheet: the katana raised over his head in both hands, the blade across above
+	-- him on a diagonal, the legs wide; arms solved by tests/ShinGuard.luau)
+	Block = feet(merge(SHIN, merge({ Root = { 0, 4, 0, -0.72, 0 }, Waist = { -4, 4, 0 }, Neck = { -10, -4, 0 } }, SHIN_GUARD)),
+		-0.95, 0.95, 0, -6, 20),
+	CrouchBlock = merge(SHIN_CROUCH, merge({ Waist = { -10, 4, 0 }, Neck = { -12, -4, 0 } }, SHIN_CROUCH_GUARD)),
 	-- (the sword carried before him as he runs, not trailing across: the blade no longer cuts
 	-- through his right leg at every step (tests/WeaponClearance.luau), and his two hands
 	-- stay apart on screen in his walk of the Gate (tests/Cinematography.test.luau))
@@ -1563,11 +1576,8 @@ Poses.ShinFinale = {
 	Recovery = feet(merge(SHIN, blade(deg(80, 0, 105), 10, nil, { Root = { 0, -10, 0, -0.6, -0.4 }, Waist = deg(-20, -20) })),
 		-1.2, 0.5, 0, -14, 8),
 }
--- Guards: the blade raised before the body, the left hand on its back (standing), held low
--- across the knees (crouching).
-Poses.Kits.SHIN.Block = feet(merge(SHIN, blade(deg(70, 0, -30), 80, -20, { Root = { 0, 4, 0, -0.5, 0 }, Waist = deg(-10, 4),
-	LeftShoulder = deg(80, 0, 30), LeftElbow = deg(100) })), -0.8, 0.85, 0, -8, 8)
-Poses.Kits.SHIN.CrouchBlock = merge(SHIN_CROUCH, blade(deg(50, 0, -30), 40, -30, { LeftShoulder = deg(50, 0, 25), LeftElbow = deg(80) }))
+-- (Guards: Kits.SHIN Block / CrouchBlock, the katana raised over his head in both hands:
+-- Wilhem's sheet, solved by tests/ShinGuard.luau.)
 -- Down and getting up, the katana never stands up out of the floor like a stake: lying, it
 -- lies along the arm on the deck; kneeling, it is held level before him.
 Poses.Kits.SHIN.DownImpact = merge(Poses.DownImpact, { RightShoulder = deg(30, 0, 72), RightElbow = deg(10), RightWrist = deg(-70) })
@@ -2083,6 +2093,21 @@ end
 -- ---------------------------------------------------------------- YUKINA 雪 · two fans of ice (both hands)
 do
 	local S, C = KITS.YUKINA.STANCE, KITS.YUKINA.Crouch
+	-- GARDE (Wilhem's sheet « GARDE / POSITION DE BASE »): both fans open before her chest,
+	-- side by side, one half-circle shield facing the opponent, the legs wide and low. Arms
+	-- solved by tests/YukinaGuard.luau (10 numbers: right shoulder rx, rz, elbow, wrist; left
+	-- shoulder rx, rz, elbow, wrist; right shoulder twist, left shoulder twist).
+	local function yukinaHold(a)
+		return {
+			RightShoulder = { a[1], a[9], a[2] }, RightElbow = { a[3], 0, 0 }, RightWrist = { a[4], 0, 0 },
+			LeftShoulder = { a[5], a[10], a[6] }, LeftElbow = { a[7], 0, 0 }, LeftWrist = { a[8], 0, 0 },
+		}
+	end
+	local GUARD = yukinaHold({ 20, -7, 85, -4, 65, 43, 35, 37, 60, -62 })
+	local LOW_GUARD = yukinaHold({ 27, -8, 66, 23, 70, 46, 46, 33, 60, -68 })
+	KITS.YUKINA.Block = feet(merge(S, merge({ Root = { 0, 4, 0, -0.78, 0 }, Waist = { -6, 4, 0 }, Neck = { -4, -4, 0 } }, GUARD)),
+		-1.0, 1.0, 0, -8, 18)
+	KITS.YUKINA.CrouchBlock = merge(C, merge({ Waist = { -10, 4, 0 }, Neck = { -8, -4, 0 } }, LOW_GUARD))
 	local F = -60 -- the fan opened on the line of the hand
 	local function fans(r, l, extra)
 		return arms(r and { r[1], r[2], r[3], r[4] or F }, l and { l[1], l[2], l[3], l[4] or F }, extra)

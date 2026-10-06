@@ -762,6 +762,8 @@ test("R6: guard arms point at the opponent, pitched down; standing legs stay clo
 			for _, arm in { "Left Arm", "Right Arm" } do
 				-- (RAIJIN at rest: the spear on his right shoulder, the left arm hanging, Wilhem's sheet)
 				if kit == "RAIJIN" and state == "Idle" then continue end
+				-- (SHIN's guard: the katana raised over his head in both hands, Wilhem's sheet)
+				if kit == "SHIN" and state == "Blocking" then continue end
 				local _, y, z = tip(parts[arm])
 				expect(y < -0.1 and y > -0.9, string.format("%s %s: R6 %s pitched %.2f (want down, not hanging)", kit, state, arm, y))
 				expect(-z > 0.25, string.format("%s %s: R6 %s does not point forward (%.2f)", kit, state, arm, -z))
@@ -1067,6 +1069,21 @@ test("SHIN's sword strokes sweep the blade, never a fist holding a stick up (R15
 	end
 end)
 
+test("SHIN's guard: the katana raised over his head in both hands, the blade rising forward above him (R15, avatar, R6)", function()
+	for label, body in BODIES do
+		for _, key in { "Block", "CrouchBlock" } do
+			local b, t, torso = weaponLine("SHIN", Poses.Kits.SHIN[key], body[1], body[2])
+			local dx, dy, dz = t[1] - b[1], t[2] - b[2], t[3] - b[3]
+			local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+			local above = b[2] - torso[2]
+			-- (the hilt over his head: well above his chest; the blade climbing, toward the opponent)
+			expect(above > 1.8, string.format("%s %s: the hilt is only %.2f above his chest (not over his head)", label, key, above))
+			expect(dy / length > 0.2 and dy / length < 0.85, string.format("%s %s: the blade is not on a rising diagonal (%.2f)", label, key, dy / length))
+			expect(-dz / length > 0.3, string.format("%s %s: the blade does not point toward the opponent (%.2f)", label, key, -dz / length))
+		end
+	end
+end)
+
 test("KAI's ki beam from the sky: bent over, both arms driven down at the target, palms joined (R15, avatar)", function()
 	for label, skel in { R15 = KAI, avatar = AVATAR } do
 		local anim = newAnimator(skel)
@@ -1209,6 +1226,10 @@ test("DAICHA's matter: circles when idle, gathers in her hand and strikes as a s
 	-- Guard: a shield before him.
 	local guard = OrbFlight.offset({ state = "Blocking" }, nil, nil, 0)
 	expect(guard.fwd > 1, "the orb does not shield him")
+	-- (Wilhem: « descends le bouclier »: the disc's top stays under her head, standing and low)
+	expect(guard.up + disc.radius < 4.2, string.format("the shield rises to her face (top at %.1f)", guard.up + disc.radius))
+	local low = OrbFlight.offset({ state = "CrouchBlocking" }, nil, nil, 0)
+	expect(low.up < guard.up - 0.5, "the low guard is not lower than the standing one")
 end)
 
 T.test("DAICHA's matter: every blow its own path (rise, slam, dive, spin, throw, blink, mark, wrap, river, spear), a spring follow", function()
@@ -1374,6 +1395,31 @@ T.test("SHIN's katana is a real katana: guard, collar, wrapped hilt, a blade tha
 	expect((by.BladeTip.rot[1] or 0) > 0 and by.Kissaki.rot[1] > by.BladeTip.rot[1], "the blade does not curve back to its point")
 	-- the temper line glows along the cutting edge (-Y), the ridge sits above it
 	expect(by.Edge.y < 0 and by.Ridge.y > 0 and by.Edge.color == "energy", "the edge / ridge are not where a katana has them")
+end)
+
+T.test("YUKINA's fans are real folding fans: sticks fanning out from a rivet, a leaf of panels between them, a rim of frost", function()
+	local WeaponSpec = require("../src/shared/WeaponSpec")
+	for _, spec in { WeaponSpec.YUKINA, WeaponSpec.YUKINA.pair } do
+		local sticks, panels, rims, angles = 0, 0, 0, {}
+		local rivet
+		for _, p in spec.pieces do
+			local n = p.name
+			if n == "FanSpine" or n == "FanGuard" or n:sub(1, 6) == "FanRib" then
+				sticks += 1
+				table.insert(angles, p.rot and p.rot[1] or 0)
+			elseif n:sub(1, 7) == "FanLeaf" then
+				panels += 1
+			elseif n:sub(1, 7) == "FanEdge" then
+				rims += 1
+			elseif n == "FanRivet" then
+				rivet = p
+			end
+		end
+		expect(sticks >= 5 and panels == sticks - 1 and rims == panels, "a fan is not sticks with a leaf and a rim between them")
+		table.sort(angles)
+		expect(angles[#angles] - angles[1] > 45, "the fan is not opened")
+		expect(rivet ~= nil and rivet.shape == "Cylinder", "the sticks have no rivet")
+	end
 end)
 
 T.test("held weapons are alive like DAICHA's orb: they breathe at rest, burn when gathered, flare on the impact, glint", function()

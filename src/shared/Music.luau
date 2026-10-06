@@ -18,12 +18,13 @@ Music.CUSTOM = {}
 -- LUFS). Several tracks on one slot make a playlist: one plays to its end, then another (never
 -- the same twice in a row). `id`: the "rbxassetid://..." Roblox gives once Wilhem uploads the
 -- file (Studio › Asset Manager › Import, or create.roblox.com › Audio); "" until then (no id
--- invented): a Sound in Audio › Music named after the slot still works too.
+-- invented): a Sound in Audio › Music named after the slot still works too. The four ids
+-- below are Wilhem's uploads (Creator Hub, validated on 6 October 2026).
 Music.TRACKS = {
-	{ slot = "MENU", file = "assets/music/menu_1_be_and_obey.mp3", title = "Be And Obey", id = "" },
-	{ slot = "MENU", file = "assets/music/menu_2_funk_break_beat.mp3", title = "Funk Break Beat", id = "" },
-	{ slot = "BATTLE", file = "assets/music/battle_1_fast_amen_break.mp3", title = "Fast Amen Break", id = "" },
-	{ slot = "BATTLE", file = "assets/music/battle_2_risky_step.mp3", title = "Risky Step", id = "" },
+	{ slot = "MENU", file = "assets/music/menu_1_be_and_obey.mp3", title = "Be And Obey", id = "rbxassetid://108751565199726" },
+	{ slot = "MENU", file = "assets/music/menu_2_funk_break_beat.mp3", title = "Funk Break Beat", id = "rbxassetid://102119957612262" },
+	{ slot = "BATTLE", file = "assets/music/battle_1_fast_amen_break.mp3", title = "Fast Amen Break", id = "rbxassetid://70875466407021" },
+	{ slot = "BATTLE", file = "assets/music/battle_2_risky_step.mp3", title = "Risky Step", id = "rbxassetid://86152672257538" },
 }
 
 -- The ids of a slot's tracks: Music.TRACKS (uploaded) then Music.CUSTOM.

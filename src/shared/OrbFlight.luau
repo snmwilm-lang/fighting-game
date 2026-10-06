@@ -269,8 +269,9 @@ function OrbFlight.offset(view, move, role, time, from)
 	local orbit = OrbFlight.orbit(time, crouching)
 	if GUARD[state] then
 		-- (the disc, before her, clear of her raised arms; Wilhem: « la garde est trop haute,
-		-- descends-la un peu »: centred on her chest, not her face)
-		return { fwd = 2.1, up = if crouching then 1.9 else 2.9, side = 0.4 }
+		-- descends-la un peu »: centred on her chest, not her face; then, with an in-game capture:
+		-- « descends le bouclier »: lower still, its top under her chin, its centre at her belt)
+		return { fwd = 2.1, up = if crouching then 1.45 else 2.2, side = 0.4 }
 	elseif state == "KO" then
 		return { fwd = 1.4, up = 0.06, side = 0.6 } -- (fallen, spread on the floor: a puddle)
 	elseif state == "Knockdown" then

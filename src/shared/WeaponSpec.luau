@@ -92,18 +92,60 @@ WeaponSpec.RAIJIN = {
 	base = -3.6, tip = -4.6,
 }
 
--- YUKINA's fans of ice, one in each hand, opened on the line of the hand.
+-- YUKINA's fans of ice, one in each hand, opened on the line of the hand. (Wilhem: « les
+-- éventails » detailed like SHIN's katana.) A real folding fan: seven sticks radiating from a
+-- rivet in her fist, the outer two heavier (the guards), the leaf stretched between them in
+-- six panels of ice-blue glass, a rim of frost along its edge, an icicle at the end of every
+-- stick, a snowflake painted on it, and a jewel on the rivet. It opens from the
+-- line of the hand (-Z) toward +Y, over FAN_OPEN degrees.
+local FAN_OPEN, FAN_STICKS, FAN_R, FAN_LEAF = 62, 7, 1.2, 0.3
+local FAN_PIVOT = { 0, -0.1, 0 }
+local LETTERS = { "A", "B", "C", "D", "E", "F", "G" }
+local function fanPiece(name, size, angle, r, color, material, shape, x)
+	local a = math.rad(angle)
+	return { name = name, size = size, x = x or 0, y = FAN_PIVOT[2] + math.sin(a) * r, z = FAN_PIVOT[3] - math.cos(a) * r,
+		rot = { angle, 0, 0 }, color = color, material = material, shape = shape }
+end
 local function fan(hand)
+	local pieces = {}
+	local step = FAN_OPEN / (FAN_STICKS - 1)
+	for i = 0, FAN_STICKS - 1 do
+		local angle = i * step
+		local guard = i == 0 or i == FAN_STICKS - 1
+		-- (the first guard keeps its old name: the spine on the line of the hand)
+		local name = if i == 0 then "FanSpine" elseif guard then "FanGuard" else "FanRib" .. LETTERS[i]
+		table.insert(pieces, fanPiece(name, if guard then { 0.06, 0.07, FAN_R + 0.05 } else { 0.035, 0.035, FAN_R },
+			angle, (FAN_R + (if guard then 0.05 else 0)) / 2, if guard then "B9C6D3" else "E8F2FA", "Metal"))
+		table.insert(pieces, fanPiece("FanIce" .. LETTERS[i + 1], { 0.04, 0.05, 0.2 }, angle, FAN_R + 0.12, "DDF6FF", "Ice"))
+	end
+	local chord = 2 * FAN_R * math.sin(math.rad(step / 2)) * 1.05
+	for i = 0, FAN_STICKS - 2 do
+		local angle = (i + 0.5) * step
+		-- (the middle panel and its rim keep the names WeaponFX lights: FanLeaf, FanEdge)
+		local middle = i == math.floor((FAN_STICKS - 1) / 2)
+		table.insert(pieces, fanPiece(if middle then "FanLeaf" else "FanLeaf" .. LETTERS[i + 1], { 0.03, chord, FAN_R - FAN_LEAF },
+			angle, (FAN_R + FAN_LEAF) / 2, "energy", "Glass"))
+		table.insert(pieces, fanPiece(if middle then "FanEdge" else "FanEdge" .. LETTERS[i + 1], { 0.045, chord, 0.05 },
+			angle, FAN_R - 0.02, "FFFFFF", "Neon"))
+	end
+	-- a snowflake painted on the leaf (three crossed strokes on its outer face)
+	for k = 0, 2 do
+		local flake = fanPiece("FanFlake" .. LETTERS[k + 1], { 0.035, 0.03, 0.24 }, FAN_OPEN / 2, 0.86, "FFFFFF", nil, nil, 0.025)
+		flake.rot = { FAN_OPEN / 2 + k * 60, 0, 0 }
+		table.insert(pieces, flake)
+	end
+	-- the rivet through the sticks (a cylinder lies along X: through the fan), its jewel
+	-- (no tassel: it caught between her fists when she crosses them)
+	table.insert(pieces, { name = "FanRivet", size = { 0.12, 0.13, 0.13 }, y = FAN_PIVOT[2], z = FAN_PIVOT[3], color = "trim",
+		shape = "Cylinder", material = "Metal" })
+	table.insert(pieces, { name = "FanJewel", size = { 0.14, 0.07, 0.07 }, y = FAN_PIVOT[2], z = FAN_PIVOT[3], color = "energy",
+		shape = "Cylinder", material = "Neon" })
 	return {
 		hand = hand,
 		grip = { y = -0.15, z = -0.1, tilt = -20 },
 		r6Grip = { y = -0.35, z = -0.15, tilt = -78 },
-		pieces = {
-			{ name = "FanSpine", size = { 0.08, 0.08, 1.15 }, z = -0.55, color = "E8F2FA", material = "Metal" },
-			{ name = "FanLeaf", size = { 0.05, 1.1, 1.0 }, y = 0.3, z = -0.65, color = "energy", material = "Glass" },
-			{ name = "FanEdge", size = { 0.06, 0.06, 1.0 }, y = 0.85, z = -0.65, color = "FFFFFF", material = "Neon" },
-		},
-		base = -0.15, tip = -1.15,
+		pieces = pieces,
+		base = -0.15, tip = -1.2,
 	}
 end
 WeaponSpec.YUKINA = fan("RightHand")

@@ -678,59 +678,6 @@ function EffectsController:flyOrb(rig, view, now, slot)
 	rig.orbWasStunned = stunned
 end
 
--- The guard of a weapon kit, shown while guarding (and flashing when it takes a blow): an
--- arc of light raised before SHIN's blade, two rings of shadow round DAICHA's orb.
-function EffectsController:weaponGuard(slot, rig, view, guarding, color)
-	self.guards = self.guards or {}
-	local guard = self.guards[slot]
-	if not guard or guard.rig ~= rig then
-		if guard then guard.model:Destroy() end
-		local model = Instance.new("Model")
-		model.Name = "WeaponGuard" .. slot
-		local parts = {}
-		if rig.weaponKind == "Sword" then
-			-- ")" : segments of an arc standing in front of the body.
-			local segments, radius = 9, 2.2
-			for i = 0, segments - 1 do
-				local a0 = math.rad(-75 + 150 * i / segments)
-				local a1 = math.rad(-75 + 150 * (i + 1) / segments)
-				local p0 = Vector3.new(math.cos(a0) * 0.6, math.sin(a0) * radius, math.cos(a0) * 0.2)
-				local p1 = Vector3.new(math.cos(a1) * 0.6, math.sin(a1) * radius, math.cos(a1) * 0.2)
-				local width = 0.12 + 0.3 * math.sin(math.pi * (i + 0.5) / segments)
-				local seg = self:part(Vector3.new(width, 0.1, (p1 - p0).Magnitude + 0.05), CFrame.lookAt((p0 + p1) / 2, p1), if i % 3 == 1 then WHITE else color)
-				seg.Parent = model
-				table.insert(parts, seg)
-			end
-		else
-			for i, d in { 3.2, 2.2 } do
-				local ring = self:part(Vector3.new(0.06, d, d), CFrame.new(i * 0.15, 0, 0), color, Enum.PartType.Cylinder)
-				ring.Material, ring.Parent = Enum.Material.ForceField, model
-				table.insert(parts, ring)
-			end
-			local core = self:part(Vector3.new(0.05, 1.2, 1.2), CFrame.identity, VOID, Enum.PartType.Cylinder)
-			core.Parent = model
-			table.insert(parts, core)
-		end
-		model.WorldPivot = CFrame.identity -- built round the origin
-		model.Parent = self.folder
-		guard = { model = model, parts = parts, rig = rig, shown = 0, flash = 0 }
-		self.guards[slot] = guard
-	end
-	local target = if guarding then 0.55 else 0
-	guard.shown += (target - guard.shown) * 0.3
-	guard.flash = math.max(0, guard.flash - 0.08)
-	local low = view.state == "CrouchBlocking" or view.state == "CrouchBlockstun"
-	local f = view.facing
-	local at = if rig.orbPosition and rig.weaponKind == "Orb" then rig.orbPosition
-		else Vector3.new(view.x + f * 1.3, view.y + (if low then 2.1 else 3.5), self.config.PlaneZ + 0.2)
-	-- Turned a little toward the camera so it reads from the side view.
-	guard.model:PivotTo(CFrame.new(at) * CFrame.Angles(0, (if f > 0 then 0 else math.pi) - f * math.rad(35), 0))
-	local alpha = 1 - math.clamp(guard.shown + guard.flash, 0, 1)
-	for _, p in guard.parts do
-		if p.Transparency ~= alpha then p.Transparency = alpha end
-	end
-end
-
 -- ===================================================================== every kit's own strikes
 -- No two fighters' blows look alike: each speaks its own element (src/shared/KitFX.luau),
 -- when a blow goes out (`kitSwing`, the first contact frame of the move, hit or not), when it
@@ -1699,11 +1646,9 @@ function EffectsController:update(slot, view, rig, previous, now)
 	end
 	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
 	self:weaponDressing(rig, view, now, slot)
-	if rig.weaponKind == "Sword" then -- (DAICHA's guard is her matter flattened: flyOrb)
-		local guarding = view.state == "Blocking" or view.state == "CrouchBlocking" or view.state == "Blockstun"
-			or view.state == "CrouchBlockstun"
-		self:weaponGuard(slot, rig, view, guarding, color)
-	end
+	-- (no drawn guard any more: SHIN's guard is his katana raised over his head, and the blow
+	-- on it strikes sparks off the steel (onEvent: Block); DAICHA's is her matter flattened:
+	-- flyOrb. Wilhem: « SHIN a un vieil effet bleu quand il bloque »)
 	if rig.glow then
 		local m = view.state == "Attack" and MoveData.Moves[view.move]
 		local target = 0
@@ -1860,11 +1805,15 @@ function EffectsController:onEvent(event, views, rigs)
 		else
 			local defender = views[event.defender]
 			local shieldColor = Color3.fromHex(CharacterData[event.defender].Shield)
-			local guard = self.guards and self.guards[event.defender]
-			if guard and guard.shown > 0.2 then
-				-- SHIN's blade / DAICHA's orb takes the blow: the guard flashes.
-				guard.flash = 1
-				self:spark(guard.model:GetPivot().Position, self:energy(event.defender), 1.1)
+			local steel = rigs[event.defender] and rigs[event.defender].model:FindFirstChild("KitBlade")
+			if steel and defender and (defender.state == "Blockstun" or defender.state == "CrouchBlockstun"
+				or defender.state == "Blocking" or defender.state == "CrouchBlocking") then
+				-- SHIN's katana takes the blow over his head: sparks off the steel where it lands
+				-- (Wilhem's sheet: the blade meets the blow, a burst of orange sparks)
+				local at = steel.Position:Lerp(steel.CFrame * Vector3.new(0, 0, -steel.Size.Z * 0.25), 0.5)
+				self:spark(at, Color3.fromHex("FFB23F"), 1.2)
+				self:shards(at, Color3.fromHex("FFE08A"), if self.reduced then 5 else 10, 0.55, Enum.Material.Neon, 0.22)
+				self:shards(at, Color3.fromHex("FF5A2A"), if self.reduced then 3 else 6, 0.4, Enum.Material.Neon, 0.3)
 			elseif defender then
 				self:shield(defender, shieldColor)
 			end

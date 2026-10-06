@@ -80,6 +80,7 @@ function AnimationController.new(model)
 			table.insert(self.tails, {
 				weld = d, base = d.C0, anchor = d.Part0, length = d.Part1.Size.Y,
 				swingX = { x = 0, v = 0 }, swingZ = { x = 0, v = 0 }, seed = #self.tails * 1.7,
+				hang = d.Part1:GetAttribute("Hang") == true,
 			})
 		end
 	end
@@ -180,13 +181,19 @@ function AnimationController:swayTails(dt, now)
 		local velocity = if tail.last then (point - tail.last) / dt else Vector3.zero
 		tail.last = point
 		if velocity.Magnitude > 80 then velocity = Vector3.zero end -- teleports (new round, blinks)
-		local localVelocity = anchor.CFrame:VectorToObjectSpace(velocity)
+		-- (a hanging tail (Hang: YUKINA's tassels) always falls toward the floor, whatever its
+		-- anchor's turn: it swings in world axes)
+		local localVelocity = if tail.hang then velocity else anchor.CFrame:VectorToObjectSpace(velocity)
 		local flutter = math.sin(now * 7 + tail.seed) * 3 + math.sin(now * 11.3 + tail.seed * 2) * 1.5
 		local targetX = math.clamp(localVelocity.Z * 2.4, -70, 70) + flutter
 		local targetZ = math.clamp(-localVelocity.X * 2.4, -55, 55) + flutter * 0.4
 		local ax = Kinematics.spring(tail.swingX, targetX, dt, 1.7, 0.28)
 		local az = Kinematics.spring(tail.swingZ, targetZ, dt, 1.5, 0.3)
-		tail.weld.C0 = tail.base * CFrame.Angles(rad(ax), 0, rad(az))
+		if tail.hang then
+			tail.weld.C0 = anchor.CFrame:ToObjectSpace(CFrame.new(point)) * CFrame.Angles(rad(ax), 0, rad(az))
+		else
+			tail.weld.C0 = tail.base * CFrame.Angles(rad(ax), 0, rad(az))
+		end
 	end
 end
 

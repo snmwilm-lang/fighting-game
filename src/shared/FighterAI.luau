@@ -74,7 +74,31 @@ FighterAI.Bosses = table.freeze({
 		decision = 4, ultimate = 1, read = 0.7, charge = true, varied = true, routes = { "hard" } }),
 	["KUROEN SHIN"] = table.freeze({ name = "KUROEN SHIN", reaction = 2, block = 0.75, lowBlock = 0.65, guardOnce = true, combo = 1, aggression = 0.93,
 		antiAir = 0.7, punish = 1, reversal = 0.6, counter = 0.85, zoning = 0.5, full = 1, promptSpread = 0, decision = 3,
-		ultimate = 1, read = 0.75, charge = true, varied = true, routes = { "hard" } }),
+		ultimate = 1, read = 0.75, charge = true, varied = true, routes = { "hard" },
+		-- (0.25.0, Wilhem: « nerfer sa perfection, pas ses stats »: contextual mistakes, see
+		-- FighterAI:strainRead; the numbers are tuned with tests/BossReport.luau)
+		mistakes = table.freeze({
+			-- what he reads as being worked (added to his STRAIN, 0..1, that fades by `calm` a tick)
+			calm = 0.985, dash = 0.12, height = 0.03, sway = 0.03, cross = 0.35, whiffBait = 0.14, feint = 0.3,
+			rhythm = 0.12, pressure = 0.01,
+			-- what the strain does
+			decision = 1, -- a real decision time on top of his eye (ticks), even calm
+			slow = 6, -- + up to this much under full strain (x strain squared)
+			guardDrop = 0.35, -- share of his guard lost under full strain
+			lowDrop = 0.35, -- of his low guard
+			wrongHeight = 0.25, -- chance to guard the wrong height
+			guardTiming = 12, -- ticks his guard may be let go early or held too long
+			turtle = 0.25, -- more guarding when worked (the GRAB's answer)
+			optimal = 0.9, -- the optimal route (ultimate ending) when his read is clean
+			safe = 0.4, -- a short safe string instead, under strain
+			extendFail = 0.3, -- an extension he fumbles (the wrong button mid-route)
+			confirm = 0.35, -- a missed hit-confirm (stops on hit, goes on on block)
+			whiff = 0.25, -- swings from too far
+			punishMiss = 0.4, -- a punish missed, or tried too late
+			bite = 0.3, -- bites on a feint (a slow blow into it)
+			chase = 0.4, -- chases a waking opponent when he should guard
+			reads = 0.3, -- his reads (anti-air, counter hit, reversal) blunted under full strain
+		}) }),
 })
 FighterAI.Boss = FighterAI.Bosses.ASURA
 
@@ -131,9 +155,102 @@ function FighterAI:guardRoll(seen)
 	local key = tostring(seen.move) .. "#" .. tostring(seen.serial)
 	if self.guardKey ~= key then
 		self.guardKey = key
-		self.guardYes, self.guardLowYes = self:chance(self.level.block), self:chance(self.level.lowBlock)
+		local M, strain = self.level.mistakes, self.strain or 0
+		local block = if M then self.level.block * (1 - strain * M.guardDrop) else self.level.block
+		local low = if M then self.level.lowBlock * (1 - strain * M.lowDrop) else self.level.lowBlock
+		self.guardYes, self.guardLowYes = self:chance(block), self:chance(low)
+		-- (worked, he may guard the wrong height: a high read as low, a low as high)
+		self.guardWrong = M ~= nil and self:chance(strain * M.wrongHeight)
 	end
-	return self.guardYes, self.guardLowYes
+	return self.guardYes, self.guardLowYes, self.guardWrong
+end
+
+--[[
+	KUROEN SHIN's mistakes (Wilhem, 0.25.0: « il doit rester un boss, mais un excellent joueur
+	doit pouvoir le provoquer, créer une erreur et la punir »). Not a flat chance of doing
+	something stupid: a STRAIN (0..1) rises with what a good player does to him, as he sees it
+	(with his reaction delay), and fades when he is left alone:
+	  changes of rhythm between attacks, dashes and air dashes, jumps and crouches (height),
+	  walking in and out (distance), cross-ups (ambiguity), whiffs close to him (bait), feints;
+	  plain pressure (mashing at one rhythm) barely counts.
+	The strain then slows his decisions, opens his guard (late, wrong height, let go early or
+	held too long, more turtling: the grab's answer), shortens or fumbles his combos, misses his
+	confirms and punishes, makes him swing from too far, bite on feints and chase a waking
+	opponent. Calm (a beginner who mashes), he stays the boss.
+]]
+function FighterAI:strainRead(seen, prev, me, world)
+	local M = self.level.mistakes
+	if not M then return 0 end
+	local s = (self.strain or 0) * M.calm
+	local dist = math.abs(seen.x - me.x)
+	local log = self.strainLog -- (tests and reports: what worked him, by kind)
+	local function add(kind, amount)
+		s += amount
+		if log then log[kind] = (log[kind] or 0) + amount end
+	end
+	if prev then
+		if seen.dashing and not prev.dashing then add("dash", M.dash) end
+		if seen.airborne ~= prev.airborne then add("height", M.height) end
+		if seen.crouching ~= prev.crouching and not seen.airborne then add("height", M.height * 0.6) end
+		-- (walking in and out, not the lunge of an attack)
+		if not seen.move and not prev.move and (seen.vx or 0) * (prev.vx or 0) < 0 and math.abs(seen.vx or 0) > 1 then add("distance", M.sway) end
+		-- (hit in between: the next attack's rhythm is not a choice)
+		if seen.vulnerable or seen.down then self.lastGap, self.lastAttackTick = nil, nil end
+		if (seen.x - me.x) * (prev.x - me.x) < 0 and dist < 6 then add("cross", M.cross) end
+		-- (a blow thrown just short of him on purpose: a whiff at the edge of its reach, not a
+		-- masher's jab that missed)
+		local whiffed = prev.move and not seen.move and not prev.contact and world.moves[prev.move]
+		-- (and it worked: he answered it, a guard or a blow of his own)
+		if whiffed and whiffed.hitbox and dist > whiffed.hitbox.far + 0.6 and dist < whiffed.hitbox.far + 3
+			and (me.move or me.blocking) then
+			add("bait", M.whiffBait)
+		end
+		if seen.feint and not prev.feint then add("feint", M.feint) end
+	end
+	if seen.move and seen.serial ~= self.strainSerial then
+		-- (a new attack: its rhythm against the last one)
+		self.strainSerial = seen.serial
+		local now = world.tick or 0
+		local gap = if self.lastAttackTick then now - self.lastAttackTick else nil
+		self.lastAttackTick = now
+		if gap and self.lastGap and gap < 180 then
+			local change = math.abs(gap - self.lastGap) / math.max(8, gap, self.lastGap)
+			add("rhythm", M.rhythm * math.min(1, change * 1.5))
+		end
+		self.lastGap = gap
+		if dist < 5 then add("pressure", M.pressure) end
+	end
+	self.strain = math.clamp(s, 0, 1)
+	return self.strain
+end
+
+-- His eye: the level's reaction, plus (with mistakes) a real decision time that grows with
+-- the strain (squared: a little strain barely slows him, a player who really works him does).
+function FighterAI:reactionTicks()
+	local M = self.level.mistakes
+	if not M then return self.level.reaction end
+	return self.level.reaction + M.decision + math.floor((self.strain or 0) ^ 2 * M.slow + 0.5)
+end
+
+-- A mistake whose chance grows with the strain (`base` + `perStrain` x strain).
+function FighterAI:slip(perStrain, base)
+	if not self.level.mistakes then return false end
+	return self:chance((base or 0) + (self.strain or 0) * perStrain)
+end
+
+-- A feint seen (once per feint): does he bite? (more often the more he is worked)
+function FighterAI:bitesFeint(seen)
+	local M = self.level.mistakes
+	if not M or not seen.feint or self.bitKey == seen.serial then return false end
+	self.bitKey = seen.serial
+	return self:slip(M.bite, M.bite * 0.5)
+end
+
+-- A read (anti-air, counter hit, reversal) blunted by the strain.
+function FighterAI:sharp(value)
+	local M = self.level.mistakes
+	if not M then return value end
+	return value * (1 - (self.strain or 0) * M.reads)
 end
 
 -- What the CPU "sees" of a fighter: a light copy pushed into a delayed history.
@@ -148,10 +265,12 @@ local function observe(f, moves)
 		x = f.x, y = f.y, vx = f.vx, vy = f.vy, move = f.move, serial = f.moveSerial, phase = phase, guard = m and m.guard,
 		moveFrame = f.moveFrame, crouching = f.crouching,
 		contact = f.moveContact, airborne = f.y > 0.5, vulnerable = f.stun > 0 or f.launched, down = f.knockdown > 0 or f.getUp > 0,
+		dashing = f.state == "Dashing" or f.state == "AirDash", feint = f.state == "Feint",
 	}
 end
 
 function FighterAI:pickPlan(meter, cost, fullRoutes, bait, opening)
+	self.fumbleAt, self.confirmSlip, self.swingFar = nil, nil, nil
 	-- The boss opens from neutral with a mix-up, never twice the same, never a slow blow
 	-- (a slow opener from neutral is a free counter hit: Wilhem cornered him and saw him
 	-- throw the same SMASH again and again).
@@ -193,6 +312,38 @@ function FighterAI:pickPlan(meter, cost, fullRoutes, bait, opening)
 		while length < 6 and self:chance(self.level.combo) do length += 1 end
 		if self:chance(self.level.combo) then keys[length + 1], length = "R", length + 1 end
 		self.plan, self.step, self.planLength, self.pressedMove = keys, 1, length, nil
+		return
+	end
+	-- With mistakes (KUROEN SHIN), the route follows his read: the optimal one when it is clean,
+	-- a short safe string when worked, a standard one most of the time; an extension may be
+	-- fumbled (the wrong button mid-route) and a confirm missed (decided here, once per combo).
+	local M = self.level.mistakes
+	if M then
+		local strain = self.strain or 0
+		local clean = 1 - strain
+		if fullRoutes and self:chance(M.optimal * clean * clean) then
+			local route = fullRoutes[math.floor(self:random() * #fullRoutes) + 1]
+			local keys = {}
+			for key in route.keys:gmatch("%S") do table.insert(keys, key) end
+			if meter >= 300 then keys[6] = "U" end
+			self.plan, self.step, self.planLength, self.pressedMove = keys, 1, #keys, nil
+		else
+			local pool = {}
+			for _, key in self.level.routes do
+				for _, route in ROUTES[key] do table.insert(pool, route) end
+			end
+			if meter >= cost and self:chance(0.8) then
+				for _, route in ROUTES.ultimate do table.insert(pool, route) end
+			end
+			local route = pool[math.floor(self:random() * #pool) + 1]
+			local length = #route
+			if self:chance(M.safe * strain) then length = math.min(length, 2) end
+			self.plan, self.step, self.planLength, self.pressedMove = route, 1, length, nil
+		end
+		if self.planLength >= 3 and self:chance(M.extendFail * (0.25 + strain)) then
+			self.fumbleAt = 2 + math.floor(self:random() * (self.planLength - 1))
+		end
+		if self:chance(M.confirm * strain) then self.confirmSlip = true end
 		return
 	end
 	-- The 6-press routes (ending in COUP DE GRÂCE, or ÉVEIL ÉCARLATE with 3 bars).
@@ -269,7 +420,11 @@ function FighterAI:think(world, slot)
 		self.plan, self.blockTicks = nil, 0
 		return input
 	end
-	local seen = self.history[math.max(1, #self.history - self.level.reaction)]
+	local reactionIndex = math.max(1, #self.history - self:reactionTicks())
+	local seen = self.history[reactionIndex]
+	self:strainRead(seen, self.history[reactionIndex - 1], me, world)
+	local reaction = self:reactionTicks()
+	local strain = self.strain or 0
 	local read = self.level.read or 0
 	local reads = self.reads
 	if read > 0 then
@@ -341,8 +496,19 @@ function FighterAI:think(world, slot)
 					self.plan, self.pressedMove = nil, moveKey
 					return input
 				end
-				if me.moveContact == "Block" and self.step > 2 then
+				local blocked = me.moveContact == "Block"
+				if self.confirmSlip and self.step == 2 then
+					-- (a missed confirm: he reads the first blow wrong; stops a combo that hit,
+					-- or goes on with a string that was blocked)
+					blocked = not blocked
+					self.confirmSlip = nil
+				end
+				if blocked and self.step > 2 then
 					self.plan = nil -- stay safe on block
+				elseif self.fumbleAt == self.step and nextButton ~= "J" and nextButton ~= "U" then
+					-- (the extension fumbled: the other button, the route breaks there)
+					self:press(input, if nextButton == "L" then "R" else "L")
+					self.pressedMove, self.fumbleAt, self.planLength = moveKey, nil, self.step - 1
 				elseif nextButton == "J" then
 					if m.jumpCancel and me.moveFrame > m.startup + m.active then
 						self:press(input, "J")
@@ -403,11 +569,16 @@ function FighterAI:think(world, slot)
 	self.seenHeld = foeHeld
 	if foeRecovered and reads and reads.reversals >= 1.5 and dist < 5 and grounded and not self.plan
 		and self:chance(read * 0.85) then
-		self.blockTicks, self.blockLow = 14, false
+		if self:slip(self.level.mistakes and self.level.mistakes.chase or 0) then
+			-- (worked, he chases the waking opponent instead of guarding its reversal)
+			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
+		else
+			self.blockTicks, self.blockLow = 14, false
+		end
 	end
 	if recovered and dist < 5 and grounded then
 		-- (only through an invincible special: KUROEN's CRIMSON STEP is not one, he must guard)
-		if groundSpecial and groundSpecial.invuln and self:chance(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7) then
+		if groundSpecial and groundSpecial.invuln and self:chance(self:sharp(self.level.reversal + (1 - self.level.reversal) * pressing * 0.7)) then
 			input.special = true -- invincible RISING STRIKE through the pressure
 			return input
 		elseif self:chance(self.level.counter * (if groundSpecial and not groundSpecial.invuln and not self.level.varied then counterNoReversal(self.level) else 1)) then
@@ -426,24 +597,36 @@ function FighterAI:think(world, slot)
 	if opportunity and opportunity ~= self.lastOpportunity then
 		self.lastOpportunity = opportunity
 		local m = moves[seen.move]
-		local left = m and (m.startup + m.active + m.recovery - seen.moveFrame - self.level.reaction) or 99
+		local left = m and (m.startup + m.active + m.recovery - seen.moveFrame - reaction) or 99
 		local fastest = moves[starters.Ground.Light].startup
 		if read > 0 and reads.reversals >= 1.5 and m and m.cancels and m.cancels.Special then
 			-- Reads: this string can still be cancelled into the opponent's invincible reversal.
 			self.blockTicks, self.blockLow = 14, false
-		elseif read > 0 and left <= fastest then
+		elseif read > 0 and left <= fastest and not self:slip(self.level.mistakes and self.level.mistakes.punishMiss * 0.6 or 0) then
 			-- Reads: too late to punish (it recovers first); stay safe.
 			self.blockTicks, self.blockLow = left + 2, false
-		elseif self:chance(self.level.punish) then
+		elseif read > 0 and left <= fastest then
+			-- (worked: he tries the punish anyway, too late, it fails)
+			self.blockTicks = 0
+			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
+		elseif self:chance(self.level.punish * (1 - strain * (if self.level.mistakes then self.level.mistakes.punishMiss else 0))) then
 			self.blockTicks = 0
 			self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade)
 		end
+	end
+	-- A feint (KAI's string stopped, a blow thrown short of him): worked, he bites, a slow
+	-- blow into it, guard let go (the feinter's counter hit).
+	local M = self.level.mistakes
+	if grounded and not self.plan and dist < 5 and self:bitesFeint(seen) then
+		self.blockTicks = 0
+		input.heavy = true
+		return input
 	end
 	-- Incoming projectile (seen with the reaction delay): guard it once per projectile.
 	for _, p in world.projectiles do
 		local coming = p.owner ~= slot and math.sign(p.vx) == math.sign(me.x - p.x)
 		local eta = math.abs(me.x - p.x) / math.max(1, math.abs(p.vx)) * 60
-		if coming and eta < 18 and eta > self.level.reaction * 0.5 and p.id ~= self.lastProjectile and grounded
+		if coming and eta < 18 and eta > reaction * 0.5 and p.id ~= self.lastProjectile and grounded
 			and not self.plan then
 			self.lastProjectile = p.id
 			local zoned = if reads then math.min(1, reads.zoning / 3) * read else 0
@@ -479,11 +662,11 @@ function FighterAI:think(world, slot)
 			y += vy / 60
 			ticks += 1
 		end
-		local lead = ticks - self.level.reaction
+		local lead = ticks - reaction
 		local landX = seen.x + (seen.vx or 0) * ticks / 60
 		if lead >= 6 and lead <= 10 and math.abs(landX - me.x) < 3.4 then
 			self.aaJump = self.jumpCount
-			if self:chance(self.level.antiAir * read) then
+			if self:chance(self:sharp(self.level.antiAir * read)) then
 				if canAntiAir then
 					input.special = true
 				else
@@ -501,11 +684,11 @@ function FighterAI:think(world, slot)
 		local jab = world.moves[kit.Roles and kit.Roles.Jab or "Jab"]
 		if read > 0 and theirs and jab and seen.phase == "Startup" and grounded and not seen.airborne and not me.move and dist < 3.4
 			and theirs.kind ~= "Ultimate" and not theirs.invuln
-			and theirs.startup - (seen.moveFrame + self.level.reaction) > jab.startup + 1 and self:chance(self.level.counter * read) then
+			and theirs.startup - (seen.moveFrame + reaction) > jab.startup + 1 and self:chance(self:sharp(self.level.counter * read)) then
 			input.light = true
 			return input
 		end
-		if seen.airborne and seen.vy < 0 and grounded and canAntiAir and self:chance(self.level.antiAir) then
+		if seen.airborne and seen.vy < 0 and grounded and canAntiAir and self:chance(self:sharp(self.level.antiAir)) then
 			input.special = true
 			return input
 		end
@@ -515,14 +698,19 @@ function FighterAI:think(world, slot)
 			input.crouch, input.special = true, true
 			return input
 		end
-		local guards, low = self:guardRoll(seen)
+		local guards, low, wrong = self:guardRoll(seen)
 		if guards then
 			self.blockTicks = 16
+			if M then
+				-- (worked, his guard is let go too early or held too long: the grab's opening)
+				self.blockTicks = math.max(3, 16 + math.floor((self:random() * 2 - 1) * strain * M.guardTiming + 0.5))
+			end
 			self.blockLow = seen.guard == "Low" and low
 			if seen.guard == "High" then self.blockLow = false end
 			if seen.guard ~= "Low" and seen.guard ~= "High" and reads then
 				self.blockLow = reads.lows > reads.highs -- a mid: lean to the opponent's habit
 			end
+			if wrong and (seen.guard == "Low" or seen.guard == "High") then self.blockLow = not self.blockLow end
 			input.block, input.crouch = true, self.blockLow
 			return input
 		end
@@ -570,7 +758,7 @@ function FighterAI:think(world, slot)
 				self.intent = "wall"
 			else
 				-- Close range: anticipate (fast pokes cannot be blocked on reaction alone).
-				local guard = self.level.block * 0.55 + pressing * 0.3
+				local guard = self.level.block * 0.55 + pressing * 0.3 + (if M then strain * M.turtle else 0)
 				self.intent = if roll < guard then "guard"
 					elseif roll < guard + self.level.aggression * (1 - guard) then "attack"
 					elseif roll < guard + self.level.aggression * (1 - guard) + 0.1 then "retreat" else "wait"
@@ -604,13 +792,16 @@ function FighterAI:think(world, slot)
 		elseif intent == "guard" then
 			input.block, input.crouch = true, self.guardLow
 		elseif intent == "attack" then
-			if dist > 4.2 then
+			local reach = 4.2
+			if M and dist < 6.5 and self:slip(M.whiff) then reach = 6.5 end -- (worked: he swings from too far)
+			if dist > reach then
 				input.axis = toward
 				if self.level.charge and self:outranged(world, slot) and grounded and me.dashTicks == 0 and me.dashCooldown == 0 and dist < 14 then
 					input.dash = true
 				end
 			else
 				self:pickPlan(me.meter, ultimateCost, fullRoutes, baitEvade, true)
+				if dist > 4.4 then self.swingFar = self.plan end
 				if pressing > 0.5 and self.plan[1] ~= "L" and not self.plan.weave then
 					-- Against mashing, open with the fastest button (the jab) or lose the trade.
 					self.plan = { "L", table.unpack(self.plan, 2) }
@@ -632,7 +823,7 @@ function FighterAI:think(world, slot)
 			-- The weave first (forward dash): the roll starts on the way in.
 			input.axis, input.dash = toward, true
 			self.plan.weave = false
-		elseif dist > 4.4 then
+		elseif dist > 4.4 and not (M and self.swingFar == self.plan) then
 			input.axis = toward
 			if self.level.charge and self:outranged(world, slot) and grounded and me.dashTicks == 0 and me.dashCooldown == 0 and dist < 14 then
 				input.dash = true -- (the boss charges in: his dash takes a blow)

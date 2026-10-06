@@ -1,5 +1,5 @@
 -- Boss report (not a test): ASURA with the boss AI against every kit played by LÉGENDE.
---   luau tests/BossReport.luau -a [matches] [BOSS]   (ASURA or "KUROEN SHIN")
+--   luau tests/BossReport.luau -a [matches] [BOSS] [level]   (ASURA or "KUROEN SHIN"; the opponent CPU level, 4 = LÉGENDE)
 local Config = require("../src/shared/CombatConfig")
 local MoveData = require("../src/shared/MoveData")
 local Sim = require("../src/shared/CombatSimulation")
@@ -13,7 +13,7 @@ for _, kit in MoveData.KitOrder do
 	for n = 1, matches do
 		local world = Sim.newWorld(Config, MoveData, false)
 		Sim.setKits(world, BOSS, kit)
-		local brains = { FighterAI.new("ASURA", n * 31), FighterAI.new(4, n * 7 + 3) }
+		local brains = { FighterAI.new(BOSS, n * 31), FighterAI.new(tonumber(args[3]) or 4, n * 7 + 3) }
 		for _ = 1, 60 * 60 * 6 do
 			local done = false
 			for _, e in Sim.step(world, { brains[1]:think(world, 1), brains[2]:think(world, 2) }) do

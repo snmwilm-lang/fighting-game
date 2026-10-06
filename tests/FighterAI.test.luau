@@ -400,4 +400,134 @@ test("ASURA against the wall: varied openers, never the same slow blow again and
 	end
 end)
 
+-- ===================================================================== KUROEN SHIN's mistakes (0.25.0)
+-- Wilhem: « nerfer sa perfection, pas ses stats »: contextual mistakes, not a flat chance.
+local function shinWorld()
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, "KUROEN SHIN", "KAI")
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = -1.8, 1.8
+	return world
+end
+
+test("KUROEN SHIN's strain: a calm masher barely works him, a player who changes rhythm, dashes, jumps and crouches does", function()
+	local function strainAgainst(script)
+		local world = shinWorld()
+		local brain = FighterAI.new("KUROEN SHIN", 5)
+		local sum, n = 0, 0
+		for t = 1, 60 * 20 do
+			local foe = world.fighters[2]
+			-- (the opponent is kept alive and close: only the boss's reading is measured)
+			foe.hp = foe.maxHp
+			world.fighters[1].hp = world.fighters[1].maxHp
+			-- (the boss only watches: his own inputs are not played, his reading is measured)
+			brain:think(world, 1)
+			Sim.step(world, { Sim.neutralInput(), script(t, world) })
+			if t > 120 then sum += brain.strain or 0; n += 1 end
+		end
+		return sum / n
+	end
+	local calm = strainAgainst(function(t) return input({ light = t % 24 == 0 }) end)
+	local worked = strainAgainst(function(t, world)
+		local cycle = t % 150
+		local foe, boss = world.fighters[2], world.fighters[1]
+		local away = if foe.x > boss.x then 1 else -1
+		if cycle == 10 then return input({ dash = true, axis = away }) end
+		if cycle == 40 then return input({ dash = true, axis = -away }) end
+		if cycle >= 60 and cycle < 75 then return input({ crouch = true }) end
+		if cycle == 90 then return input({ jump = true }) end
+		return input({ light = cycle == 30 or cycle == 37 or cycle == 120 })
+	end)
+	expect(calm < 0.12, string.format("a calm masher works him too much (%.2f)", calm))
+	expect(worked > calm * 2.5 and worked > 0.12, string.format("working him does not show (%.2f vs %.2f calm)", worked, calm))
+	-- the strain fades when he is left alone
+	local brain = FighterAI.new("KUROEN SHIN", 5)
+	brain.strain = 1
+	local world = shinWorld()
+	for _ = 1, 240 do Sim.step(world, { brain:think(world, 1), Sim.neutralInput() }) end
+	expect(brain.strain < 0.1, "the strain never fades")
+	-- the other brains have none
+	expect(FighterAI.Bosses.ASURA.mistakes == nil and FighterAI.Levels[4].mistakes == nil, "a brain other than KUROEN SHIN's makes his mistakes")
+end)
+
+test("KUROEN SHIN worked: later, guards less and the wrong height, shorter or fumbled combos, missed confirms", function()
+	local function sample(strain)
+		local brain = FighterAI.new("KUROEN SHIN", 11)
+		local guards, wrong, reaction, length, fumbles, slips = 0, 0, 0, 0, 0, 0
+		local fullRoutes = MoveData.Kits["KUROEN SHIN"].FullRoutes
+		for i = 1, 400 do
+			brain.strain = strain
+			local yes, _, w = brain:guardRoll({ move = "Jab", serial = i, guard = "High" })
+			if yes then guards += 1 end
+			if w then wrong += 1 end
+			reaction += brain:reactionTicks()
+			brain:pickPlan(300, 100, fullRoutes, false, false)
+			length += brain.planLength
+			if brain.fumbleAt then fumbles += 1 end
+			if brain.confirmSlip then slips += 1 end
+		end
+		return { guards = guards / 400, wrong = wrong / 400, reaction = reaction / 400, length = length / 400,
+			fumbles = fumbles / 400, slips = slips / 400 }
+	end
+	local calm, worked = sample(0), sample(1)
+	expect(calm.reaction > FighterAI.Bosses["KUROEN SHIN"].reaction, "no real decision time, even calm")
+	expect(worked.reaction >= calm.reaction + 4, "worked, he still reacts as fast")
+	expect(worked.guards < calm.guards - 0.15, string.format("worked, he guards as much (%.2f vs %.2f)", worked.guards, calm.guards))
+	expect(calm.wrong == 0 and worked.wrong > 0.1, "worked, he never guards the wrong height")
+	expect(worked.length < calm.length, string.format("worked, his combos are as long (%.1f vs %.1f)", worked.length, calm.length))
+	expect(worked.fumbles > calm.fumbles and worked.slips > calm.slips + 0.2, "worked, he fumbles and misses confirms as rarely")
+	-- calm, the optimal routes most of the time (still the boss)
+	expect(calm.length >= 4.5, string.format("calm, his combos are short (%.1f)", calm.length))
+end)
+
+test("KUROEN SHIN: bites on a feint when worked, the GRAB answers his guard, a beginner still loses", function()
+	local function bites(strain)
+		local brain, count = FighterAI.new("KUROEN SHIN", 3), 0
+		for i = 1, 400 do
+			brain.strain = strain
+			if brain:bitesFeint({ feint = true, serial = i }) then count += 1 end
+			brain:bitesFeint({ feint = true, serial = i }) -- (the same feint twice: one roll)
+		end
+		return count / 400
+	end
+	local calm, worked = bites(0), bites(1)
+	expect(worked > calm * 2 and worked > 0.3, string.format("he does not bite on feints when worked (%.2f vs %.2f calm)", worked, calm))
+	expect(FighterAI.new(4, 1):bitesFeint({ feint = true, serial = 1 }) == false, "LÉGENDE bites on feints the boss's way")
+	-- in a fight: a feint seen up close, worked, and he answers with a slow blow
+	local world = shinWorld()
+	local brain = FighterAI.new("KUROEN SHIN", 2)
+	local bit = false
+	for i = 1, 40 do
+		brain.strain = 1
+		world.fighters[2].state, world.fighters[2].moveSerial = "Feint", i
+		brain.plan = nil
+		local out = brain:think(world, 1)
+		if out.heavy and brain.bitKey == i then bit = true break end
+	end
+	expect(bit, "worked, he never bit on a feint in a fight")
+	-- a player who grabs him when he guards up close lands grabs; a beginner (NORMAL) still loses
+	local grabs, beginnerWins = 0, 0
+	for seed = 1, 3 do
+		local world = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(world, "KUROEN SHIN", MoveData.KitOrder[seed])
+		local boss, player = FighterAI.new("KUROEN SHIN", seed), FighterAI.new(4, seed * 7 + 3)
+		local beginnerWorld = Sim.newWorld(Config, MoveData, false)
+		Sim.setKits(beginnerWorld, "KUROEN SHIN", MoveData.KitOrder[seed])
+		local boss2, beginner = FighterAI.new("KUROEN SHIN", seed), FighterAI.new(2, seed * 5)
+		for _ = 1, 60 * 60 * 3 do
+			local i = player:think(world, 2)
+			local b = world.fighters[1]
+			if b.blocking and math.abs(b.x - world.fighters[2].x) < 3.6 then i.grab = true end
+			for _, e in Sim.step(world, { boss:think(world, 1), i }) do
+				if e.kind == "Hit" and e.attacker == 2 and e.move == "Grab" then grabs += 1 end
+			end
+			for _, e in Sim.step(beginnerWorld, { boss2:think(beginnerWorld, 1), beginner:think(beginnerWorld, 2) }) do
+				if e.kind == "MatchEnd" and e.winner == 2 then beginnerWins += 1 end
+			end
+		end
+	end
+	expect(grabs > 0, "the grab never caught his guard")
+	expect(beginnerWins == 0, "a beginner beat KUROEN SHIN")
+end)
+
 T.finish()

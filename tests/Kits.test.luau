@@ -701,32 +701,52 @@ test("AKEMI: INSTINCT dodges on its own (3 charges), then each charge comes back
 	local charges = Kits.AKEMI.Passive.Charges
 	expect(charges == 3, "INSTINCT: not 3 charges")
 	for i = 1, charges do
-		world.fighters[1].x = d.x - 3
+		world.fighters[1].x, world.fighters[1].facing, d.facing = d.x - 3, 1, -1
 		local events = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
 		expect(find(events, "Evade") ~= nil and find(events, "Hit") == nil, "jab " .. i .. " was not dodged")
 	end
 	expect(d.hp == d.maxHp, "damage through the dodge")
-	world.fighters[1].x = d.x - 3
+	world.fighters[1].x, world.fighters[1].facing, d.facing = d.x - 3, 1, -1
 	local again = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
 	expect(find(again, "Hit") ~= nil, "dodged with no charge left")
 	run(world, Kits.AKEMI.Passive.Cooldown, nil)
-	world.fighters[1].x = d.x - 3
+	world.fighters[1].x, world.fighters[1].facing, d.facing = d.x - 3, 1, -1
 	local later = run(world, 40, function(t) return { input({ light = t == 1 }) } end)
 	expect(find(later, "Evade") ~= nil, "the charges did not come back")
 end)
 
-test("AKEMI: no more counter from behind (INSTINCT never grants a free combo)", function()
+test("AKEMI: after a dodge, L or R brings her behind the attacker, and he can block it", function()
+	-- (Wilhem: « le truc où elle esquive et passe derrière l'adversaire, laisse-le, rends-le juste bloquable »)
 	local passive = Kits.AKEMI.Passive
-	expect((passive.CounterWindow or 0) == 0 and passive.HitRefund == nil, "the old SHADOW VEIL counter or refund is still there")
-	local world = kitWorld("KAI", "AKEMI", 3)
-	local evaded, blink = false, false
-	for t = 1, 70 do
-		for _, e in Sim.step(world, { input({ light = t == 1 }), input({ light = evaded }) }) do
-			if e.kind == "Evade" then evaded = true end
-			if e.kind == "Blink" and e.counter then blink = true end
+	expect((passive.CounterWindow or 0) > 0 and passive.Blockable and passive.HitRefund == nil, "the counter from behind is gone or not blockable")
+	-- guard: nil (nothing), "key" (the guard key held once she is behind him), "back" (holding away from her)
+	local function duel(guard)
+		local world = kitWorld("KAI", "AKEMI", 3)
+		local a, d = world.fighters[1], world.fighters[2]
+		local evaded, blinkAt, hit, blocked, aFree, hitAt = false, nil, false, false, nil, nil
+		for t = 1, 90 do
+			local press = evaded and not blinkAt
+			local i1 = input({ light = t == 1 })
+			if blinkAt and guard == "key" then i1.block = true end
+			if blinkAt and guard == "back" then i1.axis = if d.x > a.x then -1 else 1 end
+			for _, e in Sim.step(world, { i1, input({ light = press }) }) do
+				if e.kind == "Evade" then evaded = true end
+				if e.kind == "Blink" and e.counter then blinkAt = t end
+				if e.kind == "Hit" and e.attacker == 2 then hit, hitAt = true, hitAt or t end
+				if e.kind == "Block" and e.attacker == 2 then blocked = true end
+			end
+			if blinkAt and not aFree and a.move == nil and a.stun == 0 and a.hitstop == 0 then aFree = t end
 		end
+		return evaded, blinkAt, hit, blocked, aFree, hitAt, a, d
 	end
-	expect(evaded and not blink, "a press after the dodge still teleports her behind the attacker")
+	local evaded, blinkAt, hit, _, aFree, hitAt, a, d = duel(nil)
+	expect(evaded and blinkAt, "no counter from behind after the dodge")
+	expect(hit, "the counter did not hit an attacker who did nothing")
+	expect(aFree and hitAt and aFree < hitAt - 6, "the attacker was not free (with time to react) before her blow: not blockable")
+	local _, _, hitKey, blockedKey = duel("key")
+	expect(blockedKey and not hitKey, "holding the guard did not block the counter from behind")
+	local _, _, hitBack, blockedBack = duel("back")
+	expect(blockedBack and not hitBack, "holding away from her did not block the counter from behind")
 end)
 
 test("AKEMI: no evade while guarding, in a combo or against an ultimate", function()

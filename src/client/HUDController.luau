@@ -9,7 +9,6 @@ local CharacterData = require(Shared.CharacterData)
 local MoveData = require(Shared.MoveData)
 local Locale = require(Shared.Locale)
 local UIArt = require(Shared.UIArt)
-local Director = require(Shared.CinematicDirector)
 local Theme = require(script.Parent.MenuTheme) -- (the fight's buttons wear the menu's design)
 
 local HUD = {}
@@ -1384,7 +1383,8 @@ function HUD:onEvent(event, world)
 			return
 		end
 		-- (one K.O. on screen: a finishing cinematic or the match's K.O. scene shows its own)
-		if main == "K.O." and (world.cinematic or Director.matchDecided(world, self.config, event.winner)) then return end
+		-- (decided by the server: the snapshot here may still hold the score before this K.O.)
+		if main == "K.O." and (event.matchOver or event.inCinematic or world.cinematic) then return end
 		self:announceText(main, sub, if main == "K.O." then RED else WHITE)
 	elseif event.kind == "MatchEnd" then
 		-- (a won match: its K.O. scene already says K.O. · VICTORY; only a draw is announced here)

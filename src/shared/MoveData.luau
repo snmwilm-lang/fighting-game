@@ -1104,7 +1104,7 @@ kit("ZEPHYR", {
 kit("AKEMI", {
 	Kanji = "影", Role = "EVASION",
 	Difficulty = 3,
-	Description = "Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). Right after, move TOWARD the threat: the next blow is dodged free (FLOW DODGE).",
+	Description = "Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). Right after: L or R = she strikes from behind (blockable), or move TOWARD the threat: the next blow is dodged free (FLOW DODGE).",
 	Roles = AKEMI,
 	Stats = { MaxHealth = 1050, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
 	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
@@ -1125,8 +1125,13 @@ kit("AKEMI", {
 	-- INSTINCT FLOW: within FlowWindow ticks after an auto-dodge, moving TOWARD the threat arms
 	-- one FLOW DODGE (no charge) for the next blow (armed FlowHold ticks at most); attacking,
 	-- guarding, backing away or jumping gives it up. Ultimates and grabs are never dodged.
+	-- The counter from behind (kept, Wilhem): L or R within CounterWindow ticks after a dodge,
+	-- she reappears CounterGap behind the attacker; Blockable: her blow waits until he is free
+	-- again, plus CounterReact ticks, and holding the guard (or away from her) blocks it; a
+	-- fresh guard press up to ReadEarly ticks before she reappears reads it at once.
 	Passive = { Type = "Evade", Name = "INSTINCT", Independent = true, Charges = 3, Cooldown = 1200,
 		FlowWindow = 21, FlowHold = 60,
+		CounterWindow = 14, CounterGap = 2.6, CounterCost = 0, Blockable = true, CounterReact = 10, ReadEarly = 3,
 		Styles = {
 			{ Name = "SLIP", Weight = 45, Slide = 8, Invuln = 12, Recovery = 14 },
 			{ Name = "BACK", Weight = 30, Slide = 30, Invuln = 14, Recovery = 18 },

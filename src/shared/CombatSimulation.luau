@@ -98,6 +98,7 @@ local function resetFighters(world)
 	world.winner = nil
 	world.reason = nil
 	world.cinematic = nil
+	world.finishedByCinematic = false
 	world.projectiles = {}
 	world.drones = {} -- NOVA's sentinels
 end
@@ -632,14 +633,27 @@ local function stepFighter(world, f, input, events)
 			table.clear(f.buffer)
 			local id = kitOf(world, f).Starters.Ground[if input.heavy then "Heavy" else "Light"]
 			startMove(world, f, id, events, false)
+			f.flowTicks, f.flowArmed, f.flowHold = 0, false, 0 -- (an attack: the INSTINCT FLOW is given up)
+			local hold = 0
+			if passive.Blockable then
+				-- BLOCKABLE (AKEMI, Wilhem: « laisse-le, rends-le juste bloquable »): she waits
+				-- behind him, poised, until his whiffed attack is over, then CounterReact ticks
+				-- more before her wind-up: he is free first and can guard (turned to her).
+				local am = a.move and world.moves[a.move]
+				local left = if am then world.moveData.total(am) - a.moveFrame + a.hitstop else a.stun + a.hitstop
+				hold = math.max(0, left) + (passive.CounterReact or 0)
+				f.hitstop, f.state = hold, "Attack"
+			end
 			table.insert(events, { kind = "Blink", slot = f.slot, x = f.x, counter = true })
 			-- (the attacker may read it: a guard pressed ReadEarly ticks before, or within
-			-- ReadWindow ticks after)
+			-- ReadWindow ticks after; blockable, the guard held or holding away from her until
+			-- her blow lands)
 			a.blinkFrom = f.slot
 			if (world.tick or 0) - a.blockPressTick <= (passive.ReadEarly or 0) then
 				readBlink(world, a, events)
 			else
-				a.blinkRead = passive.ReadWindow or 0
+				a.blinkRead = if passive.Blockable then hold + world.moves[id].startup + 1 else passive.ReadWindow or 0
+				a.blinkHeld = passive.Blockable == true
 			end
 			return
 		end
@@ -713,9 +727,10 @@ local function stepFighter(world, f, input, events)
 		f.blinkRead -= 1
 		if f.stun > 0 and f.stunKind ~= "Evade" then
 			f.blinkRead = 0 -- (already hit: too late to read it)
-		elseif pressedBlock then
+		elseif pressedBlock or (f.blinkHeld and not f.move and f.stun == 0 and (input.block or holdingBack(world, f, input))) then
 			readBlink(world, f, events)
 		end
+		if f.blinkRead == 0 then f.blinkHeld = false end
 	end
 	PASSIVE.tick(world, f, events)
 	f.holdBack = holdingBack(world, f, input)
@@ -1291,6 +1306,7 @@ local function tryInstinct(world, a, d, m, events, source, passive)
 		table.insert(d.evadeTimers, passive.Cooldown)
 		d.flowUsed, d.flowArmed, d.flowTicks = false, false, passive.FlowWindow
 	end
+	d.evadeFrom = a.slot
 	local dir = if sourceX >= d.x then 1 else -1
 	local c = world.config
 	d.move, d.moveContact, d.grace, d.dashTicks, d.weaveTicks, d.dempseyWindow = nil, nil, nil, 0, 0, 0
@@ -1316,7 +1332,7 @@ local function tryInstinct(world, a, d, m, events, source, passive)
 	d.stun, d.stunKind = math.max(style.Recovery, left + 1), "Evade"
 	d.evadeInvuln = math.min(style.Invuln, d.stun)
 	d.evadeStyle = style.Name
-	d.evadeCounter = 0
+	d.evadeCounter = passive.CounterWindow or 0 -- (L or R now: she reappears behind, blockable)
 	table.clear(d.buffer)
 	if not source then a.moveHits = m.hits or 1 end -- the attack whiffs
 	table.insert(events, { kind = "Evade", attacker = a.slot, defender = d.slot, move = m.id, x = d.x, y = d.y + 3,
@@ -2187,6 +2203,8 @@ local function stepCinematic(world, events, inputs)
 	end
 	if state.tick >= state.length then
 		world.cinematic = nil
+		-- (it killed: its ending was the K.O. on screen, the round's end must not show another)
+		world.finishedByCinematic = state.finish or d.hp <= 0
 		a.move, a.moveContact, a.state = nil, nil, "Idle"
 		a.awakenStyle, a.fatalCombo = nil, nil
 		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot, finish = state.finish })
@@ -2221,8 +2239,17 @@ local function endRound(world, events, reason)
 		if winner == 0 or winner == 2 then b.wins += 1 end
 	end
 	world.phase, world.phaseTicks = "KO", c.KOTicks
+	-- matchOver: this K.O. ends the match (its K.O. scene shows the K.O. title), inCinematic:
+	-- a cinematic is finishing the round (it shows its own). Decided here: the event leaves
+	-- the server before the snapshot that carries the new score.
+	local matchOver = false
+	if winner > 0 and not world.training then
+		local team = world.teams and world.teams[3 - winner]
+		matchOver = if team then team.index > #team.kits else world.fighters[winner].wins >= c.RoundsToWin
+	end
 	table.insert(events, { kind = "RoundEnd", winner = winner, reason = reason,
-		perfect = winner ~= 0 and world.fighters[winner].hp == world.fighters[winner].maxHp })
+		perfect = winner ~= 0 and world.fighters[winner].hp == world.fighters[winner].maxHp,
+		matchOver = matchOver, inCinematic = world.cinematic ~= nil or world.finishedByCinematic == true })
 end
 
 local function advancePhase(world, events)

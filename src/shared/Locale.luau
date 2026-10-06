@@ -942,7 +942,7 @@ Locale.FR = {
 	["SENTRY"] = "SENTINELLE",
 	["SENTRY SHOT"] = "TIR DE SENTINELLE",
 	["SENTRY!"] = "SENTINELLE !",
-	["Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). Right after, move TOWARD the threat: the next blow is dodged free (FLOW DODGE)."] = "Très fragile. INSTINCT : 3 charges, chacune esquive un coup à coup sûr (20 s chacune). Juste après, avance VERS la menace : le coup suivant est esquivé gratuitement (ESQUIVE FLUIDE).",
+	["Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). Right after: L or R = she strikes from behind (blockable), or move TOWARD the threat: the next blow is dodged free (FLOW DODGE)."] = "Très fragile. INSTINCT : 3 charges, chacune esquive un coup à coup sûr (20 s chacune). Juste après : L ou R = elle frappe dans le dos (blocable), ou avance VERS la menace : le coup suivant est esquivé gratuitement (ESQUIVE FLUIDE).",
 	["Kicks only. PERFECT RHYTHM: links on the beat give Sparks (smoother strings). CLASH STEP: attack right as a blow lands to slip it and kick back."] = "Que des coups de pied. RYTHME PARFAIT : les enchaînements dans le tempo donnent des étincelles (combos plus fluides). PAS DE CHOC : attaque pile quand un coup arrive pour l'éviter et repousser d'un coup de pied.",
 	["All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings."] = "Polyvalent : poings, pieds et boule de ki. RÉSOLUTION : appuie sur la touche du coup (L ou R) au moment de l'impact, encaisse et repousse. FEINTE : la garde arrête certains enchaînements.",
 	["GUARD BREAK!"] = "GARDE BRISÉE !",

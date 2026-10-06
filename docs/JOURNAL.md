@@ -1,5 +1,20 @@
 # Journal du projet — état à transmettre
 
+## Version 0.24.1 — 6 octobre 2026 · UN SEUL K.O. (POUR DE BON), CONTRE D'AKEMI BLOCABLE
+
+Wilhem : « il y a toujours deux écrans de K.O. » et « AKEMI, le truc où elle esquive et passe derrière l'adversaire : laisse-le, rends-le juste bloquable ».
+
+- **Double K.O. : la vraie cause.**
+  - Le serveur envoie les événements avant la photo (snapshot) du même tick. À la fin du round, le HUD lisait donc encore l'ancien score, croyait que le match continuait et affichait son « K.O. » en plus de celui de la scène de K.O.
+  - Maintenant, c'est la simulation qui le dit dans l'événement `RoundEnd` : `matchOver` (ce K.O. finit le match) et `inCinematic` (une cinématique est en cours, ou elle vient de finir le round en tuant). Ce deuxième cas couvrait aussi un fatal ou un ultime qui tue en milieu de match : le round ne finit qu'après la cinématique, qui avait déjà montré son K.O.
+  - Le HUD ne regarde plus que ces deux drapeaux.
+- **AKEMI : la contre-attaque dans le dos revient.**
+  - Juste après une esquive, L ou R : elle réapparaît derrière l'attaquant.
+  - Elle est **blocable** : elle attend que l'attaquant soit libre, puis encore 10 ticks avant de lancer son coup. Tenir la garde, ou tenir la direction opposée à elle, le bloque.
+  - Elle annule l'INSTINCT FLOW, et elle reste gratuite.
+
+Tests : CombatSimulation 149 (nouveau : « one K.O. on screen »), Kits (tests AKEMI : contre dans le dos qui touche si l'adversaire ne fait rien, bloqué par la garde ou en reculant, attaquant libre avant le coup), Lobby 44, FighterAI 15, PressQueue 4. Non vérifié dans Studio.
+
 ## Version 0.24.0 — 6 octobre 2026 · ZEPHYR, KAI, AKEMI : LEURS MÉCANIQUES
 
 Fiches de Wilhem (ZEPHYR, puis KAI et AKEMI). Tout est décidé par le serveur (`CombatSimulation`, pur) ; le client n'affiche que des effets. Les routes L/R, les cinématiques (R de fin, ultimes, fatal) et les autres persos ne changent pas.

@@ -2570,4 +2570,24 @@ test("AKEMI: no dodge style (side, flow included) gives a free combo; the attack
 	expect(styles.SLIP and styles.BACK and styles.SIDE, "not every style was seen")
 end)
 
+test("one K.O. on screen: the server says when a K.O. ends the match or a cinematic already showed it", function()
+	local function finish(rounds)
+		local world = Sim.newWorld(Config, MoveData, false)
+		world.phase = "Fight"
+		world.fighters[1].wins = rounds - 1
+		world.fighters[2].hp = 0
+		for _ = 1, 3 do
+			for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do
+				if e.kind == "RoundEnd" then return e end
+			end
+		end
+		return nil
+	end
+	local last = finish(Config.RoundsToWin)
+	expect(last and last.matchOver == true, "the match-winning K.O. is not flagged (the HUD would show a second K.O.)")
+	local early = finish(1)
+	expect(early and early.matchOver == false and Config.RoundsToWin > 1, "a first-round K.O. is flagged as the match's end")
+	expect(early.inCinematic == false, "a plain K.O. is flagged as a cinematic's")
+end)
+
 T.finish()

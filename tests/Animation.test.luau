@@ -1084,6 +1084,20 @@ test("SHIN's guard: the katana raised over his head in both hands, the blade ris
 	end
 end)
 
+test("KAZAN's guard: both claws crossed in an X before him, the blades rising past each other (R15, avatar)", function()
+	for label, skel in { KAI = KAI, AVATAR = AVATAR } do
+		for _, key in { "Block", "CrouchBlock" } do
+			local b, t, torso = weaponLine("KAZAN", Poses.Kits.KAZAN[key], skel)
+			local dx, dy = t[1] - b[1], t[2] - b[2]
+			local length = math.sqrt(dx * dx + dy * dy + (t[3] - b[3]) ^ 2)
+			-- (the right claw: its blades rise and cross over to his left; the rig faces -Z, +X is his right)
+			expect(dy / length > 0.5, string.format("%s %s: the right claw's blades do not rise (%.2f)", label, key, dy / length))
+			expect(dx < -0.3, string.format("%s %s: the right claw does not cross to his left (%.2f)", label, key, dx))
+			expect(t[2] > torso[2] + 0.5, string.format("%s %s: the claws are not raised before him", label, key))
+		end
+	end
+end)
+
 test("KAI's ki beam from the sky: bent over, both arms driven down at the target, palms joined (R15, avatar)", function()
 	for label, skel in { R15 = KAI, avatar = AVATAR } do
 		local anim = newAnimator(skel)

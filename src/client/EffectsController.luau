@@ -18,6 +18,7 @@ local RigReader = require(Shared.RigReader)
 local PoseLibrary = require(Shared.PoseLibrary)
 local OrbFlight = require(Shared.OrbFlight)
 local WeaponFX = require(Shared.WeaponFX)
+local BLOCK_SPARKS -- (set with the weapons below)
 local KitFX = require(Shared.KitFX)
 
 local EffectsController = {}
@@ -340,6 +341,15 @@ function EffectsController:iceMirror(slot, rig, view, now, color)
 		self:spark(at, Color3.fromHex("BFEFFF"), 1)
 	end
 end
+
+-- The sparks a blow strikes off a held weapon in guard, by its element: { flash, sparks,
+-- embers, material of the sparks }.
+BLOCK_SPARKS = {
+	water = { Color3.fromHex("FFB23F"), Color3.fromHex("FFE08A"), Color3.fromHex("FF5A2A") }, -- SHIN: steel, orange
+	ember = { Color3.fromHex("FF8A2A"), Color3.fromHex("FFD27A"), Color3.fromHex("FF3A1A") }, -- KAZAN: steel, red-hot
+	lightning = { Color3.fromHex("FFF6B0"), Color3.fromHex("FFFFFF"), Color3.fromHex("8FD8FF") }, -- RAIJIN: crackling
+	frost = { Color3.fromHex("E8FBFF"), Color3.fromHex("DFF6FF"), Color3.fromHex("9FE6FF"), Enum.Material.Ice }, -- YUKINA: ice chips
+}
 
 -- VENOM's CONTAMINATION on its victim (KitFX.poisonLook): while the body carries poison
 -- (view.poisoned: its charges), a green glaze pulses over it, toxic bubbles rise off it and
@@ -1936,15 +1946,19 @@ function EffectsController:onEvent(event, views, rigs)
 		else
 			local defender = views[event.defender]
 			local shieldColor = Color3.fromHex(CharacterData[event.defender].Shield)
-			local steel = rigs[event.defender] and rigs[event.defender].model:FindFirstChild("KitBlade")
+			local model = rigs[event.defender] and rigs[event.defender].model
+			local held = model and WeaponFX.KITS[model:GetAttribute("Kit") or ""]
+			local steel = held and model:FindFirstChild("Kit" .. held.blade)
 			if steel and defender and (defender.state == "Blockstun" or defender.state == "CrouchBlockstun"
 				or defender.state == "Blocking" or defender.state == "CrouchBlocking") then
-				-- SHIN's katana takes the blow over his head: sparks off the steel where it lands
-				-- (Wilhem's sheet: the blade meets the blow, a burst of orange sparks)
+				-- A held weapon takes the blow (SHIN's katana over his head, KAZAN's crossed claws,
+				-- RAIJIN's spear, YUKINA's fans): sparks off it where it lands, in its element
+				-- (Wilhem's sheets: the blade meets the blow, a burst of sparks)
+				local tone = BLOCK_SPARKS[held.element] or BLOCK_SPARKS.water
 				local at = steel.Position:Lerp(steel.CFrame * Vector3.new(0, 0, -steel.Size.Z * 0.25), 0.5)
-				self:spark(at, Color3.fromHex("FFB23F"), 1.2)
-				self:shards(at, Color3.fromHex("FFE08A"), if self.reduced then 5 else 10, 0.55, Enum.Material.Neon, 0.22)
-				self:shards(at, Color3.fromHex("FF5A2A"), if self.reduced then 3 else 6, 0.4, Enum.Material.Neon, 0.3)
+				self:spark(at, tone[1], 1.2)
+				self:shards(at, tone[2], if self.reduced then 5 else 10, 0.55, tone[4] or Enum.Material.Neon, 0.22)
+				self:shards(at, tone[3], if self.reduced then 3 else 6, 0.4, Enum.Material.Neon, 0.3)
 			elseif defender then
 				self:shield(defender, shieldColor)
 			end

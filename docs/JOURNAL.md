@@ -1,5 +1,19 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.15 — 6 octobre 2026 · LES GRIFFES DE KAZAN (PLANCHE) · ÉTINCELLES SUR TOUTES LES ARMES EN GARDE
+
+Wilhem : planche « GRIFFES » (gardes, M1/M2, blocage, contre) ; « oublie le R6, on n'en fait plus ».
+- **Griffes** (`WeaponSpec.KAZAN`) : le gantelet a maintenant un protège-phalanges. Chaque lame a une racine épaisse qui sort des phalanges, la lame et son tranchant lumineux, puis une **pointe qui se courbe** et un **crochet** au bout. `WeaponClearance KAZAN` : 12 images, comme avant.
+- **Garde croisée** (planche « BLOCAGE AVANT / GARDE CROISÉE ») : les deux griffes croisées en X devant lui, les lames qui montent l'une contre l'autre, les jambes écartées. Accroupi : la même, plus bas. Calculée par `luau tests/KazanGuard.luau -a all` (lames pile dans l'axe, rien dans le corps). Test « KAZAN's guard » (R15, avatar).
+- **Étincelles en garde, pour toutes les armes** : quand un coup frappe la garde d'un perso armé, des étincelles jaillissent de son arme, dans la couleur de son élément. Acier orange pour SHIN, acier chauffé au rouge pour KAZAN, crépitement jaune et blanc pour RAIJIN, éclats de givre pour YUKINA.
+- R6 : abandonné (l'option était déjà retirée du jeu). Plus de vérification R6 ajoutée.
+
+Tests : Animation 52, `rigcheck` OK ; le reste est relancé.
+
+Prochaine étape :
+- KAZAN : les coups de la planche (jab rapide, coupe horizontale, verticale, double coup, enchaînement ; grand coup, balayage bas, saut piqué, tourbillon, écrasement).
+- Puis les bombes de SYLVA.
+
 ## Version 0.23.14 — 6 octobre 2026 · LE POISON DE VENOM
 
 Wilhem : « l'effet du poison de VENOM ».

@@ -155,13 +155,23 @@ WeaponSpec.YUKINA.pair = fan("LeftHand")
 -- line of the forearm (tilt -90: the grip's -Z is the hand's -Y, past the fist), side by side
 -- across the knuckles (x). Long enough to read at a glance, short enough to stay a fist's
 -- weapon (the reach of his moves is in MoveData: middle range, never a whip's).
+-- (Wilhem: « les griffes de KAZAN », detailed like SHIN's katana: the gauntlet's plate and its
+-- knuckle guard, and each blade a thick root out of the knuckles, a long blade with its
+-- glowing edge, curving down at the end into a hooked point.)
 local function claw(hand)
 	local pieces = {
 		{ name = "ClawPlate", size = { 0.74, 0.16, 0.26 }, z = 0.02, color = "trim", material = "Metal" },
+		{ name = "ClawKnuckle", size = { 0.78, 0.1, 0.12 }, y = 0.1, z = -0.1, color = "3A3D46", material = "Metal" },
 	}
 	for i, x in { -0.24, 0, 0.24 } do
-		table.insert(pieces, { name = "ClawBlade" .. i, size = { 0.07, 0.16, 1.35 }, x = x, z = -0.68, color = "C8CCD6", material = "Metal" })
-		table.insert(pieces, { name = "ClawEdge" .. i, size = { 0.08, 0.04, 1.2 }, x = x, y = 0.09, z = -0.7, color = "energy", material = "Neon" })
+		local L = ({ "A", "B", "C" })[i]
+		table.insert(pieces, { name = "ClawRoot" .. L, size = { 0.1, 0.2, 0.22 }, x = x, z = -0.16, color = "3A3D46", material = "Metal" })
+		table.insert(pieces, { name = "ClawBlade" .. i, size = { 0.07, 0.16, 1.12 }, x = x, z = -0.6, color = "C8CCD6", material = "Metal" })
+		table.insert(pieces, { name = "ClawEdge" .. i, size = { 0.08, 0.04, 1.05 }, x = x, y = 0.09, z = -0.62, color = "energy", material = "Neon" })
+		table.insert(pieces, { name = "ClawTip" .. L, size = { 0.065, 0.13, 0.26 }, x = x, y = -0.02, z = -1.27, rot = { -14, 0, 0 },
+			color = "C8CCD6", material = "Metal" })
+		table.insert(pieces, { name = "ClawHook" .. L, size = { 0.06, 0.08, 0.13 }, x = x, y = -0.07, z = -1.41, rot = { -34, 0, 0 },
+			color = "E6E9F0", material = "Metal" })
 	end
 	return {
 		hand = hand,

@@ -2622,6 +2622,21 @@ end
 -- ---------------------------------------------------------------- KAZAN 鎖 · the predator's claws (both hands, three blades each)
 do
 	local S, C = KITS.KAZAN.STANCE, KITS.KAZAN.Crouch
+	-- GARDE CROISÉE (Wilhem's sheet « BLOCAGE AVANT »): both claws crossed in an X before him,
+	-- the blades rising past each other, the legs wide. Arms solved by tests/KazanGuard.luau
+	-- (10 numbers: right shoulder rx, rz, elbow, wrist; left shoulder rx, rz, elbow, wrist;
+	-- right shoulder twist, left shoulder twist).
+	local function kazanHold(a)
+		return {
+			RightShoulder = { a[1], a[9], a[2] }, RightElbow = { a[3], 0, 0 }, RightWrist = { a[4], 0, 0 },
+			LeftShoulder = { a[5], a[10], a[6] }, LeftElbow = { a[7], 0, 0 }, LeftWrist = { a[8], 0, 0 },
+		}
+	end
+	local CROSS = kazanHold({ 50, -25, 96, 25, 80, 47, 68, 42, 46, -46 })
+	local LOW_CROSS = kazanHold({ 40, -16, 108, 19, 102, 60, 44, 58, 40, -40 })
+	KITS.KAZAN.Block = feet(merge(S, merge({ Root = { 0, 6, 0, -0.7, 0 }, Waist = { -8, 6, 0 }, Neck = { 2, -6, 0 } }, CROSS)),
+		-0.95, 0.95, 0, -8, 16)
+	KITS.KAZAN.CrouchBlock = merge(C, merge({ Waist = { -12, 6, 0 }, Neck = { -2, -6, 0 } }, LOW_CROSS))
 	-- A rake: the claw drawn back high and out (the wrist cocked so the blades lead), then torn
 	-- through low and across; the other hand ready for the next one (both hands in turn).
 	local W = -30 -- the wrist cocked a little: the blades point at the target

@@ -70,6 +70,13 @@ local function art(name, parent, props)
 	return label
 end
 
+-- The health's colours while above half: the fighter's own colour, lit at the timer's end and
+-- deeper at the portrait's, so each bar reads as that fighter's.
+local function healthColors(energy)
+	return ColorSequence.new({ ColorSequenceKeypoint.new(0, energy), ColorSequenceKeypoint.new(0.45, energy:Lerp(Color3.new(1, 1, 1), 0.35)),
+		ColorSequenceKeypoint.new(1, energy:Lerp(Color3.new(1, 1, 1), 0.7)) })
+end
+
 local function tween(instance, duration, goal, style, direction)
 	local t = TweenService:Create(instance, TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), goal)
 	t:Play()
@@ -176,11 +183,25 @@ function HUD.new(config)
 		local trail = new("Frame", { Name = "Trail", BackgroundColor3 = RED, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
 			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, bar)
 		local fill = new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
-			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0) }, bar)
-		local gradient = new("UIGradient", {
-			Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) }),
-			Rotation = if left then 0 else 180,
-		}, fill)
+			AnchorPoint = Vector2.new(outer, 0), Position = UDim2.fromScale(outer, 0), ClipsDescendants = true }, bar)
+		local gradient = new("UIGradient", { Color = healthColors(energy), Rotation = if left then 0 else 180 }, fill)
+		-- (alive, Wilhem: « la barre de vie n'est pas assez vivante »; FighterZ, SF6): energy flowing
+		-- slowly along it, a glint sweeping it every few seconds, a glowing tip where the health ends
+		local flow = new("Frame", { Name = "Flow", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0,
+			BorderSizePixel = 0, ZIndex = 1 }, fill)
+		local flowKeys = {}
+		for k = 0, 8 do
+			table.insert(flowKeys, NumberSequenceKeypoint.new(k / 8, if k % 2 == 0 then 1 else 0.82))
+		end
+		local flowGradient = new("UIGradient", { Transparency = NumberSequence.new(flowKeys), Rotation = if left then 0 else 180 }, flow)
+		local glint = new("Frame", { Name = "Glint", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2 }, fill)
+		local glintGradient = new("UIGradient", { Rotation = if left then 20 else 160, Offset = Vector2.new(-1, 0),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.44, 1),
+				NumberSequenceKeypoint.new(0.5, 0.25), NumberSequenceKeypoint.new(0.56, 1), NumberSequenceKeypoint.new(1, 1) }) }, glint)
+		local tip = new("Frame", { Name = "Tip", Size = UDim2.new(0, 16, 1, 0), AnchorPoint = Vector2.new(1 - outer, 0),
+			Position = UDim2.fromScale(1 - outer, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2 }, fill)
+		local tipGradient = new("UIGradient", { Rotation = if left then 0 else 180,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.8, 0.35), NumberSequenceKeypoint.new(1, 0) }) }, tip)
 		-- (its volume: a bright top edge, a darker foot)
 		new("Frame", { Name = "Shine", Size = UDim2.new(1, 0, 0.28, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.45,
 			BorderSizePixel = 0, ZIndex = 2 }, bar)
@@ -318,7 +339,8 @@ function HUD.new(config)
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
 			kanji = kanji, name = name, passive = passive, aura = aura, auraStroke = auraStroke, flame = flame,
-			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke }
+			flameGradient = flameGradient, barStroke = barStroke, portraitStroke = portraitStroke,
+			flow = flow, flowGradient = flowGradient, glint = glint, glintGradient = glintGradient, tip = tip, tipGradient = tipGradient }
 	end
 	-- the timer: only its number, big and clean (FighterZ, KOF, SF6), the round under it (Wilhem:
 	-- « c'est très beau, mais c'est trop dessiné »: no plate, no thick rims)
@@ -1105,7 +1127,7 @@ function HUD:applyLook(slot)
 			elseif item:IsA("GuiObject") then item.BackgroundColor3 = color end
 		end
 	end
-	bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE), ColorSequenceKeypoint.new(1, energy) })
+	bar.gradient.Color = healthColors(energy)
 	bar.healthBucket = nil -- (the health colour is drawn again with the new look)
 	bar.portraitKey = nil -- (the face too)
 	self.callouts[slot].label.TextColor3 = energy
@@ -1327,7 +1349,9 @@ function HUD:onEvent(event, world)
 	elseif event.kind == "PassiveUsed" and event.cost then
 		self:callout(event.slot, "PACT −" .. event.cost .. " HP")
 	elseif event.kind == "GuardBreak" then
-		self:announceText("GUARD BREAK", nil, Color3.fromHex("FFD23F"))
+		-- (a callout on the breaker's side, not the whole screen: Wilhem « le guard break qui prend
+		-- tout l'écran, enlève-moi ça »)
+		if event.attacker then self:callout(event.attacker, "GUARD BREAK!") end
 	elseif event.kind == "Fight" then
 		self:announceText("FIGHT!", nil, RED)
 	elseif event.kind == "RoundEnd" then
@@ -1369,6 +1393,11 @@ function HUD:update(world, views, fps, dt)
 		if ratio < bar.lastRatio - 0.001 then
 			bar.hitFlash.BackgroundTransparency = 0.1
 			tween(bar.hitFlash, 0.22, { BackgroundTransparency = 1 })
+			-- (the chunk just lost burns white, then cools to the red trail; the tip flares)
+			bar.trail.BackgroundColor3 = WHITE
+			tween(bar.trail, 0.35, { BackgroundColor3 = RED })
+			bar.tip.Size = UDim2.new(0, 34, 1, 0)
+			tween(bar.tip, 0.3, { Size = UDim2.new(0, 16, 1, 0) })
 			if bar.lastRatio - ratio > 0.07 and not self.reduced then
 				local dir = if slot == 1 then -1 else 1
 				bar.side.Position = bar.sideBase + UDim2.fromOffset(dir * 7, 3)
@@ -1381,8 +1410,7 @@ function HUD:update(world, views, fps, dt)
 		if bucket ~= bar.healthBucket or bucket == "low" then
 			bar.healthBucket = bucket
 			if bucket == "high" then
-				bar.gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, WHITE), ColorSequenceKeypoint.new(0.75, WHITE),
-					ColorSequenceKeypoint.new(1, bar.energy) })
+				bar.gradient.Color = healthColors(bar.energy)
 			elseif bucket == "mid" then
 				bar.gradient.Color = ColorSequence.new(Color3.fromHex("FFE9A8"), Color3.fromHex("FFC24A"))
 			else
@@ -1390,6 +1418,16 @@ function HUD:update(world, views, fps, dt)
 				local red = Color3.fromHex("FF2A3D"):Lerp(Color3.fromHex("FF9AA4"), beat * 0.6)
 				bar.gradient.Color = ColorSequence.new(red, Color3.fromHex("C0101F"))
 			end
+		end
+		-- (alive: the flow drifts toward the timer, a glint every 3.5 s, the tip breathes)
+		local live = not self.reduced and ratio > 0
+		bar.flow.Visible, bar.glint.Visible, bar.tip.Visible = live, live, ratio > 0
+		if live then
+			local t = os.clock()
+			bar.flowGradient.Offset = Vector2.new((t * 0.12) % 0.25, 0)
+			local cycle = (t + slot * 0.9) % 3.5
+			bar.glintGradient.Offset = Vector2.new(if cycle < 0.7 then -1 + cycle / 0.7 * 2 else -1, 0)
+			bar.tip.BackgroundTransparency = 0.15 + 0.25 * (0.5 + 0.5 * math.sin(t * 5 + slot))
 		end
 		-- The red trail waits while the combo continues, then catches up.
 		if view.combo == 0 or self.trail[slot] < ratio then

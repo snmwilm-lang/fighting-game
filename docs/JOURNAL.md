@@ -1,5 +1,21 @@
 # Journal du projet — état à transmettre
 
+## Version 0.23.48 — 6 octobre 2026 · BARRE DE VIE VIVANTE, GUARD BREAK DISCRET
+
+Wilhem : « la barre de vie n'est pas assez vivante » et « le guard break qui prend tout l'écran, enlève-moi ça ».
+
+- Barre de vie :
+  - au-dessus de la moitié, elle prend la couleur du perso (plus foncée côté portrait, plus claire côté chrono) au lieu d'un blanc presque uni ;
+  - de l'énergie coule doucement vers le chrono (bandes en dégradé qui défilent) ;
+  - un reflet balaie la barre toutes les 3,5 s, décalé entre les deux joueurs ;
+  - le bout de la barre brille et respire ;
+  - à chaque coup, le morceau perdu s'allume en blanc puis refroidit en rouge (traîne), et le bout s'embrase ;
+  - le doré sous la moitié, le rouge battant sous le quart et le feu du coup fatal restent ;
+  - EFFETS RÉDUITS : pas d'écoulement ni de reflet.
+- GUARD BREAK : plus de bandeau plein écran ni de flash d'impact sur tout l'écran. Un « GUARD BREAK! » s'affiche du côté de celui qui casse la garde (« GARDE BRISÉE ! » en français). L'étincelle dorée et la secousse restent.
+
+Fichiers : `src/client/HUDController.luau`, `src/client/EffectsController.luau`, `src/shared/Locale.luau`. Tests : Lobby 44. Non vérifié dans Studio.
+
 ## Version 0.23.47 — 6 octobre 2026 · HUD ÉPURÉ (MOINS « DESSINÉ »)
 
 Wilhem, avec des captures de FighterZ, KOF XV et Strive : « c'est très beau, mais c'est trop dessiné ».

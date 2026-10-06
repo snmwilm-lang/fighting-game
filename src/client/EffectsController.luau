@@ -1968,8 +1968,7 @@ function EffectsController:onEvent(event, views, rigs)
 				self:shield(defender, shieldColor)
 			end
 			if event.kind == "GuardBreak" then
-				self:spark(position, Color3.fromHex("FFD23F"), 1.8)
-				self:impactFrame(shieldColor, 1)
+				self:spark(position, Color3.fromHex("FFD23F"), 1.8) -- (no full-screen impact frame: Wilhem)
 				self.camera:shake(0.5 * shakeScale, 0.3)
 			else
 				self.camera:shake(0.1 * shakeScale, 0.08)

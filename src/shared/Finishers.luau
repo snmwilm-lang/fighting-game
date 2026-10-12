@@ -2253,6 +2253,331 @@ function Finishers.build(T)
 		end
 	end
 
+
+	-- ================================================================ KUREN · CRIMSON COVENANT
+	-- The blood alchemist pays in his own blood (his SCARLET PACT). 0:00 he opens his palm, his
+	-- blood drips · 0:01 it runs along the deck to the target and pools under it · 0:03 lances of
+	-- blood rise out of the pool round it, one by one · 0:05 he closes his hand slowly; the lances
+	-- tremble · 0:07 they plunge in · 0:08 the blood comes back to him; it falls.
+	function S.KUREN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 450
+		local LANCES = 12
+		local ax = inside(ctx, cx - dir * 4.6)
+		frame.grade.blood = tick >= 60
+		a.x, a.facing = ax, dir
+		d.x, d.facing = cx, -dir
+		local pool = smooth(progress(tick, 90, 170)) * (1 - smooth(progress(tick, F + 40, F + 120)))
+		if pool > 0.02 then
+			for i = 0, 2 do
+				shape(frame, { kind = "ring", pos = At(v(cx, 0.06 + i * 0.02, 0)), normal = v(0, 1, 0), radius = (1 + i) * 1.2 * pool, width = 0.35, color = color,
+					alpha = 0.2 + 0.2 * i })
+			end
+		end
+		-- the lances: lance k is born at 170 + 12k, rising out of the pool
+		local plunge = smooth(progress(tick, F - 14, F))
+		local gone = progress(tick, F + 30, F + 80)
+		local function lances()
+			for k = 0, LANCES - 1 do
+				local born = 170 + k * 12
+				local grow = smooth(progress(tick, born, born + 10))
+				if grow > 0 and gone < 1 then
+					local angle = k * 2.4 + 0.3
+					local base = v(cx + math.cos(angle) * 3.6, 0.1, math.sin(angle) * 3)
+					local tipR = lerp(1.5, 0.15, plunge)
+					local shake = if tick > 330 and tick < F then 0.08 * math.sin(tick * 3 + k) else 0
+					local tip = v(cx + math.cos(angle) * tipR + shake, lerp(0.1, 2.6 + (k % 3) * 0.7, grow), math.sin(angle) * tipR * 0.8)
+					shape(frame, { kind = "slash", from = At(base), to = At(v(lerp(base.x, tip.x, grow), tip.y, lerp(base.z, tip.z, grow))), width = 0.22,
+						color = if k % 4 == 0 then "FFFFFF" else color, alpha = gone })
+				end
+			end
+		end
+		if tick < 90 then
+			-- he opens his palm; his blood drips
+			attack(a, moves, T.role(ctx, "PalmStrike"), false)
+			d.state = "Hitstun"
+			if tick == 30 then
+				sfx(frame, "cv-cut", "slash")
+				T.spark(frame, "cv-cut", v(ax + dir * 0.7, 3.4, 0.6), color, 0.6)
+			end
+			if tick > 30 then shape(frame, { kind = "motes", pos = P(A, "RightHand"), radius = 1.2, count = 10, color = color, phase = tick / 30, out = true }) end
+			frame.shot = frameOn("kuren-cv-palm", dir, { a, d }, { yaw = 26, pitch = -6, band = "bust", fill = 0.8, fov = 32, focus = P(A, "Head") })
+		elseif tick < 170 then
+			-- the blood runs along the deck to the target and pools under it
+			a.state, a.move, a.pose = "Idle", nil, "ArmsCrossed"
+			d.state, d.pose = "Hitstun", "VicBrace"
+			local q = progress(tick, 90, 140)
+			if q < 1 then
+				shape(frame, { kind = "slash", from = At(v(ax + dir * 0.6, 0.08, 0)), to = At(v(lerp(ax + dir * 0.6, cx, q), 0.08, 0)), width = 0.3, color = color, alpha = 0.2 })
+			end
+			if tick == 150 then
+				table.insert(frame.fx, { key = "cv-pool", kind = "bloodPool", pos = v(cx, 0, 0), radius = 1.6, scale = 0.4, color = color, life = 1.5 })
+				sfx(frame, "cv-pool", "charge")
+			end
+			frame.shot = frameOn("kuren-cv-flow", dir, { a, d }, { yaw = -24, pitch = -14, fill = 0.7, fov = 40, focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- the lances rise one by one; he closes his hand slowly; they plunge
+			a.state, a.move = "Idle", nil
+			if tick < 330 then a.pose = "ArmsCrossed" else attack(a, moves, T.role(ctx, "Finale"), false) end
+			d.state, d.pose = "Hitstun", if tick < 330 then "VicBrace" else "HitHigh"
+			lances()
+			if tick >= 170 and (tick - 170) % 12 == 0 and tick < 170 + LANCES * 12 then sfx(frame, "cv-lance" .. tick, "slash") end
+			if tick == 330 then sfx(frame, "cv-close", "charge") end
+			if tick < 330 then
+				frame.shot = frameOn("kuren-cv-lances", dir, { d }, { yaw = lerp(60, 0, progress(tick, 170, 330)), pitch = 18, fill = 0.5, fov = 42,
+					focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("kuren-cv-hand", dir, { a, d }, { yaw = 30, pitch = -10, fill = 0.72, fov = 38, focus = P(A, "Head") })
+			end
+		else
+			-- they plunge in; the blood comes back to him; it falls
+			local age = tick - F
+			lances()
+			if age < 60 then attack(a, moves, T.role(ctx, "Finale"), true) else a.state, a.move, a.pose = "Idle", nil, "StandTall" end
+			if age < 30 then
+				d.state, d.pose, d.hitstop = "Hitstun", "HitHigh", if age < 16 then 1 else 0
+			else
+				d.hitstop = 0
+				T.FATAL.fall(ctx.cin, d, tick, F + 30, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age == 0 then
+				sfx(frame, "cv-pierce", "boom")
+				frame.impact = { key = "cv-pierce", color = color }
+				table.insert(frame.fx, { key = "cv-bloom", kind = "bloodBloom", pos = v(cx, 3, 0.6), color = color, scale = 1.6 })
+			end
+			if age >= 30 and age < 90 then
+				-- (the blood flows back into his hand: the pact repaid)
+				local q = (age - 30) / 60
+				shape(frame, { kind = "motes", pos = At(v(lerp(cx, ax + dir * 0.7, q), lerp(2.6, 3.4, q), 0)), radius = 1.4, count = 16, color = color,
+					phase = age / 20 })
+				frame.aura = A
+			end
+			if age < 40 then
+				frame.shot = frameOn("kuren-cv-pierce", dir, { d }, { yaw = 40, pitch = 24, fill = 0.55, fov = 40, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("kuren-cv-after", dir, { a, d }, { yaw = -30, pitch = -6, fill = 0.62, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ SYLVA · THE GREAT HUNT
+	-- The huntress turns the ring into her forest. 0:00 she touches the deck: roots burst out all
+	-- round · 0:01 vines bind the target, wrists and ankles, and lift it · 0:03 she circles it at a
+	-- distance, low, as a hunter; three traps snap shut on it · 0:05 she stops, aims · 0:07 the
+	-- hunt: she goes through it · 0:08 the vines let go; the leaves fall.
+	function S.SYLVA(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 450
+		local LEAF = "6FD36A"
+		frame.grade.wild = true
+		d.x, d.facing = cx, -dir
+		local anchors = { { -2.2, 1.6, "LeftHand" }, { 2.2, 1.6, "RightHand" }, { -1.6, -1.8, "LeftFoot" }, { 1.6, -1.8, "RightFoot" } }
+		local lift = smooth(progress(tick, 120, 200)) * (1 - smooth(progress(tick, F, F + 16)))
+		local function vines(snap)
+			for i, an in anchors do
+				local born = 80 + (i - 1) * 20
+				local grow = smooth(progress(tick, born, born + 14))
+				if grow > 0 and snap < 1 then
+					local base = v(cx + an[1], 0.1, an[2])
+					shape(frame, { kind = "slash", from = At(base), to = P(D, an[3]), width = 0.16, color = if i % 2 == 0 then LEAF else color,
+						alpha = math.max(1 - grow, snap) })
+					if tick == born then sfx(frame, "gh-vine" .. i, "whoosh") end
+				end
+			end
+		end
+		if tick < 80 then
+			-- she touches the deck: roots burst out all round
+			a.x, a.z, a.facing = cx - dir * 4.4, nil, dir
+			attack(a, moves, T.role(ctx, "KiBlast"), tick >= 30)
+			d.state = "Hitstun"
+			if tick == 30 then
+				sfx(frame, "gh-roots", "boom")
+				for i = 0, 5 do
+					local angle = i * math.pi / 3 + 0.5
+					table.insert(frame.fx, { key = "gh-root" .. i, kind = "roots", pos = v(cx + math.cos(angle) * 6, 0, math.sin(angle) * 4 - 1.5), radius = 1.4,
+						count = 4, color = LEAF, life = 7 })
+				end
+			end
+			frame.quake = if tick >= 30 and tick < 40 then 0.4 else nil
+			frame.shot = frameOn("sylva-gh-roots", dir, { a, d }, { yaw = -28, pitch = -12, fill = 0.62, fov = 42, focus = P(A, "UpperTorso") })
+		elseif tick < 200 then
+			-- vines bind the target and lift it
+			a.x, a.z, a.facing, a.state, a.move, a.pose = cx - dir * 4.4, nil, dir, "Idle", nil, "WindGather"
+			d.y, d.state, d.pose = 1.4 * lift, "Hitstun", "Launched"
+			vines(0)
+			frame.shot = frameOn("sylva-gh-bind", dir, { a, d }, { yaw = 30, pitch = -6, fill = 0.62, fov = 40, focus = P(D, "UpperTorso") })
+		elseif tick < 330 then
+			-- she circles it at a distance, low, as a hunter; three traps snap
+			d.y, d.state = 1.4, "Hitstun"
+			local snapAge = 99
+			for i, t in { 230, 270, 310 } do
+				if tick >= t then snapAge = tick - t end
+				if tick == t then
+					sfx(frame, "gh-trap" .. i, "slash")
+					table.insert(frame.fx, { key = "gh-thorns" .. i, kind = "thornBurst", pos = v(cx, 2.6, 0.4), color = color, scale = 0.8 + 0.2 * i })
+				end
+			end
+			d.pose = if snapAge < 8 then "HitBody" else "Launched"
+			vines(0)
+			local angle = (tick - 200) / 130 * math.pi * 1.3 + 0.2
+			circle(a, cx, dir, angle, 6, 0)
+			a.state, a.move, a.vx = "Walking", nil, 1.4
+			frame.shot = frameOn("sylva-gh-stalk", dir, { a, d }, { yaw = 40 - math.deg(angle), pitch = 18, fill = 0.6, fov = 40, focus = P(A, "Head") })
+		elseif tick < F then
+			-- she stops and aims; then the hunt: through it
+			d.y, d.state, d.pose = 1.4, "Hitstun", "Launched"
+			vines(0)
+			if tick < F - 18 then
+				a.x, a.z, a.lookDir, a.facing = cx - dir * 6.5, nil, nil, dir
+				attack(a, moves, T.role(ctx, "KiChase"), false)
+				-- (behind her, low: the hunter's aim)
+				frame.shot = shot("sylva-gh-aim", At(v(cx - dir * 12.5, 3.2, 3.8)), P(D, "UpperTorso"), 30, 0, P(D, "UpperTorso"))
+			else
+				local q = progress(tick, F - 18, F)
+				a.x, a.z, a.lookDir, a.facing = lerp(cx - dir * 6.5, cx - dir * 0.6, q * q), nil, nil, dir
+				a.y = 1.2 * math.sin(q * math.pi * 0.5)
+				attack(a, moves, T.role(ctx, "KiChase"), true)
+				if tick % 4 == 0 then table.insert(frame.fx, { key = "gh-trail" .. tick, kind = "afterimage", slot = A, color = color, life = 0.4 }) end
+				if tick == F - 18 then sfx(frame, "gh-run", "whoosh") end
+				frame.speedLines = color
+				frame.shot = frameOn("sylva-gh-hunt", dir, { a, d }, { yaw = 30, pitch = -4, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+			end
+		else
+			-- the vines let go; the leaves fall
+			local age = tick - F
+			local q = smooth(math.min(1, age / 16))
+			a.x, a.z, a.facing = lerp(cx - dir * 0.6, cx + dir * 4.2, q), nil, dir
+			a.y = 1.2 * (1 - q)
+			if age < 30 then attack(a, moves, T.role(ctx, "KiChase"), true) else a.state, a.move, a.pose = "Idle", nil, if age < 80 then "WindGather" else nil end
+			vines(smooth(math.min(1, age / 10)))
+			if age < 16 then
+				d.y, d.state, d.pose = 1.4 * (1 - q), "Hitstun", "HitBody"
+			else
+				d.y = 0
+				T.FATAL.fall(ctx.cin, d, tick, F + 16, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age == 0 then
+				sfx(frame, "gh-kill", "heavy")
+				T.impact(frame, "gh-kill", v(cx, 3, 0.6), color, 2.6)
+				table.insert(frame.fx, { key = "gh-burst", kind = "thornBurst", pos = v(cx, 3, 0.4), color = color, scale = 1.8 })
+			end
+			shape(frame, { kind = "motes", pos = At(v(cx, 5, 0)), radius = 7, count = 20, color = LEAF, phase = age / 90 })
+			if age < 40 then
+				frame.shot = frameOn("sylva-gh-through", dir, { a, d }, { yaw = -20, pitch = 4, fill = 0.62, fov = 42, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("sylva-gh-after", dir, { a, d }, { yaw = -20, pitch = -6, fill = 0.58, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ ELIAN · FINAL MERCY
+	-- The healer gives too much light. 0:00 he walks to the target, calm, a halo over his head ·
+	-- 0:01 his palm on its chest: the light pours in, it glows · 0:03 the light lifts it in a
+	-- pillar; seven halos come down round it · 0:05 the light grows until the world goes white;
+	-- silence · 0:07 it gathers to a point and bursts in a cross · 0:08 it comes down slowly out of
+	-- the light, asleep.
+	function S.ELIAN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 450
+		local GOLD = "FFF2B0"
+		frame.grade.holy = true
+		d.x, d.facing = cx, -dir
+		local up = smooth(progress(tick, 210, 290))
+		if tick < F + 10 then
+			shape(frame, { kind = "ring", pos = P(A, "Head", v(0, 1.1, 0)), normal = v(0, 1, 0), radius = 0.7, width = 0.1, color = GOLD, alpha = 0.2 })
+		end
+		if tick < 90 then
+			-- he walks to it, calm
+			local q = smooth(progress(tick, 0, 70))
+			a.x, a.facing = cx - dir * lerp(5.5, 2.4, q), dir
+			if q < 1 then a.state, a.move, a.vx = "Walking", nil, dir * 2 else attack(a, moves, T.role(ctx, "PalmStrike"), false) end
+			d.state = "Hitstun"
+			frame.shot = frameOn("elian-fm-walk", dir, { a, d }, { yaw = lerp(10, 30, q), pitch = -6, fill = 0.66, fov = 38, focus = P(A, "Head") })
+		elseif tick < 210 then
+			-- his palm on its chest: the light pours in
+			a.x, a.facing = cx - dir * 2.4, dir
+			attack(a, moves, T.role(ctx, "BodyBlow"), true)
+			d.state, d.pose = "Hitstun", "HitBody"
+			local glow = progress(tick, 90, 210)
+			shape(frame, { kind = "motes", pos = P(D, "UpperTorso"), radius = 1.6, count = math.floor(6 + 18 * glow), color = GOLD, phase = tick / 40 })
+			shape(frame, { kind = "ring", pos = At(v(cx - dir * 1.2, 0.08, 0)), normal = v(0, 1, 0), radius = 3.2, width = 0.16, color = GOLD, alpha = 0.4 })
+			if tick == 90 then sfx(frame, "fm-touch", "charge") end
+			frame.shot = frameOn("elian-fm-touch", dir, { a, d }, { yaw = 8, pitch = -4, band = "bust", fill = 0.8, fov = 32, focus = P(D, "Head") })
+		elseif tick < F then
+			-- the pillar lifts it; seven halos come down; the world goes white
+			a.x, a.facing = cx - dir * 3.4, dir
+			attack(a, moves, T.role(ctx, "Finale"), false)
+			d.y, d.state, d.pose = 4 * up, "Hitstun", "Launched"
+			if tick == 210 then
+				table.insert(frame.fx, { key = "fm-pillar", kind = "lightPillar", pos = v(cx, 0, 0), radius = 1.8, scale = 1.6, color = GOLD, life = 4 })
+				sfx(frame, "fm-pillar", "beam")
+			end
+			shape(frame, { kind = "beam", from = At(v(cx, 0, 0)), to = At(v(cx, 30, 0)), radius = 0.6 + 1.2 * up, color = GOLD, rings = tick / 30 })
+			for i = 0, 6 do
+				local born = 240 + i * 18
+				local q = progress(tick, born, born + 40)
+				if q > 0 then
+					shape(frame, { kind = "ring", pos = At(v(cx, lerp(14, 2 + i * 0.6, smooth(q)), 0)), normal = v(0, 1, 0), radius = 1.6 + 0.15 * i, width = 0.14,
+						color = GOLD, alpha = 0.15 })
+				end
+			end
+			local white = smooth(progress(tick, 360, F - 20))
+			overlay(frame).desat = 0.85 * white
+			if tick < 360 then
+				frame.shot = frameOn("elian-fm-pillar", dir, { a, d, { point = true, x = cx, y = 10, z = 0 } }, { yaw = 20, pitch = -22, fill = 0.7, fov = 44,
+					focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("elian-fm-white", dir, { a }, { yaw = 30, pitch = -6, band = "bust", fill = 0.85, fov = 30, focus = P(A, "Head") })
+			end
+		else
+			-- the light gathers to a point and bursts in a cross; it comes down, asleep
+			local age = tick - F
+			a.x, a.facing = cx - dir * 3.4, dir
+			if age < 50 then attack(a, moves, T.role(ctx, "Finale"), true) else a.state, a.move, a.pose = "Idle", nil, "StandTall" end
+			local q = smooth(progress(tick, F + 20, F + 90))
+			if q < 1 then
+				d.y, d.state, d.pose = 4 * (1 - q), "Hitstun", "Launched"
+			else
+				d.y = 0
+				T.FATAL.fall(ctx.cin, d, tick, F + 90, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age == 0 then
+				sfx(frame, "fm-cross", "boom")
+				frame.impact = { key = "fm-cross", color = "FFFFFF" }
+			end
+			if age < 40 then
+				local k = age / 40
+				local c = v(cx, 4 + 3.2, 0)
+				shape(frame, { kind = "beam", from = At(v(c.x, c.y - 8 * (1 - k * 0.5), 0)), to = At(v(c.x, c.y + 8 * (1 - k * 0.5), 0)), radius = 0.6 * (1 - k), color = "FFFFFF",
+					rings = age / 10 })
+				shape(frame, { kind = "beam", from = At(v(c.x - 6 * (1 - k * 0.5), c.y + 1.4, 0)), to = At(v(c.x + 6 * (1 - k * 0.5), c.y + 1.4, 0)),
+					radius = 0.5 * (1 - k), color = GOLD, rings = age / 10 })
+				shape(frame, { kind = "sphere", pos = At(c), radius = lerp(0.3, 3, k), color = GOLD, core = 1 - k })
+			end
+			overlay(frame).desat = 0.85 * (1 - smooth(progress(tick, F, F + 30)))
+			if age < 50 then
+				frame.shot = frameOn("elian-fm-cross", dir, { d }, { yaw = 16, pitch = -10, fill = 0.5, fov = 44, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("elian-fm-after", dir, { a, d }, { yaw = -30, pitch = -2, fill = 0.6, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 50, color)
+		end
+	end
+
 	return S
 end
 

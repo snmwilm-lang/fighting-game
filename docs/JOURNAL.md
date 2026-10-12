@@ -1,5 +1,21 @@
 # Journal du projet — état à transmettre
 
+## Version 0.31.0 — 12 octobre 2026 · FATAL FINISHERS : KUREN, SYLVA, ELIAN
+
+Sixième lot de trois (même règle de déclenchement). Wilhem a envoyé entre-temps ses planches pour SHIN, TARO et KAI (12 plans d'une seconde chacun) et demande ZEPHYR façon Vegito : ce sera la prochaine livraison.
+
+- **KUREN · CRIMSON COVENANT** (10,3 s) : l'alchimiste de sang paie avec son propre sang (PACTE ÉCARLATE). Il ouvre sa paume, son sang goutte ; il court sur le sol jusqu'à la cible et forme une mare sous elle ; une à une, douze lances de sang sortent de la mare autour d'elle ; il referme lentement la main, les lances tremblent puis plongent ; le sang lui revient, la cible tombe. (« BLOOD MOON » est déjà le nom de son fatal classique : pas de lune ici.)
+- **SYLVA · THE GREAT HUNT** (10,3 s) : la chasseresse fait du ring sa forêt. Elle touche le sol : des racines jaillissent tout autour ; des lianes lient la cible aux poignets et aux chevilles et la soulèvent ; SYLVA tourne autour d'elle à distance, basse, en chasseresse, et trois pièges se referment sur elle ; elle s'arrête et vise (plan derrière elle) ; LA CHASSE : elle la traverse ; les lianes lâchent, les feuilles tombent.
+- **ELIAN · FINAL MERCY** (10,7 s) : le guérisseur donne trop de lumière. Il marche vers la cible, calme, un halo au-dessus de la tête ; sa paume sur sa poitrine : la lumière entre, elle brille ; un pilier de lumière la soulève, sept halos descendent autour d'elle ; la lumière grandit jusqu'au blanc ; elle se concentre en un point et éclate en croix ; la cible redescend lentement, endormie.
+
+**Fichiers** : `Finishers.luau` (trois scènes), `MoveData` (champ `Finisher` de KUREN, SYLVA, ELIAN), `Locale` (PACTE CRAMOISI, LA GRANDE CHASSE, DERNIÈRE MISÉRICORDE).
+
+**Tests** : CombatSimulation 169, Cinematography 312 (dix-huit finishers), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits 130 sur la 0.29.0. Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+
+**Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique. SHIN, TARO, KAI et ZEPHYR à refaire d'après les planches de Wilhem.
+
+**Prochaine étape** : SHIN, TARO, KAI d'après les planches ; ZEPHYR façon Vegito ; puis NOVA, KUROEN et les bosses.
+
 ## Version 0.30.0 — 12 octobre 2026 · FATAL FINISHERS : ASTER, HIBIKI, KAZAN
 
 Cinquième lot de trois (même règle de déclenchement).
@@ -10,7 +26,7 @@ Cinquième lot de trois (même règle de déclenchement).
 
 **Fichiers** : `Finishers.luau` (trois scènes), `MoveData` (champ `Finisher` d'ASTER, HIBIKI, KAZAN), `Locale` (EFFONDREMENT STELLAIRE, RÉSONANCE, CAGE DE GRIFFES).
 
-**Tests** : CombatSimulation 169, Cinematography 312 (les quinze finishers ; les angles qui cachaient une main ont été cherchés plan par plan avec la même mesure que le test), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé sur la 0.29.0. Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+**Tests** : CombatSimulation 169, Cinematography 312 (les quinze finishers ; les angles qui cachaient une main ont été cherchés plan par plan avec la même mesure que le test), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits 130 sur la 0.29.0. Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
 
 **À vérifier dans Studio** : l'étoile d'ASTER (sphère + anneaux) et sa « nova », la lisibilité des anneaux de son de HIBIKI, la cage de KAZAN (jusqu'à 72 traits néon à la fois, en mode effets réduits aussi).
 

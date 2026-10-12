@@ -1334,6 +1334,8 @@ third("KUREN", {
 	Stats = { MaxHealth = 1350, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
 	Passive = { Type = "Pact", Name = "SCARLET PACT", Cost = 0.03, Bonus = 0.3 },
 	GateTitle = { text = "血王", sub = "BLOOD THRONE" },
+	-- FATAL FINISHER (Finishers.luau): his own blood pools under the target, lances rise out of it and plunge in; the blood comes back to him.
+	Finisher = { Name = "CRIMSON COVENANT", Length = 620, FinalTick = 450 },
 })
 third("SYLVA", {
 	Kanji = "森", Role = "TRAPS", Difficulty = 3, Energy = "4AD86A", Light = "C8F0A0",
@@ -1341,6 +1343,8 @@ third("SYLVA", {
 	Stats = { MaxHealth = 1250, WalkSpeed = 17.5, AirSpeed = 15, JumpVelocity = 46, DashSpeed = 42 },
 	Passive = { Type = "Territory", Name = "TERRITORY", Range = 12, Reach = 1.2 },
 	GateTitle = { text = "森王", sub = "BRAMBLE DOMAIN" },
+	-- FATAL FINISHER (Finishers.luau): the forest takes the ring, vines bind the prey, three traps, the hunt through it.
+	Finisher = { Name = "THE GREAT HUNT", Length = 620, FinalTick = 450 },
 })
 third("ELIAN", {
 	Kanji = "癒", Role = "SUPPORT", Difficulty = 2, Energy = "FFE9A0", Light = "FFFFFF",
@@ -1349,6 +1353,8 @@ third("ELIAN", {
 	Stats = { MaxHealth = 1350, WalkSpeed = 17, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
 	Passive = { Type = "SecondWind", Name = "SECOND WIND", Threshold = 0.3, Boost = 3 },
 	GateTitle = { text = "神癒", sub = "DIVINE MIRACLE" },
+	-- FATAL FINISHER (Finishers.luau): too much light: his palm, the pillar, seven halos, the white, the cross.
+	Finisher = { Name = "FINAL MERCY", Length = 640, FinalTick = 450 },
 })
 third("NOVA", {
 	Kanji = "機", Role = "DRONES", Difficulty = 3, Energy = "FF8A2A", Light = "FFD0A0",

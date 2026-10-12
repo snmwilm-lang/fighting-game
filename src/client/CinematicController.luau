@@ -851,6 +851,128 @@ end
 -- Parts are hidden (Transparency 1) rather than destroyed when a shape goes away.
 local BEAM_SLICES = 16 -- (the wave's slices: KiBall.beam)
 local RING_SEGMENTS = 22
+-- KAI's wave, its parts (built once per wave; `entry.parts` holds them all, so a hidden wave
+-- hides whole).
+local STRAND_BITS = 22
+function CinematicController:buildWave(color, entry)
+	local w = { slices = {}, joints = {}, glows = {}, strands = {}, bands = {} }
+	local function add(shape, material)
+		local p = self:shapePart(shape)
+		if material then p.Material = material end
+		table.insert(entry.parts, p)
+		return p
+	end
+	w.core = add(Enum.PartType.Cylinder)
+	for k = 1, BEAM_SLICES do
+		w.slices[k] = add(Enum.PartType.Cylinder)
+		w.joints[k] = add(Enum.PartType.Ball)
+		w.glows[k] = add(Enum.PartType.Cylinder, Enum.Material.ForceField)
+	end
+	for i = 1, KiBall.STRANDS do
+		w.strands[i] = {}
+		for k = 1, STRAND_BITS do w.strands[i][k] = add(nil) end
+	end
+	for k = 1, 5 do w.bands[k] = add(Enum.PartType.Cylinder) end
+	w.mouth = add(Enum.PartType.Cylinder, Enum.Material.ForceField)
+	-- (the light flowing along it: two textured beams scrolling away from his palms; the
+	-- texture is one of the client's own files)
+	w.a0, w.a1 = Instance.new("Attachment"), Instance.new("Attachment")
+	w.a0.Parent, w.a1.Parent = w.core, w.core
+	w.flows = {}
+	for k = 1, 2 do
+		local flow = Instance.new("Beam")
+		flow.Attachment0, flow.Attachment1 = w.a0, w.a1
+		flow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		flow.TextureMode, flow.TextureLength, flow.TextureSpeed = Enum.TextureMode.Wrap, 3 + k, 3 + k * 1.5
+		flow.LightEmission, flow.LightInfluence, flow.FaceCamera, flow.Segments = 1, 0, true, 12
+		flow.Parent = w.core
+		w.flows[k] = flow
+	end
+	entry.light = Instance.new("PointLight")
+	entry.light.Parent = w.core
+	return w
+end
+
+function CinematicController:drawWave(w, sh, a, b, color, reduced)
+	local axis = b - a
+	local length = math.max(0.1, axis.Magnitude)
+	local dirU = axis / length
+	local r = math.max(0.05, sh.radius)
+	local now = os.clock()
+	local tau = math.pi * 2
+	-- (a cylinder lies along its X axis)
+	local turn = CFrame.lookAt(Vector3.zero, dirU) * CFrame.Angles(0, math.pi / 2, 0)
+	-- (across the wave as the camera sees it, and the third axis: the strands turn in them)
+	local look = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or Vector3.zAxis
+	local across = dirU:Cross(look)
+	across = if across.Magnitude > 1e-3 then across.Unit else (if math.abs(dirU.Y) < 0.9 then dirU:Cross(Vector3.yAxis).Unit else Vector3.xAxis)
+	local third = dirU:Cross(across).Unit
+	local slices = if reduced then 8 else BEAM_SLICES
+	w.core.CFrame, w.core.Size, w.core.Color, w.core.Transparency = CFrame.new((a + b) / 2) * turn, Vector3.new(length, r * 0.8, r * 0.8), WHITE, 0
+	for k = 1, BEAM_SLICES do
+		local slice, joint, glow = w.slices[k], w.joints[k], w.glows[k]
+		if k > slices then
+			slice.Transparency, joint.Transparency, glow.Transparency = 1, 1, 1
+		else
+			local u = (k - 0.5) / slices
+			local scale, sway = KiBall.beam(u, now)
+			local center = a + axis * u + across * (sway * r)
+			local long = length / slices * 1.25
+			slice.CFrame, slice.Size, slice.Color, slice.Transparency = CFrame.new(center) * turn, Vector3.new(long, r * 2 * scale, r * 2 * scale), color, 0.15
+			-- (a ball at the joint rounds the step between two slices: one smooth, swelling body)
+			local u0 = (k - 1) / slices
+			local s0, w0 = KiBall.beam(u0, now)
+			joint.CFrame, joint.Size, joint.Color, joint.Transparency = CFrame.new(a + axis * u0 + across * (w0 * r)), Vector3.one * r * 2 * s0, color, 0.15
+			glow.CFrame, glow.Size, glow.Color, glow.Transparency = CFrame.new(center) * turn, Vector3.new(long, r * 3 * scale, r * 3 * scale), color, 0
+		end
+	end
+	-- the strands: helices of light round the body, flowing away
+	local bits = if reduced then 10 else STRAND_BITS
+	for i, strand in w.strands do
+		local function at(u)
+			local angle, dist = KiBall.strand(i, u, now)
+			local _, sway = KiBall.beam(u, now)
+			return a + axis * u + across * (sway * r) + (across * math.cos(angle) + third * math.sin(angle)) * (dist * r)
+		end
+		local prev = at(0.04)
+		for k, bit in strand do
+			if k > bits then
+				bit.Transparency = 1
+			else
+				local nxt = at(0.04 + 0.96 * k / bits)
+				bit.CFrame = CFrame.lookAt((prev + nxt) / 2, nxt)
+				bit.Size, bit.Color, bit.Transparency = Vector3.new(0.09 + 0.05 * r, 0.09 + 0.05 * r, (nxt - prev).Magnitude * 1.1), if i == 1 then WHITE else color, 0.05
+				prev = nxt
+			end
+		end
+	end
+	-- bands travelling along it
+	local bandCount = if reduced then 2 else 5
+	for k, band in w.bands do
+		if k > bandCount then
+			band.Transparency = 1
+		else
+			local t = ((sh.rings or 0) + (k - 1) / bandCount) % 1
+			local scale = KiBall.beam(t, now)
+			band.CFrame = CFrame.new(a + axis * t) * turn
+			band.Size, band.Color, band.Transparency = Vector3.new(0.16, r * 2.6 * scale, r * 2.6 * scale), WHITE, 0.55
+		end
+	end
+	-- the flare at his palms
+	local mouth = r * KiBall.MOUTH * (1 + 0.12 * math.sin(now * 31))
+	w.mouth.CFrame, w.mouth.Size, w.mouth.Color, w.mouth.Transparency = CFrame.new(a) * turn, Vector3.new(0.12, mouth * 2, mouth * 2), color, 0
+	-- the light flowing along it
+	w.a0.WorldPosition, w.a1.WorldPosition = a, b
+	for k, flow in w.flows do
+		flow.Enabled = not reduced or k == 1
+		flow.Width0, flow.Width1 = r * (1.2 + 0.4 * k), r * (1.6 + 0.5 * k)
+		flow.Color = ColorSequence.new(WHITE, color)
+		flow.Transparency = NumberSequence.new(0.15 + 0.2 * k)
+	end
+	local light = w.core:FindFirstChildOfClass("PointLight")
+	if light then light.Enabled, light.Color, light.Range, light.Brightness = true, color, 40, 4 end
+end
+
 function CinematicController:drawShapes(list, rigs, views)
 	local pool = self.shapePool
 	local reduced = self.effects.reduced
@@ -861,6 +983,9 @@ function CinematicController:drawShapes(list, rigs, views)
 		if entry and (not sh or entry.kind ~= sh.kind) then
 			for _, part in entry.parts do part.Transparency = 1 end
 			if entry.light then entry.light.Enabled = false end
+			if entry.wave then
+				for _, flow in entry.wave.flows do flow.Enabled = false end
+			end
 		end
 		if sh then
 			if not entry or entry.kind ~= sh.kind then
@@ -883,59 +1008,20 @@ function CinematicController:drawShapes(list, rigs, views)
 				parts[2].CFrame, parts[2].Size, parts[2].Color, parts[2].Transparency = CFrame.new(pos), Vector3.one * r * 2, color, 0.25
 				parts[3].CFrame, parts[3].Size, parts[3].Color, parts[3].Transparency = CFrame.new(pos), Vector3.one * r * 3.2, color, 0.8
 				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, math.min(60, 6 + r * 9), 2 + 3 * core
+			elseif sh.kind == "kiball" then
+				-- KAI's ball of ki (KiBall's look: core, loops, sparks), drawn as in the fights
+				if not entry.ball then
+					entry.ball = self.effects:kiBallBuild(color)
+					entry.parts, entry.light = entry.ball.parts, entry.ball.light
+				end
+				self.effects:kiBallDraw(entry.ball, resolve(sh.pos, rigs, views), sh.radius, os.clock())
 			elseif sh.kind == "beam" then
-				-- the wave (KiBall.beam, Wilhem's drawing): thin out of the palms, swelling, its
-				-- edges rippling and flowing away; built of short overlapping slices, each its own
-				-- width and a little off the axis, a white core through them, a glow round them,
-				-- and bands travelling along it
-				local slices = if reduced then 8 else BEAM_SLICES
-				if not parts[1] then
-					parts[1] = self:shapePart(Enum.PartType.Cylinder)
-					for k = 2, 2 * BEAM_SLICES + 1 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
-					for k = 2 * BEAM_SLICES + 2, 2 * BEAM_SLICES + 6 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
-					entry.light = Instance.new("PointLight")
-					entry.light.Parent = parts[1]
-				end
-				local a, b = resolve(sh.from, rigs, views), resolve(sh.to, rigs, views)
-				local axis = b - a
-				local length = math.max(0.1, axis.Magnitude)
-				local dirU = axis / length
-				local r = math.max(0.05, sh.radius)
-				-- (a cylinder lies along its X axis)
-				local turn = CFrame.lookAt(Vector3.zero, dirU) * CFrame.Angles(0, math.pi / 2, 0)
-				-- (the sway goes across the wave as the camera sees it)
-				local look = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or Vector3.zAxis
-				local across = dirU:Cross(look)
-				across = if across.Magnitude > 1e-3 then across.Unit else Vector3.yAxis
-				local now = os.clock()
-				parts[1].CFrame = CFrame.new((a + b) / 2) * turn
-				parts[1].Size, parts[1].Color, parts[1].Transparency = Vector3.new(length, r * 0.8, r * 0.8), WHITE, 0
-				for k = 1, BEAM_SLICES do
-					local sheath, glow = parts[1 + k], parts[1 + BEAM_SLICES + k]
-					if k > slices then
-						sheath.Transparency, glow.Transparency = 1, 1
-					else
-						local u = (k - 0.5) / slices
-						local scale, sway = KiBall.beam(u, now)
-						local at = CFrame.new(a + axis * u + across * (sway * r)) * turn
-						local long = length / slices * 1.35
-						sheath.CFrame, sheath.Size, sheath.Color, sheath.Transparency = at, Vector3.new(long, r * 2 * scale, r * 2 * scale), color, 0.2
-						glow.CFrame, glow.Size, glow.Color, glow.Transparency = at, Vector3.new(long, r * 3.1 * scale, r * 3.1 * scale), color, 0.78
-					end
-				end
-				local bands = if reduced then 2 else 5
-				for k = 1, 5 do
-					local part = parts[2 * BEAM_SLICES + 1 + k]
-					if k > bands then
-						part.Transparency = 1
-					else
-						local t = ((sh.rings or 0) + (k - 1) / bands) % 1
-						local scale = KiBall.beam(t, now)
-						part.CFrame = CFrame.new(a + axis * t) * turn
-						part.Size, part.Color, part.Transparency = Vector3.new(0.18, r * 2.7 * scale, r * 2.7 * scale), WHITE, 0.55
-					end
-				end
-				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, 40, 4
+				-- the wave in 3D (KiBall: beam, strand; Wilhem's drawing and « un beau modèle 3D du
+				-- rayon, fluide », « pas une boule, un rayon »): a rippling body of short slices rounded
+				-- at each joint, a white core, a living glow, three strands of light wound round it
+				-- flowing away, a flare at his palms, and light flowing along it
+				if not entry.wave then entry.wave = self:buildWave(color, entry) end
+				self:drawWave(entry.wave, sh, resolve(sh.from, rigs, views), resolve(sh.to, rigs, views), color, reduced)
 			elseif sh.kind == "ring" then
 				-- a ring of light: segments round its normal
 				local count = if reduced then 12 else RING_SEGMENTS

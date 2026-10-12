@@ -290,15 +290,17 @@ Poses.Iai = blind(feet({
 -- hip (found by a search over the arm angles: the hands half a stud apart), the body wound
 -- away from the target, the head turned to it; then the strain; then both palms thrust
 -- forward, wrists bent back; then the last effort, head down.
+-- The MAXIMUM KAIENHA's charge (Wilhem's reference: the palms cupped together at the rear hip,
+-- one over the other round the growing ball, the chest turned back, the eyes on the target).
 Poses.KaiCharge = blind(feet({
-	Root = { 0, -25, 0, -0.85, 0.15 }, Waist = { -6, -12, 0 }, Neck = { 6, 32, 0 },
-	LeftShoulder = { -20, 0, 70 }, LeftElbow = { 25, 0, 0 },
-	RightShoulder = { -50, 0, -10 }, RightElbow = { 110, 0, 0 },
+	Root = { 0, -25, 0, -0.85, 0.15 }, Waist = { -6, -48, 0 }, Neck = { 6, 42, 0 },
+	LeftShoulder = { 20, 0, 56 }, LeftElbow = { 86, 0, 0 },
+	RightShoulder = { -26, 0, -12 }, RightElbow = { 96, 0, 0 },
 }, -0.95, 0.85, 0, -10, 14))
 Poses.KaiChargeStrain = blind(feet({
-	Root = { 0, -28, 0, -1.0, 0.2 }, Waist = { -10, -14, 0 }, Neck = { 16, 36, 0 },
-	LeftShoulder = { -10, 0, 70 }, LeftElbow = { 25, 0, 0 },
-	RightShoulder = { -40, 0, -10 }, RightElbow = { 110, 0, 0 },
+	Root = { 0, -28, 0, -1.0, 0.2 }, Waist = { -10, -52, 0 }, Neck = { 16, 46, 0 },
+	LeftShoulder = { 16, 0, 58 }, LeftElbow = { 92, 0, 0 },
+	RightShoulder = { -32, 0, -14 }, RightElbow = { 98, 0, 0 },
 }, -1.05, 0.9, 0, -12, 16))
 Poses.KaiFire = blind(feet({
 	Root = { 0, 4, 0, -0.75, -0.25 }, Waist = { -8, 0, 0 }, Neck = { 8, 0, 0 },

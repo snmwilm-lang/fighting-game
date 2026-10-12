@@ -53,6 +53,54 @@ function KiBall.launch(from, to, age)
 	return { from[1] + (to[1] - from[1]) * k, from[2] + (to[2] - from[2]) * k, from[3] + (to[3] - from[3]) * k }
 end
 
+-- The ball's look (Wilhem's drawing): a white-hot core; loops of ki wound round it, each in its
+-- own plane, never quite round, turning fast (one inside the other, the outer ones wider);
+-- sparks flickering round the core, short dashes; a haze round it all. Every size is a share
+-- of the ball's radius. The client draws it (EffectsController:kiBallDraw: the ball between his
+-- palms, the shot, the cinematics' "kiball"), the storyboards too.
+KiBall.LOOPS = {
+	{ size = 0.62, tilt = 0.35, turn = 0.9, spin = 7.5, wobble = 0.12 },
+	{ size = 0.86, tilt = 1.25, turn = -0.6, spin = -9, wobble = 0.1 },
+	{ size = 1.08, tilt = 2.1, turn = 0.3, spin = 11, wobble = 0.14 },
+}
+KiBall.SPARKS = 9
+
+-- Loop `i`'s plane at `time`: its two tilts (radians round X and Y) and its turn round its own
+-- axis (radians).
+function KiBall.loopPlane(i, time)
+	local l = KiBall.LOOPS[i]
+	return l.tilt + 0.35 * math.sin(time * 1.3 + i * 2.1), l.turn + time * 0.8 * (if i % 2 == 0 then -1 else 1), time * l.spin
+end
+
+-- The normal of loop `i`'s plane at `time` (its circle lies in local X-Z, tilted round X, then
+-- turned round Y).
+function KiBall.loopNormal(i, time)
+	local rx, ry = KiBall.loopPlane(i, time)
+	return math.sin(rx) * math.sin(ry), math.cos(rx), math.sin(rx) * math.cos(ry)
+end
+
+-- Loop `i`'s radius (share of the ball's) at the angle `a` round it, at `time`: never round.
+function KiBall.loopRadius(i, a, time)
+	local l = KiBall.LOOPS[i]
+	return l.size * (1 + l.wobble * math.sin(3 * a + time * 5 + i * 1.7) + 0.5 * l.wobble * math.sin(5 * a - time * 7 + i))
+end
+
+-- A spark's place (x, y, z: shares of the radius, round the centre) and its length, `k` of
+-- KiBall.SPARKS, at `time`: each lives 1/12 s, then flickers elsewhere.
+local function hash(n)
+	local x = math.sin(n * 127.1 + 311.7) * 43758.5453
+	return x - math.floor(x)
+end
+function KiBall.spark(k, time)
+	local life = math.floor(time * 12 + k * 0.37)
+	local seed = k * 13.7 + life * 7.3
+	local theta = hash(seed) * math.pi * 2
+	local z = hash(seed + 1.1) * 2 - 1
+	local r = 0.38 + 0.7 * hash(seed + 2.3)
+	local ring = math.sqrt(math.max(0, 1 - z * z))
+	return math.cos(theta) * ring * r, z * r, math.sin(theta) * ring * r, 0.12 + 0.2 * hash(seed + 3.9)
+end
+
 -- His wave (KAIEN RUSH's KAIENHA, the MAXIMUM KAIENHA; Wilhem's drawing): thin out of his
 -- palms, it swells within its first tenth and widens a little to its end; its edges ripple,
 -- the bumps flowing away from him, never the same above and below (it meanders a little round
@@ -68,6 +116,21 @@ function KiBall.beam(u, time)
 		+ 0.04 * math.sin(tau * (u * 19 - time * 3.3) + 2.1)
 	local sway = 0.08 * math.sin(tau * (u * 3.5 - time * 1.2) + 0.7) + 0.04 * math.sin(tau * (u * 8 - time * 2) + 2.4)
 	return taper * (1 + b.widen * u) * ripple, sway * inn
+end
+
+-- The wave in 3D (Wilhem: « un beau modèle 3D du rayon, fluide »): round its rippling body,
+-- three strands of light wound in helices, twisting along it and flowing away from his palms,
+-- just outside the body (a ray to its end, no ball: Wilhem); at his palms a mouth, a flare.
+-- `strand` gives strand `i` at `u` and `time`: its angle round the axis
+-- (radians) and its distance from it (a share of the wave's radius).
+KiBall.STRANDS = 3
+KiBall.TURNS = 2.2 -- (turns of a strand along the whole wave)
+KiBall.MOUTH = 1.6 -- (the flare at his palms)
+function KiBall.strand(i, u, time)
+	local tau = math.pi * 2
+	local angle = (i - 1) / KiBall.STRANDS * tau + (u * KiBall.TURNS - time * 1.4) * tau
+	local scale = KiBall.beam(u, time)
+	return angle, scale * (1.08 + 0.12 * math.sin(tau * (u * 4 - time * 2) + i))
 end
 
 return KiBall

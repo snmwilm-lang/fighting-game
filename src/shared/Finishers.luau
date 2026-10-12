@@ -460,7 +460,39 @@ function Finishers.build(T)
 		hands.mid = "LeftHand"
 		a.x, a.facing = ax, dir
 		d.facing = -dir
+		-- the ball of ki in his cupped palms (KiBall's look): a real, steady growth from a spark to
+		-- a sun through the whole charge; it stays in his palms, feeding the wave, while he fires
 		local orb = 0
+		if tick < 248 then
+			orb = (0.06 + 1.16 * progress(tick, 0, 246) ^ 1.35) * (1 + 0.05 * math.sin(tick * 0.9))
+		elseif tick < 540 then
+			orb = 0.85 * (1 + 0.06 * math.sin(tick * 1.3))
+		end
+		-- (a point by the ball: its centre between his hands, moved by `dx, dy, dz`)
+		local function nearHands(dx, dy, dz)
+			local p_ = P(A, "RightHand", v(dx, dy, dz))
+			p_.mid = "LeftHand"
+			return p_
+		end
+		-- the charge crackles (Wilhem's reference): streaks of light out of the ball, turning and
+		-- flickering, and small arcs onto it
+		if tick >= 20 and tick < 248 then
+			local streaks = if tick < 120 then 4 else 7
+			for k = 1, streaks do
+				local an = k / streaks * math.pi * 2 + tick * 0.12
+				local flick = 0.5 + 0.5 * math.sin(tick * 1.9 + k * 2.3)
+				local from, length = orb * 1.15, (0.5 + 1.8 * orb) * (0.4 + 0.6 * flick)
+				shape(frame, { kind = "slash", from = nearHands(math.cos(an) * from, math.sin(an) * from, 0.2),
+					to = nearHands(math.cos(an) * (from + length), math.sin(an) * (from + length), 0.2), width = 0.05 + 0.04 * orb,
+					color = if k % 2 == 0 then "FFFFFF" else color, alpha = 0.55 - 0.4 * flick })
+			end
+			if tick % 7 == 0 then
+				local bx = ax - dir * 0.6
+				table.insert(frame.fx, { key = "kx-crackle" .. tick, kind = "lightning",
+					from = v(bx + math.cos(tick * 2.3) * (1 + orb * 1.4), 2.6 + math.sin(tick * 1.7) * (0.8 + orb), 0.4 + math.sin(tick) * 0.8),
+					to = v(bx, 2.6, 0.4), color = if tick % 14 == 0 then "FFFFFF" else color })
+			end
+		end
 		-- the wave's head: out of his hands at 248, it meets the target at 262 and carries it across
 		local function head(t)
 			if t < 262 then return lerp(ax + dir, base, progress(t, 248, 262)) end
@@ -474,16 +506,22 @@ function Finishers.build(T)
 			local p = progress(tick, 0, 60)
 			a.pose = "KaiCharge"
 			d.x, d.state = base, "Idle"
-			orb = lerp(0.1, 0.45, smooth(p))
 			shape(frame, { kind = "motes", pos = hands, radius = 4, count = 22, color = color, phase = tick / 60 })
 			if tick == 0 then sfx(frame, "kx-charge", "charge") end
-			frame.shot = frameOn("kai-mx-stance", dir, { a }, { yaw = 20, pitch = -10, fill = lerp(0.55, 0.68, p), fov = 36, focus = P(A, "UpperTorso") })
+			if tick < 40 then
+				-- (close on his cupped palms: the spark of ki is born between them)
+				local q = smooth(progress(tick, 0, 40))
+				frame.shot = shot("kai-mx-palms", nearHands(dir * lerp(1.9, 2.3, q), lerp(0.7, 0.9, q), lerp(2.6, 3.2, q)), nearHands(0, 0.2, 0), 34,
+					math.rad(-dir * 6), hands)
+				frame.shot.close = true
+			else
+				frame.shot = frameOn("kai-mx-stance", dir, { a }, { yaw = 20, pitch = -10, fill = lerp(0.55, 0.68, p), fov = 36, focus = P(A, "UpperTorso") })
+			end
 		elseif tick < 120 then
 			-- it thickens; the camera turns round him, to his back
 			local p = progress(tick, 60, 120)
 			a.pose = "KaiCharge"
 			d.x, d.state, d.pose = base, "Blockstun", "VicBrace" -- (it braces against the pressure)
-			orb = lerp(0.45, 0.8, smooth(p))
 			shape(frame, { kind = "motes", pos = hands, radius = 6, count = 30, color = color, phase = tick / 45 })
 			if tick % 20 == 0 then
 				table.insert(frame.fx, { key = "kx-arc" .. tick, kind = "lightning", from = v(ax + math.cos(tick * 1.7) * 4, 1 + (tick % 3), math.sin(tick * 1.7) * 3),
@@ -496,7 +534,6 @@ function Finishers.build(T)
 			a.pose = "KaiChargeStrain"
 			d.x, d.state, d.pose = base, "Blockstun", "VicBrace"
 			frame.grade.void = true
-			orb = lerp(0.8, 1.05, p)
 			if tick == 120 then
 				sfx(frame, "kx-aura", "boom")
 				frame.impact = { key = "kx-aura", color = color }
@@ -523,7 +560,6 @@ function Finishers.build(T)
 			a.pose = "KaiChargeStrain"
 			d.x, d.state, d.pose = base, "Blockstun", "VicBrace"
 			frame.grade.void = true
-			orb = 1.1
 			shape(frame, { kind = "motes", pos = hands, radius = 5, count = 26, color = color, phase = tick / 30 })
 			local q = smooth(progress(tick, 180, 240))
 			frame.shot = shot("kai-mx-face", P(A, "Head", v(dir * lerp(3.4, 2.6, q), lerp(0.3, 0.2, q), lerp(4.2, 3.3, q))), P(A, "Head", v(0, -0.3, 0)),
@@ -538,9 +574,7 @@ function Finishers.build(T)
 			else
 				d.x, d.y, d.state, d.pose = tip, 1.2 * smooth(progress(tick, 262, 280)), "Launched", "Launched"
 			end
-			if tick < 248 then
-				orb = 1.2
-			else
+			if tick >= 248 then
 				beam(tip + dir * 0.5, lerp(0.6, 2.4, smooth(progress(tick, 248, 262))))
 				for i = 0, 2 do
 					local age = (tick - 248 - i * 8) / 30
@@ -575,12 +609,12 @@ function Finishers.build(T)
 			frame.shot = frameOn("kai-mx-side", dir, { { point = true, x = ax, y = 3.1, z = 0 }, { point = true, x = far, y = 3.1, z = 0 } },
 				{ yaw = 4, pitch = 4, fill = 0.55, fov = 46, focus = P(D, "UpperTorso") })
 		elseif tick < F then
-			-- close on it: the energy wraps it, the wave thins as it gathers
+			-- close on it: the wave swallows it whole, swelling and whitening (a ray to the end,
+			-- Wilhem: « pas une boule, un rayon »)
 			a.pose = "KaiFireStrain"
 			d.x, d.y, d.state, d.pose = far, 1.2 + 0.2 * math.sin(tick / 4), "Launched", "Launched"
 			local q = progress(tick, 440, F)
-			beam(far + dir * 5, lerp(2.4, 0.35, q * q), if q > 0.5 then "FFFFFF" else color)
-			shape(frame, { kind = "sphere", pos = At(v(far, 3, 0)), radius = lerp(1.4, 3.2, q), color = color, core = 1 })
+			beam(far + dir * 5, lerp(2.4, 3.1, q) * (1 + 0.05 * math.sin(tick * 1.1)), if q > 0.5 then "FFFFFF" else color)
 			shape(frame, { kind = "motes", pos = At(v(far, 3, 0)), radius = 4, count = 24, color = "FFFFFF", phase = tick / 30 })
 			frame.shot = frameOn("kai-mx-wrap", dir, { d }, { yaw = -34, pitch = -6, fill = 0.62, fov = 40, clear = 4.5, focus = P(D, "Head") })
 		else
@@ -627,7 +661,7 @@ function Finishers.build(T)
 			end
 		end
 		if orb > 0 then
-			shape(frame, { kind = "sphere", pos = hands, radius = orb, color = color, core = math.min(1, orb) })
+			shape(frame, { kind = "kiball", pos = hands, radius = orb, color = color })
 		end
 	end
 

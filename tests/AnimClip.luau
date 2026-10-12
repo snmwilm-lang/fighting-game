@@ -94,7 +94,7 @@ ClipKit.play(kitName, scriptName, poseRate, function(info)
 	end
 	for _, ball in drawnBalls do
 		local color = (CharacterData[ball.slot] and CharacterData[ball.slot].Energy) or "FF2A3D"
-		print(string.format("SHAPE sphere %s %s %s 0 0 0 %s 0 %s 0 1 0", fmt(ball.at[1]), fmt(ball.at[2]), fmt(ball.at[3]),
+		print(string.format("SHAPE kiball %s %s %s 0 0 0 %s 0 %s 0 1 0", fmt(ball.at[1]), fmt(ball.at[2]), fmt(ball.at[3]),
 			fmt(ball.radius), color))
 	end
 end)

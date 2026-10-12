@@ -101,6 +101,38 @@ def ki_beam(u, t):
     sway = 0.08 * math.sin(tau * (u * 3.5 - t * 1.2) + 0.7) + 0.04 * math.sin(tau * (u * 8 - t * 2) + 2.4)
     return taper * (1 + 0.18 * u) * ripple, sway * inn
 
+# KAI's ball of ki (src/shared/KiBall.luau: loopPlane, loopRadius, spark): the same look
+KI_LOOPS = [(0.62, 0.35, 0.9, 7.5, 0.12), (0.86, 1.25, -0.6, -9, 0.10), (1.08, 2.1, 0.3, 11, 0.14)]
+def ki_loop_plane(i, t):
+    l = KI_LOOPS[i - 1]
+    return l[1] + 0.35 * math.sin(t * 1.3 + i * 2.1), l[2] + t * 0.8 * (-1 if i % 2 == 0 else 1), t * l[3]
+def ki_loop_radius(i, a, t):
+    l = KI_LOOPS[i - 1]
+    return l[0] * (1 + l[4] * math.sin(3 * a + t * 5 + i * 1.7) + 0.5 * l[4] * math.sin(5 * a - t * 7 + i))
+def ki_hash(n):
+    x = math.sin(n * 127.1 + 311.7) * 43758.5453
+    return x - math.floor(x)
+def ki_spark(k, t):
+    life = math.floor(t * 12 + k * 0.37)
+    seed = k * 13.7 + life * 7.3
+    theta = ki_hash(seed) * math.pi * 2
+    z = ki_hash(seed + 1.1) * 2 - 1
+    r = 0.38 + 0.7 * ki_hash(seed + 2.3)
+    ring = math.sqrt(max(0, 1 - z * z))
+    return math.cos(theta) * ring * r, z * r, math.sin(theta) * ring * r, 0.12 + 0.2 * ki_hash(seed + 3.9)
+def ki_strand(i, u, t):
+    # KiBall.strand: angle round the axis, distance from it (share of the radius)
+    tau = 2 * math.pi
+    angle = (i - 1) / 3 * tau + (u * 2.2 - t * 1.4) * tau
+    return angle, ki_beam(u, t)[0] * (1.08 + 0.12 * math.sin(tau * (u * 4 - t * 2) + i))
+
+def ki_rotate(p, rx, ry):
+    # (tilted round X, then turned round Y: KiBall.loopNormal)
+    x, y, z = p
+    y, z = y * math.cos(rx) - z * math.sin(rx), y * math.sin(rx) + z * math.cos(rx)
+    x, z = x * math.cos(ry) + z * math.sin(ry), -x * math.sin(ry) + z * math.cos(ry)
+    return (x, y, z)
+
 def render_frame(fr, label):
     img = Image.new('RGB', (W, H))
     d = ImageDraw.Draw(img, 'RGBA')
@@ -361,6 +393,30 @@ def render_frame(fr, label):
                 d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=col + (200,))
                 c = r * 0.6 * max(0.2, sh['extra'])
                 d.ellipse([p[0]-c, p[1]-c, p[0]+c, p[1]+c], fill=(255,255,255,230))
+        elif k == 'kiball':
+            t_now = fr['tick'] / 60
+            R = sh['r']
+            p, rr = size_at(a3, R)
+            if p:
+                for k2, fill in ((1.25, col + (60,)), (0.62, col + (215,)), (0.35, (255, 255, 255, 245))):
+                    d.ellipse([p[0]-rr*k2, p[1]-rr*k2, p[0]+rr*k2, p[1]+rr*k2], fill=fill)
+                for i in (1, 2, 3):
+                    rx, ry, spin = ki_loop_plane(i, t_now)
+                    pts = []
+                    for j in range(25):
+                        an = j / 24 * 2 * math.pi + spin
+                        lr = ki_loop_radius(i, an, t_now) * R
+                        q = ki_rotate((math.cos(an) * lr, 0, math.sin(an) * lr), rx, ry)
+                        pq = proj(tuple(a3[m] + q[m] for m in range(3)))
+                        if pq: pts.append(pq[:2])
+                    if len(pts) > 2:
+                        d.line(pts, fill=(255, 255, 255, 230) if i == 2 else col + (240,), width=max(1, int(rr * 0.08) + 1))
+                for kk in range(1, 10):
+                    x, y, z, ln = ki_spark(kk, t_now)
+                    q0 = (a3[0] + x * R, a3[1] + y * R, a3[2] + z * R)
+                    q1 = tuple(q0[m] + (a3[m] - q0[m]) * min(1, ln / max(0.05, math.sqrt(x*x + y*y + z*z))) for m in range(3))
+                    p0, p1 = proj(q0), proj(q1)
+                    if p0 and p1: d.line([p0[:2], p1[:2]], fill=(255, 255, 255, 240), width=max(1, int(rr * 0.06) + 1))
         elif k == 'beam':
             # KAI's wave (src/shared/KiBall.luau, KiBall.beam): thin out of the palms, swelling,
             # its edges rippling (bumps flowing away from him), never the same above and below
@@ -393,6 +449,22 @@ def render_frame(fr, label):
                         q = tuple(a3[j] + axis[j] * t for j in range(3))
                         p, rr = size_at(q, sh['r'] * 1.3 * ki_beam(t, t_now)[0])
                         if p: d.line([(p[0] + nx * rr, p[1] + ny * rr), (p[0] - nx * rr, p[1] - ny * rr)], fill=(255,255,255,170), width=2)
+                    # the strands of light wound round it (KiBall.strand), the flare at his palms
+                    third = norm(cross(norm(axis), across))
+                    for si in (1, 2, 3):
+                        pts = []
+                        for j in range(31):
+                            u = 0.04 + 0.96 * j / 30
+                            angle, dist = ki_strand(si, u, t_now)
+                            sway = ki_beam(u, t_now)[1]
+                            off = tuple((across[m] * math.cos(angle) + third[m] * math.sin(angle)) * dist * sh['r'] + across[m] * sway * sh['r'] for m in range(3))
+                            pq = proj(tuple(a3[m] + axis[m] * u + off[m] for m in range(3)))
+                            if pq: pts.append(pq[:2])
+                        if len(pts) > 2:
+                            _, rw = size_at(b3, sh['r'])
+                            d.line(pts, fill=(255, 255, 255, 235) if si == 1 else tuple(min(255, c + 60) for c in col) + (235,), width=max(1, int(rw * 0.16)))
+                    pm, mr = size_at(a3, sh['r'] * 1.6)
+                    if pm: d.ellipse([pm[0]-mr*0.35, pm[1]-mr, pm[0]+mr*0.35, pm[1]+mr], outline=col + (220,), width=3)
         elif k in ('ring', 'dome'):
             n = norm(b3) if k == 'ring' else (0.0, 1.0, 0.0)
             ref = (1.0, 0.0, 0.0) if abs(n[1]) > 0.9 else (0.0, 1.0, 0.0)

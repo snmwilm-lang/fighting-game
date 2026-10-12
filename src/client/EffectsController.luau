@@ -1791,16 +1791,74 @@ function EffectsController:fatalAura(rig, view, now)
 	end
 end
 
+-- KAI's ball of ki drawn (KiBall's look, Wilhem's drawing): a white core in a shell, its loops
+-- of ki (each a chain of short bits of light, never round, turning), sparks flickering round the
+-- core and a haze; `radius` in studs. Used for the ball between his palms, his shot, and the
+-- cinematics' "kiball" (CinematicController).
+local LOOP_BITS = 14
+function EffectsController:kiBallBuild(color)
+	local ball = { parts = {}, loops = {}, sparks = {}, color = color }
+	local function add(shape, partColor, material)
+		local p = self:part(Vector3.one * 0.1, CFrame.identity, partColor, shape)
+		if material then p.Material = material end
+		table.insert(ball.parts, p)
+		return p
+	end
+	ball.core = add(Enum.PartType.Ball, WHITE)
+	ball.shell = add(Enum.PartType.Ball, color)
+	ball.haze = add(Enum.PartType.Ball, color, Enum.Material.ForceField)
+	local bits = if self.reduced then 8 else LOOP_BITS
+	for i = 1, #KiBall.LOOPS do
+		ball.loops[i] = {}
+		for k = 1, bits do ball.loops[i][k] = add(nil, if i == 2 then WHITE else color) end
+	end
+	for k = 1, if self.reduced then 4 else KiBall.SPARKS do ball.sparks[k] = add(nil, WHITE) end
+	ball.light = Instance.new("PointLight")
+	ball.light.Color, ball.light.Parent = color, ball.core
+	return ball
+end
+
+function EffectsController:kiBallDraw(ball, at, radius, now)
+	local r = math.max(0.05, radius)
+	local tau = math.pi * 2
+	ball.core.CFrame, ball.core.Size, ball.core.Transparency = CFrame.new(at), Vector3.one * r * 0.7, 0
+	ball.shell.CFrame, ball.shell.Size, ball.shell.Transparency = CFrame.new(at), Vector3.one * r * 1.25 * (1 + 0.06 * math.sin(now * 40)), 0.3
+	ball.haze.CFrame, ball.haze.Size, ball.haze.Transparency = CFrame.new(at), Vector3.one * r * 2.5, 0
+	local thick = 0.03 + 0.06 * r
+	for i, bits in ball.loops do
+		local rx, ry, spin = KiBall.loopPlane(i, now)
+		local plane = CFrame.new(at) * CFrame.Angles(0, ry, 0) * CFrame.Angles(rx, 0, 0) -- (KiBall.loopNormal)
+		local n = #bits
+		for k, bit in bits do
+			local a0, a1 = (k - 1) / n * tau + spin, k / n * tau + spin
+			local r0, r1 = KiBall.loopRadius(i, a0, now) * r, KiBall.loopRadius(i, a1, now) * r
+			local p0 = plane * Vector3.new(math.cos(a0) * r0, 0, math.sin(a0) * r0)
+			local p1 = plane * Vector3.new(math.cos(a1) * r1, 0, math.sin(a1) * r1)
+			bit.CFrame = CFrame.lookAt((p0 + p1) / 2, p1)
+			bit.Size, bit.Transparency = Vector3.new(thick, thick, (p1 - p0).Magnitude * 1.15), 0.1
+		end
+	end
+	for k, bit in ball.sparks do
+		local x, y, z, length = KiBall.spark(k, now)
+		local p = at + Vector3.new(x, y, z) * r
+		bit.CFrame = CFrame.lookAt(p, at) -- (a dash pointing at the core)
+		bit.Size, bit.Transparency = Vector3.new(thick * 0.8, thick * 0.8, length * r), 0
+	end
+	ball.light.Enabled, ball.light.Range, ball.light.Brightness = true, 6 + r * 8, 2.5
+end
+
+function EffectsController:kiBallDestroy(ball)
+	for _, p in ball.parts do p:Destroy() end
+end
+
 -- KAI's KIKOHO, his ball of ki (KiBall, the way DAICHA's sphere is done): it forms between his
 -- palms, cupped at his hip, while he winds up (a white core in a shell of his colour, growing
 -- to the release); where it was last is kept, so the shot leaves from it (updateProjectiles).
 function EffectsController:kiCharge(slot, rig, view, color, now)
 	local ball = rig.model and not view.ghost and KiBall.charge(view, MoveData.Moves[view.move])
-	local fx = rig.kiCharge
 	if not ball then
-		if fx then
-			fx.core:Destroy()
-			fx.shell:Destroy()
+		if rig.kiCharge then
+			self:kiBallDestroy(rig.kiCharge)
 			rig.kiCharge = nil
 		end
 		return
@@ -1808,19 +1866,9 @@ function EffectsController:kiCharge(slot, rig, view, color, now)
 	local _, left = RigReader.part(rig.model, "LeftHand")
 	local _, right = RigReader.part(rig.model, "RightHand")
 	if not left or not right then return end
-	if not fx then
-		local core = self:part(Vector3.one * ball.core, CFrame.identity, WHITE, Enum.PartType.Ball)
-		local shell = self:part(Vector3.one * ball.shell, CFrame.identity, color, Enum.PartType.Ball)
-		shell.Material, shell.Transparency = Enum.Material.ForceField, 0
-		local light = Instance.new("PointLight")
-		light.Color, light.Range, light.Brightness, light.Parent = color, 9, 2.5, core
-		fx = { core = core, shell = shell }
-		rig.kiCharge = fx
-	end
+	rig.kiCharge = rig.kiCharge or self:kiBallBuild(color)
 	local at = (left + right) / 2
-	fx.core.CFrame, fx.shell.CFrame = CFrame.new(at), CFrame.new(at)
-	fx.core.Size = Vector3.one * ball.core
-	fx.shell.Size = Vector3.one * ball.shell * (1 + 0.08 * math.sin(now * 40))
+	self:kiBallDraw(rig.kiCharge, at, ball.shell / 2, now)
 	self.kiBalls = self.kiBalls or {}
 	self.kiBalls[slot] = { at = at, time = now }
 end
@@ -2181,18 +2229,12 @@ function SHOTS.ball(self, color, accent, scale)
 	piece(self, list, Vector3.one * 2 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
 	return { pieces = list, ghost = "ball", pulse = 2 }
 end
--- KAI's KIKOHO: a white core in his ki, a shell that breathes, a disc of ki round its waist
--- turning with it and a comet's tail behind; it leaves balls of light in its wake.
+-- KAI's KIKOHO: his ball of ki itself (kiBallDraw: core, loops, sparks), a comet's tail behind
+-- it; it leaves balls of light in its wake.
 function SHOTS.kiBall(self, color, accent, scale)
 	local list = {}
-	piece(self, list, Vector3.one * 0.9 * scale, CFrame.identity, WHITE, Enum.PartType.Ball)
-	piece(self, list, Vector3.one * 1.45 * scale, CFrame.identity, color, Enum.PartType.Ball, nil, 0.25)
 	piece(self, list, Vector3.new(2.6, 0.9, 0.9) * scale, CFrame.new(-1.1 * scale, 0, 0), color, Enum.PartType.Ball, nil, 0.45)
-	-- (the disc tilted toward the camera: it reads as a ring turning round the ball)
-	piece(self, list, Vector3.new(0.08, 2.5, 2.5) * scale, CFrame.Angles(0, math.rad(55), 0), accent, Enum.PartType.Cylinder,
-		Enum.Material.ForceField, 0)
-	piece(self, list, Vector3.one * 2.1 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
-	return { pieces = list, ghost = "ball", pulse = 2, roll = 9 }
+	return { pieces = list, ghost = "ball", kiBall = self:kiBallBuild(color) }
 end
 function SHOTS.crescent(self, color, accent, scale)
 	local list = {}
@@ -2395,6 +2437,7 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		local turn = if visual.roll then CFrame.Angles(visual.roll * now, 0, 0) else CFrame.identity
 		local spin = if visual.spin then CFrame.Angles(0, 0, now * visual.spin) else CFrame.identity
 		local pulse = if visual.pulse then 1 + 0.06 * visual.pulse * math.sin(now * 40) else 1
+		if visual.kiBall then self:kiBallDraw(visual.kiBall, position, 0.75, now) end
 		for i, entry in visual.pieces do
 			local placed = base * turn * spin * entry.offset
 			if pulse ~= 1 and i == #visual.pieces then -- (the outer shell breathes)
@@ -2445,6 +2488,7 @@ function EffectsController:updateProjectiles(list, ahead, now)
 			-- (SHIN's crescent bursts into spray where it ends)
 			if visual.ghost == "current" and visual.at then self:drops(visual.at, visual.accent, 7, 1, 10) end
 			for _, entry in visual.pieces do entry.part:Destroy() end
+			if visual.kiBall then self:kiBallDestroy(visual.kiBall) end
 			self.projectiles[id] = nil
 		end
 	end

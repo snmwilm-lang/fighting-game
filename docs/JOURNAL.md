@@ -1,5 +1,43 @@
 # Journal du projet — état à transmettre
 
+## Version 0.34.0 — 12 octobre 2026 · KAI : la boule de ki dessinée, la charge du finisher, le rayon en 3D
+
+Wilhem a envoyé :
+- un dessin de la boule (un cœur, des boucles irrégulières autour, des étincelles) ;
+- une image de référence (une charge de kamehameha façon Dragon Ball : énergie qui crépite, traits de lumière) ;
+- un croquis des mains en coupe autour de la boule ;
+- et ces consignes : « pour le fatal un vrai grossissement progressif dans les mains », « enlève le texte, il doit pas dire kamehameha », « fais un beau modèle 3D du rayon, fluide », « pas une boule, un rayon ».
+
+- **La boule de ki (son dessin)** : `KiBall` décrit son apparence :
+  - un cœur blanc ;
+  - trois boucles de ki, chacune dans son propre plan, jamais rondes, qui tournent ;
+  - des étincelles qui scintillent autour du cœur ;
+  - un halo.
+  Le client la dessine pareil partout : la boule du KIKOHO entre ses paumes, le tir du KIKOHO lui-même, la boule de KAIEN RUSH et celle du MAXIMUM KAIENHA (nouvelle forme `kiball`). Les planches et les clips la dessinent de la même façon.
+- **Le MAXIMUM KAIENHA (son FATAL FINISHER)** :
+  - nouvelles poses de charge : paumes en coupe à la hanche arrière, l'une sur l'autre autour de la boule, buste tourné (comme la référence) ;
+  - la boule naît en étincelle et grossit sans à-coup pendant toute la charge (de 0,06 à 1,2) ;
+  - le premier plan est un gros plan sur les paumes autour de la boule naissante (son croquis) ;
+  - pendant la charge, des traits de lumière sortent de la boule en tournant et en scintillant, et de petits éclairs crépitent dessus ;
+  - pendant le tir, la boule reste dans ses paumes et nourrit la vague ;
+  - au lieu d'une grosse sphère qui enveloppait la cible, la vague l'avale en grossissant et en blanchissant : un rayon jusqu'au bout.
+- **KAIEN RUSH** : le texte « KAI… EN… HA! » est retiré (et ses traductions). La boule grossit en deux poussées (anneaux, étincelles, son), puis la vague part. Le plan pris depuis le cratère est remplacé par une contre-plongée de côté qui montre tout le rayon vertical.
+- **Le rayon en 3D** (« un beau modèle 3D du rayon, fluide ») :
+  - un corps ondulant fait de tranches arrondies par une sphère à chaque jointure ;
+  - un cœur blanc et un halo vivant (matière ForceField) ;
+  - trois brins de lumière en hélice autour du corps, qui filent loin de ses paumes (`KiBall.strand`) ;
+  - une collerette à la sortie des paumes ;
+  - de la lumière qui défile le long du rayon (deux `Beam` Roblox avec la texture d'étincelles fournie avec le client, aucun ID inventé) ;
+  - pas de boule au bout : un rayon.
+
+**Fichiers** : `KiBall.luau` (apparence de la boule, brins du rayon), `PoseLibrary` (KaiCharge, KaiChargeStrain), `Finishers` (charge du MAXIMUM KAIENHA, rayon jusqu'au bout), `CinematicDirector` (KAIEN RUSH sans texte, boule, plan de côté), `Locale` (KAI, EN, HA! retirés), `EffectsController` (rendu de la boule : charge, tir), `CinematicController` (formes `kiball` et rayon en 3D), `tools/storyboard.py`, `tests/AnimClip.luau`.
+
+**Tests** : Animation 63 (deux tests nouveaux : « KAI's ball of ki: loops… », « KAI's wave in 3D: strands… »), Cinematography 312, CinematicDirector 872, CombatSimulation 169, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits 130 sur la 0.33.0 (rien du jeu n'a changé depuis, seulement l'image). Planches relues. Aucun dégât, aucune vie ni vitesse modifiés. Non vérifié dans Studio.
+
+**Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : retours de Wilhem sur la boule, la charge et le rayon.
+
 ## Version 0.33.0 — 12 octobre 2026 · KAI : le KAIENHA de KAIEN RUSH et le KIKOHO
 
 Wilhem : « améliorer l'animation du kamehameha en ult de KAI et de son hadoken », « utilise la même technique qu'avec la boule de DAICHA », et un dessin du rayon (fin au départ, puis large, les bords qui ondulent).
@@ -22,7 +60,7 @@ Wilhem : « améliorer l'animation du kamehameha en ult de KAI et de son hadoken
 
 **Fichiers** : `KiBall.luau` (nouveau, pur, ajouté à la liste de CLAUDE.md), `PoseLibrary` (KiBlast, KaiKameCharge), `CinematicDirector` (fin de KAIEN RUSH), `MoveData` (réglage de KAIEN RUSH pour KAI et ASURA), `KitFX` (tir `kiBall`), `EffectsController` (boule entre les paumes, lancement depuis elle, tir `kiBall`, anneau au lâcher), `CinematicController` (vague en tranches), `Locale` (KAI, EN, HA!), `tools/storyboard.py`, `tests/ClipKit.luau` (script `kiblast`, projectiles), `tests/AnimClip.luau` (la boule et le tir dessinés).
 
-**Tests** : CombatSimulation 169, Cinematography 312, CinematicDirector 872 (la signature de KAIEN RUSH est maintenant sa vague), Animation 61 (deux tests nouveaux : « KAI's KIKOHO: one ball… » et « KAI's wave… »), Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé (résultat noté au commit suivant). AnimQuality KAI et AnimPops relus. Planches et clip relus. Aucun dégât, aucune vie ni vitesse modifiés. Non vérifié dans Studio.
+**Tests** : CombatSimulation 169, Cinematography 312, CinematicDirector 872 (la signature de KAIEN RUSH est maintenant sa vague), Animation 61 (deux tests nouveaux : « KAI's KIKOHO: one ball… » et « KAI's wave… »), Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2, Kits 130. AnimQuality KAI et AnimPops relus. Planches et clip relus. Aucun dégât, aucune vie ni vitesse modifiés. Non vérifié dans Studio.
 
 **Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
 

@@ -2101,4 +2101,77 @@ T.test("KAI's wave: thin out of his palms, then wide, its edges rippling and mov
 	expect(moved / 21 > 0.03, "the ripples stand still")
 end)
 
+-- KAI's ball of ki, its look (Wilhem's drawing): loops of ki round a core, each in its own
+-- plane, never round, turning; sparks flickering round the core, never in it nor far out.
+T.test("KAI's ball of ki: loops never round and turning, sparks flickering round the core (Wilhem's drawing)", function()
+	local KiBall = require("../src/shared/KiBall")
+	for i = 1, #KiBall.LOOPS do
+		for _, time in { 0, 0.4, 1.3 } do
+			local lo, hi = math.huge, -math.huge
+			for k = 0, 47 do
+				local r = KiBall.loopRadius(i, k / 48 * math.pi * 2, time)
+				lo, hi = math.min(lo, r), math.max(hi, r)
+			end
+			expect(lo >= 0.45 and hi <= 1.35, string.format("loop %d: from %.2f to %.2f of the ball", i, lo, hi))
+			expect(hi - lo >= 0.08, string.format("loop %d is round", i))
+		end
+		local rx0, ry0, s0 = KiBall.loopPlane(i, 0.5)
+		local rx1, ry1, s1 = KiBall.loopPlane(i, 0.6)
+		expect(math.abs(s1 - s0) > 0.3 and (math.abs(rx1 - rx0) + math.abs(ry1 - ry0)) > 0.01, string.format("loop %d stands still", i))
+	end
+	for _, time in { 0, 0.7, 1.9 } do
+		for i = 1, #KiBall.LOOPS do
+			for j = i + 1, #KiBall.LOOPS do
+				local ax, ay, az = KiBall.loopNormal(i, time)
+				local bx, by, bz = KiBall.loopNormal(j, time)
+				local angle = math.deg(math.acos(math.clamp(math.abs(ax * bx + ay * by + az * bz), 0, 1)))
+				expect(angle >= 20, string.format("t %.1f: loops %d and %d nearly in one plane (%.0f°)", time, i, j, angle))
+			end
+		end
+	end
+	local moved = 0
+	for k = 1, KiBall.SPARKS do
+		for _, time in { 0, 0.25, 0.9 } do
+			local x, y, z, length = KiBall.spark(k, time)
+			local d = math.sqrt(x * x + y * y + z * z)
+			expect(d >= 0.3 and d <= 1.15 and length > 0 and length < 0.5, string.format("spark %d at %.2f of the ball", k, d))
+		end
+		local x0 = KiBall.spark(k, 0.1)
+		local x1 = KiBall.spark(k, 0.3)
+		if x0 ~= x1 then moved += 1 end
+	end
+	expect(moved >= KiBall.SPARKS - 1, "the sparks do not flicker")
+end)
+
+-- KAI's wave in 3D (Wilhem: « un beau modèle 3D du rayon, fluide »): its strands of light wind
+-- round the body, just outside it and inside its glow, each its own way round, and they flow
+-- AWAY from his palms (the helix slides toward the wave's front as time runs).
+T.test("KAI's wave in 3D: strands wound round its body, outside it, flowing away from his palms", function()
+	local KiBall = require("../src/shared/KiBall")
+	local tau = math.pi * 2
+	for i = 1, KiBall.STRANDS do
+		for _, time in { 0, 0.6, 1.7 } do
+			for k = 0, 20 do
+				local u = 0.05 + 0.95 * k / 20
+				local _, dist = KiBall.strand(i, u, time)
+				local body = KiBall.beam(u, time)
+				expect(dist > body * 0.95 and dist < body * 1.5,
+					string.format("strand %d at u %.2f: %.2f against a body of %.2f", i, u, dist, body))
+			end
+		end
+		-- (flowing away: where the strand was at u, it is a little further on a moment later)
+		local dt = 0.05
+		local du = 1.4 / KiBall.TURNS * dt
+		local a0 = KiBall.strand(i, 0.4, 1)
+		local a1 = KiBall.strand(i, 0.4 + du, 1 + dt)
+		local diff = math.abs(((a1 - a0) + math.pi) % tau - math.pi)
+		expect(diff < 1e-6, string.format("strand %d does not flow away from his palms", i))
+	end
+	local first = KiBall.strand(1, 0.5, 0)
+	local second = KiBall.strand(2, 0.5, 0)
+	expect(math.abs(((second - first) + math.pi) % tau - math.pi) > 1, "two strands on top of each other")
+	expect(KiBall.HEAD == nil, "a ball at the wave's front: a ray to its end (Wilhem)")
+	expect(KiBall.MOUTH > 1, "no flare at his palms")
+end)
+
 T.finish()

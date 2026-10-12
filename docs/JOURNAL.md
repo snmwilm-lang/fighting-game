@@ -1,5 +1,25 @@
 # Journal du projet — état à transmettre
 
+## Version 0.29.0 — 12 octobre 2026 · FATAL FINISHERS : YUKINA, VENOM, GORAN
+
+Quatrième lot de trois (même règle de déclenchement).
+
+- **YUKINA · FROZEN REQUIEM** (10,7 s) : la dernière valse de l'impératrice du givre. La neige tombe, ses éventails s'ouvrent ; elle valse autour de la cible par trois temps (un, deux, trois), la caméra tourne avec elle ; chaque troisième coupe est un GEL PROFOND : la glace monte sur la cible (pieds, taille, poitrine), trois anneaux de givre ; la statue : gelée entière sous une coque de glace, silence, son visage derrière la glace ; YUKINA lui tourne le dos et s'éloigne ; l'éventail se referme d'un coup sec : derrière elle, la statue vole en éclats ; la neige, son salut.
+- **VENOM · TOXIC FEAST** (10,3 s) : le prédateur et sa proie. La brume monte, il s'y enfonce ; par-dessus son épaule il rôde derrière la proie, d'un bord à l'autre ; trois frappes jaillissent de la brume, chacune une dose de poison (CONTAMINATION : les particules vertes grandissent dans la proie, sa vue se trouble) ; le poison la met à genoux, il tourne plus près ; il bondit d'en haut ; l'éclat vert balaie la brume : il est accroupi sur elle.
+- **GORAN · TITAN QUAKE** (10,7 s) : le poids du titan. Trois coups de marteau sur le sol : tout le ring saute, la cible rebondit plus haut à chaque fois ; il la rattrape au-dessus de sa tête ; l'« airplane spin », de plus en plus vite, la poussière tourbillonne à ses pieds ; il saute et la ramène dans le sol : le ring saute une dernière fois ; il reste debout dans la poussière.
+
+**Fichiers** : `Finishers.luau` (trois scènes, aide `circle` : un perso sur un cercle des deux côtés de la ligne, face au centre), `MoveData` (champ `Finisher` de YUKINA, VENOM, GORAN), `Locale` (REQUIEM DE GLACE, FESTIN TOXIQUE, SÉISME DU TITAN).
+
+**Tests** : CombatSimulation 169, Cinematography 312 (les douze finishers ; la caméra de VENOM accrochée à son corps tel qu'il est dessiné, pour ne jamais rentrer dedans quand il revient de la brume), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2. Planches relues (la course de GORAN, qui glissait bras levés, remplacée par l'airplane spin ; le piétinement par trois coups de marteau, son vrai coup ; la vue subjective de VENOM remplacée par un plan par-dessus l'épaule : TARO garde la seule vue subjective). Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+
+**Équilibrage 0.26.0** (`-a 4 120`, terminé pendant ce lot) : tous entre 35 et 65 % (SHIN 37 à KUROEN 64), chiffres dans l'entrée 0.26.0.
+
+**À vérifier dans Studio** : la coque de glace (dôme ForceField bleu) et les cristaux (`iceGarden`) de YUKINA, la brume (`smoke`) de VENOM, les ondes du sol (`slamQuake`, `titanRing`) de GORAN.
+
+**Problèmes ouverts** : 10 persos (bosses compris) ont encore le fatal classique.
+
+**Prochaine étape** : ASTER, HIBIKI, KAZAN.
+
 ## Version 0.28.0 — 12 octobre 2026 · FATAL FINISHERS : DAICHA, HIBECARES, RAIJIN
 
 Troisième lot de trois (même règle : COUP FATAL qui tue + un round déjà gagné, sinon le fatal classique). Chacun reprend le cœur du perso et reste différent de son fatal classique.
@@ -101,9 +121,9 @@ Wilhem : « les chopes, j'en veux des uniques par perso ». Jusqu'ici, 6 styles 
 
 **Fichiers** : `MoveData`, `PoseLibrary`, `CombatSimulation`, `CombatConfig`, `Animator` ; client `init.client` ; tests `CombatSimulation` (5 tests de chope réécrits), `ClipKit`.
 
-**Tests** : CombatSimulation 167, Animation 58, FighterAI 19, CinematicDirector 872, Cinematography 312, PressQueue 4, Fuzz 2, Lobby 46, Kits (relancé, voir plus bas). Planches de chaque chope (`luau tests/AnimClip.luau -a KIT grab 60 3 2`) relues image par image. Non vérifié dans Studio.
+**Tests** : CombatSimulation 167, Animation 58, FighterAI 19, CinematicDirector 872, Cinematography 312, PressQueue 4, Fuzz 2, Lobby 46, Kits 130. Planches de chaque chope (`luau tests/AnimClip.luau -a KIT grab 60 3 2`) relues image par image. Non vérifié dans Studio.
 
-**Équilibrage** (`-a 4 120`) : relancé (le premier passage a été interrompu).
+**Équilibrage** (`-a 4 120`, LÉGENDE, sur cette version) : tous entre 35 et 65 %. KAI 58, TARO 58, ZEPHYR 46, AKEMI 58, RYUKEN 53, SHIN 37 (le plus bas), DAICHA 46, HIBECARES 50, RAIJIN 43, YUKINA 46, VENOM 60, GORAN 55, ASTER 45, HIBIKI 56, KAZAN 46, KUREN 44, SYLVA 44, ELIAN 46, NOVA 46, KUROEN 64 % (le plus haut). Duels les plus déséquilibrés : KUROEN contre HIBECARES 83 %, contre DAICHA 82 %.
 
 **Problèmes ouverts**
 - Les armes (lance de RAIJIN, griffes de KAZAN, éventails de YUKINA) suivent les mains telles quelles pendant les chopes : la lance de RAIJIN plantée vers le bas est approximative.

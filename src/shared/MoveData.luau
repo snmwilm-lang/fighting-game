@@ -1265,6 +1265,8 @@ third("YUKINA", {
 	Stats = { MaxHealth = 1250, WalkSpeed = 17.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 42 },
 	Passive = { Type = "Frost", Name = "DEEP FREEZE", Stacks = 3, Slow = 0.2, SlowTicks = 180 },
 	GateTitle = { text = "氷獄", sub = "ETERNAL PRISON" },
+	-- FATAL FINISHER (Finishers.luau): the last waltz: the ice climbs the target, the statue shatters behind her back.
+	Finisher = { Name = "FROZEN REQUIEM", Length = 640, FinalTick = 460 },
 })
 third("VENOM", {
 	Kanji = "毒", Role = "ATTRITION", Difficulty = 2, Energy = "7CFF4A", Light = "C8FF9A",
@@ -1272,6 +1274,8 @@ third("VENOM", {
 	Stats = { MaxHealth = 1350, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
 	Passive = { Type = "Poison", Name = "CONTAMINATION", Max = 3, PerCharge = 6, Interval = 30, Duration = 180 },
 	GateTitle = { text = "毒王", sub = "VENOM KING" },
+	-- FATAL FINISHER (Finishers.luau): the hunt in the mist, three doses of poison, the pounce.
+	Finisher = { Name = "TOXIC FEAST", Length = 620, FinalTick = 450 },
 })
 third("GORAN", {
 	Kanji = "剛", Role = "GRAPPLER", Difficulty = 2, Energy = "FF4A3A", Light = "FFB0A0",
@@ -1280,6 +1284,8 @@ third("GORAN", {
 	Stats = { MaxHealth = 1700, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
 	Passive = { Type = "Anchor", Name = "ANCHOR", Heavy = 60, Absorb = 1 },
 	GateTitle = { text = "巨神", sub = "FALL OF THE TITAN" },
+	-- FATAL FINISHER (Finishers.luau): three stomps, the catch, the run across the ring, the leap, the slam.
+	Finisher = { Name = "TITAN QUAKE", Length = 640, FinalTick = 470 },
 })
 third("ASTER", {
 	Kanji = "星", Role = "GRAVITY", Difficulty = 3, Energy = "B49CFF", Light = "E8E0FF",

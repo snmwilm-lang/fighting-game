@@ -1481,6 +1481,403 @@ function Finishers.build(T)
 		end
 	end
 
+
+	-- Places a view on a circle round (cx, 0), on both sides of the line, facing the centre.
+	local function circle(view, cx, dir, angle, radius, y)
+		view.x = cx - dir * math.cos(angle) * radius
+		view.z = -math.sin(angle) * radius
+		view.y = y or 0
+		local lx, lz = cx - view.x, -view.z
+		local l = math.max(1e-3, math.sqrt(lx * lx + lz * lz))
+		view.lookDir, view.facing = v(lx / l, 0, lz / l), if lx >= 0 then 1 else -1
+	end
+
+	-- ================================================================ YUKINA · FROZEN REQUIEM
+	-- The last waltz of the frost empress. 0:00 the snow falls, her fans open · 0:01 the waltz:
+	-- round the target in threes, one-two-three, every third cut a DEEP FREEZE: the ice climbs
+	-- it, feet, waist, chest · 0:05 the statue: frozen whole, silence, its face behind the ice ·
+	-- 0:06 she turns her back and walks away · 0:07 the fan snaps shut: behind her, the statue
+	-- shatters · 0:09 the snow, her bow.
+	local YUKINA_CUTS = { "Jab", "Cross", "SpinKick", "Elbow", "Cross", "Kick", "Jab", "SpinKick", "Kick" }
+	function S.YUKINA(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 460
+		local ICE = "BFEFFF"
+		frame.grade.frost = true
+		d.x, d.facing = cx, -dir
+		-- the snow, all along
+		if tick < F + 160 then
+			shape(frame, { kind = "motes", pos = At(v(cx, 7, 0)), radius = 11, count = 30, color = "FFFFFF", phase = tick / 200 })
+		end
+		-- the ice that has climbed it so far (DEEP FREEZE: three stacks)
+		local stacks = 0
+		for i, t in { 150, 210, 270 } do
+			if tick >= t then stacks = i end
+		end
+		if tick < 90 then
+			-- the snow falls; her fans open
+			a.x, a.z, a.facing, a.pose = cx - dir * 3.4, nil, dir, if tick < 40 then "Sheathe" else "WindGather"
+			d.state = "Hitstun"
+			if tick == 40 then sfx(frame, "fr-open", "whoosh") end
+			frame.shot = frameOn("yukina-fr-snow", dir, { a }, { yaw = lerp(-40, -16, progress(tick, 0, 90)), pitch = 4, fill = 0.75, fov = 36,
+				focus = P(A, "Head") })
+		elseif tick < 300 then
+			-- the waltz: round the target in threes; every third cut, the ice climbs it
+			local t = tick - 90
+			local beat = t // 20 -- (one, two, three...)
+			local age = t % 20
+			local angle = (t / 210) * math.pi * 1.6 + 0.2
+			circle(a, cx, dir, angle, 3.1, 0)
+			local third = beat % 3 == 2
+			if age < 8 then
+				attack(a, moves, T.role(ctx, YUKINA_CUTS[beat % #YUKINA_CUTS + 1]), age >= 2)
+			else
+				a.state, a.move, a.vx = "Walking", nil, 1.5
+			end
+			if age == 3 then
+				sfx(frame, "fr-cut" .. beat, if third then "slash" else "whoosh")
+				local ux, uz = cx - a.x, -(a.z or 0)
+				table.insert(frame.fx, { key = "fr-shard" .. beat, kind = "iceShard", from = v(a.x, 3.6, a.z or 0), to = v(cx + ux * 0.4, 3.2, uz * 0.4),
+					color = ICE })
+				if third then
+					table.insert(frame.fx, { key = "fr-bloom" .. beat, kind = "frostBloom", pos = v(cx, 3.2, 0.6), color = ICE })
+				end
+			end
+			d.pose = if stacks >= 3 then "HitHigh" elseif age < 6 then (if beat % 2 == 0 then "HitBody" else "HitHigh") else nil
+			d.hitstop = if stacks >= 3 then 1 else 0
+			if t > 0 and tick % 60 == 30 then table.insert(frame.fx, { key = "fr-ice" .. tick, kind = "iceGarden", pos = v(cx, 0, 0), radius = 1.2,
+				count = 2 + stacks * 2, color = ICE, life = 6 }) end
+			for i = 1, stacks do
+				shape(frame, { kind = "ring", pos = At(v(cx, 0.4 + (i - 1) * 1.6, 0)), normal = v(0, 1, 0), radius = 1.3, width = 0.18, color = ICE, alpha = 0.3 })
+			end
+			-- (the camera waltzes with her: it turns as she turns, always three quarters on the pair)
+			frame.shot = frameOn("yukina-fr-waltz", dir, { a, d }, { yaw = 30 - math.deg(angle), pitch = 20, fill = 0.7, fov = 40,
+				roll = 4 * math.sin(tick / 40), focus = P(D, "UpperTorso") })
+		elseif tick < 380 then
+			-- the statue: frozen whole; silence; its face behind the ice
+			a.x, a.z, a.facing, a.state, a.move, a.pose = cx - dir * 2.6, -1.6, dir, "Idle", nil, "WindGather"
+			d.state, d.pose, d.hitstop = "Hitstun", "HitHigh", 1
+			overlay(frame).desat = 0.3
+			shape(frame, { kind = "dome", pos = At(v(cx, 2.4, 0)), radius = 2.6, color = ICE, alpha = 0.45 })
+			if tick == 300 then sfx(frame, "fr-freeze", "charge") end
+			if tick < 340 then
+				local q = smooth(progress(tick, 300, 340))
+				frame.shot = shot("yukina-fr-face", P(D, "Head", v(-dir * lerp(3.4, 2.8, q), 0.3, lerp(4.4, 3.8, q))), P(D, "Head"), 34, 0, P(D, "Head"))
+				frame.shot.close = true
+			else
+				frame.shot = frameOn("yukina-fr-statue", dir, { a, d }, { yaw = 40, pitch = 8, fill = 0.65, fov = 38, focus = P(D, "UpperTorso") })
+			end
+		elseif tick < F then
+			-- she turns her back and walks away; the fan snaps shut
+			local p = progress(tick, 380, 440)
+			d.state, d.pose, d.hitstop = "Hitstun", "HitHigh", 1
+			overlay(frame).desat = 0.3
+			shape(frame, { kind = "dome", pos = At(v(cx, 2.4, 0)), radius = 2.6, color = ICE, alpha = 0.45 })
+			a.z, a.facing, a.lookDir = -1.6 * (1 - p), -dir, nil
+			if tick < 440 then
+				a.x, a.state, a.move, a.vx = cx - dir * lerp(2.6, 6.2, p), "Walking", nil, -dir * 2
+			else
+				a.x, a.state, a.move, a.pose = cx - dir * 6.2, "Idle", nil, "Sheathe"
+			end
+			-- (her back in front, the statue behind her)
+			frame.shot = frameOn("yukina-fr-away", dir, { a, d }, { yaw = -24, pitch = 4, fill = 0.7, fov = 36, focus = P(A, "Head") })
+		else
+			-- behind her, the statue shatters; the snow; her bow
+			local age = tick - F
+			a.x, a.z, a.facing, a.lookDir = cx - dir * 6.2, nil, -dir, nil
+			a.state, a.move, a.pose = "Idle", nil, if age < 90 then "Sheathe" else "WindGather"
+			d.hitstop = 0
+			T.FATAL.fall(ctx.cin, d, tick, F + 8, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if age == 0 then
+				sfx(frame, "fr-snap", "slash")
+				sfx(frame, "fr-shatter", "boom")
+				frame.impact = { key = "fr-shatter", color = "FFFFFF" }
+				table.insert(frame.fx, { key = "fr-shards", kind = "debris", pos = v(cx, 2.6, 0), color = ICE, scale = 2 })
+				for i = 0, 5 do
+					local angle = i * math.pi / 3 + 0.3
+					table.insert(frame.fx, { key = "fr-fly" .. i, kind = "iceShard", from = v(cx, 2.6, 0),
+						to = v(cx + math.cos(angle) * 6, 2.6 + math.sin(angle) * 3, math.sin(angle * 2) * 3), color = ICE })
+				end
+			end
+			if age < 30 then
+				local q = age / 30
+				shape(frame, { kind = "sphere", pos = At(v(cx, 2.6, 0)), radius = lerp(2.6, 4.4, q), color = ICE, core = 1 - q })
+				shape(frame, { kind = "ring", pos = At(v(cx, 0.2, 0)), normal = v(0, 1, 0), radius = lerp(2, 12, smooth(q)), width = 0.3, color = ICE, alpha = q })
+			end
+			if age < 50 then
+				frame.shot = frameOn("yukina-fr-shatter", dir, { a, d }, { yaw = -24, pitch = 4, fill = 0.7, fov = 36, focus = P(A, "Head") })
+			else
+				frame.shot = frameOn("yukina-fr-after", dir, { a, d }, { yaw = 30, pitch = 6, fill = 0.55, fov = 38, focus = P(A, "UpperTorso") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ VENOM · TOXIC FEAST
+	-- The predator and its prey. 0:00 the mist rises, he sinks into it · 0:01 low over his
+	-- shoulder: he prowls behind the prey in the mist · 0:02 three strikes out of the mist, each one a dose
+	-- of poison (CONTAMINATION), the prey's sight swims · 0:05 the poison takes it: it falls to
+	-- one knee; he circles closer · 0:07 the pounce from above · 0:08 the green burst blows the
+	-- mist away: he crouches over it.
+	local VENOM_STRIKES = { { 150, "Elbow", 1.2 }, { 200, "SpinKick", 3.1 }, { 250, "Uppercut", 5.0 } }
+	function S.VENOM(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 450
+		frame.grade.toxic = true
+		d.x = cx
+		local doses = 0
+		for i, s_ in VENOM_STRIKES do
+			if tick >= s_[1] + 2 then doses = i end
+		end
+		-- the mist
+		if tick < F and tick % 18 == 0 then
+			table.insert(frame.fx, { key = "tf-mist" .. tick, kind = "smoke", pos = v(cx + math.cos(tick) * 4, 0.8, math.sin(tick * 0.7) * 3) })
+		end
+		-- the poison in the prey: its green motes, more with every dose
+		if doses > 0 and tick < F + 20 then
+			shape(frame, { kind = "motes", pos = P(D, "UpperTorso"), radius = 1.2 + 0.3 * doses, count = 6 * doses, color = color, phase = tick / 30 })
+		end
+		if tick < 60 then
+			-- the mist rises; he sinks into it
+			a.x, a.z, a.facing = cx - dir * 4, nil, dir
+			a.pose = "Roar"
+			d.state, d.facing = "Idle", -dir
+			frame.shot = frameOn("venom-tf-mist", dir, { a }, { yaw = -40, pitch = -6, band = "bust", fill = 0.85, fov = 32, focus = P(A, "Head") })
+		elseif tick < 300 then
+			-- through his eyes he circles it; three strikes out of the mist
+			local striking, after = nil, nil
+			for i, s_ in VENOM_STRIKES do
+				if tick >= s_[1] - 6 and tick < s_[1] + 14 then striking = i end
+				if tick >= s_[1] + 14 and tick < s_[1] + 26 then after = i end
+			end
+			d.state = "Hitstun"
+			d.facing = -dir
+			if striking then
+				local s_ = VENOM_STRIKES[striking]
+				local age = tick - s_[1]
+				circle(a, cx, dir, s_[3], 2.8, 0)
+				attack(a, moves, T.role(ctx, s_[2]), age >= 0)
+				if age == 0 then
+					sfx(frame, "tf-claw" .. striking, "slash")
+					local ux, uz = cx - a.x, -(a.z or 0)
+					local l = math.max(1e-3, math.sqrt(ux * ux + uz * uz))
+					ux, uz = ux / l, uz / l
+					table.insert(frame.fx, { key = "tf-rend" .. striking, kind = "venomClaw", from = v(cx - ux * 1.4 - uz, 4.4, -uz * 1.4 + ux),
+						to = v(cx + ux * 1.4 + uz, 2.4, uz * 1.4 - ux), color = color })
+					T.spark(frame, "tf-dose" .. striking, v(cx, 3.4, 0.4), color, 1)
+				end
+				d.pose = if age >= 0 and age < 10 then (if striking % 2 == 0 then "HitBody" else "HitHigh") else nil
+				if age >= 0 then overlay(frame).blur = 0.3 * math.exp(-age / 6) end
+				local yaws = { 34, -40, 60 }
+				frame.shot = frameOn("venom-tf-strike" .. striking, dir, { a, d }, { yaw = yaws[striking], pitch = 6, fill = 0.75, fov = 40,
+					focus = P(D, "UpperTorso") })
+			else
+				-- (between strikes he is only eyes in the mist, circling low)
+				-- (he prowls back and forth behind it, on a half ellipse that the walls never squeeze
+				-- onto the prey)
+				local cfg = ctx.config
+				local rx = math.clamp(math.min(cfg.ArenaMaxX - 1 - cx, cx - cfg.ArenaMinX - 1), 0, 7)
+				local sweep = 0.5 - 0.5 * math.cos((tick - 60) / 120 * math.pi)
+				local angle = math.pi * (0.15 + 0.7 * sweep)
+				a.x, a.z = cx - dir * math.cos(angle) * rx, -math.sin(angle) * 7.5
+				local lx, lz = cx - a.x, -a.z
+				local l = math.max(1e-3, math.sqrt(lx * lx + lz * lz))
+				a.lookDir, a.facing = v(lx / l, 0, lz / l), if lx >= 0 then 1 else -1
+				a.state, a.move, a.vx = "Walking", nil, 2
+				local sway = math.sin(tick / 7) * 0.12
+				local look = a.lookDir
+				-- (over his shoulder: his silhouette at the edge of the mist, the prey in the middle)
+				-- (hung on his body as drawn, which catches up when he slips back into the mist)
+				frame.shot = shot("venom-tf-prowl", P(A, "UpperTorso", v(-look.x * 3.6 - look.z * 2.6, 0.6 + sway, -look.z * 3.6 + look.x * 2.6)),
+					P(D, "UpperTorso", v(0, -0.4, 0)), 50, math.rad(4 * math.sin(tick / 11)), P(D, "UpperTorso"))
+				if doses > 0 then overlay(frame).blur = 0.15 * doses * (0.5 + 0.5 * math.sin(tick / 9)) end
+				if after then
+					-- (he slips back into the mist: the strike's shot holds while he goes)
+					local yaws = { 34, -40, 60 }
+					frame.shot = frameOn("venom-tf-strike" .. after, dir, { a, d }, { yaw = yaws[after], pitch = 6, fill = 0.75, fov = 40,
+						focus = P(D, "UpperTorso") })
+				end
+			end
+		elseif tick < 400 then
+			-- the poison takes it: one knee down; he circles closer, in the open
+			d.state, d.pose, d.facing = "Hitstun", "Kneel", -dir
+			local angle = (tick - 300) / 100 * math.pi * 0.9 + 0.5
+			circle(a, cx, dir, angle, lerp(4.6, 3.4, progress(tick, 300, 400)), 0)
+			a.state, a.move, a.vx = "Walking", nil, 1.2
+			overlay(frame).blur = 0.25 * (0.5 + 0.5 * math.sin(tick / 9))
+			frame.shot = frameOn("venom-tf-kneel", dir, { a, d }, { yaw = lerp(-20, 20, progress(tick, 300, 400)), pitch = 18, fill = 0.7, fov = 40,
+				focus = P(D, "Head") })
+		elseif tick < F then
+			-- the pounce from above
+			local q = progress(tick, 400, F)
+			d.state, d.pose, d.facing = "Hitstun", "Kneel", -dir
+			a.z, a.lookDir, a.facing = nil, nil, dir
+			a.x = lerp(cx - dir * 4.2, cx - dir * 1.2, q)
+			a.y = 7 * math.sin(q * math.pi * 0.85)
+			attack(a, moves, T.role(ctx, "AirSmash"), q > 0.7)
+			if tick == 400 then sfx(frame, "tf-leap", "whoosh") end
+			frame.shot = frameOn("venom-tf-pounce", dir, { a, d }, { yaw = 40, pitch = -24, fill = 0.75, fov = 42, focus = P(A, "UpperTorso") })
+		else
+			-- the green burst blows the mist away; he crouches over it
+			local age = tick - F
+			a.x, a.y, a.z, a.facing = cx - dir * 1.2, 0, nil, dir
+			if age < 30 then attack(a, moves, T.role(ctx, "AirSmash"), true) else a.state, a.move, a.pose = "Idle", nil, if age < 110 then "Roar" else nil end
+			d.y = 0
+			T.FATAL.fall(ctx.cin, d, tick, F + 4, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if age == 0 then
+				sfx(frame, "tf-feast", "boom")
+				T.impact(frame, "tf-feast", v(cx, 1.4, 0.6), color, 3)
+				table.insert(frame.fx, { key = "tf-cloud", kind = "venomCloud", pos = v(cx, 1, 0), color = color })
+			end
+			for i = 0, 1 do
+				local r = progress(tick, F + i * 8, F + 60 + i * 8)
+				if r > 0 and r < 1 then
+					shape(frame, { kind = "ring", pos = At(v(cx, 0.4 + i * 1.2, 0)), normal = v(0, 1, 0), radius = lerp(2, 15, smooth(r)), width = 0.35,
+						color = color, alpha = r })
+				end
+			end
+			if age < 60 then
+				shape(frame, { kind = "motes", pos = At(v(cx, 1.5, 0)), radius = 7, count = 24, color = color, phase = age / 40, out = true })
+			end
+			if age < 50 then
+				frame.shot = frameOn("venom-tf-burst", dir, { a, d }, { yaw = 26, pitch = 12, fill = 0.6, fov = 42, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("venom-tf-after", dir, { a, d }, { yaw = -30, pitch = -6, fill = 0.65, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ GORAN · TITAN QUAKE
+	-- The titan's weight. 0:00 three hammer blows on the deck: the whole ring jumps, the target
+	-- bounces higher each time · 0:03 he catches it over his head · 0:04 the airplane spin,
+	-- faster and faster, the dust whirling round his feet · 0:06 he leaps · 0:07 he brings it
+	-- down into the deck: the ring jumps one last time · 0:09 he stands in the dust.
+	function S.GORAN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local cfg = ctx.config
+		local F = 470
+		-- (the leap needs room: the scene starts back from the wall)
+		local room = 8
+		local ax0 = if dir > 0 then math.min(cx - 2.6, cfg.ArenaMaxX - 1 - room) else math.max(cx + 2.6, cfg.ArenaMinX + 1 + room)
+		ax0 = inside(ctx, ax0)
+		local dx0 = ax0 + dir * 2.6
+		local runTo = inside(ctx, ax0 + dir * 3)
+		frame.grade.titan = true
+		local stomps = { 30, 70, 110 }
+		if tick < 140 then
+			-- three hammer blows on the deck: the ring jumps; the target bounces higher each time
+			a.x, a.facing = ax0, dir
+			d.x, d.facing, d.state = dx0, -dir, "Hitstun"
+			local k, age = 0, 99
+			for i, t in stomps do
+				if tick >= t - 10 then k, age = i, tick - t end
+			end
+			if k > 0 and age < 12 then
+				attack(a, moves, T.role(ctx, "Hammer"), age >= 0)
+			else
+				a.state, a.move, a.pose = "Idle", nil, "Colossus"
+			end
+			if k > 0 and age >= 0 then
+				local h = ({ 0.8, 1.6, 3.2 })[k]
+				local up = math.max(0, math.sin(math.min(1, age / 30) * math.pi))
+				d.y, d.pose = h * up, if up > 0.05 then "Launched" else nil
+				if k == 3 and age >= 15 then d.y = h end
+			end
+			if k > 0 and age == 0 then
+				sfx(frame, "tq-stomp" .. k, "boom")
+				table.insert(frame.fx, { key = "tq-quake" .. k, kind = "slamQuake", pos = v(ax0, 0, 0), color = color, scale = 0.6 + 0.3 * k })
+				table.insert(frame.fx, { key = "tq-ring" .. k, kind = "titanRing", pos = v(ax0, 0, 0), color = color })
+			end
+			frame.quake = if k > 0 and age >= 0 and age < 8 then 0.3 * k else nil
+			-- (very low, at his feet)
+			frame.shot = frameOn("goran-tq-pound", dir, { a, d }, { yaw = -10, pitch = -20, fill = 0.75, fov = 40, focus = P(A, "UpperTorso") })
+		elseif tick < 240 then
+			-- he catches it over his head
+			local q = smooth(progress(tick, 140, 170))
+			a.x, a.facing = ax0, dir
+			d.x, d.facing, d.state, d.pose = lerp(dx0, ax0 + dir * 0.3, q), -dir, "Hitstun", "Launched"
+			d.y = lerp(3.2, 5.6, q)
+			attack(a, moves, T.role(ctx, "Hammer"), false)
+			if tick == 170 then sfx(frame, "tq-catch", "heavy") end
+			frame.shot = frameOn("goran-tq-catch", dir, { a, d }, { yaw = 30, pitch = -20, fill = 0.62, fov = 40, focus = P(A, "Head") })
+		elseif tick < 380 then
+			-- the airplane spin, faster and faster; the dust whirls round his feet
+			local q = progress(tick, 240, 380)
+			local turn = math.pi * 2 * 2.5 * q * q
+			local fx, fz = math.cos(turn) * dir, math.sin(turn)
+			a.x, a.lookDir, a.facing = ax0, v(fx, 0, fz), if fx >= 0 then 1 else -1
+			attack(a, moves, T.role(ctx, "Hammer"), false)
+			d.x, d.z, d.y = ax0 + fx * 0.3, fz * 0.3, 5.6
+			d.lookDir, d.facing, d.state, d.pose = v(-fz, 0, fx), if -fz >= 0 then 1 else -1, "Hitstun", "Launched"
+			shape(frame, { kind = "motes", pos = At(v(ax0, 0.6, 0)), radius = 3.2, count = 22, color = color, phase = tick / 12, out = true })
+			if tick % 20 == 0 then sfx(frame, "tq-spin" .. tick, "whoosh") end
+			if q > 0.4 then frame.speedLines = color end
+			frame.shot = frameOn("goran-tq-spin", dir, { a, d }, { yaw = 16, pitch = -12, fill = 0.62, fov = 42, focus = P(A, "Head") })
+		elseif tick < F then
+			-- he leaps; he brings it down
+			local q = progress(tick, 380, F)
+			local arc = math.sin(q * math.pi)
+			a.x, a.facing = lerp(ax0, runTo, q), dir
+			a.y = 6 * arc
+			d.z, d.lookDir = nil, nil
+			d.x, d.facing, d.state, d.pose = a.x + dir * lerp(0.3, 1.8, q), -dir, "Hitstun", "Launched"
+			d.y = a.y + lerp(5.6, 2, q * q)
+			attack(a, moves, T.role(ctx, "Hammer"), q > 0.6)
+			if tick == 380 then sfx(frame, "tq-leap", "whoosh") end
+			frame.shot = frameOn("goran-tq-leap", dir, { a, d }, { yaw = 20, pitch = -34, fill = 0.6, fov = 44, focus = P(A, "Head") })
+		else
+			-- the ring jumps one last time; he stands in the dust
+			local age = tick - F
+			a.x, a.y, a.facing = runTo, 0, dir
+			if age < 50 then attack(a, moves, T.role(ctx, "Hammer"), true) else a.state, a.move, a.pose = "Idle", nil, "Colossus" end
+			d.x, d.facing = runTo + dir * 1.8, -dir
+			d.y = 0
+			if age < 26 then d.state, d.pose = "Hitstun", "DownImpact" else
+				T.FATAL.fall(ctx.cin, d, tick, F + 26, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age == 0 then
+				sfx(frame, "tq-slam", "boom")
+				frame.impact = { key = "tq-slam", color = "FFFFFF" }
+				T.impact(frame, "tq-slam", v(d.x, 0.8, 0.6), color, 3.4)
+				table.insert(frame.fx, { key = "tq-quakeF", kind = "slamQuake", pos = v(d.x, 0, 0), color = color, scale = 2 })
+				table.insert(frame.fx, { key = "tq-ringF", kind = "titanRing", pos = v(d.x, 0, 0), color = color })
+				for i = 0, 7 do
+					local angle = i * math.pi / 4 + 0.3
+					table.insert(frame.fx, { key = "tq-web" .. i, kind = "crack", from = v(d.x, 0.05, 0),
+						to = v(d.x + math.cos(angle) * 7, 0.05, math.sin(angle) * 4), color = color })
+				end
+				table.insert(frame.fx, { key = "tq-dust", kind = "dust", pos = v(d.x, 0, 0), direction = dir })
+			end
+			for i = 0, 2 do
+				local r = progress(tick, F + i * 6, F + 60 + i * 6)
+				if r > 0 and r < 1 then
+					shape(frame, { kind = "ring", pos = At(v(d.x, 0.15, 0)), normal = v(0, 1, 0), radius = lerp(2, 20, smooth(r)), width = 0.45,
+						color = if i == 1 then "FFFFFF" else color, alpha = r })
+				end
+			end
+			frame.quake = if age < 14 then 1 else nil
+			if age < 46 then
+				frame.shot = frameOn("goran-tq-slam", dir, { a, d }, { yaw = 30, pitch = 22, fill = 0.55, fov = 44, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("goran-tq-after", dir, { a, d }, { yaw = -34, pitch = -14, fill = 0.65, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 46, color)
+		end
+	end
+
 	return S
 end
 

@@ -2170,6 +2170,11 @@ local function stepThrow(world, events)
 	a.state, a.vx, a.vy = "Throwing", 0, 0
 	if not t.released then
 		local dx, dy = world.moveData.throwAt(t.style, t.tick)
+		-- (against a wall the throw carries both away from it: the thrower gives ground, the
+		-- victim keeps its path, a suplex lands behind even with the thrower's back to the wall)
+		local want = a.x + a.facing * dx
+		if want < c.ArenaMinX then a.x += c.ArenaMinX - want elseif want > c.ArenaMaxX then a.x -= want - c.ArenaMaxX end
+		a.x = math.clamp(a.x, c.ArenaMinX, c.ArenaMaxX)
 		d.x = math.clamp(a.x + a.facing * dx, c.ArenaMinX, c.ArenaMaxX)
 		d.y = math.max(0, dy)
 		d.vx, d.vy, d.state = 0, 0, "Thrown"
@@ -2192,9 +2197,13 @@ local function stepThrow(world, events)
 						table.insert(events, { kind = "GroundBounce", attacker = a.slot, defender = d.slot, x = d.x, y = 0 })
 					end
 				else
+					-- (from where the path left it, never caught again in the air: the thrower
+					-- gets the turn, not a free combo)
+					local _, height = world.moveData.throwAt(t.style, data.impact)
 					d.launched, d.vy, d.pushVx = true, data.vy, a.facing * data.push
-					d.y = math.max(d.y, 0.3)
-					d.knockdownBonus = c.ThrowKnockdownBonus
+					d.y = math.max(height, 0.3)
+					d.juggle = math.max(d.juggle or 0, c.MaxJuggleHits)
+					d.knockdownBonus = c.ThrowLaunchKnockdownBonus or c.ThrowKnockdownBonus
 					d.state = "Launched" -- (shown so during the impact's freeze)
 				end
 			end

@@ -1,7 +1,7 @@
 -- Numeric configuration stays engine-independent so the simulation can be tested offline.
 -- Every duration is expressed in simulation ticks (1 tick = 1/60 s) unless named "Seconds".
 return table.freeze({
-	Version = "0.25.3",
+	Version = "0.26.0",
 	TickRate = 60,
 	SnapshotRate = 30,
 	MaxCatchUpSteps = 8,
@@ -25,6 +25,9 @@ return table.freeze({
 	GrabChordTicks = 6, -- a GRAB arriving this soon after a jab started (not out yet) replaces it (L + R chord)
 	GrabTechTicks = 16, -- grab against grab: both let go and step back
 	ThrowKnockdownBonus = -16, -- a throw keeps its victim down for less long than a launch (the turn, not a free combo)
+	-- a throw that sends it flying: it lay less long still (it flew), so every fighter's throw
+	-- gives about the same turn (the victim up 30-50 ticks after the thrower is free)
+	ThrowLaunchKnockdownBonus = -24,
 	MoveBufferTicks = 6, -- a jump or a dash pressed this early (moving ticks) still comes out when possible
 	DashJumpTicks = 3, -- a ground dash may be cut by a jump after this long (it keeps some speed)
 	ArenaMinX = -28,

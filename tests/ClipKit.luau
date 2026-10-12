@@ -110,7 +110,7 @@ function ClipKit.play(kitName, scriptName, poseRate, onTick)
 				local other = views[3 - i]
 				if v.state == "Thrown" and v.throwStyle ~= "" then
 					local dx, dy, dz = MoveData.throwAt(v.throwStyle, v.throwTick)
-					v.x, v.y, v.z = other.x + other.facing * dx, dy, dz
+					v.x, v.y, v.z = other.x + other.facing * dx, dy, dz * other.facing
 				end
 			end
 			local parts, poses, keys, snaps = {}, {}, {}, {}

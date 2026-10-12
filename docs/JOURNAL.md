@@ -1,5 +1,52 @@
 # Journal du projet — état à transmettre
 
+## Version 0.26.0 — 12 octobre 2026 · UNE CHOPE PROPRE À CHAQUE PERSO
+
+Wilhem : « les chopes, j'en veux des uniques par perso ». Jusqu'ici, 6 styles étaient partagés entre les 22 persos. Désormais chaque perso a sa propre projection (`MoveData.Throws[KIT]`, `PoseLibrary.Throws[KIT]`), dans sa façon de se battre.
+
+**Les 22 chopes**
+- **KAI** · SEOI NAGE : tiré sur la hanche, passé par-dessus l'épaule, plaqué ; paume du kiai vers le sol.
+- **TARO** · LE CLINCH : nuque tenue, deux uppercuts au foie, il se dégage, direct qui envoie.
+- **ZEPHYR** · TEMPÊTE : col tenu, low kick, middle kick, genou armé, coup de pied montant.
+- **AKEMI** · KOTE GAESHI : poignet pris, elle s'efface ; la victime fait un saut périlleux par-dessus son propre bras et retombe sur le dos.
+- **RYUKEN** · RAGE : trois coups au visage, le poing brisé levé, le marteau qui l'écrase au sol (rebond).
+- **SHIN** : pommeau au visage, lame levée, la coupe (garde son ancienne chope, déjà faite pour lui).
+- **DAICHA** · OMBRE INVERSÉE : paume sur la poitrine, la victime flotte, se retourne tête en bas, la main se ferme : elle tombe.
+- **HIBECARES** · GRAND SOLEIL : fauchée, prise par les chevilles, deux tours complets autour de lui (elle passe devant la caméra), lâchée au loin.
+- **RAIJIN** · FOUDRE CLOUÉE : la hampe fauche les jambes, elle tombe, la lance plantée vers le bas.
+- **YUKINA** · VALSE GELÉE : éventails croisés à la nuque, la victime gelée tourne une fois avec elle, la rafale des éventails l'envoie glisser.
+- **VENOM** · MORSURE : griffes dans les épaules, deux injections (la victime convulse), coup de pied repoussé.
+- **GORAN** · SUPLEX : ceinture, soulevé, pont : la victime passe par-dessus et retombe **derrière** lui.
+- **ASTER** · GRAVITÉ : soulevée par sa paume, écrasée, soulevée encore, écrasée encore.
+- **HIBIKI** · TROIS TEMPS : paumes sur le rythme (poitrine, visage, visage), souffle, onde des deux paumes.
+- **KAZAN** · ENTRAVE : deux griffes plantées, traînée à genoux, griffée, les serres montantes.
+- **KUREN** · DÎME DE SANG : la gorge, sa main boit à la poitrine, arrachée, le geyser de sang la projette en l'air.
+- **SYLVA** · LA CHASSE : coup derrière le genou, poussée au sol, un genou sur elle, le coup final.
+- **ELIAN** · CIEL ET TERRE : une main haute, une basse, un pas : la victime bascule en arrière, ses paumes de lumière au-dessus.
+- **NOVA** · SURCHARGE : le gantelet serre le col et soulève, deux décharges, le poing-fusée.
+- **KUROEN** · CLINCH DE L'ÉCLIPSE : genou, coude sur la tête, paume de ki à bout portant.
+- **KUROEN SHIN** · ÉCLIPSE DIVINE : soulevé d'une main par la gorge, le ki pulse deux fois, la paume qui l'envoie.
+- **ASURA** : soulevé à quatre bras au-dessus de la tête, écrasé (son ancienne chope).
+
+**Règles (simulation)**
+- Contre un mur, le lanceur recule au lieu d'écraser la victime contre le mur : la trajectoire est gardée ; le suplex de GORAN passe derrière lui même dos au mur.
+- Une projection en l'air part de la hauteur de la trajectoire (elle sautait au sol au lâcher) et la victime ne peut plus être reprise en l'air : la chope donne la main, pas un combo gratuit.
+- `ThrowLaunchKnockdownBonus = -24` : une victime projetée reste un peu moins au sol (elle a volé). Avantage après la chope pour tous les persos : 31 à 47 images (avant : jusqu'à 55 pour les projections hautes).
+- Nouveaux champs : `back` (atterrit derrière), `orbit` (grand soleil : cercle autour du lanceur, même courbe que les poses).
+- Client : la profondeur (dz) de la trajectoire suit le sens du lanceur ; l'Animator déroule aussi les saltos (tangage) avant un fondu.
+
+**Fichiers** : `MoveData`, `PoseLibrary`, `CombatSimulation`, `CombatConfig`, `Animator` ; client `init.client` ; tests `CombatSimulation` (5 tests de chope réécrits), `ClipKit`.
+
+**Tests** : CombatSimulation 167, Animation 58, FighterAI 19, CinematicDirector 872, Cinematography 312, PressQueue 4, Fuzz 2, Lobby 46, Kits (relancé, voir plus bas). Planches de chaque chope (`luau tests/AnimClip.luau -a KIT grab 60 3 2`) relues image par image. Non vérifié dans Studio.
+
+**Équilibrage** (`-a 4 120`) : relancé (le premier passage a été interrompu).
+
+**Problèmes ouverts**
+- Les armes (lance de RAIJIN, griffes de KAZAN, éventails de YUKINA) suivent les mains telles quelles pendant les chopes : la lance de RAIJIN plantée vers le bas est approximative.
+- Après une mise au sol tout près, le lanceur se penche vers sa victime (le regard suit la cible) ; c'était déjà le cas avant.
+
+**Prochaine étape** : les Fatal Finishers cinématiques (SHIN, TARO, KAI d'abord, puis trois persos à la fois).
+
 ## Version 0.25.3 — 12 octobre 2026 · LE CARRÉ BLANC DU BOUTON OUTILS
 
 Wilhem (capture) : « pourquoi il y a un rectangle blanc ? » sous le portrait, en combat.

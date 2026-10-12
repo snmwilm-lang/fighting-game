@@ -2870,50 +2870,60 @@ test("grab: a strike landing on the same tick wins; grab against grab is a tech 
 	expect(first and first.attacker == 2, "the grab beat a faster jab")
 end)
 
--- ===================================================================== THROWS (0.25.1)
-test("throws: every fighter has its own throw style, among six, and each style is complete", function()
-	local seen = {}
-	for name, kit in MoveData.Kits do
-		local style = MoveData.throwStyle(name)
-		local data = MoveData.Throws[style]
-		expect(MoveData.ThrowStyle[name] ~= nil, name .. " has no throw style of its own")
-		expect(data ~= nil, name .. ": unknown throw style " .. tostring(style))
-		seen[style] = true
-	end
+-- ===================================================================== THROWS (0.25.1, one per fighter 0.26.0)
+test("throws: every fighter has its OWN throw (its name), complete, landing clear of the thrower", function()
 	local count = 0
-	for style, data in MoveData.Throws do
+	for name in MoveData.Kits do
 		count += 1
-		expect(seen[style], style .. " is nobody's throw")
+		expect(MoveData.throwStyle(name) == name and MoveData.Throws[name] ~= nil, name .. " has no throw of its own")
+	end
+	local styles = 0
+	for style, data in MoveData.Throws do
+		styles += 1
+		expect(MoveData.Kits[style] ~= nil, style .. " is nobody's throw")
 		expect(data.impact < data.length and data.path[1][1] == 0 and data.path[#data.path][1] == data.impact,
 			style .. ": the path must start at 0 and end on the impact")
 		local dx = data.path[#data.path][2]
-		expect(data.land == "launch" or dx >= Config.PushWidth, style .. ": the victim lands inside the thrower")
+		expect(data.land == "launch" or math.abs(dx) >= Config.PushWidth, style .. ": the victim lands inside the thrower")
+		expect((dx < 0) == (data.back == true), style .. ": a throw lands behind exactly when it says so (back)")
+		expect(data.length - data.impact >= 10 and data.length - data.impact <= 22, style .. ": the thrower recovers "
+			.. (data.length - data.impact) .. " ticks after the impact")
+		for _, beat in data.beats do expect(beat > 0 and beat < data.impact, style .. ": a beat after the impact") end
+		if data.orbit then
+			-- (the circle starts and ends where the path is: no jump in or out of it)
+			for _, tick in { data.orbit.from, data.orbit.to } do
+				local x, y, z = MoveData.throwAt(style, tick)
+				local x2, y2, z2 = MoveData.throwAt(style, tick + (if tick == data.orbit.from then 0.01 else -0.01))
+				expect(math.abs(x - x2) + math.abs(y - y2) + math.abs(z - z2) < 0.05, style .. ": the orbit jumps at " .. tick)
+			end
+		end
 	end
-	expect(count == 6, "six throw styles, not " .. count)
+	expect(styles == count, "as many throws as fighters: " .. styles .. " / " .. count)
 end)
 
-test("throws: the grab plays its throw (both locked, the victim on the path), the blow lands once at the impact", function()
+test("throws: the grab plays the fighter's throw (both locked, the victim on its path), the blow lands once at the impact", function()
 	for style, data in MoveData.Throws do
-		local kitName
-		for name, s2 in MoveData.ThrowStyle do if s2 == style and MoveData.Kits[name] and not MoveData.Kits[name].Boss then kitName = name break end end
 		local world = Sim.newWorld(Config, MoveData, true)
-		Sim.setKits(world, kitName, "KAI")
+		Sim.setKits(world, style, "KAI")
 		world.phase = "Fight"
 		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
 		local a, d = world.fighters[1], world.fighters[2]
 		local hp = d.hp
 		local started, hits, impactTick, last = nil, 0, nil, nil
 		local worstStep = 0
-		for t = 1, 120 do
+		for t = 1, 140 do
 			local events = Sim.step(world, { input({ grab = t == 1 }), Sim.neutralInput() })
 			for _, e in events do
-				if e.kind == "Throw" then started = t; expect(e.style == style, kitName .. " threw " .. tostring(e.style)) end
+				if e.kind == "Throw" then started = t; expect(e.style == style, style .. " threw " .. tostring(e.style)) end
 				if e.kind == "Hit" and e.move == "Grab" then hits += 1; impactTick = t end
 			end
 			if started and not impactTick then
 				expect(a.state == "Throwing" and d.state == "Thrown", style .. ": not locked in the throw (" .. a.state .. " / " .. d.state .. ")")
 				expect(d.hp == hp, style .. ": damage before the impact")
-				if last then worstStep = math.max(worstStep, math.abs(d.x - last[1]) + math.abs(d.y - last[2])) end
+				-- (the giant swing's circle is measured with its depth: below)
+				local tick = t - started
+				local orbiting = data.orbit and tick > data.orbit.from and tick < data.orbit.to + 1
+				if last and not orbiting then worstStep = math.max(worstStep, math.abs(d.x - last[1]) + math.abs(d.y - last[2])) end
 				last = { d.x, d.y }
 			end
 		end
@@ -2924,35 +2934,98 @@ test("throws: the grab plays its throw (both locked, the victim on the path), th
 		expect(worstStep < 1.5, string.format("%s: the victim jumps %.2f studs in a tick", style, worstStep))
 		expect(not a.throwLock and not d.throwLock and world.throw == nil, style .. ": still locked after the throw")
 		expect(d.knockdown > 0 or d.getUp > 0 or d.launched or d.state == "Idle", style .. ": the victim was not knocked down")
+		if data.orbit then
+			local worst, px, pz = 0, nil, nil
+			for tick = data.orbit.from, data.orbit.to, 0.25 do
+				local x, _, z = MoveData.throwAt(style, tick)
+				if px then worst = math.max(worst, math.sqrt((x - px) ^ 2 + (z - pz) ^ 2)) end
+				px, pz = x, z
+			end
+			expect(worst * 4 < 1.6, string.format("%s: the swing goes %.2f studs a tick", style, worst * 4))
+		end
 	end
 end)
 
-test("throws: in a corner the victim stays in the arena; the throw can K.O.; the thrower gets the turn, not a combo", function()
+test("throws: a launch keeps the height of the path, and the victim cannot be caught again in the air", function()
+	for style, data in MoveData.Throws do
+		if data.land ~= "launch" then continue end
+		local world = Sim.newWorld(Config, MoveData, true)
+		Sim.setKits(world, style, "KAI")
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
+		local d = world.fighters[2]
+		local _, height = MoveData.throwAt(style, data.impact)
+		local released
+		for t = 1, 140 do
+			for _, e in Sim.step(world, { input({ grab = t == 1 }), Sim.neutralInput() }) do
+				if e.kind == "ThrowImpact" then released = true; expect(math.abs(d.y - math.max(height, 0.3)) < 0.01,
+					string.format("%s: released at %.2f, its path at %.2f", style, d.y, height)) end
+			end
+			if released and d.launched then
+				expect(d.juggle >= Config.MaxJuggleHits, style .. ": the thrown victim can be juggled")
+			end
+		end
+		expect(released, style .. ": never released")
+	end
+end)
+
+test("throws: against a wall, the thrower gives ground and the victim keeps its path (a suplex lands behind)", function()
+	-- GORAN's back to the wall: the suplex still lands behind him, inside the arena
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world, "GORAN", "KAI")
+	world.phase = "Fight"
+	world.fighters[1].x, world.fighters[2].x = Config.ArenaMinX + 0.5, Config.ArenaMinX + 3.5
+	local a, d = world.fighters[1], world.fighters[2]
+	local landed
+	for t = 1, 140 do
+		for _, e in Sim.step(world, { input({ grab = t == 1 }), Sim.neutralInput() }) do
+			if e.kind == "ThrowImpact" then landed = { a.x, d.x } end
+		end
+		expect(d.x >= Config.ArenaMinX and d.x <= Config.ArenaMaxX and a.x >= Config.ArenaMinX, "a fighter left the arena")
+	end
+	expect(landed and landed[2] < landed[1] - Config.PushWidth + 0.01,
+		"the suplex did not land behind: " .. tostring(landed and landed[1]) .. " / " .. tostring(landed and landed[2]))
+	-- the giant swing in a corner: the victim never goes through the wall
+	local world2 = Sim.newWorld(Config, MoveData, false)
+	Sim.setKits(world2, "HIBECARES", "KAI")
+	world2.phase = "Fight"
+	world2.fighters[1].x, world2.fighters[2].x = Config.ArenaMaxX - 3.2, Config.ArenaMaxX - 0.2
+	for t = 1, 160 do
+		Sim.step(world2, { input({ grab = t == 1 }), Sim.neutralInput() })
+		local f1, f2 = world2.fighters[1], world2.fighters[2]
+		expect(f2.x >= Config.ArenaMinX and f2.x <= Config.ArenaMaxX and f1.x <= Config.ArenaMaxX, "the swing left the arena")
+	end
+end)
+
+test("throws: a throw can K.O.; every fighter's throw gives the turn, not a free combo (the victim up 15-50 ticks later)", function()
 	local world = Sim.newWorld(Config, MoveData, false)
 	Sim.setKits(world, "GORAN", "KAI")
 	world.phase = "Fight"
 	world.fighters[1].x, world.fighters[2].x = Config.ArenaMaxX - 3.2, Config.ArenaMaxX - 0.2
-	local a, d = world.fighters[1], world.fighters[2]
+	local d = world.fighters[2]
 	d.hp = 30
 	local ko = false
 	for t = 1, 140 do
 		for _, e in Sim.step(world, { input({ grab = t == 1 }), Sim.neutralInput() }) do
 			if e.kind == "RoundEnd" then ko = true end
 		end
-		expect(d.x >= Config.ArenaMinX and d.x <= Config.ArenaMaxX, "the victim left the arena")
 	end
 	expect(ko, "a throw cannot K.O.")
-	-- advantage: the thrower is free well before the victim is up, but not long enough for a free combo
-	local world2 = closeWorld(3)
-	local a2, d2 = world2.fighters[1], world2.fighters[2]
-	local freeAt, upAt
-	for t = 1, 240 do
-		Sim.step(world2, { input({ grab = t == 1 }), Sim.neutralInput() })
-		if t > 10 and not freeAt and not a2.throwLock and a2.state ~= "Throwing" then freeAt = t end
-		if t > 10 and not upAt and d2.knockdown == 0 and d2.getUp == 0 and not d2.launched and not d2.throwLock and d2.stun == 0 then upAt = t end
+	for style in MoveData.Throws do
+		local world2 = Sim.newWorld(Config, MoveData, true)
+		Sim.setKits(world2, style, "KAI")
+		world2.phase = "Fight"
+		world2.fighters[1].x, world2.fighters[2].x = -1.5, 1.5
+		local a2, d2 = world2.fighters[1], world2.fighters[2]
+		local freeAt, upAt
+		for t = 1, 260 do
+			Sim.step(world2, { input({ grab = t == 1 }), Sim.neutralInput() })
+			if t > 10 and not freeAt and not a2.throwLock and a2.state ~= "Throwing" then freeAt = t end
+			if t > 10 and not upAt and d2.knockdown == 0 and d2.getUp == 0 and not d2.launched and not d2.throwLock and d2.stun == 0 then upAt = t end
+		end
+		local gap = freeAt and upAt and upAt - freeAt
+		expect(gap and gap >= 15 and gap <= 50, style .. ": the thrower waits " .. tostring(gap) .. " ticks for the victim to get up")
 	end
-	expect(freeAt and upAt and upAt > freeAt, "the victim is up before the thrower")
-	expect(upAt - freeAt <= 45, "the thrower waits " .. tostring(upAt and freeAt and upAt - freeAt) .. " ticks: too long a knockdown")
 end)
 
 T.finish()

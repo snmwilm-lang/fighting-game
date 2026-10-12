@@ -1426,56 +1426,129 @@ MoveData.MoveKit = table.freeze(moveKit)
 
 --[[
 	THROWS (Wilhem, 0.25.1: « de vraies animations pour les chopes, cohérentes pour les persos et
-	belles »): a GRAB that connects plays a short throw instead of a plain blow. Six styles,
-	each fighter the one of its way of fighting (THROW_STYLE). Per style:
+	belles »; 0.26.0: « j'en veux des uniques par perso »): a GRAB that connects plays a short
+	throw instead of a plain blow, each fighter its OWN (keyed by the kit's name), in its way of
+	fighting. Per throw:
 	  length  ticks the thrower is busy (it recovers at the end)
 	  impact  tick the blow lands (the GRAB's damage, once); the victim is released then
-	  land    "floor" (slammed flat, down at once) or "launch" (sent flying: vy, push)
-	  beats   ticks of the blows before the impact (knees, a pommel): shown, no damage
+	  land    "floor" (slammed flat, down at once) or "launch" (sent flying: vy, push; never
+	          caught again in the air: the thrower gets the turn, not a free combo)
+	  beats   ticks of the blows before the impact (knees, punches, a pommel): shown, no damage
+	  bounce  the slam bounces it on the floor (an effect)
+	  back    it lands BEHIND the thrower (a suplex): the path's last dx is negative
 	  path    { tick, dx, dy, dz }: where the victim is, from the thrower (dx forward, dy its
-	          feet above the floor, dz toward the camera: drawn only, the fight stays in a line)
-	The victim ends at least PushWidth in front: nobody is pushed when it lands.
+	          feet above the floor, dz toward the camera when the thrower faces right: drawn
+	          only, the fight stays in a line)
+	  orbit   { from, to, turns, radius, dy }: between those ticks the victim circles round the
+	          thrower (a giant swing), `turns` times, eased like the poses (smoothstep), so its
+	          body and the thrower's turn with it
+	The victim lands at least PushWidth away (floor): nobody is pushed when it lands. The
+	thrower is free 10-22 ticks after the impact; the victim gets up 15-50 ticks after that.
 ]]
 MoveData.Throws = table.freeze({
-	-- judo: pulled onto the hip, over the shoulder, slammed flat in front
-	Shoulder = { length = 44, impact = 30, land = "floor", beats = {},
+	-- KAI: SEOI NAGE. Pulled onto the hip, over the shoulder, slammed flat; the kiai palm after.
+	KAI = { length = 44, impact = 30, land = "floor", beats = {},
 		path = { { 0, 2.0, 0, 0 }, { 6, 1.3, 0, 0 }, { 12, 0.6, 1.1, 0 }, { 19, 0.1, 2.9, 0 }, { 26, 2.2, 1.6, 0 }, { 30, 3.8, 0, 0 } } },
-	-- seized round the waist, lifted overhead, slammed down
-	Slam = { length = 54, impact = 38, land = "floor", bounce = true, beats = {},
-		path = { { 0, 2.0, 0, 0 }, { 8, 1.5, 0.2, 0 }, { 15, 0.8, 2.3, 0 }, { 22, 0.1, 4.1, 0 }, { 28, 0.4, 4.4, 0 }, { 38, 4.2, 0, 0 } } },
-	-- the clinch: two knees in the body, then a shove that sends it away
-	Knee = { length = 40, impact = 28, land = "launch", vy = 14, push = 26, beats = { 9, 18 },
-		path = { { 0, 2.0, 0, 0 }, { 5, 1.75, 0, 0 }, { 9, 1.7, 0.45, 0 }, { 13, 1.75, 0, 0 }, { 18, 1.7, 0.55, 0 }, { 22, 1.8, 0, 0 },
-			{ 28, 2.2, 0.2, 0 } } },
-	-- the collar held, a kick that launches it high and away
-	Kick = { length = 38, impact = 16, land = "launch", vy = 30, push = 16, beats = {},
-		path = { { 0, 2.0, 0, 0 }, { 6, 1.5, 0, 0 }, { 12, 1.5, 0.15, 0 }, { 16, 1.9, 0.8, 0 } } },
-	-- an arm seized, swung once round the thrower (passing in front of the camera), let go
-	Spin = { length = 46, impact = 28, land = "launch", vy = 18, push = 30, beats = {},
-		path = { { 0, 2.0, 0, 0 }, { 6, 1.6, 0.4, 0.6 }, { 12, 0.2, 0.9, 2.1 }, { 18, -1.9, 1.0, 0.3 }, { 23, -0.4, 0.9, -1.9 },
-			{ 28, 2.2, 0.8, 0 } } },
-	-- the weapon's hilt or shaft in the face, then the cut that drops it
-	Blade = { length = 42, impact = 24, land = "floor", beats = { 10 },
+	-- TARO: THE CLINCH. The neck tied up, two short uppercuts to the liver, a step back, the cross.
+	TARO = { length = 40, impact = 26, land = "launch", vy = 10, push = 30, beats = { 8, 15 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.65, 0, 0 }, { 8, 1.6, 0, 0 }, { 11, 1.65, 0, 0 }, { 15, 1.6, 0, 0 }, { 19, 2.2, 0, 0 },
+			{ 26, 2.7, 0.4, 0 } } },
+	-- ZEPHYR: TEMPEST. The collar held: a low kick, a middle kick, the knee up, the rising kick.
+	ZEPHYR = { length = 44, impact = 24, land = "launch", vy = 22, push = 14, beats = { 8, 14 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.85, 0, 0 }, { 8, 1.9, 0, 0 }, { 11, 1.85, 0, 0 }, { 14, 2.0, 0, 0 }, { 18, 2.0, 0, 0 },
+			{ 24, 2.2, 1.2, 0 } } },
+	-- AKEMI: KOTE GAESHI. The wrist taken, she turns aside; it flips over its own arm, on its back.
+	AKEMI = { length = 42, impact = 28, land = "floor", beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.8, 0, 0 }, { 12, 1.7, 0.5, 0 }, { 18, 2.2, 2.6, 0 }, { 23, 3.0, 1.6, 0 }, { 28, 3.4, 0, 0 } } },
+	-- RYUKEN: RAGE BARRAGE. The collar in one hand: three punches in the face, the broken fist
+	-- raised, the hammer that drives it into the floor.
+	RYUKEN = { length = 46, impact = 30, land = "floor", bounce = true, beats = { 8, 13, 18 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.75, 0, 0 }, { 8, 1.95, 0, 0 }, { 10, 1.75, 0, 0 }, { 13, 1.95, 0, 0 }, { 15, 1.75, 0, 0 },
+			{ 18, 2.0, 0, 0 }, { 22, 1.9, 0, 0 }, { 30, 3.1, 0, 0 } } },
+	-- SHIN: the pommel in the face, the blade raised, the cut that drops it.
+	SHIN = { length = 42, impact = 24, land = "floor", beats = { 10 },
 		path = { { 0, 2.0, 0, 0 }, { 6, 1.6, 0, 0 }, { 10, 1.9, 0, 0 }, { 16, 1.7, 0, 0 }, { 20, 2.6, 0.35, 0 }, { 24, 4.0, 0, 0 } } },
+	-- DAICHA: INVERTED SHADOW. Her palm on its chest, it floats up and turns upside down; her
+	-- hand closes: dropped on its back.
+	DAICHA = { length = 48, impact = 34, land = "floor", bounce = true, beats = { 6 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.95, 0, 0 }, { 12, 2.0, 0.9, 0 }, { 20, 2.2, 3.4, 0 }, { 28, 2.3, 3.6, 0 }, { 34, 3.2, 0, 0 } } },
+	-- HIBECARES: GIANT SWING. Tripped, seized by the ankles, swung twice round him, let go.
+	HIBECARES = { length = 70, impact = 58, land = "launch", vy = 12, push = 34, beats = {},
+		orbit = { from = 14, to = 56, turns = 2, radius = 3.0, dy = 1.2 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 2.2, 0.3, 0 }, { 14, 3.0, 1.2, 0 }, { 56, 3.0, 1.2, 0 }, { 58, 3.6, 1.2, 0 } } },
+	-- RAIJIN: THUNDER PIN. The shaft hooks its legs away, it falls flat, the spear thrust down.
+	RAIJIN = { length = 42, impact = 26, land = "floor", beats = { 10 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.9, 0, 0 }, { 10, 2.1, 0.7, 0 }, { 16, 2.7, 0.5, 0 }, { 20, 3.1, 0, 0 }, { 26, 3.1, 0, 0 } } },
+	-- YUKINA: FROST WALTZ. The fans crossed at its neck: frozen, it turns once with her, the
+	-- fans' gust sends it sliding away.
+	YUKINA = { length = 46, impact = 36, land = "launch", vy = 12, push = 32, beats = { 12 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.9, 0, 0 }, { 12, 1.9, 0.3, 0 }, { 30, 1.9, 0.3, 0 }, { 36, 2.4, 0.6, 0 } } },
+	-- VENOM: THE BITE. Claws in the shoulders, two injections (it convulses), the push kick.
+	VENOM = { length = 44, impact = 30, land = "launch", vy = 14, push = 26, beats = { 9, 17 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.7, 0, 0 }, { 9, 1.6, 0.1, 0 }, { 13, 1.7, 0, 0 }, { 17, 1.6, 0.1, 0 }, { 21, 1.75, 0, 0 },
+			{ 25, 1.8, 0, 0 }, { 30, 2.5, 0.5, 0 } } },
+	-- GORAN: BELLY-TO-BELLY SUPLEX. Locked round the waist, heaved, bridged over: it lands
+	-- behind him.
+	GORAN = { length = 46, impact = 30, land = "floor", bounce = true, back = true, beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.5, 0, 0 }, { 12, 1.3, 1.2, 0 }, { 20, 0.0, 4.0, 0 }, { 25, -2.0, 2.7, 0 }, { 30, -3.5, 0, 0 } } },
+	-- ASTER: GRAVITY DROP. Lifted by his palm, slammed down, lifted again, slammed again.
+	ASTER = { length = 40, impact = 24, land = "floor", bounce = true, beats = { 12 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 2.0, 0, 0 }, { 8, 2.1, 1.5, 0 }, { 12, 2.4, 0, 0 }, { 16, 2.5, 1.7, 0 }, { 24, 3.1, 0, 0 } } },
+	-- HIBIKI: THREE BEATS. Palms on the beat (chest, face, face), the drawn breath, the sonic
+	-- blast of both palms.
+	HIBIKI = { length = 46, impact = 30, land = "launch", vy = 8, push = 36, beats = { 8, 14, 20 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.85, 0, 0 }, { 8, 2.05, 0, 0 }, { 11, 1.9, 0, 0 }, { 14, 2.1, 0, 0 }, { 17, 1.95, 0, 0 },
+			{ 20, 2.15, 0, 0 }, { 24, 2.0, 0, 0 }, { 30, 2.6, 0.6, 0 } } },
+	-- KAZAN: SHACKLE. Both claws hooked in, dragged to its knees, raked, the rising talons.
+	KAZAN = { length = 42, impact = 24, land = "launch", vy = 20, push = 16, beats = { 14 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.8, 0, 0 }, { 10, 1.8, 0, 0 }, { 14, 1.85, 0, 0 }, { 18, 1.9, 0, 0 }, { 24, 2.1, 1.4, 0 } } },
+	-- KUREN: BLOOD TITHE. The throat held, his hand drinks at its chest, torn out; the blood
+	-- geyser throws it up.
+	KUREN = { length = 48, impact = 28, land = "launch", vy = 20, push = 8, beats = { 10 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.8, 0.2, 0 }, { 10, 1.8, 0.25, 0 }, { 16, 1.8, 0.25, 0 }, { 20, 2.1, 0, 0 }, { 28, 2.2, 1.6, 0 } } },
+	-- SYLVA: THE HUNT. A kick behind the knee, pushed down, her knee on it, the finishing strike.
+	SYLVA = { length = 44, impact = 28, land = "floor", beats = { 10 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.85, 0, 0 }, { 10, 2.0, 0.4, 0 }, { 16, 2.4, 0.4, 0 }, { 22, 3.0, 0, 0 }, { 28, 3.0, 0, 0 } } },
+	-- ELIAN: HEAVEN AND EARTH. One hand high, one low, a step through: it tips back and falls,
+	-- his palms of light over it.
+	ELIAN = { length = 40, impact = 24, land = "floor", beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.8, 0, 0 }, { 14, 2.2, 0.6, 0 }, { 20, 2.9, 0.7, 0 }, { 24, 3.3, 0, 0 } } },
+	-- NOVA: OVERLOAD. The gauntlet clamps the collar and lifts it, two shocks, the rocket punch.
+	NOVA = { length = 46, impact = 30, land = "launch", vy = 16, push = 34, beats = { 16, 20 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.85, 0, 0 }, { 12, 1.95, 1.1, 0 }, { 16, 1.95, 1.15, 0 }, { 20, 1.95, 1.1, 0 }, { 24, 1.9, 1.1, 0 },
+			{ 30, 2.6, 1.2, 0 } } },
+	-- KUROEN: ECLIPSE CLINCH. A knee, the elbow down on its head, the point-blank ki palm.
+	KUROEN = { length = 44, impact = 28, land = "launch", vy = 18, push = 28, beats = { 9, 18 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.75, 0, 0 }, { 9, 1.7, 0.45, 0 }, { 13, 1.75, 0, 0 }, { 18, 1.8, 0, 0 }, { 22, 2.2, 0, 0 },
+			{ 28, 2.7, 0.5, 0 } } },
+	-- KUROEN SHIN: DIVINE ECLIPSE. Lifted by the throat with one hand, the ki pulses twice, the
+	-- palm that sends it flying.
+	["KUROEN SHIN"] = { length = 46, impact = 26, land = "launch", vy = 14, push = 30, beats = { 14, 20 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.9, 0.3, 0 }, { 14, 1.8, 1.6, 0 }, { 20, 1.8, 1.7, 0 }, { 26, 2.6, 2.0, 0 } } },
+	-- ASURA: seized round the waist, lifted overhead in four arms, slammed down.
+	ASURA = { length = 54, impact = 38, land = "floor", bounce = true, beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 8, 1.5, 0.2, 0 }, { 15, 0.8, 2.3, 0 }, { 22, 0.1, 4.1, 0 }, { 28, 0.4, 4.4, 0 }, { 38, 4.2, 0, 0 } } },
 })
-local THROW_STYLE = {
-	KAI = "Shoulder", KUROEN = "Shoulder", HIBIKI = "Shoulder", ELIAN = "Shoulder", ["KUROEN SHIN"] = "Shoulder",
-	RYUKEN = "Slam", GORAN = "Slam", HIBECARES = "Slam", ASURA = "Slam",
-	TARO = "Knee", KAZAN = "Knee", VENOM = "Knee",
-	ZEPHYR = "Kick", NOVA = "Kick", ASTER = "Kick",
-	AKEMI = "Spin", DAICHA = "Spin", SYLVA = "Spin", YUKINA = "Spin",
-	SHIN = "Blade", RAIJIN = "Blade", KUREN = "Blade",
-}
+local THROW_STYLE = {}
+for name in MoveData.Throws do THROW_STYLE[name] = name end
 MoveData.ThrowStyle = table.freeze(THROW_STYLE)
 
 function MoveData.throwStyle(kitName)
-	return THROW_STYLE[kitName or ""] or "Shoulder"
+	return THROW_STYLE[kitName or ""] or "KAI"
 end
 
 -- Where the victim of a throw is at `tick` (possibly fractional): dx, dy, dz from the thrower,
--- eased between the path's keys (smoothstep: no corner, no jump).
+-- eased between the path's keys (smoothstep: no corner, no jump); round the thrower during an
+-- orbit (the same easing as the poses', so the bodies turn with it).
 function MoveData.throwAt(style, tick)
-	local path = (MoveData.Throws[style] or MoveData.Throws.Shoulder).path
+	local data = MoveData.Throws[style] or MoveData.Throws.KAI
+	local orbit = data.orbit
+	if orbit and tick > orbit.from and tick < orbit.to then
+		local u = (tick - orbit.from) / (orbit.to - orbit.from)
+		local angle = 2 * math.pi * orbit.turns * u * u * (3 - 2 * u)
+		return orbit.radius * math.cos(angle), orbit.dy, orbit.radius * math.sin(angle)
+	end
+	local path = data.path
 	if tick <= path[1][1] then return path[1][2], path[1][3], path[1][4] end
 	for i = 2, #path do
 		local a, b = path[i - 1], path[i]

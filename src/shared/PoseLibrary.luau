@@ -1205,46 +1205,6 @@ Poses.ThrownBladeCut = blind(airborne(merge(legs(30, -40, -5, -20), merge(throwA
 }))))
 Poses.ThrownSeized = SEIZED
 
--- The keys of each throw: { tick, pose } for the thrower and for its victim (MoveData.Throws:
--- the same ticks; the victim's last key is its impact, the thrower's its length).
-Poses.Throws = {
-	Shoulder = {
-		thrower = { { 0, "ThrowShoulderSeize" }, { 6, "ThrowShoulderSeize" }, { 12, "ThrowShoulderLoad" }, { 19, "ThrowShoulderOver" },
-			{ 30, "ThrowShoulderSlam" }, { 36, "ThrowShoulderSlam" }, { 44, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSeized" }, { 12, "ThrownShoulderHoist" }, { 19, "ThrownShoulderOver" },
-			{ 26, "ThrownShoulderFall" }, { 30, "DownImpact" } },
-	},
-	Slam = {
-		thrower = { { 0, "ThrowSlamSeize" }, { 8, "ThrowSlamSeize" }, { 15, "ThrowSlamLift" }, { 22, "ThrowSlamHold" }, { 28, "ThrowSlamHold" },
-			{ 38, "ThrowSlamDown" }, { 45, "ThrowSlamDown" }, { 54, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 8, "ThrownSlamFolded" }, { 15, "ThrownSlamLifted" }, { 22, "ThrownSlamOverhead" },
-			{ 28, "ThrownSlamOverhead" }, { 38, "DownImpact" } },
-	},
-	Knee = {
-		thrower = { { 0, "ThrowKneeClinch" }, { 5, "ThrowKneeClinch" }, { 9, "ThrowKneeStrike" }, { 13, "ThrowKneeClinch" },
-			{ 18, "ThrowKneeStrike" }, { 22, "ThrowKneeClinch" }, { 28, "ThrowKneeShove" }, { 33, "ThrowKneeShove" }, { 40, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 5, "ThrownKneeBent" }, { 9, "ThrownKneeHit" }, { 13, "ThrownKneeBent" },
-			{ 18, "ThrownKneeHit" }, { 22, "ThrownKneeBent" }, { 28, "ThrownShoved" } },
-	},
-	Kick = {
-		thrower = { { 0, "ThrowKickHold" }, { 6, "ThrowKickHold" }, { 12, "ThrowKickChamber" }, { 16, "ThrowKickRise" },
-			{ 24, "ThrowKickRise" }, { 38, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 12, "ThrownKickHeld" }, { 16, "ThrownKicked" } },
-	},
-	Spin = {
-		thrower = { { 0, "ThrowSpinSeize" }, { 6, "ThrowSpinSeize" }, { 12, "ThrowSpin1" }, { 18, "ThrowSpin2" }, { 24, "ThrowSpin3" },
-			{ 28, "ThrowSpinRelease" }, { 36, "ThrowSpinRelease" }, { 46, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSpinStart" }, { 12, "ThrownSpin1" }, { 18, "ThrownSpin2" }, { 24, "ThrownSpin3" },
-			{ 28, "ThrownSpinLoose" } },
-	},
-	Blade = {
-		thrower = { { 0, "ThrowBladeSeize" }, { 6, "ThrowBladeSeize" }, { 10, "ThrowBladePommel" }, { 16, "ThrowBladeWind" },
-			{ 24, "ThrowBladeCut" }, { 32, "ThrowBladeCut" }, { 42, "STANCE" } },
-		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSeized" }, { 10, "ThrownBladeStruck" }, { 16, "ThrownBladeStruck" },
-			{ 20, "ThrownBladeCut" }, { 24, "DownImpact" } },
-	},
-}
-
 -- KAI's RESOLVE: braced low under the blow (guard up, the feet sliding), then both palms.
 Poses.KaiResolve = {
 	Startup = feet(merge(STANCE, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.78, 0.28 }, Waist = { -18, 4, 0 }, Neck = { 22, 0, 0 } })),
@@ -4394,6 +4354,330 @@ do
 			end
 		end
 	end
+end
+
+-- ===================================================================== THROWS, ONE PER FIGHTER (0.26.0)
+-- (Wilhem: « les chopes, j'en veux des uniques par perso »): every fighter throws in its own
+-- way of fighting (MoveData.Throws: the path, the beats, the landing). The thrower's keys keep
+-- their feet planted; the victim's reactions are shared, its body is the thrower's to move.
+do
+	-- a thrower's key: arms { shoulder pitch, shoulder spread, elbow }, the body, the feet
+	-- { left depth, right depth, left pitch, right pitch, spread }, a kicking leg if any
+	local function grip(l, r, root, waist, neck, st, leg)
+		local pose = feet(merge(STANCE, merge(throwArms(l, r), { Root = root, Waist = waist, Neck = neck })), st[1], st[2], st[3], st[4], st[5])
+		return if leg then merge(pose, leg) else pose
+	end
+	-- the victim on its feet (held, struck) or in the air (thrown, flipped, swung)
+	local function hurt(l, r, root, waist, neck, st)
+		return blind(feet(merge(STANCE, merge(throwArms(l, r), { Root = root, Waist = waist, Neck = neck })), st[1], st[2], st[3], st[4], st[5]))
+	end
+	local function flung(lg, l, r, root, waist, neck)
+		return blind(airborne(merge(legs(lg[1], lg[2], lg[3], lg[4]), merge(throwArms(l, r), { Root = root, Waist = waist, Neck = neck }))))
+	end
+	-- the same pose turned (a spin: the yaw) or rolled over (a flip: the pitch), whole turns
+	-- included, so the keys turn the body the long way and the blend after unwinds nothing
+	local function turned(pose, yaw, pitch)
+		local out = table.clone(pose)
+		local root = table.clone(pose.Root or { 0, 0, 0, 0, 0 })
+		root[2] = (root[2] or 0) + (yaw or 0)
+		root[1] = (root[1] or 0) + (pitch or 0)
+		out.Root = root
+		return out
+	end
+
+	-- ------------------------------------------------------------ the victim's reactions
+	Poses.VicDoubled = hurt({ 30, -20, 70 }, { 25, 20, 75 }, { -10, 0, 0, -0.55, 0.1 }, { -42, 0, 0 }, { -20, 0, 0 }, { -0.5, 0.75, 0, -8, 7 })
+	Poses.VicDoubledHit = hurt({ 20, -30, 60 }, { 15, 30, 65 }, { -14, 0, 0, -0.65, 0.2 }, { -55, 0, 0 }, { -26, 0, 0 }, { -0.45, 0.8, 0, -10, 7 })
+	Poses.VicHeadSnap = hurt({ 70, -60, 30 }, { 60, 60, 35 }, { 14, 0, 0, -0.3, 0.25 }, { 20, 0, 0 }, { 38, 0, 0 }, { -0.5, 0.95, 4, -4, 7 })
+	Poses.VicHeadSnapSide = hurt({ 60, -70, 30 }, { 70, 50, 40 }, { 10, -14, 0, -0.35, 0.2 }, { 14, -16, 0 }, { 30, -30, 0 }, { -0.5, 0.9, 2, -4, 7 })
+	Poses.VicChestHit = hurt({ 55, -65, 25 }, { 50, 65, 30 }, { 10, 0, 0, -0.35, 0.25 }, { 18, 0, 0 }, { 14, 0, 0 }, { -0.5, 0.95, 2, -4, 7 })
+	Poses.VicStagger = hurt({ 30, -35, 30 }, { 25, 35, 30 }, { 8, 0, 0, -0.45, 0.2 }, { 6, 0, 0 }, { 10, 0, 0 }, { -0.35, 0.9, 0, -6, 8 })
+	Poses.VicSlump = hurt({ 15, -12, 25 }, { 10, 12, 20 }, { -6, 0, 0, -0.95, 0.1 }, { -28, 0, 0 }, { -30, 0, 0 }, { -0.45, 0.6, 0, -10, 9 })
+	Poses.VicLegBuckle = hurt({ 50, -50, 50 }, { 40, 50, 55 }, { -4, 0, -8, -0.8, 0 }, { -18, 0, 6 }, { -10, 0, 0 }, { -0.4, 0.85, 0, -14, 8 })
+	Poses.VicArched = hurt({ 40, -70, 20 }, { 35, 70, 25 }, { 14, 0, 0, -0.35, 0.25 }, { 24, 0, 0 }, { 30, 0, 0 }, { -0.55, 0.9, 2, -6, 7 })
+	Poses.VicChoked = hurt({ 130, 20, 130 }, { 130, -20, 130 }, { 6, 0, 0, -0.15, 0.1 }, { 10, 0, 0 }, { 30, 0, 0 }, { -0.5, 0.75, -25, -25, 6 })
+	Poses.VicConvulse = hurt({ 100, -80, 10 }, { 80, 80, 20 }, { 18, 0, 0, -0.4, 0.2 }, { 26, 0, 14 }, { 40, 20, 0 }, { -0.55, 0.85, 0, -4, 9 })
+	Poses.VicConvulse2 = hurt({ 80, -80, 20 }, { 100, 80, 10 }, { 16, 0, 0, -0.45, 0.2 }, { 22, 0, -14 }, { 36, -20, 0 }, { -0.55, 0.85, 0, -4, 9 })
+	Poses.VicHooked = hurt({ 40, -30, 60 }, { 40, 30, 60 }, { -6, 0, 0, -0.5, 0.05 }, { -20, 0, 0 }, { -10, 0, 0 }, { -0.5, 0.8, 0, -8, 7 })
+	Poses.VicLocked = hurt({ 90, 30, 100 }, { 90, -30, 100 }, { -20, 0, 0, -0.4, -0.1 }, { -30, 0, 0 }, { -10, 0, 0 }, { -0.5, 0.8, 0, -8, 7 })
+	Poses.VicFrozen = hurt({ 60, -40, 60 }, { 60, 40, 60 }, { 4, 0, 0, -0.25, 0.05 }, { 6, 0, 0 }, { 20, 0, 0 }, { -0.55, 0.8, 0, -4, 6 })
+	Poses.VicKneel = hurt({ 20, -20, 30 }, { 20, 20, 30 }, { -4, 0, 0, -1.3, 0.15 }, { -20, 0, 0 }, { -24, 0, 0 }, { -0.3, 0.55, 0, -20, 10 })
+	Poses.VicKneelRaked = hurt({ 30, -40, 30 }, { 20, 20, 30 }, { -4, -20, 0, -1.3, 0.15 }, { -16, -16, 0 }, { -10, -30, 0 }, { -0.3, 0.55, 0, -20, 10 })
+	Poses.VicArmTaken = hurt({ 50, -40, 40 }, { 95, 10, 10 }, { -6, 16, 0, -0.45, -0.05 }, { -14, 14, 0 }, { -6, 0, 0 }, { -0.6, 0.8, 0, -8, 7 })
+	Poses.VicTipped = flung({ 30, -40, 20, -30 }, { 60, -50, 30 }, { 100, 10, 10 }, { -45, 0, 0, 0, 0 }, { -10, 0, 0 }, { -10, 0, 0 })
+	Poses.VicFlipA = flung({ 70, -110, 60, -100 }, { 150, -30, 40 }, { 140, 30, 40 }, { -150, 0, 0, 0, 0 }, { -20, 0, 0 }, { -20, 0, 0 })
+	Poses.VicFlipB = flung({ 40, -50, 30, -40 }, { 150, -50, 30 }, { 130, 50, 30 }, { -230, 0, 0, 0, 0 }, { 0, 0, 0 }, { -10, 0, 0 })
+	Poses.VicFloat = flung({ 20, -30, 10, -25 }, { 40, -40, 30 }, { 35, 40, 30 }, { 35, 0, 0, 0, 0 }, { 10, 0, 0 }, { -20, 0, 0 })
+	Poses.VicFloatHigh = flung({ 10, -30, 20, -40 }, { 60, -60, 40 }, { 70, 60, 40 }, { 60, 0, 0, 0, 0 }, { 14, 0, 0 }, { -20, 0, 0 })
+	Poses.VicInverted = flung({ 5, -10, 5, -10 }, { 170, -20, 10 }, { 170, 20, 10 }, { 175, 0, 0, 0, 0 }, { 5, 0, 0 }, { -10, 0, 0 })
+	Poses.VicInverted2 = flung({ 10, -20, 0, -10 }, { 160, -30, 20 }, { 175, 25, 10 }, { 190, 0, 8, 0, 0 }, { 8, 0, 0 }, { -14, 0, 0 })
+	Poses.VicBlown = flung({ -20, -50, 10, -30 }, { 140, -50, 20 }, { 120, 60, 30 }, { 40, 0, 0, 0, 0 }, { 25, 0, 0 }, { 20, 0, 0 })
+	Poses.VicKickedUp = flung({ -5, -40, 20, -55 }, { 130, -50, 30 }, { 120, 50, 30 }, { 38, 0, 0, 0, 0 }, { 25, 0, 0 }, { 30, 0, 0 })
+	Poses.VicTripped = flung({ 60, -20, 70, -15 }, { 120, -60, 30 }, { 110, 60, 30 }, { 60, 0, 0, 0, 0 }, { 10, 0, 0 }, { -20, 0, 0 })
+	Poses.VicSwept = flung({ 70, -10, 80, -20 }, { 100, -60, 30 }, { 90, 60, 30 }, { 50, 0, 0, 0, 0 }, { 10, 0, 0 }, { 10, 0, 0 })
+	Poses.VicFallingFlat = flung({ 40, -30, 50, -40 }, { 140, -45, 30 }, { 120, 55, 30 }, { 80, 0, 0, 0, 0 }, { 8, 0, 0 }, { -16, 0, 0 })
+	Poses.VicLifted = flung({ -5, -20, 10, -30 }, { 130, 20, 100 }, { 130, -20, 100 }, { 4, 0, 0, 0, 0 }, { 4, 0, 0 }, { 20, 0, 0 })
+	Poses.VicShocked = flung({ 20, -40, -10, -20 }, { 120, -80, 10 }, { 110, 80, 10 }, { 14, 0, 6, 0, 0 }, { 20, 0, 8 }, { 36, 10, 0 })
+	Poses.VicShocked2 = flung({ -10, -20, 25, -45 }, { 110, -80, 10 }, { 120, 80, 10 }, { 12, 0, -6, 0, 0 }, { 18, 0, -8 }, { 34, -10, 0 })
+	Poses.VicHanging = flung({ -5, -10, 5, -25 }, { 135, 20, 110 }, { 135, -20, 110 }, { 2, 0, 0, 0, 0 }, { 2, 0, 0 }, { 28, 0, 0 })
+	Poses.VicHanging2 = flung({ 20, -50, -10, -10 }, { 130, 20, 115 }, { 140, -20, 105 }, { 4, 0, 0, 0, 0 }, { 6, 0, 0 }, { 26, 0, 0 })
+	Poses.VicImpaled = flung({ -10, -30, 10, -50 }, { 160, -40, 20 }, { 150, 40, 20 }, { 28, 0, 0, 0, 0 }, { 30, 0, 0 }, { 40, 0, 0 })
+	Poses.VicTalons = flung({ -10, -40, 10, -50 }, { 150, -40, 20 }, { 140, 40, 20 }, { 30, 0, 12, 0, 0 }, { 28, 0, 6 }, { 36, 0, 0 })
+	Poses.VicHeaved = flung({ 10, -40, 20, -50 }, { 110, 30, 90 }, { 110, -30, 90 }, { -40, 0, 0, 0, 0 }, { -20, 0, 0 }, { -20, 0, 0 })
+	Poses.VicOverA = flung({ 20, -30, 30, -40 }, { 160, -40, 30 }, { 150, 40, 30 }, { -150, 0, 0, 0, 0 }, { -10, 0, 0 }, { -20, 0, 0 })
+	Poses.VicOverB = flung({ 30, -40, 40, -50 }, { 150, -50, 30 }, { 140, 50, 30 }, { -220, 0, 0, 0, 0 }, { 0, 0, 0 }, { -20, 0, 0 })
+	-- held by the ankles and swung (on its back, the legs toward the thrower, the arms trailing)
+	local SWUNG = flung({ 0, -5, 0, -5 }, { 170, -30, 10 }, { 170, 30, 10 }, { 86, 0, 0, 0, 0 }, { 0, 0, 0 }, { -10, 0, 0 })
+	Poses.VicSwung0, Poses.VicSwung720 = SWUNG, turned(SWUNG, 720)
+	Poses.VicSwungLet = turned(flung({ -10, -30, 20, -40 }, { 150, -50, 20 }, { 140, 50, 20 }, { 60, 0, 0, 0, 0 }, { 14, 0, 0 }, { 10, 0, 0 }), 720)
+	Poses.VicFrozen0, Poses.VicFrozen360 = Poses.VicFrozen, turned(Poses.VicFrozen, 360)
+	Poses.VicGust360 = turned(Poses.VicBlown, 360)
+	-- landed by a flip: the very pose of the slam, one whole turn ahead (AKEMI forward, GORAN over)
+	Poses.VicFlipLand = turned(Poses.DownImpact, 0, -360)
+
+	-- ------------------------------------------------------------ the throwers
+	-- KAI: the seoi nage (the judo throw, above), then the kiai palm toward the floor.
+	Poses.KaiThrowPalm = grip({ 40, -30, 90 }, { 64, -6, 6 }, { 0, 24, 0, -0.85, -0.3 }, { -38, 20, 0 }, { 30, -12, 0 }, { -0.95, 0.75, 0, -16, 14 })
+	-- TARO: the clinch (left arm round the neck), the right to the liver, the break, the cross.
+	Poses.TaroThrowTie = grip({ 118, 10, 105 }, { 20, 20, 115 }, { 0, -10, 0, -0.5, -0.1 }, { -14, -12, 0 }, { 14, 6, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.TaroThrowLiver = grip({ 118, 10, 105 }, { 70, -10, 95 }, { 0, 22, 0, -0.65, -0.2 }, { -24, 26, 0 }, { 16, -14, 0 }, { -0.9, 0.7, 0, -14, 9 })
+	Poses.TaroThrowBreak = grip({ 80, -6, 70 }, { 52, 16, 120 }, { 0, -6, 0, -0.35, 0.35 }, { -6, -10, 0 }, { 8, 6, 0 }, { -0.6, 0.95, 0, -6, 7 })
+	Poses.TaroThrowCross = grip({ 40, -20, 110 }, { 95, -6, 6 }, { 0, 38, 0, -0.45, -0.35 }, { -16, 30, 0 }, { 12, -26, 0 }, { -1.05, 0.6, 0, -16, 8 })
+	-- ZEPHYR: the collar held, the right leg: low kick, middle kick, the knee up, the rising kick.
+	Poses.ZephyrThrowHold = grip({ 96, -8, 30 }, { 50, 30, 100 }, { 0, -8, 0, -0.4, -0.1 }, { -8, -10, 0 }, { 10, 6, 0 }, { -0.8, 0.75, 0, -10, 8 })
+	Poses.ZephyrThrowLow = grip({ 96, -8, 30 }, { 40, 40, 90 }, { 0, 30, 0, -0.45, 0 }, { -6, 24, 0 }, { 8, -20, 0 }, { -0.8, 0.75, 0, -10, 8 },
+		{ RightHip = { 60, 0, 20 }, RightKnee = { -12, 0, 0 }, RightAnkle = { 10, 0, 0 } })
+	Poses.ZephyrThrowMid = grip({ 96, -8, 30 }, { 30, 50, 80 }, { 0, 50, 0, -0.35, 0.1 }, { 4, 30, 0 }, { 6, -30, 0 }, { -0.8, 0.75, 0, -10, 8 },
+		{ RightHip = { 85, 0, 30 }, RightKnee = { -25, 0, 0 }, RightAnkle = { -10, 0, 0 } })
+	Poses.ZephyrThrowChamber = grip({ 92, -8, 34 }, { 30, 45, 60 }, { 0, 0, 0, -0.3, 0.15 }, { 6, 0, 0 }, { 6, 0, 0 }, { -0.75, 0.75, 0, -10, 8 },
+		{ RightHip = { 115, 0, 6 }, RightKnee = { -125, 0, 0 }, RightAnkle = { 30, 0, 0 } })
+	Poses.ZephyrThrowRise = grip({ 40, -60, 20 }, { 30, 70, 20 }, { 12, 0, 0, -0.1, 0.3 }, { 18, 0, 0 }, { 0, 0, 0 }, { -0.6, 0.75, 0, -10, 8 },
+		{ RightHip = { 135, 0, 6 }, RightKnee = { -8, 0, 0 }, RightAnkle = { -20, 0, 0 } })
+	-- AKEMI: both hands on the wrist, she turns aside and cuts down in a circle, kneels on it.
+	Poses.AkemiThrowTake = grip({ 70, 10, 40 }, { 65, -10, 45 }, { 0, -10, 0, -0.5, -0.1 }, { -12, -6, 0 }, { 10, 0, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.AkemiThrowTurn = grip({ 80, 30, 50 }, { 75, 0, 60 }, { 0, -35, 0, -0.7, 0 }, { -16, 10, 0 }, { 14, 16, 0 }, { -0.6, 0.85, 0, -12, 14 })
+	Poses.AkemiThrowCut = grip({ 40, 20, 20 }, { 35, -5, 25 }, { 0, -45, 0, -1.0, 0 }, { -36, 15, 0 }, { 26, 20, 0 }, { -0.75, 0.8, 0, -14, 16 })
+	Poses.AkemiThrowPin = grip({ 35, 10, 15 }, { 30, -5, 15 }, { 0, -30, 0, -1.0, -0.1 }, { -36, 10, 0 }, { 30, 10, 0 }, { -0.8, 0.6, 0, -18, 16 })
+	-- RYUKEN: the collar in his left, the right: three punches, raised, the hammer down.
+	Poses.RyukenThrowCollar = grip({ 98, -6, 28 }, { 45, 30, 125 }, { 0, -18, 0, -0.55, -0.1 }, { -14, -18, 0 }, { 14, 10, 0 }, { -0.9, 0.7, 0, -12, 9 })
+	Poses.RyukenThrowPunch = grip({ 98, -6, 28 }, { 92, -4, 10 }, { 0, 24, 0, -0.5, -0.25 }, { -16, 26, 0 }, { 12, -18, 0 }, { -0.95, 0.7, 0, -14, 9 })
+	Poses.RyukenThrowPunch2 = grip({ 96, -6, 34 }, { 100, -8, 4 }, { 0, 34, 0, -0.55, -0.32 }, { -20, 32, 0 }, { 14, -24, 0 }, { -1.0, 0.65, 0, -16, 9 })
+	Poses.RyukenThrowRaise = grip({ 80, -6, 45 }, { 175, 10, 40 }, { 0, -10, 0, -0.35, 0.05 }, { 10, -12, 0 }, { 20, 6, 0 }, { -0.8, 0.8, 0, -8, 10 })
+	Poses.RyukenThrowHammer = grip({ 58, -20, 30 }, { 55, -6, 15 }, { 0, 10, 0, -0.85, -0.25 }, { -40, 10, 0 }, { 34, -6, 0 }, { -1.0, 0.65, 0, -16, 12 })
+	-- DAICHA: her palm on its chest, raised, the arm up (it hangs upside down), the hand closes.
+	Poses.DaichaThrowPalm = grip({ 40, -30, 60 }, { 92, 0, 10 }, { 0, 16, 0, -0.45, -0.15 }, { -10, 14, 0 }, { 10, -10, 0 }, { -0.9, 0.7, 0, -10, 8 })
+	Poses.DaichaThrowRaise = grip({ 30, -45, 30 }, { 140, 10, 20 }, { 6, 6, 0, -0.3, 0.1 }, { 10, 6, 0 }, { 24, 0, 0 }, { -0.7, 0.8, 0, -8, 8 })
+	Poses.DaichaThrowLift = grip({ 60, -70, 20 }, { 170, 14, 10 }, { 10, 0, 0, -0.25, 0.2 }, { 14, 0, 0 }, { 30, 0, 0 }, { -0.65, 0.8, 0, -6, 8 })
+	Poses.DaichaThrowClose = grip({ 20, -40, 40 }, { 50, -10, 70 }, { 0, 14, 0, -0.8, -0.15 }, { -30, 14, 0 }, { 20, -8, 0 }, { -0.95, 0.65, 0, -14, 10 })
+	-- HIBECARES: stooped to the ankles, the swing (twice round), the release.
+	Poses.HibecaresThrowStoop = grip({ 60, -10, 10 }, { 60, 10, 10 }, { 0, 0, 0, -1.0, -0.1 }, { -46, 0, 0 }, { 30, 0, 0 }, { -0.75, 0.75, 0, -10, 16 })
+	local SWING = grip({ 75, 8, 5 }, { 75, -8, 5 }, { 8, 0, 0, -0.55, 0.15 }, { 16, 0, 0 }, { 6, 0, 0 }, { -0.5, 0.5, 0, -6, 16 })
+	Poses.HibecaresThrowSwing0, Poses.HibecaresThrowSwing720 = SWING, turned(SWING, 720)
+	Poses.HibecaresThrowLet = grip({ 120, -20, 5 }, { 120, 20, 5 }, { 0, 720, 0, -0.5, -0.2 }, { -10, 0, 0 }, { 10, 0, 0 }, { -0.9, 0.6, 0, -12, 14 })
+	Poses.HibecaresThrowEnd = turned(Poses.Kits.HIBECARES.STANCE, 720)
+	-- RAIJIN: the collar and the shaft (as SHIN's hilt), the hook, the sweep, raised, thrust down.
+	Poses.RaijinThrowHook = grip({ 60, -20, 30 }, { 50, 10, 20 }, { 0, 40, 0, -0.8, -0.1 }, { -24, 30, 0 }, { 20, -20, 0 }, { -0.9, 0.7, 0, -14, 10 })
+	Poses.RaijinThrowSweep = grip({ 30, -10, 50 }, { 10, 20, 30 }, { 0, 70, 0, -0.7, 0.2 }, { -10, 40, 0 }, { 14, -30, 0 }, { -0.8, 0.85, 0, -12, 12 })
+	Poses.RaijinThrowRaise = grip({ 160, 10, 50 }, { 170, 0, 30 }, { 0, 10, 0, -0.3, 0 }, { 10, 0, 0 }, { 20, 0, 0 }, { -0.75, 0.8, 0, -8, 10 })
+	Poses.RaijinThrowThrust = grip({ 48, 10, 20 }, { 38, 0, 10 }, { 0, 10, 0, -1.0, -0.3 }, { -42, 0, 0 }, { 30, 0, 0 }, { -1.0, 0.65, 0, -16, 12 })
+	-- YUKINA: the fans crossed at its neck, opened, she turns once with it, the fans' flick.
+	Poses.YukinaThrowCross = grip({ 100, 20, 40 }, { 100, -20, 40 }, { 0, 0, 0, -0.4, -0.15 }, { -10, 0, 0 }, { 10, 0, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	local OPEN = grip({ 90, -80, 10 }, { 90, 80, 10 }, { 0, 0, 0, -0.2, 0 }, { 4, 0, 0 }, { 14, 0, 0 }, { -0.6, 0.7, -20, -20, 6 })
+	Poses.YukinaThrowOpen0, Poses.YukinaThrowOpen360 = OPEN, turned(OPEN, 360)
+	Poses.YukinaThrowFlick = grip({ 130, 10, 10 }, { 130, -10, 10 }, { 0, 360, 0, -0.45, -0.25 }, { -10, 0, 0 }, { 12, 0, 0 }, { -1.0, 0.65, 0, -14, 9 })
+	Poses.YukinaThrowEnd = turned(Poses.Kits.YUKINA.STANCE, 360)
+	-- VENOM: claws in the shoulders, the bite (twice), the knee up, the push kick.
+	Poses.VenomThrowClaw = grip({ 105, -20, 45 }, { 105, 20, 45 }, { 0, 0, 0, -0.6, -0.25 }, { -24, 0, 0 }, { 6, 0, 0 }, { -0.85, 0.7, 0, -10, 10 })
+	Poses.VenomThrowBite = grip({ 80, -10, 90 }, { 80, 10, 90 }, { 0, 0, 0, -0.7, -0.45 }, { -36, 0, 0 }, { -10, 0, 0 }, { -0.95, 0.65, 0, -14, 10 })
+	Poses.VenomThrowChamber = grip({ 40, -40, 70 }, { 40, 40, 70 }, { 0, 0, 0, -0.35, 0.15 }, { 4, 0, 0 }, { 10, 0, 0 }, { -0.7, 0.8, 0, -8, 8 },
+		{ RightHip = { 100, 0, 6 }, RightKnee = { -110, 0, 0 }, RightAnkle = { 20, 0, 0 } })
+	Poses.VenomThrowPush = grip({ 30, -30, 60 }, { 30, 30, 60 }, { 10, 0, 0, -0.3, 0.3 }, { 10, 0, 0 }, { 6, 0, 0 }, { -0.65, 0.8, 0, -8, 8 },
+		{ RightHip = { 95, 0, 6 }, RightKnee = { -20, 0, 0 }, RightAnkle = { -10, 0, 0 } })
+	-- GORAN: the waist lock, the heave, the bridge (it goes over), back up.
+	Poses.GoranThrowLock = grip({ 85, 30, 80 }, { 85, -30, 80 }, { 0, 0, 0, -0.7, -0.25 }, { -20, 0, 0 }, { 24, 0, 0 }, { -0.75, 0.75, 0, -10, 14 })
+	Poses.GoranThrowHeave = grip({ 120, 25, 70 }, { 120, -25, 70 }, { 20, 0, 0, -0.6, 0.2 }, { 22, 0, 0 }, { 30, 0, 0 }, { -0.6, 0.8, 0, -6, 14 })
+	Poses.GoranThrowArch = grip({ 165, 20, 40 }, { 165, -20, 40 }, { 30, 0, 0, -0.7, 0.4 }, { 28, 0, 0 }, { 40, 0, 0 }, { -0.5, 0.65, 0, -4, 14 })
+	Poses.GoranThrowRecover = grip({ 60, -20, 40 }, { 60, 20, 40 }, { 10, 0, 0, -0.9, 0.3 }, { -20, 0, 0 }, { 20, 0, 0 }, { -0.7, 0.75, 0, -10, 14 })
+	-- ASTER: the palm on it, raised (it floats), both palms down (it crashes), twice.
+	Poses.AsterThrowPalm = grip({ 30, -40, 40 }, { 90, 0, 15 }, { 0, 14, 0, -0.4, -0.1 }, { -10, 12, 0 }, { 10, -8, 0 }, { -0.85, 0.7, 0, -10, 8 })
+	Poses.AsterThrowRaise = grip({ 70, -60, 20 }, { 150, 0, 30 }, { 8, 0, 0, -0.25, 0.05 }, { 12, 0, 0 }, { 30, 0, 0 }, { -0.7, 0.8, 0, -8, 8 })
+	Poses.AsterThrowCrush = grip({ 48, -30, 10 }, { 48, 30, 10 }, { 0, 0, 0, -1.0, -0.2 }, { -40, 0, 0 }, { 28, 0, 0 }, { -0.8, 0.8, 0, -14, 14 })
+	-- HIBIKI: the collar, palms on the beat (right, left, right), the breath drawn, both palms.
+	Poses.HibikiThrowHold = grip({ 95, -6, 30 }, { 60, 30, 90 }, { 0, -10, 0, -0.4, -0.1 }, { -8, -8, 0 }, { 10, 6, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.HibikiThrowPalmA = grip({ 95, -6, 30 }, { 90, -2, 8 }, { 0, 20, 0, -0.45, -0.2 }, { -10, 20, 0 }, { 10, -14, 0 }, { -0.9, 0.7, 0, -12, 8 })
+	Poses.HibikiThrowPalmB = grip({ 100, 0, 8 }, { 40, 20, 80 }, { 0, -22, 0, -0.45, -0.2 }, { -10, -20, 0 }, { 10, 16, 0 }, { -0.9, 0.7, 0, -12, 8 })
+	Poses.HibikiThrowPalmC = grip({ 50, -20, 90 }, { 105, 0, 5 }, { 0, 24, 0, -0.5, -0.25 }, { -12, 22, 0 }, { 12, -16, 0 }, { -0.95, 0.7, 0, -14, 8 })
+	Poses.HibikiThrowDraw = grip({ 20, 10, 110 }, { 20, -10, 110 }, { 0, 70, 0, -0.7, 0.15 }, { -6, 30, 0 }, { 6, -50, 0 }, { -0.7, 0.8, 0, -12, 12 })
+	Poses.HibikiThrowBlast = grip({ 90, 10, 10 }, { 90, -10, 10 }, { 0, 10, 0, -0.6, -0.35 }, { -16, 0, 0 }, { 12, 0, 0 }, { -1.1, 0.6, 0, -16, 10 })
+	-- KAZAN: both claws hooked, dragged down, the rake, low, the rising talons.
+	Poses.KazanThrowHook = grip({ 100, -15, 50 }, { 100, 15, 50 }, { 0, 0, 0, -0.5, -0.15 }, { -14, 0, 0 }, { 10, 0, 0 }, { -0.85, 0.75, 0, -10, 10 })
+	Poses.KazanThrowDrive = grip({ 60, -10, 40 }, { 60, 10, 40 }, { 0, 0, 0, -1.0, -0.1 }, { -38, 0, 0 }, { 30, 0, 0 }, { -0.8, 0.7, 0, -14, 14 })
+	Poses.KazanThrowRake = grip({ 60, -10, 40 }, { 40, -40, 20 }, { 0, -30, 0, -0.95, -0.1 }, { -36, -20, 0 }, { 28, 10, 0 }, { -0.85, 0.7, 0, -14, 14 })
+	Poses.KazanThrowLow = grip({ 10, -35, 20 }, { 10, 35, 20 }, { 0, 0, 0, -1.1, 0.05 }, { -30, 0, 0 }, { 30, 0, 0 }, { -0.75, 0.75, 0, -16, 14 })
+	Poses.KazanThrowRise = grip({ 160, -20, 15 }, { 160, 20, 15 }, { 10, 0, 0, -0.15, -0.2 }, { 14, 0, 0 }, { 26, 0, 0 }, { -0.95, 0.7, -10, -20, 10 })
+	-- KUREN: the throat in his left, his right drinks at its chest, tears it out, both up.
+	Poses.KurenThrowThroat = grip({ 100, -4, 20 }, { 30, 40, 60 }, { 0, -12, 0, -0.45, -0.1 }, { -8, -12, 0 }, { 12, 8, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.KurenThrowDrain = grip({ 100, -4, 20 }, { 88, -4, 25 }, { 0, 12, 0, -0.5, -0.2 }, { -14, 12, 0 }, { 14, -10, 0 }, { -0.9, 0.7, 0, -12, 8 })
+	Poses.KurenThrowTear = grip({ 95, -4, 30 }, { 60, 30, 130 }, { 0, -20, 0, -0.45, 0.15 }, { -4, -20, 0 }, { 20, 10, 0 }, { -0.75, 0.85, 0, -8, 8 })
+	Poses.KurenThrowRaise = grip({ 165, -15, 10 }, { 165, 15, 10 }, { 12, 0, 0, -0.25, 0.25 }, { 18, 0, 0 }, { 34, 0, 0 }, { -0.7, 0.8, -6, -10, 10 })
+	-- SYLVA: the shoulder held, the hunter's kick behind the knee, pushed down, her knee on it,
+	-- the finishing strike.
+	Poses.SylvaThrowGrip = grip({ 100, -10, 30 }, { 50, 30, 90 }, { 0, -10, 0, -0.45, -0.1 }, { -8, -8, 0 }, { 10, 6, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.SylvaThrowSweep = grip({ 95, -10, 15 }, { 40, 30, 60 }, { 0, 40, 0, -0.8, 0 }, { -20, 30, 0 }, { 16, -20, 0 }, { -0.85, 0.75, 0, -12, 10 },
+		{ RightHip = { 60, 0, 40 }, RightKnee = { -20, 0, 0 }, RightAnkle = { -20, 0, 0 } })
+	Poses.SylvaThrowPush = grip({ 70, -10, 20 }, { 70, 10, 20 }, { 0, 0, 0, -0.9, -0.3 }, { -36, 0, 0 }, { 28, 0, 0 }, { -1.0, 0.65, 0, -14, 12 })
+	-- (down on one knee: the back heel raised, the knee near the floor, both feet planted)
+	Poses.SylvaThrowMount = grip({ 60, -30, 40 }, { 150, 10, 90 }, { 0, 0, 0, -1.1, -0.5 }, { -24, 0, 0 }, { 30, 0, 0 }, { -1.0, 0.6, 0, -30, 12 })
+	Poses.SylvaThrowStrike = grip({ 75, -30, 40 }, { 80, -6, 10 }, { 0, 0, 0, -1.05, -0.6 }, { -26, 0, 0 }, { 24, 0, 0 }, { -1.0, 0.6, 0, -30, 12 })
+	-- ELIAN: one hand high, one low, the step through, his palms of light over it.
+	Poses.ElianThrowEnter = grip({ 150, -10, 40 }, { 75, -10, 20 }, { 0, 0, 0, -0.55, -0.25 }, { -10, 0, 0 }, { 16, 0, 0 }, { -1.0, 0.65, 0, -12, 10 })
+	Poses.ElianThrowTurn = grip({ 125, -20, 10 }, { 60, -10, 10 }, { 0, -8, 0, -0.8, -0.4 }, { -24, 0, 0 }, { 20, 6, 0 }, { -1.1, 0.55, 0, -16, 12 })
+	Poses.ElianThrowLight = grip({ 60, -20, 20 }, { 60, 20, 20 }, { 0, 0, 0, -0.9, -0.3 }, { -30, 0, 0 }, { 30, 0, 0 }, { -0.95, 0.65, 0, -14, 12 })
+	-- NOVA: the right gauntlet clamps and lifts, two shocks, the left cocked, the rocket punch.
+	Poses.NovaThrowClamp = grip({ 40, 30, 100 }, { 98, -6, 25 }, { 0, -12, 0, -0.4, -0.1 }, { -8, -10, 0 }, { 10, 6, 0 }, { -0.85, 0.75, 0, -10, 8 })
+	Poses.NovaThrowLift = grip({ 60, 20, 80 }, { 130, -6, 15 }, { 6, -14, 0, -0.3, 0.05 }, { 10, -10, 0 }, { 26, 6, 0 }, { -0.75, 0.8, 0, -8, 8 })
+	Poses.NovaThrowShock = grip({ 60, 20, 80 }, { 132, -6, 20 }, { 6, -14, 0, -0.32, 0.05 }, { 12, -10, 6 }, { 28, 6, 0 }, { -0.75, 0.8, 0, -8, 8 })
+	Poses.NovaThrowShock2 = grip({ 60, 20, 80 }, { 128, -6, 10 }, { 6, -14, 0, -0.28, 0.05 }, { 8, -10, -6 }, { 24, 6, 0 }, { -0.75, 0.8, 0, -8, 8 })
+	Poses.NovaThrowCock = grip({ -10, 25, 100 }, { 125, -6, 15 }, { 0, 50, 0, -0.5, 0.2 }, { -6, 30, 0 }, { 14, -20, 0 }, { -0.8, 0.85, 0, -10, 10 })
+	Poses.NovaThrowRocket = grip({ 92, -4, 5 }, { 30, 30, 60 }, { 0, -40, 0, -0.5, -0.35 }, { -14, -30, 0 }, { 12, 26, 0 }, { -1.05, 0.6, 0, -16, 9 })
+	-- KUROEN: the clinch and the knee (as a thai boxer), the elbow down, the ki drawn, the palm.
+	Poses.KuroenThrowElbow = grip({ 112, -24, 112 }, { 125, -20, 145 }, { 0, 30, 0, -0.6, -0.2 }, { -30, 30, 0 }, { 20, -20, 0 }, { -0.9, 0.7, 0, -12, 9 })
+	Poses.KuroenThrowCharge = grip({ 70, -20, 60 }, { 20, 20, 100 }, { 0, 40, 0, -0.6, 0.2 }, { -10, 30, 0 }, { 10, -30, 0 }, { -0.75, 0.85, 0, -10, 10 })
+	Poses.KuroenThrowPalm = grip({ 60, -30, 90 }, { 92, 0, 0 }, { 0, 30, 0, -0.6, -0.35 }, { -14, 24, 0 }, { 12, -20, 0 }, { -1.05, 0.6, 0, -16, 9 })
+	-- KUROEN SHIN: one hand at the throat (the other idle), lifted, the ki pulses, the palm.
+	Poses.KuroenShinThrowThroat = grip({ 20, -20, 20 }, { 100, -4, 20 }, { 0, 14, 0, -0.35, -0.1 }, { -6, 10, 0 }, { 10, -8, 0 }, { -0.85, 0.75, 0, -8, 8 })
+	Poses.KuroenShinThrowLift = grip({ 10, -20, 15 }, { 138, -4, 6 }, { 4, 10, 0, -0.2, 0 }, { 6, 10, 0 }, { 22, -8, 0 }, { -0.75, 0.8, 0, -6, 8 })
+	Poses.KuroenShinThrowPulse = grip({ 10, -24, 20 }, { 141, -4, 10 }, { 6, 10, 0, -0.22, 0 }, { 8, 10, 4 }, { 26, -8, 0 }, { -0.75, 0.8, 0, -6, 8 })
+	Poses.KuroenShinThrowPalm = grip({ 140, 0, 5 }, { 150, -30, 30 }, { 8, -30, 0, -0.4, -0.2 }, { 6, -26, 0 }, { 26, 20, 0 }, { -0.95, 0.7, 0, -12, 9 })
+
+	-- The keys of each fighter's throw: { tick, pose } for the thrower and for its victim
+	-- (MoveData.Throws: the same ticks; the victim's last key is its impact, the thrower's its
+	-- length). "STANCE" is the thrower's own guard.
+	local SEIZE = { 0, "ThrownSeized" }
+	Poses.Throws = {
+		KAI = {
+			thrower = { { 0, "ThrowShoulderSeize" }, { 6, "ThrowShoulderSeize" }, { 12, "ThrowShoulderLoad" }, { 19, "ThrowShoulderOver" },
+				{ 30, "ThrowShoulderSlam" }, { 35, "KaiThrowPalm" }, { 39, "KaiThrowPalm" }, { 44, "STANCE" } },
+			victim = { SEIZE, { 6, "ThrownSeized" }, { 12, "ThrownShoulderHoist" }, { 19, "ThrownShoulderOver" },
+				{ 26, "ThrownShoulderFall" }, { 30, "DownImpact" } },
+		},
+		TARO = {
+			thrower = { { 0, "TaroThrowTie" }, { 5, "TaroThrowTie" }, { 8, "TaroThrowLiver" }, { 11, "TaroThrowTie" }, { 15, "TaroThrowLiver" },
+				{ 19, "TaroThrowBreak" }, { 26, "TaroThrowCross" }, { 32, "TaroThrowCross" }, { 40, "STANCE" } },
+			victim = { SEIZE, { 5, "VicDoubled" }, { 8, "VicDoubledHit" }, { 11, "VicDoubled" }, { 15, "VicDoubledHit" },
+				{ 19, "VicStagger" }, { 26, "VicBlown" } },
+		},
+		ZEPHYR = {
+			thrower = { { 0, "ZephyrThrowHold" }, { 5, "ZephyrThrowHold" }, { 8, "ZephyrThrowLow" }, { 11, "ZephyrThrowHold" }, { 14, "ZephyrThrowMid" },
+				{ 18, "ZephyrThrowChamber" }, { 24, "ZephyrThrowRise" }, { 32, "ZephyrThrowRise" }, { 44, "STANCE" } },
+			victim = { SEIZE, { 6, "ThrownSeized" }, { 8, "VicLegBuckle" }, { 11, "ThrownSeized" }, { 14, "VicDoubled" },
+				{ 18, "VicStagger" }, { 24, "VicKickedUp" } },
+		},
+		AKEMI = {
+			thrower = { { 0, "AkemiThrowTake" }, { 6, "AkemiThrowTake" }, { 12, "AkemiThrowTurn" }, { 20, "AkemiThrowCut" },
+				{ 28, "AkemiThrowPin" }, { 34, "AkemiThrowPin" }, { 42, "STANCE" } },
+			victim = { SEIZE, { 6, "VicArmTaken" }, { 12, "VicTipped" }, { 18, "VicFlipA" }, { 23, "VicFlipB" }, { 28, "VicFlipLand" } },
+		},
+		RYUKEN = {
+			thrower = { { 0, "RyukenThrowCollar" }, { 5, "RyukenThrowCollar" }, { 8, "RyukenThrowPunch" }, { 10, "RyukenThrowCollar" },
+				{ 13, "RyukenThrowPunch" }, { 15, "RyukenThrowCollar" }, { 18, "RyukenThrowPunch2" }, { 22, "RyukenThrowRaise" },
+				{ 30, "RyukenThrowHammer" }, { 37, "RyukenThrowHammer" }, { 46, "STANCE" } },
+			victim = { SEIZE, { 5, "ThrownSeized" }, { 8, "VicHeadSnap" }, { 10, "VicHooked" }, { 13, "VicHeadSnapSide" }, { 15, "VicHooked" },
+				{ 18, "VicHeadSnap" }, { 22, "VicSlump" }, { 30, "DownImpact" } },
+		},
+		SHIN = {
+			thrower = { { 0, "ThrowBladeSeize" }, { 6, "ThrowBladeSeize" }, { 10, "ThrowBladePommel" }, { 16, "ThrowBladeWind" },
+				{ 24, "ThrowBladeCut" }, { 32, "ThrowBladeCut" }, { 42, "STANCE" } },
+			victim = { SEIZE, { 6, "ThrownSeized" }, { 10, "ThrownBladeStruck" }, { 16, "ThrownBladeStruck" },
+				{ 20, "ThrownBladeCut" }, { 24, "DownImpact" } },
+		},
+		DAICHA = {
+			thrower = { { 0, "DaichaThrowPalm" }, { 6, "DaichaThrowPalm" }, { 12, "DaichaThrowRaise" }, { 20, "DaichaThrowLift" },
+				{ 28, "DaichaThrowLift" }, { 34, "DaichaThrowClose" }, { 40, "DaichaThrowClose" }, { 48, "STANCE" } },
+			victim = { SEIZE, { 6, "VicArched" }, { 12, "VicFloat" }, { 20, "VicInverted" }, { 28, "VicInverted2" }, { 34, "DownImpact" } },
+		},
+		HIBECARES = {
+			thrower = { { 0, "HibecaresThrowStoop" }, { 8, "HibecaresThrowStoop" }, { 14, "HibecaresThrowSwing0" }, { 56, "HibecaresThrowSwing720" },
+				{ 59, "HibecaresThrowLet" }, { 63, "HibecaresThrowLet" }, { 70, "HibecaresThrowEnd" } },
+			victim = { SEIZE, { 6, "VicTripped" }, { 14, "VicSwung0" }, { 56, "VicSwung720" }, { 58, "VicSwungLet" } },
+		},
+		RAIJIN = {
+			thrower = { { 0, "ThrowBladeSeize" }, { 6, "ThrowBladeSeize" }, { 10, "RaijinThrowHook" }, { 14, "RaijinThrowSweep" },
+				{ 20, "RaijinThrowRaise" }, { 26, "RaijinThrowThrust" }, { 32, "RaijinThrowThrust" }, { 42, "STANCE" } },
+			victim = { SEIZE, { 6, "ThrownSeized" }, { 10, "VicSwept" }, { 16, "VicFallingFlat" }, { 20, "DownImpact" }, { 26, "DownImpact" } },
+		},
+		YUKINA = {
+			thrower = { { 0, "YukinaThrowCross" }, { 6, "YukinaThrowCross" }, { 12, "YukinaThrowOpen0" }, { 30, "YukinaThrowOpen360" },
+				{ 36, "YukinaThrowFlick" }, { 40, "YukinaThrowFlick" }, { 46, "YukinaThrowEnd" } },
+			victim = { SEIZE, { 6, "VicFrozen" }, { 12, "VicFrozen0" }, { 30, "VicFrozen360" }, { 36, "VicGust360" } },
+		},
+		VENOM = {
+			thrower = { { 0, "VenomThrowClaw" }, { 5, "VenomThrowClaw" }, { 9, "VenomThrowBite" }, { 13, "VenomThrowClaw" }, { 17, "VenomThrowBite" },
+				{ 21, "VenomThrowClaw" }, { 25, "VenomThrowChamber" }, { 30, "VenomThrowPush" }, { 35, "VenomThrowPush" }, { 44, "STANCE" } },
+			victim = { SEIZE, { 5, "VicHooked" }, { 9, "VicConvulse" }, { 13, "VicHooked" }, { 17, "VicConvulse2" }, { 21, "VicSlump" },
+				{ 25, "VicSlump" }, { 30, "VicBlown" } },
+		},
+		GORAN = {
+			thrower = { { 0, "GoranThrowLock" }, { 6, "GoranThrowLock" }, { 12, "GoranThrowHeave" }, { 20, "GoranThrowArch" },
+				{ 30, "GoranThrowArch" }, { 36, "GoranThrowRecover" }, { 46, "STANCE" } },
+			victim = { SEIZE, { 6, "VicLocked" }, { 12, "VicHeaved" }, { 20, "VicOverA" }, { 25, "VicOverB" }, { 30, "VicFlipLand" } },
+		},
+		ASTER = {
+			thrower = { { 0, "AsterThrowPalm" }, { 5, "AsterThrowPalm" }, { 8, "AsterThrowRaise" }, { 12, "AsterThrowCrush" },
+				{ 16, "AsterThrowRaise" }, { 24, "AsterThrowCrush" }, { 30, "AsterThrowCrush" }, { 40, "STANCE" } },
+			victim = { SEIZE, { 5, "VicArched" }, { 8, "VicFloat" }, { 12, "DownImpact" }, { 16, "VicFloatHigh" }, { 24, "DownImpact" } },
+		},
+		HIBIKI = {
+			thrower = { { 0, "HibikiThrowHold" }, { 5, "HibikiThrowHold" }, { 8, "HibikiThrowPalmA" }, { 11, "HibikiThrowHold" },
+				{ 14, "HibikiThrowPalmB" }, { 17, "HibikiThrowHold" }, { 20, "HibikiThrowPalmC" }, { 24, "HibikiThrowDraw" },
+				{ 30, "HibikiThrowBlast" }, { 36, "HibikiThrowBlast" }, { 46, "STANCE" } },
+			victim = { SEIZE, { 5, "ThrownSeized" }, { 8, "VicChestHit" }, { 11, "VicHooked" }, { 14, "VicHeadSnapSide" }, { 17, "VicHooked" },
+				{ 20, "VicHeadSnap" }, { 24, "VicStagger" }, { 30, "VicBlown" } },
+		},
+		KAZAN = {
+			thrower = { { 0, "KazanThrowHook" }, { 5, "KazanThrowHook" }, { 10, "KazanThrowDrive" }, { 14, "KazanThrowRake" },
+				{ 18, "KazanThrowLow" }, { 24, "KazanThrowRise" }, { 32, "KazanThrowRise" }, { 42, "STANCE" } },
+			victim = { SEIZE, { 5, "VicHooked" }, { 10, "VicKneel" }, { 14, "VicKneelRaked" }, { 18, "VicKneel" }, { 24, "VicTalons" } },
+		},
+		KUREN = {
+			thrower = { { 0, "KurenThrowThroat" }, { 5, "KurenThrowThroat" }, { 10, "KurenThrowDrain" }, { 16, "KurenThrowDrain" },
+				{ 20, "KurenThrowTear" }, { 28, "KurenThrowRaise" }, { 36, "KurenThrowRaise" }, { 48, "STANCE" } },
+			victim = { SEIZE, { 5, "VicChoked" }, { 10, "VicArched" }, { 16, "VicConvulse" }, { 20, "VicStagger" }, { 28, "VicImpaled" } },
+		},
+		SYLVA = {
+			thrower = { { 0, "SylvaThrowGrip" }, { 5, "SylvaThrowGrip" }, { 10, "SylvaThrowSweep" }, { 16, "SylvaThrowPush" },
+				{ 22, "SylvaThrowMount" }, { 28, "SylvaThrowStrike" }, { 34, "SylvaThrowStrike" }, { 44, "STANCE" } },
+			victim = { SEIZE, { 5, "ThrownSeized" }, { 10, "VicSwept" }, { 16, "VicFallingFlat" }, { 22, "DownImpact" }, { 28, "DownImpact" } },
+		},
+		ELIAN = {
+			thrower = { { 0, "ElianThrowEnter" }, { 6, "ElianThrowEnter" }, { 14, "ElianThrowTurn" }, { 20, "ElianThrowTurn" },
+				{ 26, "ElianThrowLight" }, { 32, "ElianThrowLight" }, { 40, "STANCE" } },
+			victim = { SEIZE, { 6, "VicHeadSnap" }, { 14, "VicTripped" }, { 20, "VicFallingFlat" }, { 24, "DownImpact" } },
+		},
+		NOVA = {
+			thrower = { { 0, "NovaThrowClamp" }, { 5, "NovaThrowClamp" }, { 12, "NovaThrowLift" }, { 16, "NovaThrowShock" }, { 20, "NovaThrowShock2" },
+				{ 24, "NovaThrowCock" }, { 30, "NovaThrowRocket" }, { 36, "NovaThrowRocket" }, { 46, "STANCE" } },
+			victim = { SEIZE, { 5, "ThrownSeized" }, { 12, "VicLifted" }, { 16, "VicShocked" }, { 20, "VicShocked2" }, { 24, "VicLifted" },
+				{ 30, "VicBlown" } },
+		},
+		KUROEN = {
+			thrower = { { 0, "ThrowKneeClinch" }, { 5, "ThrowKneeClinch" }, { 9, "ThrowKneeStrike" }, { 13, "ThrowKneeClinch" },
+				{ 18, "KuroenThrowElbow" }, { 22, "KuroenThrowCharge" }, { 28, "KuroenThrowPalm" }, { 34, "KuroenThrowPalm" }, { 44, "STANCE" } },
+			victim = { SEIZE, { 5, "ThrownKneeBent" }, { 9, "ThrownKneeHit" }, { 13, "ThrownKneeBent" }, { 18, "VicSlump" },
+				{ 22, "VicStagger" }, { 28, "VicBlown" } },
+		},
+		["KUROEN SHIN"] = {
+			thrower = { { 0, "KuroenShinThrowThroat" }, { 6, "KuroenShinThrowThroat" }, { 14, "KuroenShinThrowLift" }, { 17, "KuroenShinThrowPulse" },
+				{ 20, "KuroenShinThrowLift" }, { 26, "KuroenShinThrowPalm" }, { 34, "KuroenShinThrowPalm" }, { 46, "STANCE" } },
+			victim = { SEIZE, { 6, "VicChoked" }, { 14, "VicHanging" }, { 20, "VicHanging2" }, { 26, "VicBlown" } },
+		},
+		ASURA = {
+			thrower = { { 0, "ThrowSlamSeize" }, { 8, "ThrowSlamSeize" }, { 15, "ThrowSlamLift" }, { 22, "ThrowSlamHold" }, { 28, "ThrowSlamHold" },
+				{ 38, "ThrowSlamDown" }, { 45, "ThrowSlamDown" }, { 54, "STANCE" } },
+			victim = { SEIZE, { 8, "ThrownSlamFolded" }, { 15, "ThrownSlamLifted" }, { 22, "ThrownSlamOverhead" },
+				{ 28, "ThrownSlamOverhead" }, { 38, "DownImpact" } },
+		},
+	}
 end
 
 -- Every pose carries its channels explicitly so blends never mix a missing channel with zero.

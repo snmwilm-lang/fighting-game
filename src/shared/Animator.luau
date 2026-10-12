@@ -833,12 +833,13 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 			-- keep blending from where it started, toward the new step (no pop on frame 2).
 		else
 			self.from = self.current
-			-- (out of a full turn, a throw's spin: the same facing, brought back near 0 so the
-			-- blend does not unwind it)
+			-- (out of a full turn, a throw's spin or flip: the same body, brought back near 0 so
+			-- the blend does not unwind it)
 			local root = self.from and self.from.Root
-			if root and math.abs(root[2]) > 180 then
+			if root and (math.abs(root[1]) > 180 or math.abs(root[2]) > 180) then
 				self.from = table.clone(self.from)
 				local wrapped = table.clone(root)
+				wrapped[1] = ((wrapped[1] + 180) % 360) - 180
 				wrapped[2] = ((wrapped[2] + 180) % 360) - 180
 				self.from.Root = wrapped
 			end

@@ -556,7 +556,9 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 				local follow = math.min(1, dt * 30)
 				current.x += (thrower.x + (thrower.facing or 1) * dx - current.x) * follow
 				current.y += (dy - current.y) * follow
-				current.z = Config.PlaneZ + dz
+				-- (dz is written for a thrower facing right: mirrored with it, so the body turned
+				-- by the poses and its place round the thrower stay together)
+				current.z = Config.PlaneZ + dz * (thrower.facing or 1)
 			end
 		else
 			current.throwClock = nil

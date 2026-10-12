@@ -42,6 +42,7 @@ function InputController.start(remote)
 	-- clicks, a heavy then a light stays heavy first (see PressQueue).
 	local presses = {}
 	local lastAttack, lastAttackAt = nil, -math.huge
+	local dashAt = -math.huge -- (the last dash press: the local fighter's drawing predicts it)
 	local function press(pulse)
 		if pulse == "light" or pulse == "heavy" then
 			local now = os.clock()
@@ -60,6 +61,7 @@ function InputController.start(remote)
 		else
 			pulses[pulse] = true
 		end
+		if pulse == "dash" then dashAt = os.clock() end
 	end
 	local lastDirection = nil -- left + right held together: the last one pressed wins
 	-- Mouse lock (Ctrl or the HUD button): the cursor is hidden and held at the centre of the
@@ -300,6 +302,8 @@ function InputController.start(remote)
 		-- What is held right now (axis -1..1, crouch, block): the local fighter is drawn ahead
 		-- of the server by it (visual prediction, see the client's presentation loop).
 		held = function() return read() end, -- axis, crouch, block
+		-- When the last dash was pressed (os.clock), for the drawing's prediction.
+		lastDash = function() return dashAt end,
 		clear = clear,
 		-- The touch ULTI button glows when the ki meter can pay for the ultimate.
 		setUltimateReady = function(ready)

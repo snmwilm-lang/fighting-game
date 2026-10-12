@@ -10,6 +10,11 @@ local RigReader = require(Shared.RigReader)
 local Animator = require(Shared.Animator)
 local Director = require(Shared.CinematicDirector)
 local Wire = require(Shared.Wire)
+local Prediction = require(Shared.Prediction)
+local inputHistory = Prediction.new() -- (the local fighter's inputs not yet in a snapshot)
+-- (a dash press is drawn ahead only if the last dash seen is older than its cooldown: a dash
+-- the server will refuse is not drawn)
+local dashSeen, dashPress, dashPredicted = -math.huge, -math.huge, false
 local InputController = require(script.InputController)
 local CameraController = require(script.CameraController)
 local AnimationController = require(script.AnimationController)
@@ -484,22 +489,37 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		-- Bounded visual extrapolation, paused during hitstop; server state stays the truth.
 		local ahead = if state.hitstop > 0 then 0 else sinceSnapshot
 		local vx, predicted = state.vx, nil
-		-- Visual prediction of the local fighter (a far player): walking follows the held
-		-- direction at once and is drawn ahead by the one-way latency. Only the drawing: the
-		-- server decides, and the smoothing pulls the body back if it disagrees.
-		if i == mySlot and not world.cinematic and state.hitstop == 0 and state.y <= 0
-			and (state.state == "Idle" or state.state == "Walking") then
+		local targetX
+		if i == mySlot then
+			-- Visual prediction of the local fighter (Prediction): the speed its inputs asked
+			-- for, summed over what the snapshot does not show yet (the round trip and the time
+			-- since it arrived). Only the drawing: the server decides, the smoothing pulls the
+			-- body back if it disagrees. Reversing Q / D bends the path, never jumps back.
 			local kit = MoveData.Kits[state.kit]
 			local stance = kit and kit.Stances and state.stance and kit.Stances[state.stance]
 			local stats = if stance then stance.Stats elseif kit then kit.Stats else nil
 			local axis, crouch, block = input.held()
-			if stats then
+			local free = stats ~= nil and not world.cinematic and state.hitstop == 0 and state.y <= 0
+				and (state.state == "Idle" or state.state == "Walking" or state.state == "Dashing")
+			if input.lastDash() ~= dashPress then
+				dashPress = input.lastDash()
+				dashPredicted = dashPress - dashSeen > Config.DashCooldownTicks / Config.TickRate
+			end
+			if state.state == "Dashing" then dashSeen = now end
+			local wanted = Prediction.velocity(free, axis, crouch, block, if stats then stats.WalkSpeed else 0,
+				if dashPredicted then now - dashPress else math.huge, Config.DashTicks / Config.TickRate, if stats then stats.DashSpeed or Config.DashSpeed else 0,
+				state.facing or 1)
+			Prediction.record(inputHistory, now, math.min(dt, 0.1), wanted)
+			local offset = Prediction.offset(inputHistory, now, Prediction.window((state.ping or 0) / 1000, sinceSnapshot))
+			targetX = math.clamp(state.x + offset, Config.ArenaMinX, Config.ArenaMaxX)
+			if free and state.state ~= "Dashing" then
+				-- (the walk's look follows the key at once too)
 				vx = if crouch or block then 0 else axis * stats.WalkSpeed
-				ahead += math.min((state.ping or 0) / 2000, 0.12)
 				predicted = if math.abs(vx) > 0.05 then "Walking" else "Idle"
 			end
+		else
+			targetX = math.clamp(state.x + vx * ahead, Config.ArenaMinX, Config.ArenaMaxX)
 		end
-		local targetX = math.clamp(state.x + vx * ahead, Config.ArenaMinX, Config.ArenaMaxX)
 		local targetY = math.max(0, state.y + state.vy * ahead)
 		if not current then current = { x = state.x, y = state.y }; displayed[i] = current end
 		current.x += (targetX - current.x) * alpha

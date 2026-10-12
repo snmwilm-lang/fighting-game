@@ -1569,6 +1569,65 @@ T.test("air dash: its pose owns the body for the whole dash (no jump / fall pose
 	end
 end)
 
+T.test("the local fighter's drawing: tapping Q / D fast never makes it jump back and forth (latency prediction)", function()
+	local Sim = require("../src/shared/CombatSimulation")
+	local Prediction = require("../src/shared/Prediction")
+	local RTT, FRAME = 0.12, 1 / 60
+	local walk = MoveData.Kits.KAI.Stats.WalkSpeed
+	local function play(method)
+		local world = Sim.newWorld(Config, MoveData, true)
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -10, 20
+		local f = world.fighters[1]
+		local history = Prediction.new()
+		local sent = {} -- inputs on their way to the server: { at, axis }
+		local snapshots = {} -- snapshots on their way back: { at, x }
+		local shown, lastShown, worstJump, worstError = nil, nil, 0, 0
+		local truth = {}
+		for frame = 1, 60 * 4 do
+			local now = frame * FRAME
+			-- the player: D for a while, then Q / D every 6 frames (a fast tap), then D again
+			local axis = if frame < 60 then 1 elseif frame < 150 then (if math.floor(frame / 6) % 2 == 0 then -1 else 1) else 1
+			table.insert(sent, { at = now + RTT / 2, axis = axis })
+			-- the server: one tick per frame with the inputs that arrived
+			local arrived = 0
+			for _, s in sent do if s.at <= now then arrived = s.axis end end
+			Sim.step(world, { (function() local i = Sim.neutralInput(); i.axis = arrived; return i end)(), Sim.neutralInput() })
+			truth[frame] = f.x
+			if frame % 2 == 0 then table.insert(snapshots, { at = now + RTT / 2, x = f.x, sent = now }) end
+			local latest
+			for _, s in snapshots do if s.at <= now then latest = s end end
+			if latest then
+				local since = now - latest.at
+				local target
+				if method == "new" then
+					Prediction.record(history, now, FRAME, axis * walk)
+					target = latest.x + Prediction.offset(history, now, Prediction.window(RTT, since))
+				else -- (0.25.0: held speed x lead)
+					target = latest.x + axis * walk * (since + RTT / 2)
+				end
+				shown = if shown then shown + (target - shown) * (1 - math.exp(-35 * FRAME)) else target
+				if lastShown and frame > 70 then worstJump = math.max(worstJump, math.abs(shown - lastShown) / FRAME) end
+				-- how far the drawing is from where the server will have the fighter once the
+				-- inputs sent until now are applied (its position half a round trip later)
+				local ahead = truth[frame - math.floor(RTT / 2 / FRAME)]
+				if frame > 200 and ahead then worstError = math.max(worstError, math.abs(shown - f.x)) end
+				lastShown = shown
+			end
+		end
+		return worstJump, worstError
+	end
+	local oldJump = play("old")
+	local newJump, newError = play("new")
+	expect(newJump <= walk * 1.25, string.format("the drawing still jumps: %.1f studs/s (walk %.1f)", newJump, walk))
+	expect(oldJump > newJump * 1.5, string.format("the old drawing did not jump more (%.1f vs %.1f)", oldJump, newJump))
+	expect(newError < walk * (RTT + 0.1), string.format("the drawing drifts from the server: %.2f studs", newError))
+	-- a dash pressed: drawn at the dash's speed for the dash's length, nothing while guarding
+	expect(Prediction.velocity(true, 0, false, false, walk, 0.05, 0.15, 38, -1) == -38, "a dash is not predicted")
+	expect(Prediction.velocity(true, 1, false, true, walk, 1, 0.15, 38, 1) == 0, "a guard walks")
+	expect(Prediction.velocity(false, 1, false, false, walk, 1, 0.15, 38, 1) == 0, "a busy fighter is predicted walking")
+end)
+
 T.test("impact hierarchy: a jab barely shakes the camera, a heavy blow a little, a finisher more, the K.O. and ultimates most", function()
 	local KitFX = require("../src/shared/KitFX")
 	local M = MoveData.Moves

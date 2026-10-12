@@ -47,6 +47,11 @@ function Finishers.build(T)
 		frame.shapes = frame.shapes or {}
 		table.insert(frame.shapes, s)
 	end
+	-- DAICHA's matter (CinematicController:drawMatter): a ball, a disc, a pool, a wave
+	local function matter(frame, kind, pos, r, color, normal, h)
+		frame.matter = frame.matter or {}
+		table.insert(frame.matter, { shape = kind, pos = pos, radius = math.max(0.02, r), color = color, normal = normal, height = h })
+	end
 	local function overlay(frame)
 		frame.overlay = frame.overlay or {}
 		return frame.overlay
@@ -1057,6 +1062,420 @@ function Finishers.build(T)
 			else
 				-- (over his shoulder: the fist steaming in front, the body slumped at the wall far behind)
 				frame.shot = shot("ryuken-tf-after", At(v(a.x - dir * 5, 4.4, 7)), At(v(lerp(a.x, far, 0.35), 2.6, 0)), 40, 0, P(A, "UpperTorso"))
+			end
+			ko(ctx, frame, tick, F + 70, color)
+		end
+	end
+
+
+	-- The target's own move for a role (its kit's), for the scenes where it strikes back.
+	local function theirMove(ctx, d, r)
+		local moves = ctx.moveData.Moves
+		local own = ctx.moveData.Kits[d.kit or "KAI"] or ctx.moveData.Kits.KAI
+		local id = own and own.Roles and own.Roles[r] or r
+		return if moves[id] then id else r
+	end
+
+	-- ================================================================ DAICHA · INVERTED WORLD
+	-- Her INVERTED SHADOW made a world. 0:00 her matter spreads under the target, a black pool ·
+	-- 0:02 she turns the world over: the image rolls upside down, the colours invert, the target
+	-- falls into the sky · 0:04 up there, under a black sun, she blinks to it and her matter
+	-- strikes three times · 0:06 the world rights itself: it falls back, all the way down, into
+	-- the pool, which closes over it and spits it out · 0:09 the pool dries up, her matter back
+	-- in her hand.
+	function S.DAICHA(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 470
+		local home = inside(ctx, cx - dir * 5)
+		local TOP = 22
+		d.x, d.facing = cx, -dir
+		local pool = 3.2 * smooth(progress(tick, 20, 110)) * (1 - smooth(progress(tick, F + 60, F + 140)))
+		if pool > 0.05 then matter(frame, "puddle", v(cx, 0.05, 0), pool, color) end
+		-- (the roll of the world: over at 100-170, back at 330-350)
+		local over = smooth(progress(tick, 100, 170)) * (1 - smooth(progress(tick, 330, 350)))
+		local roll = 180 * over
+		frame.grade.inverse = over > 0.5
+		if tick < 100 then
+			-- her matter spreads under the target; it is held there
+			a.x, a.facing, a.pose = home, dir, "Levitate"
+			d.state, d.pose = "Hitstun", "VicBrace"
+			matter(frame, "ball", v(home + dir * 0.9, 3.4 + 0.2 * math.sin(tick / 9), 0.6), 0.45, color)
+			if tick == 20 then sfx(frame, "iw-pool", "charge") end
+			if tick < 52 then
+				frame.shot = frameOn("daicha-iw-pool", dir, { d, { point = true, x = cx, y = 0, z = 1.6 } }, { yaw = 34, pitch = 10, fill = 0.6, fov = 40,
+					focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("daicha-iw-hand", dir, { a }, { yaw = 32, pitch = -4, band = "bust", fill = 0.85, fov = 32, focus = P(A, "Head") })
+			end
+		elseif tick < 210 then
+			-- the world turns over; the target falls into the sky
+			local q = progress(tick, 130, 210)
+			a.x, a.facing, a.pose = home, dir, "Levitate"
+			d.y, d.state, d.pose = TOP * 0.45 * q * q, "Hitstun", if q > 0 then "Launched" else "VicBrace"
+			for i = 0, 5 do
+				-- (drops of her matter rain upward out of the pool)
+				local t = ((tick - 100) / 70 + i / 6) % 1
+				matter(frame, "ball", v(cx + math.cos(i * 2.1) * 1.8, 0.2 + t * 12, math.sin(i * 2.1) * 1.4), 0.12 + 0.06 * (i % 2), color)
+			end
+			if tick == 100 then sfx(frame, "iw-turn", "whoosh") end
+			frame.shot = frameOn("daicha-iw-turn", dir, { a, d }, { yaw = 20, pitch = 6, fill = 0.6, fov = 44, roll = roll, focus = P(D, "UpperTorso") })
+		elseif tick < 330 then
+			-- under a black sun: she blinks to it; her matter strikes three times
+			d.y, d.state = lerp(TOP * 0.45, TOP, smooth(progress(tick, 210, 330))), "Hitstun"
+			if tick == 210 then
+				table.insert(frame.fx, { key = "iw-sun", kind = "eclipse", pos = v(cx, TOP + 12, -14), color = color, scale = 1.6, life = 2.4 })
+				table.insert(frame.fx, { key = "iw-blink", kind = "afterimage", slot = A, color = color, life = 0.6 })
+				sfx(frame, "iw-blink", "whoosh")
+			end
+			a.x, a.y, a.facing = cx - dir * 4, d.y - 0.4, dir
+			local strikes = { 236, 266, 296 }
+			local k, age = 0, 99
+			for i, t in strikes do
+				if tick >= t then k, age = i, tick - t end
+			end
+			local roles = { "Cross", "Smash", "Finale" }
+			if k > 0 and age < 14 then
+				attack(a, moves, T.role(ctx, roles[k]), age >= 2)
+				d.pose = if k % 2 == 0 then "HitBody" else "HitHigh"
+			else
+				a.state, a.move, a.pose = "Jumping", nil, "Levitate"
+				d.pose = "Launched"
+			end
+			if k > 0 and age == 2 then
+				table.insert(frame.fx, { key = "iw-dart" .. k, kind = "orbDart", from = v(a.x + dir * 1.2, a.y + 3.4, 0.4), to = v(cx, d.y + 3.2, 0.4), color = color })
+				table.insert(frame.fx, { key = "iw-burst" .. k, kind = "matterBurst", pos = v(cx, d.y + 3.2, 0.4), color = color, scale = 0.8 + 0.3 * k })
+				sfx(frame, "iw-hit" .. k, "heavy")
+			end
+			local yaws = { 8, -16, 24 }
+			frame.shot = frameOn("daicha-iw-sky" .. math.max(1, k), dir, { a, d }, { yaw = yaws[math.max(1, k)], pitch = -8, fill = 0.7, fov = 40, roll = 180,
+				focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- the world rights itself: it falls all the way back, into the pool
+			local q = progress(tick, 350, F)
+			d.y = if tick < 350 then TOP else TOP * (1 - q * q)
+			d.state, d.pose = "Hitstun", "Launched"
+			a.x, a.facing = cx - dir * 4, dir
+			a.y = lerp(TOP - 0.4, 7, smooth(progress(tick, 330, F)))
+			a.state, a.move, a.pose = "Jumping", nil, "Levitate"
+			-- (the pool rises to meet it, a mouth of matter)
+			local rise = smooth(progress(tick, F - 40, F))
+			if rise > 0 then matter(frame, "wave", v(cx, 0, 0), 3.4, color, nil, 0.2 + 5 * rise) end
+			if tick == 330 then sfx(frame, "iw-back", "whoosh") end
+			if tick < 350 then
+				frame.shot = frameOn("daicha-iw-right", dir, { a, d }, { yaw = 20, pitch = -8, fill = 0.7, fov = 40, roll = roll, focus = P(D, "UpperTorso") })
+			elseif tick < 420 then
+				-- (from above it: the body falls away toward the pool)
+				frame.shot = shot("daicha-iw-fall", At(v(cx + dir * 3, d.y + 10, 5)), P(D, "UpperTorso"), 50, 0, P(D, "UpperTorso"))
+			else
+				frame.shot = frameOn("daicha-iw-mouth", dir, { d, { point = true, x = cx, y = 0, z = 0 } }, { yaw = 26, pitch = 8, fill = 0.7, fov = 44,
+					focus = P(D, "UpperTorso") })
+			end
+		else
+			-- the pool closes over it and spits it out; it dries up; her matter back in her hand
+			local age = tick - F
+			local close = 1 - smooth(progress(tick, F, F + 40))
+			if close > 0 then matter(frame, "wave", v(cx, 0, 0), 3.4 + 0.6 * (1 - close), color, nil, 0.2 + 5.2 * close) end
+			d.y = 0
+			T.FATAL.fall(ctx.cin, d, tick, F + 30, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if age == 0 then
+				sfx(frame, "iw-crash", "boom")
+				T.impact(frame, "iw-crash", v(cx, 1.4, 0.6), color, 3)
+				table.insert(frame.fx, { key = "iw-drops", kind = "matterBurst", pos = v(cx, 1, 0.4), color = color, scale = 2.2 })
+			end
+			for i = 0, 1 do
+				local r = progress(tick, F + i * 10, F + 60 + i * 10)
+				if r > 0 and r < 1 then
+					shape(frame, { kind = "ring", pos = At(v(cx, 0.15, 0)), normal = v(0, 1, 0), radius = lerp(3, 14, smooth(r)), width = 0.35,
+						color = if i == 0 then "FFFFFF" else color, alpha = r })
+				end
+			end
+			a.facing = dir
+			a.x = cx - dir * lerp(4, 4.8, smooth(progress(tick, F, F + 60)))
+			a.y = lerp(7, 0, smooth(progress(tick, F, F + 70)))
+			a.state, a.move, a.pose = if a.y > 0.2 then "Jumping" else "Idle", nil, if tick > F + 90 then "StandTall" else "Levitate"
+			local back = smooth(progress(tick, F + 90, F + 130))
+			matter(frame, "ball", v(lerp(cx, a.x + dir * 0.9, back), lerp(1.2, 3.4, back) + math.sin(back * math.pi), lerp(0, 0.6, back)), 0.45, color)
+			if age < 40 then
+				frame.shot = frameOn("daicha-iw-crash", dir, { d, { point = true, x = cx, y = 4, z = 0 } }, { yaw = 26, pitch = 18, fill = 0.55, fov = 44,
+					focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("daicha-iw-after", dir, { a, d }, { yaw = -34, pitch = 4, fill = 0.6, fov = 38, focus = P(A, "UpperTorso") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ HIBECARES · THRONE OF RUINS
+	-- The king of ruins does not move. 0:00 the target strikes him with everything it has (its
+	-- own blows): stone flies off him, he does not flinch · 0:03 he looks down at it; it backs
+	-- away · 0:04 his stomp: a pillar of ruins rises under it and lifts it to his face · 0:06 he
+	-- raises both fists, the stones of the arena rise round them · 0:08 both fists: the pillar
+	-- shatters, the target is driven into the deck; a crown of ruins round the crater · 0:09
+	-- he stands among them.
+	local HIBECARES_THEIRS = { { 30, "Jab" }, { 66, "Cross" }, { 100, "Kick" }, { 132, "Uppercut" }, { 168, "Smash" } }
+	function S.HIBECARES(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 470
+		local ax = inside(ctx, cx - dir * 2.9)
+		frame.grade.ruin = tick >= 190
+		a.x, a.facing = ax, dir
+		if tick < 200 then
+			-- it strikes him with everything; he does not flinch
+			a.pose = "Colossus"
+			d.x, d.facing = cx, -dir
+			local k, age = 1, -99
+			for i, b in HIBECARES_THEIRS do
+				if tick >= b[1] - 12 then k, age = i, tick - b[1] end
+			end
+			if age < 12 then
+				attack(d, moves, theirMove(ctx, d, HIBECARES_THEIRS[k][2]), age >= 0)
+			else
+				d.state, d.move = "Idle", nil
+			end
+			if age == 0 then
+				sfx(frame, "tr-hit" .. k, if k == 5 then "heavy" else "slash")
+				T.spark(frame, "tr-spark" .. k, v(ax + dir * 0.6, 3.6 + (k % 3) * 0.4, 0.6), if k == 5 then "FFFFFF" else color, 0.5 + 0.12 * k)
+				table.insert(frame.fx, { key = "tr-chips" .. k, kind = "debris", pos = v(ax + dir * 0.5, 3.4, 0.4), color = color, scale = 0.4 + 0.08 * k })
+			end
+			frame.quake = if age >= 0 and age < 4 then 0.1 * k else nil
+			if k < 5 or age < 0 then
+				frame.shot = frameOn("hibecares-tr-take", dir, { a, d }, { yaw = lerp(-26, -6, progress(tick, 0, 168)), pitch = -14, fill = 0.75, fov = 38,
+					focus = P(A, "UpperTorso") })
+			else
+				-- (the strongest blow, on his chest: nothing)
+				-- (over his shoulder: its face as its best blow does nothing)
+				frame.shot = frameOn("hibecares-tr-chest", dir, { a, d }, { yaw = -50, pitch = -4, band = "bust", fill = 0.8, fov = 32, focus = P(D, "Head") })
+			end
+		elseif tick < 270 then
+			-- he looks down at it; it backs away
+			a.pose = "Colossus"
+			local p = progress(tick, 200, 270)
+			d.x, d.facing, d.state, d.move = cx + dir * 1.2 * smooth(p), -dir, "Walking", nil
+			d.vx = dir * 1.5
+			-- (from behind the target, his whole height over it)
+			frame.shot = frameOn("hibecares-tr-tower", dir, { a, d }, { yaw = 128, pitch = -18, fill = 0.8, fov = 40, focus = P(A, "Head") })
+		elseif tick < 340 then
+			-- his stomp: a pillar of ruins rises under it, up to his face
+			local dx = cx + dir * 1.2
+			d.x, d.facing, d.state = dx, -dir, "Hitstun"
+			local up = smooth(progress(tick, 284, 320))
+			d.y, d.pose = 5 * up, if up > 0 then "HitBody" else nil
+			attack(a, moves, T.role(ctx, "ThunderHeel"), tick >= 280)
+			if tick == 282 then
+				sfx(frame, "tr-stomp", "boom")
+				table.insert(frame.fx, { key = "tr-pillar", kind = "rockLine", from = v(dx, 0, 0), to = v(dx, 5, 0), count = 9, color = color, life = 3.3 })
+				table.insert(frame.fx, { key = "tr-stomp-crack", kind = "crack", from = v(ax, 0.05, 0), to = v(dx, 0.05, 0), color = color })
+				T.impact(frame, "tr-stomp", v(ax + dir * 0.6, 0.4, 0.6), color, 1.6)
+			end
+			frame.quake = if tick >= 282 and tick < 292 then 0.5 else nil
+			frame.shot = frameOn("hibecares-tr-pillar", dir, { a, d }, { yaw = 10, pitch = -10, fill = 0.7, fov = 42, focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- both fists raised; the stones of the arena rise round them
+			local dx = cx + dir * 1.2
+			d.x, d.facing, d.y, d.state, d.pose = dx, -dir, 5, "Hitstun", "HitHigh"
+			attack(a, moves, T.role(ctx, "Hammer"), false)
+			if tick == 352 then
+				sfx(frame, "tr-rise", "charge")
+				for i = 0, 5 do
+					local angle = i * math.pi / 3 + 0.4
+					table.insert(frame.fx, { key = "tr-stones" .. i, kind = "rocks", pos = v(dx + math.cos(angle) * 9, 0, math.sin(angle) * 6 - 2),
+						radius = 1.6, count = 4, color = color, life = 5 })
+				end
+			end
+			frame.quake = 0.12
+			if tick < 420 then
+				frame.shot = frameOn("hibecares-tr-ruins", dir, { a, d }, { yaw = -30, pitch = -8, fill = 0.5, fov = 46, focus = P(A, "UpperTorso") })
+			else
+				frame.shot = frameOn("hibecares-tr-fists", dir, { a, d }, { yaw = 20, pitch = -30, fill = 0.75, fov = 38, focus = P(A, "Head") })
+			end
+		else
+			-- both fists: the pillar shatters, the target driven into the deck; a crown of ruins
+			local age = tick - F
+			local dx = cx + dir * 1.2
+			d.x, d.facing = dx, -dir
+			local fall = math.min(1, age / 8)
+			if age < 30 then
+				d.y, d.state, d.pose = 5 * (1 - fall * fall), "Hitstun", if fall < 1 then "HitHigh" else "DownImpact"
+			else
+				d.y = 0
+				T.FATAL.fall(ctx.cin, d, tick, F + 30, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age < 60 then attack(a, moves, T.role(ctx, "Hammer"), true) else a.state, a.move, a.pose = "Idle", nil, "Colossus" end
+			if age == 0 then
+				sfx(frame, "tr-fists", "heavy")
+				frame.impact = { key = "tr-fists", color = "FFFFFF" }
+				table.insert(frame.fx, { key = "tr-shatter", kind = "debris", pos = v(dx, 3, 0), color = color, scale = 2 })
+			end
+			if age == 8 then
+				sfx(frame, "tr-crater", "boom")
+				T.impact(frame, "tr-crater", v(dx, 0.6, 0.6), color, 3.4)
+				for i = 0, 7 do
+					local angle = i * math.pi / 4 + 0.2
+					table.insert(frame.fx, { key = "tr-web" .. i, kind = "crack", from = v(dx, 0.05, 0),
+						to = v(dx + math.cos(angle) * 6, 0.05, math.sin(angle) * 4), color = color })
+				end
+				table.insert(frame.fx, { key = "tr-crown", kind = "rocks", pos = v(dx, 0, 0), radius = 5, count = 12, color = color, life = 4 })
+				table.insert(frame.fx, { key = "tr-dust", kind = "dust", pos = v(dx, 0, 0), direction = dir })
+			end
+			for i = 0, 1 do
+				local r = progress(tick, F + 8 + i * 10, F + 70 + i * 10)
+				if r > 0 and r < 1 then
+					shape(frame, { kind = "ring", pos = At(v(dx, 0.15, 0)), normal = v(0, 1, 0), radius = lerp(2, 16, smooth(r)), width = 0.45,
+						color = if i == 0 then "FFFFFF" else color, alpha = r })
+				end
+			end
+			frame.quake = if age >= 8 and age < 20 then 0.9 else nil
+			if age < 50 then
+				frame.shot = frameOn("hibecares-tr-crater", dir, { a, d }, { yaw = 10, pitch = lerp(40, 70, smooth(progress(tick, F, F + 50))), fill = 0.5, fov = 44,
+					focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("hibecares-tr-after", dir, { a, d }, { yaw = -40, pitch = -12, fill = 0.6, fov = 40, focus = P(A, "UpperTorso") })
+			end
+			ko(ctx, frame, tick, F + 50, color)
+		end
+	end
+
+	-- ================================================================ RAIJIN · SPEAR OF THE THUNDER GOD
+	-- The longest reach and the storm. 0:00 the sky darkens, bolts strike round him, he spins
+	-- the spear · 0:01 a thousand thrusts; every third one charges it (his OVERCHARGE: three
+	-- rings light round him) · 0:05 the spear lifts the target over his head · 0:06 he raises
+	-- it to the sky: the lightning comes down on the spear, through the target · 0:08 the last
+	-- thrust: the bolt carries it across the arena into the wall · 0:09 the storm clears.
+	local RAIJIN_THRUSTS = { "Jab", "Cross", "Jab", "Kick", "Jab", "Elbow", "Jab", "Cross", "Kick" }
+	function S.RAIJIN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local cfg = ctx.config
+		local F = 450
+		-- (the bolt carries it far: the scene stands back from the wall)
+		local room = 22
+		local ax = if dir > 0 then math.min(cx - 4.4, cfg.ArenaMaxX - 1 - room) else math.max(cx + 4.4, cfg.ArenaMinX + 1 + room)
+		ax = inside(ctx, ax)
+		local dx0 = ax + dir * 4.4 -- (at the end of the spear, never inside it)
+		local far = inside(ctx, dx0 + dir * 17)
+		frame.grade.storm = tick < F + 120
+		a.x, a.facing = ax, dir
+		d.facing = -dir
+		local function bolt(key, x, z)
+			table.insert(frame.fx, { key = key, kind = "lightning", from = v(x, 34, z), to = v(x, 0, z), color = color })
+		end
+		if tick < 80 then
+			-- the storm gathers; he spins the spear
+			d.x, d.state = dx0, "Hitstun"
+			if tick % 12 == 0 then
+				bolt("st-bolt" .. tick, ax + math.cos(tick * 1.7) * 9, -4 - math.abs(math.sin(tick)) * 6)
+				sfx(frame, "st-thunder" .. tick, "boom")
+			end
+			if (tick // 16) % 2 == 0 then attack(a, moves, T.role(ctx, "SpinKick"), true) else a.state, a.move, a.pose = "Idle", nil, "StandTall" end
+			frame.shot = frameOn("raijin-st-storm", dir, { a }, { yaw = -24, pitch = -20, fill = 0.6, fov = 44, focus = P(A, "UpperTorso") })
+		elseif tick < 300 then
+			-- a thousand thrusts; every third one charges the spear
+			d.x, d.state = dx0, "Hitstun"
+			local t = tick - 84
+			local k = t // 8 + 1
+			local age = t % 8
+			local charge = math.min(3, math.max(0, (k - 1) // 9))
+			if tick < 84 then
+				attack(a, moves, T.role(ctx, "Jab"), false)
+			else
+				attack(a, moves, T.role(ctx, RAIJIN_THRUSTS[(k - 1) % #RAIJIN_THRUSTS + 1]), age < 5)
+				d.pose = if age < 4 then (if k % 2 == 0 then "HitHigh" else "HitBody") else nil
+				if age == 1 then
+					-- the spear's afterimage: a streak of light through the target
+					local y = 3.2 + ((k * 7) % 5 - 2) * 0.25
+					table.insert(frame.fx, { key = "st-thrust" .. k, kind = "cut", from = v(ax + dir * 2.2, y, 0.5), to = v(dx0 + dir * 1.8, y + ((k % 3) - 1) * 0.3, 0.5),
+						color = if k % 3 == 0 then "FFFFFF" else color })
+					if k % 4 == 0 then sfx(frame, "st-stab" .. k, "slash") end
+				end
+				if age == 1 and k % 9 == 0 then
+					sfx(frame, "st-charge" .. k, "charge")
+					T.spark(frame, "st-charge" .. k, v(ax, 3.4, 0.6), "FFFFFF", 1.2)
+				end
+			end
+			for i = 1, charge do
+				shape(frame, { kind = "ring", pos = At(v(ax, 1.2 + i * 0.9, 0)), normal = v(0, 1, 0), radius = 1.6 + 0.3 * i, width = 0.12, color = color,
+					alpha = 0.2 })
+			end
+			if tick > 160 then frame.speedLines = color end
+			local cut = math.min(3, (tick - 80) // 74 + 1)
+			local yaws = { 18, -34, 58 }
+			frame.shot = frameOn("raijin-st-thrusts" .. cut, dir, { a, d }, { yaw = yaws[cut], pitch = if cut == 2 then 6 else -8, fill = 0.74, fov = 40,
+				focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- the spear lifts it over his head; the lightning comes down on it
+			local up = smooth(progress(tick, 300, 340))
+			d.x, d.state = lerp(dx0, ax + dir * 2.4, up), "Hitstun"
+			d.y, d.pose = 4.6 * up, "Launched"
+			attack(a, moves, T.role(ctx, "Uppercut"), true)
+			for i = 1, 3 do
+				shape(frame, { kind = "ring", pos = At(v(ax, 1.2 + i * 0.9, 0)), normal = v(0, 1, 0), radius = 1.6 + 0.3 * i, width = 0.12, color = color,
+					alpha = 0.1 })
+			end
+			local strike = smooth(progress(tick, F - 36, F - 6))
+			if strike > 0 then
+				shape(frame, { kind = "beam", from = At(v(d.x, 40, 0)), to = At(v(d.x, lerp(40, d.y + 3, strike), 0)), radius = 0.5 + 0.4 * strike,
+					color = color, rings = tick / 12 })
+				overlay(frame).desat = 0.5 * strike
+			end
+			if tick == F - 36 then sfx(frame, "st-sky", "beam") end
+			if tick < 380 then
+				frame.shot = frameOn("raijin-st-lift", dir, { a, d }, { yaw = 40, pitch = -22, fill = 0.7, fov = 40, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("raijin-st-rod", dir, { a, d, { point = true, x = d.x, y = 14, z = 0 } }, { yaw = 24, pitch = -16, fill = 0.7, fov = 46,
+					focus = P(D, "UpperTorso") })
+			end
+		else
+			-- the lightning through it; the last thrust: the bolt carries it into the wall
+			local age = tick - F
+			local from = ax + dir * 2.4
+			if age < 24 then
+				-- (the bolt holds it up there, lit)
+				d.x, d.y, d.state, d.pose = from, 4.6, "Hitstun", if (age // 3) % 2 == 0 then "HitHigh" else "Launched"
+				attack(a, moves, T.role(ctx, "Uppercut"), true)
+				shape(frame, { kind = "beam", from = At(v(d.x, 40, 0)), to = At(v(d.x, 4.6, 0)), radius = 1.1, color = "FFFFFF", rings = tick / 8 })
+				overlay(frame).desat = 0.7
+			else
+				local q = smooth(math.min(1, progress(tick, F + 24, F + 44)))
+				if tick < F + 44 then
+					d.x, d.y, d.state, d.pose = lerp(from, far, q), lerp(4.6, 2.6, q), "Hitstun", "Launched"
+				else
+					d.x = far
+					T.FATAL.fall(ctx.cin, d, tick, F + 44, 2.6)
+					if d.pose == "Kneel" then d.pose = "DownFace" end
+				end
+				if tick < F + 100 then attack(a, moves, T.role(ctx, "Finale"), true) else a.state, a.move, a.pose = "Idle", nil, "StandTall" end
+				if tick < F + 50 and tick % 2 == 0 then
+					-- the thrust becomes a bolt across the arena
+					table.insert(frame.fx, { key = "st-arc" .. tick, kind = "lightning", from = v(ax + dir * 1.4, 3.4, 0.4), to = v(d.x, d.y + 3, 0.4), color = color })
+				end
+				if tick == F + 44 then
+					sfx(frame, "st-wall", "heavy")
+					T.impact(frame, "st-wall", v(far, 2.6, 0.6), color, 2.6)
+				end
+			end
+			if age == 0 then
+				sfx(frame, "st-strike", "boom")
+				frame.impact = { key = "st-strike", color = "FFFFFF" }
+				bolt("st-down", from, 0.4)
+			end
+			if age == 24 then sfx(frame, "st-thrust", "beam") end
+			frame.quake = if age < 8 or (age >= 24 and age < 34) then 0.6 else nil
+			if age < 24 then
+				frame.shot = frameOn("raijin-st-lit", dir, { a, d }, { yaw = 20, pitch = -10, fill = 0.7, fov = 44, focus = P(D, "UpperTorso") })
+			elseif age < 70 then
+				frame.shot = frameOn("raijin-st-bolt", dir, { a, d }, { yaw = 6, pitch = 4, fill = 0.7, fov = 46, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("raijin-st-after", dir, { a }, { yaw = 36, pitch = -6, fill = 0.7, fov = 36, focus = P(A, "UpperTorso") })
 			end
 			ko(ctx, frame, tick, F + 70, color)
 		end

@@ -1198,6 +1198,8 @@ kit("DAICHA", {
 	Kanji = "闇", Role = "ZONING",
 	Difficulty = 3,
 	Description = "Mysterious: controls space. INVERTED SPHERE (S + E), TELEPORT, and INVERTED SHADOW: her dash goes through the opponent.",
+	-- FATAL FINISHER (Finishers.luau): she turns the world over; the target falls into the sky, then into her pool.
+	Finisher = { Name = "INVERTED WORLD", Length = 640, FinalTick = 470 },
 	Roles = DAICHA,
 	Stats = { MaxHealth = 1500, WalkSpeed = 16, AirSpeed = 14, JumpVelocity = 44, DashSpeed = 38 },
 	-- OMBRE INVERSÉE: a forward dash within Range studs of the opponent blinks through to
@@ -1220,6 +1222,8 @@ kit("HIBECARES", {
 	Kanji = "崩", Role = "ENDURANCE",
 	Difficulty = 1,
 	Description = "The king of ruins: the most health, heavy blows. STONE WALL (S + E) takes a hit and strikes back; KING OF RUINS: the more he is hurt, the harder he hits.",
+	-- FATAL FINISHER (Finishers.luau): he takes every blow, a pillar of ruins lifts the target, both fists bring it down.
+	Finisher = { Name = "THRONE OF RUINS", Length = 640, FinalTick = 470 },
 	Roles = HIBECARES,
 	Starters = { Crouch = { Special = "HibecaresWall" } },
 	Stats = { MaxHealth = 1580, WalkSpeed = 13.5, AirSpeed = 12, JumpVelocity = 39, DashSpeed = 30, GuardDamageTaken = 0.85 },
@@ -1251,6 +1255,8 @@ third("RAIJIN", {
 	Stats = { MaxHealth = 1400, WalkSpeed = 17.5, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 42 },
 	Passive = { Type = "Overcharge", Name = "OVERCHARGE", Every = 3, Reach = 1.35, Bonus = 0.15 },
 	GateTitle = { text = "雷神", sub = "DIVINE WRATH" },
+	-- FATAL FINISHER (Finishers.luau): a thousand thrusts, the lightning down the raised spear, the bolt into the wall.
+	Finisher = { Name = "SPEAR OF THE THUNDER GOD", Length = 620, FinalTick = 450 },
 })
 third("YUKINA", {
 	Kanji = "雪", Role = "CONTROL", Difficulty = 3, Energy = "9FE6FF", Light = "FFFFFF",

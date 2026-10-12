@@ -1316,7 +1316,8 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
 		world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.9), 1
 		events, state = finisherRun(world)
 		start = find(events, "CinematicStart")
-		expect(start and not start.finish and not start.finisher and state.length == cin.Length, kit .. ": a finisher on a target not low")
+		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
+		expect(start and not start.finish and not start.finisher and state.length == own.Length, kit .. ": a finisher on a target not low")
 	end
 	-- a kit without its finisher yet: the classic fatal, round won or not
 	for _, kit in MoveData.KitOrder do

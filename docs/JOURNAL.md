@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.28.0 — 12 octobre 2026 · FATAL FINISHERS : DAICHA, HIBECARES, RAIJIN
+
+Troisième lot de trois (même règle : COUP FATAL qui tue + un round déjà gagné, sinon le fatal classique). Chacun reprend le cœur du perso et reste différent de son fatal classique.
+
+- **DAICHA · INVERTED WORLD** (10,7 s) : son OMBRE INVERSÉE devenue un monde. Sa matière s'étend en flaque noire sous la cible, qui reste prise ; elle retourne le monde : l'image pivote à l'envers (roulis de 180°), les couleurs s'inversent, la cible tombe vers le ciel pendant que des gouttes de matière remontent ; là-haut, sous un soleil noir, elle se téléporte et sa matière frappe trois fois ; le monde se remet d'aplomb d'un coup, la cible retombe de tout son poids dans la flaque, qui se referme sur elle comme une bouche puis la recrache ; la flaque sèche, sa sphère revient dans sa main.
+- **HIBECARES · THRONE OF RUINS** (10,7 s) : le roi des ruines ne bouge pas. La cible le frappe avec tout ce qu'elle a (**ses propres coups**) : des éclats de pierre volent, il ne cille pas ; le dernier coup, filmé par-dessus son épaule, ne fait rien ; il la regarde de toute sa hauteur, elle recule ; son pied frappe le sol : une colonne de ruines monte sous la cible et la hisse à hauteur de son visage ; il lève les deux poings, les pierres de l'arène se dressent autour d'eux ; les deux poings : la colonne éclate, la cible est enfoncée dans le sol, cratère en toile et couronne de ruines (plongée qui monte) ; il reste debout au milieu des pierres.
+- **RAIJIN · SPEAR OF THE THUNDER GOD** (10,3 s) : la plus longue portée et l'orage. Le ciel s'assombrit, la foudre tombe autour de lui pendant qu'il fait tourner la lance ; mille estocs (traits de lumière), et tous les neuf coups sa SURCHARGE s'allume (trois anneaux autour de lui) ; la lance soulève la cible au-dessus de sa tête ; il la tend vers le ciel : la foudre descend sur la lance, à travers la cible (paratonnerre) ; le dernier estoc : l'éclair la porte à travers toute l'arène jusqu'au mur ; l'orage se dissipe.
+
+**Fichiers** : `Finishers.luau` (trois scènes, aide `matter` pour la matière de DAICHA, aide `theirMove` partagée pour les coups de la cible), `MoveData` (champ `Finisher` de DAICHA, HIBECARES, RAIJIN), `Locale` (MONDE INVERSÉ, TRÔNE DES RUINES, LANCE DU DIEU DU TONNERRE) ; test CombatSimulation : un kit qui a son propre fatal (DAICHA) est comparé à sa propre durée.
+
+**Tests** : CombatSimulation 169, Cinematography 312 (tous les finishers, deux mains lisibles comprises), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2. Kits : relancé (résultat à la prochaine livraison). Planches `luau tests/Storyboard.luau -a KIT Fatal - 1 20` relues (RAIJIN reculé à la portée de sa lance, plans de DAICHA aérés, plans de HIBECARES recadrés). Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+
+**À vérifier dans Studio** : le roulis à 180° de DAICHA (lisible, pas désagréable ; en mode effets réduits le roulis est déjà divisé par 3), la flaque et la « bouche » de matière, les colonnes de pierre (`rockLine`, `rocks`) de HIBECARES, la foudre et le rayon de RAIJIN.
+
+**Problèmes ouverts** : 13 persos (bosses compris) ont encore le fatal classique.
+
+**Prochaine étape** : YUKINA, VENOM, GORAN.
+
 ## Version 0.27.0 — 12 octobre 2026 · FATAL FINISHERS : SHIN, TARO, KAI, ZEPHYR, AKEMI, RYUKEN
 
 Wilhem : une animation spéciale plus longue quand le COUP FATAL tue, comme les LF de Dragon Ball Legends et les Fatality, unique par perso (SHIN qui coupe l'écran en K / O, TARO en Dempsey Roll à la première personne, KAI en Kamehameha géant avec des tours de caméra). Puis : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique ». Deux lots de trois sont faits (SHIN, TARO, KAI puis ZEPHYR, AKEMI, RYUKEN) ; les autres suivront trois par trois.

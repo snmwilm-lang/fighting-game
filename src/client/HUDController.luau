@@ -503,11 +503,12 @@ function HUD.new(config)
 	end
 	-- (0.25.0, Wilhem: « la zone de gauche beaucoup plus minimaliste »: one small button at the
 	-- top left, the rest in its column: MENU, COMBOS, TARO's styles, the tools)
-	self.toolsButton = button("ToolsToggle", "☰", 34, function()
+	-- (its icon drawn: the ☰ character showed as a white box, missing from the fonts)
+	self.toolsButton = button("ToolsToggle", "", 34, function()
 		tools.Visible = not tools.Visible
 		if not tools.Visible then self.combosPanel.Visible = false end
 	end, topRow)
-	self.toolsButton.TextSize = 16
+	Theme.burger(self.toolsButton, 16)
 	self.menuButton = button("Menu", "◀ MENU", 0, function()
 		if self.onMenu then self.onMenu() end
 	end)

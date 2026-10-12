@@ -1,5 +1,14 @@
 # Journal du projet — état à transmettre
 
+## Version 0.25.3 — 12 octobre 2026 · LE CARRÉ BLANC DU BOUTON OUTILS
+
+Wilhem (capture) : « pourquoi il y a un rectangle blanc ? » sous le portrait, en combat.
+- Cause : le bouton des outils (en haut à gauche en combat) affichait le caractère ☰, absent des polices du jeu. Roblox dessine alors une case vide, comme l'ancienne croix ✕.
+- Correctif : l'icône est dessinée (trois barres, `Theme.burger` dans `MenuTheme`), plus aucun caractère.
+- Fichiers : `src/client/HUDController.luau`, `src/client/MenuTheme.luau`, `src/shared/CombatConfig.luau` (version).
+- Tests : compilation, Lobby. Non vérifié dans Studio.
+- À surveiller : si d'autres symboles (✓, ⚔) s'affichent en case vide, ils prendront le même traitement.
+
 ## Version 0.25.2 — 12 octobre 2026 · UN MENU DE JEU DE COMBAT (NI MOBILE, NI VIDE)
 
 Wilhem après 0.25.1 : « le menu est devenu beaucoup trop sobre, j'ai dit moins mobile, pas nul » ; « quand je dis mobile, c'est jeux mobile ».

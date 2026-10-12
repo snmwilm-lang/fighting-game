@@ -245,4 +245,18 @@ function Theme.cross(parent, size, position, anchor, color)
 	return box
 end
 
+-- The menu icon (three bars), drawn (Wilhem's capture, 0.25.2: the ☰ character is missing from
+-- the game's fonts too and showed as a white box, like the ✕ before).
+function Theme.burger(parent, size, color)
+	size = size or 16
+	local box = Theme.new("Frame", { Name = "Burger", BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size),
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = (parent.ZIndex or 1) + 1 }, parent)
+	local bar = math.max(2, math.floor(size / 7))
+	for i = 0, 2 do
+		Theme.new("Frame", { BorderSizePixel = 0, BackgroundColor3 = color or Theme.WHITE, AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 0, 0.5, (i - 1) * math.floor(size / 3)), Size = UDim2.new(1, 0, 0, bar), ZIndex = box.ZIndex }, box)
+	end
+	return box
+end
+
 return Theme

@@ -13,7 +13,7 @@ Wilhem a envoyé une planche de 12 plans d'une seconde pour SHIN, TARO et KAI ; 
 
 **Fichiers** : `Finishers.luau` (SHIN, TARO, KAI, ZEPHYR), `CinematicDirector.luau` (`frameOn` screen), `Animator.luau` (`untucked`), `PoseLibrary.luau` (ArmsCrossed), `CinematicController.luau` (moitiés de l'écran partagé, lettres), `MoveData` (TARO 720/446, KAI 720/485, SHIN 720/330, ZEPHYR GALE EXCALIBUR 720/440), `Locale` (EXCALIBUR DU VENT), `tests/Storyboard.luau`, `tools/storyboard.py`, `tests/Animation.test.luau`.
 
-**Tests** : CombatSimulation 169, Cinematography 312 (les dix-huit finishers, mains lisibles et caméra hors des corps), CinematicDirector 872, Animation 59, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé sur cette version (résultat noté au commit suivant). Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+**Tests** : CombatSimulation 169, Cinematography 312 (les dix-huit finishers, mains lisibles et caméra hors des corps), CinematicDirector 872, Animation 59, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2, Kits 130. Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
 
 **Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
 

@@ -63,9 +63,18 @@ Retours de Wilhem après le test :
 - `CLAUDE.md` : `Prediction.luau` ajouté aux modules purs.
 
 **Tests**
-- CombatSimulation 165 (3 nouveaux sur les chopes), Animation 58 (2 nouveaux : prédiction, clés des chopes), FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits KITS_RESULT.
-- Balance : BALANCE_RESULT.
+- CombatSimulation 165 (3 nouveaux sur les chopes), Animation 58 (2 nouveaux : prédiction, clés des chopes), FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits 130/130.
+- **KUROEN : 1 350 → 1 300 PV.** Les projections l'avaient monté à 66 %, au-dessus de la limite.
+- Balance (`-a 4 120`, LÉGENDE) : tous entre 35 et 65 %.
+  - KAI 58, TARO 58, ZEPHYR 46, AKEMI 56, RYUKEN 54, SHIN 36, DAICHA 47, HIBECARES 49, RAIJIN 44, YUKINA 46 ;
+  - VENOM 63, GORAN 54, ASTER 43, HIBIKI 56, KAZAN 45, KUREN 45, SYLVA 43, ELIAN 45, NOVA 47, KUROEN 64.
 - Non vérifié dans Studio.
+
+**Problèmes ouverts**
+- SHIN (36 %) et KUROEN (64 %) restent près des bornes.
+- Les poses de projection sont les mêmes pour tous les persos d'un style : un style par perso est possible plus tard.
+
+**Prochaine étape** : les retours du test en jeu (chopes, aura FATAL, menu).
 
 **À tester à la main**
 - Taper Q / D très vite, dasher, dasher-sauter, surtout avec de la latence.

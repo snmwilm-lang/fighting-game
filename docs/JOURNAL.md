@@ -1,5 +1,78 @@
 # Journal du projet — état à transmettre
 
+## Version 0.25.1 — 12 octobre 2026 · PLUS DE RECUL FANTÔME, VRAIES CHOPES, FATAL LISIBLE, MENU ÉPURÉ
+
+Retours de Wilhem après le test :
+- « quand t'appuies vite sur Q ou D, le perso recule, se retourne et revient à sa place » ;
+- « le fatal : soit une aura à la Tekken, soit la barre de vie vraiment compréhensible » ;
+- « de vraies animations pour les chopes, cohérentes pour les persos et belles » ;
+- « le menu moins chargé, moins d'effets mobile, comme dans les jeux de combat ».
+
+**Le recul fantôme (cause et correctif)**
+- Cause : le client dessine son propre perso en avance de la latence. Il le faisait avec « vitesse de la touche tenue *maintenant* × avance (jusqu'à 0,19 s) ».
+- En passant de Q à D, cette avance changeait de côté d'un coup : le corps glissait d'environ 6 studs en arrière puis revenait. Même saut au début et à la fin d'un dash (non prédit).
+- Correctif (`src/shared/Prediction.luau`, module pur) : le client additionne la vitesse réellement demandée image par image, sur la fenêtre que le snapshot ne montre pas encore (aller-retour + temps depuis le snapshot).
+- Un changement de direction courbe la trajectoire au lieu de sauter. Le dash est prédit aussi, seulement s'il n'est pas en cooldown (un dash refusé n'est pas dessiné).
+- Mesure (test « tapping Q / D fast », 120 ms d'aller-retour, Q/D toutes les 6 images) : le perso dessiné faisait des sauts à 82 studs/s ; il ne dépasse plus la vitesse de marche (17).
+
+**COUP FATAL lisible**
+- **Aura à la Tekken** sur le perso dès que le FATAL est prêt :
+  - contour qui bat en rouge (deux battements puis un temps) et léger voile rouge ;
+  - flammes rouges qui montent du corps ;
+  - anneau rouge au sol qui pulse ;
+  - à l'allumage : explosion, onde de choc, secousse.
+- **Barre de vie** :
+  - au moment où le FATAL devient prêt : flash rouge sur toute la barre et grande annonce « FATAL READY · C » sous la barre (LB à la manette), qui s'efface après 2,4 s ;
+  - ensuite, une pastille rouge qui bat au bout de la barre, avec la touche ;
+  - pour l'adversaire, la pastille affiche « ! ».
+
+**Vraies chopes** (`MoveData.Throws`, `PoseLibrary.Throws`, séquence `startThrow` / `stepThrow` dans la simulation)
+- Quand la chope touche, une courte projection se joue : l'attaquant en « Throwing », la victime en « Thrown ». La victime suit la trajectoire du style. Les deux sont intouchables, sans collision et sans se retourner.
+- Les dégâts de la chope (95) tombent une seule fois, à l'impact. La victime est alors lâchée : au sol tout de suite, ou envoyée en l'air.
+- Six styles, chacun attribué selon la façon de se battre du perso :
+  - **ÉPAULE** (KAI, KUROEN, HIBIKI, ELIAN, KUROEN SHIN) : tiré sur la hanche, passé par-dessus l'épaule, plaqué sur le dos ;
+  - **SOULEVÉ** (RYUKEN, GORAN, HIBECARES, ASURA) : saisi à la taille, soulevé à bout de bras au-dessus de la tête, écrasé au sol avec rebond ;
+  - **GENOUX** (TARO, KAZAN, VENOM) : clinch, deux genoux au corps, poussée ;
+  - **COUP DE PIED** (ZEPHYR, NOVA, ASTER) : le col tenu, genou armé, coup de pied montant qui envoie en l'air ;
+  - **TOURBILLON** (AKEMI, DAICHA, SYLVA, YUKINA) : un bras saisi, l'attaquant tourne sur lui-même ; la victime fait le tour en passant devant la caméra puis est lâchée ;
+  - **LAME** (SHIN, RAIJIN, KUREN) : pommeau ou hampe en plein visage, lame levée, coupe qui fait tomber.
+- La victime finit exactement dans la pose qui suit (au sol, ou projetée) : rien ne saute.
+- Une projection met au sol 16 images de moins qu'un lanceur : l'attaquant a la main, pas un combo gratuit.
+- Effets : éclair vert à la saisie, étincelle et petite secousse sur les genoux et le pommeau, poussière à l'impact ; sons dans la matière du lanceur.
+- Vérifié image par image sur des planches de rendu (`luau tests/AnimClip.luau -a KIT grab`). Corrigés en route :
+  - jambes de la victime dans le lanceur à l'atterrissage (point de chute éloigné à 3,8-4,2) ;
+  - victime debout pendant le gel d'impact ;
+  - coupe de SHIN qui partait en arrière.
+
+**Menu**
+- Fini :
+  - les rayons et les 22 braises qui défilaient ;
+  - le reflet qui balayait chaque bouton, le grossissement au survol ;
+  - les pages qui glissaient avec leurs cartes en cascade, les fenêtres à ressort ;
+  - les traits de vitesse décoratifs, les kanji géants sur les cartes et la navigation ;
+  - la navigation penchée.
+- Les onglets du haut, qui doublaient la liste de gauche, sont retirés.
+- La navigation est une liste droite, une ligne par entrée, l'entrée choisie en rouge, et **une** ligne d'aide dessous (comme Street Fighter ou Tekken).
+- Le carrousel d'actus et la bande « MES PERSOS » quittent l'accueil : un lien WHAT'S NEW dans la barre du haut ; les persos ont leur page.
+
+**Fichiers**
+- Partagés : `Prediction` (nouveau, pur), `CombatSimulation`, `CombatConfig`, `MoveData`, `PoseLibrary`, `Animator`, `Wire`, `Locale`.
+- Client : `init.client`, `InputController`, `EffectsController`, `SoundController`, `HUDController`, `MenuController`, `MenuTheme`.
+- Serveur : `init.server`.
+- Tests : `CombatSimulation`, `Animation`, `FighterAI`, `ClipKit`.
+- `CLAUDE.md` : `Prediction.luau` ajouté aux modules purs.
+
+**Tests**
+- CombatSimulation 165 (3 nouveaux sur les chopes), Animation 58 (2 nouveaux : prédiction, clés des chopes), FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits KITS_RESULT.
+- Balance : BALANCE_RESULT.
+- Non vérifié dans Studio.
+
+**À tester à la main**
+- Taper Q / D très vite, dasher, dasher-sauter, surtout avec de la latence.
+- Une chope avec chaque style.
+- L'aura FATAL et l'annonce sur la barre.
+- Le menu.
+
 ## Version 0.25.0 — 6 octobre 2026 · DASH AÉRIEN, CHOPE, PLUS DE QTE, HUD ALLÉGÉ, IMPACTS, KUROEN SHIN FAILLIBLE
 
 Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HUD, combos, feeling, buffer, caméra) et « nerf léger de KUROEN SHIN : sa perfection, pas ses stats ».
@@ -89,7 +162,7 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
 
   Il gagne toujours tous ces matchs : il reste le boss. Un CPU ne provoque pas aussi bien qu'un humain.
 - Il bat toujours LÉGENDE en miroir : 25 victoires sur 40, comme sans erreurs.
-- Les deux tests de boss tiraient au sort, faute d'échantillon. Ils jouent maintenant 12 matchs en miroir et 8 matchs par équipe (24 au lieu de 9).
+- Les deux tests de boss tiraient au sort, faute d'échantillon. Ils jouent maintenant 12 matchs en miroir et 12 matchs par équipe (36 au lieu de 9, porté à 12 en 0.25.1).
   - Mesuré sur 20 matchs par équipe, la 0.24.5 d'avant mettait déjà KUROEN SHIN et ASURA à égalité (1,67 contre 1,65) : son « plus de vie qu'ASURA » sur 9 matchs dépendait du tirage.
   - Le test demande maintenant « au moins autant qu'ASURA, à 0,05 près », c'est-à-dire dans le bruit de mesure.
 - `BossReport.luau` jouait toujours le cerveau d'ASURA : corrigé.

@@ -327,6 +327,13 @@ Poses.ShinDivision = blind(feet({
 -- DAICHA: arms open, palms down, perfectly still while the shadows rise around him.
 -- KAI: the ki beam fired straight down from the sky (end of KAIEN RUSH): bent over the
 -- target, both arms driven down, palms joined toward it, legs tucked.
+-- KAIEN RUSH's beam, its charge: in the air over the target, both palms cupped together at the
+-- rear hip (KAI… EN…), the chest turned back, the head on the target below.
+Poses.KaiKameCharge = blind(airborne(merge(legs(60, -95, 25, -55), {
+	Root = { -14, -18, 0, 0, 0 }, Waist = { -6, -45, 0 }, Neck = { 22, 38, 0 },
+	LeftShoulder = { 20, 0, 55 }, LeftElbow = { 85, 0, 0 },
+	RightShoulder = { -25, 0, -12 }, RightElbow = { 95, 0, 0 },
+})))
 Poses.KiBeamDown = blind(airborne(merge(legs(70, -100, 20, -50), {
 	Root = { -30, 0, 0, 0, 0 }, Waist = { -15, 0, 0 }, Neck = { 20, 0, 0 },
 	LeftShoulder = { 58, 0, 27 }, LeftElbow = { 5, 0, 0 }, LeftWrist = { -70, 0, 0 },
@@ -551,16 +558,21 @@ Poses.ThunderHeel = {
 }
 Poses.KiBlast = {
 	Startup = feet(merge(STANCE, {
-		Root = { 0, -14, 0, -0.5, 0.2 }, Waist = { -5, -40, 0 },
-		LeftShoulder = { 30, 0, 30 }, LeftElbow = { 110, 0, 0 },
-		RightShoulder = { 30, 0, -10 }, RightElbow = { 110, 0, 0 },
+		Root = { 0, -20, 0, -0.65, 0.25 }, Waist = { -6, -45, 0 }, Neck = { 4, 40, 0 },
+		LeftShoulder = { 20, 0, 55 }, LeftElbow = { 85, 0, 0 },
+		RightShoulder = { -25, 0, -12 }, RightElbow = { 95, 0, 0 },
 	}), -0.85, 0.8, 0, -8, 14),
 	Active = feet({
-		Root = { 0, 0, 0, -0.5, -0.4 }, Waist = { -12, 10, 0 }, Neck = { 6, -10, 0 },
-		LeftShoulder = { 90, 0, 12 }, LeftElbow = { 2, 0, 0 }, LeftWrist = { -70, 0, 0 },
-		RightShoulder = { 90, 0, -12 }, RightElbow = { 2, 0, 0 }, RightWrist = { -70, 0, 0 },
+		Root = { 0, 6, 0, -0.55, -0.45 }, Waist = { -12, 14, 0 }, Neck = { 6, -14, 0 },
+		LeftShoulder = { 88, 0, 26 }, LeftElbow = { 4, 0, 0 }, LeftWrist = { -70, 0, 0 },
+		RightShoulder = { 88, 0, -26 }, RightElbow = { 4, 0, 0 }, RightWrist = { -70, 0, 0 },
 	}, -1.15, 0.55, 0, -16, 14),
-	Recovery = merge(STANCE, { Waist = { -10, 0, 0 } }),
+	-- (the palms stay out a moment after the shot, then come back to the guard)
+	Recovery = feet({
+		Root = { 0, 4, 0, -0.5, -0.3 }, Waist = { -10, 10, 0 }, Neck = { 6, -10, 0 },
+		LeftShoulder = { 70, 0, 22 }, LeftElbow = { 28, 0, 0 }, LeftWrist = { -40, 0, 0 },
+		RightShoulder = { 70, 0, -22 }, RightElbow = { 28, 0, 0 }, RightWrist = { -40, 0, 0 },
+	}, -1.05, 0.6, 0, -14, 14),
 }
 Poses.KiChase = { -- leaping flying knee wrapped in ki
 	Startup = merge(CROUCH, { Waist = { -30, 0, 0 }, Neck = { 26, 0, 0 }, LeftShoulder = { -40, 0, -30 }, RightShoulder = { -40, 0, 30 } }),

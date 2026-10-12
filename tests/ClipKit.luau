@@ -39,6 +39,8 @@ ClipKit.SCRIPTS = {
 	hit = { hold(10), hold(24, { axis = 1 }), press("light", 11), press("light", 11), press("light", 11), press("light", 40),
 		hold(20, { axis = 1 }), press("heavy", 40), hold(16, { axis = 1 }), press("heavy", 12), press("light", 60),
 		hold(30, { axis = 1 }), press("heavy", 12, { crouch = true }), hold(70) },
+	-- (the crouching special twice: KAI's KIKOHO, the others' own)
+	kiblast = { hold(12), press("special", 50, { crouch = true }), hold(10), press("special", 50, { crouch = true }), hold(10) },
 	-- (walks in and grabs: the kit's throw)
 	grab = { hold(10), hold(22, { axis = 1 }), press("grab", 70), hold(20) },
 	routes = { hold(10), press("light", 11), press("heavy", 12), press("light", 12), press("heavy", 50), hold(20, { axis = 1 }),
@@ -55,7 +57,7 @@ end
 
 --[[
 	onTick(info) every tick: info = { tick, views, parts = { [slot] = { [part] = { cframe, size } } },
-	poses, keys, snaps, attacker, defender }. victim: KIT is the one being hit (KAI attacks).
+	poses, keys, snaps, attacker, defender, projectiles (the simulation's) }. victim: KIT is the one being hit (KAI attacks).
 ]]
 function ClipKit.play(kitName, scriptName, poseRate, onTick)
 	local script = ClipKit.SCRIPTS[scriptName] or ClipKit.SCRIPTS.showcase
@@ -132,7 +134,7 @@ function ClipKit.play(kitName, scriptName, poseRate, onTick)
 				end
 			end
 			onTick({ tick = tick, views = views, parts = parts, poses = poses, keys = keys, snaps = snaps,
-				attacker = attacker, defender = defender })
+				attacker = attacker, defender = defender, projectiles = world.projectiles })
 		end
 	end
 end

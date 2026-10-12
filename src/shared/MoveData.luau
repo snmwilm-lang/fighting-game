@@ -1059,6 +1059,8 @@ kit("KAI", {
 	RouteNames = { "CHAIN", "LAUNCHER", "LIVER", "WALL", "AXE KICK", "SWEEP", "TORNADO", "GUST", "DRAGON", "THUNDER", "MOON" },
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "開天", sub = "GATE OF HEAVEN" },
+	-- KAIEN RUSH ends on his KAIENHA: room for the words (KAI… EN… HA!) and a wave that holds.
+	CinematicTuning = { Rush = { Length = 196, FinalTick = 146 } },
 	Colors = { TORNADO = "FF2A3D", GUST = "FF7A2A", DRAGON = "FF2A3D", THUNDER = "8FD8FF", WALL = "FF2A3D", MOON = "FFE9B0" },
 })
 kit("TARO", {
@@ -1374,6 +1376,8 @@ kit("ASURA", {
 	Description = "A four-armed KAI, out of the Gate of Heaven. Massive: he hits far harder, his heavy blows go through yours and he never lets go. Felled once, he rises again in a black aura, stronger still. E: FOUR-ARMED GATLING.",
 	Roles = table.clone(KAI_ROLES),
 	Starters = { Ground = { Special = "AsuraGatling" } },
+	-- (his ultimates are KAI's moves, so their cinematics share KAI's timing: KAIEN RUSH's too)
+	CinematicTuning = { Rush = { Length = 196, FinalTick = 146 } },
 	-- (Bulk: as tall as the others but massive: wider to hit)
 	-- Reach: his four arms strike farther (a spear does not keep him out). SecondLife: the first
 	-- time he falls he rises again in a black aura (once per match), harder and faster.

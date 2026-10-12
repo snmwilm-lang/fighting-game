@@ -220,6 +220,12 @@ local function ring(frame, key, cx, radius, y, color)
 	arc(frame, key, v(cx, y, 0), radius, 0, 360, color, math.pi / 2, 1)
 end
 
+-- 3D light drawn by the client every frame (see Finishers.luau: sphere, beam, ring, motes, dome).
+local function shape(frame, s)
+	frame.shapes = frame.shapes or {}
+	table.insert(frame.shapes, s)
+end
+
 -- Room left behind the target toward the wall it is pushed to.
 local function roomAhead(ctx, cx, dir)
 	return math.max(0, if dir > 0 then ctx.config.ArenaMaxX - cx else cx - ctx.config.ArenaMinX)
@@ -251,11 +257,14 @@ local function rush(ctx, frame, a, d, tick, dir)
 	local k = hitsBefore(H, tick)
 	local beat = if k > 0 then tick - H[k] else 0
 	local peak = 13 -- how high the chase goes
+	local hands = P(A, "RightHand", v(0, 0, 0))
+	hands.mid = "LeftHand" -- (the ki between his cupped palms)
 	if tick < data.FinalTick then d.x, d.state = cx, "Hitstun" end
 	-- KAIEN RUSH: the launcher, then a chase through the sky: KAI blinks around the target from
 	-- every side, each clash a ring of ki in the air (filmed from below against the sky, then
-	-- from above with the deck far down); he spikes it back to the deck, hovers high with his
-	-- ki gathered in both hands and fires a beam of ki straight down on it.
+	-- from above with the deck far down); he spikes it back to the deck, rises over it, his
+	-- palms cupped at his hip, the ki growing between them on each word (KAI… EN…), and HA!: a
+	-- wave of ki straight down on it that holds, a dome of light over the crater.
 	if tick < 10 then
 		a.x, a.facing, a.pose = cx - dir * 9, dir, "Kiai"
 		frame.aura = A
@@ -314,28 +323,99 @@ local function rush(ctx, frame, a, d, tick, dir)
 		end
 		frame.shot = frameOn("rush-meteor", dir, { a, d }, { yaw = 30, pitch = -10, fill = 0.62, fov = 52, focus = P(D, "UpperTorso") })
 	elseif tick < data.FinalTick then
-		-- He hovers high above it, ki gathered in both hands.
-		local p = progress(tick, H[11] + 8, data.FinalTick)
-		a.x, a.facing, a.y = cx - dir * 2.6, dir, lerp(2, 10, smooth(math.min(1, p * 2)))
-		attack(a, moves, role(ctx, "KiBlast"), false)
+		-- KAIENHA: he rises over it, both palms cupped at his hip; the ki grows between them on
+		-- each word (KAI… EN…), the motes and the arcs drawn into it.
+		local F = data.FinalTick
+		local rise = progress(tick, H[11] + 8, H[11] + 22)
+		a.x, a.facing, a.y = cx - dir * 2.6, dir, lerp(2, 9, smooth(rise))
+		a.z, a.lookDir, a.state, a.move = nil, nil, "Jumping", nil
+		a.pose = "KaiKameCharge"
 		d.y, d.pose = 0, "DownFace"
 		frame.aura = A
-		spark(frame, "rush-gather" .. tick // 3, v(a.x + dir * 0.8, a.y + 3.2, 0.6), color, 0.6 + p * 1.6)
-		frame.shot = frameOn("rush-gather", dir, { a }, { yaw = -30, pitch = -28, fill = lerp(0.75, 0.95, p), fov = 44, focus = P(A, "UpperTorso") })
-	elseif tick < data.FinalTick + 16 then
-		-- The beam of ki straight down on the target.
-		a.x, a.facing, a.y = cx - dir * 2.6, dir, 10
-		attack(a, moves, role(ctx, "KiBlast"), true)
-		a.pose = "KiBeamDown" -- (bent over the target: the beam leaves his joined palms, straight down)
-		table.insert(frame.fx, { key = "rush-beam", kind = "kiBeam", from = v(a.x + dir * 1.2, a.y + ctx.config.RootHeight - 0.9, 0.6),
-			to = v(cx, 0.4, 0.4),
-			color = color, scale = 1.6 })
-		impact(frame, "rush-final", v(cx, 1, 0.6), color, 3)
-		for i = 1, 3 do table.insert(frame.fx, { key = "rush-blast" .. i, kind = "tornadoRing", pos = v(cx, i * 1.2, 0), color = color }) end
-		frame.shot = frameOn("rush-beam", dir, { a, d }, { yaw = 14, pitch = 0, fill = 0.6, fov = 50, focus = P(D, "UpperTorso") })
+		frame.grade.void = tick >= F - 30
+		local words = { { F - 34, "KAI" }, { F - 18, "EN" } }
+		local said, age = nil, 99
+		for _, w in words do
+			if tick >= w[1] then said, age = w[2], tick - w[1] end
+		end
+		local grow = 0.2 + 0.2 * (if tick >= words[1][1] then 1 else 0) + 0.25 * (if tick >= words[2][1] then 1 else 0)
+			+ 0.2 * progress(tick, H[11] + 8, F)
+		shape(frame, { kind = "sphere", pos = hands, radius = grow * (1 + 0.08 * math.sin(tick * 1.3)), color = color, core = 1 })
+		shape(frame, { kind = "motes", pos = hands, radius = 4.5, count = 26, color = color, phase = tick / 40 })
+		if said then
+			frame.overlay = frame.overlay or {}
+			frame.overlay.caption = { text = said, color = "FFFFFF", stroke = color, age = age, fade = progress(age, 10, 14) }
+			if age == 0 then
+				table.insert(frame.fx, { key = "rush-word" .. said, kind = "sfx", sound = "charge" })
+				spark(frame, "rush-word" .. said, v(a.x - dir * 0.6, a.y + 2.6, 0.6), color, 1.2)
+			end
+			if age < 14 then
+				shape(frame, { kind = "ring", pos = hands, normal = v(0, 1, 0), radius = 0.8 + age * 0.35, width = 0.12, color = "FFFFFF",
+					alpha = age / 14 })
+			end
+		end
+		if tick % 8 == 0 then
+			table.insert(frame.fx, { key = "rush-arc" .. tick, kind = "lightning",
+				from = v(a.x + math.cos(tick) * 3, a.y + 2 + math.sin(tick * 0.7) * 2, math.sin(tick) * 2), to = v(a.x - dir * 0.6, a.y + 2.6, 0.4),
+				color = color })
+		end
+		if rise < 1 then
+			frame.shot = frameOn("rush-rise", dir, { a, d }, { yaw = 20, pitch = -16, fill = 0.6, fov = 46, focus = P(A, "UpperTorso") })
+		elseif tick < F - 18 then
+			-- (on his cupped palms and the ki growing between them)
+			frame.shot = frameOn("rush-palms", dir, { a }, { yaw = -24, pitch = -10, band = "waist", fill = 0.82, fov = 34, focus = hands })
+		else
+			frame.shot = frameOn("rush-face", dir, { a }, { yaw = 52, pitch = -18, band = "bust", fill = 0.7, fov = 34, focus = P(A, "Head") })
+		end
+	elseif tick < data.FinalTick + 34 then
+		-- HA! The wave of ki straight down on it, and it holds.
+		local F = data.FinalTick
+		local q = tick - F
+		a.x, a.facing, a.y = cx - dir * 2.6, dir, 9
+		a.z, a.lookDir, a.state, a.move = nil, nil, "Jumping", nil
+		a.pose = "KiBeamDown" -- (bent over the target: the wave leaves his joined palms, straight down)
+		d.y, d.pose = 0, "DownFace"
+		local ground = v(cx, 0.3, 0.3)
+		local open = smooth(progress(q, 0, 5))
+		local close = 1 - smooth(progress(q, 26, 34))
+		-- (the same ball, still between his palms: it pours itself into the wave, KiBall's way)
+		shape(frame, { kind = "sphere", pos = hands, radius = lerp(0.85, 0.55, open) * (0.4 + 0.6 * close), color = color, core = 1 })
+		shape(frame, { kind = "beam", from = hands, to = At(ground), radius = (0.4 + 1.5 * open) * close * (1 + 0.06 * math.sin(tick * 1.7)),
+			color = color, rings = tick / 20 })
+		shape(frame, { kind = "dome", pos = At(v(cx, 0, 0)), radius = lerp(1.2, 4.2, smooth(progress(q, 0, 30))), color = color,
+			alpha = 0.35 + 0.5 * progress(q, 18, 34) })
+		for i = 0, 2 do
+			local r = progress(q, i * 9, i * 9 + 22)
+			if r > 0 and r < 1 then
+				shape(frame, { kind = "ring", pos = At(v(cx, 0.12, 0)), normal = v(0, 1, 0), radius = lerp(1.5, 9, smooth(r)), width = 0.35,
+					color = if i == 1 then "FFFFFF" else color, alpha = r })
+			end
+		end
+		frame.quake = 0.5 * close
+		frame.overlay = frame.overlay or {}
+		frame.overlay.white = 0.65 * (1 - progress(q, 0, 8))
+		if q == 0 then
+			frame.overlay.caption = { text = "HA!", color = "FFFFFF", stroke = color, age = 0, fade = 0 }
+			table.insert(frame.fx, { key = "rush-ha", kind = "sfx", sound = "beam" })
+			impact(frame, "rush-final", v(cx, 1, 0.6), color, 3)
+			table.insert(frame.fx, { key = "rush-rocks", kind = "rocks", pos = v(cx, 0, 0.3), radius = 2.6, count = 9, color = "5A5F70" })
+			table.insert(frame.fx, { key = "rush-debris", kind = "debris", pos = v(cx, 0.4, 0.3), color = color, scale = 1.8 })
+		elseif q < 12 then
+			frame.overlay.caption = { text = "HA!", color = "FFFFFF", stroke = color, age = q, fade = progress(q, 8, 12) }
+		end
+		if q == 30 then table.insert(frame.fx, { key = "rush-smoke", kind = "smoke", pos = v(cx, 0.6, 0) }) end
+		if q < 14 then
+			frame.shot = frameOn("rush-ha", dir, { a, d }, { yaw = 10, pitch = 2, fill = 0.62, fov = 50, focus = P(A, "UpperTorso") })
+		else
+			-- (from the deck by the crater, looking up the wave at him)
+			frame.shot = shot("rush-under", At(v(cx + dir * 4.5, 0.8, 5)), P(A, "UpperTorso"), 58, math.rad(-dir * 6), P(A, "UpperTorso"))
+		end
 	else
-		a.x, a.facing, a.y = cx - dir * 2.6, dir, lerp(10, 0, smooth(progress(tick, data.FinalTick + 16, data.Length - 6)))
+		local F = data.FinalTick
+		a.x, a.facing, a.y = cx - dir * 2.6, dir, lerp(9, 0, smooth(progress(tick, F + 34, data.Length - 4)))
+		a.state, a.move = if a.y > 0.05 then "Falling" else "Idle", nil
 		a.pose = "StandTall"
+		d.y, d.pose = 0, "DownFace"
 		frame.shot = frameOn("rush-follow", dir, { a, d }, { yaw = 12, pitch = 12, fill = 0.55, fov = 42, focus = P(A, "UpperTorso") })
 	end
 end

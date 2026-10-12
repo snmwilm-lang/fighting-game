@@ -38,7 +38,7 @@ KitFX.DASHES = {
 -- What their projectiles look like (a ki blast, a blade of wind, a kunai...). NOVA's drones
 -- are always drones; a trap always lies on the floor.
 KitFX.SHOTS = {
-	ball = true, crescent = true, kunai = true, wave = true, slash = true, sphere = true, bolt = true, shard = true,
+	ball = true, kiBall = true, crescent = true, kunai = true, wave = true, slash = true, sphere = true, bolt = true, shard = true,
 	cloud = true, well = true, pulse = true, lance = true, trap = true, bullet = true, eclipse = true,
 }
 
@@ -52,7 +52,7 @@ end
 
 KitFX.KITS = {
 	-- KAI 開: pure ki, white and the style's colour: clean streaks, round pops.
-	KAI = kit({ element = "ki", accent = "FFFFFF", shot = "ball", swing = "kiStreak", hit = "kiPop", dash = "dust",
+	KAI = kit({ element = "ki", accent = "FFFFFF", shot = "kiBall", swing = "kiStreak", hit = "kiPop", dash = "dust",
 		ambient = { motion = "rise", colors = { "energy", "FFFFFF" }, rate = 2, size = 0.35 },
 		trail = { "energy", "FFFFFF" } }),
 	-- TARO 火: the boxer on fire: fire dragged by the glove, rings of fire on the hit, embers.

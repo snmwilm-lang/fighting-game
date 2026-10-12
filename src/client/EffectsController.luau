@@ -15,6 +15,7 @@ local MoveData = require(Shared.MoveData)
 local Sim = require(Shared.CombatSimulation)
 local CharacterData = require(Shared.CharacterData)
 local RigReader = require(Shared.RigReader)
+local KiBall = require(Shared.KiBall)
 local PoseLibrary = require(Shared.PoseLibrary)
 local OrbFlight = require(Shared.OrbFlight)
 local WeaponFX = require(Shared.WeaponFX)
@@ -1790,6 +1791,40 @@ function EffectsController:fatalAura(rig, view, now)
 	end
 end
 
+-- KAI's KIKOHO, his ball of ki (KiBall, the way DAICHA's sphere is done): it forms between his
+-- palms, cupped at his hip, while he winds up (a white core in a shell of his colour, growing
+-- to the release); where it was last is kept, so the shot leaves from it (updateProjectiles).
+function EffectsController:kiCharge(slot, rig, view, color, now)
+	local ball = rig.model and not view.ghost and KiBall.charge(view, MoveData.Moves[view.move])
+	local fx = rig.kiCharge
+	if not ball then
+		if fx then
+			fx.core:Destroy()
+			fx.shell:Destroy()
+			rig.kiCharge = nil
+		end
+		return
+	end
+	local _, left = RigReader.part(rig.model, "LeftHand")
+	local _, right = RigReader.part(rig.model, "RightHand")
+	if not left or not right then return end
+	if not fx then
+		local core = self:part(Vector3.one * ball.core, CFrame.identity, WHITE, Enum.PartType.Ball)
+		local shell = self:part(Vector3.one * ball.shell, CFrame.identity, color, Enum.PartType.Ball)
+		shell.Material, shell.Transparency = Enum.Material.ForceField, 0
+		local light = Instance.new("PointLight")
+		light.Color, light.Range, light.Brightness, light.Parent = color, 9, 2.5, core
+		fx = { core = core, shell = shell }
+		rig.kiCharge = fx
+	end
+	local at = (left + right) / 2
+	fx.core.CFrame, fx.shell.CFrame = CFrame.new(at), CFrame.new(at)
+	fx.core.Size = Vector3.one * ball.core
+	fx.shell.Size = Vector3.one * ball.shell * (1 + 0.08 * math.sin(now * 40))
+	self.kiBalls = self.kiBalls or {}
+	self.kiBalls[slot] = { at = at, time = now }
+end
+
 function EffectsController:update(slot, view, rig, previous, now)
 	if view.revived and not rig.blackAura then rig.blackAura = self:blackAura(rig) end
 	if rig.model then self:fatalAura(rig, view, now) end
@@ -1862,6 +1897,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 	end
 	if rig.orbParts then self:flyOrb(rig, view, now, slot) end
 	self:weaponDressing(rig, view, now, slot)
+	self:kiCharge(slot, rig, view, color, now)
 	self:iceMirror(slot, rig, view, now, color)
 	self:poisonAura(slot, rig, view, now)
 	-- (no drawn guard any more: SHIN's guard is his katana raised over his head, and the blow
@@ -2049,7 +2085,19 @@ function EffectsController:onEvent(event, views, rigs)
 		return
 	elseif event.kind == "Projectile" then
 		local v = views[event.attacker]
-		if v then self:spark(Vector3.new(v.x + v.facing * 1.8, v.y + 3.6, 0), self:energy(event.attacker), 0.8) end
+		if v then
+			local color = self:energy(event.attacker)
+			local at = Vector3.new(v.x + v.facing * 1.8, v.y + 3.6, 0)
+			self:spark(at, color, 0.8)
+			if event.move == "KiBlast" then
+				-- (KAI's KIKOHO: a ring of ki bursts off his palms as it leaves them)
+				local disc = self:part(Vector3.new(0.1, 1.6, 1.6), CFrame.new(at), color, Enum.PartType.Cylinder)
+				disc.Material, disc.Transparency = Enum.Material.ForceField, 0
+				tween(disc, 0.25, { Size = Vector3.new(0.1, 4.4, 4.4), Transparency = 1 })
+				Debris:AddItem(disc, 0.28)
+				self.camera:shake(if self.reduced then 0.08 else 0.2, 0.12)
+			end
+		end
 		return
 	end
 	if event.kind == "Hit" or event.kind == "Block" or event.kind == "GuardBreak" then
@@ -2132,6 +2180,19 @@ function SHOTS.ball(self, color, accent, scale)
 	piece(self, list, Vector3.one * 1.1 * scale, CFrame.identity, WHITE, Enum.PartType.Ball)
 	piece(self, list, Vector3.one * 2 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
 	return { pieces = list, ghost = "ball", pulse = 2 }
+end
+-- KAI's KIKOHO: a white core in his ki, a shell that breathes, a disc of ki round its waist
+-- turning with it and a comet's tail behind; it leaves balls of light in its wake.
+function SHOTS.kiBall(self, color, accent, scale)
+	local list = {}
+	piece(self, list, Vector3.one * 0.9 * scale, CFrame.identity, WHITE, Enum.PartType.Ball)
+	piece(self, list, Vector3.one * 1.45 * scale, CFrame.identity, color, Enum.PartType.Ball, nil, 0.25)
+	piece(self, list, Vector3.new(2.6, 0.9, 0.9) * scale, CFrame.new(-1.1 * scale, 0, 0), color, Enum.PartType.Ball, nil, 0.45)
+	-- (the disc tilted toward the camera: it reads as a ring turning round the ball)
+	piece(self, list, Vector3.new(0.08, 2.5, 2.5) * scale, CFrame.Angles(0, math.rad(55), 0), accent, Enum.PartType.Cylinder,
+		Enum.Material.ForceField, 0)
+	piece(self, list, Vector3.one * 2.1 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
+	return { pieces = list, ghost = "ball", pulse = 2, roll = 9 }
 end
 function SHOTS.crescent(self, color, accent, scale)
 	local list = {}
@@ -2310,12 +2371,25 @@ function EffectsController:updateProjectiles(list, ahead, now)
 			local light = Instance.new("PointLight")
 			light.Color, light.Range, light.Brightness = color, 12, if p.drone then 1 else 3
 			light.Parent = visual.pieces[1].part
+			-- (KAI's KIKOHO: the shot is the ball that was between his palms: it leaves from there)
+			local ball = self.kiBalls and self.kiBalls[p.owner]
+			if ball and now - ball.time < 0.25 then
+				visual.launchFrom, visual.launchAt = ball.at, now
+				self.kiBalls[p.owner] = nil
+			end
 			self.projectiles[p.id] = visual
 		end
 		local dir = if (p.vx or 0) < 0 then -1 else 1
 		visual.dir = if p.vx and p.vx ~= 0 then dir else (visual.dir or 1)
 		local y = if visual.flat then 0.15 elseif visual.hover then p.y + math.sin(now * 6) * 0.15 else p.y
 		local position = Vector3.new(p.x + (p.vx or 0) * ahead, y, if visual.flat then self.config.PlaneZ else 0.4)
+		if visual.launchFrom then
+			local age = now - visual.launchAt
+			local from = visual.launchFrom
+			local at = KiBall.launch({ from.X, from.Y, from.Z }, { position.X, position.Y, position.Z }, age)
+			position = Vector3.new(at[1], at[2], at[3])
+			if age >= KiBall.LAUNCH then visual.launchFrom = nil end
+		end
 		visual.at = position
 		local base = CFrame.new(position) * (if visual.dir < 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
 		local turn = if visual.roll then CFrame.Angles(visual.roll * now, 0, 0) else CFrame.identity

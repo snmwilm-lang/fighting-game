@@ -2018,4 +2018,87 @@ T.test("an air-staged kick keeps its raised leg only with view.untucked", functi
 	expect(math.abs(raised - tucked) > 15, string.format("the tuck no longer folds an air-staged floor blow (%.0f° / %.0f°)", raised, tucked))
 end)
 
+-- KAI's KIKOHO, his ball of ki done the way DAICHA's sphere is (KiBall; Wilhem: « utilise la
+-- même technique qu'avec la boule de DAICHA »): one ball, formed between his palms and growing
+-- through the wind-up, never inside his body; the shot is that ball leaving his palms, drawn
+-- without a jump.
+T.test("KAI's KIKOHO: one ball, formed between his palms, that becomes the shot without a jump", function()
+	local ClipKit = require("./ClipKit")
+	local KiBall = require("../src/shared/KiBall")
+	local function inside(p, part)
+		local c = part.cframe
+		local dx, dy, dz = p[1] - c[1], p[2] - c[2], p[3] - c[3]
+		local lx = dx * c[4] + dy * c[7] + dz * c[10]
+		local ly = dx * c[5] + dy * c[8] + dz * c[11]
+		local lz = dx * c[6] + dy * c[9] + dz * c[12]
+		return math.abs(lx) < part.size[1] / 2 and math.abs(ly) < part.size[2] / 2 and math.abs(lz) < part.size[3] / 2
+	end
+	local charges, shots, last, lastSize, failures = 0, 0, nil, nil, {}
+	local launches = {} -- [projectile id] = { from, tick, drawn = { positions } }
+	ClipKit.play("KAI", "kiblast", 60, function(info)
+		local v, parts = info.views[1], info.parts[1]
+		local ball = KiBall.charge(v, MoveData.Moves[v.move])
+		if ball then
+			local l, r = parts.LeftHand.cframe, parts.RightHand.cframe
+			local at = { (l[1] + r[1]) / 2, (l[2] + r[2]) / 2, (l[3] + r[3]) / 2 }
+			if not last or info.tick - last.tick > 1 then charges += 1; lastSize = nil end
+			if lastSize and ball.core < lastSize - 1e-6 then table.insert(failures, "t" .. info.tick .. " the ball shrinks while he winds up") end
+			for _, name in { "UpperTorso", "LowerTorso", "Head" } do
+				if parts[name] and inside(at, parts[name]) then table.insert(failures, "t" .. info.tick .. " the ball is inside his " .. name) end
+			end
+			last, lastSize = { at = at, tick = info.tick }, ball.core
+		end
+		for _, p in info.projectiles do
+			if p.owner == 1 then
+				local launch = launches[p.id]
+				if not launch then
+					shots += 1
+					expect(last and info.tick - last.tick == 1, "a shot with no ball between his palms the frame before it")
+					launch = { from = last and last.at or { p.x, p.y, 0.4 }, tick = info.tick, drawn = {} }
+					launches[p.id] = launch
+				end
+				table.insert(launch.drawn, KiBall.launch(launch.from, { p.x, p.y, 0.4 }, (info.tick - launch.tick) / 60))
+			end
+		end
+	end)
+	expect(charges >= 2 and shots >= 2, string.format("%d wind-ups, %d shots in the clip", charges, shots))
+	for id, launch in launches do
+		local prev = launch.from
+		for i, at in launch.drawn do
+			local step = math.sqrt((at[1] - prev[1]) ^ 2 + (at[2] - prev[2]) ^ 2 + (at[3] - prev[3]) ^ 2)
+			if step > 1.3 then table.insert(failures, string.format("shot %d: a jump of %.2f studs at its frame %d", id, step, i)) end
+			prev = at
+		end
+	end
+	expect(#failures == 0, table.concat(failures, "\n         ", 1, math.min(#failures, 6)))
+end)
+
+-- KAI's wave (KiBall.beam, Wilhem's drawing): thin out of his palms, it swells and widens a
+-- little; its edges ripple and the ripples move; it meanders a little (never the same above
+-- and below); never pinched to nothing nor blown out.
+T.test("KAI's wave: thin out of his palms, then wide, its edges rippling and moving (Wilhem's drawing)", function()
+	local KiBall = require("../src/shared/KiBall")
+	for _, time in { 0, 0.37, 1.1, 2.5 } do
+		local at0 = KiBall.beam(0, time)
+		local lo, hi, swayMax, mean = math.huge, -math.huge, 0, 0
+		for i = 0, 40 do
+			local u = 0.2 + 0.8 * i / 40
+			local scale, sway = KiBall.beam(u, time)
+			lo, hi, mean = math.min(lo, scale), math.max(hi, scale), mean + scale / 41
+			swayMax = math.max(swayMax, math.abs(sway))
+			expect(scale >= 0.4 and scale <= 1.7, string.format("t %.2f u %.2f: the wave is %.2f of its width", time, u, scale))
+			expect(math.abs(sway) <= 0.15, string.format("t %.2f u %.2f: it strays %.2f off its axis", time, u, sway))
+		end
+		expect(at0 <= 0.6 * mean, string.format("t %.2f: not thin out of his palms (%.2f against %.2f)", time, at0, mean))
+		expect(hi - lo >= 0.2, string.format("t %.2f: its edges do not ripple (%.2f to %.2f)", time, lo, hi))
+		expect(swayMax >= 0.04, string.format("t %.2f: it never meanders: the same above and below", time))
+	end
+	local moved = 0
+	for i = 0, 20 do
+		local u = 0.2 + 0.8 * i / 20
+		moved += math.abs(KiBall.beam(u, 0.5) - KiBall.beam(u, 0.65))
+	end
+	expect(moved / 21 > 0.03, "the ripples stand still")
+end)
+
 T.finish()

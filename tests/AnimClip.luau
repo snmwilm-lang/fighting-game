@@ -9,6 +9,9 @@
 local Config = require("../src/shared/CombatConfig")
 local ClipKit = require("./ClipKit")
 local WeaponKit = require("./WeaponKit")
+local KiBall = require("../src/shared/KiBall")
+local MoveData = require("../src/shared/MoveData")
+local CharacterData = require("../src/shared/CharacterData")
 
 local args = { ... }
 local kitName = args[1] or "KAI"
@@ -35,8 +38,37 @@ local function camera(a, b, dt)
 end
 
 local function fmt(n) return string.format("%.3f", n) end
+-- KAI's ball of ki (KiBall), drawn as the client does: between his palms while he winds up,
+-- then the same ball leaving them as the shot.
+local balls, launches = {}, {}
+local function kiBall(info)
+	local out = {}
+	for slot = 1, 2 do
+		local v, parts = info.views[slot], info.parts[slot]
+		local ball = KiBall.charge(v, MoveData.Moves[v.move])
+		if ball and parts.LeftHand and parts.RightHand then
+			local l, r = parts.LeftHand.cframe, parts.RightHand.cframe
+			local at = { (l[1] + r[1]) / 2, (l[2] + r[2]) / 2, (l[3] + r[3]) / 2 }
+			balls[slot] = { at = at, tick = info.tick }
+			table.insert(out, { at = at, radius = ball.shell / 2, slot = slot })
+		end
+	end
+	for _, p in info.projectiles or {} do
+		local launch = launches[p.id]
+		if not launch then
+			local ball = balls[p.owner]
+			launch = { from = if ball and info.tick - ball.tick <= 2 then ball.at else nil, tick = info.tick }
+			launches[p.id] = launch
+		end
+		local at = { p.x, p.y, 0.4 }
+		if launch.from then at = KiBall.launch(launch.from, at, (info.tick - launch.tick) / 60) end
+		table.insert(out, { at = at, radius = 0.75, slot = p.owner })
+	end
+	return out
+end
 ClipKit.play(kitName, scriptName, poseRate, function(info)
 	local views, parts, tick = info.views, info.parts, info.tick
+	local drawnBalls = kiBall(info)
 	local cx, cy, distance, fov = camera(views[1], views[2], 1 / 60)
 	if tick % step ~= 0 then return end
 	local a = views[info.attacker]
@@ -59,5 +91,10 @@ ClipKit.play(kitName, scriptName, poseRate, function(info)
 			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),
 				fmt(piece.size[1]), fmt(piece.size[2]), fmt(piece.size[3]), piece.color))
 		end
+	end
+	for _, ball in drawnBalls do
+		local color = (CharacterData[ball.slot] and CharacterData[ball.slot].Energy) or "FF2A3D"
+		print(string.format("SHAPE sphere %s %s %s 0 0 0 %s 0 %s 0 1 0", fmt(ball.at[1]), fmt(ball.at[2]), fmt(ball.at[3]),
+			fmt(ball.radius), color))
 	end
 end)

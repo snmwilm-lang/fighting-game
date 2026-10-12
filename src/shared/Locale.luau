@@ -1320,6 +1320,7 @@ Locale.SAME = {
 	["SIT DOWN"] = true, ["WHAT WAS THAT?!"] = true, ["GOD SLAIN 👑"] = true, ["ECLIPSED 🌑"] = true, ["GG, GO NEXT"] = true,
 	["K.O."] = true, ["INFERNO"] = true, ["SAKURA"] = true, ["STYLE"] = true, ["BREAKFRAMEZ"] = true, ["BREAK"] = true, ["FRAMEZ"] = true, ["NOTIFICATIONS"] = true,
 	["ASURA"] = true,
+	["KAI"] = true, ["EN"] = true, ["HA!"] = true, -- (KAIENHA, the words of KAIEN RUSH's wave)
 	["KUROEN SHIN"] = true,
 	["CHALLENGE · KUROEN SHIN"] = true,
 	["DOMINATION"] = true,

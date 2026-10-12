@@ -25,6 +25,7 @@ local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Director = require(Shared.CinematicDirector)
 local RigReader = require(Shared.RigReader)
+local KiBall = require(Shared.KiBall)
 Director.useFinishers(require(Shared.Finishers)) -- (the FATAL FINISHERS' scenes)
 
 local CinematicController = {}
@@ -848,6 +849,7 @@ end
 
 -- One entry of the pool per shape of the frame, by its index: { kind, parts = {...}, light }.
 -- Parts are hidden (Transparency 1) rather than destroyed when a shape goes away.
+local BEAM_SLICES = 16 -- (the wave's slices: KiBall.beam)
 local RING_SEGMENTS = 22
 function CinematicController:drawShapes(list, rigs, views)
 	local pool = self.shapePool
@@ -882,32 +884,55 @@ function CinematicController:drawShapes(list, rigs, views)
 				parts[3].CFrame, parts[3].Size, parts[3].Color, parts[3].Transparency = CFrame.new(pos), Vector3.one * r * 3.2, color, 0.8
 				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, math.min(60, 6 + r * 9), 2 + 3 * core
 			elseif sh.kind == "beam" then
-				-- the ray: a white core, its sheath, a glow, and bands travelling along it
+				-- the wave (KiBall.beam, Wilhem's drawing): thin out of the palms, swelling, its
+				-- edges rippling and flowing away; built of short overlapping slices, each its own
+				-- width and a little off the axis, a white core through them, a glow round them,
+				-- and bands travelling along it
+				local slices = if reduced then 8 else BEAM_SLICES
 				if not parts[1] then
-					for k = 1, 3 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
-					for k = 4, 8 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
+					parts[1] = self:shapePart(Enum.PartType.Cylinder)
+					for k = 2, 2 * BEAM_SLICES + 1 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
+					for k = 2 * BEAM_SLICES + 2, 2 * BEAM_SLICES + 6 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
 					entry.light = Instance.new("PointLight")
 					entry.light.Parent = parts[1]
 				end
 				local a, b = resolve(sh.from, rigs, views), resolve(sh.to, rigs, views)
 				local axis = b - a
 				local length = math.max(0.1, axis.Magnitude)
+				local dirU = axis / length
 				local r = math.max(0.05, sh.radius)
 				-- (a cylinder lies along its X axis)
-				local frame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.pi / 2, 0)
-				local wobble = 1 + 0.06 * math.sin(os.clock() * 40)
-				parts[1].CFrame, parts[1].Size, parts[1].Color, parts[1].Transparency = frame, Vector3.new(length, r * 0.9, r * 0.9), WHITE, 0
-				parts[2].CFrame, parts[2].Size, parts[2].Color, parts[2].Transparency = frame, Vector3.new(length, r * 2 * wobble, r * 2 * wobble), color, 0.2
-				parts[3].CFrame, parts[3].Size, parts[3].Color, parts[3].Transparency = frame, Vector3.new(length, r * 3.1, r * 3.1), color, 0.78
+				local turn = CFrame.lookAt(Vector3.zero, dirU) * CFrame.Angles(0, math.pi / 2, 0)
+				-- (the sway goes across the wave as the camera sees it)
+				local look = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or Vector3.zAxis
+				local across = dirU:Cross(look)
+				across = if across.Magnitude > 1e-3 then across.Unit else Vector3.yAxis
+				local now = os.clock()
+				parts[1].CFrame = CFrame.new((a + b) / 2) * turn
+				parts[1].Size, parts[1].Color, parts[1].Transparency = Vector3.new(length, r * 0.8, r * 0.8), WHITE, 0
+				for k = 1, BEAM_SLICES do
+					local sheath, glow = parts[1 + k], parts[1 + BEAM_SLICES + k]
+					if k > slices then
+						sheath.Transparency, glow.Transparency = 1, 1
+					else
+						local u = (k - 0.5) / slices
+						local scale, sway = KiBall.beam(u, now)
+						local at = CFrame.new(a + axis * u + across * (sway * r)) * turn
+						local long = length / slices * 1.35
+						sheath.CFrame, sheath.Size, sheath.Color, sheath.Transparency = at, Vector3.new(long, r * 2 * scale, r * 2 * scale), color, 0.2
+						glow.CFrame, glow.Size, glow.Color, glow.Transparency = at, Vector3.new(long, r * 3.1 * scale, r * 3.1 * scale), color, 0.78
+					end
+				end
 				local bands = if reduced then 2 else 5
-				for k = 4, 8 do
-					local part = parts[k]
-					if k - 3 > bands then
+				for k = 1, 5 do
+					local part = parts[2 * BEAM_SLICES + 1 + k]
+					if k > bands then
 						part.Transparency = 1
 					else
-						local t = ((sh.rings or 0) + (k - 4) / bands) % 1
-						part.CFrame = CFrame.new(a + axis * t) * (frame - frame.Position)
-						part.Size, part.Color, part.Transparency = Vector3.new(0.18, r * 2.7, r * 2.7), WHITE, 0.55
+						local t = ((sh.rings or 0) + (k - 1) / bands) % 1
+						local scale = KiBall.beam(t, now)
+						part.CFrame = CFrame.new(a + axis * t) * turn
+						part.Size, part.Color, part.Transparency = Vector3.new(0.18, r * 2.7 * scale, r * 2.7 * scale), WHITE, 0.55
 					end
 				end
 				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, 40, 4

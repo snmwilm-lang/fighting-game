@@ -1,5 +1,33 @@
 # Journal du projet — état à transmettre
 
+## Version 0.33.0 — 12 octobre 2026 · KAI : le KAIENHA de KAIEN RUSH et le KIKOHO
+
+Wilhem : « améliorer l'animation du kamehameha en ult de KAI et de son hadoken », « utilise la même technique qu'avec la boule de DAICHA », et un dessin du rayon (fin au départ, puis large, les bords qui ondulent).
+
+- **Le KIKOHO (le hadoken)** :
+  - nouvelles poses : les deux paumes jointes à la hanche arrière, le buste tourné (« KI-KO- »), puis la poussée des deux paumes ensemble au centre (« -HO ! »), tenue un instant avant le retour en garde ;
+  - **une seule boule, comme la sphère de DAICHA** : nouveau module pur `KiBall` ;
+  - la boule naît entre ses paumes, les suit pendant la préparation et grossit jusqu'au lâcher ;
+  - au lâcher, c'est la même boule qui part : le client dessine le tir depuis la place qu'elle avait entre ses mains et le pose en douceur sur le vrai projectile, au lieu de le faire apparaître 3 studs plus loin ;
+  - nouveau projectile `kiBall` : un cœur blanc, une coque de ki qui respire, un anneau incliné qui tourne et une traîne de comète ;
+  - un anneau de ki jaillit des paumes au lâcher.
+- **Le KAIENHA de KAIEN RUSH** (fin de l'ultime R) :
+  - après le piqué, KAI monte au-dessus de la cible, paumes jointes à la hanche ;
+  - la boule grossit à chaque mot : « KAI… », « EN… » (légendes plaquées, anneaux, éclairs, monde assombri) ;
+  - « HA! » : la vague part droit sur la cible et **tient** (environ 0,9 s au lieu de 0,27 s), flash blanc, rochers, dôme de lumière sur le cratère, ondes au sol ;
+  - la boule reste dans ses mains et alimente la vague ;
+  - plans : sa montée, ses paumes, son visage en contre-plongée, la vague de côté, puis vue du cratère vers lui ;
+  - KAIEN RUSH de KAI dure 196 images au lieu de 150 (coup final à 146) ; ASURA, qui utilise les coups de KAI, partage ce réglage.
+- **Le rayon (dessin de Wilhem)** : `KiBall.beam` donne la forme de la vague : fine à la sortie des paumes, elle s'élargit, ses bords ondulent et les vagues s'éloignent de lui, jamais pareilles en haut et en bas. Le client la construit en tranches qui se chevauchent ; les planches la dessinent pareil. Elle vaut aussi pour le MAXIMUM KAIENHA (son FATAL FINISHER).
+
+**Fichiers** : `KiBall.luau` (nouveau, pur, ajouté à la liste de CLAUDE.md), `PoseLibrary` (KiBlast, KaiKameCharge), `CinematicDirector` (fin de KAIEN RUSH), `MoveData` (réglage de KAIEN RUSH pour KAI et ASURA), `KitFX` (tir `kiBall`), `EffectsController` (boule entre les paumes, lancement depuis elle, tir `kiBall`, anneau au lâcher), `CinematicController` (vague en tranches), `Locale` (KAI, EN, HA!), `tools/storyboard.py`, `tests/ClipKit.luau` (script `kiblast`, projectiles), `tests/AnimClip.luau` (la boule et le tir dessinés).
+
+**Tests** : CombatSimulation 169, Cinematography 312, CinematicDirector 872 (la signature de KAIEN RUSH est maintenant sa vague), Animation 61 (deux tests nouveaux : « KAI's KIKOHO: one ball… » et « KAI's wave… »), Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé (résultat noté au commit suivant). AnimQuality KAI et AnimPops relus. Planches et clip relus. Aucun dégât, aucune vie ni vitesse modifiés. Non vérifié dans Studio.
+
+**Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : retours de Wilhem sur le KIKOHO et le KAIENHA.
+
 ## Version 0.32.0 — 12 octobre 2026 · FATAL FINISHERS : SHIN, TARO, KAI (planches), ZEPHYR façon Vegito
 
 Wilhem a envoyé une planche de 12 plans d'une seconde pour SHIN, TARO et KAI ; les trois finishers sont refaits plan par plan (12 s chacun). ZEPHYR est refait « façon Vegito ».

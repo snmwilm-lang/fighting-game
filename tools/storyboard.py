@@ -90,6 +90,17 @@ def partColor(slot, name):
     if 'Arm' in name: return p['Arm']
     return p['Leg']
 
+def ki_beam(u, t):
+    # the same profile as KiBall.beam (src/shared/KiBall.luau): (radius share, sway share)
+    tau = 2 * math.pi
+    x = max(0.0, min(1.0, u / 0.12))
+    inn = x * x * (3 - 2 * x)
+    taper = 0.45 + 0.55 * inn
+    ripple = (1 + 0.13 * math.sin(tau * (u * 5 - t * 1.6)) + 0.07 * math.sin(tau * (u * 11 - t * 2.4) + 1.3)
+              + 0.04 * math.sin(tau * (u * 19 - t * 3.3) + 2.1))
+    sway = 0.08 * math.sin(tau * (u * 3.5 - t * 1.2) + 0.7) + 0.04 * math.sin(tau * (u * 8 - t * 2) + 2.4)
+    return taper * (1 + 0.18 * u) * ripple, sway * inn
+
 def render_frame(fr, label):
     img = Image.new('RGB', (W, H))
     d = ImageDraw.Draw(img, 'RGBA')
@@ -351,27 +362,37 @@ def render_frame(fr, label):
                 c = r * 0.6 * max(0.2, sh['extra'])
                 d.ellipse([p[0]-c, p[1]-c, p[0]+c, p[1]+c], fill=(255,255,255,230))
         elif k == 'beam':
-            # (clipped to the camera's near plane: a ray seen along its axis still shows)
-            def clip(p0, p1):
-                z0, z1 = dot(sub(p0, cam), fwd), dot(sub(p1, cam), fwd)
-                if z0 >= 0.2 and z1 >= 0.2: return p0, p1
-                if z0 < 0.2 and z1 < 0.2: return None, None
-                t = (0.2 - z0) / (z1 - z0)
-                q = tuple(p0[i] + (p1[i] - p0[i]) * t for i in range(3))
-                return (q, p1) if z0 < 0.2 else (p0, q)
-            ca, cb = clip(a3, b3)
-            pa, pb = (proj(ca), proj(cb)) if ca else (None, None)
-            if pa and pb:
-                mid = tuple((a3[i] + b3[i]) / 2 for i in range(3))
-                _, r = size_at(mid, sh['r'])
-                d.line([pa[:2], pb[:2]], fill=col + (120,), width=max(3, int(r * 2.6)))
-                d.line([pa[:2], pb[:2]], fill=col + (220,), width=max(2, int(r * 1.6)))
-                d.line([pa[:2], pb[:2]], fill=(255,255,255,235), width=max(1, int(r * 0.7)))
-                for i in range(5):
-                    t = ((sh['extra'] + i / 5) % 1)
-                    q = tuple(a3[j] + (b3[j] - a3[j]) * t for j in range(3))
-                    p, rr = size_at(q, sh['r'] * 1.3)
-                    if p: d.ellipse([p[0]-rr*0.35, p[1]-rr, p[0]+rr*0.35, p[1]+rr], outline=(255,255,255,200), width=2)
+            # KAI's wave (src/shared/KiBall.luau, KiBall.beam): thin out of the palms, swelling,
+            # its edges rippling (bumps flowing away from him), never the same above and below
+            t_now = fr['tick'] / 60
+            axis = sub(b3, a3)
+            across = norm(cross(axis, fwd))
+            samples = []
+            for i in range(29):
+                u = i / 28
+                scale, sway = ki_beam(u, t_now)
+                q = tuple(a3[j] + axis[j] * u + across[j] * sway * sh['r'] for j in range(3))
+                pq, rr = size_at(q, sh['r'] * scale)
+                if pq: samples.append((pq, rr))
+            if len(samples) >= 2:
+                (x0, y0), (x1, y1) = samples[0][0][:2], samples[-1][0][:2]
+                L = math.hypot(x1 - x0, y1 - y0)
+                if L < 4:
+                    p, r = samples[-1][0], samples[-1][1]
+                    for k2, a_ in ((1.55, 120), (1.0, 220)):
+                        d.ellipse([p[0]-r*k2, p[1]-r*k2, p[0]+r*k2, p[1]+r*k2], fill=col + (a_,))
+                    d.ellipse([p[0]-r*0.4, p[1]-r*0.4, p[0]+r*0.4, p[1]+r*0.4], fill=(255,255,255,235))
+                else:
+                    nx, ny = -(y1 - y0) / L, (x1 - x0) / L
+                    for k2, fill in ((1.55, col + (110,)), (1.0, col + (225,)), (0.4, (255,255,255,240))):
+                        top = [(pq[0] + nx * rr * k2, pq[1] + ny * rr * k2) for pq, rr in samples]
+                        bottom = [(pq[0] - nx * rr * k2, pq[1] - ny * rr * k2) for pq, rr in samples]
+                        d.polygon(top + bottom[::-1], fill=fill)
+                    for i in range(5):
+                        t = ((sh['extra'] + i / 5) % 1)
+                        q = tuple(a3[j] + axis[j] * t for j in range(3))
+                        p, rr = size_at(q, sh['r'] * 1.3 * ki_beam(t, t_now)[0])
+                        if p: d.line([(p[0] + nx * rr, p[1] + ny * rr), (p[0] - nx * rr, p[1] - ny * rr)], fill=(255,255,255,170), width=2)
         elif k in ('ring', 'dome'):
             n = norm(b3) if k == 'ring' else (0.0, 1.0, 0.0)
             ref = (1.0, 0.0, 0.0) if abs(n[1]) > 0.9 else (0.0, 1.0, 0.0)

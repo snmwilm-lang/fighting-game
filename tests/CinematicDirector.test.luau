@@ -382,6 +382,7 @@ local function rushStaging(kit)
 			moveData = MoveData, config = Config, characters = CharacterData })
 		if frame then
 			for _, fx in frame.fx do kinds[fx.kind] = true end
+			for _, sh in frame.shapes or {} do kinds["shape:" .. sh.kind] = true end
 			if cin.tick < data.FinalTick then
 				local a, d = v[1], v[2]
 				closest = math.min(closest, math.sqrt((a.x - d.x) ^ 2 + ((a.z or 0) - (d.z or 0)) ^ 2))
@@ -499,7 +500,8 @@ end)
 
 test("every rush (R) is staged its own way: own effects, own way of fighting", function()
 	-- Each kit's rush asks for effects only it uses.
-	local SIGNATURE = { KAI = { "kiBeam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },
+	-- (KAI's: the wave of his KAIENHA, a beam of light that holds)
+	local SIGNATURE = { KAI = { "shape:beam" }, TARO = { "ropes" }, ZEPHYR = { "windBlade" }, AKEMI = { "afterimage" },
 		RYUKEN = { "rageFist" }, SHIN = { "wake", "waterspout" }, DAICHA = { "matterBurst" }, HIBECARES = { "rockLine" } }
 	for name, theme in Director.THEMES do SIGNATURE[name] = { theme.fx.line, theme.fx.burst, theme.fx.ground } end
 	local staging = {}

@@ -1716,8 +1716,83 @@ function EffectsController:domination(rig, level, view)
 end
 
 -- Per-frame presentation driven by the interpolated fighter views.
+-- COUP FATAL ready (Wilhem: « une aura à la Tekken »): the fighter burns in crimson while its
+-- last breath can be thrown. The ink outline glows and pulses crimson, flames rise off the body,
+-- a crimson ring burns at its feet; the moment it lights up: a burst, a shockwave, a jolt.
+-- Cosmetic: the server says when it is ready (view.fatal).
+local FATAL_RED, FATAL_HOT = Color3.fromHex("FF1E3C"), Color3.fromHex("FFC2A8")
+function EffectsController:fatalAura(rig, view, now)
+	local on = view.fatal == "ready" and view.state ~= "KO" and not view.ghost
+	local outline = rig.model:FindFirstChild("InkOutline")
+	local torso = rig.model:FindFirstChild("UpperTorso") or rig.model:FindFirstChild("Torso")
+	if on and not rig.fatalOn then
+		rig.fatalOn = true
+		if outline then
+			rig.fatalSaved = { outline.OutlineColor, outline.FillColor, outline.FillTransparency, outline.OutlineTransparency }
+		end
+		if torso then
+			local flames = Instance.new("ParticleEmitter")
+			flames.Name = "FatalAura"
+			flames.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, FATAL_HOT), ColorSequenceKeypoint.new(0.35, FATAL_RED),
+				ColorSequenceKeypoint.new(1, Color3.fromHex("3A0008")) })
+			flames.LightEmission, flames.LightInfluence = 0.85, 0
+			flames.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(0.6, 1.5), NumberSequenceKeypoint.new(1, 0) })
+			flames.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
+			flames.Lifetime = NumberRange.new(0.45, 0.8)
+			flames.Speed = NumberRange.new(4, 8)
+			flames.SpreadAngle = Vector2.new(35, 35)
+			flames.Acceleration = Vector3.new(0, 10, 0)
+			flames.EmissionDirection = Enum.NormalId.Top
+			flames.Rate = if self.reduced then 12 else 34
+			flames.Parent = torso
+			rig.fatalFlames = flames
+			flames:Emit(if self.reduced then 15 else 45) -- (it lights up: a burst)
+		end
+		local ring = Instance.new("Part")
+		ring.Name = "FatalRing"
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Anchored, ring.CanCollide, ring.CanQuery, ring.CanTouch, ring.CastShadow = true, false, false, false, false
+		ring.Material = Enum.Material.Neon
+		ring.Color = FATAL_RED
+		ring.Size = Vector3.new(0.12, 5.2, 5.2)
+		ring.Transparency = 0.5
+		ring.Parent = rig.model
+		rig.fatalRing = ring
+		self:spark(Vector3.new(view.x, (view.y or 0) + 3, 0), FATAL_RED, 2.2)
+		self:spark(Vector3.new(view.x, (view.y or 0) + 0.3, 0), FATAL_HOT, 1.4)
+		self.camera:shake(if self.reduced then 0.1 else 0.28, 0.25)
+	elseif not on and rig.fatalOn then
+		rig.fatalOn = false
+		if rig.fatalFlames then rig.fatalFlames:Destroy(); rig.fatalFlames = nil end
+		if rig.fatalRing then rig.fatalRing:Destroy(); rig.fatalRing = nil end
+		local saved = rig.fatalSaved
+		if outline and saved then
+			outline.OutlineColor, outline.FillColor, outline.FillTransparency, outline.OutlineTransparency = saved[1], saved[2], saved[3], saved[4]
+		end
+		rig.fatalSaved = nil
+	end
+	if not on then return end
+	-- (alive: a heartbeat, two quick beats then a rest, like the bar)
+	local beat = (now * 1.6) % 1
+	local pulse = math.max(0, math.sin(math.pi * math.min(1, beat / 0.18)), 0.7 * math.sin(math.pi * math.clamp((beat - 0.22) / 0.18, 0, 1)))
+	if outline then
+		outline.OutlineColor = FATAL_RED:Lerp(FATAL_HOT, pulse * 0.6)
+		outline.OutlineTransparency = 0
+		outline.FillColor = FATAL_RED
+		outline.FillTransparency = 0.82 - 0.22 * pulse
+	end
+	local ring = rig.fatalRing
+	if ring then
+		local size = 4.6 + 1.2 * pulse
+		ring.Size = Vector3.new(0.12, size, size)
+		ring.Transparency = 0.6 - 0.35 * pulse
+		ring.CFrame = CFrame.new(view.x, 0.07, self.config.PlaneZ) * CFrame.Angles(0, 0, math.rad(90))
+	end
+end
+
 function EffectsController:update(slot, view, rig, previous, now)
 	if view.revived and not rig.blackAura then rig.blackAura = self:blackAura(rig) end
+	if rig.model then self:fatalAura(rig, view, now) end
 	if view.kit == "KUROEN" or rig.dominationAura then self:domination(rig, view.domination or 0, view) end
 	local color = self:energy(slot)
 	local energyHex = CharacterData[slot].Energy

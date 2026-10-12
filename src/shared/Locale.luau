@@ -578,6 +578,7 @@ Locale.FR = {
 	["FANG"] = "CROC",
 	["FATAL BITE"] = "MORSURE FATALE",
 	["FATAL BLOW"] = "COUP FATAL",
+	["FATAL READY"] = "COUP FATAL PRÊT",
 	["FATAL BLOW READY · C —"] = "COUP FATAL PRÊT · C —",
 	["FATAL BLOW · C key (gamepad L1):"] = "COUP FATAL · touche C (manette L1) :",
 	["FEATHER"] = "PLUME",

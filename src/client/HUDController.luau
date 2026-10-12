@@ -224,6 +224,22 @@ function HUD.new(config)
 				ColorSequenceKeypoint.new(0.5, FATAL_HOT), ColorSequenceKeypoint.new(0.7, FATAL), ColorSequenceKeypoint.new(1, FATAL_DARK) }),
 			Transparency = NumberSequence.new(0.1),
 		}, flame)
+		-- COUP FATAL ready (Wilhem: « la barre de vie vraiment compréhensible »): a crimson key chip
+		-- at the bar's inner end, beating, with the key to press; a big call under the bar when it
+		-- lights up (HUD:fatalReady)
+		local fatalChip = new("Frame", { Name = "FatalKey", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(34, 34),
+			Position = if left then UDim2.new(1, -2, 0, 45) else UDim2.new(0, 2, 0, 45), Rotation = 45,
+			BackgroundColor3 = FATAL, BorderSizePixel = 0, ZIndex = 8, Visible = false }, side)
+		local fatalChipStroke = stroke(fatalChip, 2, FATAL_HOT)
+		local fatalChipKey = text(fatalChip, { Name = "Key", Text = "C", Rotation = -45, Size = UDim2.fromScale(1, 1), TextSize = 17,
+			Font = UI_FONT, TextColor3 = WHITE, ZIndex = 9 })
+		stroke(fatalChipKey, 1.5, FATAL_DARK)
+		local fatalChipScale = new("UIScale", { Scale = 1 }, fatalChip)
+		local fatalCall = text(side, { Name = "FatalCall", Visible = false, Text = "FATAL READY", TextSize = 34, Font = UI_FONT,
+			TextColor3 = FATAL, Size = UDim2.new(1, -barX, 0, 40), AnchorPoint = Vector2.new(outer, 0), Position = at(barX, 96),
+			TextXAlignment = if left then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right, Rotation = if left then -3 else 3, ZIndex = 8 })
+		stroke(fatalCall, 3, WHITE)
+		local fatalCallScale = new("UIScale", { Scale = 1 }, fatalCall)
 		-- the guard, in six chips under the bar from its inner end (the DRIVE gauge's place): the dark
 		-- chips behind, the lit ones in a container that shrinks toward the timer
 		local CHIP, GAP, CHIPS = 34, 4, 6
@@ -332,7 +348,8 @@ function HUD.new(config)
 		new("UICorner", { CornerRadius = UDim.new(0, 4) }, vipTag)
 		local vipGlow = new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Enabled = false,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, vipTag)
-		self.bars[slot] = { nameRainbow = nameRainbow, rainbowColors = nameRainbow.Color, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
+		self.bars[slot] = { fatalChip = fatalChip, fatalChipStroke = fatalChipStroke, fatalChipKey = fatalChipKey,
+			fatalChipScale = fatalChipScale, fatalCall = fatalCall, fatalCallScale = fatalCallScale, nameRainbow = nameRainbow, rainbowColors = nameRainbow.Color, vipTag = vipTag, vipGlow = vipGlow, hitFlash = hitFlash, segmentEdges = segmentEdges,
 			sideBase = side.Position, lastRatio = 1, edgeColor = EDGE, kiPanel = panel, face = face, left = left,
 			fill = fill, trail = trail, guard = guardFill, player = player, pips = pips, energy = energy,
 			segments = segments, kiCount = count, ready = ready, side = side, gradient = gradient, skin = data.Skin,
@@ -1247,6 +1264,39 @@ function HUD:announceRound(round)
 end
 
 -- Slanted technique name on a fighter's side.
+-- The key of the COUP FATAL on the device in use.
+function HUD:fatalKey()
+	if UIS.PreferredInput == Enum.PreferredInput.Gamepad then return "LB" end
+	if UIS.TouchEnabled and not UIS.KeyboardEnabled then return "!" end
+	return "C"
+end
+
+-- The COUP FATAL lights up on `slot`'s side: the bar flashes crimson, the big call slams in
+-- under it (with the key for the player who can throw it), then fades; the chip stays.
+function HUD:fatalReady(slot, mine)
+	local bar = self.bars[slot]
+	if not bar then return end
+	bar.hitFlash.BackgroundColor3 = FATAL
+	bar.hitFlash.BackgroundTransparency = 0
+	tween(bar.hitFlash, 0.6, { BackgroundTransparency = 1 })
+	task.delay(0.62, function() bar.hitFlash.BackgroundColor3 = WHITE end)
+	local call = bar.fatalCall
+	call.Text = if mine then "FATAL READY · " .. (if self:fatalKey() == "!" then "FATAL" else self:fatalKey()) else "FATAL READY"
+	call.Visible, call.TextTransparency = true, 0
+	bar.fatalCallScale.Scale = 2.2
+	tween(bar.fatalCallScale, 0.22, { Scale = 1 }, Enum.EasingStyle.Back)
+	bar.fatalChipScale.Scale = 2
+	local id = (bar.fatalCallId or 0) + 1
+	bar.fatalCallId = id
+	task.delay(2.4, function()
+		if bar.fatalCallId ~= id then return end
+		tween(call, 0.4, { TextTransparency = 1 })
+		task.delay(0.42, function()
+			if bar.fatalCallId == id then call.Visible = false end
+		end)
+	end)
+end
+
 function HUD:callout(slot, label)
 	local callout = self.callouts[slot]
 	if not callout then return end
@@ -1450,12 +1500,20 @@ function HUD:update(world, views, fps, dt)
 			self.trail[slot] = math.max(ratio, self.trail[slot] - dt * 0.6)
 		end
 		bar.trail.Size = UDim2.fromScale(self.trail[slot], 1)
-		-- COUP FATAL ready: the bar burns (aura, flame, crimson outline)
-		local fatal = view.fatal == "ready"
-		bar.aura.Visible, bar.flame.Visible = fatal, fatal
+		-- COUP FATAL ready: the bar burns (aura, flame, crimson outline), its key chip beats; the
+		-- moment it lights up, the big call (HUD:fatalReady)
+		local fatal = view.fatal == "ready" and view.state ~= "KO"
+		bar.aura.Visible, bar.flame.Visible, bar.fatalChip.Visible = fatal, fatal, fatal
+		if fatal and not bar.fatalWas then self:fatalReady(slot, localSlot == slot) end
+		bar.fatalWas = fatal
 		if fatal then
 			local t = os.clock()
 			local pulse = 0.5 + 0.5 * math.sin(t * 7)
+			local beat = (t * 1.6) % 1
+			local heart = math.max(0, math.sin(math.pi * math.min(1, beat / 0.18)), 0.7 * math.sin(math.pi * math.clamp((beat - 0.22) / 0.18, 0, 1)))
+			bar.fatalChipScale.Scale = 1 + 0.22 * heart
+			bar.fatalChipStroke.Color = FATAL_HOT:Lerp(WHITE, heart)
+			bar.fatalChipKey.Text = if localSlot == slot then self:fatalKey() else "!"
 			bar.auraStroke.Transparency = 0.1 + 0.5 * pulse
 			bar.auraStroke.Thickness = 3 + 4 * (1 - pulse)
 			bar.flameGradient.Offset = Vector2.new((t * 0.9) % 2 - 1, 0)

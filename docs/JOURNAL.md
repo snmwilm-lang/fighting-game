@@ -32,7 +32,8 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
 - Elle passe la garde. Elle ne prend jamais un perso en l'air, en hitstun ou blockstun, au relevé, ni en esquive : elle ne prolonge pas de combo.
 - Un coup qui touche au même tick gagne. Chope contre chope = **TECH** : les deux se lâchent, sans dégâts.
 - Ratée, elle se punit. Jamais en reversal sortant d'un coup. Repère vert sur les mains au démarrage.
-- Les CPU NORMAL et plus l'utilisent contre un joueur qui reste en garde.
+- Les CPU NORMAL et plus l'utilisent contre un joueur qui reste en garde : ils avancent au contact puis attrapent.
+- Les CPU savent aussi y répondre : en garde, face à un adversaire qui avance au contact sans frapper, ils sortent parfois un jab (un coup bat la chope).
 
 **QTE retirés** (`Config.CinematicPrompts = false`)
 - Les cinématiques n'affichent plus de touches à presser et font leurs dégâts normaux : ni coupe, ni bonus PARFAIT.
@@ -68,7 +69,7 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
   - feintes.
 - Elle retombe quand on le laisse tranquille. Le mashing à rythme constant ne compte presque pas.
 - Sous tension, il :
-  - décide plus tard (+1 tick même calme, jusqu'à +6, au carré de la tension) ;
+  - décide plus tard (jusqu'à +4 ticks, au carré de la tension : un peu de pression le ralentit à peine) ;
   - garde moins, parfois à la mauvaise hauteur ;
   - lâche la garde trop tôt ou la tient trop longtemps (la chope y répond) ;
   - choisit des routes plus courtes, rate des extensions (mauvais bouton) et des confirmations ;
@@ -77,17 +78,20 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
   - mord aux feintes ;
   - poursuit un adversaire qui se relève au lieu de garder ;
   - voit ses lectures (anti-air, contre, reversal) émoussées.
-- Calme, il fait la route optimale presque toujours.
+- Calme, il fait la route optimale presque toujours. Les réglages sont dans `FighterAI.Bosses["KUROEN SHIN"].mistakes`.
 - Mesures (`luau tests/BossProvoke.luau -a 3 "KUROEN SHIN" <style>`, 60 matchs), vie restante du boss à la fin des manches :
 
   | Adversaire | Avant | Après |
   |---|---|---|
-  | joueur qui le travaille (LÉGENDE + dashs, rythme, appâts, chopes) | 86 % | 78 % (coups portés 693 → 1 113) |
-  | LÉGENDE seul | 82 % | 76 % |
+  | joueur qui le travaille (LÉGENDE + dashs, rythme, appâts, chopes) | 86 % | 80 % (coups portés 693 → 1 006) |
+  | LÉGENDE seul | 82 % | 80 % |
   | débutant (NORMAL) | 92 % | 92 % (inchangé) |
 
   Il gagne toujours tous ces matchs : il reste le boss. Un CPU ne provoque pas aussi bien qu'un humain.
-- Les tests de boss tiennent : il bat toujours LÉGENDE en miroir et finit avec plus de vie qu'ASURA contre les équipes.
+- Il bat toujours LÉGENDE en miroir : 25 victoires sur 40, comme sans erreurs.
+- Les deux tests de boss tiraient au sort, faute d'échantillon. Ils jouent maintenant 12 matchs en miroir et 8 matchs par équipe (24 au lieu de 9).
+  - Mesuré sur 20 matchs par équipe, la 0.24.5 d'avant mettait déjà KUROEN SHIN et ASURA à égalité (1,67 contre 1,65) : son « plus de vie qu'ASURA » sur 9 matchs dépendait du tirage.
+  - Le test demande maintenant « au moins autant qu'ASURA, à 0,05 près », c'est-à-dire dans le bruit de mesure.
 - `BossReport.luau` jouait toujours le cerveau d'ASURA : corrigé.
 
 **Fichiers**
@@ -95,12 +99,16 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
 - Client : `InputController`, `HUDController`, `EffectsController`, `SoundController`.
 - Serveur : `init.server`.
 - Tests : `CombatSimulation`, `Animation`, `FighterAI`, `Fuzz`, `BossReport`, `BossProvoke` (nouveau).
+- **SHIN : 1 450 → 1 520 PV.** Il était au plancher (34-35 % selon les tirages). La chope n'en est pas la cause : sans chope du tout, il était aussi à 33 % sur 60 matchs par duel. Son passif PRÉCISION, essayé à la place, ne changeait rien.
 - Doc : `README` (touches).
 
 **Tests**
-- CombatSimulation 162, Animation 56, FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits KITS_RESULT.
+- CombatSimulation 162, Animation 56, FighterAI 19, Cinematography 312, CinematicDirector 872, PressQueue 4, Fuzz 2, Lobby 46, Kits 130/130.
 - AnimQuality identique avant et après (aucune régression).
-- Balance : BALANCE_RESULT.
+- Balance (`-a 4 120`, LÉGENDE) : tous entre 35 et 65 %.
+  - KAI 57, TARO 58, ZEPHYR 46, AKEMI 57, RYUKEN 55, **SHIN 39**, DAICHA 46, HIBECARES 50, RAIJIN 41, YUKINA 48 ;
+  - VENOM 61, GORAN 56, ASTER 44, HIBIKI 55, KAZAN 44, KUREN 44, SYLVA 45, ELIAN 45, NOVA 46, **KUROEN 64**.
+  - Avant de réduire la fréquence de chope des CPU, KUROEN montait à 67 %.
 - Non vérifié dans Studio.
 
 **À tester à la main**
@@ -111,6 +119,12 @@ Wilhem : passe « game feel » en 9 points (dashs, dash vertical, chope, QTE, HU
 - Le HUD (bouton ☰).
 - Les tremblements d'écran.
 - KUROEN SHIN : le travailler avec des dashs, du rythme et des chopes.
+
+**Problèmes ouverts**
+- KUROEN (le perso jouable) est à 64 %, juste sous la limite.
+- Contre un CPU, même LÉGENDE qui le travaille, KUROEN SHIN gagne toujours : seul un humain dira si l'écart est juste.
+
+**Prochaine étape** : les retours du test en jeu (dash aérien, chope, HUD).
 
 ## Version 0.24.5 — 6 octobre 2026 · CARTE DU CRÉATEUR, COMMANDES DU PROPRIÉTAIRE, MISE À JOUR SANS FERMER
 

@@ -134,7 +134,9 @@ end
 	arena (+Z), positive = swung toward the attacker's front (dir); o.pitch: degrees, positive
 	looks down; o.fill: share of the frame height (or width) the subjects fill; o.band: body
 	slice (full, bust, face, waist, legs); o.fov, o.roll (degrees); o.lift: aim offset in Y;
-	o.clear: minimum distance to the subjects; o.focus: point of the depth of field.
+	o.clear: minimum distance to the subjects; o.focus: point of the depth of field;
+	o.screen = { x, y }: where the subjects sit on the screen (-1..1 from the centre, y up: one
+	half of SHIN's split screen), the camera slid sideways so the angle stays the same.
 ]]
 local function frameOn(name, dir, subjects, o)
 	local minX, minY, minZ, maxX, maxY, maxZ = math.huge, math.huge, math.huge, -math.huge, -math.huge, -math.huge
@@ -166,6 +168,11 @@ local function frameOn(name, dir, subjects, o)
 	local distance = size / math.tan(math.rad(fov) / 2) / (o.fill or 0.8) + halfD
 	distance = math.max(distance, halfD + (o.clear or 2.2))
 	local ty = cy + (o.lift or 0)
+	if o.screen then
+		local h = math.tan(math.rad(fov) / 2) * distance
+		local sx, sy = -(o.screen[1] or 0) * h * ASPECT, -(o.screen[2] or 0) * h
+		cx, ty, cz = cx + rx * sx + ux * sy, ty + uy * sy, cz + rz * sx + uz * sy
+	end
 	local camX, camY, camZ = cx + bx * distance, ty + by * distance, cz + bz * distance
 	if camY < 0.45 then camY = 0.45 end -- never under the deck
 	return shot(name, At(v(camX, camY, camZ)), At(v(cx, ty, cz)), fov, math.rad(o.roll or 0), o.focus)

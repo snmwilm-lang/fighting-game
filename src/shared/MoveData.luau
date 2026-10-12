@@ -1043,7 +1043,7 @@ MoveData.Cinematics = {}
 kit("KAI", {
 	Kanji = "開", Role = "ALL-ROUNDER",
 	-- FATAL FINISHER (Finishers.luau): the colossal wave of ki, the camera round him.
-	Finisher = { Name = "MAXIMUM KAIENHA", Length = 720, FinalTick = 560 },
+	Finisher = { Name = "MAXIMUM KAIENHA", Length = 720, FinalTick = 485 },
 	Difficulty = 1, -- 1 = simple to pick up, 3 = technical (shown as stars)
 	Description = "All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings.",
 	Roles = KAI_ROLES,
@@ -1064,7 +1064,7 @@ kit("KAI", {
 kit("TARO", {
 	Kanji = "火", Role = "BOXER",
 	-- FATAL FINISHER (Finishers.luau): the Dempsey Roll through the target's eyes.
-	Finisher = { Name = "DEMPSEY ROLL: FINAL ROUND", Length = 660, FinalTick = 498 },
+	Finisher = { Name = "DEMPSEY ROLL: FINAL ROUND", Length = 720, FinalTick = 446 },
 	Difficulty = 2,
 	Description = "Fists only, two styles: CLASSIC (key & / 1: iron guard, heavy hits, CHAMPION'S RIGHT) "
 		.. "or PEEKABOO (key é / 2: body sway, DEMPSEY ROLL, PARRY that counters).",
@@ -1100,7 +1100,7 @@ kit("ZEPHYR", {
 	Difficulty = 2,
 	Description = "Kicks only. PERFECT RHYTHM: links on the beat give Sparks (smoother strings). CLASH STEP: attack right as a blow lands to slip it and kick back.",
 	-- FATAL FINISHER (Finishers.luau): kicks on a faster and faster beat, until the wind is a cyclone.
-	Finisher = { Name = "CYCLONE CRESCENDO", Length = 660, FinalTick = 500 },
+	Finisher = { Name = "GALE EXCALIBUR", Length = 720, FinalTick = 440 },
 	Roles = ZEPHYR,
 	Stats = { MaxHealth = 1350, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
 	-- PERFECT RHYTHM: a link pressed From..To ticks after the end of the hitstop of the impact
@@ -1192,7 +1192,7 @@ kit("SHIN", {
 	GateTitle = { text = "零", sub = "ZERO HORIZON" },
 	Colors = { TORNADO = "3D9BFF", GUST = "6FD8FF", DRAGON = "3D9BFF", THUNDER = "C8F0FF", WALL = "3D9BFF", MOON = "A8E4FF" },
 	-- FATAL FINISHER (Finishers.luau): the screen cut in two, K and O.
-	Finisher = { Name = "FINAL DIVISION", Length = 620, FinalTick = 372 },
+	Finisher = { Name = "FINAL DIVISION", Length = 720, FinalTick = 330 },
 })
 kit("DAICHA", {
 	Kanji = "闇", Role = "ZONING",

@@ -17,9 +17,10 @@
 	  frame.overlay  full-screen direction:
 	                   desat 0..1 (the colour drains), blur 0..1 (a directional blur pulse),
 	                   firstPerson = slot (that fighter's head and arms are hidden: the camera is its eyes),
-	                   split = { angle, line 0..1, open 0..1, join 0..1, color } (SHIN: the
-	                   screen cut in two halves, K in one, O in the other, the scene alive in
-	                   both), ko = { text, sub, color, at } (the K.O. written into the scene),
+	                   split = { angle, line 0..1, open 0..1, join 0..1, color, letters, letterAt,
+	                   letterSize, views, only } (SHIN: the screen cut in two halves along a line
+	                   turned `angle` degrees clockwise, the first half on its left-hand side;
+	                   K in one, O in the other, each half its own shot of its own fighter), ko = { text, sub, color, at } (the K.O. written into the scene),
 	                   caption = { text, color, stroke, age, fade } (a count slammed in at the side:
                    RYUKEN's ten fists of rage)
 	  view.hidden    the fighter is not drawn (SHIN between his cuts)
@@ -57,177 +58,293 @@ function Finishers.build(T)
 		return frame.overlay
 	end
 	-- the K.O. written into the scene (no plain HUD title): big, slammed in, the finisher's name under it
-	local function ko(ctx, frame, tick, at, color)
+	-- (card: { bg, splash } the whole screen one colour behind the letters, Wilhem's storyboards)
+	local function ko(ctx, frame, tick, at, color, card)
 		if tick < at then return end
 		local kit = ctx.moveData.Kits[ctx.cin.kit or ""]
 		local name = kit and kit.Finisher and kit.Finisher.Name or "FATAL FINISH"
-		overlay(frame).ko = { text = "K.O.", sub = name, color = color, at = at, age = tick - at }
+		overlay(frame).ko = { text = "K.O.", sub = name, color = color, at = at, age = tick - at, card = card }
+	end
+
+	-- Places a view on a circle round (cx, 0), on both sides of the line, facing the centre.
+	local function circle(view, cx, dir, angle, radius, y)
+		view.x = cx - dir * math.cos(angle) * radius
+		view.z = -math.sin(angle) * radius
+		view.y = y or 0
+		local lx, lz = cx - view.x, -view.z
+		local l = math.max(1e-3, math.sqrt(lx * lx + lz * lz))
+		view.lookDir, view.facing = v(lx / l, 0, lz / l), if lx >= 0 then 1 else -1
+	end
+
+	-- The target's own move for a role (its kit's), for the scenes where it strikes back.
+	local function theirMove(ctx, d, r)
+		local moves = ctx.moveData.Moves
+		local own = ctx.moveData.Kits[d.kit or "KAI"] or ctx.moveData.Kits.KAI
+		local id = own and own.Roles and own.Roles[r] or r
+		return if moves[id] then id else r
 	end
 
 	-- ================================================================ SHIN · FINAL DIVISION
-	-- Absolute speed, then the screen cut in two: K on one side, O on the other.
-	-- 0:00 the silence (his face, his eyes, the colour drains) · 0:02 he vanishes: streaks cross
-	-- the target from every side · 0:04 he stands behind it, the line crosses the image, all
-	-- freezes · 0:06 the image splits: K / O, the target hit inside both halves · 0:09 the
-	-- halves join: K.O., his back to the fallen.
+	-- Wilhem's storyboard: twelve shots of a second, at night.
+	-- 0:00 he fixes his target, the camera closes in slowly · 0:01 his eye; a short silence ·
+	-- 0:02 he is gone: one trail of speed · 0:03 a few simple, fast cuts round the target ·
+	-- 0:04 he is back, behind it: a clean shot · 0:05 the last cut, the camera follows the blade
+	-- · 0:06 the screen splits: K on the left, him · 0:07 O on the right, the target · 0:08 both
+	-- halves take the blow, the line along the cut · 0:09 the halves join: K.O. · 0:10 it
+	-- falls, he stands · 0:11 the last look at him; back to the game.
+	local SHIN_NIGHT = "2B3F8F"
+	local SHIN_BLUE = "8FD0FF"
 	function S.SHIN(ctx, frame, a, d, tick, dir)
 		local A, D = ctx.cin.attacker, ctx.cin.defender
-		local color = ctx.characters[A].Energy
+		local moves = ctx.moveData.Moves
 		local cx = T.center(ctx, d)
-		local F = 372
-		local ANGLE = -24
-		frame.grade.current = true
-		d.x, d.facing = cx, -dir
-		if tick < 110 then
-			-- the silence before the cut
-			local p = progress(tick, 0, 110)
-			a.x, a.facing, a.pose = cx - dir * 3.4, dir, "Iai"
-			d.state = "Idle"
-			overlay(frame).desat = smooth(p) * 0.85
-			-- (close-ups hang on the head itself: the crouched stance puts it lower than a standing body)
-			if tick < 56 then
-				local q = smooth(progress(tick, 0, 56))
-				-- (from the camera side, clear of his blade, which points ahead)
-				frame.shot = shot("shin-fd-face", P(A, "Head", v(dir * lerp(1.6, 1.1, q), lerp(0.4, 0.2, q), lerp(3.6, 2.6, q))),
-					P(A, "Head", v(0, 0.05, 0)), lerp(32, 26, q), 0, P(A, "Head"))
-				frame.shot.close = true
-			else
-				local q = smooth(progress(tick, 56, 110))
-				frame.shot = shot("shin-fd-eyes", P(A, "Head", v(dir * lerp(0.9, 0.75, q), 0.14, lerp(1.7, 1.45, q))),
-					P(A, "Head", v(dir * 0.2, 0.14, 0)), lerp(22, 16, q), 0, P(A, "Head"))
-				frame.shot.close = true
-				if tick >= 98 then T.spark(frame, "fd-glint", v(cx - dir * 3.0, 3.1, 0.5), "FFFFFF", 0.7) end
+		local F = 330
+		-- (the cut on the screen follows the blade: down from the high side; K's half on the left)
+		local ANGLE = if dir > 0 then 62 else 118
+		local low = if dir > 0 then 1 else -1 -- (K low on the left when the cut runs down to the right)
+		local o = overlay(frame)
+		o.tint = { color = SHIN_NIGHT, amount = smooth(progress(tick, 0, 40)) * (1 - smooth(progress(tick, 690, 720))) }
+		local front = inside(ctx, cx - dir * 5.8) -- (where he stands first: his iai leans in a long way)
+		local behind = inside(ctx, cx + dir * 3.6) -- (where he comes back)
+		-- (a shot for one half of the split screen)
+		local function half(s_)
+			return { from = s_.from, to = s_.to, fov = s_.fov, roll = s_.roll }
+		end
+		-- his eye, lit
+		local function eye(size)
+			shape(frame, { kind = "sphere", pos = P(A, "Head", v(a.facing * 0.5, 0.12, 0.24)), radius = size, color = SHIN_BLUE, core = 1 })
+		end
+		d.x = cx
+		if tick < 60 then
+			-- he fixes his target; the camera closes in slowly
+			a.x, a.facing, a.pose = front, dir, "Iai"
+			d.facing, d.state = -dir, "Idle"
+			local q = smooth(progress(tick, 0, 60))
+			-- (from his front, the target out of the frame behind the camera's shoulder)
+			frame.shot = shot("shin-fd-face", P(A, "Head", v(dir * lerp(3.2, 2.2, q), lerp(0.2, 0.1, q), lerp(6.4, 4.4, q))), P(A, "Head", v(dir * 0.3, -0.6, 0)),
+				26, 0, P(A, "Head"))
+			frame.shot.close = true
+			if tick >= 30 then eye(0.05) end
+		elseif tick < 120 then
+			-- his eye; a short silence
+			a.x, a.facing, a.pose = front, dir, "Iai"
+			d.facing, d.state = -dir, "Idle"
+			local q = smooth(progress(tick, 60, 120))
+			eye(lerp(0.06, 0.09, q))
+			frame.shot = shot("shin-fd-eye", P(A, "Head", v(dir * lerp(2.4, 1.85, q), 0.12, lerp(2.4, 1.85, q))), P(A, "Head", v(dir * 0.3, 0.1, 0.1)),
+				lerp(30, 28, q), 0, P(A, "Head"))
+			frame.shot.close = true
+			if tick == 112 then sfx(frame, "fd-ready", "slash") end
+			-- (the glint: a thin line of light across the eye, the instant before he goes)
+			local glint = progress(tick, 100, 108) * (1 - progress(tick, 110, 119))
+			if glint > 0 then
+				shape(frame, { kind = "slash", from = P(A, "Head", v(a.facing * 0.5 - 0.9 * glint, 0.12, 0.26)), to = P(A, "Head", v(a.facing * 0.5 + 0.9 * glint, 0.12, 0.26)),
+					width = 0.035, color = "FFFFFF", alpha = 0.1 })
 			end
-		elseif tick < 230 then
-			-- he is gone: streaks cross the target from every side, too fast to follow
+		elseif tick < 180 then
+			-- he is gone: one trail of speed past the target (seen from behind it)
+			a.x, a.facing, a.pose = front, dir, "Iai"
+			a.hidden = tick >= 132
+			d.facing, d.state = -dir, "Idle"
+			if tick == 132 then
+				sfx(frame, "fd-vanish", "whoosh")
+				table.insert(frame.fx, { key = "fd-ghost", kind = "afterimage", slot = A, color = SHIN_BLUE, life = 0.3 })
+			end
+			local q = progress(tick, 132, 150)
+			local fade = progress(tick, 150, 176)
+			if q > 0 and fade < 1 then
+				shape(frame, { kind = "slash", from = At(v(front, 3.1, 0.6)), to = At(v(lerp(front, behind + dir * 3, q), 3.4, lerp(0.6, -1.4, q))),
+					width = 0.5 * (1 - fade), color = SHIN_BLUE, alpha = fade })
+			end
+			frame.shot = frameOn("shin-fd-gone", dir, { d, { point = true, x = front, y = 3, z = 0 } }, { yaw = 118, pitch = 2, fill = 0.62, fov = 40,
+				focus = P(D, "UpperTorso") })
+		elseif tick < 240 then
+			-- a few simple, fast cuts round the target: arcs of the blade
 			a.hidden = true
-			a.x, a.facing = cx - dir * 3.4, dir
-			local t = tick - 110
-			local k = t // 15
-			d.state, d.pose = "Hitstun", if k % 2 == 0 then "HitHigh" else "HitBody"
-			overlay(frame).desat = 0.85
-			for i = 0, math.min(k, 7) do
-				local age = t - i * 15
-				if age >= 0 and age < 16 then
-					local angle = i * 2.39 + 0.4
-					local c, s = math.cos(angle), math.sin(angle)
-					local y = 3.1 + ((i % 3) - 1) * 0.7
-					shape(frame, { kind = "slash", from = v(cx - c * 8, y - s * 4, -s * 5), to = v(cx + c * 8, y + s * 4, s * 5),
-						width = 0.22 * (1 - age / 16), color = if i % 2 == 0 then "FFFFFF" else color, alpha = age / 16 })
-					if age == 0 then
-						sfx(frame, "fd-whoosh" .. i, "whoosh")
-						table.insert(frame.fx, { key = "fd-cut" .. i, kind = "cut", from = v(cx - c * 2, y - s, 0.4), to = v(cx + c * 2, y + s, 0.4),
-							color = if i % 2 == 0 then "FFFFFF" else color })
+			d.facing, d.state = -dir, "Hitstun"
+			for i, t in { 184, 198, 212, 226 } do
+				local age = tick - t
+				if age >= 0 and age < 20 then
+					local sweep = smooth(math.min(1, age / 6))
+					local fade = progress(tick, t + 6, t + 20)
+					local tilt = (i - 2.5) * 0.45
+					local s0 = i * 1.9
+					local function onArc(u)
+						local ang = s0 + u * 3.6 * sweep
+						return At(v(cx + math.cos(ang) * 2.7, 3.3 + math.sin(ang) * 2.7 * tilt, math.sin(ang) * 2))
 					end
+					for k = 0, 9 do
+						shape(frame, { kind = "slash", from = onArc(k / 10), to = onArc((k + 1) / 10), width = 0.24, color = if i % 2 == 0 then "FFFFFF" else SHIN_BLUE,
+							alpha = fade })
+					end
+					if age == 0 then sfx(frame, "fd-arc" .. i, "slash") end
+					if age < 4 then
+						-- (he shows for a blink, mid-cut)
+						a.hidden = false
+						circle(a, cx, dir, s0 + math.pi, 2.6, 0)
+						attack(a, moves, T.role(ctx, if i % 2 == 0 then "Cross" else "Jab"), true)
+					end
+					if age >= 2 and age < 10 then d.pose = if i % 2 == 0 then "HitBody" else "HitHigh" end
 				end
 			end
-			if k < 6 then
-				-- a hard cut on every streak, never twice the same side
-				local yaws = { 40, -55, 150, -20, 75, -115 }
-				local pitches = { 6, -10, 18, 40, -6, 10 }
-				frame.shot = frameOn("shin-fd-cut" .. k, dir, { d }, { yaw = yaws[k + 1], pitch = pitches[k + 1], fill = 0.62, fov = 40,
-					roll = if k % 2 == 0 then 8 else -10, focus = P(D, "UpperTorso") })
-			else
-				-- the last streak: the camera rides along it, past the target
-				local u = smooth(progress(tick, 200, 230))
-				local angle = 6 * 2.39 + 0.4
-				local c, s = math.cos(angle), math.sin(angle)
-				frame.shot = shot("shin-fd-ride", At(v(cx - c * lerp(10, 2, u), 3.6 - s * 2, 9.5)), At(v(cx + c * lerp(1, 4, u), 3.2 + s, 0)), 36,
-					math.rad(-12), P(D, "UpperTorso"))
-			end
-		elseif tick < F then
-			-- he stands behind it, back turned, the blade out: the line crosses the image, all freezes
+			frame.shot = frameOn("shin-fd-arcs", dir, { d }, { yaw = 118, pitch = 8, fill = 0.5, fov = 40, focus = P(D, "UpperTorso") })
+		elseif tick < 300 then
+			-- he is back, behind it; it turns round to him: a clean shot over its shoulder
 			a.hidden = false
-			a.x, a.facing, a.pose = cx + dir * 3.8, dir, "ShinDivision"
-			d.state, d.pose = "Hitstun", "HitHigh"
-			local o = overlay(frame)
-			o.desat = lerp(0.85, 0.3, progress(tick, 230, 260))
-			if tick < 300 then
-				frame.shot = frameOn("shin-fd-pose", dir, { a }, { yaw = 62, pitch = -12, fill = 0.82, fov = 30, focus = P(A, "UpperTorso") })
-				if tick == 230 then sfx(frame, "fd-land", "slash") end
-			else
-				frame.shot = frameOn("shin-fd-line", dir, { a, d }, { yaw = 4, pitch = 2, fill = 0.72, fov = 34, focus = P(A, "UpperTorso") })
-				o.split = { angle = ANGLE, line = smooth(progress(tick, 306, 330)), open = 0, join = 0, color = color }
-				if tick >= 306 then sfx(frame, "fd-line", "slash") end
-			end
-		elseif tick < 540 then
-			-- K / O: the image splits along the line, the target hit inside both halves
-			a.x, a.facing, a.pose = cx + dir * 3.8, dir, "ShinDivision"
-			local p = progress(tick, F, 540)
-			if tick < F + 34 then
-				d.state, d.pose = "Hitstun", "HitHigh" -- frozen a beat
-			else
-				d.pose = nil
-				T.FATAL.fall(ctx.cin, d, tick, F + 34, 0.6)
-			end
-			local open = smooth(progress(tick, F, F + 26)) - 0.35 * smooth(progress(tick, 470, 540))
-			overlay(frame).split = { angle = ANGLE, line = 1, open = open, join = 0, color = color, letters = { "K", "O" } }
+			a.x, a.z, a.lookDir, a.facing, a.pose = behind, nil, nil, -dir, "Iai"
+			d.facing, d.state = dir, "Idle"
+			if tick == 240 then sfx(frame, "fd-back", "whoosh") end
+			frame.shot = frameOn("shin-fd-back", dir, { a, d }, { yaw = -66, pitch = 4, fill = 0.78, fov = 36, focus = P(A, "Head") })
+		elseif tick < 360 then
+			-- the last cut; the camera follows the blade
+			a.x, a.z, a.facing = behind, nil, -dir
+			d.facing = dir
+			attack(a, moves, T.role(ctx, "Finale"), tick >= F - 4)
+			d.state, d.pose = "Hitstun", if tick >= F then "HitHigh" else nil
+			d.hitstop = if tick >= F then 1 else 0
 			if tick == F then
-				sfx(frame, "fd-split", "boom")
-				frame.impact = { key = "fd-split", color = "FFFFFF" }
+				sfx(frame, "fd-cut", "slash")
+				frame.impact = { key = "fd-cut", color = "FFFFFF" }
 			end
-			frame.shot = frameOn("shin-fd-split", dir, { a, d }, { yaw = lerp(4, -8, p), pitch = 3, fill = 0.7, fov = 34, focus = P(D, "UpperTorso") })
+			if tick >= F then
+				local k = progress(tick, F, F + 6)
+				local fade = progress(tick, F + 10, 360)
+				shape(frame, { kind = "slash", from = At(v(cx - dir * 2.6, 5.4, 0.8)), to = At(v(cx + dir * lerp(-2.6, 2.6, k), lerp(5.4, 1.2, k), 0.8)),
+					width = 0.3, color = "FFFFFF", alpha = fade })
+				o.split = { angle = ANGLE, line = smooth(progress(tick, F + 2, F + 16)), open = 0, join = 0, color = SHIN_BLUE }
+			end
+			-- (the camera swings round with the blade)
+			local swing = smooth(progress(tick, F - 10, F + 8))
+			frame.shot = frameOn("shin-fd-blade", dir, { a, d }, { yaw = lerp(-20, 40, swing), pitch = -8, fill = 0.74, fov = 38, roll = lerp(-4, 8, swing),
+				focus = P(A, "UpperTorso") })
+		elseif tick < 556 then
+			-- the screen splits: K and him on the left, O and the target on the right; he sheathes,
+			-- the click: both halves take the blow; then the halves join
+			a.x, a.z, a.facing = behind, nil, -dir
+			a.pose = if tick < 466 then "ShinDivision" else "Sheathe"
+			d.facing, d.state = dir, "Hitstun"
+			d.pose = if tick < 480 then "HitHigh" else "HitBody"
+			d.hitstop = if tick < 480 then 1 else 0
+			if tick == 480 then
+				sfx(frame, "fd-blow", "heavy")
+				T.spark(frame, "fd-blow", v(cx, 3.6, 0.6), SHIN_BLUE, 1.4)
+				table.insert(frame.fx, { key = "fd-shards", kind = "debris", pos = v(cx, 3, 0.4), color = SHIN_BLUE, scale = 1 })
+			end
+			if tick >= 540 then
+				T.FATAL.fall(ctx.cin, d, tick, 540, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			local open = smooth(progress(tick, 360, 384)) * (1 - smooth(progress(tick, 540, 552)))
+			-- (each half its own shot: him in the left one, the target in the right one, each face
+			-- clear of its letter)
+			o.split = { angle = ANGLE, line = 1, open = open, join = smooth(progress(tick, 540, 552)), color = SHIN_BLUE,
+				letters = { "K", if tick >= 420 then "O" else "" }, only = { A, D },
+				letterAt = { { 0.12, 0.5 + 0.2 * low }, { 0.88, 0.5 - 0.2 * low } }, letterSize = 0.3,
+				views = { half(frameOn("shin-fd-k", dir, { a }, { yaw = -34, pitch = -4, band = "bust", fill = 0.55, fov = 34,
+						screen = { -0.44, 0.06 * low }, focus = P(A, "Head") })),
+					half(frameOn("shin-fd-o", dir, { d }, { yaw = 34, pitch = 2, band = "bust", fill = 0.55, fov = 34,
+						screen = { 0.44, -0.06 * low }, focus = P(D, "Head") })) } }
+			frame.shot = frameOn("shin-fd-split", dir, { a, d }, { yaw = 30, pitch = 3, fill = 0.7, fov = 34, focus = P(D, "UpperTorso") })
+		elseif tick < 600 then
+			-- K.O.: the card, black, a red splash
+			a.x, a.z, a.facing, a.pose = behind, nil, -dir, "ShinDivision"
+			T.FATAL.fall(ctx.cin, d, tick, 540, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if tick == 556 then sfx(frame, "fd-ko", "boom") end
+			ko(ctx, frame, tick, 556, SHIN_BLUE, { bg = "07080C", splash = "C8102E" })
+			frame.shot = frameOn("shin-fd-ko", dir, { a, d }, { yaw = 30, pitch = 3, fill = 0.7, fov = 34, focus = P(D, "UpperTorso") })
+		elseif tick < 660 then
+			-- it lies there; he stands, the blade low, at night
+			T.FATAL.fall(ctx.cin, d, tick, 540, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			a.x, a.z, a.facing = behind, nil, dir
+			a.pose = if tick < 640 then "ShinDivision" else "Sheathe"
+			frame.shot = frameOn("shin-fd-stand", dir, { a, d }, { yaw = 40, pitch = 6, fill = 0.72, fov = 36, focus = P(A, "UpperTorso") })
 		else
-			-- the halves join: K.O.; then his back to the fallen, the blade sheathed
-			a.x, a.facing = cx + dir * 3.8, dir
-			d.x, d.y, d.pose, d.state = cx, 0, "DownFace", "KO"
-			if tick < 584 then
-				a.pose = "ShinDivision"
-				overlay(frame).split = { angle = ANGLE, line = 1, open = 0.65 * (1 - smooth(progress(tick, 540, 576))),
-					join = smooth(progress(tick, 552, 576)), color = color, letters = { "K", "O" } }
-				if tick == 566 then sfx(frame, "fd-join", "slash") end
-				frame.shot = frameOn("shin-fd-split", dir, { a, d }, { yaw = -8, pitch = 3, fill = 0.7, fov = 34, focus = P(D, "UpperTorso") })
-			else
-				a.pose = "Sheathe"
-				a.lookDir = v(dir, 0, 0.12)
-				frame.shot = frameOn("shin-fd-after", dir, { a, d }, { yaw = -22, pitch = 6, fill = 0.6, fov = 36, focus = P(A, "UpperTorso") })
-				ko(ctx, frame, tick, 584, color)
-			end
+			-- the last look at him, over his shoulder; back to the game
+			T.FATAL.fall(ctx.cin, d, tick, 540, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			a.x, a.z, a.facing, a.pose = behind, nil, dir, "Sheathe"
+			a.lookDir = v(dir, 0, 0.35)
+			eye(0.07)
+			local q = smooth(progress(tick, 660, 720))
+			frame.shot = frameOn("shin-fd-last", dir, { a }, { yaw = lerp(46, 34, q), pitch = -6, band = "bust", fill = lerp(0.62, 0.74, q), fov = 30,
+				focus = P(A, "Head") })
 		end
 	end
 
 	-- ================================================================ TARO · DEMPSEY ROLL: FINAL ROUND
-	-- A boxing execution lived through the target's eyes.
-	-- 0:00 the guard drops, the body swings in a figure eight, faster · 0:02 first person: the
-	-- hooks come at the camera, each one jolts it · 0:04 the rhythm doubles, the camera gives
-	-- ground, brief cuts of him from the side · 0:07 outside again: the last swing in slow
-	-- motion, the fist, the uppercut, the camera follows the body up · 0:09 it falls, the
-	-- camera comes down to him, back in his guard.
+	-- Wilhem's storyboard: twelve shots of a second.
+	-- 0:00 he drops his guard, the Dempsey Roll starts · 0:01 the body swings left, right,
+	-- faster · 0:02 first person (the target's eyes): the first hook · 0:03 the hooks chain, the
+	-- camera jolts with each · 0:04 the rhythm rises, left, right · 0:05 faster: the sight blurs ·
+	-- 0:06 the last hooks, it is overwhelmed · 0:07 the last move: the uppercut · 0:08 it flies,
+	-- the camera follows it up from behind him, low · 0:09 it crashes on the deck: debris, dust ·
+	-- 0:10 K.O. (black, a red splash) · 0:11 his guard comes back up; back to the game.
 	function S.TARO(ctx, frame, a, d, tick, dir)
 		local A, D = ctx.cin.attacker, ctx.cin.defender
 		local moves = ctx.moveData.Moves
 		local color = ctx.characters[A].Energy
 		local cx = T.center(ctx, d)
-		local F = 498
+		local F = 446
+		local o = overlay(frame)
 		frame.grade.fire = true
 		d.facing = -dir
-		-- the hooks: a list of ticks, faster and faster
-		local hooks = {}
-		local h = 128
-		while h < 418 do
+		-- the hooks: one, then a chain faster and faster
+		local hooks = { 150 }
+		local h = 180
+		while h < 416 do
 			table.insert(hooks, h)
-			h += if h < 240 then 20 elseif h < 330 then 13 else 9
+			h += if h < 240 then 16 elseif h < 300 then 11 elseif h < 360 then 8 else 6
 		end
 		local last, index = nil, 0
 		for i, t in hooks do
 			if t <= tick then last, index = t, i end
 		end
+		local start = inside(ctx, cx - dir * 5.2) -- (where he stands first: the roll carries him in)
+		local close_ = cx - dir * 3.4
+		local hit = inside(ctx, cx + dir * 2.2) -- (where the hooks have driven it)
+		local land = inside(ctx, hit + dir * 3.4) -- (where it comes down)
+		-- its height in the air: up, a beat at the top, down hard
+		local function air(t)
+			if t < 458 then return 0 end
+			if t < 520 then return 8.5 * math.sin(progress(t, 458, 520) * math.pi / 2) end
+			if t < 538 then return 8.5 end
+			if t < 552 then
+				local q = progress(t, 538, 552)
+				return 8.5 * (1 - q * q)
+			end
+			return if t < 566 then 0.8 * math.sin(progress(t, 552, 566) * math.pi) else 0 -- (one bounce)
+		end
 		if tick < 120 then
-			-- the guard drops, the figure eight, faster and faster
+			-- he drops his guard; the figure eight starts, faster and faster
 			local p = progress(tick, 0, 120)
-			local phase = (tick / 60) * lerp(3, 7, p) * math.pi
-			a.x, a.facing = cx - dir * (3.4 + 0.15 * math.sin(phase)), dir
-			a.state, a.move, a.weave, a.vx = "Dashing", nil, true, dir * 2 * math.sin(phase)
 			d.x, d.state = cx, "Idle"
-			if tick > 60 and tick % 14 == 0 then table.insert(frame.fx, { key = "dr-ghost" .. tick, kind = "afterimage", slot = A, color = color, life = 0.3 }) end
-			if tick > 70 then frame.speedLines = color end
-			frame.shot = frameOn("taro-dr-weave", dir, { a, d }, { yaw = lerp(4, 14, p), pitch = -16, fill = lerp(0.78, 0.92, p), fov = lerp(40, 32, p),
-				focus = P(A, "UpperTorso") })
+			if tick < 36 then
+				a.x, a.facing, a.state, a.pose = start, dir, "Idle", "GloveTap"
+			else
+				local phase = ((tick - 36) / 60) * lerp(2.5, 7, progress(tick, 36, 120)) * math.pi
+				a.x, a.facing = lerp(start, close_, smooth(progress(tick, 36, 116))) - dir * 0.15 * math.sin(phase), dir
+				a.state, a.move, a.weave, a.vx = "Dashing", nil, true, dir * 2 * math.sin(phase)
+			end
+			if tick > 70 and tick % 12 == 0 then
+				table.insert(frame.fx, { key = "dr-ghost" .. tick, kind = "afterimage", slot = A, color = color, life = 0.3 })
+			end
+			if tick > 84 then frame.speedLines = color end
+			if tick < 60 then
+				-- (close on him, the target out of the frame on the camera's side)
+				local q = smooth(progress(tick, 0, 60))
+				frame.shot = shot("taro-dr-guard", At(v(start + dir * lerp(3.0, 2.6, q), 4.6, lerp(6.4, 5.2, q))), At(v(start + dir * 0.4, 3.9, 0)),
+					lerp(34, 32, q), 0, P(A, "Head"))
+			else
+				frame.shot = frameOn("taro-dr-weave", dir, { a, d }, { yaw = lerp(6, 14, p), pitch = -16, fill = lerp(0.8, 0.92, p), fov = lerp(38, 32, p),
+					focus = P(A, "UpperTorso") })
+			end
 		elseif tick < 420 then
-			-- through the target's eyes: the hooks come at the camera
-			local back = smooth(progress(tick, 240, 420)) * 2.2 -- (it gives ground under the hooks)
+			-- through the target's eyes: the first hook, then the chain; it gives ground
+			local back = smooth(progress(tick, 180, 420)) * 2.2
 			d.x, d.state = inside(ctx, cx + dir * back), "Hitstun"
-			a.x, a.facing = d.x - dir * 2.95, dir -- (the glove stops half a stud from the eyes)
+			a.x, a.facing = d.x - dir * 3.4, dir -- (the glove stops short of the eyes)
 			local side = if index % 2 == 1 then 1 else -1
 			local age = if last then tick - last else 99
 			if last and age < 7 then
@@ -240,234 +357,273 @@ function Finishers.build(T)
 				T.spark(frame, "dr-spark" .. index, v(d.x - dir * 0.6, 4.4, 0), if index % 3 == 0 then "FFFFFF" else color, 0.9)
 			end
 			d.pose = if age < 6 then (if side > 0 then "HitHigh" else "HitBody") else nil
-			-- (every fourth hook after the rhythm doubles: a brief cut of him, as an anime would)
-			local cutaway = tick >= 240 and index % 4 == 0 and age < 7
-			if cutaway then
-				local yaws = { 35, -40, 120 }
-				frame.shot = frameOn("taro-dr-flash" .. index, dir, { a }, { yaw = yaws[(index // 4) % 3 + 1], pitch = -10, fill = 0.85, fov = 34,
-					band = "bust", roll = side * 8, focus = P(A, "Head") })
+			-- (each blow jolts the camera; as they pile up the sight blurs, drains, reddens, sways)
+			local jolt = if age < 12 then math.exp(-age / 4) else 0
+			local daze = progress(tick, 300, 420)
+			o.firstPerson = D
+			o.blur = math.max(jolt * 0.9, daze * 0.55)
+			o.desat = 0.5 * progress(tick, 360, 420)
+			o.tint = { color = "8A1010", amount = 0.4 * daze }
+			local sway = side * 0.3 * jolt + 0.1 * daze * math.sin(tick / 9)
+			local from = P(D, "Head", v(-dir * (0.55 - 0.3 * jolt), 0.15 + 0.1 * jolt + 0.2 * daze, sway))
+			frame.shot = shot("taro-dr-eyes", from, P(A, "UpperTorso", v(0, 0.5, 0)), lerp(72, 84, smooth(progress(tick, 180, 420))),
+				math.rad(-side * 14 * jolt + 6 * daze * math.sin(tick / 13)), P(A, "Head"))
+		elseif tick < 540 then
+			-- the last move: he sinks, the uppercut; a white blow, the frame holds a beat, the body
+			-- leaves the deck; then from behind him, low, the camera follows it up
+			a.x, a.facing = hit - dir * 2.9, dir
+			attack(a, moves, T.role(ctx, "Uppercut"), tick >= F - 3)
+			d.x = lerp(hit, land, smooth(progress(tick, 458, 552)))
+			d.y = air(tick)
+			if tick < F then
+				d.state, d.pose = "Hitstun", "HitBody" -- (overwhelmed, it sags)
+				o.desat = 0.25
+				if tick == 420 then sfx(frame, "dr-cock", "charge") end
+				frame.shot = frameOn("taro-dr-coil", dir, { a, d }, { yaw = -30, pitch = -18, fill = 0.82, fov = 34, focus = P(A, "UpperTorso") })
 			else
-				local jolt = if age < 12 then math.exp(-age / 4) else 0
-				overlay(frame).firstPerson = D
-				overlay(frame).blur = jolt * 0.9
-				local sway = side * 0.3 * jolt
-				-- (the blow snaps the head back, away from the glove)
-				local from = P(D, "Head", v(-dir * (0.35 - 0.3 * jolt), 0.15 + 0.1 * jolt, sway))
-				frame.shot = shot("taro-dr-eyes", from, P(A, "UpperTorso", v(0, 0.5, 0)), lerp(72, 82, smooth(progress(tick, 240, 420))),
-					math.rad(-side * 14 * jolt), P(A, "Head"))
+				if tick == F then
+					sfx(frame, "dr-upper", "boom")
+					T.impact(frame, "dr-upper", v(hit - dir * 0.4, 4.4, 0.6), color, 3)
+				end
+				o.white = 0.85 * (1 - progress(tick, F, F + 10))
+				if tick < 458 then
+					d.state, d.pose, d.hitstop = "Hitstun", "HitHigh", 1
+				else
+					d.state, d.pose, d.hitstop = "Launched", "Launched", 0
+				end
+				if tick < 480 then
+					frame.shot = frameOn("taro-dr-upper", dir, { a, d }, { yaw = 22, pitch = -22, fill = 0.62, fov = 40,
+						roll = lerp(0, -6, progress(tick, F, 480)), focus = P(D, "UpperTorso") })
+				else
+					frame.shot = shot("taro-dr-follow", At(v(a.x - dir * 6.5, 0.9, 5)), P(D, "UpperTorso"), 36, math.rad(dir * 6), P(D, "UpperTorso"))
+				end
 			end
-		elseif tick < F then
-			-- outside again: the last swing in slow motion, the fist, the uppercut
-			d.x = inside(ctx, cx + dir * 2.2)
-			d.state, d.pose = "Hitstun", "HitBody"
-			a.x, a.facing = d.x - dir * 3.2, dir
-			if tick < 470 then
-				local phase = ((tick - 420) / 60) * 1.6 * math.pi
-				a.state, a.move, a.weave, a.vx = "Dashing", nil, true, dir * 1.2 * math.sin(phase)
-				frame.shot = frameOn("taro-dr-last", dir, { a, d }, { yaw = 8, pitch = -16, fill = 0.82, fov = 34, focus = P(A, "UpperTorso") })
-				overlay(frame).desat = 0.35
+		elseif tick < 600 then
+			-- it comes down hard: the camera closes on the place it lands; debris, dust
+			a.x, a.facing = hit - dir * 2.9, dir
+			a.state, a.move = "Idle", nil
+			d.x, d.y = land, air(tick)
+			if tick < 552 then
+				d.state, d.pose = "Launched", "Launched"
 			else
-				attack(a, moves, T.role(ctx, "Uppercut"), false)
-				overlay(frame).desat = 0.6
-				-- (on the glove itself, his face behind it; the target, between them, is left out
-				-- of this one shot, as a film cuts its frame)
-				d.hidden = true
-				frame.shot = shot("taro-dr-fist", P(A, "RightHand", v(dir * 2.6, 0.7, 3.4)), P(A, "RightHand", v(-dir * 0.6, 0.6, 0)), 34, 0,
-					P(A, "RightHand"))
-				frame.shot.close = true
-				if tick == 470 then sfx(frame, "dr-cock", "charge") end
+				d.state, d.pose = "Knockdown", "DownFace"
 			end
-		elseif tick < 560 then
-			-- the uppercut: the body goes up, the camera follows it
-			local p = progress(tick, F, 560)
-			a.x, a.facing = inside(ctx, cx + dir * 2.2) - dir * 2.7, dir
-			attack(a, moves, T.role(ctx, "Uppercut"), true)
-			d.x = inside(ctx, cx + dir * lerp(2.2, 4.2, p))
-			d.y, d.pose, d.state = 9 * math.sin(math.min(1, p * 1.25) * math.pi * 0.5), "Launched", "Launched"
-			if tick == F then
-				sfx(frame, "dr-upper", "boom")
-				T.impact(frame, "dr-upper", v(d.x, 4, 0.6), color, 3)
+			if tick == 552 then
+				sfx(frame, "dr-crash", "boom")
+				T.impact(frame, "dr-crash", v(land, 0.4, 0.4), color, 2.2)
+				table.insert(frame.fx, { key = "dr-debris", kind = "debris", pos = v(land, 0.4, 0.4), color = "8A7A66", scale = 1.6 })
+				table.insert(frame.fx, { key = "dr-dust", kind = "dust", pos = v(land, 0, 0), direction = dir })
+				table.insert(frame.fx, { key = "dr-rocks", kind = "rocks", pos = v(land, 0, 0.4), radius = 2.2, count = 8, color = "6A5E50" })
 			end
-			frame.shot = frameOn("taro-dr-rise", dir, { d }, { yaw = 26, pitch = lerp(-6, -24, p), fill = 0.45, fov = 40, focus = P(D, "UpperTorso") })
-			ko(ctx, frame, tick, F + 4, color)
+			if tick >= 552 and tick < 566 then frame.quake = 0.6 * (1 - progress(tick, 552, 566)) end
+			frame.shot = frameOn("taro-dr-crash", dir, { d, { point = true, x = land, y = 0.3, z = 0 } }, { yaw = 18, pitch = 6, fill = 0.6, fov = 40,
+				focus = P(D, "UpperTorso") })
+		elseif tick < 660 then
+			-- K.O.: the card, black, a red splash
+			a.x, a.facing, a.state = hit - dir * 2.9, dir, "Idle"
+			d.x, d.y, d.state, d.pose = land, 0, "Knockdown", "DownFace"
+			if tick == 600 then sfx(frame, "dr-ko", "boom") end
+			ko(ctx, frame, tick, 600, color, { bg = "0B0B0E", splash = "C8102E" })
+			frame.shot = frameOn("taro-dr-ko", dir, { a, d }, { yaw = 18, pitch = 6, fill = 0.7, fov = 40, focus = P(D, "UpperTorso") })
 		else
-			-- it falls; the camera comes down to him, back in his guard
-			local p = progress(tick, 560, 660)
-			a.x, a.facing = inside(ctx, cx + dir * 2.2) - dir * 2.7, dir
-			a.state, a.pose = "Idle", if tick > 600 then "GloveTap" else nil
-			d.x = inside(ctx, cx + dir * 4.6)
-			T.FATAL.fall(ctx.cin, d, tick, 560, 6)
-			if d.pose == "Kneel" then d.pose = "DownFace" end
-			frame.shot = frameOn("taro-dr-after", dir, { a, d }, { yaw = lerp(24, 34, p), pitch = lerp(-10, 6, smooth(p)), fill = 0.6, fov = 38,
-				focus = P(A, "UpperTorso") })
-			ko(ctx, frame, tick, F + 4, color)
+			-- his guard comes back up; back to the game
+			local q = smooth(progress(tick, 660, 720))
+			a.x, a.facing, a.state = hit - dir * 2.9, dir, "Idle"
+			a.pose = if tick < 690 then "GloveTap" else nil
+			d.x, d.y, d.state, d.pose = land, 0, "Knockdown", "DownFace"
+			frame.shot = frameOn("taro-dr-guardup", dir, { a }, { yaw = lerp(40, 30, q), pitch = -6, band = "bust", fill = 0.72, fov = 30,
+				focus = P(A, "Head") })
 		end
 	end
 
 	-- ================================================================ KAI · MAXIMUM KAIENHA
-	-- A colossal wave of energy, directed like the greatest beam clashes of anime.
-	-- 0:00 the stance, the sphere forms, the camera circles half round him, the floor cracks,
-	-- the motes and arcs are drawn in · 0:02 faster round him, the lens changes, the world
-	-- darkens, rings rise behind him · 0:04 his face; the push: the wave bursts out, the camera
-	-- behind his shoulder · 0:06 along the ray: the side, a spiral round it, the target engulfed,
-	-- the scale from afar, his last effort · 0:09 it gathers, explodes, the shock ring, afar;
-	-- the light thins out, he stands in the last motes: K.O.
+	-- Wilhem's storyboard: twelve shots of a second.
+	-- 0:00 his stance: the energy gathers between his hands · 0:01 it thickens, the camera turns
+	-- round him · 0:02 the aura bursts out, the deck cracks · 0:03 his face: the last focus ·
+	-- 0:04 the push: the wave bursts out · 0:05 the camera runs along the wave across the arena ·
+	-- 0:06 from the side: the target swallowed · 0:07 close on it: the energy wraps it · 0:08 the
+	-- explosion, the screen fills with light · 0:09 the light thins out, the shock ring runs on ·
+	-- 0:10 K.O. on a card of blue light · 0:11 he stands, seen from behind, the smoke ahead.
 	function S.KAI(ctx, frame, a, d, tick, dir)
 		local A, D = ctx.cin.attacker, ctx.cin.defender
 		local color = ctx.characters[A].Energy
 		local cx = T.center(ctx, d)
-		local F = 560
+		local F = 485
+		local o = overlay(frame)
 		-- (the wave needs room: near a wall the whole scene stands back from it)
 		local cfg = ctx.config
 		local ax = if dir > 0 then math.min(cx - 3.2, cfg.ArenaMaxX - 1 - 18) else math.max(cx + 3.2, cfg.ArenaMinX + 1 + 18)
 		ax = inside(ctx, ax)
-		local base = ax + dir * 3.2
+		local base = inside(ctx, ax + dir * 7)
 		local far = inside(ctx, ax + dir * 16)
 		local hands = P(A, "RightHand", v(0, 0, 0))
 		hands.mid = "LeftHand"
 		a.x, a.facing = ax, dir
 		d.facing = -dir
 		local orb = 0
-		if tick < 120 then
-			-- the stance, the sphere forms, half a turn round him
-			local p = progress(tick, 0, 120)
+		-- the wave's head: out of his hands at 248, it meets the target at 262 and carries it across
+		local function head(t)
+			if t < 262 then return lerp(ax + dir, base, progress(t, 248, 262)) end
+			return lerp(base, far, smooth(progress(t, 262, 350)))
+		end
+		local function beam(tip, radius, tone)
+			shape(frame, { kind = "beam", from = hands, to = At(v(tip, 3.1, 0)), radius = radius, color = tone or color, rings = tick / 30 })
+		end
+		if tick < 60 then
+			-- his stance: the energy gathers between his hands
+			local p = progress(tick, 0, 60)
 			a.pose = "KaiCharge"
-			d.x, d.state, d.pose = base, "Blockstun", "VicBrace" -- (it braces against the pressure, arms crossed)
-			orb = lerp(0.15, 0.55, smooth(p))
-			shape(frame, { kind = "motes", pos = hands, radius = 5, count = 26, color = color, phase = tick / 60 })
-			if tick % 30 == 10 then
-				table.insert(frame.fx, { key = "kx-crack" .. tick, kind = "crack", from = v(ax, 0.05, 0),
-					to = v(ax + math.cos(tick) * 4, 0.05, math.sin(tick) * 2.5), color = color })
-			end
-			if tick % 24 == 0 then
+			d.x, d.state = base, "Idle"
+			orb = lerp(0.1, 0.45, smooth(p))
+			shape(frame, { kind = "motes", pos = hands, radius = 4, count = 22, color = color, phase = tick / 60 })
+			if tick == 0 then sfx(frame, "kx-charge", "charge") end
+			frame.shot = frameOn("kai-mx-stance", dir, { a }, { yaw = 20, pitch = -10, fill = lerp(0.55, 0.68, p), fov = 36, focus = P(A, "UpperTorso") })
+		elseif tick < 120 then
+			-- it thickens; the camera turns round him, to his back
+			local p = progress(tick, 60, 120)
+			a.pose = "KaiCharge"
+			d.x, d.state, d.pose = base, "Blockstun", "VicBrace" -- (it braces against the pressure)
+			orb = lerp(0.45, 0.8, smooth(p))
+			shape(frame, { kind = "motes", pos = hands, radius = 6, count = 30, color = color, phase = tick / 45 })
+			if tick % 20 == 0 then
 				table.insert(frame.fx, { key = "kx-arc" .. tick, kind = "lightning", from = v(ax + math.cos(tick * 1.7) * 4, 1 + (tick % 3), math.sin(tick * 1.7) * 3),
 					to = v(ax, 2.6, 0), color = color })
 			end
-			if tick == 0 then sfx(frame, "kx-charge", "charge") end
-			frame.shot = frameOn("kai-mx-circle", dir, { a }, { yaw = lerp(-100, 80, smooth(p)), pitch = -8, fill = 0.68, fov = 40, focus = P(A, "UpperTorso") })
-		elseif tick < 240 then
-			-- faster round him, the lens changes, the world darkens, rings behind him
-			local p = progress(tick, 120, 240)
+			frame.shot = frameOn("kai-mx-orbit", dir, { a }, { yaw = lerp(20, -120, smooth(p)), pitch = -8, fill = 0.66, fov = 40, focus = P(A, "UpperTorso") })
+		elseif tick < 180 then
+			-- the aura bursts out: rings run on the deck, it cracks, stones rise
+			local p = progress(tick, 120, 180)
 			a.pose = "KaiChargeStrain"
-			-- (the pressure of the ki pushes the target back, staggering)
-			d.x, d.state, d.pose = inside(ctx, base + dir * 2.4 * smooth(p)), "Blockstun", "VicBrace"
+			d.x, d.state, d.pose = base, "Blockstun", "VicBrace"
 			frame.grade.void = true
-			orb = lerp(0.55, 1.05, smooth(p))
-			shape(frame, { kind = "motes", pos = hands, radius = 7, count = 34, color = color, phase = tick / 40 })
-			for i, at in { 132, 162, 192, 222 } do
-				if tick >= at then
-					local age = (tick - at) / 60
-					shape(frame, { kind = "ring", pos = At(v(ax - dir * (1 + age * 1.5), 3.4, 0)), normal = v(dir, 0, 0),
-						radius = 1.6 + age * 3 + i * 0.4, width = 0.18, color = color, alpha = math.min(0.9, age * 0.9) })
+			orb = lerp(0.8, 1.05, p)
+			if tick == 120 then
+				sfx(frame, "kx-aura", "boom")
+				frame.impact = { key = "kx-aura", color = color }
+				table.insert(frame.fx, { key = "kx-rocks", kind = "rocks", pos = v(ax, 0, 0), radius = 3.2, count = 10, color = "5A5F70" })
+				table.insert(frame.fx, { key = "kx-debris", kind = "debris", pos = v(ax, 0.3, 0), color = color, scale = 1.4 })
+			end
+			if tick % 10 == 0 then
+				table.insert(frame.fx, { key = "kx-crack" .. tick, kind = "crack", from = v(ax, 0.05, 0),
+					to = v(ax + math.cos(tick) * 5, 0.05, math.sin(tick) * 3), color = color })
+			end
+			for i, at in { 120, 136, 152, 168 } do
+				local q = progress(tick, at, at + 40)
+				if q > 0 and q < 1 then
+					shape(frame, { kind = "ring", pos = At(v(ax, 0.1, 0)), normal = v(0, 1, 0), radius = lerp(1.2, 7, smooth(q)), width = 0.35,
+						color = if i % 2 == 0 then "FFFFFF" else color, alpha = q })
 				end
 			end
-			local spin = 80 + 400 * p * p -- (it accelerates)
-			frame.shot = frameOn("kai-mx-spin", dir, { a }, { yaw = spin, pitch = lerp(-8, 6, p), fill = 0.72, fov = lerp(52, 26, p),
-				focus = P(A, "UpperTorso") })
-			if tick == 120 then sfx(frame, "kx-charge2", "charge") end
-		elseif tick < 360 then
-			-- his face; the push; the wave bursts out; behind his shoulder
-			d.x = inside(ctx, lerp(base + dir * 2.4, far, smooth(progress(tick, 296, 330))))
-			d.state, d.pose = "Hitstun", "HitHigh"
-			frame.grade.void = tick < 300
-			if tick < 288 then
-				a.pose = "KaiChargeStrain"
-				orb = 1.1
-				local q = smooth(progress(tick, 240, 288))
-				frame.shot = shot("kai-mx-face", P(A, "Head", v(dir * lerp(1.9, 1.3, q), lerp(0.1, -0.05, q), lerp(2.4, 1.7, q))),
-					P(A, "Head", v(0, 0.05, 0)), lerp(30, 24, q), math.rad(dir * 4), P(A, "Head"))
-				frame.shot.close = true
+			shape(frame, { kind = "dome", pos = At(v(ax, 0, 0)), radius = lerp(1.5, 3.2, smooth(progress(tick, 120, 140))), color = color, alpha = 0.55 })
+			shape(frame, { kind = "motes", pos = At(v(ax, 2.5, 0)), radius = 5, count = 30, color = color, phase = tick / 40, out = true })
+			frame.quake = 0.25 * (1 - p)
+			frame.shot = frameOn("kai-mx-aura", dir, { a }, { yaw = 22, pitch = -14, fill = 0.45, fov = 44, focus = P(A, "UpperTorso") })
+		elseif tick < 240 then
+			-- his face: the last focus
+			a.pose = "KaiChargeStrain"
+			d.x, d.state, d.pose = base, "Blockstun", "VicBrace"
+			frame.grade.void = true
+			orb = 1.1
+			shape(frame, { kind = "motes", pos = hands, radius = 5, count = 26, color = color, phase = tick / 30 })
+			local q = smooth(progress(tick, 180, 240))
+			frame.shot = shot("kai-mx-face", P(A, "Head", v(dir * lerp(3.4, 2.6, q), lerp(0.3, 0.2, q), lerp(4.2, 3.3, q))), P(A, "Head", v(0, -0.3, 0)),
+				lerp(34, 30, q), math.rad(dir * 4), P(A, "Head"))
+			frame.shot.close = true
+		elseif tick < 300 then
+			-- the push: the wave bursts out of his hands and takes the target
+			local tip = head(tick)
+			a.pose = if tick < 248 then "KaiChargeStrain" else "KaiFire"
+			if tick < 262 then
+				d.x, d.state, d.pose = base, "Blockstun", "VicBrace"
 			else
-				a.pose = "KaiFire"
-				local grow = smooth(progress(tick, 288, 312))
-				shape(frame, { kind = "beam", from = hands, to = At(v(lerp(ax + dir, far + dir * 4, grow), 3.1, 0)), radius = lerp(0.6, 2.4, grow),
-					color = color, rings = tick / 30 })
+				d.x, d.y, d.state, d.pose = tip, 1.2 * smooth(progress(tick, 262, 280)), "Launched", "Launched"
+			end
+			if tick < 248 then
+				orb = 1.2
+			else
+				beam(tip + dir * 0.5, lerp(0.6, 2.4, smooth(progress(tick, 248, 262))))
 				for i = 0, 2 do
-					local age = (tick - 288 - i * 10) / 30
+					local age = (tick - 248 - i * 8) / 30
 					if age >= 0 and age < 1 then
 						shape(frame, { kind = "ring", pos = At(v(ax + dir * (1.4 + age * 2), 3.1, 0)), normal = v(dir, 0, 0), radius = 2 + age * 6,
 							width = 0.3, color = "FFFFFF", alpha = age })
 					end
 				end
-				if tick == 288 then
-					sfx(frame, "kx-fire", "beam")
-					frame.impact = { key = "kx-fire", color = "FFFFFF" }
-				end
-				-- behind his shoulder: the whole length of the wave
-				frame.shot = shot("kai-mx-shoulder", P(A, "Head", v(-dir * 2.6, 1.3, 2.4)), At(v(ax + dir * 12, 3.0, 0)), 62, math.rad(dir * 4),
-					P(D, "UpperTorso"))
 			end
-		elseif tick < 540 then
-			-- along the ray
-			a.pose = if tick < 505 then "KaiFire" else "KaiFireStrain"
-			d.x, d.y, d.pose, d.state = far, 1.2 + 0.3 * math.sin(tick / 5), "Launched", "Launched"
-			shape(frame, { kind = "beam", from = hands, to = At(v(far + dir * 5, 3.1, 0)), radius = 2.4 + 0.25 * math.sin(tick / 3), color = color,
-				rings = tick / 30 })
-			if tick < 395 then
-				frame.shot = frameOn("kai-mx-side", dir, { { point = true, x = ax, y = 3.1, z = 0 }, { point = true, x = far, y = 3.1, z = 0 } },
-					{ yaw = 4, pitch = 4, fill = 0.55, fov = 46, focus = P(D, "UpperTorso") })
-			elseif tick < 435 then
-				local u = progress(tick, 395, 435)
-				local x = lerp(ax + dir * 3, far - dir * 7, u)
-				local angle = u * math.pi * 2.4
-				-- (round the ray, flattened below so the camera never goes under the deck)
-				frame.shot = shot("kai-mx-spiral", At(v(x, 4.4 + 3.6 * math.cos(angle), 5.4 * math.sin(angle) + 0.01)),
-					At(v(x + dir * 7, 3.1, 0)), 58, -angle * 0.35, P(D, "UpperTorso"))
-			elseif tick < 470 then
-				-- (off the ray's axis: a camera inside it would see only light)
-				frame.shot = frameOn("kai-mx-engulfed", dir, { d }, { yaw = -34, pitch = -6, fill = 0.62, fov = 40, clear = 4.5, focus = P(D, "Head") })
-			elseif tick < 505 then
-				frame.shot = frameOn("kai-mx-scale", dir, { a, d }, { yaw = 22, pitch = 26, fill = 0.36, fov = 50, focus = P(A, "UpperTorso") })
-			else
-				frame.shot = frameOn("kai-mx-effort", dir, { a }, { yaw = 26, pitch = -6, band = "bust", fill = 0.9, fov = 30, clear = 3.4, focus = P(A, "Head") })
-				frame.quake = 0.25
+			if tick == 248 then
+				sfx(frame, "kx-fire", "beam")
+				frame.impact = { key = "kx-fire", color = "FFFFFF" }
 			end
+			if tick == 262 then
+				sfx(frame, "kx-take", "heavy")
+				T.spark(frame, "kx-take", v(base, 3.4, 0.4), "FFFFFF", 1.6)
+			end
+			frame.shot = frameOn("kai-mx-fire", dir, { a }, { yaw = 48, pitch = -10, fill = 0.6, fov = 44, focus = P(A, "UpperTorso") })
+		elseif tick < 360 then
+			-- the camera runs along the wave, the target on its head, across the arena
+			local tip = head(tick)
+			a.pose = "KaiFire"
+			d.x, d.y, d.state, d.pose = tip, 1.2 + 0.3 * math.sin(tick / 5), "Launched", "Launched"
+			beam(tip + dir * 0.5, 2.4 + 0.25 * math.sin(tick / 3))
+			-- (a little ahead of it, looking back down the wave that drives it)
+			frame.shot = frameOn("kai-mx-track", dir, { d }, { yaw = 50, pitch = 6, fill = 0.36, fov = 44, roll = -3, lift = 1.8, focus = P(D, "UpperTorso") })
+		elseif tick < 420 then
+			-- from the side: the whole wave, the target swallowed at its end
+			a.pose = "KaiFire"
+			d.x, d.y, d.state, d.pose = far, 1.2 + 0.3 * math.sin(tick / 5), "Launched", "Launched"
+			beam(far + dir * 5, 2.4 + 0.25 * math.sin(tick / 3))
+			frame.shot = frameOn("kai-mx-side", dir, { { point = true, x = ax, y = 3.1, z = 0 }, { point = true, x = far, y = 3.1, z = 0 } },
+				{ yaw = 4, pitch = 4, fill = 0.55, fov = 46, focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- close on it: the energy wraps it, the wave thins as it gathers
+			a.pose = "KaiFireStrain"
+			d.x, d.y, d.state, d.pose = far, 1.2 + 0.2 * math.sin(tick / 4), "Launched", "Launched"
+			local q = progress(tick, 440, F)
+			beam(far + dir * 5, lerp(2.4, 0.35, q * q), if q > 0.5 then "FFFFFF" else color)
+			shape(frame, { kind = "sphere", pos = At(v(far, 3, 0)), radius = lerp(1.4, 3.2, q), color = color, core = 1 })
+			shape(frame, { kind = "motes", pos = At(v(far, 3, 0)), radius = 4, count = 24, color = "FFFFFF", phase = tick / 30 })
+			frame.shot = frameOn("kai-mx-wrap", dir, { d }, { yaw = -34, pitch = -6, fill = 0.62, fov = 40, clear = 4.5, focus = P(D, "Head") })
 		else
-			-- it gathers, explodes; the shock ring; afar; he stands in the last motes
-			d.x = far
+			-- the explosion: the screen fills with light; it thins out, the shock ring runs on;
+			-- K.O. on blue light; he stands, seen from behind, the smoke ahead
+			local age = tick - F
 			local blast = v(far, 3, 0)
-			if tick < F then
-				a.pose = "KaiFireStrain"
-				d.y, d.pose, d.state = 1.2, "Launched", "Launched"
-				local q = progress(tick, 540, F)
-				shape(frame, { kind = "beam", from = hands, to = At(v(far + dir * 5, 3.1, 0)), radius = lerp(2.4, 0.35, q * q), color = "FFFFFF",
-					rings = tick / 20 })
-				shape(frame, { kind = "sphere", pos = At(blast), radius = lerp(1, 3.2, q), color = color, core = 1 })
-				frame.shot = frameOn("kai-mx-gather", dir, { d }, { yaw = 18, pitch = 2, fill = 0.4, fov = 40, focus = P(D, "UpperTorso") })
+			d.x = far
+			a.pose = if age < 60 then "KaiFire" else "StandTall"
+			T.FATAL.fall(ctx.cin, d, tick, F + 20, 3)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if age == 0 then
+				sfx(frame, "kx-boom", "boom")
+				T.impact(frame, "kx-boom", blast, "FFFFFF", 4)
+				table.insert(frame.fx, { key = "kx-debris2", kind = "debris", pos = v(far, 0.5, 0), color = color, scale = 2.4 })
+				table.insert(frame.fx, { key = "kx-smoke", kind = "smoke", pos = v(far, 1, 0) })
+			end
+			o.white = smooth(1 - progress(tick, F + 8, F + 45))
+			if age < 80 then
+				local q = progress(tick, F, F + 80)
+				shape(frame, { kind = "dome", pos = At(v(far, 0, 0)), radius = lerp(3, 16, smooth(q)), color = color, alpha = q })
+				shape(frame, { kind = "sphere", pos = At(blast), radius = lerp(3.2, 7, q), color = "FFFFFF", core = 1 - q })
+			end
+			for i = 0, 1 do
+				local q = progress(tick, F + 20 + i * 14, F + 110 + i * 14)
+				if q > 0 and q < 1 then
+					shape(frame, { kind = "ring", pos = At(v(far, 0.15, 0)), normal = v(0, 1, 0), radius = lerp(2, 24, smooth(q)), width = 0.5,
+						color = if i == 0 then "FFFFFF" else color, alpha = q })
+				end
+			end
+			if tick < 540 then
+				frame.shot = frameOn("kai-mx-blast", dir, { d }, { yaw = 30, pitch = 8, fill = 0.3, fov = 46, focus = P(D, "UpperTorso") })
+			elseif tick < 600 then
+				frame.shot = frameOn("kai-mx-far", dir, { a, d }, { yaw = -16, pitch = 18, fill = 0.32, fov = 50, focus = P(D, "UpperTorso") })
+			elseif tick < 660 then
+				if tick == 600 then sfx(frame, "kx-ko", "boom") end
+				ko(ctx, frame, tick, 600, "0B1E4A", { bg = "4AA3FF", splash = "0B3A8A" })
+				frame.shot = frameOn("kai-mx-ko", dir, { a, d }, { yaw = -16, pitch = 18, fill = 0.32, fov = 50, focus = P(D, "UpperTorso") })
 			else
-				local age = tick - F
-				a.pose = if age < 60 then "KaiFire" else "StandTall"
-				T.FATAL.fall(ctx.cin, d, tick, F + 20, 3)
-				if d.pose == "Kneel" then d.pose = "DownFace" end
-				if age == 0 then
-					sfx(frame, "kx-boom", "boom")
-					T.impact(frame, "kx-boom", blast, "FFFFFF", 4)
-					table.insert(frame.fx, { key = "kx-debris", kind = "debris", pos = v(far, 0.5, 0), color = color, scale = 2.4 })
-					table.insert(frame.fx, { key = "kx-smoke", kind = "smoke", pos = v(far, 1, 0) })
-				end
-				if age < 80 then
-					local q = progress(tick, F, F + 80)
-					shape(frame, { kind = "dome", pos = At(v(far, 0, 0)), radius = lerp(3, 16, smooth(q)), color = color, alpha = q })
-					shape(frame, { kind = "sphere", pos = At(blast), radius = lerp(3.2, 7, q), color = "FFFFFF", core = 1 - q })
-				end
-				for i = 0, 1 do
-					local q = progress(tick, F + i * 12, F + 70 + i * 12)
-					if q > 0 and q < 1 then
-						shape(frame, { kind = "ring", pos = At(v(far, 0.15, 0)), normal = v(0, 1, 0), radius = lerp(2, 22, smooth(q)), width = 0.5,
-							color = if i == 0 then "FFFFFF" else color, alpha = q })
-					end
-				end
-				if age >= 40 then
-					shape(frame, { kind = "motes", pos = At(v(ax, 2.5, 0)), radius = 6, count = 22, color = color, phase = tick / 70, out = true })
-				end
-				if age < 30 then
-					frame.shot = frameOn("kai-mx-flash", dir, { d }, { yaw = 30, pitch = 8, fill = 0.3, fov = 46, focus = P(D, "UpperTorso") })
-				elseif age < 100 then
-					frame.shot = frameOn("kai-mx-far", dir, { a, d }, { yaw = -16, pitch = 18, fill = 0.32, fov = 50, focus = P(D, "UpperTorso") })
-				else
-					frame.shot = frameOn("kai-mx-after", dir, { a }, { yaw = 34, pitch = -8, fill = 0.7, fov = 34, focus = P(A, "UpperTorso") })
-				end
-				ko(ctx, frame, tick, F + 80, color)
+				if tick == 660 then table.insert(frame.fx, { key = "kx-smoke2", kind = "smoke", pos = v(far, 0.6, 0) }) end
+				shape(frame, { kind = "motes", pos = At(v(ax, 2.5, 0)), radius = 5, count = 18, color = color, phase = tick / 70, out = true })
+				-- (over his back, toward the smoke where it lies)
+				frame.shot = frameOn("kai-mx-behind", dir, { a }, { yaw = -104, pitch = 6, fill = 0.55, fov = 40, focus = P(A, "UpperTorso") })
 			end
 		end
 		if orb > 0 then
@@ -476,199 +632,197 @@ function Finishers.build(T)
 	end
 
 
-	-- ================================================================ ZEPHYR · CYCLONE CRESCENDO
-	-- Kicks on the beat (his PERFECT RHYTHM), the beat faster and faster, until the wind is a
-	-- cyclone. 0:00 the count-in: his foot taps the deck, a ring of wind on every beat · 0:02
-	-- the kicks land on the beat and the camera jumps round them on the beat too, the cyclone
-	-- rises round the target · 0:05 the eye of the cyclone: from the deck, looking up, he circles
-	-- the target as it rises; the tower from afar · 0:07 above it, the sky, silence: three last
-	-- beats round his heel · 0:08 the heel: down the eye, from above; the cyclone bursts · 0:09
-	-- he lands on the last beat.
-	local ZEPHYR_KICKS = { "Jab", "Cross", "Elbow", "Kick", "BodyBlow", "SpinKick", "Uppercut", "Elbow", "Kick", "SpinKick", "Cross", "Kick", "Uppercut" }
+	-- ================================================================ ZEPHYR · GALE EXCALIBUR
+	-- Wilhem: « Zéphyr tu peux t'inspirer de Végéto ». Cocky, arms crossed, untouchable; then
+	-- everywhere at once; a sword of wind out of his own foot.
+	-- 0:00 arms crossed, he waits · 0:01 it strikes with all it has: he sways out of every blow
+	-- without uncrossing his arms, an afterimage where he stood · 0:03 gone; it looks for him ·
+	-- 0:04 six kicks out of six flashes, all round it · 0:06 above it: a sword of wind grows out
+	-- of his raised foot · 0:07 the axe kick: the sword cleaves it into the deck, a crescent of
+	-- wind across the sky · 0:08 he lands behind it, arms crossed again · 0:09 K.O. · 0:10 his
+	-- look, unimpressed; back to the game.
+	local ZEPHYR_THEIRS = { -- { tick, its blow, his sway: 1 / -1 aside, 0 back }
+		{ 66, "Jab", 1 }, { 88, "Cross", -1 }, { 110, "Kick", 0 }, { 134, "Elbow", 1 }, { 156, "Uppercut", -1 }, { 180, "Smash", 0 } }
+	local ZEPHYR_FLASHES = { -- { tick, angle round the target, height, his kick }
+		{ 232, 0.4, 0, "Kick" }, { 250, 2.6, 1.6, "SpinKick" }, { 268, 4.4, 0, "Cross" },
+		{ 286, 1.4, 2.2, "AirKick" }, { 304, 3.6, 0.6, "Elbow" }, { 322, 5.4, 1.8, "AirKick2" } }
 	function S.ZEPHYR(ctx, frame, a, d, tick, dir)
 		local A, D = ctx.cin.attacker, ctx.cin.defender
 		local moves = ctx.moveData.Moves
 		local color = ctx.characters[A].Energy
 		local cx = T.center(ctx, d)
-		local F = 500
-		-- the beats: the count-in, then the kicks on the beat, faster and faster
-		local beats = {}
-		local b = 16
-		while b < 300 do
-			table.insert(beats, b)
-			b += if b < 100 then 28 elseif b < 190 then 22 elseif b < 250 then 15 else 10
+		local F = 440
+		local o = overlay(frame)
+		local ax = inside(ctx, cx - dir * 3.5)
+		local behind = inside(ctx, cx + dir * 3.2)
+		local hover = 6.8 -- (his height above it before the kick)
+		d.x = cx
+		-- the sword of wind out of his foot: up while the leg is raised, then down with the kick
+		local function sword(length, turn)
+			local function tip(l) return P(A, "RightFoot", v(dir * math.sin(turn) * l, math.cos(turn) * l, 0)) end
+			shape(frame, { kind = "slash", from = P(A, "RightFoot"), to = tip(length), width = 1.1, color = color, alpha = 0.45 })
+			shape(frame, { kind = "slash", from = P(A, "RightFoot"), to = tip(length * 0.96), width = 0.42, color = "FFFFFF", alpha = 0 })
 		end
-		local beat, index = nil, 0
-		for i, t in beats do
-			if t <= tick then beat, index = t, i end
-		end
-		local age = if beat then tick - beat else 99
-		local kicks = index - 3 -- (the first three beats are the count-in)
-		-- the cyclone: three strands of wind wound round the target, rising, turning
-		local function cyclone(height, burst)
-			-- (each strand a continuous helix of short chords, wider at the top: a funnel)
-			local function at(strand, u)
-				local h = u * height
-				local r = 2.2 + h * 0.22 + burst * 14
-				local angle = strand * math.pi * 2 / 3 + u * math.pi * 3 + tick * 0.13
-				return At(v(cx + math.cos(angle) * r, 0.2 + h, math.sin(angle) * r))
+		if tick < 60 then
+			-- arms crossed, he waits
+			a.x, a.facing, a.pose = ax, dir, "ArmsCrossed"
+			d.facing, d.state = -dir, "Idle"
+			frame.shot = frameOn("zephyr-ge-wait", dir, { a, d }, { yaw = lerp(20, 28, progress(tick, 0, 60)), pitch = -12, fill = 0.8, fov = 36,
+				focus = P(A, "Head") })
+		elseif tick < 200 then
+			-- it strikes with all it has; he sways out of every blow, arms still crossed
+			a.x, a.z, a.facing, a.pose = ax, 0, dir, "ArmsCrossed"
+			d.facing = -dir
+			local k, age = 1, -99
+			for i, b in ZEPHYR_THEIRS do
+				if tick >= b[1] - 12 then k, age = i, tick - b[1] end
 			end
-			for strand = 0, 2 do
-				for k = 0, 11 do
-					shape(frame, { kind = "slash", from = at(strand, k / 12), to = at(strand, (k + 1) / 12), width = 0.16,
-						color = if (k + strand) % 4 == 0 then "FFFFFF" else color, alpha = 0.2 + 0.8 * burst })
+			if age < 12 then
+				attack(d, moves, theirMove(ctx, d, ZEPHYR_THEIRS[k][2]), age >= 0)
+			else
+				d.state, d.move = "Idle", nil
+			end
+			-- (out of the way just as it lands, and back again)
+			local side = ZEPHYR_THEIRS[k][3]
+			local sway = math.sin(math.pi * math.clamp((age + 4) / 18, 0, 1))
+			if side ~= 0 then a.z = side * 1.1 * sway else a.x = ax - dir * 1 * sway end
+			if age == -4 then
+				sfx(frame, "ge-sway" .. k, "whoosh")
+				table.insert(frame.fx, { key = "ge-ghost" .. k, kind = "afterimage", slot = A, color = color, life = 0.25 })
+			end
+			-- (from above the line: a sway aside reads on the screen)
+			local yaws = { 14, 20, 18, 26, 12, 22 }
+			frame.shot = frameOn("zephyr-ge-sway", dir, { a, d }, { yaw = yaws[k], pitch = 12, fill = 0.82, fov = 36, focus = P(A, "Head") })
+		elseif tick < 230 then
+			-- gone; it looks for him, one way, the other
+			a.x, a.z, a.facing, a.pose = ax, 0, dir, "ArmsCrossed"
+			a.hidden = tick >= 204
+			if tick == 204 then
+				sfx(frame, "ge-gone", "whoosh")
+				table.insert(frame.fx, { key = "ge-gone", kind = "afterimage", slot = A, color = color, life = 0.4 })
+			end
+			d.state, d.move = "Idle", nil
+			d.facing = if tick < 216 then -dir else dir
+			frame.shot = frameOn("zephyr-ge-gone", dir, { d }, { yaw = 60, pitch = 4, fill = 0.6, fov = 40, focus = P(D, "Head") })
+		elseif tick < 340 then
+			-- six kicks out of six flashes, all round it
+			a.hidden = true
+			d.state, d.move = "Hitstun", nil
+			for i, f in ZEPHYR_FLASHES do
+				local age = tick - f[1]
+				local at = v(cx - dir * math.cos(f[2]) * 2.5, f[3] + 3, -math.sin(f[2]) * 2.5)
+				if age >= -3 and age < 8 then
+					a.hidden, a.untucked = false, true -- (kicks out of nowhere, in the air too)
+					circle(a, cx, dir, f[2], 2.5, f[3])
+					attack(a, moves, T.role(ctx, f[4]), age >= 0)
 				end
+				if age == -3 then
+					sfx(frame, "ge-flash" .. i, "whoosh")
+					T.spark(frame, "ge-flash" .. i, at, "FFFFFF", 0.7)
+				end
+				if age == 0 then
+					sfx(frame, "ge-kick" .. i, "heavy")
+					T.spark(frame, "ge-kick" .. i, v(cx, 3.4 + f[3] * 0.4, 0), color, 1.1)
+				end
+				if age >= 0 and age < 18 then
+					local q = progress(age, 0, 18)
+					shape(frame, { kind = "ring", pos = At(v(cx, 3.4 + f[3] * 0.4, 0)), normal = v(math.cos(f[2]), 0.3, math.sin(f[2])),
+						radius = lerp(0.6, 2.8, q), width = 0.18, color = color, alpha = q })
+				end
+				if age >= 0 and age < 8 then d.pose = if i % 2 == 0 then "HitBody" else "HitHigh" end
 			end
-		end
-		local function beatRing(key, pos, normal, at, size)
-			local q = (tick - at) / 20
-			if q >= 0 and q < 1 then
-				shape(frame, { kind = "ring", pos = pos, normal = normal, radius = (size or 1) * (0.6 + 2.2 * q), width = 0.14, color = color, alpha = q })
-				if tick == at then sfx(frame, key, "whoosh") end
-			end
-		end
-		d.facing = -dir
-		if tick < 100 then
-			-- the count-in: his foot taps the beat, the wind gathers round his leg
-			a.x, a.facing, a.pose = cx - dir * 3.2, dir, "WindGather"
-			d.x, d.state = cx, "Hitstun"
-			for i = 1, 3 do beatRing("cc-tap" .. i, At(v(cx - dir * 2.8, 0.08, 0)), v(0, 1, 0), beats[i]) end
-			shape(frame, { kind = "motes", pos = P(A, "RightFoot"), radius = 3, count = 16, color = color, phase = tick / 50 })
-			if tick < 44 then
-				local q = smooth(progress(tick, 0, 44))
-				frame.shot = shot("zephyr-cc-foot", P(A, "RightFoot", v(dir * lerp(3.8, 3.2, q), 1.4, lerp(5.6, 4.8, q))), P(A, "RightFoot", v(0, 0.5, 0)),
-					40, 0, P(A, "RightFoot"))
-				frame.shot.close = true
-			else
-				frame.shot = frameOn("zephyr-cc-count", dir, { a }, { yaw = lerp(-30, -12, progress(tick, 44, 100)), pitch = -6, fill = 0.8, fov = 36,
-					focus = P(A, "UpperTorso") })
-			end
-		elseif tick < 300 then
-			-- the kicks on the beat; the camera jumps on the beat too; the cyclone rises
-			local lift = 3.2 * smooth(progress(tick, 180, 300))
-			d.x, d.y, d.state = cx, lift, "Hitstun"
-			d.pose = if age < 6 then (if kicks % 2 == 0 then "HitHigh" else "HitBody") elseif lift > 0.6 then "Launched" else nil
-			a.x, a.y, a.facing = cx - dir * 2.9, lift * 0.8, dir
-			-- (between two beats he already chambers the next kick: never back to his guard)
-			local id = T.role(ctx, ZEPHYR_KICKS[(kicks - 1) % #ZEPHYR_KICKS + 1])
-			local nextId = T.role(ctx, ZEPHYR_KICKS[kicks % #ZEPHYR_KICKS + 1])
-			if kicks >= 1 and age < 7 and moves[id] then
-				attack(a, moves, id, true)
-			elseif moves[nextId] then
-				attack(a, moves, nextId, false)
-			else
-				a.state, a.move = if a.y > 0.2 then "Jumping" else "Idle", nil
-			end
-			if age == 0 then
-				sfx(frame, "cc-kick" .. index, "heavy")
-				T.spark(frame, "cc-spark" .. index, v(cx - dir * 0.5, 3.4 + lift, 0.4), if index % 3 == 0 then "FFFFFF" else color, 0.8)
-			end
-			if beat then beatRing("cc-beat" .. index, P(D, "UpperTorso"), v(dir, 0, 0), beat, 0.8) end
-			if tick >= 150 then cyclone(14 * smooth(progress(tick, 150, 300)), 0) end
-			if tick > 230 then frame.speedLines = color end
-			-- (the camera steps round them on every beat: a quick snap, then it holds)
-			local step = math.max(0, kicks - 1) + (if kicks >= 1 then smooth(math.min(1, age / 5)) else 0)
-			frame.shot = frameOn("zephyr-cc-beat", dir, { a, d }, { yaw = 24 + 50 * step, pitch = if kicks % 2 == 0 then -8 else 10, fill = 0.7,
-				fov = 40, focus = P(D, "UpperTorso") })
-		elseif tick < 420 then
-			-- the eye of the cyclone: the target rises in it, he circles it, kicking
-			local p = progress(tick, 300, 420)
-			d.x, d.y, d.state, d.pose = cx, lerp(3.2, 17, smooth(p)), "Hitstun", "Launched"
-			local angle = p * math.pi * 2.5
-			a.x, a.z, a.y = cx - dir * math.cos(angle) * 2.6, -math.sin(angle) * 2.6, d.y - 0.6 + 0.4 * math.sin(tick / 6)
-			local lx, lz = cx - a.x, -a.z
-			local l = math.max(1e-3, math.sqrt(lx * lx + lz * lz))
-			a.lookDir, a.facing = v(lx / l, 0, lz / l), if lx >= 0 then 1 else -1
-			local k = (tick - 300) // 12
-			if (tick - 300) % 12 < 6 then
-				attack(a, moves, T.role(ctx, if k % 2 == 0 then "AirKick" else "AirKick2"), true)
-			else
-				a.state, a.move = "Jumping", nil
-			end
-			if (tick - 300) % 12 == 0 then
-				table.insert(frame.fx, { key = "cc-ghost" .. k, kind = "afterimage", slot = A, color = color, life = 0.45 })
-				sfx(frame, "cc-air" .. k, "whoosh")
-			end
-			cyclone(22, 0)
-			frame.speedLines = color
-			if tick < 336 then
-				frame.shot = frameOn("zephyr-cc-rise", dir, { a, d }, { yaw = lerp(40, 70, progress(tick, 300, 336)), pitch = -18, fill = 0.7, fov = 42,
-					focus = P(D, "UpperTorso") })
-			elseif tick < 384 then
-				-- from the deck, at the bottom of the eye, looking up
-				frame.shot = shot("zephyr-cc-eye", At(v(cx + dir * 0.6, 0.8, 0.6)), P(D, "UpperTorso"), 60, (tick - 336) * 0.02, P(D, "UpperTorso"))
-			else
-				frame.shot = frameOn("zephyr-cc-tower", dir, { a, d, { point = true, x = cx, y = 0, z = 0 } },
-					{ yaw = 20, pitch = -8, fill = 0.62, fov = 50, focus = P(D, "UpperTorso") })
-			end
-		elseif tick < F then
-			-- above it, the sky, silence; three last beats round his heel
+			frame.shot = frameOn("zephyr-ge-flash", dir, { d }, { yaw = lerp(50, 100, progress(tick, 230, 340)), pitch = 10, fill = 0.48, fov = 42,
+				focus = P(D, "UpperTorso") })
+		elseif tick < 480 then
+			-- above it: a sword of wind grows out of his raised foot; the axe kick cleaves it into the deck
 			frame.grade.sky = true
-			local p = progress(tick, 420, F)
-			d.x, d.y, d.state, d.pose = cx + dir * 0.4, lerp(17, 18.5, p), "Hitstun", "Launched"
-			a.x, a.y, a.facing = cx - dir * 1.2, 21.5, dir
-			attack(a, moves, T.role(ctx, "ThunderHeel"), false)
-			cyclone(14, 0)
-			shape(frame, { kind = "motes", pos = P(A, "RightFoot"), radius = 4, count = 22, color = color, phase = tick / 40 })
-			for i, at in { 430, 455, 480 } do beatRing("cc-last" .. i, P(A, "RightFoot"), v(0, 1, 0), at, 0.7 + 0.25 * i) end
-			if tick == 420 then sfx(frame, "cc-hold", "charge") end
-			-- (a slow push on the two of them against the sky, the colour draining for the last beat)
-			overlay(frame).desat = 0.3 * progress(tick, 455, F)
-			frame.shot = frameOn("zephyr-cc-sky", dir, { a, d }, { yaw = lerp(70, 58, p), pitch = -14, fill = lerp(0.68, 0.86, smooth(p)), fov = 36,
-				focus = P(A, "UpperTorso") })
-		elseif tick < 560 then
-			-- the heel: down the eye; the cyclone bursts on the deck
-			local p = math.min(1, progress(tick, F, F + 14))
-			local q = math.min(1, progress(tick, F, F + 16))
-			d.x, d.y, d.state = cx + dir * 0.4, lerp(18.5, 0, p * p), "Hitstun"
-			d.pose = if p < 1 then "Launched" else "DownImpact"
-			a.x, a.facing = cx - dir * 1.2, dir
-			a.y = lerp(21.5, 4, q * q)
-			if q < 1 then attack(a, moves, T.role(ctx, "ThunderHeel"), true) else a.state, a.move = "Jumping", nil end
+			a.hidden, a.untucked = false, true -- (the leg stays up over the deck)
+			a.x, a.z, a.lookDir, a.facing = cx - dir * 0.9, 0, nil, dir
+			local swing = progress(tick, 424, F)
+			a.y = if tick < F then lerp(hover, 4.4, swing * swing) else lerp(4.4, 3.6, progress(tick, F, 470))
+			attack(a, moves, T.role(ctx, "Hammer"), tick >= 424)
+			d.facing = -dir
+			if tick < F then
+				d.state, d.pose = "Hitstun", "HitHigh"
+			else
+				d.state, d.pose, d.hitstop = "Knockdown", "DownFace", if tick < F + 6 then 1 else 0
+			end
+			if tick == 340 then
+				sfx(frame, "ge-above", "whoosh")
+				T.spark(frame, "ge-above", v(cx - dir * 0.9, hover + 3, 0), "FFFFFF", 0.9)
+			end
+			if tick == 360 then sfx(frame, "ge-sword", "charge") end
+			local grow = smooth(progress(tick, 360, 400))
+			if grow > 0 and tick < F + 20 then
+				sword(lerp(0.4, 5.5, grow) * (1 - progress(tick, F + 6, F + 20)), lerp(0, 2.6, smooth(swing)))
+			end
 			if tick == F then
-				sfx(frame, "cc-heel", "heavy")
-				T.spark(frame, "cc-heel", v(cx, 19.5, 0.4), "FFFFFF", 1.4)
+				sfx(frame, "ge-cleave", "boom")
+				T.impact(frame, "ge-cleave", v(cx, 1.2, 0.4), color, 3)
+				table.insert(frame.fx, { key = "ge-crack", kind = "crack", from = v(cx - dir * 3, 0.05, 0), to = v(cx + dir * 4, 0.05, 0.4), color = color })
+				table.insert(frame.fx, { key = "ge-rocks", kind = "rocks", pos = v(cx, 0, 0.3), radius = 2.6, count = 9, color = "6A6E78" })
+				table.insert(frame.fx, { key = "ge-debris", kind = "debris", pos = v(cx, 0.4, 0.3), color = color, scale = 1.8 })
+				table.insert(frame.fx, { key = "ge-dust", kind = "dust", pos = v(cx, 0, 0), direction = dir })
 			end
-			local burst = smooth(progress(tick, F + 14, F + 50))
-			if burst < 1 then cyclone(14 * (1 - 0.5 * burst), burst) end
-			if tick == F + 14 then
-				sfx(frame, "cc-crash", "boom")
-				T.impact(frame, "cc-crash", v(cx, 1, 0.6), color, 3.2)
-				table.insert(frame.fx, { key = "cc-debris", kind = "debris", pos = v(cx, 0.5, 0), color = color, scale = 1.8 })
-				table.insert(frame.fx, { key = "cc-dust", kind = "dust", pos = v(cx, 0, 0), direction = dir })
-			end
-			for i = 0, 2 do
-				local r = progress(tick, F + 14 + i * 8, F + 60 + i * 8)
-				if r > 0 and r < 1 then
-					shape(frame, { kind = "ring", pos = At(v(cx, 0.15 + i * 1.2, 0)), normal = v(0, 1, 0), radius = lerp(2, 18, smooth(r)), width = 0.4,
-						color = if i == 1 then "FFFFFF" else color, alpha = r })
+			if tick >= F then
+				o.white = 0.7 * (1 - progress(tick, F, F + 10))
+				frame.quake = 0.5 * (1 - progress(tick, F, F + 18))
+				-- the crescent of wind flies off across the sky
+				local q = progress(tick, F, F + 40)
+				if q < 1 then
+					local r = lerp(5, 16, smooth(q))
+					local function onArc(u)
+						local ang = math.rad(lerp(30, 150, u))
+						return At(v(cx + math.cos(ang) * r, 2 + math.sin(ang) * r, -4))
+					end
+					for k = 0, 11 do
+						shape(frame, { kind = "slash", from = onArc(k / 12), to = onArc((k + 1) / 12), width = lerp(1.2, 0.3, q), color = if k % 3 == 0 then "FFFFFF" else color,
+							alpha = q })
+					end
 				end
 			end
-			frame.quake = if tick >= F + 14 and tick < F + 24 then 0.8 else nil
-			if tick < F + 14 then
-				-- from above, down the eye: the target shrinks toward the deck
-				frame.shot = shot("zephyr-cc-dive", At(v(cx + dir * 3.5, 34, 5)), P(D, "UpperTorso"), 46, 0, P(D, "UpperTorso"))
+			local blade = { point = true, x = cx - dir * 0.9, y = hover + 10.5, z = 0 }
+			if tick < 372 then
+				-- (from the deck, looking up at him)
+				frame.shot = frameOn("zephyr-ge-above", dir, { a }, { yaw = 24, pitch = -32, fill = 0.55, fov = 42, focus = P(A, "Head") })
+			elseif tick < 424 then
+				-- (him and the sword of wind out of his foot)
+				frame.shot = frameOn("zephyr-ge-sword", dir, { a, blade }, { yaw = 20, pitch = -16, fill = 0.75, fov = 44, focus = P(A, "Head") })
+			elseif tick < F then
+				frame.shot = frameOn("zephyr-ge-cleave", dir, { a, d }, { yaw = 16, pitch = -6, fill = 0.72, fov = 46, focus = P(A, "Head") })
 			else
-				frame.shot = frameOn("zephyr-cc-burst", dir, { a, d }, { yaw = 30, pitch = 16, fill = 0.45, fov = 46, focus = P(D, "UpperTorso") })
+				frame.shot = frameOn("zephyr-ge-crescent", dir, { a, d, { point = true, x = cx, y = 12, z = -4 } }, { yaw = 10, pitch = -6, fill = 0.62, fov = 50,
+					focus = P(D, "UpperTorso") })
 			end
-			ko(ctx, frame, tick, F + 44, color)
+		elseif tick < 540 then
+			-- he lands behind it, arms crossed again; his back to it
+			local q = progress(tick, 480, 498)
+			a.untucked = nil
+			a.x, a.z, a.lookDir, a.facing = lerp(cx - dir * 0.9, behind, smooth(q)), 0, nil, dir
+			a.y = 3.6 * (1 - q) + 1.4 * math.sin(math.pi * q)
+			a.move = nil
+			if q < 1 then
+				a.state, a.pose = "Falling", "JumpApex"
+			else
+				a.state, a.pose = "Idle", "ArmsCrossed"
+			end
+			d.state, d.pose = "Knockdown", "DownFace"
+			if tick == 498 then sfx(frame, "ge-land", "whoosh") end
+			frame.shot = frameOn("zephyr-ge-land", dir, { a, d }, { yaw = 24, pitch = -4, fill = 0.75, fov = 38, focus = P(A, "Head") })
+		elseif tick < 600 then
+			-- K.O.
+			a.x, a.facing, a.pose = behind, dir, "ArmsCrossed"
+			d.state, d.pose = "Knockdown", "DownFace"
+			if tick == 540 then sfx(frame, "ge-ko", "boom") end
+			ko(ctx, frame, tick, 540, color, { bg = "0A1418", splash = color })
+			frame.shot = frameOn("zephyr-ge-ko", dir, { a, d }, { yaw = 24, pitch = -4, fill = 0.75, fov = 38, focus = P(A, "Head") })
 		else
-			-- he lands on the last beat; the wind dies
-			local p = progress(tick, 560, 584)
-			a.x, a.facing = cx - dir * lerp(1.2, 3.2, smooth(p)), dir
-			a.y = 4 * (1 - p) * (1 - p)
-			if p < 1 then
-				a.state, a.move = "Jumping", nil
-			else
-				a.state, a.pose = "Idle", if tick > 600 then "StandTall" else nil
-			end
-			d.x = cx + dir * 0.4
-			T.FATAL.fall(ctx.cin, d, tick, F + 14, 0)
-			if d.pose == "Kneel" then d.pose = "DownFace" end
-			beatRing("cc-end", At(v(cx - dir * 3.2, 0.08, 0)), v(0, 1, 0), 584, 1.6)
-			shape(frame, { kind = "motes", pos = At(v(cx - dir * 3.2, 1.5, 0)), radius = 5, count = 18, color = color, phase = tick / 70, out = true })
-			frame.shot = frameOn("zephyr-cc-after", dir, { a, d }, { yaw = -30, pitch = 4, fill = 0.6, fov = 38, focus = P(A, "UpperTorso") })
-			ko(ctx, frame, tick, F + 44, color)
+			-- his look, unimpressed; back to the game
+			local q = smooth(progress(tick, 600, 720))
+			a.x, a.facing, a.pose = behind, dir, "ArmsCrossed"
+			d.state, d.pose = "Knockdown", "DownFace"
+			frame.shot = frameOn("zephyr-ge-look", dir, { a }, { yaw = lerp(46, 32, q), pitch = -8, band = "bust", fill = lerp(0.62, 0.76, q), fov = 30,
+				focus = P(A, "Head") })
 		end
 	end
 
@@ -1067,14 +1221,6 @@ function Finishers.build(T)
 		end
 	end
 
-
-	-- The target's own move for a role (its kit's), for the scenes where it strikes back.
-	local function theirMove(ctx, d, r)
-		local moves = ctx.moveData.Moves
-		local own = ctx.moveData.Kits[d.kit or "KAI"] or ctx.moveData.Kits.KAI
-		local id = own and own.Roles and own.Roles[r] or r
-		return if moves[id] then id else r
-	end
 
 	-- ================================================================ DAICHA · INVERTED WORLD
 	-- Her INVERTED SHADOW made a world. 0:00 her matter spreads under the target, a black pool ·
@@ -1482,15 +1628,6 @@ function Finishers.build(T)
 	end
 
 
-	-- Places a view on a circle round (cx, 0), on both sides of the line, facing the centre.
-	local function circle(view, cx, dir, angle, radius, y)
-		view.x = cx - dir * math.cos(angle) * radius
-		view.z = -math.sin(angle) * radius
-		view.y = y or 0
-		local lx, lz = cx - view.x, -view.z
-		local l = math.max(1e-3, math.sqrt(lx * lx + lz * lz))
-		view.lookDir, view.facing = v(lx / l, 0, lz / l), if lx >= 0 then 1 else -1
-	end
 
 	-- ================================================================ YUKINA · FROZEN REQUIEM
 	-- The last waltz of the frost empress. 0:00 the snow falls, her fans open · 0:01 the waltz:

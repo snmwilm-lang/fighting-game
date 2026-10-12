@@ -803,11 +803,12 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 
 	-- A blow made for the floor, thrown in the air (the fighter carried up by a rising strike,
 	-- a chase or a finisher): the planted legs fold into a jump tuck, so he never stands on
-	-- nothing.
+	-- nothing. (view.untucked: a kick staged in the air on purpose keeps its legs, ZEPHYR's
+	-- axe kick from above in his finisher.)
 	local altitude = view.y or 0
 	-- (the tuck eases in and out: a rising strike lifts him 1 stud in 2 ticks, and the knees
 	-- used to fold at once)
-	local tuckWanted = if view.state == "Attack" and (target.Ground and target.Ground[1] or 1) > 0.5
+	local tuckWanted = if view.state == "Attack" and not view.untucked and (target.Ground and target.Ground[1] or 1) > 0.5
 		then clamp01((altitude - 0.4) / 1.2) else 0
 	tr.tuck = (tr.tuck or 0) + (tuckWanted - (tr.tuck or 0)) * (1 - math.exp(-dt * 16))
 	if tuckWanted == 0 and tr.tuck < 0.02 then tr.tuck = 0 end

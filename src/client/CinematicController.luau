@@ -222,6 +222,25 @@ function CinematicController.new(config, hud, effects)
 	}, gui)
 	self.captionStroke = new("UIStroke", { Thickness = 5, Color = INK }, self.captionLabel)
 	self.captionScale = new("UIScale", {}, self.captionLabel)
+	-- a night (or any) tint over the whole scene (SHIN's FINAL DIVISION)
+	self.finisherTint = new("ColorCorrectionEffect", { Name = "FinisherTint", Enabled = false }, Lighting)
+	-- the screen filled with light (KAI's explosion)
+	self.whiteFrame = new("Frame", { Name = "FinisherWhite", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1,
+		BorderSizePixel = 0, Visible = false, ZIndex = 6 }, gui)
+	-- the K.O. card: the whole screen one colour, a splash behind the letters
+	self.koCard = new("Frame", { Name = "KOCard", Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BorderSizePixel = 0, Visible = false,
+		ZIndex = 6 }, gui)
+	self.koSplash = {}
+	for i = 1, 9 do
+		local big = i <= 3
+		local bar = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), BorderSizePixel = 0, BackgroundColor3 = RED, ZIndex = 6,
+			Rotation = if big then -18 + (i - 2) * 9 else (i * 47) % 360,
+			Position = if big then UDim2.fromScale(0.5 + (i - 2) * 0.05, 0.45 + (i - 2) * 0.04)
+				else UDim2.fromScale(0.5 + math.cos(i * 1.7) * 0.32, 0.45 + math.sin(i * 1.3) * 0.28),
+			Size = if big then UDim2.fromScale(0.9 - math.abs(i - 2) * 0.2, 0.05 - math.abs(i - 2) * 0.015)
+				else UDim2.fromScale(0.02 + (i % 3) * 0.008, 0.035 + (i % 2) * 0.01) }, self.koCard)
+		table.insert(self.koSplash, bar)
+	end
 	self.shapePool, self.fpHidden = {}, {}
 	return self
 end
@@ -794,7 +813,7 @@ function CinematicController:camera(dt, rigs, views)
 	self.dof.InFocusRadius = math.max(2.5, self.dof.FocusDistance * 0.18)
 	self:drawShapes(self.pendingShapes, rigs, views)
 	self:updateFirstPerson(rigs)
-	self:updateSplit(rigs, camera)
+	self:updateSplit(rigs, camera, views)
 end
 
 function CinematicController:drawSpeedLines()
@@ -975,9 +994,31 @@ function CinematicController:applyOverlay(o)
 	local blur = if o and not reduced then o.blur or 0 else 0
 	self.finisherBlur.Enabled = blur > 0.02
 	self.finisherBlur.Size = blur * 16
+	local tint = o and o.tint
+	self.finisherTint.Enabled = tint ~= nil and (tint.amount or 0) > 0.01
+	if self.finisherTint.Enabled then
+		local amount = math.clamp(tint.amount, 0, 1)
+		self.finisherTint.TintColor = WHITE:Lerp(hex(tint.color), amount)
+		self.finisherTint.Brightness = -0.12 * amount
+		self.finisherTint.Contrast = 0.2 * amount
+		self.finisherTint.Saturation = -0.4 * amount
+	end
+	local white = if o and not reduced then o.white or 0 elseif o then math.min(0.6, o.white or 0) else 0
+	self.whiteFrame.Visible = white > 0.01
+	self.whiteFrame.BackgroundTransparency = 1 - math.clamp(white, 0, 1)
+	local card = o and o.ko and o.ko.card
+	self.koCard.Visible = card ~= nil
+	if card then
+		self.koCard.BackgroundColor3 = hex(card.bg, INK)
+		for _, bar in self.koSplash do
+			bar.Visible = card.splash ~= nil
+			bar.BackgroundColor3 = hex(card.splash, RED)
+		end
+	end
 	local ko = o and o.ko
 	if ko then
-		local settle = math.clamp((ko.age - 40) / 20, 0, 1) -- (after its slam it rises and shrinks: the scene reads)
+		-- (after its slam it rises and shrinks so the scene reads; on a card it stays, centred)
+		local settle = if card then 0 else math.clamp((ko.age - 40) / 20, 0, 1)
 		if not self.koLabel.Visible then
 			self.koLabel.Visible, self.koSub.Visible = true, true
 			self.koScale.Scale = if reduced then 1 else 2.4
@@ -1046,7 +1087,7 @@ local function pathOf(part, root)
 	return table.concat(names, "/")
 end
 
-function CinematicController:buildSplit(rigs, color)
+function CinematicController:buildSplit(rigs, color, only)
 	local gui = self.gui
 	local holder = new("Frame", { Name = "FinalDivision", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
 		BorderSizePixel = 0, ZIndex = 4 }, gui)
@@ -1071,8 +1112,10 @@ function CinematicController:buildSplit(rigs, color)
 			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromScale(0.42, 0.62) }, inner)
 		new("UIStroke", { Thickness = 8, Color = color }, letter)
 		split.halves[side] = { group = group, inner = inner, mask = mask, viewport = viewport, cam = cam, letter = letter }
-		-- the two bodies, copied once; each frame their parts follow the real ones
-		for _, rig in rigs do
+		-- the bodies, copied once (only its own one when the half has its own subject); each frame
+		-- their parts follow the real ones
+		for slot, rig in rigs do
+			if only and only[side] and only[side] ~= slot then continue end
 			local copy = rig.model:Clone()
 			if not copy then continue end
 			local twins = {}
@@ -1109,7 +1152,7 @@ local function drawnLine(frame, t)
 		else NumberSequence.new({ key(0, 0), key(edge - 0.001, 0), key(edge, 1), key(1, 1) })
 end
 
-function CinematicController:updateSplit(rigs, camera)
+function CinematicController:updateSplit(rigs, camera, views)
 	local o = self.overlay and self.overlay.split
 	if not o then
 		if self.split then
@@ -1124,7 +1167,7 @@ function CinematicController:updateSplit(rigs, camera)
 	local angle = o.angle or 0
 	local split = self.split
 	local open = math.max(0, o.open or 0)
-	if (open > 0 or (o.join or 0) > 0) and not split then split = self:buildSplit(rigs, color) end
+	if (open > 0 or (o.join or 0) > 0) and not split then split = self:buildSplit(rigs, color, o.only) end
 	if not split then
 		-- before the cut opens: only the line, drawn across from one side
 		if not self.lineOnly then
@@ -1141,7 +1184,8 @@ function CinematicController:updateSplit(rigs, camera)
 	-- the halves: masked across the line, slid apart along it
 	local screen = camera.ViewportSize
 	local side = math.ceil(math.sqrt(screen.X * screen.X + screen.Y * screen.Y))
-	local shift = open * screen.X * 0.07
+	-- (one shot slid apart; halves with their own shots stay put, only the gap opens)
+	local shift = if o.views then 0 else open * screen.X * 0.07
 	local ux, uy = math.cos(math.rad(angle)), math.sin(math.rad(angle))
 	local join = math.clamp(o.join or 0, 0, 1)
 	for index, half in split.halves do
@@ -1149,18 +1193,30 @@ function CinematicController:updateSplit(rigs, camera)
 		half.group.Size = UDim2.fromOffset(side, side)
 		half.group.Position = UDim2.new(0.5, ux * shift * sign, 0.5, uy * shift * sign)
 		half.inner.Size = UDim2.fromOffset(screen.X, screen.Y)
-		half.mask.Rotation = angle + 90
-		half.cam.CFrame, half.cam.FieldOfView = camera.CFrame, camera.FieldOfView
-		-- K above the cut, O below; joined, they meet in the middle (K.O.)
-		local spread = 0.2 - 0.12 * join
-		half.letter.Position = UDim2.fromScale(0.5 + sign * spread, 0.5 + sign * 0.14 * (1 - join))
-		half.letter.Size = UDim2.fromScale(0.42 - 0.2 * join, 0.62 - 0.3 * join)
+		-- (the line travels along its Rotation; the first half lies on its left-hand side)
+		half.mask.Rotation = angle - 90
+		-- (a half may hold its own shot: SHIN's face behind the K, the target behind the O)
+		local own = o.views and o.views[index]
+		if own then
+			local from, to = resolve(own.from, rigs, views), resolve(own.to, rigs, views)
+			half.cam.CFrame = CFrame.lookAt(from, to) * CFrame.Angles(0, 0, own.roll or 0)
+			half.cam.FieldOfView = own.fov or camera.FieldOfView
+		else
+			half.cam.CFrame, half.cam.FieldOfView = camera.CFrame, camera.FieldOfView
+		end
+		if o.letters then half.letter.Text = o.letters[index] or "" end
+		-- each letter in its half, clear of the face (o.letterAt: share of the screen); joined, they
+		-- meet in the middle (K.O.)
+		local at = o.letterAt and o.letterAt[index] or (if index == 1 then { 0.3, 0.36 } else { 0.7, 0.64 })
+		local size = (o.letterSize or 0.4) * (1 - 0.3 * join)
+		half.letter.Position = UDim2.fromScale(at[1] + (0.5 + sign * 0.08 - at[1]) * join, at[2] + (0.5 - at[2]) * join)
+		half.letter.Size = UDim2.new(0, math.floor(screen.Y * size * 0.8), size, 0)
 	end
 	for _, pair in split.pairs do
 		if pair[1].Parent then pair[2].CFrame = pair[1].CFrame end
 	end
 	split.line.Rotation = angle
-	split.line.Size = UDim2.new(1.6, 0, 0, 4 + math.floor(open * 6))
+	split.line.Size = UDim2.new(1.6, 0, 0, 4 + math.floor(open * (if o.views then 12 else 6)))
 end
 
 function CinematicController:clearFinisher()
@@ -1182,6 +1238,9 @@ function CinematicController:clearFinisher()
 	if self.finisherDesat then self.finisherDesat.Enabled = false end
 	if self.koLabel then self.koLabel.Visible, self.koSub.Visible = false, false end
 	if self.captionLabel then self.captionLabel.Visible = false end
+	if self.finisherTint then self.finisherTint.Enabled = false end
+	if self.whiteFrame then self.whiteFrame.Visible = false end
+	if self.koCard then self.koCard.Visible = false end
 end
 
 function CinematicController:snapshot()

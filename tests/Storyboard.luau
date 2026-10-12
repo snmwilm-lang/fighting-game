@@ -78,6 +78,24 @@ play(kit, kind, style, hp, 0, function(info)
 		print(string.format("OVERLAY %s %s %d %s %s %s %s %s %d %s", fmt(over.desat or 0), fmt(over.blur or 0), over.firstPerson or 0,
 			fmt(split.line or -1), fmt(split.open or 0), fmt(split.join or 0), fmt(split.angle or 0), split.color or "FFFFFF",
 			k.age or -1, (k.sub or "-"):gsub(" ", "_")))
+		if over.tint then print(string.format("TINT %s %s", over.tint.color or "203A80", fmt(over.tint.amount or 0))) end
+		if over.white then print(string.format("WHITE %s", fmt(over.white))) end
+		if k.card then print(string.format("KOCARD %s %s", k.card.bg or "0B0B0E", k.card.splash or "-")) end
+		if split.letters then
+			local function letter(l) return if l and l ~= "" then l else "-" end
+			print(string.format("LETTERS %s %s", letter(split.letters[1]), letter(split.letters[2])))
+		end
+		if split.only then print(string.format("SPLITONLY %d %d", split.only[1] or 0, split.only[2] or 0)) end
+		if split.letterAt then
+			local l1, l2 = split.letterAt[1], split.letterAt[2]
+			print(string.format("LETTERAT %s %s %s %s %s", fmt(l1[1]), fmt(l1[2]), fmt(l2[1]), fmt(l2[2]), fmt(split.letterSize or 0.4)))
+		end
+		for side, view in split.views or {} do
+			local cx, cy, cz = Kit.resolve(view.from, info.parts)
+			local tx, ty, tz = Kit.resolve(view.to, info.parts)
+			print(string.format("SPLITVIEW %d %s %s %s %s %s %s %s %s", side, fmt(view.fov or 40), fmt(view.roll or 0), fmt(cx), fmt(cy), fmt(cz),
+				fmt(tx), fmt(ty), fmt(tz)))
+		end
 		if over.caption then
 			print(string.format("CAPTION %s %d %s %s", (over.caption.text:gsub(" ", "_")), over.caption.age or 99, over.caption.color or "FFFFFF",
 				fmt(over.caption.fade or 0)))

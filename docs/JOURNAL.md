@@ -1,5 +1,24 @@
 # Journal du projet — état à transmettre
 
+## Version 0.32.0 — 12 octobre 2026 · FATAL FINISHERS : SHIN, TARO, KAI (planches), ZEPHYR façon Vegito
+
+Wilhem a envoyé une planche de 12 plans d'une seconde pour SHIN, TARO et KAI ; les trois finishers sont refaits plan par plan (12 s chacun). ZEPHYR est refait « façon Vegito ».
+
+- **SHIN · FINAL DIVISION** (12 s, nuit) : il fixe sa cible, la caméra avance lentement ; gros plan sur l'œil, silence, un reflet passe dessus ; il disparaît (un seul trait de vitesse) ; quelques coupes rapides autour d'elle ; il réapparaît derrière elle ; la dernière coupe, la caméra suit la lame ; **la découpe refaite** : l'écran se coupe le long de la trajectoire de la lame, chaque moitié a son propre plan et ne montre que son personnage (SHIN à gauche avec le K, la cible à droite avec le O), les lettres à l'écart des visages ; il rengaine, le clic : les deux moitiés prennent le coup ; elles se rejoignent ; carte K.O. noire, éclaboussure rouge ; elle tombe, il se tient debout ; dernier plan sur lui.
+- **TARO · DEMPSEY ROLL: FINAL ROUND** (12 s) : il baisse la garde et entre en Dempsey Roll (il avance en roulant le buste) ; vue subjective de la cible : le premier crochet, puis l'enchaînement gauche-droite de plus en plus rapide, la caméra encaisse chaque coup ; la vue se brouille, se décolore et rougit ; l'uppercut (éclair blanc, arrêt sur image) ; la cible s'envole, la caméra la suit d'en bas, derrière TARO ; elle s'écrase (débris, poussière, rochers) ; carte K.O. noire et rouge ; il remonte sa garde.
+- **KAI · MAXIMUM KAIENHA** (12 s) : sa garde, l'énergie se concentre entre ses mains ; elle se densifie, la caméra tourne autour de lui ; l'aura éclate, le sol se fissure (anneaux, rochers) ; gros plan visage ; le tir : la vague prend la cible ; la caméra suit la vague à travers l'arène ; plan de côté, la cible engloutie ; l'énergie l'enveloppe ; l'explosion remplit l'écran de lumière ; l'onde de choc s'étend ; carte K.O. sur fond de lumière bleue ; KAI vu de dos, la fumée devant lui.
+- **ZEPHYR · GALE EXCALIBUR** (12 s, remplace CYCLONE CRESCENDO) : bras croisés, il attend ; la cible frappe de tout ce qu'elle a (ses propres coups) et il esquive chaque coup sans décroiser les bras, une image rémanente là où il était ; il disparaît, elle le cherche ; six coups de pied sortent de six éclairs tout autour d'elle ; il apparaît au-dessus d'elle, la jambe levée : une épée de vent pousse de son pied ; le coup de hache : l'épée la fend jusqu'au sol, un croissant de vent traverse le ciel ; il atterrit derrière elle, bras croisés ; K.O. ; son regard, pas impressionné.
+
+**Outils** : `frameOn` accepte `screen = { x, y }` (place du sujet à l'écran, caméra glissée de côté : une moitié d'écran partagé) ; l'écran partagé a ses moitiés avec leur propre plan (`views`), leur propre personnage (`only`) et la place des lettres (`letterAt`, `letterSize`) ; l'angle de la ligne tourne comme une Rotation de Roblox, dans le contrôleur comme dans `tools/storyboard.py` ; `overlay.white` et la carte K.O. (`ko.card`) servent à KAI et TARO. **Animator** : une vue `untucked` garde les jambes d'un coup de sol lancé en l'air (le coup de hache de ZEPHYR) — test « an air-staged kick keeps its raised leg only with view.untucked ». **Pose ArmsCrossed** refaite : les avant-bras étaient verticaux devant le visage, ils sont maintenant vraiment croisés sur la poitrine (toutes les poses de victoire qui l'utilisent en profitent).
+
+**Fichiers** : `Finishers.luau` (SHIN, TARO, KAI, ZEPHYR), `CinematicDirector.luau` (`frameOn` screen), `Animator.luau` (`untucked`), `PoseLibrary.luau` (ArmsCrossed), `CinematicController.luau` (moitiés de l'écran partagé, lettres), `MoveData` (TARO 720/446, KAI 720/485, SHIN 720/330, ZEPHYR GALE EXCALIBUR 720/440), `Locale` (EXCALIBUR DU VENT), `tests/Storyboard.luau`, `tools/storyboard.py`, `tests/Animation.test.luau`.
+
+**Tests** : CombatSimulation 169, Cinematography 312 (les dix-huit finishers, mains lisibles et caméra hors des corps), CinematicDirector 872, Animation 59, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé sur cette version (résultat noté au commit suivant). Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+
+**Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : retours de Wilhem sur ces quatre finishers ; puis NOVA, KUROEN et les bosses.
+
 ## Version 0.31.0 — 12 octobre 2026 · FATAL FINISHERS : KUREN, SYLVA, ELIAN
 
 Sixième lot de trois (même règle de déclenchement). Wilhem a envoyé entre-temps ses planches pour SHIN, TARO et KAI (12 plans d'une seconde chacun) et demande ZEPHYR façon Vegito : ce sera la prochaine livraison.

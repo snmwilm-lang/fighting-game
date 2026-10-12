@@ -1999,4 +1999,23 @@ test("ZEPHYR never does the splits: in every fight script, his thighs stay under
 	end
 end)
 
+-- A floor blow staged in the air keeps its legs only when the scene asks for it (ZEPHYR's axe
+-- kick from above, his FATAL FINISHER): otherwise the legs tuck as ever.
+T.test("an air-staged kick keeps its raised leg only with view.untucked", function()
+	local function hip(untucked)
+		local anim = newAnimator()
+		local other = { state = "Idle", x = 3, y = 0, vx = 0, vy = 0, facing = -1, hitstop = 0, combo = 0 }
+		local pose
+		for t = 0, 30 do
+			local view = { state = "Attack", move = "ZephyrAxe", moveFrame = MoveData.Moves.ZephyrAxe.startup, x = 0, y = 6, vx = 0, vy = 0,
+				facing = 1, hitstop = 0, combo = 0, kit = "ZEPHYR", untucked = untucked }
+			pose = anim:step(view, other, 1 / 60, t / 60, 60, true)
+		end
+		return pose.RightHip[1]
+	end
+	local raised, tucked = hip(true), hip(nil)
+	expect(raised > 100, string.format("the axe kick's leg is not raised in the air (%.0f°)", raised))
+	expect(math.abs(raised - tucked) > 15, string.format("the tuck no longer folds an air-staged floor blow (%.0f° / %.0f°)", raised, tucked))
+end)
+
 T.finish()

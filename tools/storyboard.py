@@ -48,6 +48,22 @@ def parse(path):
             frames[-1]['overlay'] = {'desat': float(f[1]), 'blur': float(f[2]), 'fp': int(f[3]), 'line': float(f[4]),
                 'open': float(f[5]), 'join': float(f[6]), 'angle': float(f[7]), 'color': hexc(f[8]), 'ko': int(f[9]),
                 'sub': f[10].replace('_', ' ') if len(f) > 10 else ''}
+        elif f[0] == 'TINT' and frames:
+            frames[-1]['tint'] = (hexc(f[1]), float(f[2]))
+        elif f[0] == 'WHITE' and frames:
+            frames[-1]['white'] = float(f[1])
+        elif f[0] == 'KOCARD' and frames:
+            frames[-1]['kocard'] = (hexc(f[1]), None if f[2] == '-' else hexc(f[2]))
+        elif f[0] == 'LETTERS' and frames:
+            frames[-1]['letters'] = ['' if x == '-' else x for x in f[1:3]]
+        elif f[0] == 'LETTERAT' and frames:
+            n = list(map(float, f[1:6]))
+            frames[-1]['letterat'] = ((n[0], n[1]), (n[2], n[3]), n[4])
+        elif f[0] == 'SPLITONLY' and frames:
+            frames[-1]['splitonly'] = (int(f[1]), int(f[2]))
+        elif f[0] == 'SPLITVIEW' and frames:
+            n = list(map(float, f[2:11]))
+            frames[-1].setdefault('splitviews', {})[int(f[1])] = {'fov': n[0], 'roll': n[1], 'cam': (n[2:5], n[5:8])}
         elif f[0] == 'CAPTION' and frames:
             frames[-1]['caption'] = {'text': f[1].replace('_', ' '), 'age': int(f[2]), 'color': hexc(f[3]), 'fade': float(f[4])}
         elif f[0] == 'MATTER' and frames:
@@ -403,6 +419,12 @@ def render_frame(fr, label):
             r0 = 0.55 * W
             d.line([(W/2 + math.cos(an)*r0, H/2 + math.sin(an)*r0*0.6), (W/2 + math.cos(an)*W, H/2 + math.sin(an)*W*0.6)],
                    fill=(255,255,255,90), width=2)
+    if fr.get('tint'):
+        # a night tint: the colour over the scene, darker
+        col, amt = fr['tint']
+        img = Image.blend(img, Image.new('RGB', (W, H), col), 0.45 * amt)
+        img = Image.blend(img, Image.new('RGB', (W, H), (0, 0, 0)), 0.25 * amt)
+        d = ImageDraw.Draw(img, 'RGBA')
     ov = fr.get('overlay')
     if ov:
         if ov['desat'] > 0:
@@ -411,13 +433,41 @@ def render_frame(fr, label):
             from PIL import ImageFilter
             img = img.filter(ImageFilter.GaussianBlur(radius=ov['blur'] * W / 120))
         if ov['line'] >= 0:
-            img = split_screen(img, ov)
+            halves = None
+            if fr.get('splitviews') and (ov['open'] > 0.001 or ov['join'] > 0.001):
+                # each half its own shot (SHIN behind the K, the target behind the O)
+                halves = []
+                for side in (1, 2):
+                    sv = fr['splitviews'].get(side)
+                    copy = dict(fr)
+                    for k in ('overlay', 'splitviews', 'caption', 'kocard', 'white'): copy.pop(k, None)
+                    if sv: copy['cam'], copy['fov'], copy['roll'] = sv['cam'], sv['fov'], sv['roll']
+                    only = fr.get('splitonly')
+                    if only and only[side - 1]: copy['parts'] = [p for p in fr['parts'] if p[0] == only[side - 1]]
+                    halves.append(render_frame(copy, ''))
+            img = split_screen(img, ov, halves, fr.get('letters'), fr.get('letterat'))
         d = ImageDraw.Draw(img, 'RGBA')
+        if fr.get('white'):
+            img = Image.blend(img, Image.new('RGB', (W, H), (255, 255, 255)), min(1, fr['white']))
+            d = ImageDraw.Draw(img, 'RGBA')
+        if fr.get('kocard'):
+            # the K.O. card: the whole screen one colour, a splash behind the letters
+            bg, splash = fr['kocard']
+            d.rectangle([0, 0, W, H], fill=bg + (255,))
+            if splash:
+                for i in range(3):
+                    a = math.radians(-18 + (i - 1) * 9)
+                    cx_, cy_, L_, T_ = W * (0.5 + (i - 1) * 0.05), H * (0.45 + (i - 1) * 0.04), W * (0.45 - abs(i - 1) * 0.1), H * (0.025 - abs(i - 1) * 0.007)
+                    dx, dy, nx_, ny_ = math.cos(a) * L_, math.sin(a) * L_, -math.sin(a) * T_, math.cos(a) * T_
+                    d.polygon([(cx_ - dx - nx_, cy_ - dy - ny_), (cx_ + dx - nx_, cy_ + dy - ny_), (cx_ + dx + nx_, cy_ + dy + ny_), (cx_ - dx + nx_, cy_ - dy + ny_)], fill=splash + (255,))
+                for i in range(4, 10):
+                    px_, py_ = W * (0.5 + math.cos(i * 1.7) * 0.32), H * (0.45 + math.sin(i * 1.3) * 0.28)
+                    d.ellipse([px_ - 4, py_ - 4, px_ + 4, py_ + 4], fill=splash + (255,))
         if ov['ko'] >= 0:
             big, small = font(int(H * 0.34)), font(int(H * 0.07))
             age = ov['ko']
             s_ = 1 + max(0, 6 - age) * 0.12
-            settle = min(1, max(0, (age - 40) / 20))   # (after its slam it rises and shrinks: the scene reads)
+            settle = 0 if fr.get('kocard') else min(1, max(0, (age - 40) / 20))   # (after its slam it rises and shrinks: the scene reads)
             size = 0.34 - 0.18 * settle
             y = H * (0.42 - 0.22 * settle)
             draw_center(d, 'K.O.', W/2, y, font(int(H * size * s_)), (255,255,255), ov['color'])
@@ -452,10 +502,12 @@ def draw_center(d, text, x, y, fnt, fill, stroke):
 # SHIN's FINAL DIVISION: the image cut along a line (angle in degrees, the line drawn `line` of
 # the way), the halves slid apart along it (`open`), K in one, O in the other; `join` brings
 # the letters together into K.O.
-def split_screen(img, ov):
+def split_screen(img, ov, halves=None, letters=None, letterat=None):
+    # (the angle turns clockwise on the screen, as a Roblox Rotation: the line travels along u,
+    # the first half lies on its left-hand side n, the second on the other)
     an = math.radians(ov['angle'])
-    ux, uy = math.cos(an), -math.sin(an)          # along the line (screen space, y down)
-    nx, ny = -uy, ux                               # across it
+    ux, uy = math.cos(an), math.sin(an)            # along the line (screen space, y down)
+    nx, ny = -uy, ux                               # toward the first half
     cx, cy = W / 2, H / 2
     mask = Image.new('L', (W, H), 0)
     md = ImageDraw.Draw(mask)
@@ -463,21 +515,26 @@ def split_screen(img, ov):
     md.polygon([(cx - ux*far, cy - uy*far), (cx + ux*far, cy + uy*far),
                 (cx + ux*far + nx*far, cy + uy*far + ny*far), (cx - ux*far + nx*far, cy - uy*far + ny*far)], fill=255)
     out = img.copy()
-    if ov['open'] > 0.001:
-        shift = ov['open'] * W * 0.07
-        a = img.transform(img.size, Image.AFFINE, (1, 0, ux*shift, 0, 1, uy*shift))
-        b = img.transform(img.size, Image.AFFINE, (1, 0, -ux*shift, 0, 1, -uy*shift))
+    if ov['open'] > 0.001 or halves:
+        shift = 0 if halves else ov['open'] * W * 0.07
+        src_a, src_b = (halves[0], halves[1]) if halves else (img, img)
+        a = src_a.transform(img.size, Image.AFFINE, (1, 0, ux*shift, 0, 1, uy*shift))
+        b = src_b.transform(img.size, Image.AFFINE, (1, 0, -ux*shift, 0, 1, -uy*shift))
         out = Image.composite(a, b, mask)
     d = ImageDraw.Draw(out, 'RGBA')
     if ov['open'] > 0.001 or ov['join'] > 0.001:
-        gap = ov['open'] * W * 0.015
+        gap = ov['open'] * W * (0.008 if halves else 0.015)
         d.line([(cx - ux*far, cy - uy*far), (cx + ux*far, cy + uy*far)], fill=(8,8,10,255), width=max(2, int(gap*2)))
         jn = ov['join']
-        fk, fo = font(int(H * (0.55 - 0.25*jn))), font(int(H * (0.55 - 0.25*jn)))
-        spread = W * (0.2 - 0.12 * jn)
-        draw_center(d, 'K', cx - spread + nx*H*0.12*(1-jn), cy - ny*H*0.12*(1-jn) + H*0.02, fk, (255,255,255,220), ov['color'])
-        draw_center(d, 'O', cx + spread - nx*H*0.12*(1-jn), cy + ny*H*0.12*(1-jn) + H*0.02, fo, (255,255,255,220), ov['color'])
-        if jn > 0.95: draw_center(d, '.', cx, cy + H*0.08, fk, (255,255,255,220), ov['color'])
+        (k_at, o_at, size) = letterat or ((0.3, 0.36), (0.7, 0.64), 0.4)
+        fk = font(int(H * size * (1 - 0.3*jn)))
+        lk, lo = (letters or ['K', 'O'])[0], (letters or ['K', 'O'])[1]
+        # (apart, each in its half; joined, side by side in the middle: K.O.)
+        kx, ky = k_at[0] + (0.42 - k_at[0]) * jn, k_at[1] + (0.5 - k_at[1]) * jn
+        ox, oy = o_at[0] + (0.58 - o_at[0]) * jn, o_at[1] + (0.5 - o_at[1]) * jn
+        if lk: draw_center(d, lk, kx * W, ky * H, fk, (255,255,255,230), ov['color'])
+        if lo: draw_center(d, lo, ox * W, oy * H, fk, (255,255,255,230), ov['color'])
+        if jn > 0.95: draw_center(d, '.', cx, cy + H*0.08, fk, (255,255,255,230), ov['color'])
     t = max(0, min(1, ov['line']))
     if t > 0:
         a0 = (cx - ux*W*0.75, cy - uy*W*0.75)

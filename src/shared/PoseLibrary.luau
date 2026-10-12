@@ -246,8 +246,8 @@ Poses.StandTall = blind(feet({
 -- Back turned on the fallen opponent, arms crossed.
 Poses.ArmsCrossed = blind(feet({
 	Root = { 0, 0, 0, -0.05, 0 }, Waist = { 6, 0, 0 }, Neck = { -8, -25, 0 },
-	LeftShoulder = { 62, 0, 38 }, LeftElbow = { 118, 0, 0 },
-	RightShoulder = { 58, 0, -38 }, RightElbow = { 122, 0, 0 },
+	LeftShoulder = { 22, -70, -10 }, LeftElbow = { 108, 0, 0 },
+	RightShoulder = { 22, 70, 10 }, RightElbow = { 108, 0, 0 },
 }, -0.2, 0.25, 0, 0, 10))
 -- Super flash: kiai, fists pulled back to the hips (elbows behind), chest out.
 Poses.Kiai = blind(feet({

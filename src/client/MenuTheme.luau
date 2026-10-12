@@ -49,9 +49,9 @@ function Theme.rule(parent, position, size, color, transparency)
 		BackgroundColor3 = color or Theme.LINE, BackgroundTransparency = transparency or 0, ZIndex = parent.ZIndex }, parent)
 end
 
--- (0.25.1, Wilhem: « le menu moins chargé, moins d'effets mobile, comme dans les jeux de
--- combat »: the decorative speed lines are gone; the frame stays, empty, for the callers)
-Theme.speedLines = false
+-- (0.25.2, Wilhem: « trop sobre »: the speed lines are back, a fighting game's manga strokes;
+-- the navigation entries don't carry them any more, only the big cards and the GO button)
+Theme.speedLines = true
 function Theme.ink(parent, accent, strength)
 	local art = new("Frame", { Name = "Ink", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
 		ClipsDescendants = true, ZIndex = parent.ZIndex }, parent)
@@ -174,10 +174,12 @@ local function play(object, time, props, style, direction)
 end
 Theme.play = play
 
--- A page comes in: it slides a little from the right and settles; its cards follow one after
--- the other (a short stagger), each from slightly smaller.
-Theme.glints = false -- (the light sweeping the buttons: off, 0.25.1)
-Theme.cascade = false -- (the pages sliding in and their cards one after the other: off, 0.25.1)
+-- A page comes in: a short, sharp slide from the right, like a fighting game's panels (0.25.2:
+-- 0.18 s, no overshoot). The mobile-game touches stay off (0.25.1, Wilhem: « moins d'effets
+-- mobile », i.e. the mobile games' style): no light sweeping every button, no cards popping in
+-- one after the other from smaller, no springy windows.
+Theme.glints = false
+Theme.cascade = false
 function Theme.enter(page)
 	if not page then return end
 	local base = page:GetAttribute("BasePosition")
@@ -185,9 +187,10 @@ function Theme.enter(page)
 		base = page.Position
 		page:SetAttribute("BasePosition", base)
 	end
-	if Theme.reduced or not Theme.cascade then page.Position = base; return end
-	page.Position = base + UDim2.fromOffset(28, 0)
-	play(page, 0.32, { Position = base })
+	if Theme.reduced then page.Position = base; return end
+	page.Position = base + UDim2.fromOffset(44, 0)
+	play(page, 0.18, { Position = base })
+	if not Theme.cascade then return end
 	local k = 0
 	for _, child in page:GetChildren() do
 		if child:IsA("GuiButton") and child.Visible and k < 12 then
@@ -199,14 +202,18 @@ function Theme.enter(page)
 	end
 end
 
--- A window opens: its shade fades in, the window pops from smaller with a little overshoot and
--- rises into place.
+-- A window opens: its shade fades in, the window drops into place (a short slide, no spring).
 function Theme.popIn(shade, box, shadeTransparency)
 	if Theme.reduced then return end
 	local target = shadeTransparency or shade.BackgroundTransparency
 	shade.BackgroundTransparency = 1
 	play(shade, 0.12, { BackgroundTransparency = target })
-	if not Theme.cascade then return end -- (0.25.1: the window is simply there, no spring)
+	if not Theme.cascade then
+		local base = box.Position
+		box.Position = base + UDim2.fromOffset(0, -12)
+		play(box, 0.16, { Position = base })
+		return
+	end
 	local scale = box:FindFirstChild("PopScale") or Theme.new("UIScale", { Name = "PopScale" }, box)
 	scale.Scale = 0.9
 	play(scale, 0.34, { Scale = 1 }, Enum.EasingStyle.Back)

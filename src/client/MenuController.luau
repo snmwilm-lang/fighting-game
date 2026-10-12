@@ -876,24 +876,23 @@ end
 -- slowly in red and gold, and three wide rays of light drifting across, behind every panel.
 -- Off with REDUCED EFFECTS (Theme.reduced) and while the menu is hidden.
 function MenuController:buildAmbience(gui)
-	-- (0.25.1, Wilhem: « le menu moins chargé, moins d'effets mobile »: no drifting rays nor
-	-- embers over the lobby any more; the fighter on its stage is the backdrop)
-	if not MenuController.AMBIENCE then return end
+	-- (0.25.1 had removed it; 0.25.2, Wilhem: « trop sobre »: it is back, calmer: two rays,
+	-- fourteen small embers, slower, fainter, the way a fighting game's title screen breathes)
 	local layer = new("Frame", { Name = "Ambience", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 0 }, gui)
 	local rays = {}
-	for i = 1, 3 do
-		local ray = new("Frame", { Name = "Ray", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0.18, 0, 2.2, 0), Rotation = 24,
-			BackgroundColor3 = if i == 2 then Theme.GOLD else Theme.RED, BackgroundTransparency = 0.93, BorderSizePixel = 0, ZIndex = 0 }, layer)
+	for i = 1, 2 do
+		local ray = new("Frame", { Name = "Ray", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0.16, 0, 2.2, 0), Rotation = 24,
+			BackgroundColor3 = if i == 2 then Theme.GOLD else Theme.RED, BackgroundTransparency = 0.94, BorderSizePixel = 0, ZIndex = 0 }, layer)
 		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0),
 			NumberSequenceKeypoint.new(1, 1) }) }, ray)
-		rays[i] = { frame = ray, phase = i * 0.37, speed = 0.018 + i * 0.006 }
+		rays[i] = { frame = ray, phase = i * 0.5, speed = 0.012 + i * 0.004 }
 	end
 	local embers = {}
-	for i = 1, 22 do
-		local size = 4 + (i * 7) % 6
+	for i = 1, 14 do
+		local size = 3 + (i * 7) % 4
 		local ember = new("Frame", { Name = "Ember", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(size, size), Rotation = 45,
 			BackgroundColor3 = if i % 3 == 0 then Theme.GOLD else Theme.RED, BorderSizePixel = 0, ZIndex = 0 }, layer)
-		embers[i] = { frame = ember, x = (i * 0.618) % 1, t = (i * 0.29) % 1, speed = 0.035 + (i % 5) * 0.012, sway = 0.01 + (i % 4) * 0.006 }
+		embers[i] = { frame = ember, x = (i * 0.618) % 1, t = (i * 0.29) % 1, speed = 0.025 + (i % 5) * 0.008, sway = 0.008 + (i % 4) * 0.005 }
 	end
 	RunService.RenderStepped:Connect(function(dt)
 		local on = gui.Enabled and not Theme.reduced
@@ -908,7 +907,7 @@ function MenuController:buildAmbience(gui)
 			e.t = (e.t + dt * e.speed) % 1
 			local f = e.frame
 			f.Position = UDim2.fromScale(e.x + math.sin((e.t * 6 + i) * 1.3) * e.sway, 1.05 - e.t * 1.15)
-			f.BackgroundTransparency = 0.35 + 0.65 * math.abs(e.t * 2 - 1)
+			f.BackgroundTransparency = 0.5 + 0.5 * math.abs(e.t * 2 - 1)
 			f.Rotation = 45 + e.t * 180
 		end
 	end)
@@ -928,33 +927,95 @@ function MenuController:buildNav()
 		{ "shop", "SHOP", "GAME PASSES · COSMETICS · COINS", "店" },
 		{ "settings", "SETTINGS", "EFFECTS · SOUND · MUSIC · LANGUAGE", "設" },
 	}
-	-- (0.25.1, Wilhem: « le menu trop chargé »: a straight list, like Street Fighter's and
-	-- Tekken's: one line per entry, the one reached in red, and ONE line under the list says
-	-- what it holds; no tilt, no kanji, no subtitle on every entry)
-	local step = 54
-	local help = label(nav, { Name = "NavHelp", Position = UDim2.fromOffset(0, #entries * step + 8), Size = UDim2.fromOffset(360, 18),
-		Font = BODY_FONT, TextSize = 12, Text = "", TextColor3 = Theme.MUTED, TextTruncate = Enum.TextTruncate.AtEnd })
+	-- (0.25.1, Wilhem: « le menu trop chargé »: no subtitle on every entry, ONE line under the
+	-- list says what the entry reached holds. 0.25.2, « trop sobre, j'ai dit moins mobile pas
+	-- nul »: the fighting games' character back: the entries leaning, numbered 01-08, their
+	-- kanji faint at the end, and ONE cursor that slides from entry to entry (Street Fighter 6,
+	-- Tekken 8); a dark band slashed in red behind the list)
+	-- (cut under the top bar: a clipping frame, not rotated, around the rotated band)
+	local slashClip = new("Frame", { Name = "NavSlash", Position = UDim2.fromOffset(0, 78), Size = UDim2.new(0, 640, 1, -78),
+		BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 0 }, self.root)
+	local slash = new("Frame", { Name = "Band", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 196, 0.5, 0),
+		Size = UDim2.fromOffset(540, 1400), Rotation = 10, BackgroundColor3 = Theme.INK, BorderSizePixel = 0, ZIndex = 0 }, slashClip)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(0.75, 0.5),
+		NumberSequenceKeypoint.new(1, 0.62) }) }, slash)
+	new("Frame", { Name = "Stripe", Position = UDim2.new(1, -4, 0, 0), Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = Theme.RED,
+		BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 0 }, slash)
+	new("Frame", { Name = "Thin", Position = UDim2.new(1, 8, 0, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = Theme.RED,
+		BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 0 }, slash)
+	self.navSlash = slashClip
+	local step = 60
+	local tilt = -1.4
+	local helpBox = new("Frame", { Name = "NavHelpBox", Position = UDim2.fromOffset(0, #entries * step + 4), Size = UDim2.fromOffset(360, 26),
+		BackgroundTransparency = 1 }, nav)
+	Theme.rule(helpBox, UDim2.fromOffset(0, 4), UDim2.fromOffset(4, 18), Theme.RED)
+	Theme.rule(helpBox, UDim2.fromOffset(8, 4), UDim2.fromOffset(2, 18), Theme.RED, 0.5)
+	local help = label(helpBox, { Name = "NavHelp", Position = UDim2.fromOffset(18, 0), Size = UDim2.fromOffset(342, 26),
+		Font = BODY_FONT, TextSize = 12, Text = "", TextColor3 = Theme.WHITE, TextTruncate = Enum.TextTruncate.AtEnd })
 	self.navHelp = help
+	-- THE CURSOR: a white frame with a red tab, gliding to the entry reached (pointer or pad),
+	-- resting on the open page's entry otherwise.
+	local cursor = new("Frame", { Name = "NavCursor", Size = UDim2.fromOffset(360, step - 10), Rotation = tilt, BackgroundTransparency = 1,
+		ZIndex = 4 }, nav)
+	pcall(function() cursor.Interactable = false end)
+	Theme.edge(cursor, Theme.WHITE, 2)
+	new("Frame", { Name = "Tab", Position = UDim2.new(1, 4, 0, 0), Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = Theme.RED,
+		BorderSizePixel = 0, ZIndex = 4 }, cursor)
+	local hovered
+	local function place(item, lean)
+		local target = item.base + UDim2.fromOffset(lean, 0)
+		if Theme.reduced then cursor.Position = target else Theme.play(cursor, 0.14, { Position = target }) end
+	end
+	self.navRest = function()
+		if hovered then return end
+		local tab = if self.page == "solo" or self.page == "online" then "home" else self.page
+		local current = self.navItems[tab]
+		cursor.Visible = current ~= nil
+		if current then place(current, 0) end
+	end
 	for i, entry in entries do
-		local b = new("TextButton", { Name = "Nav_" .. entry[1], Position = UDim2.fromOffset(0, (i - 1) * step),
-			Size = UDim2.fromOffset(360, step - 8), BackgroundColor3 = Color3.new(1, 1, 1),
-			AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, nav)
+		local base = UDim2.fromOffset(0, (i - 1) * step)
+		local b = new("TextButton", { Name = "Nav_" .. entry[1], Position = base, Size = UDim2.fromOffset(360, step - 10), Rotation = tilt,
+			BackgroundColor3 = Color3.new(1, 1, 1), AutoButtonColor = false, Text = "", BorderSizePixel = 0 }, nav)
 		local wash = gradient(b, Theme.RAISED, Theme.INK, 0)
 		local edge = Theme.edge(b)
 		local rail = Theme.rule(b, UDim2.fromOffset(0, 0), UDim2.new(0, 4, 1, 0), Theme.RED)
-		-- (kept for the code that lights the active entry; nothing drawn)
-		local glyph = label(b, { Size = UDim2.fromOffset(0, 0), Text = "", Visible = false })
-		label(b, { Position = UDim2.fromOffset(20, 0), Size = UDim2.new(1, -60, 1, 0), Font = DISPLAY,
-			TextSize = 28, Text = entry[2], TextColor3 = Theme.WHITE })
+		rail.Visible = false
+		local glyph = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -36, 0.5, 2), Size = UDim2.fromOffset(60, 60),
+			Font = UI_FONT, TextSize = 46, Text = entry[4], TextColor3 = Theme.MUTED, TextTransparency = 0.87,
+			TextXAlignment = Enum.TextXAlignment.Center, Rotation = -6 })
+		local index = label(b, { Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0, 30, 1, 0), Font = UI_FONT, TextSize = 13,
+			Text = string.format("%02d", i), TextColor3 = Theme.RED })
+		label(b, { Position = UDim2.fromOffset(46, 0), Size = UDim2.new(1, -100, 1, 0), Font = DISPLAY,
+			TextSize = 30, Text = entry[2], TextColor3 = Theme.WHITE })
+		-- (kept for the code that lights the active entry; the line under the list says it now)
 		local subtitle = label(b, { Size = UDim2.fromOffset(0, 0), Text = "", Visible = false })
-		label(b, { Position = UDim2.new(1, -30, 0, 4), Size = UDim2.fromOffset(20, 38), Font = BODY_FONT,
-			TextSize = 26, Text = "›", TextColor3 = Theme.MUTED })
-		local item = { button = b, wash = wash, edge = edge, rail = rail, glyph = glyph, subtitle = subtitle, active = false, help = entry[3] }
+		local arrow = label(b, { Position = UDim2.new(1, -28, 0, 4), Size = UDim2.fromOffset(20, 38), Font = UI_FONT,
+			TextSize = 24, Text = "›", TextColor3 = Theme.MUTED })
+		local item = { button = b, wash = wash, edge = edge, rail = rail, glyph = glyph, subtitle = subtitle, index = index, arrow = arrow,
+			base = base, active = false, help = entry[3] }
 		self.navItems[entry[1]] = item
 		local function hover(on)
+			if on then hovered = item elseif hovered == item then hovered = nil end
 			edge.Color = if item.active or on then Theme.RED else Theme.LINE
 			rail.Visible = item.active or on
-			if on then help.Text = entry[3] end
+			arrow.TextColor3 = if on or item.active then Theme.WHITE else Theme.MUTED
+			-- (it leans out toward the pages, its kanji comes forward)
+			local lean = if on then 12 else 0
+			if Theme.reduced then b.Position = base + UDim2.fromOffset(lean, 0)
+			else Theme.play(b, 0.14, { Position = base + UDim2.fromOffset(lean, 0) }) end
+			Theme.play(glyph, 0.18, { Position = if on then UDim2.new(1, -42, 0.5, 2) else UDim2.new(1, -36, 0.5, 2),
+				TextTransparency = if on then 0.55 elseif item.active then 0.68 else 0.87 })
+			if on then
+				help.Text = entry[3]
+				cursor.Visible = true
+				place(item, lean)
+			elseif not hovered then
+				local tab = if self.page == "solo" or self.page == "online" then "home" else self.page
+				local current = self.navItems[tab]
+				help.Text = if current then current.help or "" else ""
+				self.navRest()
+			end
 		end
 		b.MouseEnter:Connect(function() hover(true) end)
 		b.MouseLeave:Connect(function() hover(false) end)
@@ -980,7 +1041,7 @@ local function card(parent, props)
 	local glyphSize = math.min(props.size.Y.Offset - 24, 148)
 	local glyph = label(b, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 4), Size = UDim2.fromOffset(glyphSize, glyphSize),
 		Font = UI_FONT, TextSize = math.floor(glyphSize * 0.85), Text = props.kanji, TextColor3 = props.color, TextTransparency = 0.85,
-		TextXAlignment = Enum.TextXAlignment.Center, Rotation = -8, Visible = false }) -- (0.25.1: no giant kanji on the cards)
+		TextXAlignment = Enum.TextXAlignment.Center, Rotation = -8 }) -- (0.25.2: the kanji back, faint, as in 0.25.0)
 	-- (a band of light that sweeps the card when it is reached)
 	local glint = new("Frame", { Name = "Glint", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.WHITE, BorderSizePixel = 0,
 		Visible = false, ZIndex = 3 }, b)
@@ -2445,6 +2506,7 @@ function MenuController:open(page)
 	self.lastEntered = page
 	local overlay = page == "select" or page == "search"
 	self.nav.Visible = not overlay
+	if self.navSlash then self.navSlash.Visible = not overlay end
 	-- (0.25.1: the news carousel and the fighters' strip are gone from the lobby: the news are
 	-- a link in the top bar, the fighters have their page)
 	self.bottomNews.Visible = false
@@ -2471,7 +2533,10 @@ function MenuController:open(page)
 		entry.glyph.TextColor3 = if active then Theme.INK else Theme.MUTED
 		entry.glyph.TextTransparency = if active then 0.68 else 0.87
 		entry.subtitle.TextColor3 = if active then Theme.WHITE else Theme.MUTED
+		if entry.index then entry.index.TextColor3 = if active then Theme.WHITE else Theme.RED end
+		if entry.arrow then entry.arrow.TextColor3 = if active then Theme.WHITE else Theme.MUTED end
 	end
+	if self.navRest then self.navRest() end
 	if page == "select" then
 		self.selectTitle.Text = self.mode.name .. " · PICK " .. (if self.mode.team then "YOUR TEAM" else "YOUR FIGHTER")
 		self:refreshSelect()

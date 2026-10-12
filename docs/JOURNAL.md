@@ -1,5 +1,37 @@
 # Journal du projet — état à transmettre
 
+## Version 0.25.2 — 12 octobre 2026 · UN MENU DE JEU DE COMBAT (NI MOBILE, NI VIDE)
+
+Wilhem après 0.25.1 : « le menu est devenu beaucoup trop sobre, j'ai dit moins mobile, pas nul » ; « quand je dis mobile, c'est jeux mobile ».
+Compris : retirer le style des jeux mobiles (gacha), garder le caractère d'un vrai jeu de combat (Street Fighter 6, Tekken 8, Guilty Gear Strive).
+
+**Restent retirés (le style jeu mobile)**
+- le reflet qui balaye chaque bouton, le grossissement au survol ;
+- les cartes qui arrivent une par une en grossissant, les fenêtres à ressort ;
+- le carrousel d'actus et la bande de persos en bas de l'accueil, les onglets du haut qui doublaient la liste.
+
+**Revient, en plus net**
+- **Fond vivant**, plus calme : 2 rayons (au lieu de 3) et 14 petites braises (au lieu de 22), plus lentes et plus transparentes. Coupé par EFFETS RÉDUITS.
+- **Bande sombre tranchée de rouge** derrière la liste de gauche : une diagonale à 10°, un trait rouge épais et un fin, coupée sous la barre du haut.
+- **Navigation** :
+  - entrées de nouveau penchées, numérotées 01 à 08 (en rouge, en blanc sur l'entrée ouverte) ;
+  - kanji discret au bout de chaque entrée, qui avance et s'éclaire au survol ;
+  - **un curseur** (cadre blanc + languette rouge) qui glisse d'entrée en entrée en 0,14 s, à la souris comme à la manette ; il revient sur la page ouverte quand on quitte la liste ;
+  - l'entrée survolée sort de 12 px vers les pages ;
+  - la ligne d'aide sous la liste garde le texte de l'entrée survolée, marquée de deux traits rouges.
+- **Cartes de l'accueil** : les kanji reviennent (discrets, ils avancent au survol), les traits de vitesse aussi (pas sur la navigation).
+- **Transitions** : une page arrive d'un coup sec (44 px en 0,18 s, sans rebond) ; une fenêtre descend en place en 0,16 s (sans ressort).
+
+**Fichiers** : `src/client/MenuController.luau`, `src/client/MenuTheme.luau`, `src/shared/CombatConfig.luau` (version).
+
+**Tests** : compilation des deux fichiers, Lobby 46/46 (aucun texte nouveau à traduire : les numéros et les kanji ne passent pas par la traduction). Non vérifié dans Studio.
+
+**Problèmes ouverts**
+- Rendu du menu jugé sur un schéma de la colonne de gauche, pas en jeu.
+- Les chopes : Wilhem en veut **une unique par perso** (aujourd'hui 6 styles partagés) ; c'est la prochaine livraison.
+
+**Prochaine étape** : une chope propre à chacun des 22 persos.
+
 ## Version 0.25.1 — 12 octobre 2026 · PLUS DE RECUL FANTÔME, VRAIES CHOPES, FATAL LISIBLE, MENU ÉPURÉ
 
 Retours de Wilhem après le test :

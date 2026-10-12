@@ -5,7 +5,7 @@
 - Le code est synchronisé par Rojo : `src/shared` → ReplicatedStorage.Shared,
   `src/server` → ServerScriptService.Server, `src/client` → StarterPlayerScripts.Client.
   Ne jamais committer de `.rbxlx`.
-- `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`,
+- `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`, `Finishers.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
   `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Prediction.luau`, `Economy.luau`, `Quests.luau`, `StoreConfig.luau`, `Store.luau`, `Tutorial.luau`, `UIArt.luau`, `Wire.luau` et `WeaponFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
@@ -33,7 +33,8 @@
   celle de KAZAN avec `luau tests/KazanGuard.luau -a all`. Un duel CPU complet (bosses compris) : `luau tests/BossDuel.luau -a KIT1 KIT2 [n] [niveau]`.
 - Cinématiques : composer les plans avec `frameOn` (angle, plongée, part de l'écran), jamais
   un décalage de caméra à la main ; vérifier le rendu avec le storyboard
-  (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`).
+  (`luau tests/Storyboard.luau -a KIT Rush|Awaken|Gate`, puis `python3 tools/storyboard.py`) ;
+  un FATAL FINISHER (`Finishers.luau`) : `luau tests/Storyboard.luau -a KIT Fatal - 1 20`.
 - `src/server/Lobby.luau` (règles du hub), `src/server/Matchmaker.luau` (recherche, Elo) et
   `src/shared/GameModes.luau` (modes du menu) `src/server/SaveQueue.luau` (quand écrire les profils) `src/server/GlobalQueue.luau` (CLASSÉ entre serveurs, verrou de session) et `src/server/AntiCheat.luau` (suspicion, anti-farm), `src/server/DevAccess.luau` (accès développeur), `src/server/Admin.luau` (commandes du propriétaire dans le chat) et `src/server/Champions.luau` (champion de la semaine) restent purs aussi. La boutique (Game Pass, Developer Products, cosmétiques) : tous les IDs et prix dans `src/shared/StoreConfig.luau` (0 = pas encore créé, jamais d'ID inventé), les règles dans `src/shared/Store.luau`, le guide dans `docs/MONETISATION.md` ; aucun Game Pass ne donne d'avantage en combat (tests : `Lobby.test.luau`). Après une retouche de
   `RigBuilder.luau` (corps, tenues), lancer `python3 tools/rigcheck.py check` (et

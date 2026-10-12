@@ -41,8 +41,12 @@ play(kit, kind, style, hp, 0, function(info)
 		if frame.title then frame.title.text else "-"))
 	print("CAM " .. table.concat({ fmt(info.cam[1]), fmt(info.cam[2]), fmt(info.cam[3]),
 		fmt(info.target[1]), fmt(info.target[2]), fmt(info.target[3]) }, " "))
+	-- (a FATAL FINISHER's direction: a fighter not drawn, the eyes of the other as the camera)
+	local over = frame.overlay or {}
 	for slot = 1, 2 do
+		if info.views[slot].hidden then continue end
 		for name, part in info.parts[slot] do
+			if over.firstPerson == slot and (name == "Head" or name:find("Arm") or name:find("Hand")) then continue end
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s", slot, name, table.concat(out, " "),
@@ -54,6 +58,29 @@ play(kit, kind, style, hp, 0, function(info)
 			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),
 				fmt(piece.size[1]), fmt(piece.size[2]), fmt(piece.size[3]), piece.color))
+		end
+	end
+	-- The finishers' light (frame.shapes) and their overlay (the split, the K.O., the blur...)
+	local function at(point)
+		if not point then return "0 0 0" end
+		if point.x then return string.format("%s %s %s", fmt(point.x), fmt(point.y), fmt(point.z or 0)) end
+		local x, y, z = Kit.resolve(point, info.parts)
+		return string.format("%s %s %s", fmt(x), fmt(y), fmt(z))
+	end
+	for _, sh in frame.shapes or {} do
+		print(string.format("SHAPE %s %s %s %s %s %s %s %s %s", sh.kind, at(sh.pos or sh.from), at(sh.to or sh.normal),
+			fmt(sh.radius or 0), fmt(sh.width or 0), sh.color or "FFFFFF", fmt(sh.alpha or 0),
+			fmt(sh.core or sh.rings or sh.phase or 0), fmt(sh.count or 0)))
+	end
+	if frame.overlay then
+		local split = over.split or {}
+		local k = over.ko or {}
+		print(string.format("OVERLAY %s %s %d %s %s %s %s %s %d %s", fmt(over.desat or 0), fmt(over.blur or 0), over.firstPerson or 0,
+			fmt(split.line or -1), fmt(split.open or 0), fmt(split.join or 0), fmt(split.angle or 0), split.color or "FFFFFF",
+			k.age or -1, (k.sub or "-"):gsub(" ", "_")))
+		if over.caption then
+			print(string.format("CAPTION %s %d %s %s", (over.caption.text:gsub(" ", "_")), over.caption.age or 99, over.caption.color or "FFFFFF",
+				fmt(over.caption.fade or 0)))
 		end
 	end
 	-- DAICHA's matter this frame (a ball, a disc, a puddle, a wave)

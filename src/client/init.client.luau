@@ -57,6 +57,7 @@ player:GetAttributeChangedSignal("Map"):Connect(function()
 	stage:setArena(buildStage())
 end)
 local sounds = SoundController.new()
+cinematic.playSound = function(name, kit) sounds:cinematicSound(name, kit) end -- (the FATAL FINISHERS' sounds)
 local music = MusicController.new() -- the in-game music: real tracks from ReplicatedStorage › Audio › Music (docs/AUDIO.md)
 local hub = HubController.new(remotes:WaitForChild("Hub")) -- DÉFIER / ACCEPTER / INVITER UN AMI (1 contre 1)
 local language = LanguageController.new() -- SETTINGS › LANGUAGE (Auto / English / Français)
@@ -529,7 +530,7 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		end
 		if predicted then current.state, current.vx = predicted, vx end
 		-- Staging fields are rebuilt every frame by the cinematic director.
-		current.ghost, current.pose, current.z, current.lookDir = nil, nil, nil, nil
+		current.ghost, current.pose, current.z, current.lookDir, current.hidden = nil, nil, nil, nil, nil
 		local m = MoveData.Moves[state.move]
 		if m then
 			current.moveFrame = math.min(state.moveFrame + math.floor(ahead * Config.TickRate), MoveData.total(m))
@@ -593,12 +594,15 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 				rig.root.CFrame = CFrame.lookAt(pos, pos + Vector3.new(math.cos(heading), 0, math.sin(heading)))
 			end
 			rig.animation:update(current, displayed[3 - i], dt, now, hud.poseRate, cinematicActive)
-			-- Wake-up invincibility: the body blinks while it cannot be hit.
+			-- Wake-up invincibility: the body blinks while it cannot be hit. A FATAL FINISHER can
+			-- also leave a fighter out of the frame (SHIN between his cuts: view.hidden).
 			local blink = (current.wakeInvuln or 0) > 0 and not cinematicActive and math.floor(now * 20) % 2 == 0
-			if blink ~= (rig.blinking or false) then
-				rig.blinking = blink
+			local gone = current.hidden == true and cinematicActive
+			local look = if gone then 1 elseif blink then 0.6 else 0
+			if look ~= (rig.lookTransparency or 0) then
+				rig.lookTransparency, rig.blinking = look, blink
 				for _, part in rig.model:GetDescendants() do
-					if part:IsA("BasePart") or part:IsA("Decal") then part.LocalTransparencyModifier = if blink then 0.6 else 0 end
+					if part:IsA("BasePart") or part:IsA("Decal") then part.LocalTransparencyModifier = look end
 				end
 			end
 			previous[i] = { key = effects:update(i, current, rig, previous[i], now) }

@@ -25,6 +25,7 @@ local MoveData = require(Shared.MoveData)
 local CharacterData = require(Shared.CharacterData)
 local Director = require(Shared.CinematicDirector)
 local RigReader = require(Shared.RigReader)
+Director.useFinishers(require(Shared.Finishers)) -- (the FATAL FINISHERS' scenes)
 
 local CinematicController = {}
 
@@ -199,6 +200,29 @@ function CinematicController.new(config, hud, effects)
 		self.themeGrades[name] = cc
 	end
 	self.dof = new("DepthOfFieldEffect", { Name = "CinematicDoF", Enabled = false, FarIntensity = 0.65, NearIntensity = 0.35, InFocusRadius = 4 }, Lighting)
+	-- FATAL FINISHERS (Finishers.luau): the colour drained, a blur pulse, the K.O. written into
+	-- the scene, the 3D light of the shapes (a pool of parts), the screen split in two.
+	self.finisherBlur = new("BlurEffect", { Name = "FinisherBlur", Enabled = false, Size = 0 }, Lighting)
+	self.finisherDesat = new("ColorCorrectionEffect", { Name = "FinisherDesat", Enabled = false, Saturation = 0 }, Lighting)
+	self.koLabel = new("TextLabel", {
+		BackgroundTransparency = 1, Font = Enum.Font.Bangers, TextScaled = true, Text = "K.O.", TextColor3 = WHITE, Visible = false, ZIndex = 7,
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.7, 0.32),
+	}, gui)
+	self.koStroke = new("UIStroke", { Thickness = 6, Color = RED }, self.koLabel)
+	self.koScale = new("UIScale", {}, self.koLabel)
+	self.koSub = new("TextLabel", {
+		BackgroundTransparency = 1, Font = Enum.Font.Bangers, TextScaled = true, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 7,
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.66), Size = UDim2.fromScale(0.6, 0.07),
+	}, gui)
+	new("UIStroke", { Thickness = 3, Color = INK }, self.koSub)
+	-- a count slammed in at the side of the screen (RYUKEN's ten fists of rage)
+	self.captionLabel = new("TextLabel", {
+		BackgroundTransparency = 1, Font = Enum.Font.Bangers, TextScaled = true, Text = "", TextColor3 = WHITE, Visible = false, ZIndex = 7,
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.85, 0.5), Size = UDim2.fromScale(0.24, 0.3),
+	}, gui)
+	self.captionStroke = new("UIStroke", { Thickness = 5, Color = INK }, self.captionLabel)
+	self.captionScale = new("UIScale", {}, self.captionLabel)
+	self.shapePool, self.fpHidden = {}, {}
 	return self
 end
 
@@ -344,6 +368,7 @@ function CinematicController:finish()
 	self.props = {}
 	self:drawMatter(nil)
 	self.usesMatter, self.effects.hideOrb = false, false
+	self:clearFinisher()
 end
 
 -- DAICHA's black matter, staged every frame by the director (frame.matter): one shape per
@@ -538,6 +563,8 @@ function CinematicController:applyFx(frame)
 			elseif kind == "eclipse" then prop = fx:eclipse(vec(request.pos), color, request.scale or 1, request.life)
 			elseif kind == "smoke" then fx:smoke(vec(request.pos))
 			elseif kind == "matterBurst" then fx:matterBurst(vec(request.pos), color, request.scale or 1)
+			elseif kind == "sfx" then
+				if self.playSound then self.playSound(request.sound, self.kitOfAttacker) end
 			else prop = self:themed(kind, request, color or Color3.new(1, 1, 1))
 			end
 			if prop then table.insert(self.props, prop) end
@@ -609,6 +636,8 @@ function CinematicController:applyFrame(frame)
 	end
 	self:applyFx(frame)
 	self:drawMatter(frame.matter)
+	self.pendingShapes = frame.shapes -- (drawn after the rigs are placed: they hang on their parts)
+	self:applyOverlay(frame.overlay)
 	-- (DAICHA's scenes stage her matter themselves: her fighting sphere hides meanwhile)
 	if frame.matter then self.usesMatter = true end
 	self.effects.hideOrb = self.usesMatter == true
@@ -690,7 +719,8 @@ function CinematicController:update(world, views, dt, stale)
 		self:showDebug(cin.move .. (if cin.style then "/" .. cin.style else "") .. (if cin.finish then "/FINISH" else ""),
 			tick, cin.length)
 		-- (a FINAL FINISH is only certain once the blow landed: missed prompts can still undo it)
-		if cin.finish and tick >= MoveData.Cinematics[cin.move].FinalTick then self.finishEpoch = world.epoch end
+		if cin.finish and tick >= (cin.finalTick or MoveData.Cinematics[cin.move].FinalTick) then self.finishEpoch = world.epoch end
+		self.kitOfAttacker = cin.kit
 		ctx.cin, ctx.tick = cin, tick
 		local frame = Director.cinematic(ctx)
 		if frame then self:applyFrame(frame) end
@@ -710,6 +740,11 @@ local function resolve(point, rigs, views)
 	local rig = rigs[point.slot]
 	if rig then
 		local _, position = RigReader.part(rig.model, point.part)
+		if position and point.mid then
+			-- (between two parts: KAI's sphere between his hands)
+			local _, other = RigReader.part(rig.model, point.mid)
+			if other then position = (position + other) / 2 end
+		end
 		if position then return position + offset end
 	end
 	local v = views[point.slot]
@@ -723,7 +758,7 @@ function CinematicController:camera(dt, rigs, views)
 	local position, target = resolve(s.from, rigs, views), resolve(s.to, rigs, views)
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
-	local goal = CFrame.lookAt(position, target) * CFrame.Angles(0, 0, s.roll)
+	local goal = CFrame.lookAt(position, target) * CFrame.Angles(0, 0, s.roll * (if self.effects.reduced then 0.3 else 1))
 	if s.name ~= self.shot then
 		-- Anime-style hard cut between shots, with a tiny push-in afterwards.
 		self.shot, self.cameraCFrame, self.shotTime = s.name, goal, 0
@@ -731,7 +766,8 @@ function CinematicController:camera(dt, rigs, views)
 		self.cameraCFrame = self.cameraCFrame:Lerp(goal, 1 - math.exp(-14 * dt))
 	end
 	self.shotTime = (self.shotTime or 0) + dt
-	local push = self.cameraCFrame.LookVector * math.min(self.shotTime, 1.2) * 0.6
+	-- (a close-up hangs on a part a stud or two away: no push-in, it would enter the head)
+	local push = if s.close then Vector3.zero else self.cameraCFrame.LookVector * math.min(self.shotTime, 1.2) * 0.6
 	local shake = Vector3.zero
 	if (self.handheld or 0) > 0 then
 		local t = os.clock()
@@ -756,6 +792,9 @@ function CinematicController:camera(dt, rigs, views)
 	self.dof.Enabled = not self.effects.reduced
 	self.dof.FocusDistance = (camera.CFrame.Position - focus).Magnitude
 	self.dof.InFocusRadius = math.max(2.5, self.dof.FocusDistance * 0.18)
+	self:drawShapes(self.pendingShapes, rigs, views)
+	self:updateFirstPerson(rigs)
+	self:updateSplit(rigs, camera)
 end
 
 function CinematicController:drawSpeedLines()
@@ -770,6 +809,379 @@ function CinematicController:drawSpeedLines()
 		ray.BackgroundColor3 = if i % 3 == 0 then color else WHITE
 		ray.BackgroundTransparency = 0.25 + math.random() * 0.45
 	end
+end
+
+-- ===================================================================== FATAL FINISHERS
+-- (Finishers.luau stages them; here they are drawn. Everything is reset by clearFinisher.)
+
+local function hex(color, fallback)
+	return if color then Color3.fromHex(color) else (fallback or WHITE)
+end
+
+-- A neon part of the finishers' pool (made once, reused frame after frame).
+function CinematicController:shapePart(shape, material)
+	local p = Instance.new("Part")
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+	p.Material, p.Shape, p.Size, p.Name = material or Enum.Material.Neon, shape or Enum.PartType.Block, Vector3.one, "FinisherLight"
+	p.Parent = self.effects.folder
+	return p
+end
+
+-- One entry of the pool per shape of the frame, by its index: { kind, parts = {...}, light }.
+-- Parts are hidden (Transparency 1) rather than destroyed when a shape goes away.
+local RING_SEGMENTS = 22
+function CinematicController:drawShapes(list, rigs, views)
+	local pool = self.shapePool
+	local reduced = self.effects.reduced
+	local n = if list then #list else 0
+	for i = 1, math.max(n, #pool) do
+		local sh = list and list[i]
+		local entry = pool[i]
+		if entry and (not sh or entry.kind ~= sh.kind) then
+			for _, part in entry.parts do part.Transparency = 1 end
+			if entry.light then entry.light.Enabled = false end
+		end
+		if sh then
+			if not entry or entry.kind ~= sh.kind then
+				if entry then for _, part in entry.parts do part:Destroy() end end
+				entry = { kind = sh.kind, parts = {} }
+				pool[i] = entry
+			end
+			local color = hex(sh.color)
+			local parts = entry.parts
+			if sh.kind == "sphere" then
+				-- a white-hot core in a ball of the ki's colour, a halo around, a light
+				if not parts[1] then
+					parts[1], parts[2], parts[3] = self:shapePart(Enum.PartType.Ball), self:shapePart(Enum.PartType.Ball), self:shapePart(Enum.PartType.Ball)
+					entry.light = Instance.new("PointLight")
+					entry.light.Parent = parts[1]
+				end
+				local pos, r = resolve(sh.pos, rigs, views), math.max(0.05, sh.radius)
+				local core = math.clamp(sh.core or 1, 0, 1)
+				parts[1].CFrame, parts[1].Size, parts[1].Color, parts[1].Transparency = CFrame.new(pos), Vector3.one * r * 1.1, WHITE, 1 - 0.95 * core
+				parts[2].CFrame, parts[2].Size, parts[2].Color, parts[2].Transparency = CFrame.new(pos), Vector3.one * r * 2, color, 0.25
+				parts[3].CFrame, parts[3].Size, parts[3].Color, parts[3].Transparency = CFrame.new(pos), Vector3.one * r * 3.2, color, 0.8
+				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, math.min(60, 6 + r * 9), 2 + 3 * core
+			elseif sh.kind == "beam" then
+				-- the ray: a white core, its sheath, a glow, and bands travelling along it
+				if not parts[1] then
+					for k = 1, 3 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
+					for k = 4, 8 do parts[k] = self:shapePart(Enum.PartType.Cylinder) end
+					entry.light = Instance.new("PointLight")
+					entry.light.Parent = parts[1]
+				end
+				local a, b = resolve(sh.from, rigs, views), resolve(sh.to, rigs, views)
+				local axis = b - a
+				local length = math.max(0.1, axis.Magnitude)
+				local r = math.max(0.05, sh.radius)
+				-- (a cylinder lies along its X axis)
+				local frame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.pi / 2, 0)
+				local wobble = 1 + 0.06 * math.sin(os.clock() * 40)
+				parts[1].CFrame, parts[1].Size, parts[1].Color, parts[1].Transparency = frame, Vector3.new(length, r * 0.9, r * 0.9), WHITE, 0
+				parts[2].CFrame, parts[2].Size, parts[2].Color, parts[2].Transparency = frame, Vector3.new(length, r * 2 * wobble, r * 2 * wobble), color, 0.2
+				parts[3].CFrame, parts[3].Size, parts[3].Color, parts[3].Transparency = frame, Vector3.new(length, r * 3.1, r * 3.1), color, 0.78
+				local bands = if reduced then 2 else 5
+				for k = 4, 8 do
+					local part = parts[k]
+					if k - 3 > bands then
+						part.Transparency = 1
+					else
+						local t = ((sh.rings or 0) + (k - 4) / bands) % 1
+						part.CFrame = CFrame.new(a + axis * t) * (frame - frame.Position)
+						part.Size, part.Color, part.Transparency = Vector3.new(0.18, r * 2.7, r * 2.7), WHITE, 0.55
+					end
+				end
+				entry.light.Enabled, entry.light.Color, entry.light.Range, entry.light.Brightness = true, color, 40, 4
+			elseif sh.kind == "ring" then
+				-- a ring of light: segments round its normal
+				local count = if reduced then 12 else RING_SEGMENTS
+				for k = 1, RING_SEGMENTS do
+					if not parts[k] then parts[k] = self:shapePart() end
+				end
+				local pos = resolve(sh.pos, rigs, views)
+				local normal = vec(sh.normal or { x = 0, y = 1, z = 0 }).Unit
+				local side = if math.abs(normal.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis
+				local u = side:Cross(normal).Unit
+				local w = normal:Cross(u).Unit
+				local r = math.max(0.1, sh.radius)
+				local width = math.max(0.05, sh.width or 0.2)
+				local segment = 2 * math.pi * r / count * 1.08
+				for k = 1, RING_SEGMENTS do
+					local part = parts[k]
+					if k > count then
+						part.Transparency = 1
+					else
+						local angle = (k - 0.5) / count * math.pi * 2
+						local at = pos + (u * math.cos(angle) + w * math.sin(angle)) * r
+						local tangent = (-u * math.sin(angle) + w * math.cos(angle))
+						part.CFrame = CFrame.lookAt(at, at + tangent, normal)
+						part.Size, part.Color = Vector3.new(width, width * 0.5, segment), color
+						part.Transparency = math.clamp(sh.alpha or 0, 0, 1)
+					end
+				end
+			elseif sh.kind == "motes" then
+				-- motes drawn in to the point (or blown out of it), spiralling
+				local count = math.min(40, if reduced then math.floor((sh.count or 20) / 3) else sh.count or 20)
+				for k = 1, 40 do
+					if not parts[k] then parts[k] = self:shapePart(Enum.PartType.Ball) end
+				end
+				local center = resolve(sh.pos, rigs, views)
+				local phase = sh.phase or 0
+				for k = 1, 40 do
+					local part = parts[k]
+					if k > count then
+						part.Transparency = 1
+					else
+						local t = (phase * 0.6 + k / count) % 1
+						local r = sh.radius * (if sh.out then t else 1 - t)
+						local angle = k * 2.4 + phase * 3
+						part.CFrame = CFrame.new(center + Vector3.new(math.cos(angle) * r, math.sin(angle * 1.3) * r * 0.6, math.sin(angle) * r))
+						part.Size = Vector3.one * (0.12 + 0.12 * (1 - t))
+						part.Color = if k % 4 == 0 then WHITE else color
+						part.Transparency = if sh.out then 0.2 + 0.8 * t else 0.15 + 0.6 * (1 - t)
+					end
+				end
+			elseif sh.kind == "slash" then
+				-- a blade's streak: a thin white core in a wider band of colour
+				if not parts[1] then parts[1], parts[2] = self:shapePart(), self:shapePart() end
+				local a, b = resolve(sh.from, rigs, views), resolve(sh.to, rigs, views)
+				local frame = CFrame.lookAt((a + b) / 2, b)
+				local length = (b - a).Magnitude
+				local width = math.max(0.02, sh.width or 0.15)
+				local fade = math.clamp(sh.alpha or 0, 0, 1)
+				parts[1].CFrame, parts[1].Size, parts[1].Color, parts[1].Transparency = frame, Vector3.new(width * 0.4, width * 0.4, length), WHITE, fade
+				parts[2].CFrame, parts[2].Size, parts[2].Color = frame, Vector3.new(width * 1.6, width * 0.25, length * 1.02), color
+				parts[2].Transparency = 0.35 + 0.65 * fade
+			elseif sh.kind == "dome" then
+				-- the blast's shell (the deck hides its lower half)
+				if not parts[1] then parts[1] = self:shapePart(Enum.PartType.Ball, if reduced then Enum.Material.Neon else Enum.Material.ForceField) end
+				local pos, r = resolve(sh.pos, rigs, views), math.max(0.1, sh.radius)
+				parts[1].CFrame, parts[1].Size, parts[1].Color = CFrame.new(pos), Vector3.one * r * 2, color
+				parts[1].Transparency = math.clamp(0.3 + 0.7 * (sh.alpha or 0), 0, 1)
+			end
+		end
+	end
+end
+
+-- The direction over the whole screen: the colour drained, a blur pulse, the K.O. written into
+-- the scene; first person and the split are applied after the camera (updateFirstPerson,
+-- updateSplit).
+function CinematicController:applyOverlay(o)
+	local reduced = self.effects.reduced
+	self.overlay = o
+	local desat = o and o.desat or 0
+	self.finisherDesat.Enabled = desat > 0.01
+	self.finisherDesat.Saturation = -desat
+	local blur = if o and not reduced then o.blur or 0 else 0
+	self.finisherBlur.Enabled = blur > 0.02
+	self.finisherBlur.Size = blur * 16
+	local ko = o and o.ko
+	if ko then
+		local settle = math.clamp((ko.age - 40) / 20, 0, 1) -- (after its slam it rises and shrinks: the scene reads)
+		if not self.koLabel.Visible then
+			self.koLabel.Visible, self.koSub.Visible = true, true
+			self.koScale.Scale = if reduced then 1 else 2.4
+			tween(self.koScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Back)
+			self:flash(0.25)
+		end
+		local color = hex(ko.color, RED)
+		self.koStroke.Color = color
+		self.koSub.Text, self.koSub.TextColor3 = ko.sub or "", color
+		self.koLabel.Position = UDim2.fromScale(0.5, 0.42 - 0.22 * settle)
+		self.koLabel.Size = UDim2.fromScale(0.7 - 0.36 * settle, 0.32 - 0.17 * settle)
+		self.koSub.Position = UDim2.fromScale(0.5, 0.66 - 0.36 * settle)
+	elseif self.koLabel.Visible then
+		self.koLabel.Visible, self.koSub.Visible = false, false
+	end
+	local caption = o and o.caption
+	if caption then
+		if not self.captionLabel.Visible or self.captionLabel.Text ~= caption.text then
+			-- (a new count slams in)
+			self.captionLabel.Visible, self.captionLabel.Text = true, caption.text
+			self.captionScale.Scale = if reduced then 1.1 else 1.8
+			tween(self.captionScale, 0.12, { Scale = 1 }, Enum.EasingStyle.Back)
+		end
+		self.captionLabel.TextColor3 = hex(caption.color)
+		self.captionStroke.Color = hex(caption.stroke, INK)
+		self.captionLabel.TextTransparency = math.clamp(caption.fade or 0, 0, 1)
+		self.captionStroke.Transparency = math.clamp(caption.fade or 0, 0, 1)
+	elseif self.captionLabel.Visible then
+		self.captionLabel.Visible = false
+	end
+end
+
+-- First person: the camera is that fighter's eyes; its head and arms are not drawn for us.
+local function headOrArm(part)
+	local name = part.Name
+	if name == "Head" or string.find(name, "Arm") or string.find(name, "Hand") then return true end
+	local accessory = part:FindFirstAncestorOfClass("Accessory")
+	return accessory ~= nil
+end
+function CinematicController:updateFirstPerson(rigs)
+	local slot = self.overlay and self.overlay.firstPerson
+	if slot == self.fpSlot then return end
+	for part in self.fpHidden do part.LocalTransparencyModifier = 0 end
+	self.fpHidden, self.fpSlot = {}, slot
+	local rig = slot and rigs[slot]
+	if not rig then return end
+	for _, part in rig.model:GetDescendants() do
+		if (part:IsA("BasePart") or part:IsA("Decal")) and headOrArm(if part:IsA("Decal") then part.Parent else part) then
+			part.LocalTransparencyModifier = 1
+			self.fpHidden[part] = true
+		end
+	end
+end
+
+-- SHIN's FINAL DIVISION: the screen cut along a line into two halves (masked canvases), the
+-- scene alive in both (viewports mirroring the two bodies, the camera's own view), slid apart
+-- along the cut, K in one, O in the other, then joined into K.O.
+-- (each part's path in its model: the copy's parts are found by it, whatever Clone() skipped)
+local function pathOf(part, root)
+	local names = {}
+	local node = part
+	while node and node ~= root do
+		table.insert(names, 1, node.Name)
+		node = node.Parent
+	end
+	return table.concat(names, "/")
+end
+
+function CinematicController:buildSplit(rigs, color)
+	local gui = self.gui
+	local holder = new("Frame", { Name = "FinalDivision", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0, ZIndex = 4 }, gui)
+	local split = { holder = holder, halves = {}, pairs = {} }
+	-- (each half is a square canvas centred on the screen, so its masking gradient turns by
+	-- the very angle of the line; inside it, a screen-sized region holds the view and the letter)
+	local opaque = NumberSequenceKeypoint.new
+	for side = 1, 2 do
+		local group = new("CanvasGroup", { AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 4 }, holder)
+		local mask = new("UIGradient", { Transparency = if side == 1
+			then NumberSequence.new({ opaque(0, 0), opaque(0.499, 0), opaque(0.5, 1), opaque(1, 1) })
+			else NumberSequence.new({ opaque(0, 1), opaque(0.499, 1), opaque(0.5, 0), opaque(1, 0) }) }, group)
+		local inner = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 4 }, group)
+		local viewport = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = if side == 1 then Color3.fromHex("10131C") else Color3.fromHex("1A0F18"),
+			BorderSizePixel = 0, Ambient = Color3.fromRGB(170, 170, 185), LightColor = Color3.new(1, 1, 1), LightDirection = Vector3.new(-0.4, -1, -0.6),
+			ZIndex = 4 }, inner)
+		local cam = Instance.new("Camera")
+		cam.Parent = viewport
+		viewport.CurrentCamera = cam
+		local letter = new("TextLabel", { BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true,
+			Text = if side == 1 then "K" else "O", TextColor3 = WHITE, TextTransparency = 0.05, ZIndex = 5,
+			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromScale(0.42, 0.62) }, inner)
+		new("UIStroke", { Thickness = 8, Color = color }, letter)
+		split.halves[side] = { group = group, inner = inner, mask = mask, viewport = viewport, cam = cam, letter = letter }
+		-- the two bodies, copied once; each frame their parts follow the real ones
+		for _, rig in rigs do
+			local copy = rig.model:Clone()
+			if not copy then continue end
+			local twins = {}
+			for _, d in copy:GetDescendants() do
+				if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Sound") or d:IsA("ParticleEmitter") or d:IsA("BillboardGui") then
+					d:Destroy()
+				elseif d:IsA("BasePart") then
+					twins[pathOf(d, copy)] = twins[pathOf(d, copy)] or d
+					d.Anchored = true
+				end
+			end
+			for _, part in rig.model:GetDescendants() do
+				local twin = part:IsA("BasePart") and twins[pathOf(part, rig.model)]
+				if twin then table.insert(split.pairs, { part, twin }) end
+			end
+			copy.Parent = viewport
+		end
+	end
+	-- the cut itself, over both halves
+	split.line = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1.6, 0, 0, 4),
+		BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6 }, gui)
+	new("UIStroke", { Thickness = 3, Color = color, Transparency = 0.2 }, split.line)
+	self.split = split
+	return split
+end
+
+-- A line drawn across the screen `t` of its way (a hard-edged gradient reveals it from one end).
+local function drawnLine(frame, t)
+	t = math.clamp(t, 0, 1)
+	frame.Visible = t > 0.001
+	local key = NumberSequenceKeypoint.new
+	local edge = math.clamp(t, 0.002, 0.998)
+	frame:FindFirstChildOfClass("UIGradient").Transparency = if t >= 0.999 then NumberSequence.new(0)
+		else NumberSequence.new({ key(0, 0), key(edge - 0.001, 0), key(edge, 1), key(1, 1) })
+end
+
+function CinematicController:updateSplit(rigs, camera)
+	local o = self.overlay and self.overlay.split
+	if not o then
+		if self.split then
+			self.split.holder:Destroy()
+			self.split.line:Destroy()
+			self.split = nil
+		end
+		if self.lineOnly then self.lineOnly.Visible = false end
+		return
+	end
+	local color = hex(o.color, Color3.fromHex("8FD8FF"))
+	local angle = o.angle or 0
+	local split = self.split
+	local open = math.max(0, o.open or 0)
+	if (open > 0 or (o.join or 0) > 0) and not split then split = self:buildSplit(rigs, color) end
+	if not split then
+		-- before the cut opens: only the line, drawn across from one side
+		if not self.lineOnly then
+			self.lineOnly = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1.6, 0, 0, 4),
+				BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6 }, self.gui)
+			new("UIStroke", { Thickness = 3, Color = color, Transparency = 0.2 }, self.lineOnly)
+			new("UIGradient", {}, self.lineOnly)
+		end
+		self.lineOnly.Rotation = angle
+		drawnLine(self.lineOnly, o.line or 0)
+		return
+	end
+	if self.lineOnly then self.lineOnly.Visible = false end
+	-- the halves: masked across the line, slid apart along it
+	local screen = camera.ViewportSize
+	local side = math.ceil(math.sqrt(screen.X * screen.X + screen.Y * screen.Y))
+	local shift = open * screen.X * 0.07
+	local ux, uy = math.cos(math.rad(angle)), math.sin(math.rad(angle))
+	local join = math.clamp(o.join or 0, 0, 1)
+	for index, half in split.halves do
+		local sign = if index == 1 then -1 else 1
+		half.group.Size = UDim2.fromOffset(side, side)
+		half.group.Position = UDim2.new(0.5, ux * shift * sign, 0.5, uy * shift * sign)
+		half.inner.Size = UDim2.fromOffset(screen.X, screen.Y)
+		half.mask.Rotation = angle + 90
+		half.cam.CFrame, half.cam.FieldOfView = camera.CFrame, camera.FieldOfView
+		-- K above the cut, O below; joined, they meet in the middle (K.O.)
+		local spread = 0.2 - 0.12 * join
+		half.letter.Position = UDim2.fromScale(0.5 + sign * spread, 0.5 + sign * 0.14 * (1 - join))
+		half.letter.Size = UDim2.fromScale(0.42 - 0.2 * join, 0.62 - 0.3 * join)
+	end
+	for _, pair in split.pairs do
+		if pair[1].Parent then pair[2].CFrame = pair[1].CFrame end
+	end
+	split.line.Rotation = angle
+	split.line.Size = UDim2.new(1.6, 0, 0, 4 + math.floor(open * 6))
+end
+
+function CinematicController:clearFinisher()
+	for _, entry in self.shapePool or {} do
+		for _, part in entry.parts do part:Destroy() end
+	end
+	self.shapePool, self.pendingShapes = {}, nil
+	for part in self.fpHidden or {} do
+		if part.Parent then part.LocalTransparencyModifier = 0 end
+	end
+	self.fpHidden, self.fpSlot, self.overlay = {}, nil, nil
+	if self.split then
+		self.split.holder:Destroy()
+		self.split.line:Destroy()
+		self.split = nil
+	end
+	if self.lineOnly then self.lineOnly:Destroy() self.lineOnly = nil end
+	if self.finisherBlur then self.finisherBlur.Enabled = false end
+	if self.finisherDesat then self.finisherDesat.Enabled = false end
+	if self.koLabel then self.koLabel.Visible, self.koSub.Visible = false, false end
+	if self.captionLabel then self.captionLabel.Visible = false end
 end
 
 function CinematicController:snapshot()

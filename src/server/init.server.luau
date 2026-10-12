@@ -1905,6 +1905,7 @@ local function snapshot(match)
 			attacker = world.cinematic.attacker, defender = world.cinematic.defender,
 			tick = world.cinematic.tick, length = world.cinematic.length,
 			move = world.cinematic.move, finish = world.cinematic.finish, style = world.cinematic.style, kit = world.cinematic.kit,
+			finisher = world.cinematic.finisher, finalTick = world.cinematic.finalTick,
 			nextPrompt = world.cinematic.nextPrompt, grade = world.cinematic.grade,
 			prompts = world.cinematic.prompts, scale = Sim.cinematicScale(world),
 		},

@@ -30,16 +30,27 @@ local function check(kit, kind, style, hp, center)
 	Kit.play(kit, kind, style, hp, center, function(info)
 		local s = info.frame.shot
 		local cam = info.cam
+		-- (a FATAL FINISHER's close-ups hang on a part, and its first person is the target's
+		-- eyes, its head and arms not drawn: macro shots too; its wide shots are checked in full)
+		local over = info.frame.overlay or {}
+		local close = macro(s.name) or s.close == true or over.firstPerson ~= nil
 		local near = math.huge
-		for _, parts in info.parts do
-			for _, part in parts do near = math.min(near, Kit.boxDistance(part, cam[1], cam[2], cam[3])) end
+		for slot, parts in info.parts do
+			if info.views[slot].hidden then continue end
+			for name, part in parts do
+				local unseen = over.firstPerson == slot and (name == "Head" or name:find("Arm") or name:find("Hand"))
+				if not unseen then near = math.min(near, Kit.boxDistance(part, cam[1], cam[2], cam[3])) end
+			end
 		end
-		if near < (if macro(s.name) then 0.35 else 1.5) then fail(info, string.format("camera %.2f stud from a body", near)) end
+		-- (in first person the attacker's hook sweeps across the lens, as the scene wants: 0.25,
+		-- still well beyond the camera's near plane, 0.1)
+		local limit = if over.firstPerson then 0.25 elseif close then 0.35 else 1.5
+		if near < limit then fail(info, string.format("camera %.2f stud from a body", near)) end
 		if cam[2] < 0.3 then fail(info, string.format("camera under the floor (%.2f)", cam[2])) end
 		local project = Kit.projector(cam, info.target, s.fov, s.roll)
 		local fx, fy = project(info.focus[1], info.focus[2], info.focus[3])
 		if not fx or math.abs(fx) > 1 or math.abs(fy) > 0.78 then fail(info, "the focus point is off screen") end
-		if not macro(s.name) then
+		if not close then
 			local slot = s.focus.slot or info.cin.defender
 			local minX, maxX, minY, maxY = Kit.bodyBounds(project, info.parts[slot])
 			if not minX then

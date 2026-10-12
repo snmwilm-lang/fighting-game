@@ -7,6 +7,7 @@ local MoveData = require("../src/shared/MoveData")
 local CharacterData = require("../src/shared/CharacterData")
 local Sim = require("../src/shared/CombatSimulation")
 local Director = require("../src/shared/CinematicDirector")
+Director.useFinishers(require("../src/shared/Finishers"))
 local RigSpec = require("../src/shared/RigSpec")
 local K = require("../src/shared/Kinematics")
 local Poses = require("../src/shared/PoseLibrary")
@@ -33,7 +34,12 @@ local function resolve(point, parts)
 	if point.position then return point.position.x, point.position.y, point.position.z or 0 end
 	local p = parts[point.slot][point.part]
 	local t = p.cframe
-	return t[1] + point.offset.x, t[2] + point.offset.y, t[3] + (point.offset.z or 0)
+	local x, y, z = t[1], t[2], t[3]
+	local other = point.mid and parts[point.slot][point.mid]
+	if other then -- (between two parts: KAI's sphere between his hands)
+		x, y, z = (x + other.cframe[1]) / 2, (y + other.cframe[2]) / 2, (z + other.cframe[3]) / 2
+	end
+	return x + point.offset.x, y + point.offset.y, z + (point.offset.z or 0)
 end
 Kit.resolve = resolve
 

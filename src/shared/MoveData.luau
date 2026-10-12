@@ -1023,6 +1023,7 @@ local function kit(name, data)
 	end
 	data.Stats = table.freeze(data.Stats)
 	if data.Passive then data.Passive = table.freeze(data.Passive) end
+	if data.Finisher then data.Finisher = table.freeze(data.Finisher) end
 	data.Colors = table.freeze(data.Colors)
 	data.Roles = table.freeze(roles)
 	data.Name = name
@@ -1041,6 +1042,8 @@ MoveData.Cinematics = {}
 
 kit("KAI", {
 	Kanji = "開", Role = "ALL-ROUNDER",
+	-- FATAL FINISHER (Finishers.luau): the colossal wave of ki, the camera round him.
+	Finisher = { Name = "MAXIMUM KAIENHA", Length = 720, FinalTick = 560 },
 	Difficulty = 1, -- 1 = simple to pick up, 3 = technical (shown as stars)
 	Description = "All-rounder: fists, feet and a ki blast. RESOLVE: press the blow's button (L or R) as it lands, take it and push back. FEINT: guard to stop some strings.",
 	Roles = KAI_ROLES,
@@ -1060,6 +1063,8 @@ kit("KAI", {
 })
 kit("TARO", {
 	Kanji = "火", Role = "BOXER",
+	-- FATAL FINISHER (Finishers.luau): the Dempsey Roll through the target's eyes.
+	Finisher = { Name = "DEMPSEY ROLL: FINAL ROUND", Length = 660, FinalTick = 498 },
 	Difficulty = 2,
 	Description = "Fists only, two styles: CLASSIC (key & / 1: iron guard, heavy hits, CHAMPION'S RIGHT) "
 		.. "or PEEKABOO (key é / 2: body sway, DEMPSEY ROLL, PARRY that counters).",
@@ -1094,6 +1099,8 @@ kit("ZEPHYR", {
 	Kanji = "風", Role = "KICKS",
 	Difficulty = 2,
 	Description = "Kicks only. PERFECT RHYTHM: links on the beat give Sparks (smoother strings). CLASH STEP: attack right as a blow lands to slip it and kick back.",
+	-- FATAL FINISHER (Finishers.luau): kicks on a faster and faster beat, until the wind is a cyclone.
+	Finisher = { Name = "CYCLONE CRESCENDO", Length = 660, FinalTick = 500 },
 	Roles = ZEPHYR,
 	Stats = { MaxHealth = 1350, WalkSpeed = 18.5, AirSpeed = 15.5, JumpVelocity = 48, DashSpeed = 41 },
 	-- PERFECT RHYTHM: a link pressed From..To ticks after the end of the hitstop of the impact
@@ -1116,6 +1123,8 @@ kit("AKEMI", {
 	Kanji = "影", Role = "EVASION",
 	Difficulty = 3,
 	Description = "Very fragile. INSTINCT: 3 charges, each dodges a blow for sure (20 s each). One dodge in five passes behind the attacker. Right after a dodge, move TOWARD the threat: the next blow is dodged free (FLOW DODGE).",
+	-- FATAL FINISHER (Finishers.luau): every dodge leaves a shadow; the shadows strike.
+	Finisher = { Name = "THOUSAND SHADOWS", Length = 640, FinalTick = 470 },
 	Roles = AKEMI,
 	Stats = { MaxHealth = 1050, WalkSpeed = 19, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44, DashInvuln = 5 },
 	-- VOILE D'OMBRE: from neutral (not attacking, not already hit, not guarding) the next
@@ -1157,6 +1166,8 @@ kit("RYUKEN", {
 	Kanji = "拳", Role = "POWER",
 	Difficulty = 1,
 	Description = "Brutal: power and pressure. RAGE: every hit he lands hits harder, lost when he gets hit.",
+	-- FATAL FINISHER (Finishers.luau): ten blows counted out, each one heavier, the tenth a sonic boom.
+	Finisher = { Name = "TEN FISTS OF RAGE", Length = 640, FinalTick = 480 },
 	Roles = RYUKEN,
 	Stats = { MaxHealth = 1500, WalkSpeed = 17.5, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 40 },
 	-- RAGE: each hit landed (not blocked) adds a stack, PerStack more damage each, Max stacks;
@@ -1180,6 +1191,8 @@ kit("SHIN", {
 	FullRouteNames = { "CIRCLE", "STORM", "SKY", "FALL", "WALL", "CRESCENT" },
 	GateTitle = { text = "零", sub = "ZERO HORIZON" },
 	Colors = { TORNADO = "3D9BFF", GUST = "6FD8FF", DRAGON = "3D9BFF", THUNDER = "C8F0FF", WALL = "3D9BFF", MOON = "A8E4FF" },
+	-- FATAL FINISHER (Finishers.luau): the screen cut in two, K and O.
+	Finisher = { Name = "FINAL DIVISION", Length = 620, FinalTick = 372 },
 })
 kit("DAICHA", {
 	Kanji = "闇", Role = "ZONING",

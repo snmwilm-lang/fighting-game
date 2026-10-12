@@ -5054,6 +5054,16 @@ end
 -- ===================================================================== ENTRY POINTS
 
 -- One frame of a cinematic. ctx = { cin, tick, views, anchors, moveData, config, characters }.
+-- FATAL FINISHERS (Finishers.luau, pure): the module is handed in by its user (the client,
+-- the tests), its scenes get the director's tools (shots, framing, staging helpers).
+function Director.useFinishers(module)
+	Director.finishers = module.build({
+		v = v, P = P, At = At, shot = shot, frameOn = frameOn, lerp = lerp, progress = progress, smooth = smooth,
+		easeOutArc = easeOutArc, attack = attack, role = role, center = center, spark = spark, impact = impact,
+		FATAL = FATAL,
+	})
+end
+
 function Director.cinematic(ctx)
 	local cin = ctx.cin
 	local a, d = ctx.views[cin.attacker], ctx.views[cin.defender]
@@ -5062,15 +5072,23 @@ function Director.cinematic(ctx)
 	ctx.anchors.dir = ctx.anchors.dir or a.facing
 	local dir = ctx.anchors.dir
 	a.victory, a.pose, d.pose = false, nil, nil
+	a.hidden, d.hidden = nil, nil
 	local data = ctx.moveData.Cinematics[cin.move]
-	if cin.finish and ctx.tick >= data.Length then
+	if cin.finish and not cin.finisher and ctx.tick >= data.Length then
 		-- FINAL FINISH: the K.O. scene of the storyboard.
 		return Director.ko(ctx, cin.attacker, cin.defender, a, d, math.min(ctx.tick - data.Length, Director.KO_SCENE))
 	end
 	local frame = newFrame()
 	local kit = kitOf(ctx)
 	local own = kit and KIT[kit.Name]
-	if data.Type == "Fatal" then
+	local finisher = cin.finisher and Director.finishers and Director.finishers[ctx.cin.kit or (kit and kit.Name) or ""]
+	if data.Type == "Fatal" and finisher then
+		finisher(ctx, frame, a, d, ctx.tick, dir)
+		-- (the finishers direct their own camera moves: no drift added; the speed checks of
+		-- clean() still mark a body that jumps as a ghost)
+		clean(ctx, frame, a, d, ctx.tick)
+		return frame
+	elseif data.Type == "Fatal" then
 		local scene = kit and FATAL[kit.Name] or FATAL.KAI
 		scene(ctx, frame, a, d, ctx.tick, dir)
 	elseif data.Type == "Awaken" then

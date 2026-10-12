@@ -1317,10 +1317,27 @@ local function startCinematic(world, a, d, events, moveId)
 			table.insert(prompts, { tick = t, button = if letter == "R" then "Heavy" else "Light", result = nil })
 		end
 	end
+	-- FATAL FINISHER (Wilhem: « que ce soit vraiment le final final »): when the COUP FATAL
+	-- kills AND its user has already won a round (or knocked out a fighter of a relay), the
+	-- kit's long finisher plays instead of its fatal scene (Finishers.luau); its blow lands on
+	-- its own FinalTick and it runs at full speed (its slow motion is staged). Otherwise the
+	-- classic fatal. The training lab can ask for it (debugCinematic).
+	local finisher = nil
+	if cin.Type == "Fatal" and finish then
+		local own = kitOf(world, a)
+		if own and own.Finisher and ((a.wins or 0) >= 1 or world.labFinisher) then finisher = own.Finisher end
+	end
+	world.labFinisher = nil
+	if finisher then
+		plan[#plan].tick = finisher.FinalTick
+		prompts = {} -- (a finisher is watched, never a rhythm game)
+	end
 	world.cinematic = {
 		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
 		kit = a.kit, -- (ASURA plays KAI's moves with his own cinematics)
-		length = cin.Length + (if finish then cin.FinishExtra else 0), finalTick = cin.FinalTick, plan = plan,
+		finisher = finisher ~= nil or nil,
+		length = if finisher then finisher.Length else cin.Length + (if finish then cin.FinishExtra else 0),
+		finalTick = if finisher then finisher.FinalTick else cin.FinalTick, plan = plan,
 		prompts = prompts, nextPrompt = 1, perfect = 0, combo = if cin.Type == "Fatal" then a.fatalCombo == true else nil,
 		startHp = d.hp, -- (a finish threshold looks at the health the target had when it began)
 	}
@@ -1343,7 +1360,7 @@ local function startCinematic(world, a, d, events, moveId)
 	d.launched, d.knockdown, d.getUp, d.pendingBounce, d.crumpled = false, 0, 0, false, false
 	a.facing, d.facing = dir, -dir
 	table.insert(events, { kind = "CinematicStart", attacker = a.slot, defender = d.slot, move = moveId,
-		finish = finish, style = style })
+		finish = finish, style = style, finisher = finisher ~= nil or nil })
 end
 
 -- Applies one hit (or blocked hit) of move m from attacker a on defender d. `source` is set
@@ -2334,7 +2351,7 @@ local function judgePrompts(world, state, input, events, force)
 			end
 			state.finish = remaining >= d.hp
 				and (not cin.FinishThreshold or (state.startHp or d.hp) < d.maxHp * cin.FinishThreshold)
-			state.length = cin.Length + (if state.finish then cin.FinishExtra else 0)
+			if not state.finisher then state.length = cin.Length + (if state.finish then cin.FinishExtra else 0) end
 		end
 		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
 	end
@@ -2344,6 +2361,7 @@ end
 function CombatSimulation.cinematicScale(world)
 	local c, state = world.config, world.cinematic
 	if not state then return 1 end
+	if state.finisher then return 1 end -- (a finisher stages its own slow motion)
 	local around = c.CinematicImpactTicks or { 0, 0 }
 	local fromFinal = state.tick - state.finalTick
 	if fromFinal >= around[1] and fromFinal <= around[2] then return c.CinematicImpactScale or 1 end
@@ -2769,6 +2787,7 @@ function CombatSimulation.debugCinematic(world, slot, moveId, style, hp)
 	d.hp = math.clamp(hp or d.maxHp, 1, d.maxHp)
 	a.awakenStyle = style
 	a.fatalCombo = style ~= "raw" -- (the COUP FATAL: from a combo unless asked raw)
+	world.labFinisher = hp ~= nil -- (the lab's finishing fatal plays the FATAL FINISHER)
 	table.insert(events, { kind = "SuperFlash", attacker = slot, move = moveId })
 	startCinematic(world, a, d, events, moveId)
 	return events

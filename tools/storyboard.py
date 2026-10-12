@@ -39,6 +39,17 @@ def parse(path):
             # optional 20th field: the shape (W = WedgePart, else a block)
             frames[-1]['parts'].append((int(f[1]), f[2], nums[:12], nums[12:15], False, hexc(f[18]) if len(f) > 18 else None,
                                         f[19] if len(f) > 19 else 'B'))
+        elif f[0] == 'SHAPE' and frames:
+            # a finisher's light: kind, a (pos/from), b (to/normal), radius, width, colour, alpha, extra, count
+            frames[-1].setdefault('shapes', []).append({'kind': f[1], 'a': tuple(map(float, f[2:5])), 'b': tuple(map(float, f[5:8])),
+                'r': float(f[8]), 'w': float(f[9]), 'color': hexc(f[10]), 'alpha': float(f[11]), 'extra': float(f[12]),
+                'count': int(float(f[13]))})
+        elif f[0] == 'OVERLAY' and frames:
+            frames[-1]['overlay'] = {'desat': float(f[1]), 'blur': float(f[2]), 'fp': int(f[3]), 'line': float(f[4]),
+                'open': float(f[5]), 'join': float(f[6]), 'angle': float(f[7]), 'color': hexc(f[8]), 'ko': int(f[9]),
+                'sub': f[10].replace('_', ' ') if len(f) > 10 else ''}
+        elif f[0] == 'CAPTION' and frames:
+            frames[-1]['caption'] = {'text': f[1].replace('_', ' '), 'age': int(f[2]), 'color': hexc(f[3]), 'fade': float(f[4])}
         elif f[0] == 'MATTER' and frames:
             frames[-1].setdefault('matter', []).append({'shape': f[1], 'pos': tuple(map(float, f[2:5])), 'r': float(f[5]),
                 'h': float(f[6]), 'n': tuple(map(float, f[7:10])), 'color': hexc(f[10])})
@@ -309,6 +320,70 @@ def render_frame(fr, label):
                          pos[2] + (u[2]*math.cos(t) + w[2]*math.sin(t))*r)) for t in [i/24*2*math.pi for i in range(24)]]
             if all(pts):
                 d.polygon([q[:2] for q in pts], fill=(11,7,18,235), outline=col + (230,))
+    # a finisher's light: balls of energy, the ray, rings, motes, blade streaks, the blast's shell
+    def size_at(p3, r):
+        p, e = proj(p3), proj((p3[0], p3[1] + r, p3[2]))
+        if not p or not e: return None, 0
+        return p, max(1.5, abs(e[1] - p[1]))
+    for sh in fr.get('shapes', []):
+        k, col, a3, b3 = sh['kind'], sh['color'], sh['a'], sh['b']
+        if k == 'sphere':
+            p, r = size_at(a3, sh['r'])
+            if p:
+                d.ellipse([p[0]-r*1.6, p[1]-r*1.6, p[0]+r*1.6, p[1]+r*1.6], fill=col + (70,))
+                d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=col + (200,))
+                c = r * 0.6 * max(0.2, sh['extra'])
+                d.ellipse([p[0]-c, p[1]-c, p[0]+c, p[1]+c], fill=(255,255,255,230))
+        elif k == 'beam':
+            # (clipped to the camera's near plane: a ray seen along its axis still shows)
+            def clip(p0, p1):
+                z0, z1 = dot(sub(p0, cam), fwd), dot(sub(p1, cam), fwd)
+                if z0 >= 0.2 and z1 >= 0.2: return p0, p1
+                if z0 < 0.2 and z1 < 0.2: return None, None
+                t = (0.2 - z0) / (z1 - z0)
+                q = tuple(p0[i] + (p1[i] - p0[i]) * t for i in range(3))
+                return (q, p1) if z0 < 0.2 else (p0, q)
+            ca, cb = clip(a3, b3)
+            pa, pb = (proj(ca), proj(cb)) if ca else (None, None)
+            if pa and pb:
+                mid = tuple((a3[i] + b3[i]) / 2 for i in range(3))
+                _, r = size_at(mid, sh['r'])
+                d.line([pa[:2], pb[:2]], fill=col + (120,), width=max(3, int(r * 2.6)))
+                d.line([pa[:2], pb[:2]], fill=col + (220,), width=max(2, int(r * 1.6)))
+                d.line([pa[:2], pb[:2]], fill=(255,255,255,235), width=max(1, int(r * 0.7)))
+                for i in range(5):
+                    t = ((sh['extra'] + i / 5) % 1)
+                    q = tuple(a3[j] + (b3[j] - a3[j]) * t for j in range(3))
+                    p, rr = size_at(q, sh['r'] * 1.3)
+                    if p: d.ellipse([p[0]-rr*0.35, p[1]-rr, p[0]+rr*0.35, p[1]+rr], outline=(255,255,255,200), width=2)
+        elif k in ('ring', 'dome'):
+            n = norm(b3) if k == 'ring' else (0.0, 1.0, 0.0)
+            ref = (1.0, 0.0, 0.0) if abs(n[1]) > 0.9 else (0.0, 1.0, 0.0)
+            u = norm(cross(ref, n)); w = cross(n, u)
+            alpha = int(255 * (1 - sh['alpha']))
+            if k == 'ring':
+                pts = [proj(tuple(a3[i] + (u[i]*math.cos(t) + w[i]*math.sin(t)) * sh['r'] for i in range(3)))
+                       for t in [j/32*2*math.pi for j in range(33)]]
+                pts = [q[:2] for q in pts if q]
+                if len(pts) > 1: d.line(pts, fill=col + (alpha,), width=max(2, int(sh['w'] * 10)))
+            else:
+                p, r = size_at(a3, sh['r'])
+                if p: d.pieslice([p[0]-r, p[1]-r, p[0]+r, p[1]+r], 180, 360, fill=col + (alpha // 2,), outline=(255,255,255,alpha))
+        elif k == 'motes':
+            n = max(1, sh['count'])
+            for i in range(n):
+                t = (sh['extra'] * 0.6 + i / n) % 1
+                rr = sh['r'] * ((t) if sh['w'] == 0 else t)
+                an = i * 2.4 + sh['extra'] * 3
+                q = (a3[0] + math.cos(an) * rr, a3[1] + math.sin(an * 1.3) * rr * 0.6, a3[2] + math.sin(an) * rr)
+                p = proj(q)
+                if p: d.ellipse([p[0]-2, p[1]-2, p[0]+2, p[1]+2], fill=col + (220,))
+        elif k == 'slash':
+            pa, pb = proj(a3), proj(b3)
+            if pa and pb:
+                alpha = int(255 * (1 - sh['alpha']))
+                d.line([pa[:2], pb[:2]], fill=col + (alpha,), width=max(1, int(sh['w'] * 30)))
+                d.line([pa[:2], pb[:2]], fill=(255,255,255,alpha), width=max(1, int(sh['w'] * 10)))
     g = fr['grade'] + '0000000000'
     if g[2] == '1': img = img.convert('L').convert('RGB')
     elif g[1] == '1': img = Image.blend(img, Image.new('RGB', (W,H), (120,10,20)), 0.45)
@@ -328,11 +403,88 @@ def render_frame(fr, label):
             r0 = 0.55 * W
             d.line([(W/2 + math.cos(an)*r0, H/2 + math.sin(an)*r0*0.6), (W/2 + math.cos(an)*W, H/2 + math.sin(an)*W*0.6)],
                    fill=(255,255,255,90), width=2)
+    ov = fr.get('overlay')
+    if ov:
+        if ov['desat'] > 0:
+            img = Image.blend(img, img.convert('L').convert('RGB'), min(1, ov['desat']))
+        if ov['blur'] > 0.05:
+            from PIL import ImageFilter
+            img = img.filter(ImageFilter.GaussianBlur(radius=ov['blur'] * W / 120))
+        if ov['line'] >= 0:
+            img = split_screen(img, ov)
+        d = ImageDraw.Draw(img, 'RGBA')
+        if ov['ko'] >= 0:
+            big, small = font(int(H * 0.34)), font(int(H * 0.07))
+            age = ov['ko']
+            s_ = 1 + max(0, 6 - age) * 0.12
+            settle = min(1, max(0, (age - 40) / 20))   # (after its slam it rises and shrinks: the scene reads)
+            size = 0.34 - 0.18 * settle
+            y = H * (0.42 - 0.22 * settle)
+            draw_center(d, 'K.O.', W/2, y, font(int(H * size * s_)), (255,255,255), ov['color'])
+            draw_center(d, ov['sub'], W/2, y + H * (0.26 - 0.12 * settle), small, ov['color'], (11,11,14))
+        cap = fr.get('caption')
+        if cap and cap['fade'] < 1:
+            # a count slammed in at the side (RYUKEN's ten fists of rage)
+            s_ = 1 + max(0, 6 - cap['age']) * 0.13
+            a_ = int(255 * (1 - cap['fade']))
+            c_ = cap['color'] + (a_,) if len(cap['color']) == 3 else cap['color']
+            draw_center(d, cap['text'], W * 0.85, H * 0.5, font(int(H * 0.26 * s_)), c_, (11,11,14,a_))
+        if ov['fp']:
+            d.text((W - 92, H*0.14), 'FIRST PERSON', fill=(255,255,255,200))
+        d = ImageDraw.Draw(img, 'RGBA')
     bar = int(H*0.12)
     d.rectangle([0,0,W,bar], fill=(11,11,14)); d.rectangle([0,H-bar,W,H], fill=(11,11,14))
     d.text((4, 2), label, fill=(255,210,63))
     if fr['title'] != '-': d.text((W/2-60, H/2), fr['title'], fill=(255,60,60))
     return img
+
+def font(size):
+    for f in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',):
+        try: return ImageFont.truetype(f, max(6, size))
+        except Exception: pass
+    return ImageFont.load_default()
+
+def draw_center(d, text, x, y, fnt, fill, stroke):
+    box = d.textbbox((0, 0), text, font=fnt)
+    w, h = box[2] - box[0], box[3] - box[1]
+    d.text((x - w/2, y - h/2 - box[1]), text, font=fnt, fill=fill, stroke_width=max(1, h // 14), stroke_fill=stroke)
+
+# SHIN's FINAL DIVISION: the image cut along a line (angle in degrees, the line drawn `line` of
+# the way), the halves slid apart along it (`open`), K in one, O in the other; `join` brings
+# the letters together into K.O.
+def split_screen(img, ov):
+    an = math.radians(ov['angle'])
+    ux, uy = math.cos(an), -math.sin(an)          # along the line (screen space, y down)
+    nx, ny = -uy, ux                               # across it
+    cx, cy = W / 2, H / 2
+    mask = Image.new('L', (W, H), 0)
+    md = ImageDraw.Draw(mask)
+    far = W * 2
+    md.polygon([(cx - ux*far, cy - uy*far), (cx + ux*far, cy + uy*far),
+                (cx + ux*far + nx*far, cy + uy*far + ny*far), (cx - ux*far + nx*far, cy - uy*far + ny*far)], fill=255)
+    out = img.copy()
+    if ov['open'] > 0.001:
+        shift = ov['open'] * W * 0.07
+        a = img.transform(img.size, Image.AFFINE, (1, 0, ux*shift, 0, 1, uy*shift))
+        b = img.transform(img.size, Image.AFFINE, (1, 0, -ux*shift, 0, 1, -uy*shift))
+        out = Image.composite(a, b, mask)
+    d = ImageDraw.Draw(out, 'RGBA')
+    if ov['open'] > 0.001 or ov['join'] > 0.001:
+        gap = ov['open'] * W * 0.015
+        d.line([(cx - ux*far, cy - uy*far), (cx + ux*far, cy + uy*far)], fill=(8,8,10,255), width=max(2, int(gap*2)))
+        jn = ov['join']
+        fk, fo = font(int(H * (0.55 - 0.25*jn))), font(int(H * (0.55 - 0.25*jn)))
+        spread = W * (0.2 - 0.12 * jn)
+        draw_center(d, 'K', cx - spread + nx*H*0.12*(1-jn), cy - ny*H*0.12*(1-jn) + H*0.02, fk, (255,255,255,220), ov['color'])
+        draw_center(d, 'O', cx + spread - nx*H*0.12*(1-jn), cy + ny*H*0.12*(1-jn) + H*0.02, fo, (255,255,255,220), ov['color'])
+        if jn > 0.95: draw_center(d, '.', cx, cy + H*0.08, fk, (255,255,255,220), ov['color'])
+    t = max(0, min(1, ov['line']))
+    if t > 0:
+        a0 = (cx - ux*W*0.75, cy - uy*W*0.75)
+        a1 = (a0[0] + ux*W*1.5*t, a0[1] + uy*W*1.5*t)
+        d.line([a0, a1], fill=ov['color'] + (160,), width=7)
+        d.line([a0, a1], fill=(255,255,255,255), width=3)
+    return out
 
 def sheet(frames, out, cols=5, title=''):
     rows = (len(frames)+cols-1)//cols

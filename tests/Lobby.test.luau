@@ -319,6 +319,7 @@ test("languages: the game is in English, every move, fighter text and menu line 
 		need(kit.Description)
 		need(kit.Role)
 		if kit.Passive then need(kit.Passive.Name) end
+		if kit.Finisher then need(kit.Finisher.Name) end
 		for _, r in kit.FullRoutes do need(r.name) end
 	end
 	for _, mode in GameModes.List or {} do need(mode.description) end

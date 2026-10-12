@@ -1240,12 +1240,133 @@ test("COUP FATAL: kills only a target under half its health (its scene is the K.
 	expect(far.fighters[1].meter == 0 and far.fighters[1].fatalUsed, "a missed COUP FATAL kept the gauge")
 end)
 
+-- FATAL FINISHER (Wilhem: « le final final »): the long scene of the kit plays only when the
+-- COUP FATAL kills AND its user has already won a round (in a relay: knocked out a fighter).
+local function finisherRun(world)
+	local events, startState, finalTick, startTick = {}, nil, nil, nil
+	for t = 1, 1400 do
+		local i = input({ fatal = t == 1 })
+		local state = world.cinematic
+		if state and state.type == "Fatal" then -- (the classic fatal's C prompt, hit)
+			local p = state.prompts[1]
+			if p and state.nextPrompt == 1 and state.tick + 1 == p.tick then i.fatal = true end
+		end
+		for _, e in Sim.step(world, { i, Sim.neutralInput() }) do
+			e.tick = t
+			table.insert(events, e)
+			if e.kind == "CinematicStart" then startTick = t end
+			if e.kind == "Hit" and e.cinematic and e.ko then finalTick = t end
+		end
+		if world.cinematic and not startState then
+			startState = table.clone(world.cinematic)
+			startState.scale = Sim.cinematicScale(world)
+		end
+		if startState and not world.cinematic and t > 60 then break end
+	end
+	return events, startState, finalTick and startTick and finalTick - startTick
+end
+
+test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a round; else the classic fatal", function()
+	local cin = MoveData.Cinematics.Fatal
+	local withFinisher = {}
+	for _, kit in MoveData.KitOrder do
+		if MoveData.Kits[kit].Finisher then table.insert(withFinisher, kit) end
+	end
+	expect(#withFinisher >= 6, "fewer than six FATAL FINISHERS")
+	for _, kit in withFinisher do
+		local data = MoveData.Kits[kit].Finisher
+		expect(data and data.Name and data.Length >= 7 * 60 and data.Length <= 12 * 60 and data.FinalTick < data.Length,
+			kit .. ": no finisher of 7 to 12 seconds")
+		-- no round won yet: the classic fatal, even when it kills
+		local world = fatalWorld(3)
+		Sim.setKits(world, kit, "KAI")
+		world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+		world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+		world.fighters[2].hp = math.floor(world.fighters[2].maxHp * 0.3)
+		local events, state = finisherRun(world)
+		local start = find(events, "CinematicStart")
+		expect(start and start.finish and not start.finisher and state and not state.finisher, kit .. ": a finisher before any round won")
+		expect(find(events, "RoundEnd"), kit .. ": the classic fatal did not K.O.")
+		-- one round won: the finisher, at full speed, without prompts, one K.O. on its own beat
+		world = fatalWorld(3)
+		Sim.setKits(world, kit, "KAI")
+		world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+		world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+		world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
+		local finalAfter
+		events, state, finalAfter = finisherRun(world)
+		start = find(events, "CinematicStart")
+		expect(start and start.finisher and state and state.finisher, kit .. ": no finisher after a round won")
+		expect(state.length == data.Length and state.finalTick == data.FinalTick and #state.prompts == 0 and state.scale == 1,
+			string.format("%s: finisher length %s, final %s, %d prompts, scale %s", kit, tostring(state.length), tostring(state.finalTick),
+				#state.prompts, tostring(state.scale)))
+		expect(finalAfter and math.abs(finalAfter - data.FinalTick) <= 1, kit .. ": the finishing blow is off its beat: " .. tostring(finalAfter))
+		expect(count(events, "RoundEnd") == 1 and world.fighters[2].hp <= 0 and world.fighters[1].wins == 2,
+			kit .. ": the finisher did not end the match with one K.O.")
+		local kos = 0
+		for _, e in events do
+			if e.kind == "Hit" and e.ko then kos += 1 end
+		end
+		expect(kos == 1, kit .. ": " .. kos .. " killing blows")
+		-- one round won but the target not low: the COUP FATAL hurts, no finisher
+		world = fatalWorld(3)
+		Sim.setKits(world, kit, "KAI")
+		world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+		world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+		world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.9), 1
+		events, state = finisherRun(world)
+		start = find(events, "CinematicStart")
+		expect(start and not start.finish and not start.finisher and state.length == cin.Length, kit .. ": a finisher on a target not low")
+	end
+	-- a kit without its finisher yet: the classic fatal, round won or not
+	for _, kit in MoveData.KitOrder do
+		if not MoveData.Kits[kit].Finisher then
+			local world = fatalWorld(3)
+			Sim.setKits(world, kit, "KAI")
+			world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+			world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+			world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
+			local events, state = finisherRun(world)
+			local start = find(events, "CinematicStart")
+			local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
+			expect(start and start.finish and not start.finisher and state and state.length == own.Length + own.FinishExtra,
+				kit .. ": no classic fatal for a kit without a finisher")
+			break
+		end
+	end
+end)
+
+test("FATAL FINISHER in a relay: a fighter knocked out counts as the round won; the next fighter comes in after it", function()
+	local world = Sim.newWorld(Config, MoveData, false)
+	Sim.setTeams(world, { "SHIN" }, { "TARO", "AKEMI" })
+	local function prepare()
+		world.phase = "Fight"
+		world.fighters[1].x, world.fighters[2].x = -1.5, 1.5
+		world.fighters[1].meter, world.fighters[1].fatalUsed = Config.MaxMeter, false
+		world.fighters[1].hp = math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+		world.fighters[2].hp = math.floor(world.fighters[2].maxHp * 0.3)
+	end
+	prepare()
+	local events = finisherRun(world)
+	local start = find(events, "CinematicStart")
+	expect(start and start.finish and not start.finisher, "a finisher on the relay's first K.O.")
+	for _ = 1, Config.KOTicks + 5 do Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) end
+	expect(world.fighters[2].kit == "AKEMI" and world.fighters[1].wins == 1, "AKEMI did not come in after the first K.O.")
+	prepare()
+	events = finisherRun(world)
+	start = find(events, "CinematicStart")
+	expect(start and start.finisher, "no finisher once SHIN had knocked out TARO")
+	expect(count(events, "RoundEnd") == 1 and world.fighters[2].hp <= 0, "the finisher of the relay did not K.O. once")
+end)
+
 test("a far player's missed QTE is judged before the final blow: the K.O. is decided once", function()
 	for _, kind in { "Gate", "Fatal", "Awaken" } do
 		for _, hp in { 200, 700 } do
 			local world = closeWorld(3, false)
 			world.fighters[1].latencyTicks = Config.MaxLatencyTicks or 12
 			Sim.debugCinematic(world, 1, kind, MoveData.FullRoutes[1].name, hp)
+			-- (a FATAL FINISHER, the lab's killing fatal, has no prompt: it is watched)
+			local prompts = if world.cinematic.finisher then 0 else #MoveData.Cinematics[MoveData.Kits.KAI.Ultimates[kind]].PromptTicks
 			local events = {}
 			for _ = 1, 2000 do
 				for _, e in Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() }) do table.insert(events, e) end
@@ -1263,7 +1384,7 @@ test("a far player's missed QTE is judged before the final blow: the K.O. is dec
 				end
 			end
 			expect(final and ended, kind .. ": the cinematic did not end")
-			expect(judged == #MoveData.Cinematics[MoveData.Kits.KAI.Ultimates[kind]].PromptTicks, kind .. ": prompts left unjudged")
+			expect(judged == prompts, kind .. ": prompts left unjudged")
 			expect((world.fighters[2].hp <= 0) == (ended.finish == true), string.format("%s at %d hp: finish flag %s but hp %d", kind, hp,
 				tostring(ended.finish), world.fighters[2].hp))
 			expect((final.ko == true) == (ended.finish == true), kind .. ": the final blow and the end disagree on the K.O.")

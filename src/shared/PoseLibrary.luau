@@ -286,6 +286,44 @@ Poses.Iai = blind(feet({
 	LeftShoulder = { 10, 0, -10 }, LeftElbow = { 70, 0, 0 },
 	RightShoulder = { 34, 0, -30 }, RightElbow = { 95, 0, 0 },
 }, -0.85, 0.95, 0, -18, 10))
+-- FATAL FINISHERS (Finishers.luau). KAI's colossal wave: both hands cupped beside his right
+-- hip (found by a search over the arm angles: the hands half a stud apart), the body wound
+-- away from the target, the head turned to it; then the strain; then both palms thrust
+-- forward, wrists bent back; then the last effort, head down.
+Poses.KaiCharge = blind(feet({
+	Root = { 0, -25, 0, -0.85, 0.15 }, Waist = { -6, -12, 0 }, Neck = { 6, 32, 0 },
+	LeftShoulder = { -20, 0, 70 }, LeftElbow = { 25, 0, 0 },
+	RightShoulder = { -50, 0, -10 }, RightElbow = { 110, 0, 0 },
+}, -0.95, 0.85, 0, -10, 14))
+Poses.KaiChargeStrain = blind(feet({
+	Root = { 0, -28, 0, -1.0, 0.2 }, Waist = { -10, -14, 0 }, Neck = { 16, 36, 0 },
+	LeftShoulder = { -10, 0, 70 }, LeftElbow = { 25, 0, 0 },
+	RightShoulder = { -40, 0, -10 }, RightElbow = { 110, 0, 0 },
+}, -1.05, 0.9, 0, -12, 16))
+Poses.KaiFire = blind(feet({
+	Root = { 0, 4, 0, -0.75, -0.25 }, Waist = { -8, 0, 0 }, Neck = { 8, 0, 0 },
+	LeftShoulder = { 88, 0, 14 }, LeftElbow = { 4, 0, 0 }, LeftWrist = { -60, 0, 0 },
+	RightShoulder = { 88, 0, -14 }, RightElbow = { 4, 0, 0 }, RightWrist = { -60, 0, 0 },
+}, -1.15, 0.95, 0, -16, 14))
+Poses.KaiFireStrain = blind(feet({
+	Root = { 0, 4, 0, -0.95, -0.3 }, Waist = { -14, 0, 0 }, Neck = { -6, 0, 0 },
+	LeftShoulder = { 92, 0, 16 }, LeftElbow = { 10, 0, 0 }, LeftWrist = { -60, 0, 0 },
+	RightShoulder = { 92, 0, -16 }, RightElbow = { 10, 0, 0 }, RightWrist = { -60, 0, 0 },
+}, -1.2, 1.0, 0, -18, 16))
+-- The target of a FATAL FINISHER braced against the blast of energy: forearms crossed before
+-- the face, leaning into it, the feet dug in.
+Poses.VicBrace = blind(feet({
+	Root = { -6, 0, 0, -0.6, 0.15 }, Waist = { -14, 0, 0 }, Neck = { -6, 0, 0 },
+	LeftShoulder = { 100, 0, 48 }, LeftElbow = { 115, 0, 0 },
+	RightShoulder = { 100, 0, -48 }, RightElbow = { 115, 0, 0 },
+}, -0.85, 0.9, 0, -14, 9))
+-- SHIN's FINAL DIVISION: behind the target, back turned, low and wide, the blade still out
+-- to the side where the cut ended.
+Poses.ShinDivision = blind(feet({
+	Root = { 0, -35, 0, -1.0, -0.1 }, Waist = { -14, -15, 0 }, Neck = { 8, 30, 0 },
+	LeftShoulder = { 45, 0, -30 }, LeftElbow = { 70, 0, 0 },
+	RightShoulder = { 60, 0, 75 }, RightElbow = { 6, 0, 0 },
+}, -1.2, 0.9, 0, -16, 14))
 -- DAICHA: arms open, palms down, perfectly still while the shadows rise around him.
 -- KAI: the ki beam fired straight down from the sky (end of KAIEN RUSH): bent over the
 -- target, both arms driven down, palms joined toward it, legs tucked.

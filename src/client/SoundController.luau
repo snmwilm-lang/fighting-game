@@ -132,6 +132,20 @@ function SoundController:custom(list)
 	return nil
 end
 
+-- A FATAL FINISHER's sound (Finishers.luau, fx "sfx"): the existing palette only, in the
+-- attacker's own matter where it has one.
+function SoundController:cinematicSound(name, kit)
+	local own = material(kit)
+	local list = if name == "whoosh" then own.heavySwing or own.swing
+		elseif name == "heavy" then own.heavyHit
+		elseif name == "slash" then ACTIONS.BlockSteel
+		elseif name == "boom" then ACTIONS.KO
+		elseif name == "charge" then ACTIONS.SuperFlash
+		elseif name == "beam" then ACTIONS.Cinematic
+		else nil
+	if list then self:playAll(list, if name == "boom" then 1.2 else 1) end
+end
+
 function SoundController:playAll(list, scale)
 	local custom = self:custom(list)
 	if custom then

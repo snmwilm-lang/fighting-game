@@ -1,5 +1,51 @@
 # Journal du projet — état à transmettre
 
+## Version 0.27.0 — 12 octobre 2026 · FATAL FINISHERS : SHIN, TARO, KAI, ZEPHYR, AKEMI, RYUKEN
+
+Wilhem : une animation spéciale plus longue quand le COUP FATAL tue, comme les LF de Dragon Ball Legends et les Fatality, unique par perso (SHIN qui coupe l'écran en K / O, TARO en Dempsey Roll à la première personne, KAI en Kamehameha géant avec des tours de caméra). Puis : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique ». Deux lots de trois sont faits (SHIN, TARO, KAI puis ZEPHYR, AKEMI, RYUKEN) ; les autres suivront trois par trois.
+
+**Règle de déclenchement (simulation, serveur seul juge)**
+- FATAL FINISHER = COUP FATAL **qui tue** (cible sous la moitié de sa vie, coup mortel décidé au départ) **et** lanceur qui a **déjà gagné un round** (en relais 2v2/3v3 : déjà mis K.O. un perso adverse, `wins ≥ 1`) **et** kit qui a son finisher (`MoveData.Kits[KIT].Finisher = { Name, Length, FinalTick }`). Sinon : le fatal classique, inchangé.
+- Le finisher n'a pas de QTE (il se regarde), tourne à vitesse 1 (son ralenti est mis en scène), porte le coup mortel sur son propre temps (`FinalTick`) : un seul K.O., une seule fin de round ; en relais, le perso suivant entre après.
+- L'instantané serveur envoie `finisher` et `finalTick` ; l'événement `CinematicStart` porte `finisher`. Le labo d'entraînement le joue (fatal mortel du labo).
+
+**Les six finishers** (`src/shared/Finishers.luau`, pur)
+- **SHIN · FINAL DIVISION** (10,3 s) : silence (désaturation, gros plans visage puis yeux, reflet de la lame) ; il disparaît : traits de lame de tous les côtés, une coupe franche par trait, jamais le même angle ; il réapparaît derrière la cible, la ligne diagonale traverse l'écran ; l'image se fend : moitié « K », moitié « O », la victime figée dans les deux ; les moitiés se rejoignent en K.O. ; il rengaine, de dos.
+- **TARO · DEMPSEY ROLL: FINAL ROUND** (11 s) : esquives en huit, caméra basse ; **à la première personne par les yeux de la victime** (sa tête et ses bras cachés), les crochets arrivent de plus en plus vite (toutes les 20, 13 puis 9 images), flou directionnel à chaque coup, quelques plans de coupe extérieurs ; dernière esquive au ralenti ; gros plan du poing ; uppercut suivi par la caméra ; la victime s'effondre, la caméra redescend vers TARO qui tape ses gants.
+- **KAI · MAXIMUM KAIENHA** (12 s) : accumulation (demi-tour de caméra, sol qui se fissure, particules et arcs aspirés vers les mains en coupe) ; montée (tour plus rapide, focale de 52 à 26, monde assombri, anneaux derrière lui, la victime repoussée en garde) ; gros plan du visage ; le tir (rayon géant, caméra derrière l'épaule, anneaux à la sortie) ; la traversée (de côté, spirale autour du rayon, la victime engloutie de face, l'échelle de loin, son dernier effort) ; l'explosion (concentration, flash, dôme, onde au sol, vue lointaine, fumée qui se dissipe) puis K.O.
+- **ZEPHYR · CYCLONE CRESCENDO** (11 s) : son RYTHME PARFAIT en exécution. Le décompte : son pied bat la mesure, un anneau de vent à chaque temps ; puis treize coups de pied **sur le temps**, le tempo accélère (28, 22, 15 puis 10 images), et la caméra saute d'un angle à l'autre sur le temps elle aussi ; un cyclone (trois spirales de vent) monte autour de la cible ; dans l'œil du cyclone, vu du sol en contre-plongée, il tourne autour d'elle en l'air en frappant ; la tour vue de loin ; au-dessus, le ciel, silence, trois derniers temps autour de son talon ; le talon la renvoie au fond de l'œil (plongée d'en haut), le cyclone éclate en anneaux sur le sol ; il atterrit sur le dernier temps.
+- **AKEMI · THOUSAND SHADOWS** (10,7 s) : son INSTINCT en exécution. Elle attend, yeux fermés, le monde se ternit ; la cible lance tout ce qu'elle a (**ses propres coups**, ceux de son kit) : chaque coup traverse une ombre d'AKEMI, elle est déjà ailleurs (esquives SIDE, INSTINCT, SLIP, BACK) ; elle disparaît : la cible seule au milieu de quatre ombres qui, une à une, prennent vie et tranchent ; puis mille coupes à la fois (vue du dessus) ; silence, la cible la cherche… elle tombe du ciel sur sa nuque ; elle s'en va.
+- **RYUKEN · TEN FISTS OF RAGE** (10,7 s) : sa RAGE comptée à voix haute, le chiffre claque sur le côté de l'écran à chaque coup (1 à 10). Contre-plongée depuis le sol, le sol se fissure, le rugissement ; 1 à 5 rapides, la cible recule ; 6 à 9 plus lents et plus lourds, chaque impact figé (image arrêtée, couleur vidée) sous un angle fort ; le 9 l'écrase dans le sol (fissures en toile) ; elle rebondit au ralenti ; son poing, son regard ; le 10 : le bang supersonique (anneaux le long du coup), la caméra fouette après le corps jusqu'au mur ; la vapeur sur son poing.
+- Nom : « MAXIMUM KAIENHA » (le Kaienha est la vague de KAI) plutôt que « Kamehameha », marque de Dragon Ball ; c'est une ligne à changer dans `MoveData` si Wilhem y tient.
+
+**Architecture**
+- `CinematicDirector` (pur) donne la main à `Finishers.luau` (pur) par `Director.useFinishers` ; une image de cinématique peut maintenant porter `shapes` (sphère, rayon, anneau, particules, trait de lame, dôme ; points relatifs aux pièces du corps, `mid` entre deux mains), `overlay` (désaturation, flou, première personne, écran fendu, titre K.O.), `hidden` (un perso disparaît) et des sons `sfx` (whoosh, slash, heavy, boom, charge, beam pris dans `SoundPalette`).
+- Nouveau champ d'overlay `caption` (un compteur qui claque sur le côté, celui de RYUKEN) : contrôleur, planches.
+- Client (`CinematicController`) : formes en pièces néon recyclées (le dôme en ForceField), écran fendu par deux CanvasGroup masqués par des UIGradient, chacun avec un ViewportFrame qui recopie les persos et la caméra ; première personne (tête et bras du perso masqués localement) ; titre K.O. qui claque puis se pose ; tout est cosmétique et nettoyé à la fin.
+- Mode effets réduits : pas de flou, pas de profondeur de champ, roulis ×0,3, dôme en néon simple, 2 anneaux au lieu de 5 le long du rayon, K.O. sans zoom ; la désaturation reste (elle ne fatigue pas les yeux).
+- Plans `close = true` : gros plans sans poussée de caméra (la Cinematography les accepte plus près).
+
+**Fichiers** : nouveau `Finishers.luau` ; `CinematicDirector`, `CombatSimulation`, `MoveData` (champ `Finisher` de KAI, TARO, ZEPHYR, AKEMI, RYUKEN, SHIN), `PoseLibrary` (KaiCharge, KaiChargeStrain, KaiFire, KaiFireStrain, ShinDivision, VicBrace), `Locale` ; client `CinematicController`, `SoundController`, `init.client` ; serveur `init.server` ; outils `tests/CinematicKit`, `tests/Storyboard`, `tools/storyboard.py` (formes, écran fendu, titre) ; `CLAUDE.md` (Finishers parmi les modules purs).
+
+**Tests** : CombatSimulation 169 (2 nouveaux : la règle de déclenchement pour chaque kit qui a son finisher — pas de finisher sans round gagné, pas de finisher sur une cible pas assez basse, un kit sans finisher garde le fatal classique, longueur, temps du coup, vitesse 1, un seul K.O. — et le relais), Cinematography 312 (les finishers passent tous les contrôles : caméra jamais dans un corps ni sous le sol, sujets lisibles, les deux mains visibles), CinematicDirector 872, Animation 58, FighterAI 19, PressQueue 4, Fuzz 2, Lobby 46 (les noms des finishers ont leur français), Kits relancé sur cette version (résultat noté à la livraison suivante). Planches `luau tests/Storyboard.luau -a KIT Fatal - 1 20` relues pour les six (plusieurs plans recadrés après lecture : gros plans trop serrés, K.O. qui masquait l'impact, ombres d'AKEMI trop serrées). Non vérifié dans Studio.
+
+**Équilibrage** : aucun dégât, aucune vie, aucune vitesse modifiés (le coup du finisher fait les mêmes dégâts que le fatal, à un autre moment).
+
+**À vérifier dans Studio** (rien de ceci n'a été vu en jeu)
+- L'écran fendu de SHIN : CanvasGroup + UIGradient + ViewportFrame (copie des persos, éclairage du ViewportFrame plus plat que la scène).
+- Le dôme de KAI en matériau ForceField, le rayon et les anneaux en néon : intensité, taille à l'écran.
+- La première personne de TARO : tête et bras bien masqués (accessoires de l'avatar compris), plan proche de la caméra.
+- Les ombres d'AKEMI (copies sombres du corps, `shadowCopy`) : quatre en même temps autour de la cible, lisibles ou trop chargées.
+- Le cyclone de ZEPHYR (36 traits néon par image) et le compteur de RYUKEN (texte Bangers) : lisibilité, coût.
+- Les sons (pris dans la palette existante) : volume et timing.
+- Pas d'animation importée : tout est fait de poses (PoseLibrary). Pour aller plus loin il faudrait des animations Studio sur mesure (élan de KAI, esquives de TARO), des textures de fissure au sol et de particules de ki ; aucun ID n'a été inventé.
+
+**Problèmes ouverts**
+- Les 16 autres persos (bosses compris) ont encore le fatal classique.
+- Dans le ViewportFrame de l'écran fendu, les effets de particules du monde ne sont pas recopiés (seuls les persos).
+
+**Prochaine étape** : les finishers suivants trois par trois (DAICHA, HIBECARES, RAIJIN ensuite).
+
 ## Version 0.26.0 — 12 octobre 2026 · UNE CHOPE PROPRE À CHAQUE PERSO
 
 Wilhem : « les chopes, j'en veux des uniques par perso ». Jusqu'ici, 6 styles étaient partagés entre les 22 persos. Désormais chaque perso a sa propre projection (`MoveData.Throws[KIT]`, `PoseLibrary.Throws[KIT]`), dans sa façon de se battre.

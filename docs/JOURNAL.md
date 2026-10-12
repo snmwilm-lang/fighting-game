@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Version 0.30.0 — 12 octobre 2026 · FATAL FINISHERS : ASTER, HIBIKI, KAZAN
+
+Cinquième lot de trois (même règle de déclenchement).
+
+- **ASTER · STELLAR COLLAPSE** (10,3 s) : le maître de la gravité la lâche. Il lève la main : plus de gravité, la cible, la poussière et la caméra flottent ; il monte jusqu'à elle et la frappe en l'air, chaque coup plus lourd (MASSE MOUVANTE : un anneau grandit autour de son poing) ; il crée une étoile, la cible tombe dans son orbite ; il ferme la main : l'étoile s'effondre et l'orbite avec elle ; l'étoile éclate, la gravité revient d'un coup : la cible s'écrase dans le sol ; il redescend en flottant.
+- **HIBIKI · RESONANCE** (10 s) : elle trouve la note de la cible. Un clap : la cible se fige et vibre ; ses paumes sur une mesure à quatre temps, puis plus vite : à chaque temps un anneau de son part de ses mains et entre dans la cible, qui tremble de plus en plus ; elle entre en résonance : les anneaux se figent autour d'elle, et le monde se déforme (travelling compensé : l'objectif s'élargit pendant que la caméra avance, le sujet garde sa taille) ; elle lève les deux paumes : un temps de silence ; le dernier clap la projette à travers le ring ; l'écho s'éteint.
+- **KAZAN · CAGE OF CLAWS** (10 s) : le prédateur aux deux fois trois lames. Les lames crissent l'une contre l'autre ; il lacère la cible de tous les côtés, et chaque passage laisse trois traits de lumière suspendus dans l'air ; une cage de marques de griffes l'entoure ; il croise ses griffes et tire : la cage se referme ; la dernière coupe, six lames en X, la cage vole en éclats ; il secoue ses griffes.
+
+**Fichiers** : `Finishers.luau` (trois scènes), `MoveData` (champ `Finisher` d'ASTER, HIBIKI, KAZAN), `Locale` (EFFONDREMENT STELLAIRE, RÉSONANCE, CAGE DE GRIFFES).
+
+**Tests** : CombatSimulation 169, Cinematography 312 (les quinze finishers ; les angles qui cachaient une main ont été cherchés plan par plan avec la même mesure que le test), CinematicDirector 872, Animation 58, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits relancé sur la 0.29.0. Planches relues. Aucun dégât, aucune vie, aucune vitesse modifiés. Non vérifié dans Studio.
+
+**À vérifier dans Studio** : l'étoile d'ASTER (sphère + anneaux) et sa « nova », la lisibilité des anneaux de son de HIBIKI, la cage de KAZAN (jusqu'à 72 traits néon à la fois, en mode effets réduits aussi).
+
+**Problèmes ouverts** : 7 persos ont encore le fatal classique (KUREN, SYLVA, ELIAN, NOVA, KUROEN et les deux bosses ASURA et KUROEN SHIN).
+
+**Prochaine étape** : KUREN, SYLVA, ELIAN.
+
 ## Version 0.29.0 — 12 octobre 2026 · FATAL FINISHERS : YUKINA, VENOM, GORAN
 
 Quatrième lot de trois (même règle de déclenchement).
@@ -65,7 +83,7 @@ Wilhem : une animation spéciale plus longue quand le COUP FATAL tue, comme les 
 
 **Fichiers** : nouveau `Finishers.luau` ; `CinematicDirector`, `CombatSimulation`, `MoveData` (champ `Finisher` de KAI, TARO, ZEPHYR, AKEMI, RYUKEN, SHIN), `PoseLibrary` (KaiCharge, KaiChargeStrain, KaiFire, KaiFireStrain, ShinDivision, VicBrace), `Locale` ; client `CinematicController`, `SoundController`, `init.client` ; serveur `init.server` ; outils `tests/CinematicKit`, `tests/Storyboard`, `tools/storyboard.py` (formes, écran fendu, titre) ; `CLAUDE.md` (Finishers parmi les modules purs).
 
-**Tests** : CombatSimulation 169 (2 nouveaux : la règle de déclenchement pour chaque kit qui a son finisher — pas de finisher sans round gagné, pas de finisher sur une cible pas assez basse, un kit sans finisher garde le fatal classique, longueur, temps du coup, vitesse 1, un seul K.O. — et le relais), Cinematography 312 (les finishers passent tous les contrôles : caméra jamais dans un corps ni sous le sol, sujets lisibles, les deux mains visibles), CinematicDirector 872, Animation 58, FighterAI 19, PressQueue 4, Fuzz 2, Lobby 46 (les noms des finishers ont leur français), Kits relancé sur cette version (résultat noté à la livraison suivante). Planches `luau tests/Storyboard.luau -a KIT Fatal - 1 20` relues pour les six (plusieurs plans recadrés après lecture : gros plans trop serrés, K.O. qui masquait l'impact, ombres d'AKEMI trop serrées). Non vérifié dans Studio.
+**Tests** : CombatSimulation 169 (2 nouveaux : la règle de déclenchement pour chaque kit qui a son finisher — pas de finisher sans round gagné, pas de finisher sur une cible pas assez basse, un kit sans finisher garde le fatal classique, longueur, temps du coup, vitesse 1, un seul K.O. — et le relais), Cinematography 312 (les finishers passent tous les contrôles : caméra jamais dans un corps ni sous le sol, sujets lisibles, les deux mains visibles), CinematicDirector 872, Animation 58, FighterAI 19, PressQueue 4, Fuzz 2, Lobby 46 (les noms des finishers ont leur français), Kits 130 (sur cette version, six finishers). Planches `luau tests/Storyboard.luau -a KIT Fatal - 1 20` relues pour les six (plusieurs plans recadrés après lecture : gros plans trop serrés, K.O. qui masquait l'impact, ombres d'AKEMI trop serrées). Non vérifié dans Studio.
 
 **Équilibrage** : aucun dégât, aucune vie, aucune vitesse modifiés (le coup du finisher fait les mêmes dégâts que le fatal, à un autre moment).
 

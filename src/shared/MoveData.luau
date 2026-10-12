@@ -1293,6 +1293,8 @@ third("ASTER", {
 	Stats = { MaxHealth = 1300, WalkSpeed = 16.5, AirSpeed = 15.5, JumpVelocity = 47, DashSpeed = 40 },
 	Passive = { Type = "Mass", Name = "SHIFTING MASS", Bonus = 0.3 },
 	GateTitle = { text = "重力", sub = "EVENT HORIZON" },
+	-- FATAL FINISHER (Finishers.luau): gravity let go, the strikes in the air, the star, its orbit, its collapse.
+	Finisher = { Name = "STELLAR COLLAPSE", Length = 620, FinalTick = 450 },
 })
 third("HIBIKI", {
 	Kanji = "響", Role = "RHYTHM", Difficulty = 3, Energy = "FF6FC8", Light = "FFD0EE",
@@ -1300,6 +1302,8 @@ third("HIBIKI", {
 	Stats = { MaxHealth = 1250, WalkSpeed = 18.5, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 44 },
 	Passive = { Type = "Tempo", Name = "TEMPO", Chain = 3, Window = 50, Duration = 240, Cooldown = 300 },
 	GateTitle = { text = "絶響", sub = "LAST RESONANCE" },
+	-- FATAL FINISHER (Finishers.luau): the target's own note found, rings of sound on the beat, the last clap.
+	Finisher = { Name = "RESONANCE", Length = 600, FinalTick = 440 },
 })
 third("KAZAN", {
 	Kanji = "鎖", Role = "PRESSURE", Difficulty = 2, Energy = "FFB04A", Light = "E0E0E8",
@@ -1307,6 +1311,8 @@ third("KAZAN", {
 	Stats = { MaxHealth = 1400, WalkSpeed = 17, AirSpeed = 14, JumpVelocity = 43, DashSpeed = 42 },
 	Passive = { Type = "Shackle", Name = "SHACKLED", Hits = 2 },
 	GateTitle = { text = "鎖獄", sub = "JUDGMENT OF CHAINS" },
+	-- FATAL FINISHER (Finishers.luau): a cage of claw marks from every side, closed, then six blades in an X.
+	Finisher = { Name = "CAGE OF CLAWS", Length = 600, FinalTick = 440 },
 })
 -- KUROEN 蝕 · THE EMPEROR OF THE ECLIPSE. Rushdown: superb pressure and mobility, classic
 -- defence, no invincible reversal (CRIMSON STEP is not one), ECLIPSE BREAKER punishable, and

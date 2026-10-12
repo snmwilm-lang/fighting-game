@@ -1878,6 +1878,381 @@ function Finishers.build(T)
 		end
 	end
 
+
+	-- ================================================================ ASTER · STELLAR COLLAPSE
+	-- The master of gravity lets go of it. 0:00 he lifts a hand: gravity is gone, the target, the
+	-- dust and the camera float · 0:02 he floats up to it and strikes it in the air, every blow
+	-- heavier (SHIFTING MASS) · 0:05 he makes a star; the target falls into its orbit · 0:06 he
+	-- closes his hand: the star collapses, the orbit with it · 0:07 the star bursts; gravity
+	-- comes back all at once: the target falls into the deck · 0:09 he floats down.
+	local ASTER_BLOWS = { { 140, "AirKick" }, { 172, "AirKick2" }, { 204, "AirKick" }, { 236, "AirSmash" }, { 268, "AirKick2" } }
+	function S.ASTER(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 450
+		local star = v(cx, 13, -2)
+		frame.grade.cosmos = true
+		d.facing = -dir
+		-- (the floating dust while gravity is gone)
+		if tick < F then
+			shape(frame, { kind = "motes", pos = At(v(cx, 3 + tick / 60, 0)), radius = 8, count = 24, color = "FFFFFF", phase = tick / 300 })
+		end
+		if tick < 120 then
+			-- gravity is gone: the target floats, turning slowly
+			local p = progress(tick, 20, 120)
+			a.x, a.facing, a.pose = cx - dir * 3.4, dir, if tick < 20 then nil else "Levitate"
+			d.x, d.y, d.state, d.pose = cx, 3 * smooth(p), "Hitstun", if p > 0 then "Launched" else nil
+			local turn = p * 1.4
+			d.lookDir = v(-dir * math.cos(turn), 0, math.sin(turn))
+			if tick == 20 then
+				sfx(frame, "sc-zero", "charge")
+				table.insert(frame.fx, { key = "sc-well", kind = "gravityWell", pos = v(a.x, 2.5, 0), radius = 2, count = 5, color = color, life = 2.5 })
+			end
+			-- (the weightless camera drifts and rolls)
+			frame.shot = frameOn("aster-sc-zero", dir, { a, d }, { yaw = lerp(-50, -20, p), pitch = -6, fill = 0.68, fov = 40, roll = 8 * math.sin(tick / 40),
+				focus = P(D, "UpperTorso") })
+		elseif tick < 300 then
+			-- he floats up to it and strikes it, every blow heavier
+			local lift = 3 + 4 * smooth(progress(tick, 120, 300))
+			local k, age = 0, 99
+			for i, b in ASTER_BLOWS do
+				if tick >= b[1] - 8 then k, age = i, tick - b[1] end
+			end
+			local drift = 0.25 * math.max(0, k - 1) + (if k > 0 and age >= 0 then 0.25 * smooth(math.min(1, age / 14)) else 0)
+			d.x, d.y, d.state = cx + dir * drift, lift, "Hitstun"
+			d.pose = if k > 0 and age >= 0 and age < 10 then (if k % 2 == 0 then "HitBody" else "HitHigh") else "Launched"
+			local turn = 1.4 + (tick - 120) / 60
+			d.lookDir = v(-dir * math.cos(turn), 0, math.sin(turn))
+			a.x, a.y, a.facing = d.x - dir * 2.8, lift - 0.4, dir
+			if k > 0 and age < 12 then
+				attack(a, moves, T.role(ctx, ASTER_BLOWS[k][2]), age >= 0)
+			else
+				a.state, a.move, a.pose = "Jumping", nil, "Levitate"
+			end
+			if k > 0 and age == 0 then
+				sfx(frame, "sc-blow" .. k, "heavy")
+				T.spark(frame, "sc-spark" .. k, v(d.x - dir * 0.4, d.y + 3.4, 0.4), if k == 5 then "FFFFFF" else color, 0.6 + 0.15 * k)
+			end
+			-- (SHIFTING MASS: a ring round his fist grows with every blow landed)
+			if k > 0 then
+				shape(frame, { kind = "ring", pos = P(A, "RightHand"), normal = v(dir, 0, 0), radius = 0.3 + 0.12 * k, width = 0.08, color = color, alpha = 0.3 })
+			end
+			local yaws = { 30, -50, 50, -40, 40 }
+			frame.shot = frameOn("aster-sc-air" .. math.max(1, k), dir, { a, d }, { yaw = yaws[math.max(1, k)], pitch = -10, fill = 0.72, fov = 40,
+				roll = 6 * math.sin(tick / 30), focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- the star; the target falls into its orbit; it collapses
+			local born = smooth(progress(tick, 300, 330))
+			local collapse = smooth(progress(tick, 390, F))
+			local radius = 0.4 + 2.6 * born - 2.7 * collapse
+			shape(frame, { kind = "sphere", pos = At(star), radius = math.max(0.25, radius), color = if collapse > 0.5 then "2A1838" else color,
+				core = 1 - collapse })
+			local orbit = 5 * (1 - collapse) + 0.8
+			local angle = (tick - 300) / 22
+			d.x, d.y, d.z = star.x + math.cos(angle) * orbit, star.y + math.sin(angle) * orbit * 0.4 - 2, star.z + math.sin(angle) * orbit
+			d.state, d.pose = "Hitstun", "Launched"
+			d.lookDir = v(-math.sin(angle), 0, math.cos(angle))
+			a.x, a.y, a.facing, a.state, a.move, a.pose = cx - dir * 4, 6, dir, "Jumping", nil, "Levitate"
+			for i = 0, 2 do
+				local r = (((tick - 300) / 40 + i / 3) % 1)
+				shape(frame, { kind = "ring", pos = At(star), normal = v(0.2, 1, 0.3), radius = if collapse > 0 then lerp(7, 0.5, r) else lerp(0.5, 7, r),
+					width = 0.12, color = color, alpha = r })
+			end
+			if tick == 300 then sfx(frame, "sc-star", "charge") end
+			if tick == 390 then sfx(frame, "sc-close", "whoosh") end
+			if tick < 390 then
+				frame.shot = frameOn("aster-sc-orbit", dir, { a, d, { point = true, x = star.x, y = star.y, z = star.z } }, { yaw = 24, pitch = -14, fill = 0.6,
+					fov = 46, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("aster-sc-collapse", dir, { a, d, { point = true, x = star.x, y = star.y, z = star.z } }, { yaw = -20, pitch = -20, fill = 0.7,
+					fov = 44, focus = P(D, "UpperTorso") })
+			end
+		else
+			-- the star bursts; gravity comes back: the target falls into the deck; he floats down
+			local age = tick - F
+			local fall = math.min(1, age / 30)
+			if age < 30 then
+				d.x, d.y, d.z = lerp(star.x, cx, fall), lerp(star.y - 1, 0, fall * fall), lerp(star.z, 0, fall)
+				d.state, d.pose, d.lookDir = "Hitstun", "Launched", nil
+			else
+				d.x, d.y, d.z, d.lookDir = cx, 0, nil, nil
+				T.FATAL.fall(ctx.cin, d, tick, F + 30, 0)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			a.x, a.facing = cx - dir * 4, dir
+			a.y = lerp(6, 0, smooth(progress(tick, F + 20, F + 90)))
+			a.state, a.move, a.pose = if a.y > 0.2 then "Jumping" else "Idle", nil, if a.y > 0.2 then "Levitate" else "StandTall"
+			if age < 40 then
+				local q = age / 40
+				shape(frame, { kind = "sphere", pos = At(star), radius = lerp(0.5, 7, smooth(q)), color = "FFFFFF", core = 1 - q })
+				shape(frame, { kind = "ring", pos = At(star), normal = v(0, 1, 0), radius = lerp(1, 18, smooth(q)), width = 0.4, color = color, alpha = q })
+			end
+			if age == 0 then
+				sfx(frame, "sc-nova", "boom")
+				frame.impact = { key = "sc-nova", color = "FFFFFF" }
+			end
+			if age == 30 then
+				sfx(frame, "sc-crash", "heavy")
+				T.impact(frame, "sc-crash", v(cx, 1, 0.6), color, 3)
+				table.insert(frame.fx, { key = "sc-debris", kind = "debris", pos = v(cx, 0.5, 0), color = color, scale = 1.6 })
+				table.insert(frame.fx, { key = "sc-dust", kind = "dust", pos = v(cx, 0, 0), direction = dir })
+			end
+			frame.quake = if age >= 30 and age < 40 then 0.8 else nil
+			if age < 30 then
+				frame.shot = frameOn("aster-sc-nova", dir, { d, { point = true, x = cx, y = 0, z = 0 } }, { yaw = 20, pitch = -6, fill = 0.6, fov = 48,
+					focus = P(D, "UpperTorso") })
+			elseif age < 70 then
+				frame.shot = frameOn("aster-sc-crash", dir, { d }, { yaw = 28, pitch = 20, fill = 0.5, fov = 42, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("aster-sc-after", dir, { a, d }, { yaw = 20, pitch = -4, fill = 0.6, fov = 38, focus = P(A, "UpperTorso") })
+			end
+			ko(ctx, frame, tick, F + 50, color)
+		end
+	end
+
+	-- ================================================================ HIBIKI · RESONANCE
+	-- She finds the target's own note. 0:00 one clap, the target goes still, humming · 0:01 her
+	-- palms on a four-beat bar: every beat a ring of sound travels into it, it shakes harder ·
+	-- 0:05 it resonates: the rings stand round it, the world warps (the lens and the distance
+	-- trade places) · 0:07 she raises both palms: one beat of silence · 0:07 the last clap: it is
+	-- blown across the ring · 0:09 the echo dies.
+	local HIBIKI_BEATS = { "Jab", "Cross", "PalmStrike", "Jab", "Cross", "PalmStrike", "Elbow", "PalmStrike" }
+	function S.HIBIKI(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local cfg = ctx.config
+		local F = 440
+		local room = 16
+		local ax = if dir > 0 then math.min(cx - 3.2, cfg.ArenaMaxX - 1 - room) else math.max(cx + 3.2, cfg.ArenaMinX + 1 + room)
+		ax = inside(ctx, ax)
+		local dx0 = ax + dir * 3.2
+		local far = inside(ctx, dx0 + dir * 14)
+		frame.grade.sonic = true
+		a.x, a.facing = ax, dir
+		d.facing = -dir
+		-- the beats: one bar of four, then faster
+		local beats = {}
+		local b = 70
+		while b < 300 do
+			table.insert(beats, b)
+			b += if b < 190 then 30 else 20
+		end
+		local index, age = 0, 99
+		for i, t in beats do
+			if tick >= t then index, age = i, tick - t end
+		end
+		-- the hum: it shakes harder with every beat
+		local amp = math.min(0.3, 0.035 * index) * (if tick < F then 1 else 0)
+		local function hum()
+			d.x = dx0 + amp * math.sin(tick * 2.3)
+			d.z = amp * math.cos(tick * 3.1)
+		end
+		local function ring(i, t0)
+			-- a ring of sound travelling from her palms into the target
+			local q = (tick - t0) / 12
+			if q >= 0 and q < 1 then
+				shape(frame, { kind = "ring", pos = At(v(lerp(ax + dir * 1.2, dx0, q), 3.4, 0)), normal = v(dir, 0, 0), radius = lerp(0.6, 1.8, q),
+					width = 0.14, color = if i % 4 == 0 then "FFFFFF" else color, alpha = q })
+			end
+		end
+		if tick < 70 then
+			-- one clap; the target goes still
+			a.pose = if tick < 30 then nil else "GloveTap"
+			d.x, d.state = dx0, "Hitstun"
+			if tick == 30 then
+				sfx(frame, "rs-clap", "heavy")
+				table.insert(frame.fx, { key = "rs-clap", kind = "beatRing", pos = v(ax, 0, 0), color = color })
+			end
+			frame.shot = frameOn("hibiki-rs-clap", dir, { a, d }, { yaw = 24, pitch = -4, band = "bust", fill = 0.8, fov = 32, focus = P(A, "Head") })
+		elseif tick < 300 then
+			-- her palms on the beat; every beat a ring of sound into it
+			d.state = "Hitstun"
+			hum()
+			d.pose = if age < 5 then (if index % 2 == 0 then "HitBody" else "HitHigh") else nil
+			if age < 8 then
+				attack(a, moves, T.role(ctx, HIBIKI_BEATS[(index - 1) % #HIBIKI_BEATS + 1]), age >= 0)
+			else
+				attack(a, moves, T.role(ctx, HIBIKI_BEATS[index % #HIBIKI_BEATS + 1]), false)
+			end
+			for i, t in beats do ring(i, t) end
+			if age == 0 then sfx(frame, "rs-beat" .. index, if index % 4 == 0 then "heavy" else "whoosh") end
+			frame.quake = if age < 3 then 0.08 + 0.02 * index else nil
+			local cut = math.min(3, index // 4 + 1)
+			local yaws = { 60, -15, 10 }
+			frame.shot = frameOn("hibiki-rs-bar" .. cut, dir, { a, d }, { yaw = yaws[cut], pitch = -16, fill = 0.72, fov = 40, focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- it resonates; the world warps; then one beat of silence
+			d.state, d.pose = "Hitstun", "HitHigh"
+			if tick < 410 then hum() else d.x, d.z = dx0, nil end
+			attack(a, moves, T.role(ctx, "Finale"), false)
+			for i = 0, 2 do
+				local r = (((tick - 300) / 30 + i / 3) % 1)
+				shape(frame, { kind = "ring", pos = At(v(dx0, 3.2, 0)), normal = v(0, 1, 0), radius = 0.8 + 1.6 * r, width = 0.12, color = color, alpha = r })
+			end
+			if tick < 380 then
+				-- (the dolly zoom: the lens widens while the camera closes in, the subject the same size)
+				local q = smooth(progress(tick, 300, 380))
+				frame.shot = frameOn("hibiki-rs-warp", dir, { d }, { yaw = 30, pitch = -2, fill = 0.55, fov = lerp(22, 74, q), focus = P(D, "UpperTorso") })
+			else
+				overlay(frame).desat = smooth(progress(tick, 410, 420)) * 0.8
+				frame.shot = frameOn("hibiki-rs-palms", dir, { a, d }, { yaw = -6, pitch = -6, band = "bust", fill = 0.82, fov = 30, focus = P(A, "Head") })
+			end
+			if tick == 300 then sfx(frame, "rs-hum", "charge") end
+		else
+			-- the last clap: it is blown across the ring; the echo
+			local age2 = tick - F
+			local q = smooth(math.min(1, age2 / 22))
+			if age2 < 22 then
+				d.x, d.y, d.z, d.state, d.pose = lerp(dx0, far, q), 2 * math.sin(q * math.pi), nil, "Hitstun", "Launched"
+			else
+				d.x, d.z = far, nil
+				T.FATAL.fall(ctx.cin, d, tick, F + 22, 0.5)
+				if d.pose == "Kneel" then d.pose = "DownFace" end
+			end
+			if age2 < 60 then attack(a, moves, T.role(ctx, "Finale"), true) else a.state, a.move, a.pose = "Idle", nil, "GloveTap" end
+			if age2 == 0 then
+				sfx(frame, "rs-final", "boom")
+				frame.impact = { key = "rs-final", color = "FFFFFF" }
+				table.insert(frame.fx, { key = "rs-wave", kind = "soundWave", pos = v(dx0, 3, 0), from = v(ax, 3.2, 0), to = v(far, 3.2, 0), color = color })
+			end
+			if age2 == 22 then
+				sfx(frame, "rs-land", "heavy")
+				T.impact(frame, "rs-land", v(far, 1.6, 0.6), color, 2.4)
+			end
+			for i = 0, 3 do
+				local r = progress(tick, F + i * 6, F + 50 + i * 6)
+				if r > 0 and r < 1 then
+					shape(frame, { kind = "ring", pos = At(v(ax + dir * (1.4 + i * 2.6), 3.3, 0)), normal = v(dir, 0, 0), radius = lerp(1, 6, smooth(r)),
+						width = 0.22, color = if i % 2 == 0 then "FFFFFF" else color, alpha = r })
+				end
+			end
+			if age2 < 26 then
+				frame.shot = frameOn("hibiki-rs-blast", dir, { a, d }, { yaw = 10, pitch = 2, fill = 0.6, fov = 46, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("hibiki-rs-after", dir, { a }, { yaw = 20, pitch = -6, fill = 0.7, fov = 36, focus = P(A, "UpperTorso") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
+	-- ================================================================ KAZAN · CAGE OF CLAWS
+	-- The predator's claws, three blades on each hand. 0:00 the blades scrape together, sparks ·
+	-- 0:01 he rakes the target from every side; every pass leaves three lines of light hanging in
+	-- the air · 0:05 a cage of claw marks round it; he stands before it · 0:06 he crosses his
+	-- claws and pulls: the cage closes · 0:07 the last cut, six blades in an X; the cage shatters
+	-- · 0:09 he shakes his claws clean.
+	function S.KAZAN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy
+		local cx = T.center(ctx, d)
+		local F = 440
+		local PASSES = 8
+		frame.grade.iron = true
+		d.x, d.facing = cx, -dir
+		-- the marks: pass p leaves three parallel lines round the target
+		local close = smooth(progress(tick, 360, F - 6))
+		local function marks(upTo, fade)
+			for p_ = 1, upTo do
+				local angle = p_ * 0.78 + 0.3
+				local y = 2.2 + (p_ % 3) * 0.9
+				local tilt = if p_ % 2 == 0 then 0.6 else -0.6
+				local r = 1.6 * (1 - 0.65 * close)
+				local c = v(cx + math.cos(angle) * r, y, math.sin(angle) * r)
+				local tx, ty, tz = -math.sin(angle), tilt, math.cos(angle)
+				local half = 1.8 * (1 - 0.4 * close)
+				for k = -1, 1 do
+					local o = k * 0.28
+					shape(frame, { kind = "slash", from = At(v(c.x - tx * half, c.y - ty * half + o, c.z - tz * half)),
+						to = At(v(c.x + tx * half, c.y + ty * half + o, c.z + tz * half)), width = 0.12,
+						color = if k == 0 then "FFFFFF" else color, alpha = fade })
+				end
+			end
+		end
+		if tick < 60 then
+			-- the blades scrape together, sparks
+			a.x, a.z, a.facing = cx - dir * 3.4, nil, dir
+			a.pose = if tick < 24 then nil else "Roar"
+			d.state = "Hitstun"
+			if tick % 10 == 4 then
+				T.spark(frame, "cc-scrape" .. tick, v(a.x + dir * 0.6, 3.6, 0.6), if tick % 20 == 4 then "FFFFFF" else color, 0.6)
+				sfx(frame, "cc-scrape" .. tick, "slash")
+			end
+			frame.shot = frameOn("kazan-cc-claws", dir, { a, d }, { yaw = 36, pitch = -8, band = "bust", fill = 0.8, fov = 32, focus = P(A, "Head") })
+		elseif tick < 300 then
+			-- the passes: from every side, every one leaves its marks
+			local t = tick - 70
+			local p_ = math.clamp(t // 28 + 1, 1, PASSES)
+			local age = t - (p_ - 1) * 28
+			local angle = p_ * 0.78 + 0.3 + math.pi
+			local ox = if age < 10 then lerp(4.2, 2.2, age / 10) else lerp(2.2, 4.2, math.min(1, (age - 10) / 12))
+			circle(a, cx, dir, angle, ox, 0)
+			if t < 0 then
+				circle(a, cx, dir, 0, 3.4, 0)
+				a.state, a.move = "Idle", nil
+			elseif age < 12 then
+				attack(a, moves, T.role(ctx, if p_ % 2 == 0 then "Cross" else "Jab"), age >= 3)
+			else
+				a.state, a.move, a.vx = "Dashing", nil, 3
+			end
+			if t >= 0 and age == 3 then
+				sfx(frame, "cc-rake" .. p_, "slash")
+				table.insert(frame.fx, { key = "cc-ghost" .. p_, kind = "afterimage", slot = A, color = color, life = 0.35 })
+			end
+			d.state, d.pose = "Hitstun", if t >= 0 and age >= 3 and age < 10 then (if p_ % 2 == 0 then "HitHigh" else "HitBody") else nil
+			marks(if t >= 0 and age >= 3 then p_ else p_ - 1, 0.25)
+			if tick > 160 then frame.speedLines = color end
+			frame.shot = frameOn("kazan-cc-rake", dir, { d }, { yaw = -20, pitch = 14, fill = 0.55, fov = 42,
+				focus = P(D, "UpperTorso") })
+		elseif tick < F then
+			-- before the cage; he crosses his claws and pulls: it closes
+			a.x, a.z, a.lookDir, a.facing = cx - dir * 3.6, nil, nil, dir
+			attack(a, moves, T.role(ctx, "Finale"), false)
+			d.state, d.pose = "Hitstun", "HitHigh"
+			marks(PASSES, lerp(0.25, 0.05, close))
+			if tick == 360 then sfx(frame, "cc-pull", "charge") end
+			frame.quake = if close > 0 then 0.1 * close else nil
+			if tick < 360 then
+				frame.shot = frameOn("kazan-cc-cage", dir, { a, d }, { yaw = 20, pitch = 4, fill = 0.68, fov = 38, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("kazan-cc-close", dir, { d }, { yaw = -24, pitch = 6, fill = lerp(0.6, 0.8, close), fov = 34, focus = P(D, "UpperTorso") })
+			end
+		else
+			-- six blades in an X; the cage shatters; he shakes his claws clean
+			local age = tick - F
+			a.x, a.z, a.lookDir, a.facing = cx + dir * 2.6, nil, nil, dir
+			if age < 40 then attack(a, moves, T.role(ctx, "Finale"), true) elseif age < 80 then attack(a, moves, T.role(ctx, "SpinKick"), true)
+			else a.state, a.move, a.pose = "Idle", nil, "Roar" end
+			T.FATAL.fall(ctx.cin, d, tick, F + 10, 0)
+			if d.pose == "Kneel" then d.pose = "DownFace" end
+			if age < 24 then
+				for side = -1, 1, 2 do
+					for k = -1, 1 do
+						local o = k * 0.35
+						shape(frame, { kind = "slash", from = At(v(cx - side * 2.6, 5.4 + o, 0.5)), to = At(v(cx + side * 2.6, 1.4 + o, 0.5)), width = 0.26,
+							color = if k == 0 then "FFFFFF" else color, alpha = age / 24 })
+					end
+				end
+			end
+			if age == 0 then
+				sfx(frame, "cc-x", "boom")
+				frame.impact = { key = "cc-x", color = "FFFFFF" }
+				table.insert(frame.fx, { key = "cc-shatter", kind = "clawBurst", pos = v(cx, 3.3, 0.6), color = color })
+				table.insert(frame.fx, { key = "cc-sparks", kind = "debris", pos = v(cx, 3, 0), color = color, scale = 1.4 })
+			end
+			if age < 40 then
+				frame.shot = frameOn("kazan-cc-x", dir, { a, d }, { yaw = 16, pitch = 2, fill = 0.68, fov = 40, focus = P(D, "UpperTorso") })
+			else
+				frame.shot = frameOn("kazan-cc-after", dir, { a, d }, { yaw = -30, pitch = -6, fill = 0.62, fov = 38, focus = P(A, "Head") })
+			end
+			ko(ctx, frame, tick, F + 40, color)
+		end
+	end
+
 	return S
 end
 

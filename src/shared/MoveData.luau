@@ -1293,7 +1293,7 @@ third("KAZAN", {
 third("KUROEN", {
 	Kanji = "蝕", Role = "RUSHDOWN", Difficulty = 3, Energy = "E0102E", Light = "FF6A7A",
 	Description = "The emperor of the eclipse: fists, elbows, knees and bursts of red and black ki. DOMINATION: clean combos raise it (3 levels), being hit or idle lowers it. I: EMPEROR STEP. II: techniques cancel into each other. III: R on a hit unleashes ZERO ABSOLU: ECLIPSE.",
-	Stats = { MaxHealth = 1350, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 46 },
+	Stats = { MaxHealth = 1300, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 46 }, -- (0.25.1: 1350 -> 1300, the throws took him to 66 %)
 	Passive = { Type = "Domination", Name = "DOMINATION", Max = 3, ComboHits = 4, Idle = 360, Step = "KuroenEmperorStep" },
 	GateTitle = { text = "皇", sub = "EMPEROR'S GATE" },
 })

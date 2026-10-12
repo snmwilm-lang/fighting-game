@@ -101,6 +101,28 @@ function KiBall.spark(k, time)
 	return math.cos(theta) * ring * r, z * r, math.sin(theta) * ring * r, 0.12 + 0.2 * hash(seed + 3.9)
 end
 
+-- The KIKOHO in flight, in 3D (Wilhem: « une belle boule 3D », fluid like the wave): behind the
+-- ball a comet's tail of ki, as wide as the ball where it leaves it and thinning to nothing,
+-- rippling, the ripples flowing back from the ball; two strands of light wound round the tail
+-- in helices, closing on the ball. At `u` (0 at the ball, 1 at the tail's end) and `time`: the
+-- tail's radius (a share of the ball's) and the sway of its axis (a share of the ball's radius).
+KiBall.TAIL = { length = 4.2, strands = 2 } -- (its length: in the ball's radii)
+function KiBall.tail(u, time)
+	local tau = math.pi * 2
+	local taper = (1 - math.clamp(u, 0, 1)) ^ 0.8
+	local ripple = 1 + 0.12 * math.sin(tau * (u * 3 - time * 2.2)) + 0.06 * math.sin(tau * (u * 7 - time * 3.1) + 1.1)
+	local sway = 0.18 * u * math.sin(tau * (u * 1.6 - time * 1.8) + 0.4)
+	return 0.92 * taper * ripple, sway
+end
+-- Strand `i` of the tail at `u`: its angle round the tail's axis (radians) and its distance from
+-- it (a share of the ball's radius): just outside the tail, closing on it toward its end.
+function KiBall.tailStrand(i, u, time)
+	local tau = math.pi * 2
+	local angle = (i - 1) / KiBall.TAIL.strands * tau + (u * 1.5 - time * 2.5) * tau
+	local radius = KiBall.tail(u, time)
+	return angle, radius * 1.12 + 0.04
+end
+
 -- His wave (KAIEN RUSH's KAIENHA, the MAXIMUM KAIENHA; Wilhem's drawing): thin out of his
 -- palms, it swells within its first tenth and widens a little to its end; its edges ripple,
 -- the bumps flowing away from him, never the same above and below (it meanders a little round

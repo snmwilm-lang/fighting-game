@@ -62,7 +62,7 @@ local function kiBall(info)
 		end
 		local at = { p.x, p.y, 0.4 }
 		if launch.from then at = KiBall.launch(launch.from, at, (info.tick - launch.tick) / 60) end
-		table.insert(out, { at = at, radius = 0.75, slot = p.owner })
+		table.insert(out, { at = at, radius = 0.75, slot = p.owner, back = if (p.vx or 0) < 0 then 1 else -1 })
 	end
 	return out
 end
@@ -94,7 +94,8 @@ ClipKit.play(kitName, scriptName, poseRate, function(info)
 	end
 	for _, ball in drawnBalls do
 		local color = (CharacterData[ball.slot] and CharacterData[ball.slot].Energy) or "FF2A3D"
-		print(string.format("SHAPE kiball %s %s %s 0 0 0 %s 0 %s 0 1 0", fmt(ball.at[1]), fmt(ball.at[2]), fmt(ball.at[3]),
-			fmt(ball.radius), color))
+		-- (a shot in flight draws its comet's tail too: "kishot", its second point the way back)
+		print(string.format("SHAPE %s %s %s %s %d 0 0 %s 0 %s 0 1 0", if ball.back then "kishot" else "kiball", fmt(ball.at[1]),
+			fmt(ball.at[2]), fmt(ball.at[3]), ball.back or 0, fmt(ball.radius), color))
 	end
 end)

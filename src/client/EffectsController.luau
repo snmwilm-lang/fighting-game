@@ -1796,7 +1796,8 @@ end
 -- core and a haze; `radius` in studs. Used for the ball between his palms, his shot, and the
 -- cinematics' "kiball" (CinematicController).
 local LOOP_BITS = 14
-function EffectsController:kiBallBuild(color)
+local TAIL_SEGMENTS, TAIL_BITS = 10, 12
+function EffectsController:kiBallBuild(color, withTail)
 	local ball = { parts = {}, loops = {}, sparks = {}, color = color }
 	local function add(shape, partColor, material)
 		local p = self:part(Vector3.one * 0.1, CFrame.identity, partColor, shape)
@@ -1813,14 +1814,29 @@ function EffectsController:kiBallBuild(color)
 		for k = 1, bits do ball.loops[i][k] = add(nil, if i == 2 then WHITE else color) end
 	end
 	for k = 1, if self.reduced then 4 else KiBall.SPARKS do ball.sparks[k] = add(nil, WHITE) end
+	if withTail then
+		-- (the KIKOHO's comet tail: rounded slices, a glow, two strands wound round it)
+		ball.tail = { slices = {}, joints = {}, glows = {}, strands = {} }
+		local segments = if self.reduced then 6 else TAIL_SEGMENTS
+		for k = 1, segments do
+			ball.tail.slices[k] = add(Enum.PartType.Cylinder, color)
+			ball.tail.joints[k] = add(Enum.PartType.Ball, color)
+			ball.tail.glows[k] = add(Enum.PartType.Cylinder, color, Enum.Material.ForceField)
+		end
+		for i = 1, KiBall.TAIL.strands do
+			ball.tail.strands[i] = {}
+			for k = 1, if self.reduced then 6 else TAIL_BITS do ball.tail.strands[i][k] = add(nil, if i == 1 then WHITE else color) end
+		end
+	end
 	ball.light = Instance.new("PointLight")
 	ball.light.Color, ball.light.Parent = color, ball.core
 	return ball
 end
 
-function EffectsController:kiBallDraw(ball, at, radius, now)
+function EffectsController:kiBallDraw(ball, at, radius, now, back)
 	local r = math.max(0.05, radius)
 	local tau = math.pi * 2
+	if ball.tail and back then self:kiBallTail(ball.tail, at, r, now, back) end
 	ball.core.CFrame, ball.core.Size, ball.core.Transparency = CFrame.new(at), Vector3.one * r * 0.7, 0
 	ball.shell.CFrame, ball.shell.Size, ball.shell.Transparency = CFrame.new(at), Vector3.one * r * 1.25 * (1 + 0.06 * math.sin(now * 40)), 0.3
 	ball.haze.CFrame, ball.haze.Size, ball.haze.Transparency = CFrame.new(at), Vector3.one * r * 2.5, 0
@@ -1845,6 +1861,49 @@ function EffectsController:kiBallDraw(ball, at, radius, now)
 		bit.Size, bit.Transparency = Vector3.new(thick * 0.8, thick * 0.8, length * r), 0
 	end
 	ball.light.Enabled, ball.light.Range, ball.light.Brightness = true, 6 + r * 8, 2.5
+end
+
+-- The comet tail behind the flying ball (KiBall.tail, tailStrand), along `back` (a unit vector
+-- pointing behind it).
+function EffectsController:kiBallTail(tail, at, r, now, back)
+	local length = r * KiBall.TAIL.length
+	local side = back:Cross(Vector3.yAxis)
+	side = if side.Magnitude > 1e-3 then side.Unit else Vector3.xAxis
+	local up = side:Cross(back).Unit
+	local turn = CFrame.lookAt(Vector3.zero, back) * CFrame.Angles(0, math.pi / 2, 0) -- (a cylinder lies along X)
+	local function axisAt(u)
+		local _, sway = KiBall.tail(u, now)
+		return at + back * (length * u) + up * (sway * r)
+	end
+	local n = #tail.slices
+	for k = 1, n do
+		local u = (k - 0.5) / n
+		local scale = KiBall.tail(u, now)
+		local center = axisAt(u)
+		local long = length / n * 1.3
+		tail.slices[k].CFrame, tail.slices[k].Size, tail.slices[k].Transparency = CFrame.new(center) * turn,
+			Vector3.new(long, r * 2 * scale, r * 2 * scale), 0.15 + 0.6 * u
+		local u0 = (k - 1) / n
+		local s0 = KiBall.tail(u0, now)
+		tail.joints[k].CFrame, tail.joints[k].Size, tail.joints[k].Transparency = CFrame.new(axisAt(u0)), Vector3.one * r * 2 * s0, 0.15 + 0.6 * u0
+		tail.glows[k].CFrame, tail.glows[k].Size, tail.glows[k].Transparency = CFrame.new(center) * turn,
+			Vector3.new(long, r * 3 * scale, r * 3 * scale), 0
+	end
+	local thick = 0.04 + 0.05 * r
+	for i, strand in tail.strands do
+		local function point(u)
+			local angle, dist = KiBall.tailStrand(i, u, now)
+			return axisAt(u) + (side * math.cos(angle) + up * math.sin(angle)) * (dist * r)
+		end
+		local count = #strand
+		local prev = point(0.02)
+		for k, bit in ipairs(strand) do
+			local nxt = point(0.02 + 0.95 * k / count)
+			bit.CFrame = CFrame.lookAt((prev + nxt) / 2, nxt)
+			bit.Size, bit.Transparency = Vector3.new(thick, thick, (nxt - prev).Magnitude * 1.1), 0.05 + 0.5 * k / count
+			prev = nxt
+		end
+	end
 end
 
 function EffectsController:kiBallDestroy(ball)
@@ -2138,12 +2197,16 @@ function EffectsController:onEvent(event, views, rigs)
 			local at = Vector3.new(v.x + v.facing * 1.8, v.y + 3.6, 0)
 			self:spark(at, color, 0.8)
 			if event.move == "KiBlast" then
-				-- (KAI's KIKOHO: a ring of ki bursts off his palms as it leaves them)
-				local disc = self:part(Vector3.new(0.1, 1.6, 1.6), CFrame.new(at), color, Enum.PartType.Cylinder)
-				disc.Material, disc.Transparency = Enum.Material.ForceField, 0
-				tween(disc, 0.25, { Size = Vector3.new(0.1, 4.4, 4.4), Transparency = 1 })
-				Debris:AddItem(disc, 0.28)
-				self.camera:shake(if self.reduced then 0.08 else 0.2, 0.12)
+				-- (KAI's KIKOHO: the release flashes white, a ring of ki bursts off his palms and a
+				-- second, wider one follows it)
+				self:spark(at, WHITE, 1.4)
+				for k, spec in { { 1.2, 3.6, 0.18, WHITE }, { 1.8, 5.2, 0.3, color } } do
+					local disc = self:part(Vector3.new(0.1, spec[1], spec[1]), CFrame.new(at + Vector3.new(v.facing * 0.3 * k, 0, 0)), spec[4], Enum.PartType.Cylinder)
+					disc.Material, disc.Transparency = Enum.Material.ForceField, 0
+					tween(disc, spec[3], { Size = Vector3.new(0.1, spec[2], spec[2]), Transparency = 1 })
+					Debris:AddItem(disc, spec[3] + 0.03)
+				end
+				self.camera:shake(if self.reduced then 0.08 else 0.22, 0.12)
 			end
 		end
 		return
@@ -2229,12 +2292,14 @@ function SHOTS.ball(self, color, accent, scale)
 	piece(self, list, Vector3.one * 2 * scale, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.ForceField, 0)
 	return { pieces = list, ghost = "ball", pulse = 2 }
 end
--- KAI's KIKOHO: his ball of ki itself (kiBallDraw: core, loops, sparks), a comet's tail behind
--- it; it leaves balls of light in its wake.
+-- KAI's KIKOHO (Wilhem: « une belle boule 3D »): his ball of ki itself (kiBallDraw: core,
+-- loops, sparks) and its comet's tail of ki, rippling, two strands wound round it (kiBallTail);
+-- it leaves balls of light in its wake.
 function SHOTS.kiBall(self, color, accent, scale)
 	local list = {}
-	piece(self, list, Vector3.new(2.6, 0.9, 0.9) * scale, CFrame.new(-1.1 * scale, 0, 0), color, Enum.PartType.Ball, nil, 0.45)
-	return { pieces = list, ghost = "ball", kiBall = self:kiBallBuild(color) }
+	-- (an unseen anchor: the light hangs on it)
+	piece(self, list, Vector3.one * 0.2, CFrame.identity, color, Enum.PartType.Ball, nil, 1)
+	return { pieces = list, ghost = "ball", kiBall = self:kiBallBuild(color, true) }
 end
 function SHOTS.crescent(self, color, accent, scale)
 	local list = {}
@@ -2437,7 +2502,7 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		local turn = if visual.roll then CFrame.Angles(visual.roll * now, 0, 0) else CFrame.identity
 		local spin = if visual.spin then CFrame.Angles(0, 0, now * visual.spin) else CFrame.identity
 		local pulse = if visual.pulse then 1 + 0.06 * visual.pulse * math.sin(now * 40) else 1
-		if visual.kiBall then self:kiBallDraw(visual.kiBall, position, 0.75, now) end
+		if visual.kiBall then self:kiBallDraw(visual.kiBall, position, 0.75, now, Vector3.new(-visual.dir, 0, 0)) end
 		for i, entry in visual.pieces do
 			local placed = base * turn * spin * entry.offset
 			if pulse ~= 1 and i == #visual.pieces then -- (the outer shell breathes)

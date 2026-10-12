@@ -1,5 +1,25 @@
 # Journal du projet — état à transmettre
 
+## Version 0.35.0 — 12 octobre 2026 · KAI : le KIKOHO en belle boule 3D
+
+Wilhem : « et le kikoho en boule ?? », puis, à la question « une belle boule 3D ou un petit rayon ? », il a répondu : une belle boule 3D.
+
+- **Le KIKOHO en vol** : la boule (cœur blanc, boucles de ki, étincelles) traîne maintenant une **queue de comète en 3D**, sur le même modèle que le rayon :
+  - aussi large que la boule à sa sortie, elle s'affine jusqu'à rien ;
+  - ses ondulations repartent vers l'arrière ;
+  - deux brins de lumière s'enroulent autour et se referment sur la boule ;
+  - corps en tranches arrondies, halo ForceField, transparence croissante vers la fin.
+  La forme vient de `KiBall.tail` et `KiBall.tailStrand` (purs) ; le client la dessine (`kiBallTail`) et les clips et planches aussi (forme `kishot`).
+- **Le lâcher** : un éclair blanc, puis deux anneaux de ki qui jaillissent des paumes l'un après l'autre, et une secousse.
+
+**Fichiers** : `KiBall.luau` (tail, tailStrand), `EffectsController` (traînée de la boule, éclat au lâcher), `tools/storyboard.py` et `tests/AnimClip.luau` (la comète dessinée), `tests/Animation.test.luau`.
+
+**Tests** : Animation 64 (nouveau : « KAI's KIKOHO in flight: a comet's tail… »), Cinematography 312, CinematicDirector 872, CombatSimulation 169, Lobby 46, FighterAI 19, PressQueue 4, Fuzz 2 ; Kits 130 sur la 0.33.0 (seule l'image a changé depuis). Clip relu. Aucun dégât, aucune vie ni vitesse modifiés. Non vérifié dans Studio.
+
+**Problèmes ouverts** : NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : retours de Wilhem sur le KIKOHO en vol.
+
 ## Version 0.34.0 — 12 octobre 2026 · KAI : la boule de ki dessinée, la charge du finisher, le rayon en 3D
 
 Wilhem a envoyé :

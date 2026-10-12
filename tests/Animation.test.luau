@@ -2174,4 +2174,32 @@ T.test("KAI's wave in 3D: strands wound round its body, outside it, flowing away
 	expect(KiBall.MOUTH > 1, "no flare at his palms")
 end)
 
+-- The KIKOHO in flight, in 3D (Wilhem: « une belle boule 3D »): behind the ball a comet's tail,
+-- as wide as the ball where it leaves it and thinning to nothing, rippling, its ripples flowing
+-- back; its two strands wound just outside it.
+T.test("KAI's KIKOHO in flight: a comet's tail thinning to nothing, rippling back, two strands round it", function()
+	local KiBall = require("../src/shared/KiBall")
+	local tau = math.pi * 2
+	for _, time in { 0, 0.5, 1.4 } do
+		local start, mid, last = KiBall.tail(0, time), KiBall.tail(0.5, time), KiBall.tail(1, time)
+		expect(start > 0.75 and start < 1.1, string.format("t %.1f: the tail leaves the ball at %.2f of its width", time, start))
+		expect(mid < start and last < 0.02, string.format("t %.1f: the tail does not thin to nothing (%.2f, %.2f, %.2f)", time, start, mid, last))
+		for k = 0, 20 do
+			local u = k / 20 * 0.95
+			for i = 1, KiBall.TAIL.strands do
+				local _, dist = KiBall.tailStrand(i, u, time)
+				local radius = KiBall.tail(u, time)
+				expect(dist > radius and dist < radius * 1.3 + 0.06, string.format("strand %d at u %.2f off the tail", i, u))
+			end
+		end
+	end
+	-- (the ripples flow back: a bump at u is a little further back a moment later)
+	local function bump(u, time) return 0.12 * math.sin(tau * (u * 3 - time * 2.2)) end
+	local dt = 0.05
+	expect(math.abs(bump(0.3, 1) - bump(0.3 + 2.2 / 3 * dt, 1 + dt)) < 1e-9, "the tail's main ripple does not flow back")
+	local moved = 0
+	for k = 0, 10 do moved += math.abs(KiBall.tail(k / 10, 0.4) - KiBall.tail(k / 10, 0.55)) end
+	expect(moved > 0.1, "the tail stands still")
+end)
+
 T.finish()

@@ -126,6 +126,17 @@ def ki_strand(i, u, t):
     angle = (i - 1) / 3 * tau + (u * 2.2 - t * 1.4) * tau
     return angle, ki_beam(u, t)[0] * (1.08 + 0.12 * math.sin(tau * (u * 4 - t * 2) + i))
 
+def ki_tail(u, t):
+    # KiBall.tail: (radius share, sway share)
+    tau = 2 * math.pi
+    taper = (1 - max(0.0, min(1.0, u))) ** 0.8
+    ripple = 1 + 0.12 * math.sin(tau * (u * 3 - t * 2.2)) + 0.06 * math.sin(tau * (u * 7 - t * 3.1) + 1.1)
+    return 0.92 * taper * ripple, 0.18 * u * math.sin(tau * (u * 1.6 - t * 1.8) + 0.4)
+
+def ki_tail_strand(i, u, t):
+    tau = 2 * math.pi
+    return (i - 1) / 2 * tau + (u * 1.5 - t * 2.5) * tau, ki_tail(u, t)[0] * 1.12 + 0.04
+
 def ki_rotate(p, rx, ry):
     # (tilted round X, then turned round Y: KiBall.loopNormal)
     x, y, z = p
@@ -393,7 +404,42 @@ def render_frame(fr, label):
                 d.ellipse([p[0]-r, p[1]-r, p[0]+r, p[1]+r], fill=col + (200,))
                 c = r * 0.6 * max(0.2, sh['extra'])
                 d.ellipse([p[0]-c, p[1]-c, p[0]+c, p[1]+c], fill=(255,255,255,230))
-        elif k == 'kiball':
+        elif k == 'kishot':
+            # the KIKOHO in flight: its comet's tail (KiBall.tail, tailStrand) behind the ball
+            t_now = fr['tick'] / 60
+            R = sh['r']
+            back = (b3[0], 0.0, 0.0)
+            side = (0.0, 0.0, 1.0)
+            up = (0.0, 1.0, 0.0)
+            L = R * 4.2
+            def tail_at(u):
+                _, sw = ki_tail(u, t_now)
+                return tuple(a3[m] + back[m] * L * u + up[m] * sw * R for m in range(3))
+            samples = []
+            for j in range(17):
+                u = j / 16
+                pq, rr = size_at(tail_at(u), R * ki_tail(u, t_now)[0])
+                if pq: samples.append((pq, rr))
+            if len(samples) >= 2:
+                (x0, y0), (x1, y1) = samples[0][0][:2], samples[-1][0][:2]
+                Ls = math.hypot(x1 - x0, y1 - y0) or 1
+                nx, ny = -(y1 - y0) / Ls, (x1 - x0) / Ls
+                for k2, fill in ((1.5, col + (90,)), (1.0, col + (200,)), (0.45, (255, 255, 255, 220))):
+                    top = [(pq[0] + nx * rr * k2, pq[1] + ny * rr * k2) for pq, rr in samples]
+                    bottom = [(pq[0] - nx * rr * k2, pq[1] - ny * rr * k2) for pq, rr in samples]
+                    d.polygon(top + bottom[::-1], fill=fill)
+                for si in (1, 2):
+                    pts = []
+                    for j in range(25):
+                        u = 0.02 + 0.95 * j / 24
+                        an, dist = ki_tail_strand(si, u, t_now)
+                        off = tuple((side[m] * math.cos(an) + up[m] * math.sin(an)) * dist * R for m in range(3))
+                        pq = proj(tuple(tail_at(u)[m] + off[m] for m in range(3)))
+                        if pq: pts.append(pq[:2])
+                    if len(pts) > 2: d.line(pts, fill=(255, 255, 255, 230) if si == 1 else tuple(min(255, c + 60) for c in col) + (230,), width=2)
+            sh = dict(sh, kind='kiball')
+            k = 'kiball'
+        if k == 'kiball':
             t_now = fr['tick'] / 60
             R = sh['r']
             p, rr = size_at(a3, R)

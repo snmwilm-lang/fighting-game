@@ -1068,6 +1068,183 @@ Poses.Grab = {
 		RightShoulder = { 20, 0, 30 }, RightElbow = { 80, 0, 0 },
 	}), -0.8, 0.8, 0, -8, 9),
 }
+-- ===================================================================== THROWS (0.25.1)
+-- The GRAB that connects plays a throw (MoveData.Throws: the victim's path, the impact). Six
+-- styles, each fighter the one of its way of fighting. Thrower keys keep their feet on the
+-- floor; the victim's are airborne (its height is the path's) and end in the poses that follow
+-- (DownImpact for a slam, Launched for a throw that sends it flying), so nothing pops.
+local function throwArms(l, r, changes)
+	local out = { LeftShoulder = { l[1], 0, l[2] }, LeftElbow = { l[3], 0, 0 }, RightShoulder = { r[1], 0, r[2] }, RightElbow = { r[3], 0, 0 } }
+	for k, v in changes or {} do out[k] = v end
+	return out
+end
+local SEIZED = blind(feet(merge(STANCE, merge(throwArms({ 55, -55, 50 }, { 45, 55, 55 }), {
+	Root = { 8, 0, 0, -0.35, 0.15 }, Waist = { 14, -6, 0 }, Neck = { -12, 0, 0 },
+})), -0.55, 0.85, 0, -6, 7))
+-- SHOULDER (judo): seized, loaded on the hip, hoisted over the shoulder, slammed on its back.
+Poses.ThrowShoulderSeize = feet(merge(STANCE, merge(throwArms({ 96, -10, 30 }, { 92, 12, 34 }), {
+	Root = { 0, 0, 0, -0.5, -0.15 }, Waist = { -16, 0, 0 }, Neck = { 16, 0, 0 },
+})), -0.95, 0.7, 0, -12, 8)
+Poses.ThrowShoulderLoad = feet(merge(STANCE, merge(throwArms({ 150, -20, 95 }, { 125, 30, 110 }), {
+	Root = { 0, 28, 0, -1.0, 0 }, Waist = { -30, 18, 0 }, Neck = { 22, -10, 0 },
+})), -0.75, 0.75, 0, -14, 14)
+Poses.ThrowShoulderOver = feet(merge(STANCE, merge(throwArms({ 168, -8, 60 }, { 160, 12, 70 }), {
+	Root = { 0, 18, 0, -1.05, 0 }, Waist = { -46, 8, 0 }, Neck = { 30, 0, 0 },
+})), -0.85, 0.8, 0, -16, 14)
+Poses.ThrowShoulderSlam = feet(merge(STANCE, merge(throwArms({ 38, -24, 20 }, { 42, 20, 24 }), {
+	Root = { 0, 0, 0, -1.05, -0.15 }, Waist = { -50, 0, 0 }, Neck = { 34, 0, 0 },
+})), -0.9, 0.8, 0, -14, 14)
+Poses.ThrownShoulderHoist = blind(airborne(merge(legs(35, -45, 15, -25), merge(throwArms({ 70, -60, 40 }, { 60, 60, 50 }), {
+	Root = { 55, 0, 0, 0, 0 }, Waist = { 10, 0, 0 }, Neck = { -15, 0, 0 },
+}))))
+Poses.ThrownShoulderOver = blind(airborne(merge(legs(60, -80, 25, -35), merge(throwArms({ 150, -60, 30 }, { 140, 60, 30 }), {
+	Root = { 150, 0, 12, 0, 0 }, Waist = { 12, 0, 0 }, Neck = { -20, 0, 0 },
+}))))
+Poses.ThrownShoulderFall = blind(airborne(merge(legs(40, -50, 20, -30), merge(throwArms({ 150, -45, 30 }, { 120, 60, 40 }), {
+	Root = { 112, 0, 6, -1.0, 0 }, Waist = { 8, 0, 0 }, Neck = { -18, 0, 0 },
+}))))
+-- SLAM: seized round the waist, lifted, held overhead, slammed down in front.
+Poses.ThrowSlamSeize = feet(merge(STANCE, merge(throwArms({ 82, -30, 72 }, { 82, 30, 72 }), {
+	Root = { 0, 0, 0, -0.85, -0.2 }, Waist = { -26, 0, 0 }, Neck = { 20, 0, 0 },
+})), -0.9, 0.75, 0, -12, 14)
+Poses.ThrowSlamLift = feet(merge(STANCE, merge(throwArms({ 150, -22, 45 }, { 150, 22, 45 }), {
+	Root = { 0, 0, 0, -0.75, 0 }, Waist = { -4, 0, 0 }, Neck = { 26, 0, 0 },
+})), -0.7, 0.7, 0, -8, 14)
+Poses.ThrowSlamHold = feet(merge(STANCE, merge(throwArms({ 174, -14, 14 }, { 174, 14, 14 }), {
+	Root = { 0, 0, 0, -0.45, 0 }, Waist = { 8, 0, 0 }, Neck = { 32, 0, 0 },
+})), -0.6, 0.7, 0, -6, 12)
+Poses.ThrowSlamDown = feet(merge(STANCE, merge(throwArms({ 22, -30, 18 }, { 22, 30, 18 }), {
+	Root = { 0, 0, 0, -0.98, -0.2 }, Waist = { -54, 0, 0 }, Neck = { 36, 0, 0 },
+})), -0.85, 0.75, 0, -12, 16)
+Poses.ThrownSlamFolded = blind(airborne(merge(legs(10, -20, -5, -15), merge(throwArms({ 20, -20, 30 }, { 20, 20, 30 }), {
+	Root = { -25, 0, 0, 0, 0 }, Waist = { -35, 0, 0 }, Neck = { -10, 0, 0 },
+}))))
+Poses.ThrownSlamLifted = blind(airborne(merge(legs(25, -40, 10, -30), merge(throwArms({ 120, -55, 30 }, { 110, 55, 30 }), {
+	Root = { 62, 0, 0, 0, 0 }, Waist = { 12, 0, 0 }, Neck = { -12, 0, 0 },
+}))))
+Poses.ThrownSlamOverhead = blind(airborne(merge(legs(20, -45, 35, -60), merge(throwArms({ 160, -50, 25 }, { 150, 55, 30 }), {
+	Root = { 92, 0, 0, 0, 0 }, Waist = { 18, 0, 0 }, Neck = { -28, 0, 0 },
+}))))
+-- KNEE (the clinch): hands behind the head, two knees in the body, the shove.
+Poses.ThrowKneeClinch = feet(merge(STANCE, merge(throwArms({ 112, -24, 112 }, { 112, 24, 112 }), {
+	Root = { 0, 0, 0, -0.45, -0.1 }, Waist = { -12, 0, 0 }, Neck = { 12, 0, 0 },
+})), -0.8, 0.75, 0, -10, 8)
+Poses.ThrowKneeStrike = merge(feet(merge(STANCE, merge(throwArms({ 82, -24, 104 }, { 82, 24, 104 }), {
+	Root = { 0, 0, 0, -0.25, -0.15 }, Waist = { -22, 0, 0 }, Neck = { 14, 0, 0 },
+})), -0.8, 0.75, 0, -10, 8), { RightHip = { 100, 0, 6 }, RightKnee = { -110, 0, 0 }, RightAnkle = { 30, 0, 0 } })
+Poses.ThrowKneeShove = feet(merge(STANCE, merge(throwArms({ 92, -8, 8 }, { 92, 8, 8 }), {
+	Root = { 0, 0, 0, -0.55, -0.45 }, Waist = { -16, 0, 0 }, Neck = { 14, 0, 0 },
+})), -1.2, 0.6, 0, -18, 8)
+Poses.ThrownKneeBent = blind(feet(merge(STANCE, merge(throwArms({ 30, -25, 40 }, { 30, 25, 40 }), {
+	Root = { -12, 0, 0, -0.35, 0 }, Waist = { -38, 0, 0 }, Neck = { -18, 0, 0 },
+})), -0.6, 0.7, 0, -8, 8))
+Poses.ThrownKneeHit = blind(airborne(merge(legs(25, -55, 15, -40), merge(throwArms({ 40, -35, 60 }, { 40, 35, 60 }), {
+	Root = { -20, 0, 0, 0, 0 }, Waist = { -55, 0, 0 }, Neck = { -24, 0, 0 },
+}))))
+Poses.ThrownShoved = blind(airborne(merge(legs(-10, -30, 15, -40), merge(throwArms({ 100, -40, 30 }, { 90, 40, 30 }), {
+	Root = { 30, 0, 0, 0, 0 }, Waist = { 22, 0, 0 }, Neck = { 18, 0, 0 },
+}))))
+-- KICK: the collar held in one hand, the knee chambered, the rising kick that launches.
+Poses.ThrowKickHold = feet(merge(STANCE, merge(throwArms({ 96, -8, 30 }, { 60, 30, 110 }), {
+	Root = { 0, 0, 0, -0.45, -0.1 }, Waist = { -10, 0, 0 }, Neck = { 12, 0, 0 },
+})), -0.85, 0.75, 0, -10, 8)
+Poses.ThrowKickChamber = merge(feet(merge(STANCE, merge(throwArms({ 92, -8, 34 }, { 40, 45, 80 }), {
+	Root = { 0, 0, 0, -0.3, 0.1 }, Waist = { 8, 0, 0 }, Neck = { 6, 0, 0 },
+})), -0.75, 0.75, 0, -10, 8), { RightHip = { 92, 0, 6 }, RightKnee = { -118, 0, 0 }, RightAnkle = { 30, 0, 0 } })
+Poses.ThrowKickRise = merge(feet(merge(STANCE, merge(throwArms({ 40, -60, 20 }, { 30, 70, 20 }), {
+	Root = { 0, 0, 0, -0.15, 0.25 }, Waist = { 18, 0, 0 }, Neck = { 2, 0, 0 },
+})), -0.6, 0.75, 0, -10, 8), { RightHip = { 112, 0, 6 }, RightKnee = { -12, 0, 0 }, RightAnkle = { -20, 0, 0 } })
+Poses.ThrownKickHeld = SEIZED
+Poses.ThrownKicked = blind(airborne(merge(legs(-5, -40, 20, -55), merge(throwArms({ 130, -50, 30 }, { 120, 50, 30 }), {
+	Root = { 38, 0, 0, 0, 0 }, Waist = { 25, 0, 0 }, Neck = { 30, 0, 0 },
+}))))
+-- SPIN: an arm seized, the thrower turns on itself once, the victim swung round, let go.
+Poses.ThrowSpinSeize = feet(merge(STANCE, merge(throwArms({ 92, -6, 20 }, { 88, 6, 26 }), {
+	Root = { 0, 0, 0, -0.55, -0.1 }, Waist = { -12, 0, 0 }, Neck = { 12, 0, 0 },
+})), -0.85, 0.75, 0, -10, 9)
+local function spinTurn(angle)
+	return feet(merge(STANCE, merge(throwArms({ 96, -4, 10 }, { 92, 4, 14 }), {
+		Root = { 0, angle, 0, -0.75, 0 }, Waist = { 6, 0, 0 }, Neck = { 6, 0, 0 },
+	})), -0.6, 0.6, 0, -8, 14)
+end
+Poses.ThrowSpin1, Poses.ThrowSpin2, Poses.ThrowSpin3 = spinTurn(120), spinTurn(240), spinTurn(360)
+Poses.ThrowSpinRelease = feet(merge(STANCE, merge(throwArms({ 70, -40, 6 }, { 96, 30, 6 }), {
+	Root = { 0, 360, 0, -0.6, -0.2 }, Waist = { -10, -20, 0 }, Neck = { 14, 10, 0 },
+})), -1.0, 0.7, 0, -14, 10)
+local function swung(angle)
+	return blind(airborne(merge(legs(-20, -20, 10, -35), merge(throwArms({ 150, -20, 10 }, { 60, 60, 40 }), {
+		Root = { -55, angle, 0, 0, 0 }, Waist = { 10, 0, 0 }, Neck = { 20, 0, 0 },
+	}))))
+end
+Poses.ThrownSpin1, Poses.ThrownSpin2, Poses.ThrownSpin3 = swung(120), swung(240), swung(360)
+Poses.ThrownSpinStart = blind(airborne(merge(legs(10, -30, 5, -25), merge(throwArms({ 120, -30, 20 }, { 50, 55, 50 }), {
+	Root = { -20, 0, 0, 0, 0 }, Waist = { -6, 0, 0 }, Neck = { 0, 0, 0 },
+}))))
+Poses.ThrownSpinLoose = blind(airborne(merge(legs(-5, -40, 20, -55), merge(throwArms({ 140, -50, 30 }, { 120, 50, 30 }), {
+	Root = { 38, 360, 0, 0, 0 }, Waist = { 25, 0, 0 }, Neck = { 30, 0, 0 },
+}))))
+-- BLADE (sword, spear, chain): the collar seized, the hilt or the shaft in the face, the cut
+-- that drops it.
+Poses.ThrowBladeSeize = feet(merge(STANCE, merge(throwArms({ 96, -8, 30 }, { 120, 40, 110 }), {
+	Root = { 0, 0, 0, -0.45, -0.1 }, Waist = { -10, -12, 0 }, Neck = { 12, 6, 0 },
+})), -0.85, 0.75, 0, -10, 8)
+Poses.ThrowBladePommel = feet(merge(STANCE, merge(throwArms({ 92, -8, 34 }, { 88, 6, 18 }), {
+	Root = { 0, -14, 0, -0.5, -0.3 }, Waist = { -14, -18, 0 }, Neck = { 12, 12, 0 },
+})), -1.0, 0.7, 0, -14, 8)
+Poses.ThrowBladeWind = feet(merge(STANCE, merge(throwArms({ 80, -20, 50 }, { 165, 24, 70 }), {
+	Root = { 0, 12, 0, -0.55, 0.05 }, Waist = { -4, 14, 0 }, Neck = { 18, -8, 0 },
+})), -0.85, 0.75, 0, -10, 10)
+Poses.ThrowBladeCut = feet(merge(STANCE, merge(throwArms({ 55, -45, 30 }, { 42, 14, 6 }), {
+	Root = { 0, -20, 0, -0.85, -0.25 }, Waist = { -30, -22, 0 }, Neck = { 22, 16, 0 },
+})), -1.05, 0.65, 0, -16, 12)
+Poses.ThrownBladeStruck = blind(feet(merge(STANCE, merge(throwArms({ 60, -50, 40 }, { 70, 45, 50 }), {
+	Root = { 12, 0, 0, -0.3, 0.2 }, Waist = { 16, 0, 0 }, Neck = { 38, 0, 0 },
+})), -0.5, 0.95, 4, -4, 7))
+Poses.ThrownBladeCut = blind(airborne(merge(legs(30, -40, -5, -20), merge(throwArms({ 140, -50, 30 }, { 110, 60, 40 }), {
+	Root = { 48, 0, 18, 0, 0 }, Waist = { 12, 0, 0 }, Neck = { -14, 0, 0 },
+}))))
+Poses.ThrownSeized = SEIZED
+
+-- The keys of each throw: { tick, pose } for the thrower and for its victim (MoveData.Throws:
+-- the same ticks; the victim's last key is its impact, the thrower's its length).
+Poses.Throws = {
+	Shoulder = {
+		thrower = { { 0, "ThrowShoulderSeize" }, { 6, "ThrowShoulderSeize" }, { 12, "ThrowShoulderLoad" }, { 19, "ThrowShoulderOver" },
+			{ 30, "ThrowShoulderSlam" }, { 36, "ThrowShoulderSlam" }, { 44, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSeized" }, { 12, "ThrownShoulderHoist" }, { 19, "ThrownShoulderOver" },
+			{ 26, "ThrownShoulderFall" }, { 30, "DownImpact" } },
+	},
+	Slam = {
+		thrower = { { 0, "ThrowSlamSeize" }, { 8, "ThrowSlamSeize" }, { 15, "ThrowSlamLift" }, { 22, "ThrowSlamHold" }, { 28, "ThrowSlamHold" },
+			{ 38, "ThrowSlamDown" }, { 45, "ThrowSlamDown" }, { 54, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 8, "ThrownSlamFolded" }, { 15, "ThrownSlamLifted" }, { 22, "ThrownSlamOverhead" },
+			{ 28, "ThrownSlamOverhead" }, { 38, "DownImpact" } },
+	},
+	Knee = {
+		thrower = { { 0, "ThrowKneeClinch" }, { 5, "ThrowKneeClinch" }, { 9, "ThrowKneeStrike" }, { 13, "ThrowKneeClinch" },
+			{ 18, "ThrowKneeStrike" }, { 22, "ThrowKneeClinch" }, { 28, "ThrowKneeShove" }, { 33, "ThrowKneeShove" }, { 40, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 5, "ThrownKneeBent" }, { 9, "ThrownKneeHit" }, { 13, "ThrownKneeBent" },
+			{ 18, "ThrownKneeHit" }, { 22, "ThrownKneeBent" }, { 28, "ThrownShoved" } },
+	},
+	Kick = {
+		thrower = { { 0, "ThrowKickHold" }, { 6, "ThrowKickHold" }, { 12, "ThrowKickChamber" }, { 16, "ThrowKickRise" },
+			{ 24, "ThrowKickRise" }, { 38, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 12, "ThrownKickHeld" }, { 16, "ThrownKicked" } },
+	},
+	Spin = {
+		thrower = { { 0, "ThrowSpinSeize" }, { 6, "ThrowSpinSeize" }, { 12, "ThrowSpin1" }, { 18, "ThrowSpin2" }, { 24, "ThrowSpin3" },
+			{ 28, "ThrowSpinRelease" }, { 36, "ThrowSpinRelease" }, { 46, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSpinStart" }, { 12, "ThrownSpin1" }, { 18, "ThrownSpin2" }, { 24, "ThrownSpin3" },
+			{ 28, "ThrownSpinLoose" } },
+	},
+	Blade = {
+		thrower = { { 0, "ThrowBladeSeize" }, { 6, "ThrowBladeSeize" }, { 10, "ThrowBladePommel" }, { 16, "ThrowBladeWind" },
+			{ 24, "ThrowBladeCut" }, { 32, "ThrowBladeCut" }, { 42, "STANCE" } },
+		victim = { { 0, "ThrownSeized" }, { 6, "ThrownSeized" }, { 10, "ThrownBladeStruck" }, { 16, "ThrownBladeStruck" },
+			{ 20, "ThrownBladeCut" }, { 24, "DownImpact" } },
+	},
+}
+
 -- KAI's RESOLVE: braced low under the blow (guard up, the feet sliding), then both palms.
 Poses.KaiResolve = {
 	Startup = feet(merge(STANCE, merge(GUARD_ARMS, { Root = { 0, 0, 0, -0.78, 0.28 }, Waist = { -18, 4, 0 }, Neck = { 22, 0, 0 } })),

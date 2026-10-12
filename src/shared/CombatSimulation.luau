@@ -14,6 +14,7 @@ local BUTTON_ORDER = { "light", "heavy", "special", "ultimate", "fatal" }
 local KEY_LETTER = { Light = "L", Heavy = "R", Special = "E", Ultimate = "U", Fatal = "C" }
 
 local revive -- (SECOND LIFE, defined with the hitboxes)
+local startThrow -- (the GRAB's throw, defined with the hitboxes)
 
 local function newFighter(slot, c, kit, stanceId)
 	local facing = if slot == 1 then 1 else -1
@@ -101,6 +102,7 @@ local function resetFighters(world)
 	world.winner = nil
 	world.reason = nil
 	world.cinematic = nil
+	world.throw = nil
 	world.finishedByCinematic = false
 	world.projectiles = {}
 	world.drones = {} -- NOVA's sentinels
@@ -245,7 +247,7 @@ end
 
 local function isInvulnerable(f, c, moves)
 	if f.state == "KO" or f.knockdown > 0 or f.getUp > 0 or (f.launched and f.juggle >= c.MaxJuggleHits)
-		or f.evadeInvuln > 0 or f.dashInvuln > 0 or f.wakeInvuln > 0 then
+		or f.evadeInvuln > 0 or f.dashInvuln > 0 or f.wakeInvuln > 0 or f.throwLock then
 		return true
 	end
 	local m = f.move and moves[f.move]
@@ -253,7 +255,7 @@ local function isInvulnerable(f, c, moves)
 end
 
 local function canTurn(f)
-	return f.state ~= "KO" and not f.move and f.stun == 0 and not f.launched
+	return f.state ~= "KO" and not f.move and f.stun == 0 and not f.launched and not f.throwLock
 		and f.knockdown == 0 and f.dashTicks == 0 and isGrounded(f)
 end
 
@@ -2134,6 +2136,78 @@ function slips(world, a, d, m, events, serial)
 	return true
 end
 
+--[[
+	THROWS: the universal GRAB that connects plays a short throw (MoveData.Throws, the style of
+	the thrower's kit). Both fighters are locked in it (untouchable, no pushbox, no turning);
+	the victim follows the style's path from the thrower; the GRAB's blow lands once, at the
+	impact tick (a ground bounce for the slams), and the victim is released there (down, or
+	sent flying); the thrower recovers at the end. A throw knocks down for less long than a
+	launch (KnockdownBonus): the thrower gets the turn, not a free combo.
+]]
+function startThrow(world, a, d, events)
+	local style = world.moveData.throwStyle(a.kit)
+	world.throw = { attacker = a.slot, defender = d.slot, style = style, tick = 0 }
+	for _, f in { a, d } do
+		f.move, f.moveContact, f.grace = nil, nil, nil
+		f.vx, f.vy, f.pushVx, f.dashTicks, f.airDash = 0, 0, 0, 0, ""
+		f.hitstop, f.throwLock, f.blocking, f.crouching = 0, true, false, false
+		table.clear(f.buffer)
+		f.grabPress = nil
+	end
+	a.state = "Throwing"
+	d.stun, d.stunKind, d.state, d.launched = 999, "Thrown", "Thrown", false
+	d.facing = -a.facing
+	d.comboHits, d.comboDamage = 0, 0
+	table.insert(events, { kind = "Throw", attacker = a.slot, defender = d.slot, style = style, x = d.x, y = 3 })
+end
+
+local function stepThrow(world, events)
+	local t = world.throw
+	local c = world.config
+	local a, d = world.fighters[t.attacker], world.fighters[t.defender]
+	local data = world.moveData.Throws[t.style]
+	t.tick += 1
+	a.state, a.vx, a.vy = "Throwing", 0, 0
+	if not t.released then
+		local dx, dy = world.moveData.throwAt(t.style, t.tick)
+		d.x = math.clamp(a.x + a.facing * dx, c.ArenaMinX, c.ArenaMaxX)
+		d.y = math.max(0, dy)
+		d.vx, d.vy, d.state = 0, 0, "Thrown"
+		if table.find(data.beats, t.tick) then
+			table.insert(events, { kind = "ThrowBeat", attacker = a.slot, defender = d.slot, style = t.style, x = d.x - a.facing * 0.5, y = d.y + 3.2 })
+		end
+		if t.tick >= data.impact then
+			t.released = true
+			d.throwLock, d.stun, d.stunKind = false, 0, nil
+			d.y = 0
+			local grab = world.moves.Grab
+			applyHit(world, a, d, grab, events)
+			a.hitstop, a.moveContact = 0, nil
+			if d.state ~= "KO" then
+				if data.land == "floor" then
+					d.launched, d.pendingBounce, d.stun, d.stunKind = false, false, 0, nil
+					d.vy, d.pushVx = 0, a.facing * 2
+					d.knockdown, d.state = c.KnockdownTicks + (c.ThrowKnockdownBonus or 0), "Knockdown"
+					if data.bounce then
+						table.insert(events, { kind = "GroundBounce", attacker = a.slot, defender = d.slot, x = d.x, y = 0 })
+					end
+				else
+					d.launched, d.vy, d.pushVx = true, data.vy, a.facing * data.push
+					d.y = math.max(d.y, 0.3)
+					d.knockdownBonus = c.ThrowKnockdownBonus
+					d.state = "Launched" -- (shown so during the impact's freeze)
+				end
+			end
+			table.insert(events, { kind = "ThrowImpact", attacker = a.slot, defender = d.slot, style = t.style, x = d.x, y = d.y + 1 })
+		end
+	end
+	if t.tick >= data.length then
+		a.throwLock = false
+		a.state = "Idle"
+		world.throw = nil
+	end
+end
+
 local function detectHits(world, events)
 	local a, b = world.fighters[1], world.fighters[2]
 	local c, moves = world.config, world.moves
@@ -2172,7 +2246,12 @@ local function detectHits(world, events)
 	end
 	-- Both hits are decided before either applies, so simultaneous attacks trade.
 	for _, hit in pending do
-		if not world.cinematic then applyHit(world, hit[1], hit[2], hit[3], events) end
+		if world.cinematic then continue end
+		if hit[3].id == "Grab" then
+			startThrow(world, hit[1], hit[2], events)
+		else
+			applyHit(world, hit[1], hit[2], hit[3], events)
+		end
 	end
 end
 
@@ -2524,15 +2603,19 @@ function CombatSimulation.step(world, inputs)
 	local neutral = CombatSimulation.neutralInput()
 	local a, b = world.fighters[1], world.fighters[2]
 	local previousDelta = b.x - a.x
+	if world.throw then stepThrow(world, events) end
 	for slot, f in world.fighters do
-		stepFighter(world, f, if fighting then inputs[slot] or neutral else neutral, events)
+		if not f.throwLock then
+			stepFighter(world, f, if fighting then inputs[slot] or neutral else neutral, events)
+		end
 	end
 	-- A blink or a teleport (DAICHA) is the one way to cross the opponent on the ground.
 	if a.crossed or b.crossed then
 		previousDelta = b.x - a.x
 		a.crossed, b.crossed = false, false
 	end
-	resolvePair(a, b, world.config, previousDelta)
+	-- (a throw places the victim itself: no pushbox while it holds it)
+	if not (a.throwLock and b.throwLock) then resolvePair(a, b, world.config, previousDelta) end
 	if fighting then
 		detectHits(world, events)
 		stepProjectiles(world, events)
@@ -2553,6 +2636,16 @@ function CombatSimulation.step(world, inputs)
 	collectBounceEvents(world, events)
 	advancePhase(world, events)
 	return events
+end
+
+-- A fighter in a throw: its style, the throw's tick and its role ("thrower" / "victim"), or
+-- "", 0, nil (the snapshot sends them: the client poses and places both bodies from them).
+function CombatSimulation.throwOf(world, f)
+	local t = world.throw
+	if not t then return "", 0, nil end
+	if t.attacker == f.slot then return t.style, t.tick, "thrower" end
+	if t.defender == f.slot and not t.released then return t.style, t.tick, "victim" end
+	return "", 0, nil
 end
 
 -- True when the fighter's next press would be a clean combo link right now

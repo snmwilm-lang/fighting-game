@@ -168,7 +168,7 @@ end
 local SHAKE_STATES = { Hitstun = true, Launched = true, Blockstun = true, CrouchBlockstun = true, KO = true,
 	Crumple = true, GuardBroken = true }
 local LYING = { Knockdown = true, KO = true }
-local BLEND_TIMES = { Gait = 0.12, Idle = 0.1, Air = 0.08, AirDash = 0.1, AirDashBack = 0.1, AirDashUp = 0.1,
+local BLEND_TIMES = { Throwing = 0.05, Thrown = 0.04, Gait = 0.12, Idle = 0.1, Air = 0.08, AirDash = 0.1, AirDashBack = 0.1, AirDashUp = 0.1,
 	AirDashDown = 0.08, Landing = 0.06 }
 local AIR_DASH_EXIT = 0.16 -- (out of an air dash, the body comes back to the jump / fall pose gently)
 
@@ -515,6 +515,19 @@ function Animator:evaluate(view, time, poseRate)
 		return self:solveStance(self:breathe(self:base("Crouch"), 0.6, stepped)), "Crouch", false
 	elseif state == "Jumping" or state == "Falling" then
 		return self:air(view.vy or 0), "Air", false
+	elseif (state == "Throwing" or state == "Thrown") and self.poses.Throws and self.poses.Throws[view.throwStyle or ""] then
+		-- A throw (MoveData.Throws): the keys of its style, eased one into the next by its own
+		-- clock; one family, so its steps never blend twice.
+		local keys = self.poses.Throws[view.throwStyle][if state == "Throwing" then "thrower" else "victim"]
+		local t = view.throwClock or view.throwTick or 0
+		local from, to = keys[1], keys[#keys]
+		for i = 2, #keys do
+			if t <= keys[i][1] then from, to = keys[i - 1], keys[i] break end
+		end
+		local u = if to[1] > from[1] then clamp01((t - from[1]) / (to[1] - from[1])) else 1
+		local a = self:resolve(self:base(from[2]))
+		local b = self:resolve(self:base(to[2]))
+		return lerpPose(a, b, easeInOut(u)), state .. ":" .. view.throwStyle .. ":" .. math.floor(t * 4), false
 	elseif state == "AirDash" then
 		-- The air dash owns the body for its whole length (the jump / fall poses wait), then
 		-- the air pose takes over through the usual blend. Its kind is read from its speed.
@@ -820,6 +833,15 @@ function Animator:step(view, other, dt, time, poseRate, cinematic)
 			-- keep blending from where it started, toward the new step (no pop on frame 2).
 		else
 			self.from = self.current
+			-- (out of a full turn, a throw's spin: the same facing, brought back near 0 so the
+			-- blend does not unwind it)
+			local root = self.from and self.from.Root
+			if root and math.abs(root[2]) > 180 then
+				self.from = table.clone(self.from)
+				local wrapped = table.clone(root)
+				wrapped[2] = ((wrapped[2] + 180) % 360) - 180
+				self.from.Root = wrapped
+			end
 			self.blendStart = time
 			self.blendTime = if instant then 0
 				elseif tr.landAge == 0 then 0.05 -- (a landing: quick, into the squash, but not a cut)

@@ -1628,6 +1628,39 @@ T.test("the local fighter's drawing: tapping Q / D fast never makes it jump back
 	expect(Prediction.velocity(false, 1, false, false, walk, 1, 0.15, 38, 1) == 0, "a busy fighter is predicted walking")
 end)
 
+T.test("throws: each style's poses exist and keep time with the simulation (thrower to its length, victim to its impact)", function()
+	for style, data in MoveData.Throws do
+		local set = Poses.Throws[style]
+		expect(set ~= nil, style .. " has no poses")
+		for _, role in { "thrower", "victim" } do
+			local keys = set[role]
+			expect(keys[1][1] == 0, style .. " " .. role .. ": no key at 0")
+			for i, key in keys do
+				expect(Poses[key[2]] ~= nil, style .. " " .. role .. ": unknown pose " .. key[2])
+				if i > 1 then expect(key[1] > keys[i - 1][1], style .. " " .. role .. ": keys out of order") end
+			end
+		end
+		expect(set.thrower[#set.thrower][1] == data.length, style .. ": the thrower's keys do not end on its length")
+		expect(set.victim[#set.victim][1] == data.impact, style .. ": the victim's keys do not end on the impact")
+		-- the sequence poses finitely, step by step, for both bodies
+		local anim = newAnimator()
+		for t = 0, data.length do
+			local view = { state = "Throwing", x = 0, y = 0, vx = 0, vy = 0, facing = 1, hitstop = 0, combo = 0,
+				throwStyle = style, throwTick = t }
+			local pose = anim:step(view, nil, 1 / 60, t / 60, 60, false)
+			checkPose(pose, style .. " thrower t" .. t)
+		end
+		local victim = newAnimator()
+		for t = 0, data.impact do
+			local _, dy = MoveData.throwAt(style, t)
+			local view = { state = "Thrown", x = 2, y = dy, vx = 0, vy = 0, facing = -1, hitstop = 0, combo = 0,
+				throwStyle = style, throwTick = t }
+			local pose = victim:step(view, nil, 1 / 60, t / 60, 60, false)
+			checkPose(pose, style .. " victim t" .. t)
+		end
+	end
+end)
+
 T.test("impact hierarchy: a jab barely shakes the camera, a heavy blow a little, a finisher more, the K.O. and ultimates most", function()
 	local KitFX = require("../src/shared/KitFX")
 	local M = MoveData.Moves

@@ -1424,6 +1424,71 @@ moveKit.YukinaMirror, moveKit.GoranGrab, moveKit.KuroenEmperorStep = "YUKINA", "
 moveKit.ElianPulse, moveKit.NovaSentinel = "ELIAN", "NOVA"
 MoveData.MoveKit = table.freeze(moveKit)
 
+--[[
+	THROWS (Wilhem, 0.25.1: « de vraies animations pour les chopes, cohérentes pour les persos et
+	belles »): a GRAB that connects plays a short throw instead of a plain blow. Six styles,
+	each fighter the one of its way of fighting (THROW_STYLE). Per style:
+	  length  ticks the thrower is busy (it recovers at the end)
+	  impact  tick the blow lands (the GRAB's damage, once); the victim is released then
+	  land    "floor" (slammed flat, down at once) or "launch" (sent flying: vy, push)
+	  beats   ticks of the blows before the impact (knees, a pommel): shown, no damage
+	  path    { tick, dx, dy, dz }: where the victim is, from the thrower (dx forward, dy its
+	          feet above the floor, dz toward the camera: drawn only, the fight stays in a line)
+	The victim ends at least PushWidth in front: nobody is pushed when it lands.
+]]
+MoveData.Throws = table.freeze({
+	-- judo: pulled onto the hip, over the shoulder, slammed flat in front
+	Shoulder = { length = 44, impact = 30, land = "floor", beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.3, 0, 0 }, { 12, 0.6, 1.1, 0 }, { 19, 0.1, 2.9, 0 }, { 26, 2.2, 1.6, 0 }, { 30, 3.8, 0, 0 } } },
+	-- seized round the waist, lifted overhead, slammed down
+	Slam = { length = 54, impact = 38, land = "floor", bounce = true, beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 8, 1.5, 0.2, 0 }, { 15, 0.8, 2.3, 0 }, { 22, 0.1, 4.1, 0 }, { 28, 0.4, 4.4, 0 }, { 38, 4.2, 0, 0 } } },
+	-- the clinch: two knees in the body, then a shove that sends it away
+	Knee = { length = 40, impact = 28, land = "launch", vy = 14, push = 26, beats = { 9, 18 },
+		path = { { 0, 2.0, 0, 0 }, { 5, 1.75, 0, 0 }, { 9, 1.7, 0.45, 0 }, { 13, 1.75, 0, 0 }, { 18, 1.7, 0.55, 0 }, { 22, 1.8, 0, 0 },
+			{ 28, 2.2, 0.2, 0 } } },
+	-- the collar held, a kick that launches it high and away
+	Kick = { length = 38, impact = 16, land = "launch", vy = 30, push = 16, beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.5, 0, 0 }, { 12, 1.5, 0.15, 0 }, { 16, 1.9, 0.8, 0 } } },
+	-- an arm seized, swung once round the thrower (passing in front of the camera), let go
+	Spin = { length = 46, impact = 28, land = "launch", vy = 18, push = 30, beats = {},
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.6, 0.4, 0.6 }, { 12, 0.2, 0.9, 2.1 }, { 18, -1.9, 1.0, 0.3 }, { 23, -0.4, 0.9, -1.9 },
+			{ 28, 2.2, 0.8, 0 } } },
+	-- the weapon's hilt or shaft in the face, then the cut that drops it
+	Blade = { length = 42, impact = 24, land = "floor", beats = { 10 },
+		path = { { 0, 2.0, 0, 0 }, { 6, 1.6, 0, 0 }, { 10, 1.9, 0, 0 }, { 16, 1.7, 0, 0 }, { 20, 2.6, 0.35, 0 }, { 24, 4.0, 0, 0 } } },
+})
+local THROW_STYLE = {
+	KAI = "Shoulder", KUROEN = "Shoulder", HIBIKI = "Shoulder", ELIAN = "Shoulder", ["KUROEN SHIN"] = "Shoulder",
+	RYUKEN = "Slam", GORAN = "Slam", HIBECARES = "Slam", ASURA = "Slam",
+	TARO = "Knee", KAZAN = "Knee", VENOM = "Knee",
+	ZEPHYR = "Kick", NOVA = "Kick", ASTER = "Kick",
+	AKEMI = "Spin", DAICHA = "Spin", SYLVA = "Spin", YUKINA = "Spin",
+	SHIN = "Blade", RAIJIN = "Blade", KUREN = "Blade",
+}
+MoveData.ThrowStyle = table.freeze(THROW_STYLE)
+
+function MoveData.throwStyle(kitName)
+	return THROW_STYLE[kitName or ""] or "Shoulder"
+end
+
+-- Where the victim of a throw is at `tick` (possibly fractional): dx, dy, dz from the thrower,
+-- eased between the path's keys (smoothstep: no corner, no jump).
+function MoveData.throwAt(style, tick)
+	local path = (MoveData.Throws[style] or MoveData.Throws.Shoulder).path
+	if tick <= path[1][1] then return path[1][2], path[1][3], path[1][4] end
+	for i = 2, #path do
+		local a, b = path[i - 1], path[i]
+		if tick <= b[1] then
+			local u = (tick - a[1]) / (b[1] - a[1])
+			u = u * u * (3 - 2 * u)
+			return a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u, a[4] + (b[4] - a[4]) * u
+		end
+	end
+	local last = path[#path]
+	return last[2], last[3], last[4]
+end
+
 function MoveData.total(m)
 	return m.startup + m.active + m.recovery
 end

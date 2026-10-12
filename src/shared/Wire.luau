@@ -11,6 +11,7 @@ local FIGHTER = {
 	"comboDamage", "wins", "crouching", "maxHp", "passive", "weave", "passiveCharges", "passiveLabel", "passiveOn",
 	"chilled", "tempo", "poisoned", "wakeInvuln", "revived", "domination", "stance", "sparks", "evadeStyle", "flow",
 	"fatal", "chainKeys", "chainClean", "cancelReady", "dirtyReason", "kit", "ping", "team", "teamIndex",
+	"throwStyle", "throwTick",
 }
 local PACKET = {
 	"projectiles", "tick", "generation", "epoch", "phase", "phaseTicks", "round", "timer", "training", "solo", "mode",

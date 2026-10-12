@@ -542,6 +542,26 @@ RunService:BindToRenderStep("FightingPresentation", Enum.RenderPriority.Camera.V
 		current.victory = (world.phase == "KO" or world.phase == "MatchEnd") and (world.winner == i or world.matchWinner == i)
 			and world.phaseTicks < Config.KOTicks - 60 and state.state ~= "KO" and state.y <= 0
 	end
+	-- A throw (MoveData.Throws): its clock runs between snapshots; the victim is placed from
+	-- its thrower as drawn, on the style's path (dz too: the spin passes in front of the camera).
+	for i, current in displayed do
+		local style = current.throwStyle
+		local data = style and style ~= "" and MoveData.Throws[style]
+		if data and (current.state == "Throwing" or current.state == "Thrown") then
+			local limit = if current.state == "Thrown" then data.impact else data.length
+			current.throwClock = math.min((current.throwTick or 0) + sinceSnapshot * Config.TickRate, limit)
+			local thrower = displayed[3 - i]
+			if current.state == "Thrown" and thrower then
+				local dx, dy, dz = MoveData.throwAt(style, current.throwClock)
+				local follow = math.min(1, dt * 30)
+				current.x += (thrower.x + (thrower.facing or 1) * dx - current.x) * follow
+				current.y += (dy - current.y) * follow
+				current.z = Config.PlaneZ + dz
+			end
+		else
+			current.throwClock = nil
+		end
+	end
 	-- The ultimate cinematic stages poses/positions and owns the camera while it plays.
 	local cinematicActive = cinematic:update(world, displayed, dt, now - receivedAt > 1)
 	-- Presentation spacing (Animator.spacing): at point-blank range the two bodies are drawn a

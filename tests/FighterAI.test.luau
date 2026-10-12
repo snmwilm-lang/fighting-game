@@ -310,9 +310,9 @@ test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGEN
 	expect(asura.reaction <= FighterAI.Levels[4].reaction and asura.block >= FighterAI.Levels[4].block,
 		"ASURA's brain must stay at least LÉGENDE's")
 	-- the boss's health left against LÉGENDE teams of 3 (the same teams, the same seeds)
-	-- (0.25.0: 8 matches per team instead of 3: on 3 the order was a draw of the seeds; measured
+	-- (0.25.0: 12 matches per team instead of 3: on 3 the order was a draw of the seeds; measured
 	-- on 20 per team, even 0.24.5 had them level, 1.67 against 1.65)
-	local PER_TEAM = 8
+	local PER_TEAM = 12
 	local function left(boss)
 		local sum = 0
 		local teams = { { "TARO", "VENOM", "HIBIKI" }, { "KAI", "RYUKEN", "HIBECARES" }, { "KUROEN", "GORAN", "YUKINA" } }
@@ -336,7 +336,7 @@ test("the bosses' brains: KUROEN SHIN sharper than ASURA, and harder on a LÉGEN
 		return sum / (3 * PER_TEAM)
 	end
 	local a, k = left("ASURA"), left("KUROEN SHIN")
-	-- (at least as hard as ASURA, within the noise of 24 matches)
+	-- (at least as hard as ASURA, within the noise of 36 matches)
 	expect(k >= a - 0.05, string.format("KUROEN SHIN (%.2f) must end with as much left as ASURA (%.2f) against the same teams", k, a))
 end)
 

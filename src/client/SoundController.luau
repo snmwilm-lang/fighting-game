@@ -163,8 +163,13 @@ end
 
 function SoundController:onEvent(event)
 	local kind = event.kind
-	if kind == "Hit" then
-		local own = material(MoveData.MoveKit[event.move])
+	if kind == "ThrowBeat" or kind == "Throw" then
+		-- (a throw: the seize, the knees or the pommel before the impact, in the thrower's matter)
+		local own = material(self.kits[event.attacker])
+		self:playAll(if kind == "Throw" then ACTIONS.Block else own.hit)
+	elseif kind == "Hit" then
+		-- (the GRAB's blow, its throw's impact: the thrower's own matter)
+		local own = material(MoveData.MoveKit[event.move] or self.kits[event.attacker])
 		local heavy = event.heavy or event.ko or event.cinematic
 		self:playAll(if heavy then own.heavyHit else own.hit)
 		if event.tip then self:playAll(ACTIONS.Tip) end

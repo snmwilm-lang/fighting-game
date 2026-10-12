@@ -39,6 +39,8 @@ ClipKit.SCRIPTS = {
 	hit = { hold(10), hold(24, { axis = 1 }), press("light", 11), press("light", 11), press("light", 11), press("light", 40),
 		hold(20, { axis = 1 }), press("heavy", 40), hold(16, { axis = 1 }), press("heavy", 12), press("light", 60),
 		hold(30, { axis = 1 }), press("heavy", 12, { crouch = true }), hold(70) },
+	-- (walks in and grabs: the kit's throw)
+	grab = { hold(10), hold(22, { axis = 1 }), press("grab", 70), hold(20) },
 	routes = { hold(10), press("light", 11), press("heavy", 12), press("light", 12), press("heavy", 50), hold(20, { axis = 1 }),
 		press("heavy", 13), press("light", 13), press("heavy", 13), press("light", 50), hold(20, { axis = 1 }),
 		press("light", 11), press("light", 11), press("heavy", 13), press("heavy", 50), hold(10) },
@@ -98,9 +100,18 @@ function ClipKit.play(kitName, scriptName, poseRate, onTick)
 			tick += 1
 			local views = {}
 			for i, f in world.fighters do
+				local style, throwTick = Sim.throwOf(world, f)
 				views[i] = { x = f.x, y = f.y, vx = f.vx + (f.pushVx or 0), vy = f.vy, facing = f.facing, state = f.state,
 					move = f.move, moveFrame = f.moveFrame, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit,
-					stance = f.stance, weave = (f.weaveTicks or 0) > 0 }
+					stance = f.stance, weave = (f.weaveTicks or 0) > 0, throwStyle = style, throwTick = throwTick }
+			end
+			-- (a throw's victim is placed from its thrower, like the client does: the path's dz too)
+			for i, v in views do
+				local other = views[3 - i]
+				if v.state == "Thrown" and v.throwStyle ~= "" then
+					local dx, dy, dz = MoveData.throwAt(v.throwStyle, v.throwTick)
+					v.x, v.y, v.z = other.x + other.facing * dx, dy, dz
+				end
 			end
 			local parts, poses, keys, snaps = {}, {}, {}, {}
 			local push = Animator.spacing(views[1].x, views[1].y, views[2].x, views[2].y)

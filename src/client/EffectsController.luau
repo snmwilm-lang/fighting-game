@@ -1905,6 +1905,20 @@ function EffectsController:onEvent(event, views, rigs)
 	elseif event.kind == "AirDash" then
 		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 0.6)
 		return
+	elseif event.kind == "Throw" then
+		-- The GRAB connects: a flash where the hands close, a jolt.
+		self:spark(Vector3.new(event.x, event.y, 0), Color3.fromHex("5BE3A1"), 1.4)
+		self.camera:shake(if self.reduced then 0.05 else 0.12, 0.1)
+		return
+	elseif event.kind == "ThrowBeat" then
+		-- A blow inside the throw (a knee, a pommel): a spark, a small jolt.
+		self:spark(Vector3.new(event.x, event.y, 0), self:energy(event.attacker), 0.9)
+		self.camera:shake(if self.reduced then 0.04 else 0.1, 0.07)
+		return
+	elseif event.kind == "ThrowImpact" then
+		-- The throw's impact (the slam, the shove, the kick): dust on the floor.
+		self:dust(event.x, 0, 1)
+		return
 	elseif event.kind == "GrabTech" then
 		-- grab against grab: both let go (a white flash between them)
 		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 1.3)

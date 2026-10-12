@@ -1858,6 +1858,7 @@ local function snapshot(match)
 		local f = world.fighters[i]
 		local team = world.teams and world.teams[i]
 		local label, labelOn = Sim.passiveLabel(world, f)
+		local throwStyle, throwTick = Sim.throwOf(world, f)
 		list[i] = {
 			x = f.x, y = f.y, vx = f.vx + f.pushVx, vy = f.vy, facing = f.facing, state = f.state,
 			move = f.move or "", moveFrame = f.moveFrame, hitstop = f.hitstop,
@@ -1876,6 +1877,7 @@ local function snapshot(match)
 			evadeStyle = if f.stunKind == "Evade" then f.evadeStyle or "" else "", -- AKEMI's dodge (its pose)
 			flow = if f.flowArmed then "armed" elseif f.flowTicks > 0 then "open" else "", -- AKEMI's INSTINCT FLOW
 			fatal = if f.fatalUsed then "used" elseif Sim.fatalReady(world, f) then "ready" else "none", -- COUP FATAL
+			throwStyle = throwStyle, throwTick = throwTick, -- a throw ("" / 0 otherwise): its style and tick
 			-- (the combo trainer's fields: only where it is offered, solo; Wire keeps the rest short)
 			chainKeys = if solo then f.chainKeys else nil, chainClean = if solo then f.chainClean else nil,
 			cancelReady = if solo then Sim.cancelReady(world, f) else nil, dirtyReason = if solo then f.dirtyReason or "" else nil,

@@ -49,10 +49,13 @@ function Theme.rule(parent, position, size, color, transparency)
 		BackgroundColor3 = color or Theme.LINE, BackgroundTransparency = transparency or 0, ZIndex = parent.ZIndex }, parent)
 end
 
--- Graphic speed lines are UI shapes: they remain crisp at every canvas scale.
+-- (0.25.1, Wilhem: « le menu moins chargé, moins d'effets mobile, comme dans les jeux de
+-- combat »: the decorative speed lines are gone; the frame stays, empty, for the callers)
+Theme.speedLines = false
 function Theme.ink(parent, accent, strength)
 	local art = new("Frame", { Name = "Ink", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
 		ClipsDescendants = true, ZIndex = parent.ZIndex }, parent)
+	if not Theme.speedLines then return art end
 	-- Keep the rotated strokes inside the card; this also works in places where
 	-- clipping rotated descendants is disabled (and under the tilted nav buttons).
 	for i = 1, 7 do
@@ -99,7 +102,7 @@ function Theme.feedback(button)
 	local function refresh()
 		if tween then tween:Cancel() end
 		tween = TweenService:Create(scale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Scale = if pressed then 0.985 elseif hovered or focused then 1.012 else 1,
+			Scale = if pressed then 0.99 else 1, -- (no growing on hover: the edge and the colour say it)
 		})
 		tween:Play()
 	end
@@ -140,7 +143,7 @@ function Theme.button(parent, props, accent)
 		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.82),
 		NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) }) }, glint)
 	local function sweep()
-		if Theme.reduced then return end
+		if Theme.reduced or not Theme.glints then return end
 		glint.Visible = true
 		band.Offset = Vector2.new(-1.2, 0)
 		Theme.play(band, 0.5, { Offset = Vector2.new(1.2, 0) }, Enum.EasingStyle.Quad).Completed:Once(function() glint.Visible = false end)
@@ -173,6 +176,8 @@ Theme.play = play
 
 -- A page comes in: it slides a little from the right and settles; its cards follow one after
 -- the other (a short stagger), each from slightly smaller.
+Theme.glints = false -- (the light sweeping the buttons: off, 0.25.1)
+Theme.cascade = false -- (the pages sliding in and their cards one after the other: off, 0.25.1)
 function Theme.enter(page)
 	if not page then return end
 	local base = page:GetAttribute("BasePosition")
@@ -180,7 +185,7 @@ function Theme.enter(page)
 		base = page.Position
 		page:SetAttribute("BasePosition", base)
 	end
-	if Theme.reduced then page.Position = base; return end
+	if Theme.reduced or not Theme.cascade then page.Position = base; return end
 	page.Position = base + UDim2.fromOffset(28, 0)
 	play(page, 0.32, { Position = base })
 	local k = 0
@@ -200,7 +205,8 @@ function Theme.popIn(shade, box, shadeTransparency)
 	if Theme.reduced then return end
 	local target = shadeTransparency or shade.BackgroundTransparency
 	shade.BackgroundTransparency = 1
-	play(shade, 0.2, { BackgroundTransparency = target })
+	play(shade, 0.12, { BackgroundTransparency = target })
+	if not Theme.cascade then return end -- (0.25.1: the window is simply there, no spring)
 	local scale = box:FindFirstChild("PopScale") or Theme.new("UIScale", { Name = "PopScale" }, box)
 	scale.Scale = 0.9
 	play(scale, 0.34, { Scale = 1 }, Enum.EasingStyle.Back)

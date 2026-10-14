@@ -1,5 +1,24 @@
 # Journal du projet — état à transmettre
 
+## Document — 14 octobre 2026 · Le grand prompt VFX (pas de nouvelle version : aucun code modifié)
+
+Wilhem : « Liste moi tout les vfx dont j'aurais besoin sur un gros prompt avec leur méthode et tout. »
+
+- **`docs/VFX_PROMPT.md`** : la liste de tous les VFX du jeu, chacun avec sa méthode Roblox (objets et réglages) et les assets à produire :
+  - le prompt maître à coller tel quel (style, contraintes Roblox, format de livraison) ;
+  - les recettes Roblox (ParticleEmitter, Beam, Trail, MeshPart, lumières, écran) ;
+  - les couleurs des 22 persos et la hiérarchie des impacts ;
+  - la bibliothèque commune (50 textures T01 à T50, avec des prompts d'images en anglais ; 25 meshes M01 à M25) ;
+  - les VFX communs du combat (tous les événements de la simulation) ;
+  - une fiche par perso : aura, traînée, impact, dash, projectile, passif, R, ÉVEIL, PORTE, FATAL, FINISHER ;
+  - les cinématiques (effets d'écran, 20 grades de couleur, kanji), les 6 arènes, l'interface et la boutique ;
+  - les priorités de production (environ 200 assets), puis le branchement.
+- Le branchement prévu : un module pur `VfxConfig.luau` (0 = pas encore envoyé, jamais d'ID inventé), avec la version procédurale actuelle comme repli.
+
+**Tests** : aucun code modifié, suites non relancées.
+
+**Prochaine étape** : au choix de Wilhem, générer en script les textures marquées **C** (P0), ou créer `VfxConfig.luau` et brancher les premiers assets qu'il enverra.
+
 ## Version 0.35.0 — 12 octobre 2026 · KAI : le KIKOHO en belle boule 3D
 
 Wilhem : « et le kikoho en boule ?? », puis, à la question « une belle boule 3D ou un petit rayon ? », il a répondu : une belle boule 3D.

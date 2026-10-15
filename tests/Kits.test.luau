@@ -515,6 +515,14 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 		Barrage = "barrage", SuperFlash = "ult" } do
 		expect(Palette.ACTIONS[kind] and Palette.ACTIONS[kind][1][1] == group, kind .. " does not play Wilhem's " .. group)
 	end
+	-- the K.O. voice only on a real K.O. (Wilhem): no other action says it, not even a
+	-- cinematic's explosion
+	for kind, list in Palette.ACTIONS do
+		for _, spec in list do
+			expect(kind == "KO" or spec[1] ~= "ko", kind .. " plays the K.O. voice")
+		end
+	end
+	expect(Palette.ACTIONS.Explosion ~= nil, "no explosion for the cinematics' booms")
 	local function check(list, label)
 		expect(type(list) == "table" and #list > 0, label .. " has no sound")
 		for _, spec in list or {} do

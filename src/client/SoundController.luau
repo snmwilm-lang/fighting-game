@@ -139,7 +139,7 @@ function SoundController:cinematicSound(name, kit)
 	local list = if name == "whoosh" then own.heavySwing or own.swing
 		elseif name == "heavy" then own.heavyHit
 		elseif name == "slash" then ACTIONS.BlockSteel
-		elseif name == "boom" then ACTIONS.KO
+		elseif name == "boom" then ACTIONS.Explosion -- (the K.O. voice comes with the K.O. blow only)
 		elseif name == "charge" then ACTIONS.SuperFlash
 		elseif name == "beam" then ACTIONS.Cinematic
 		else nil

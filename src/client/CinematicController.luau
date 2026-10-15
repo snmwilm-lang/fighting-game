@@ -243,6 +243,22 @@ function CinematicController.new(config, hud, effects)
 				else UDim2.fromScale(0.02 + (i % 3) * 0.008, 0.035 + (i % 2) * 0.01) }, self.koCard)
 		table.insert(self.koSplash, bar)
 	end
+	-- (with Wilhem's pack: two strokes of a brush slammed behind the letters instead of the bars,
+	-- over the scene's last image tinted in the card's colour, never a flat screen)
+	self.koBrushes = {}
+	for i, key in { "KO_BRUSH_A", "KO_BRUSH_B" } do
+		local image = VfxConfig.texture(key)
+		if image then
+			local brush = new("ImageLabel", { Name = key, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+				Image = image, ScaleType = Enum.ScaleType.Stretch, ZIndex = 6, Visible = false,
+				Position = if i == 1 then UDim2.fromScale(0.48, 0.44) else UDim2.fromScale(0.54, 0.52),
+				Size = if i == 1 then UDim2.fromScale(1.1, 0.55) else UDim2.fromScale(0.85, 0.4),
+				Rotation = if i == 1 then -9 else 6, ImageTransparency = if i == 1 then 0 else 0.2 }, self.koCard)
+			new("UIAspectRatioConstraint", { AspectRatio = 2, DominantAxis = Enum.DominantAxis.Width }, brush)
+			table.insert(self.koBrushes, brush)
+		end
+	end
+	self.koBrushScale = new("UIScale", {}, self.koCard)
 	self.shapePool, self.fpHidden = {}, {}
 	return self
 end
@@ -857,12 +873,16 @@ local RING_SEGMENTS = 22
 local STRAND_BITS = 22
 -- The RED KAMEHAMEHA's layers on the wave: texture, scroll (studs, studs/s), width (share of
 -- the radius, at his palms and at the end), transparency; `crackle`: a lightning that jumps.
+-- (Wilhem: « change-le seulement si ça le mérite ». His drawing's silhouette stays the wave's
+-- own, thin out of his palms and rippling: the textures only flow INSIDE it, narrower than the
+-- body all along (KiBall.beam: 0.9 to 2.4 radii across), and the lightnings crackle round it
+-- one frame in two, like the crackling energy of his reference.)
 local KAME_FLOWS = {
-	{ texture = "KAI_KAME_BEAM_BODY", length = 6, speed = 2.5, w0 = 1.5, w1 = 2.5, alpha = 0.1, white = false },
-	{ texture = "KAI_KAME_BEAM_SPIRAL", length = 4, speed = 4.5, w0 = 1.8, w1 = 3, alpha = 0.3, white = false },
-	{ texture = "KAI_KAME_BEAM_CORE", length = 8, speed = 6, w0 = 0.7, w1 = 1.1, alpha = 0, white = true },
-	{ texture = "KAI_KAME_LIGHTNING", length = 5, speed = 10, w0 = 2.4, w1 = 3.4, alpha = 0.1, crackle = true },
-	{ texture = "KAI_KAME_LIGHTNING_B", length = 6, speed = 12, w0 = 2.8, w1 = 3.8, alpha = 0.15, crackle = true },
+	{ texture = "KAI_KAME_BEAM_BODY", length = 6, speed = 2.5, w0 = 0.6, w1 = 1.9, alpha = 0.35, white = false },
+	{ texture = "KAI_KAME_BEAM_SPIRAL", length = 4, speed = 4.5, w0 = 0.7, w1 = 2.1, alpha = 0.45, white = false },
+	{ texture = "KAI_KAME_BEAM_CORE", length = 8, speed = 6, w0 = 0.3, w1 = 0.8, alpha = 0.05, white = true },
+	{ texture = "KAI_KAME_LIGHTNING", length = 5, speed = 10, w0 = 1.2, w1 = 3, alpha = 0.2, crackle = true },
+	{ texture = "KAI_KAME_LIGHTNING_B", length = 6, speed = 12, w0 = 1.4, w1 = 3.2, alpha = 0.25, crackle = true },
 }
 function CinematicController:buildWave(color, entry)
 	local w = { slices = {}, joints = {}, glows = {}, strands = {}, bands = {} }
@@ -989,8 +1009,8 @@ function CinematicController:drawWave(w, sh, a, b, color, reduced)
 			flow.Width0, flow.Width1 = r * spec.w0, r * spec.w1
 			flow.Color = if spec.white then ColorSequence.new(WHITE) else ColorSequence.new(WHITE, color)
 			if spec.crackle then
-				-- (on two frames in three, on a new curve each time)
-				local lit = math.random() < 0.65
+				-- (one frame in two, on a new curve each time)
+				local lit = math.random() < 0.5
 				flow.Transparency = NumberSequence.new(if lit then spec.alpha else 1)
 				flow.CurveSize0, flow.CurveSize1 = (math.random() - 0.5) * r * 2.4, (math.random() - 0.5) * r * 2.4
 			else
@@ -1154,10 +1174,18 @@ function CinematicController:applyOverlay(o)
 	local card = o and o.ko and o.ko.card
 	self.koCard.Visible = card ~= nil
 	if card then
+		-- (the scene's last image shows through the card's colour: a K.O. card, not a blank screen)
 		self.koCard.BackgroundColor3 = hex(card.bg, INK)
+		self.koCard.BackgroundTransparency = 0.3
+		local brushed = #self.koBrushes > 0 and card.splash ~= nil
 		for _, bar in self.koSplash do
-			bar.Visible = card.splash ~= nil
+			bar.Visible = card.splash ~= nil and not brushed
 			bar.BackgroundColor3 = hex(card.splash, RED)
+			bar.BackgroundTransparency = 0.15
+		end
+		for _, brush in self.koBrushes do
+			brush.Visible = brushed
+			brush.ImageColor3 = hex(card.splash, RED)
 		end
 	end
 	local ko = o and o.ko
@@ -1168,6 +1196,9 @@ function CinematicController:applyOverlay(o)
 			self.koLabel.Visible, self.koSub.Visible = true, true
 			self.koScale.Scale = if reduced then 1 else 2.4
 			tween(self.koScale, 0.14, { Scale = 1 }, Enum.EasingStyle.Back)
+			-- (the brush strokes are slammed on just before the letters)
+			self.koBrushScale.Scale = if reduced then 1 else 0.35
+			tween(self.koBrushScale, 0.1, { Scale = 1 }, Enum.EasingStyle.Quad)
 			self:flash(0.25)
 		end
 		local color = hex(ko.color, RED)

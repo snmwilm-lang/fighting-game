@@ -55,7 +55,16 @@ local function meshTemplate(name: string): MeshPart
 		meshFolder = ReplicatedStorage:FindFirstChild("VFX_Meshes") :: Folder? -- (never yields: built by the server)
 	end
 	local m = meshFolder and meshFolder:FindFirstChild(name)
-	assert(m and m:IsA("MeshPart"), "VFX_Meshes." .. name .. " manquant (importe le FBX)")
+	if not (m and m:IsA("MeshPart")) then
+		-- (in the game: a mesh not uploaded or not loaded yet gives an empty MeshPart, which
+		-- draws nothing: the rest of the effect still plays; the effects that are mostly a
+		-- mesh keep the game's own until it is there, VfxPack.MESH_OF)
+		if not V.EmptyMesh then
+			V.EmptyMesh = Instance.new("MeshPart")
+			V.EmptyMesh.Transparency = 1
+		end
+		return V.EmptyMesh :: MeshPart
+	end
 	return m :: MeshPart
 end
 
@@ -321,7 +330,10 @@ local function emitter(parent: Instance, p: { [string]: any }): ParticleEmitter
 end
 V.Emitter = emitter
 
+--- (in the game: the share of the particles drawn, 0.5 in the reduced mode for phones; set by VfxPack)
+V.Quality = 1
 local function emit(e: ParticleEmitter, n: number)
+	n = math.max(1, math.floor(n * V.Quality + 0.5))
 	V.Stats.particles += n
 	e:Emit(n)
 end

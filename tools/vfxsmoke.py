@@ -26,7 +26,8 @@ local CFrame = { lookAt = function(a, b) return { at = a, to = b } end, new = fu
 local meshes = { children = {} }
 function meshes:FindFirstChild(n) return self.children[n] end
 local fake = {
-	VFX_Common = { ArcCFrame = function() return {} end, Parry = function() log("Parry") end, Boom = function() error("boom") end },
+	VFX_Common = { ArcCFrame = function() return {} end, Parry = function() log("Parry") end, Guard = function() log("Guard") end,
+		Boom = function() error("boom") end },
 	VFX_Chars = {
 		Impact = function(name, level) log("Impact " .. name .. " " .. level) end,
 		Trail = function(name) return { On = function() log("TrailOn " .. name) end, Off = function() log("TrailOff " .. name) end, Destroy = function() end } end,
@@ -43,9 +44,17 @@ local fake = {
 local folder = { WaitForChild = function(_, n) return n end }
 local script = { Parent = { WaitForChild = function() return folder end } }
 local shared = { VfxConfig = "VfxConfig", CombatConfig = "CombatConfig" }
-local game = { GetService = function() return {
-	WaitForChild = function() return shared end,
-	FindFirstChild = function(_, n) return if n == "VFX_Meshes" then meshes else nil end } end }
+local Enum = { AssetFetchStatus = { Success = "Success", Failure = "Failure" } }
+local task = { spawn = function(f) f() end }
+local failIds = {}
+local contentProvider = { PreloadAsync = function(_, list, done)
+	for _, id in list do done(id, if failIds[id] then Enum.AssetFetchStatus.Failure else Enum.AssetFetchStatus.Success) end
+end }
+local game = { GetService = function(_, name)
+	if name == "ContentProvider" then return contentProvider end
+	return {
+		WaitForChild = function() return shared end,
+		FindFirstChild = function(_, n) return if n == "VFX_Meshes" then meshes else nil end } end }
 local function fakeRequire(x)
 	if x == "VfxConfig" then return VfxConfig end
 	if x == "CombatConfig" then return { MaxMeter = 300 } end
@@ -76,12 +85,17 @@ check(not pack:ready("KAI") and not pack:hit("KAI", "light", vec(), 1, color, 4,
 check(not pack:common("Parry", {}, color), "no IDs: the game draws the parry")
 check(pack:update(rig, { kit = "KAI", meter = 300 }, nil, 0, color) == false and pack.loaded == nil, "no IDs: nothing dressed, the pack never loaded")
 check(not pack:trail(rig, "RightHand", true), "no IDs: the game's trail")
--- everything uploaded, meshes loaded
+-- the textures uploaded, the meshes not yet
 for k in VfxConfig.TEXTURES do VfxConfig.TEXTURES[k] = 1 end
-for k in VfxConfig.MESHES do VfxConfig.MESHES[k] = 1 meshes.children[k] = true end
 check(not pack:ready("KAI"), "the check waits 2 s before looking again")
 clock = 3
-check(pack:ready("KAI") and pack.loaded, "uploaded: KAI is ready and the pack loaded")
+check(pack:ready("KAI") and pack.loaded, "the textures uploaded: KAI is ready and the pack loaded, without the meshes")
+check(not pack:common("Guard", {}, vec(), color), "no shield mesh yet: the game draws the guard")
+check(not pack:swing("KAI", vec(), 0, color), "no slash mesh yet: the game draws the arc")
+-- the meshes loaded too
+for k in VfxConfig.MESHES do VfxConfig.MESHES[k] = 1 meshes.children[k] = true end
+check(pack:common("Guard", {}, vec(), color) and calls[#calls] == "Guard", "the shield mesh there: the pack's guard")
+check(pack:swing("KAI", vec(), 0, color) and calls[#calls] == "Swing KAI", "the slash mesh there: the pack's arc")
 check(pack:hit("KAI", "ko", vec(1, 2, 0), -1, color, 8, {}) and calls[#calls] == "Impact KAI finisher", "a K.O. blow is the pack's finisher")
 check(pack:hit("KAI", "heavy", vec(), 1, color, 4, {}) and calls[#calls] == "Impact KAI medium", "a strong blow is the pack's medium")
 check(pack:update(rig, { kit = "KAI", meter = 210 }, nil, clock, color) and rig.pack.on, "KAI dressed")
@@ -104,6 +118,15 @@ check(pack:ready("KAI"), "a kit's own family stays on")
 VfxConfig.TEXTURES.KAI_KI_POP_4x4 = 0
 local fresh = VfxPack.new(effects)
 check(not fresh:ready("KAI") and fresh:ready("TARO"), "one missing texture keeps only KAI on the game's effects")
+-- a texture that does not load (a wrong ID): named in the output, its fighter back to the game's
+VfxConfig.TEXTURES.KAI_KI_POP_4x4 = 1
+VfxConfig.TEXTURES.TARO_FIRE_RING_4x4 = 777
+failIds["rbxassetid://777"] = true
+local before = #warned
+local checked = VfxPack.new(effects)
+check(checked:ready("KAI") and not checked:ready("TARO"), "TARO's texture did not load: TARO keeps the game's effects, KAI does not")
+check(#warned == before + 1 and string.find(warned[#warned], "TARO_FIRE_RING_4x4 rbxassetid://777", 1, true) ~= nil,
+	"the texture that did not load is named")
 for k, id in saved do VfxConfig.TEXTURES[k] = id end
 for k, id in savedMeshes do VfxConfig.MESHES[k] = id end
 print(if failed == 0 then "VfxPack smoke: all passed" else ("VfxPack smoke: %d failed"):format(failed))

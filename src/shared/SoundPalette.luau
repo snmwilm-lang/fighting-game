@@ -222,7 +222,10 @@ local ACTIONS = {
 	Graded = { { "tick", 0.59, 1.25 } },
 	SuperJump = { { "jump", 0.51, 0.85 }, { "wind", 0.34, 0.8, 0.4 } },
 	Bounce = { { "thud", 0.64, 0.75 } },
-	KO = { { "ko", 0.9, 1 }, { "ult", 0.4, 0.85, nil, "hall" } },
+	KO = { { "ko", 0.9, 1 }, { "ult", 0.4, 0.85, nil, "hall" } }, -- (Wilhem's voice: only on a real K.O.)
+	-- a cinematic's explosion, crash or slam ("boom" in the FATAL FINISHERS): heavy, never the
+	-- K.O. voice (Wilhem: « le son qui dit KO doit venir que sur les KO »)
+	Explosion = { { "boom", 0.6, 0.8, 0.4, "hall" }, { "ult", 0.35, 0.85, nil, "hall" } },
 	Cinematic = { { "ult", 0.3, 1.1, 0.8, "hall" } }, -- under every blow of an ultimate
 	Tip = { { "thud", 0.35, 2.3 } }, -- SHIN's PRÉCISION: a bright knock on top of the hit
 	Knockdown = { { "thud", 0.77, 0.55 } },

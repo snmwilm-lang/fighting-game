@@ -1,5 +1,49 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.1 — 15 octobre 2026 · Les IDs du pack VFX, la carte K.O., la voix du K.O.
+
+Wilhem a importé le pack et envoyé les IDs en captures d'écran (Creator Hub, type « Image »). Il a aussi signalé deux défauts.
+
+- **Les 97 textures ont leur ID** dans `VfxConfig`. Elles ont été relues chiffre par chiffre : les 45 premières agrandies ; les 52 autres lues telles qu'affichées, car ces captures n'étaient pas enregistrées. Roblox n'étant pas joignable d'ici pour vérifier, une sécurité est ajoutée :
+  - au démarrage, le client précharge toutes les textures (`ContentProvider:PreloadAsync`) ;
+  - une texture qui ne charge pas (ID mal lu, image refusée) est nommée dans la console ;
+  - son perso, ou les effets communs, gardent alors les effets du jeu.
+- **Les meshes deviennent facultatifs** : les 14 n'ont pas encore d'ID.
+  - Une famille d'effets s'allume avec ses textures seules.
+  - Un mesh absent donne une pièce vide, qui ne dessine rien ; le reste de l'effet joue.
+  - Les effets qui sont surtout un mesh gardent ceux du jeu tant qu'il manque : garde, renvoi, burst, super saut, chute rapide, arcs des coups forts (`VfxPack.MESH_OF`).
+- **Mode réduit** (téléphones) : le pack ne dessine que la moitié de ses particules (`V.Quality`).
+- **KAIENHA** (Wilhem : « change-le seulement si ça le mérite ») :
+  - en 0.36.0, les bandes du Red Kamehameha étaient plus larges que le rayon près des paumes et auraient effacé le départ fin et ondulé de son dessin ;
+  - elles coulent maintenant à l'intérieur du rayon (plus étroites que le corps sur toute la longueur) et n'y ajoutent que du détail ;
+  - les deux éclairs crépitent autour une image sur deux, comme l'énergie qui crépite de sa référence.
+- **La carte K.O. des FATAL FINISH** (Wilhem : « ce bug sur tous les écrans K.O. ») :
+  - avant : un aplat opaque de la couleur de la carte, qui cachait toute la scène, avec des rectangles pour l'éclaboussure ;
+  - maintenant : la dernière image de la scène reste visible sous la couleur de la carte (transparence 0,3) ;
+  - deux coups de pinceau du pack (`KO_BRUSH_A`, `KO_BRUSH_B`) claquent derrière les lettres à la place des rectangles ; sans eux, les barres restent, légèrement transparentes.
+- **La voix « K.O. »** (Wilhem : « elle doit venir que sur les K.O. ») :
+  - chaque « boom » des cinématiques (explosions, chocs, crashs : 28 endroits) jouait le groupe K.O., donc sa voix ;
+  - ils jouent maintenant `Explosion` (impact lourd et réverbération, sans voix) ;
+  - la voix ne sort plus qu'avec le coup qui met vraiment K.O. (`event.ko`) ;
+  - test ajouté dans Kits : « aucune autre action ne dit K.O. ».
+- **Le texte jaune en haut à gauche** (« Fatal/FINISH · shot … ») ne s'affiche que pour une cinématique lancée depuis le labo d'entraînement (ou avec les hitbox de debug) : c'est le repère des plans pour les retours.
+
+**Fichiers** : `VfxConfig` (IDs), `VfxPack` (textures seules, `MESH_OF`, préchargement, qualité), `VFX/VFX_Common` (mesh vide, `V.Quality`), `CinematicController` (carte K.O., couches du KAIENHA), `SoundPalette` (`Explosion`), `SoundController`, `tests/Kits.test.luau`, `tools/vfxsmoke.py` (29 vérifications).
+
+**Tests** :
+- suites : CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Lobby 47, Kits en cours au moment du commit (voir le commit suivant) ;
+- `vfxcheck` : 33 assets encore à 0 (les 14 meshes et les 19 assets pour les ultimes) ;
+- `vfxsmoke` : tout passe.
+
+Non vérifié dans Studio.
+
+**Problèmes ouverts** :
+- les 14 meshes n'ont pas d'ID ;
+- les effets du pack n'ont encore jamais été vus en jeu : leurs tailles, leurs couleurs et ce qu'ils remplacent se régleront sur les retours de Wilhem (« retravaille pour que ça rentre vraiment dans ma DA ») ;
+- NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : les IDs des 14 meshes ; des captures ou vidéos en jeu de ce qui ne colle pas à sa DA.
+
 ## Version 0.36.0 — 15 octobre 2026 · Le pack VFX de Wilhem branché dans le jeu (en attente des IDs)
 
 Wilhem a envoyé son pack VFX (étapes 1 à 3) : 93 textures, 25 meshes, trois modules Lua (effets communs, effets par perso, auras / compétences / passifs), des démos vidéo et un Red Kamehameha (12 textures + script).

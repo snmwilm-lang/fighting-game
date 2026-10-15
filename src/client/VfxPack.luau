@@ -64,8 +64,12 @@ local PASSIVE_VALUE = {
 local EVERY_FRAME = { HIBECARES = true }
 
 function VfxPack.new(effects)
-	return setmetatable({ effects = effects, loaded = nil, broken = {}, readiness = {}, checked = {} }, VfxPack)
+	return setmetatable({ effects = effects, loaded = nil, broken = {}, readiness = {}, checked = {}, failed = {} }, VfxPack)
 end
+
+-- The shared effects that are mostly a mesh: the game's own stays until it is loaded.
+VfxPack.MESH_OF = { Guard = "SHIELD_HEX", Reflect = "SHIELD_HEX", Burst = "SPHERE", SuperJump = "SHOCK_CYLINDER",
+	FastFall = "SHOCK_RING" }
 
 -- The pack's modules, required once and only when a family is ready (nothing of the pack runs
 -- before its assets are there).
@@ -84,10 +88,39 @@ function VfxPack:load()
 		self.V.ShakeHook = function(amplitude, seconds)
 			effects.camera:shake(amplitude * (if effects.reduced then 0.4 else 1), seconds)
 		end
+		self:preload()
 	else
 		warn("[VFX] the pack did not load: " .. tostring(err))
 	end
 	return ok
+end
+
+-- Every uploaded texture loaded once on this client: one that does not load (a wrong ID, an
+-- image refused) is named in the output, and its family keeps the game's effects.
+function VfxPack:preload()
+	task.spawn(function()
+		local list, keyOf, bad = {}, {}, {}
+		for key in VfxConfig.TEXTURES do
+			local id = VfxConfig.texture(key)
+			if id then
+				table.insert(list, id)
+				keyOf[id] = key
+			end
+		end
+		pcall(function()
+			game:GetService("ContentProvider"):PreloadAsync(list, function(id, status)
+				if status ~= Enum.AssetFetchStatus.Success and keyOf[id] then
+					self.failed[keyOf[id]] = true
+					table.insert(bad, keyOf[id] .. " " .. id)
+				end
+			end)
+		end)
+		if #bad > 0 then
+			table.sort(bad)
+			warn("[VFX] these textures did not load (check their IDs in VfxConfig): " .. table.concat(bad, ", "))
+			self.readiness = {} -- (their families go back to the game's effects)
+		end
+	end)
 end
 
 local function meshesThere(list)
@@ -107,13 +140,21 @@ function VfxPack:ready(family)
 	if self.readiness[family] == false and now - (self.checked[family] or 0) < 2 then return false end
 	self.checked[family] = now
 	local need = if family == "COMMON" then VfxConfig.COMMON else VfxConfig.kitNeed(family) -- (the game's names)
-	local ok = need ~= nil and VfxConfig.ready(need) and meshesThere(need.meshes) and self:load()
+	-- (the textures decide: a mesh still missing only leaves its piece out, MESH_OF; a texture
+	-- that failed to load, `failed`, keeps its family on the game's effects)
+	local ok = need ~= nil and VfxConfig.ready({ textures = need.textures, meshes = {} }) and self:load()
+	if ok then
+		for _, key in need.textures do
+			if self.failed[key] then ok = false end
+		end
+	end
 	self.readiness[family] = ok and true or false
 	return self.readiness[family]
 end
 
 -- Runs a pack effect; if it fails, its family goes back to the game's own effects.
 function VfxPack:try(family, fn, ...)
+	if self.V then self.V.Quality = if self.effects.reduced then 0.5 else 1 end
 	local ok, err = pcall(fn, ...)
 	if not ok then
 		self.broken[family] = true
@@ -126,6 +167,7 @@ end
 -- first argument missing (a body not there yet): the game draws it, the pack stays on.
 function VfxPack:common(name, ...)
 	if (...) == nil or not self:ready("COMMON") then return false end
+	if self.MESH_OF[name] and not meshesThere({ self.MESH_OF[name] }) then return false end
 	return self:try("COMMON", self.V[name], ...)
 end
 
@@ -143,7 +185,9 @@ end
 -- A strong blow goes out: the kit's arc (or the shared slash), facing the camera. roll: the
 -- arc's tilt on screen (degrees: 0 flat, 60 rising, -60 falling).
 function VfxPack:swing(kit, center, roll, color)
-	if not self:ready(kit) then return false end
+	-- (an arc is a mesh: the shared slash, or the kit's own)
+	local own = VfxConfig.KITS[kit]
+	if not (self:ready(kit) and meshesThere({ "SLASH_180" }) and meshesThere(own and own.meshes or {})) then return false end
 	return self:try(kit, function()
 		self.C.Swing(packName(kit), self.V.ArcCFrame(center, roll), color, {})
 	end)
@@ -207,6 +251,7 @@ end
 -- Every frame: the aura's level (the meter: one level a third of the gauge) and the passive's
 -- state. False when the pack does not dress this body.
 function VfxPack:update(rig, view, m, now, color)
+	if rig.pack and rig.pack.on and not self:ready(view.kit) then undress(rig) end -- (a texture failed meanwhile)
 	local state = self:dress(rig, view.kit, color, now)
 	if not state then return false end
 	return self:try(view.kit, function()

@@ -21,6 +21,8 @@ local OrbFlight = require(Shared.OrbFlight)
 local WeaponFX = require(Shared.WeaponFX)
 local BLOCK_SPARKS -- (set with the weapons below)
 local KitFX = require(Shared.KitFX)
+-- Wilhem's VFX pack (client/VFX): drawn once its assets are uploaded, else the effects below
+local VfxPack = require(script.Parent.VfxPack)
 
 local EffectsController = {}
 
@@ -65,6 +67,7 @@ function EffectsController.new(config, camera)
 	gui.Name, gui.ResetOnSpawn, gui.IgnoreGuiInset, gui.DisplayOrder = "ImpactOverlay", false, true, 3
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	self.overlay = gui
+	self.pack = VfxPack.new(self)
 	return self
 end
 
@@ -1334,6 +1337,32 @@ function EffectsController:kitSwing(view, moveId, color, heavy)
 	SWINGS[fx.swing](self, view, at, color, accentOf(fx), heavy, f, z, kick)
 end
 
+-- Where a blow's arc is drawn (in front of the attacker, at chest height, low for sweeps) and
+-- its tilt on screen (degrees: rising for launchers, falling for smashes): Wilhem's pack.
+function EffectsController:swingCenter(view, moveId)
+	local role = ROLE_OF[moveId] or moveId
+	local f = view.facing or 1
+	return Vector3.new(view.x + f * 2.2, view.y + (if role == "Sweep" or role == "LowKick" then 1 else 3.4), self.config.PlaneZ)
+end
+local ROLL = { Uppercut = 60, Rising = 60, Launcher = 55, Smash = -55, Hammer = -60, Spike = -60, Sweep = -8, LowKick = -8 }
+function EffectsController:swingRoll(view, moveId)
+	return (ROLL[ROLE_OF[moveId] or moveId] or 12) * (view.facing or 1)
+end
+-- The fighters' bodies (the pack looks for the floor under a blow through them).
+function EffectsController:bodies(rigs)
+	local list = {}
+	for _, rig in rigs do
+		if rig.model then table.insert(list, rig.model) end
+	end
+	return list
+end
+-- The colour of the fighter's aura: a bought aura's first colour (SHOP · VFX), else its energy.
+function EffectsController:auraColor(rig, color)
+	local worn = rig.model and rig.model:GetAttribute("Aura")
+	local first = type(worn) == "string" and string.match(worn, "^(%x%x%x%x%x%x),%x%x%x%x%x%x$")
+	return if first then Color3.fromHex(first) else color
+end
+
 -- A blow lands: the kit's mark on the target.
 function EffectsController:kitHit(moveId, position, color, heavy, facing)
 	local fx = KitFX.of(MoveData.MoveKit[moveId] or "KAI")
@@ -1945,6 +1974,13 @@ function EffectsController:update(slot, view, rig, previous, now)
 	end
 	local phase = if view.state == "Attack" and MoveData.Moves[view.move]
 		then MoveData.phase(MoveData.Moves[view.move], view.moveFrame) else nil
+	-- Wilhem's pack: the trails, aura and passive it hangs on the body (its aura replaces the
+	-- kit's floating motes; the bought auras keep their colours: rig.motes)
+	local dressed = self.pack:update(rig, view, view.state == "Attack" and MoveData.Moves[view.move] or nil, now,
+		self:auraColor(rig, color))
+	if dressed and rig.motes and rig.motes.Rate ~= 0 then rig.motes.Rate = 0 end
+	if not dressed and rig.packDressed then rig.motesKit = nil end -- (back to the game's motes)
+	rig.packDressed = dressed
 	local key = if phase then view.move .. phase else view.state
 	if previous and previous.key ~= key then
 		if phase == "Startup" and view.move == "Grab" and not view.ghost then
@@ -1955,13 +1991,24 @@ function EffectsController:update(slot, view, rig, previous, now)
 			-- The weapon kits draw every stroke; the others their own flourish, and a smear on
 			-- their strong attacks.
 			if not self:weaponStrike(view, view.move, color, rig) then
-				self:kitSwing(view, view.move, color, m.heavy)
-				if m.heavy then self:slash(view, view.move, color) end
+				-- (with the pack: the strike trails, and the kit's arc on the strong blows)
+				local packed = self.pack:ready(view.kit)
+					and (not m.heavy or self.pack:swing(view.kit, self:swingCenter(view, view.move), self:swingRoll(view, view.move), color))
+				if not packed then
+					self:kitSwing(view, view.move, color, m.heavy)
+					if m.heavy then self:slash(view, view.move, color) end
+				end
 			end
 		elseif view.state == "Dashing" or view.state == "AirDash" then
-			self:kitDash(view, color)
+			local move = Vector3.new(view.vx or 0, view.vy or 0, 0)
+			local dir = if move.Magnitude > 0.01 then move.Unit else Vector3.new(view.facing or 1, 0, 0)
+			-- (in the air the pack's dash is the AirDash event's ring of speed: no dust off the floor)
+			local packed = if view.state == "AirDash" then self.pack:ready("COMMON") else self.pack:dash(view.kit, rig.model, dir, color)
+			if not packed then self:kitDash(view, color) end
 		elseif view.state == "Knockdown" and previous.key ~= "KO" then
-			self:dust(view.x, view.y, view.facing)
+			if not self.pack:common("Knockdown", Vector3.new(view.x, 0, self.config.PlaneZ)) then
+				self:dust(view.x, view.y, view.facing)
+			end
 			self.camera:shake(if self.reduced then 0.15 else 0.35, 0.2)
 		end
 	end
@@ -1991,6 +2038,7 @@ function EffectsController:update(slot, view, rig, previous, now)
 			local hand = if isWeapon then rig.weaponHand else limb
 			local on = limbs ~= nil and (if isWeapon then weaponSwinging else swinging) and table.find(limbs, hand) ~= nil
 				and not (self.reduced and not m.heavy and not isWeapon)
+			if self.pack:trail(rig, limb, on) then on = false end -- (the pack's trail draws it)
 			if trail.Enabled ~= on then trail.Enabled = on end
 		end
 	end
@@ -2030,27 +2078,46 @@ function EffectsController:update(slot, view, rig, previous, now)
 end
 
 function EffectsController:onEvent(event, views, rigs)
+	local model = function(slot) return slot and rigs[slot] and rigs[slot].model end
 	if event.kind == "GroundBounce" or event.kind == "WallBounce" then
 		local x = if event.kind == "WallBounce" then math.clamp(event.x, self.config.ArenaMinX, self.config.ArenaMaxX) else event.x
-		self:dust(x, if event.kind == "WallBounce" then event.y + 2 else 0, 1)
-		self:spark(Vector3.new(x, event.y + 1, 0), WHITE, 1.1)
+		local packed
+		if event.kind == "WallBounce" then
+			-- (the crack on the invisible wall, facing back into the arena)
+			local inward = if x >= (self.config.ArenaMinX + self.config.ArenaMaxX) / 2 then -1 else 1
+			local at = Vector3.new(x - inward * 0.6, event.y + 2, 0)
+			packed = self.pack:common("WallBounce", CFrame.lookAt(at, at + Vector3.new(inward, 0, 0)), WHITE)
+		else
+			packed = self.pack:common("GroundBounce", Vector3.new(x, 0.05, 0), nil)
+		end
+		if not packed then
+			self:dust(x, if event.kind == "WallBounce" then event.y + 2 else 0, 1)
+			self:spark(Vector3.new(x, event.y + 1, 0), WHITE, 1.1)
+		end
 		self.camera:shake(if self.reduced then 0.2 else 0.45, 0.22)
 		return
 	elseif event.kind == "SuperJump" then
 		local v = views[event.attacker]
-		if v then self:dust(v.x, 0, v.facing) end
+		if v and not self.pack:common("SuperJump", model(event.attacker), self:energy(event.attacker)) then self:dust(v.x, 0, v.facing) end
 		return
 	elseif event.kind == "FastFallLand" then
 		-- (the fast fall hits the floor: dust and a small jolt, nothing more)
-		self:dust(event.x, 0, 1)
+		if not self.pack:common("FastFall", model(event.slot), self:energy(event.slot)) then self:dust(event.x, 0, 1) end
 		self.camera:shake(if self.reduced then 0.06 else 0.14, 0.1)
 		return
 	elseif event.kind == "AirDash" then
-		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 0.6)
+		local dir = if event.dir then Vector3.new(event.dir, 0, 0) else Vector3.new(views[event.slot] and views[event.slot].facing or 1, 0, 0)
+		if not self.pack:common("DashAir", model(event.slot), self:energy(event.slot), dir) then
+			self:spark(Vector3.new(event.x, event.y, 0), WHITE, 0.6)
+		end
 		return
 	elseif event.kind == "Throw" then
 		-- The GRAB connects: a flash where the hands close, a jolt.
-		self:spark(Vector3.new(event.x, event.y, 0), Color3.fromHex("5BE3A1"), 1.4)
+		local grabber = rigs[event.attacker] and rigs[event.attacker].model
+		local hand = grabber and RigReader.part(grabber, "RightHand")
+		if not (hand and self.pack:common("GrabGlint", hand, Color3.fromHex("5BE3A1"))) then
+			self:spark(Vector3.new(event.x, event.y, 0), Color3.fromHex("5BE3A1"), 1.4)
+		end
 		self.camera:shake(if self.reduced then 0.05 else 0.12, 0.1)
 		return
 	elseif event.kind == "ThrowBeat" then
@@ -2060,11 +2127,16 @@ function EffectsController:onEvent(event, views, rigs)
 		return
 	elseif event.kind == "ThrowImpact" then
 		-- The throw's impact (the slam, the shove, the kick): dust on the floor.
-		self:dust(event.x, 0, 1)
+		local at = Vector3.new(event.x, math.max(0.6, event.y or 1), 0.8)
+		if not self.pack:common("GrabFinish", CFrame.new(at), self:energy(event.attacker), { hitstop = 6, ignore = self:bodies(rigs) }) then
+			self:dust(event.x, 0, 1)
+		end
 		return
 	elseif event.kind == "GrabTech" then
 		-- grab against grab: both let go (a white flash between them)
-		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 1.3)
+		if not self.pack:common("GrabEscape", CFrame.new(event.x, event.y, 0.6), WHITE) then
+			self:spark(Vector3.new(event.x, event.y, 0), WHITE, 1.3)
+		end
 		self.camera:shake(if self.reduced then 0.08 else 0.18, 0.12)
 		return
 	elseif event.kind == "SuperFlash" then
@@ -2085,10 +2157,11 @@ function EffectsController:onEvent(event, views, rigs)
 			self:debris(position - Vector3.new(0, 1.5, 0), self:energy(event.defender), 0.5)
 			self:dust(event.x, 0, 1)
 			self:spark(position, Color3.fromHex("B8A890"), 1.4)
-		else
+			self:spark(position, self:energy(event.defender), 1)
+		elseif not self.pack:common("Parry", CFrame.new(position + Vector3.new(0, 0, 0.8)), Color3.fromHex("FFD23F")) then
 			self:spark(position, Color3.fromHex("FFD23F"), 1.6)
+			self:spark(position, self:energy(event.defender), 1)
 		end
-		self:spark(position, self:energy(event.defender), 1)
 		if rigs[event.defender] then self:flash(rigs[event.defender]) end
 		self.camera:punch(if self.reduced then 0.08 else 0.18, position)
 		return
@@ -2107,7 +2180,9 @@ function EffectsController:onEvent(event, views, rigs)
 		return
 	elseif event.kind == "Resolve" then
 		-- KAI's RESOLVE: a gold flare where he braces, the floor dust of the slide.
-		self:spark(Vector3.new(event.x, event.y, self.config.PlaneZ), Color3.fromHex("FFD23F"), 1.1)
+		if not self.pack:trigger(rigs[event.slot], "KAI", CFrame.new(event.x, event.y, self.config.PlaneZ + 0.8)) then
+			self:spark(Vector3.new(event.x, event.y, self.config.PlaneZ), Color3.fromHex("FFD23F"), 1.1)
+		end
 		local v = views[event.slot]
 		if v then self:dust(v.x, 0, -v.facing) end
 		self.camera:shake(if self.reduced then 0.06 else 0.14, 0.12)
@@ -2117,7 +2192,7 @@ function EffectsController:onEvent(event, views, rigs)
 		-- the rare INSTINCT dodge).
 		local rig = rigs[event.defender]
 		local tone = if event.flow or event.style == "INSTINCT" then Color3.new(1, 1, 1) else self:energy(event.defender)
-		if rig then
+		if rig and not self.pack:trigger(rig, "AKEMI") then -- (the pack: her silver Ultra Instinct ghost)
 			self:afterimage(rig, tone)
 			if not self.reduced then task.delay(0.06, function() self:afterimage(rig, tone) end) end
 		end
@@ -2145,7 +2220,12 @@ function EffectsController:onEvent(event, views, rigs)
 		end
 		return
 	elseif event.kind == "Clash" then
-		self:spark(Vector3.new(event.x, event.y, 0), WHITE, 2)
+		local a = next(views)
+		local colorA = if a then self:energy(a) else WHITE
+		local colorB = if a and next(views, a) then self:energy((next(views, a))) else WHITE
+		if not self.pack:common("Clash", CFrame.new(event.x, event.y + 3, 0.8), colorA, colorB) then
+			self:spark(Vector3.new(event.x, event.y, 0), WHITE, 2)
+		end
 		self.camera:shake(if self.reduced then 0.15 else 0.35, 0.18)
 		return
 	elseif event.kind == "Skill" then
@@ -2164,6 +2244,22 @@ function EffectsController:onEvent(event, views, rigs)
 		local colors = { Chilled = "9FE6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "C8F0FF", Armor = "FF4A3A",
 			Shackled = "FFB04A", Domination = "E0102E", Drone = "FF8A2A" }
 		local color = Color3.fromHex(colors[event.kind])
+		-- (Wilhem's pack: the titan's anchor, ELIAN's SECOND WIND, the mirror, the armour, KAZAN's
+		-- chain to the shackled foe)
+		if event.kind == "Armor" and rigs[slot] then
+			if self.pack:trigger(rigs[slot], "GORAN", 1.2) or self.pack:common("SuperArmor", rigs[slot].model) then return end
+		elseif event.kind == "Heal" and rigs[slot] then
+			if self.pack:trigger(rigs[slot], "ELIAN") or self.pack:common("Heal", rigs[slot].model, color) then return end
+		elseif event.kind == "Reflect" then
+			local at = Vector3.new(event.x or 0, event.y or 3, 0.6)
+			if self.pack:common("Reflect", CFrame.lookAt(at, at + Vector3.new(0, 0, 1)), color) then return end
+		elseif event.kind == "Shackled" and rigs[slot] then
+			for other, rig in rigs do
+				if other ~= slot and self.pack:set(rig, "KAZAN", rigs[slot].model) then
+					task.delay(1.4, function() self.pack:set(rig, "KAZAN", nil) end)
+				end
+			end
+		end
 		local verb = ({ Chilled = "iceShards", Poison = "toxicSplash", Heal = "halo", Reflect = "iceShards", Armor = "quake",
 			Shackled = "clawMarks", Domination = "eclipseBurst", Drone = "glitch" })[event.kind]
 		local accent = ({ Chilled = "DFF6FF", Poison = "7CFF4A", Heal = "FFE9A0", Reflect = "FFFFFF", Armor = "C9BFC0",
@@ -2179,8 +2275,10 @@ function EffectsController:onEvent(event, views, rigs)
 	elseif event.kind == "Burst" then
 		-- BOSS BURST: a golden shockwave throws the attacker off the combo.
 		local position = Vector3.new(event.x or 0, event.y or 3, 0)
-		self:spark(position, Color3.fromHex("FFD23F"), 2)
-		self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 4, 0, 360, Color3.fromHex("FF7A2A"), math.pi / 2, 0.6)
+		if not self.pack:common("Burst", model(event.slot), Color3.fromHex("FFD23F")) then
+			self:spark(position, Color3.fromHex("FFD23F"), 2)
+			self:arc(Vector3.new(event.x or 0, 0.08, self.config.PlaneZ), 4, 0, 360, Color3.fromHex("FF7A2A"), math.pi / 2, 0.6)
+		end
 		self.camera:shake(if self.reduced then 0.2 else 0.5, 0.3)
 		return
 	elseif event.kind == "Revive" then
@@ -2223,9 +2321,14 @@ function EffectsController:onEvent(event, views, rigs)
 			-- short jolt, a finisher a real shake, the K.O. and the ultimates the strongest)
 			local impact, tier = KitFX.impact(m, event)
 			local heavy = tier ~= "light"
-			self:spark(position, attackerColor, impact.spark)
 			local attackerView = views[event.attacker]
-			self:kitHit(event.move, position, attackerColor, heavy, if attackerView then attackerView.facing else 1)
+			local facing = if attackerView then attackerView.facing else 1
+			-- (Wilhem's pack: the attacker's own impact at this tier, frozen with the hitstop)
+			local kit = attackerView and attackerView.kit or MoveData.MoveKit[event.move]
+			if not self.pack:hit(kit, tier, position, facing, attackerColor, m and m.hitstop or 0, self:bodies(rigs)) then
+				self:spark(position, attackerColor, impact.spark)
+				self:kitHit(event.move, position, attackerColor, heavy, facing)
+			end
 			if event.tip then
 				-- SHIN's PRÉCISION: the tip of the blade, one clean line through the hit.
 				self:cut(position - Vector3.new(1.4, 0.5, 0), position + Vector3.new(1.4, 0.5, 0), attackerColor)
@@ -2255,11 +2358,13 @@ function EffectsController:onEvent(event, views, rigs)
 				self:spark(at, tone[1], 1.2)
 				self:shards(at, tone[2], if self.reduced then 5 else 10, 0.55, tone[4] or Enum.Material.Neon, 0.22)
 				self:shards(at, tone[3], if self.reduced then 3 else 6, 0.4, Enum.Material.Neon, 0.3)
-			elseif defender then
+			elseif defender and not (model and self.pack:common("Guard", model, position, shieldColor)) then
 				self:shield(defender, shieldColor)
 			end
 			if event.kind == "GuardBreak" then
-				self:spark(position, Color3.fromHex("FFD23F"), 1.8) -- (no full-screen impact frame: Wilhem)
+				if not (model and self.pack:common("GuardBreak", model, shieldColor, 1.2)) then
+					self:spark(position, Color3.fromHex("FFD23F"), 1.8) -- (no full-screen impact frame: Wilhem)
+				end
 				self.camera:shake(0.5 * shakeScale, 0.3)
 			else
 				local blocked = KitFX.IMPACTS.block
@@ -2471,9 +2576,21 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		local visual = self.projectiles[p.id]
 		if not visual then
 			local color = self:energy(p.owner)
-			local fx = KitFX.of(p.move and MoveData.MoveKit[p.move] or CharacterData[p.owner].Kit)
+			local kit = p.move and MoveData.MoveKit[p.move] or CharacterData[p.owner].Kit
+			local fx = KitFX.of(kit)
 			local kind = if p.drone then "drone" elseif p.trap then "trap" else fx.shot
-			visual = SHOTS[kind](self, color, Color3.fromHex(fx.accent), 1)
+			if not p.drone and not p.trap then
+				-- (Wilhem's pack: the kit's own shot, hung on an invisible part flown here)
+				local anchor = self:part(Vector3.one * 0.3, CFrame.identity, color)
+				anchor.Transparency = 1
+				local skill = self.pack:shot(kit, color, anchor)
+				if skill then
+					visual = { pieces = { { part = anchor, offset = CFrame.identity } }, ghost = "none", packSkill = skill }
+				else
+					anchor:Destroy()
+				end
+			end
+			visual = visual or SHOTS[kind](self, color, Color3.fromHex(fx.accent), 1)
 			visual.color, visual.accent, visual.trail, visual.born = color, Color3.fromHex(fx.accent), 0, now
 			local light = Instance.new("PointLight")
 			light.Color, light.Range, light.Brightness = color, 12, if p.drone then 1 else 3
@@ -2503,6 +2620,11 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		local spin = if visual.spin then CFrame.Angles(0, 0, now * visual.spin) else CFrame.identity
 		local pulse = if visual.pulse then 1 + 0.06 * visual.pulse * math.sin(now * 40) else 1
 		if visual.kiBall then self:kiBallDraw(visual.kiBall, position, 0.75, now, Vector3.new(-visual.dir, 0, 0)) end
+		if visual.packSkill then
+			-- (the pack's shot: its part looks where it flies)
+			visual.pieces[1].part.CFrame = CFrame.lookAt(position, position + Vector3.new(visual.dir, 0, 0))
+			continue
+		end
 		for i, entry in visual.pieces do
 			local placed = base * turn * spin * entry.offset
 			if pulse ~= 1 and i == #visual.pieces then -- (the outer shell breathes)
@@ -2552,7 +2674,13 @@ function EffectsController:updateProjectiles(list, ahead, now)
 		if not alive[id] then
 			-- (SHIN's crescent bursts into spray where it ends)
 			if visual.ghost == "current" and visual.at then self:drops(visual.at, visual.accent, 7, 1, 10) end
-			for _, entry in visual.pieces do entry.part:Destroy() end
+			if visual.packSkill then
+				-- (the pack lets its particles fade first, then the part goes)
+				pcall(visual.packSkill.Destroy)
+				Debris:AddItem(visual.pieces[1].part, 1.5)
+			else
+				for _, entry in visual.pieces do entry.part:Destroy() end
+			end
 			if visual.kiBall then self:kiBallDestroy(visual.kiBall) end
 			self.projectiles[id] = nil
 		end

@@ -49,6 +49,32 @@ local JOB = game.JobId -- (this server: the session lock and the cross-server qu
 local arrivedForCrossMatch -- (defined with the cross-server search)
 
 Players.CharacterAutoLoads = false
+
+-- Wilhem's VFX pack: its meshes, as MeshParts the clients clone (a script cannot set a MeshId:
+-- AssetService builds them from the IDs of VfxConfig; one still at 0 is simply not there, and
+-- the effects that need it keep the game's own).
+do
+	local VfxConfig = require(Shared.VfxConfig)
+	local AssetService = game:GetService("AssetService")
+	local meshes = Instance.new("Folder")
+	meshes.Name, meshes.Parent = "VFX_Meshes", ReplicatedStorage
+	task.spawn(function()
+		for key in VfxConfig.MESHES do
+			local id = VfxConfig.mesh(key)
+			if id then
+				local ok, part = pcall(function()
+					return AssetService:CreateMeshPartAsync(id, { CollisionFidelity = Enum.CollisionFidelity.Box })
+				end)
+				if ok and part then
+					part.Name, part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch, part.CastShadow = key, true, false, false, false, false
+					part.Parent = meshes
+				else
+					warn("[VFX] mesh " .. key .. " (" .. id .. ") not loaded: " .. tostring(part))
+				end
+			end
+		end
+	end)
+end
 -- (the stages are built by each client: Maps, client/ArenaBuilder)
 local fightersFolder = Instance.new("Folder")
 fightersFolder.Name, fightersFolder.Parent = "Fighters", workspace

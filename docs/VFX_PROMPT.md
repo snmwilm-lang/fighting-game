@@ -883,9 +883,9 @@ Rappel de Wilhem : le menu doit avoir un caractère de **jeu de combat**, pas de
 
 ## 11. Brancher un asset (pour Claude)
 
-1. Wilhem envoie l'asset sur Roblox (Creator Hub → Asset Manager, ou Bulk Import dans Studio). Il donne l'ID (`rbxassetid://…`) **avec sa clé** (par exemple `HITSPARK_LIGHT_4x4`).
-2. Claude crée un module pur `src/shared/VfxConfig.luau`, sur le modèle de `StoreConfig` : `TEXTURES` et `MESHES`, une clé par asset, **0 = pas encore envoyé**. On n'y met jamais d'ID inventé.
-3. Le client (`EffectsController`, `CinematicController`) utilise l'asset quand son ID n'est pas 0, sinon la version procédurale actuelle. On peut donc livrer les assets un par un, sans rien casser.
+1. Wilhem envoie l'asset sur Roblox (Creator Hub → Asset Manager, ou Bulk Import dans Studio). Il donne l'ID (`rbxassetid://…`) **avec son nom de fichier**.
+2. `python3 tools/vfxids.py sa_liste.txt` écrit les IDs dans le module pur `src/shared/VfxConfig.luau` (fait en 0.36.0 : `TEXTURES` et `MESHES`, une clé par asset, **0 = pas encore envoyé**). On n'y met jamais d'ID inventé.
+3. Le client (`VfxPack` → `EffectsController`, `CinematicController`) utilise le pack dès que tous les assets d'une famille d'effets ont un ID (les effets communs, puis chaque perso), sinon la version procédurale actuelle. On peut donc livrer les assets un par un, sans rien casser.
 4. Pour chaque branchement : relire le rendu avec les outils du dépôt (planches `Storyboard`, clips `AnimClip`), lancer les 9 suites, mettre à jour `docs/JOURNAL.md`.
 5. Les sons ne sont pas dans ce document : voir `docs/AUDIO.md` et `SoundPalette`.
 

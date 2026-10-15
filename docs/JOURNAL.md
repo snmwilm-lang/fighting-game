@@ -1,5 +1,62 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.0 — 15 octobre 2026 · Le pack VFX de Wilhem branché dans le jeu (en attente des IDs)
+
+Wilhem a envoyé son pack VFX (étapes 1 à 3) : 93 textures, 25 meshes, trois modules Lua (effets communs, effets par perso, auras / compétences / passifs), des démos vidéo et un Red Kamehameha (12 textures + script).
+
+- **Les assets** sont dans `assets/vfx` :
+  - les 105 textures (les 93 du pack et les 12 du Red Kamehameha, renommées `VFX_KAI_KAME_*`) ;
+  - les 25 meshes.
+  Tous vérifiés : puissance de 2, 1024 maximum, fond transparent, niveaux de gris.
+- **Les IDs** sont dans `src/shared/VfxConfig.luau` (pur), un par asset, **tous à 0** : Roblox n'est pas joignable d'ici, c'est Wilhem qui envoie les fichiers.
+  - La config dit ce dont chaque famille d'effets a besoin : les effets communs (`COMMON`), chaque perso (`KITS`), le rayon de KAI (`KAME`). Ces listes ont été tirées du code du pack.
+  - `python3 tools/vfxids.py liste.txt` y écrit les IDs qu'il donne. Le format est libre : nom du fichier ou clé, puis l'ID.
+- **Les modules du pack** sont dans `src/client/VFX`, presque tels quels, avec quatre retouches :
+  - les IDs viennent de la config ;
+  - les meshes viennent de `ReplicatedStorage.VFX_Meshes` ;
+  - la secousse passe par la caméra du jeu ;
+  - les pieds sont placés à la hauteur du corps (`RootHeight`).
+- **Les meshes** : le serveur les fabrique au démarrage à partir de leurs IDs (`AssetService:CreateMeshPartAsync`), car un script ne peut pas changer un MeshId.
+- **Le pont** `src/client/VfxPack.luau` : le pack ne dessine une famille d'effets que si tous ses assets ont un ID et que ses meshes sont chargés. Sinon, et pour toute la session si un effet du pack plante une fois (avec un avertissement), l'effet actuel du jeu reste.
+- **Ce que le pack remplace**, une fois ses IDs là :
+  - les impacts : les quatre niveaux du jeu (`light`, `heavy`, `finisher`, `ko`) deviennent les quatre du pack (`light`, `medium`, `heavy`, `finisher`), et les effets se figent pendant le gel d'impact ;
+  - la défense : garde, garde brisée, parade, choc ;
+  - les déplacements : rebonds au mur et au sol, chute au sol, super saut, chute rapide, dash au sol et aérien ;
+  - les saisies : la prise, la fin de saisie, l'évasion ;
+  - le burst, la super armure, le soin, le renvoi ;
+  - les traînées de coups (poings, pieds, armes) et l'arc des coups forts ;
+  - les auras : une par perso, au niveau de la jauge ; elles remplacent les particules flottantes ;
+  - les passifs : RAGE, DOMINATION, INSTINCT, PERFECT RHYTHM, KING OF RUINS, OVERCHARGE, TEMPO, PACT, ENGINEERING, la chaîne de SHACKLED ; les moments de RESOLVE, des esquives d'AKEMI, de l'ANCHOR et du SECOND WIND ;
+  - les projectiles de TARO, ZEPHYR, AKEMI, SHIN, DAICHA, HIBECARES, RAIJIN, YUKINA, VENOM, ASTER, KAZAN, KUREN, ELIAN et KUROEN.
+- **Ce qui reste comme avant** :
+  - le KIKOHO de KAI : la boule faite d'après les dessins de Wilhem ;
+  - les armes qui parent (étincelles sur la lame) ;
+  - l'aura FATAL façon Tekken ;
+  - le super flash, le K.O., le PERFECT (« jamais par-dessus le combat ») ;
+  - le CLASH STEP, le retour à la vie d'ASURA ;
+  - les tirs de NOVA, SYLVA, RYUKEN, HIBIKI et GORAN ;
+  - les passifs de YUKINA et VENOM (sur la cible) et l'orbe de DAICHA.
+- **Le Red Kamehameha** habille le rayon 3D de KAI (KAIEN RUSH, MAXIMUM KAIENHA) dès que ses 12 textures ont un ID : son corps, sa spirale et son cœur blanc coulent le long du rayon, ses deux éclairs crépitent autour.
+- **Le paquet à importer** (`BREAKFRAMEZ_VFX_A_IMPORTER.zip`, envoyé à Wilhem) : les 111 fichiers utilisés maintenant, à plat, pour un seul Bulk Import, avec `IDS_A_REMPLIR.txt` (une ligne par fichier). Les 19 autres (lune, nuages, sceau, piliers, ailes…) serviront aux ultimes (étape 4).
+
+**Fichiers** :
+- nouveaux : `assets/vfx/`, `src/shared/VfxConfig.luau`, `src/client/VFX/` (3 modules), `src/client/VfxPack.luau`, `tools/vfxids.py`, `tools/vfxcheck.py`, `tools/vfxsmoke.py` ;
+- modifiés : `EffectsController`, `CinematicController`, `init.server`, `tests/Lobby.test.luau`, `CLAUDE.md`, `docs/VFX_PROMPT.md`.
+
+**Tests** :
+- suites : Lobby 47 (nouveau : « VFX pack : every id a whole number… »), CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Kits en cours au moment du commit (voir le commit suivant) ;
+- `tools/vfxcheck.py` : chaque fichier a sa clé et inversement ;
+- `tools/vfxsmoke.py` : 23 vérifications du pont sur un faux moteur (rien sans IDs, tout avec, un fichier manquant n'éteint que son perso, repli après une erreur).
+
+Aucun dégât, aucune vie ni vitesse modifiés. **Rien n'est vérifié dans Studio** : les effets du pack eux-mêmes ne peuvent être jugés qu'en jeu, une fois les IDs donnés.
+
+**Problèmes ouverts** :
+- tous les IDs sont à 0, donc le jeu a exactement le même rendu qu'en 0.35.0 ;
+- la récupération des IDs est manuelle (Copy ID dans l'Asset Manager) ;
+- NOVA, KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique.
+
+**Prochaine étape** : Wilhem importe les 111 fichiers et renvoie `IDS_A_REMPLIR.txt` ; `tools/vfxids.py`, puis une nouvelle place et un retour en jeu (réglages à l'œil : tailles, niveaux, ce qui fait trop).
+
 ## Document — 14 octobre 2026 · Le grand prompt VFX (pas de nouvelle version : aucun code modifié)
 
 Wilhem : « Liste moi tout les vfx dont j'aurais besoin sur un gros prompt avec leur méthode et tout. »

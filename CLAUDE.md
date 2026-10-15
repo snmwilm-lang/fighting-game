@@ -7,7 +7,7 @@
   Ne jamais committer de `.rbxlx`.
 - `src/shared/CombatSimulation.luau`, `FighterAI.luau`, `CinematicDirector.luau`, `Finishers.luau`,
   `Animator.luau`, `Kinematics.luau`, `PoseLibrary.luau`, `RigSpec.luau`, `Retarget.luau`,
-  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `KiBall.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Prediction.luau`, `Economy.luau`, `Quests.luau`, `StoreConfig.luau`, `Store.luau`, `Tutorial.luau`, `UIArt.luau`, `Wire.luau` et `WeaponFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
+  `PressQueue.luau`, `SoundPalette.luau`, `WeaponSpec.luau`, `OrbFlight.luau`, `KiBall.luau`, `FourArms.luau`, `Locale.luau`, `Maps.luau`, `Music.luau`, `Taunts.luau`, `KitFX.luau`, `Prediction.luau`, `Economy.luau`, `Quests.luau`, `StoreConfig.luau`, `Store.luau`, `Tutorial.luau`, `UIArt.luau`, `Wire.luau`, `VfxConfig.luau` et `WeaponFX.luau` restent purs (aucune API Roblox, aucun `require` : les dépendances sont passées en
   paramètre) pour rester testables. Lancer `luau tests/CombatSimulation.test.luau`,
   `luau tests/FighterAI.test.luau`, `luau tests/CinematicDirector.test.luau`,
   `luau tests/Animation.test.luau`, `luau tests/Kits.test.luau`,
@@ -55,5 +55,10 @@
   nouveau texte affiché doit avoir sa traduction française dans `src/shared/Locale.luau`
   (`Locale.FR`, ou `Locale.SAME` si le mot est identique) : le test « languages » de
   `Lobby.test.luau` le vérifie.
+- Le pack VFX de Wilhem : fichiers dans `assets/vfx` (textures PNG, meshes FBX), IDs dans
+  `src/shared/VfxConfig.luau` (0 = pas encore envoyé, jamais d'ID inventé ; `python3 tools/vfxids.py liste.txt`
+  écrit les IDs qu'il donne), modules du pack dans `src/client/VFX`, pont avec le jeu dans
+  `src/client/VfxPack.luau` (un effet du pack ne s'affiche que si tous ses assets ont un ID, sinon l'effet
+  du jeu reste). Après une retouche : `python3 tools/vfxcheck.py` et `python3 tools/vfxsmoke.py`.
 - Les arènes : données dans `src/shared/Maps.luau`, construites côté client par
   `src/client/ArenaBuilder.luau`. Le sol de combat (y = 0, x de -28 à 28) ne change jamais.

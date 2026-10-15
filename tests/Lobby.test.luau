@@ -1203,6 +1203,58 @@ test("HUD textures: every id is a whole number (0 = not uploaded yet, the drawn 
 	expect(UIArt.asset("Nothing") == nil, "an unknown texture has no asset")
 end)
 
+test("VFX pack: every id a whole number (0 = not uploaded), every need a known asset, every fighter covered", function()
+	local VfxConfig = require("../src/shared/VfxConfig")
+	local textures, meshes = 0, 0
+	for key, id in VfxConfig.TEXTURES do
+		textures += 1
+		expect(type(id) == "number" and id >= 0 and id == math.floor(id), key .. ": bad id")
+		expect(VfxConfig.texture(key) == (if id == 0 then nil else "rbxassetid://" .. id), key .. ": content id")
+		expect(VfxConfig.MESHES[key] == nil, key .. ": both a texture and a mesh")
+		expect(string.sub(VfxConfig.file(key), -4) == ".png", key .. ": its file is not a PNG")
+	end
+	for key, id in VfxConfig.MESHES do
+		meshes += 1
+		expect(type(id) == "number" and id >= 0 and id == math.floor(id), key .. ": bad id")
+		expect(VfxConfig.file(key) == "meshes/VFX_COMMON_" .. key .. ".fbx", key .. ": its file")
+	end
+	expect(textures == 105 and meshes == 25, ("the pack: %d textures, %d meshes"):format(textures, meshes))
+	local function known(need, what)
+		for _, key in need.textures do expect(VfxConfig.TEXTURES[key] ~= nil, what .. " needs an unknown texture " .. key) end
+		for _, key in need.meshes do expect(VfxConfig.MESHES[key] ~= nil, what .. " needs an unknown mesh " .. key) end
+	end
+	known(VfxConfig.COMMON, "COMMON")
+	known(VfxConfig.KAME, "KAME")
+	for kit, need in VfxConfig.KITS do
+		known(need, kit)
+		expect(MoveData.Kits[kit] ~= nil, kit .. " is not a fighter of the game")
+	end
+	for kit in MoveData.Kits do
+		expect(VfxConfig.KITS[kit] ~= nil, kit .. " has no effects in the pack")
+		local need = VfxConfig.kitNeed(kit)
+		expect(#need.textures == #VfxConfig.COMMON.textures + #VfxConfig.KITS[kit].textures, kit .. ": the shared assets are not in its need")
+	end
+	expect(VfxConfig.kitNeed("NOBODY") == nil and not VfxConfig.kitReady("NOBODY"), "an unknown fighter is ready")
+	expect(VfxConfig.file("GLOW_CORE") == "textures/VFX_COMMON_GLOW_CORE.png" and VfxConfig.file("KAI_KI_POP_4x4") == "textures/VFX_KAI_KI_POP_4x4.png",
+		"file names")
+	-- ready once every asset of the need is uploaded, and only then
+	local saved = table.clone(VfxConfig.TEXTURES)
+	local savedMeshes = table.clone(VfxConfig.MESHES)
+	for key in VfxConfig.TEXTURES do VfxConfig.TEXTURES[key] = 0 end
+	for key in VfxConfig.MESHES do VfxConfig.MESHES[key] = 0 end
+	expect(not VfxConfig.kitReady("KAI") and #VfxConfig.missing(VfxConfig.kitNeed("KAI")) > 0, "KAI ready with nothing uploaded")
+	for i, key in VfxConfig.kitNeed("KAI").textures do VfxConfig.TEXTURES[key] = 1000 + i end
+	expect(not VfxConfig.kitReady("KAI"), "KAI ready without its meshes")
+	for i, key in VfxConfig.kitNeed("KAI").meshes do VfxConfig.MESHES[key] = 2000 + i end
+	expect(VfxConfig.kitReady("KAI") and VfxConfig.ready(VfxConfig.COMMON), "KAI not ready with all its assets")
+	expect(not VfxConfig.kitReady("YUKINA"), "YUKINA ready without her own assets")
+	VfxConfig.TEXTURES[VfxConfig.KITS.KAI.textures[1]] = 0
+	expect(not VfxConfig.kitReady("KAI") and VfxConfig.missing(VfxConfig.kitNeed("KAI"))[1] == VfxConfig.KITS.KAI.textures[1],
+		"one missing texture does not stop KAI")
+	for key, id in saved do VfxConfig.TEXTURES[key] = id end
+	for key, id in savedMeshes do VfxConfig.MESHES[key] = id end
+end)
+
 test("the fight snapshot on the wire: short names, everything comes back as it was, unknown fields pass through", function()
 	local Wire = require("../src/shared/Wire")
 	expect(Wire.check(), "Wire: a name twice or more names than codes")

@@ -26,6 +26,7 @@ local CharacterData = require(Shared.CharacterData)
 local Director = require(Shared.CinematicDirector)
 local RigReader = require(Shared.RigReader)
 local KiBall = require(Shared.KiBall)
+local VfxConfig = require(Shared.VfxConfig)
 Director.useFinishers(require(Shared.Finishers)) -- (the FATAL FINISHERS' scenes)
 
 local CinematicController = {}
@@ -854,6 +855,15 @@ local RING_SEGMENTS = 22
 -- KAI's wave, its parts (built once per wave; `entry.parts` holds them all, so a hidden wave
 -- hides whole).
 local STRAND_BITS = 22
+-- The RED KAMEHAMEHA's layers on the wave: texture, scroll (studs, studs/s), width (share of
+-- the radius, at his palms and at the end), transparency; `crackle`: a lightning that jumps.
+local KAME_FLOWS = {
+	{ texture = "KAI_KAME_BEAM_BODY", length = 6, speed = 2.5, w0 = 1.5, w1 = 2.5, alpha = 0.1, white = false },
+	{ texture = "KAI_KAME_BEAM_SPIRAL", length = 4, speed = 4.5, w0 = 1.8, w1 = 3, alpha = 0.3, white = false },
+	{ texture = "KAI_KAME_BEAM_CORE", length = 8, speed = 6, w0 = 0.7, w1 = 1.1, alpha = 0, white = true },
+	{ texture = "KAI_KAME_LIGHTNING", length = 5, speed = 10, w0 = 2.4, w1 = 3.4, alpha = 0.1, crackle = true },
+	{ texture = "KAI_KAME_LIGHTNING_B", length = 6, speed = 12, w0 = 2.8, w1 = 3.8, alpha = 0.15, crackle = true },
+}
 function CinematicController:buildWave(color, entry)
 	local w = { slices = {}, joints = {}, glows = {}, strands = {}, bands = {} }
 	local function add(shape, material)
@@ -874,16 +884,25 @@ function CinematicController:buildWave(color, entry)
 	end
 	for k = 1, 5 do w.bands[k] = add(Enum.PartType.Cylinder) end
 	w.mouth = add(Enum.PartType.Cylinder, Enum.Material.ForceField)
-	-- (the light flowing along it: two textured beams scrolling away from his palms; the
-	-- texture is one of the client's own files)
+	-- (the light flowing along it: textured beams scrolling away from his palms. Once its
+	-- textures are uploaded, Wilhem's RED KAMEHAMEHA: its body, its spiral and its white core
+	-- flowing along the wave, its two lightnings crackling round it; until then one of the
+	-- client's own files)
 	w.a0, w.a1 = Instance.new("Attachment"), Instance.new("Attachment")
 	w.a0.Parent, w.a1.Parent = w.core, w.core
 	w.flows = {}
-	for k = 1, 2 do
+	w.kame = VfxConfig.ready(VfxConfig.KAME)
+	for k = 1, (if w.kame then #KAME_FLOWS else 2) do
 		local flow = Instance.new("Beam")
 		flow.Attachment0, flow.Attachment1 = w.a0, w.a1
-		flow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		flow.TextureMode, flow.TextureLength, flow.TextureSpeed = Enum.TextureMode.Wrap, 3 + k, 3 + k * 1.5
+		if w.kame then
+			local spec = KAME_FLOWS[k]
+			flow.Texture = VfxConfig.texture(spec.texture)
+			flow.TextureMode, flow.TextureLength, flow.TextureSpeed = Enum.TextureMode.Wrap, spec.length, spec.speed
+		else
+			flow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+			flow.TextureMode, flow.TextureLength, flow.TextureSpeed = Enum.TextureMode.Wrap, 3 + k, 3 + k * 1.5
+		end
 		flow.LightEmission, flow.LightInfluence, flow.FaceCamera, flow.Segments = 1, 0, true, 12
 		flow.Parent = w.core
 		w.flows[k] = flow
@@ -964,10 +983,25 @@ function CinematicController:drawWave(w, sh, a, b, color, reduced)
 	-- the light flowing along it
 	w.a0.WorldPosition, w.a1.WorldPosition = a, b
 	for k, flow in w.flows do
-		flow.Enabled = not reduced or k == 1
-		flow.Width0, flow.Width1 = r * (1.2 + 0.4 * k), r * (1.6 + 0.5 * k)
-		flow.Color = ColorSequence.new(WHITE, color)
-		flow.Transparency = NumberSequence.new(0.15 + 0.2 * k)
+		local spec = w.kame and KAME_FLOWS[k]
+		if spec then
+			flow.Enabled = not reduced or k <= 3
+			flow.Width0, flow.Width1 = r * spec.w0, r * spec.w1
+			flow.Color = if spec.white then ColorSequence.new(WHITE) else ColorSequence.new(WHITE, color)
+			if spec.crackle then
+				-- (on two frames in three, on a new curve each time)
+				local lit = math.random() < 0.65
+				flow.Transparency = NumberSequence.new(if lit then spec.alpha else 1)
+				flow.CurveSize0, flow.CurveSize1 = (math.random() - 0.5) * r * 2.4, (math.random() - 0.5) * r * 2.4
+			else
+				flow.Transparency = NumberSequence.new(spec.alpha)
+			end
+		else
+			flow.Enabled = not reduced or k == 1
+			flow.Width0, flow.Width1 = r * (1.2 + 0.4 * k), r * (1.6 + 0.5 * k)
+			flow.Color = ColorSequence.new(WHITE, color)
+			flow.Transparency = NumberSequence.new(0.15 + 0.2 * k)
+		end
 	end
 	local light = w.core:FindFirstChildOfClass("PointLight")
 	if light then light.Enabled, light.Color, light.Range, light.Brightness = true, color, 40, 4 end

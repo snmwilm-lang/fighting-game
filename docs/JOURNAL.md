@@ -44,7 +44,7 @@ Wilhem a envoyé son pack VFX (étapes 1 à 3) : 93 textures, 25 meshes, trois m
 - modifiés : `EffectsController`, `CinematicController`, `init.server`, `tests/Lobby.test.luau`, `CLAUDE.md`, `docs/VFX_PROMPT.md`.
 
 **Tests** :
-- suites : Lobby 47 (nouveau : « VFX pack : every id a whole number… »), CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Kits en cours au moment du commit (voir le commit suivant) ;
+- suites : Lobby 47 (nouveau : « VFX pack : every id a whole number… »), CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Kits 130 ;
 - `tools/vfxcheck.py` : chaque fichier a sa clé et inversement ;
 - `tools/vfxsmoke.py` : 23 vérifications du pont sur un faux moteur (rien sans IDs, tout avec, un fichier manquant n'éteint que son perso, repli après une erreur).
 

@@ -31,7 +31,7 @@ Wilhem a importé le pack et envoyé les IDs en captures d'écran (Creator Hub, 
 **Fichiers** : `VfxConfig` (IDs), `VfxPack` (textures seules, `MESH_OF`, préchargement, qualité), `VFX/VFX_Common` (mesh vide, `V.Quality`), `CinematicController` (carte K.O., couches du KAIENHA), `SoundPalette` (`Explosion`), `SoundController`, `tests/Kits.test.luau`, `tools/vfxsmoke.py` (29 vérifications).
 
 **Tests** :
-- suites : CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Lobby 47, Kits en cours au moment du commit (voir le commit suivant) ;
+- suites : CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Lobby 47, Kits 130 ;
 - `vfxcheck` : 33 assets encore à 0 (les 14 meshes et les 19 assets pour les ultimes) ;
 - `vfxsmoke` : tout passe.
 

@@ -1,5 +1,23 @@
 # Journal du projet — état à transmettre
 
+## Organisation — 16 octobre 2026 · Quatre agents (pas de nouvelle version : aucun code de jeu modifié)
+
+Wilhem : « crée un agent pour gérer la production et les décisions, un autre pour valider, et encore un autre qui prend mes idées », puis « un autre qui te liste les bugs ».
+
+- **Les agents** (`.claude/agents`) :
+  - `production` : produit et décide, note ses décisions dans `docs/DECISIONS.md`, ne livre qu'après validation ;
+  - `validation` : lance les 9 suites et les outils selon ce qui a changé, relit le diff contre `CLAUDE.md`, rend VALIDÉ ou REFUSÉ avec les preuves, ne modifie rien ;
+  - `idees` : garde les mots de Wilhem, confronte l'idée au jeu et à ses décisions, range une fiche dans `docs/IDEES.md` ;
+  - `bugs` : signalements et chasse active, cause avec fichier et ligne, gravité, liste dans `docs/BUGS.md`, ne corrige rien.
+- **Les carnets** :
+  - `docs/IDEES.md` : 3 fiches (FATAL FINISHERS manquants, étape 4 du pack VFX, la DA du pack) ;
+  - `docs/BUGS.md` : 3 entrées (écran K.O., voix K.O., IDs recopiés à confirmer) ;
+  - `docs/DECISIONS.md` : 6 décisions du 15 octobre.
+- **`tools/get_luau.sh`** installe `luau` depuis les sorties officielles quand une session ne l'a pas. Essayé : les suites PressQueue et Lobby passent avec.
+- `CLAUDE.md` décrit le circuit : idée → production → validation → livraison.
+
+**Prochaine étape** : les IDs des 14 meshes ; les retours en jeu sur la DA du pack.
+
 ## Version 0.36.1 — 15 octobre 2026 · Les IDs du pack VFX, la carte K.O., la voix du K.O.
 
 Wilhem a importé le pack et envoyé les IDs en captures d'écran (Creator Hub, type « Image »). Il a aussi signalé deux défauts.

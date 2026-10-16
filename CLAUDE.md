@@ -60,5 +60,12 @@
   écrit les IDs qu'il donne), modules du pack dans `src/client/VFX`, pont avec le jeu dans
   `src/client/VfxPack.luau` (un effet du pack ne s'affiche que si tous ses assets ont un ID, sinon l'effet
   du jeu reste). Après une retouche : `python3 tools/vfxcheck.py` et `python3 tools/vfxsmoke.py`.
+- Les agents (`.claude/agents`) :
+  - `idees` range les idées de Wilhem dans `docs/IDEES.md` ;
+  - `production` produit, décide et note ses décisions dans `docs/DECISIONS.md` ;
+  - `validation` vérifie tout avant une livraison et rend VALIDÉ ou REFUSÉ, sans rien modifier ;
+  - `bugs` tient `docs/BUGS.md`, sans rien corriger.
+  Le circuit : idée → production → validation → livraison ; un bug → production → validation.
+  `luau` manque ? `bash tools/get_luau.sh "$HOME/.local/bin"`.
 - Les arènes : données dans `src/shared/Maps.luau`, construites côté client par
   `src/client/ArenaBuilder.luau`. Le sol de combat (y = 0, x de -28 à 28) ne change jamais.

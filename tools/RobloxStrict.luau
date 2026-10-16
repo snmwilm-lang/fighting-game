@@ -1064,11 +1064,13 @@ return function(API)
 	end
 	function special.PreloadAsync(_, list, callback)
 		if type(list) ~= "table" then fail("Unable to cast to Array", 2) end
+		task.wait(env.preloadTime or 0.5) -- (Roblox's yields until the assets are fetched)
 		for _, id in list do
 			local status = if env.failAssets and env.failAssets[id] then enumTypes.AssetFetchStatus.Failure
 				else enumTypes.AssetFetchStatus.Success
 			if callback then callback(id, status) end
 		end
+		env.preloaded = true
 	end
 	function special.WorldToViewportPoint(cam, p)
 		local local_ = worldCF(cam):Inverse() * p
@@ -1198,6 +1200,7 @@ return function(API)
 		end
 		if rs.Stepped then rs.Stepped.fire(env.clock, dt) end
 		if rs.Heartbeat then rs.Heartbeat.fire(dt) end
+		if env.onStep then env.onStep() end
 	end
 	function env.run(seconds)
 		for _ = 1, math.ceil(seconds * 60) do env.step(1 / 60) end

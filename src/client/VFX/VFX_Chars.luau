@@ -139,6 +139,7 @@ local function trailObj(base: Attachment, tip: Attachment, layers: { { [string]:
 		t.Transparency = L.tr or NS(0, 0, 1, 1)
 		t.Enabled = false
 		t.Parent = base.Parent
+		V.Unseen(t, L.tex)
 		table.insert(trails, t)
 	end
 	local em: ParticleEmitter? = nil

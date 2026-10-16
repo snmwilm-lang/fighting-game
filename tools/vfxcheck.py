@@ -35,7 +35,7 @@ for f in ("VFX_Common.luau", "VFX_Chars.luau", "VFX_Specials.luau"):
     if not os.path.exists(path):
         continue
     text = open(path, encoding="utf-8").read()
-    names = set(re.findall(r'(?:tex|mesh|Template|sprite|layer|orbit|flipFx|ring|Mark|fullImage)\b[^"\n]{0,40}"([A-Z][A-Z0-9_x]+)"', text))
+    names = set(re.findall(r'(?:tex|mesh|Template|sprite|layer|orbit|flipFx|flip|ring|Mark|fullImage|Unseen)\b[^"\n]{0,40}"([A-Z][A-Z0-9_x]+)"', text))
     names |= set(re.findall(r'Tex\.([A-Z][A-Z0-9_x]+)', text))
     for name in names:
         if name not in known and not name.startswith("SPEEDLINES_"):

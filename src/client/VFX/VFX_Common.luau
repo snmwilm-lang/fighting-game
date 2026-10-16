@@ -46,13 +46,10 @@ V.Tex = {}
 for key in VfxConfig.TEXTURES do
 	V.Tex[key] = VfxConfig.texture(key) or ""
 end
--- (in the game: a texture that did not load on this client, VfxPack.preload: the particles
--- that use it are left out, the rest of each effect plays)
+-- (in the game: a texture that did not load on this client, VfxPack.preload: every piece drawn
+-- with it is left out, the rest of each effect plays; images drawn with it show nothing.
+-- V.Blank and V.Unseen are below, with the emitters)
 V.Missing = {}
-function V.Blank(key: string)
-	V.Missing[key] = true
-	V.Tex[key] = ""
-end
 -- taille des planches (pour ImageRectOffset / SurfaceGui)
 V.TexSize = { CRACK_2x2 = 512, SPEEDLINES_RADIAL_4x4 = 1024, SPEEDLINES_LINEAR_4x4 = 1024 }
 
@@ -121,6 +118,7 @@ V.Grades = {
 local anims = {}
 local emitters = setmetatable({}, { __mode = "k" })
 local blank = setmetatable({}, { __mode = "k" }) -- (in the game: emitters whose texture did not load)
+local pieces = setmetatable({}, { __mode = "k" }) -- (in the game: the textured pieces alive, by texture key)
 local timeScale = 1
 local frozenUntil = 0
 local currentTS = 1
@@ -337,6 +335,8 @@ local function emitter(parent: Instance, p: { [string]: any }): ParticleEmitter
 	if V.Missing[p.tex] then
 		blank[e] = true
 		e.Transparency = NS(1) -- (and the ones a Rate would let out stay unseen)
+	elseif V.Tex[p.tex] then
+		pieces[e] = p.tex
 	end
 	return e
 end
@@ -353,6 +353,38 @@ local function emit(e: ParticleEmitter, n: number)
 	e:Emit(n)
 end
 V.Emit = emit
+
+--- (in the game) a trail, beam or mesh textured with a texture that did not load stays out of
+--- the world (called once it is parented: its effect may still move it or switch it on, unseen);
+--- the others are kept in mind, for the texture found missing later (V.Blank)
+function V.Unseen(inst: Instance, key: string?)
+	if not key or V.Tex[key] == nil then
+		return
+	end
+	if V.Missing[key] then
+		inst.Parent = nil
+	else
+		pieces[inst] = key
+	end
+end
+
+--- (in the game, VfxPack.preload) a texture that did not load: the pieces already drawn with it
+--- leave the world (an emitter stops showing), the ones to come are left out
+function V.Blank(key: string)
+	V.Missing[key] = true
+	V.Tex[key] = ""
+	for inst, k in pieces do
+		if k == key then
+			pieces[inst] = nil
+			if inst:IsA("ParticleEmitter") then
+				blank[inst] = true
+				inst.Transparency = NS(1)
+			elseif inst.Parent then -- (not one destroyed already)
+				inst.Parent = nil
+			end
+		end
+	end
+end
 
 local function light(parent: Instance, color: Color3, range: number, bright: number, frames: number)
 	local l = Instance.new("PointLight")
@@ -393,6 +425,7 @@ local function beam(parent: Instance, a0: Attachment, a1: Attachment, p: { [stri
 		b.TextureSpeed = p.tspeed or 0
 	end
 	b.Parent = parent
+	V.Unseen(b, p.tex)
 	V.Stats.beams += 1
 	b.Destroying:Connect(function()
 		V.Stats.beams -= 1
@@ -654,6 +687,7 @@ function V.SwingTrail(base: Attachment, tip: Attachment, color: Color3, opts: { 
 	t.Transparency = NS(0, 0, 1, 1)
 	t.Enabled = false
 	t.Parent = base.Parent
+	V.Unseen(t, o.tex or "TRAIL_GRADIENT")
 	return {
 		Trail = t,
 		On = function()
@@ -684,6 +718,7 @@ function V.Slash(cf: CFrame, color: Color3, opts: { [string]: any }?)
 	m.CFrame = cf
 	m.Size = base * 0.6
 	m.Parent = folder()
+	V.Unseen(m, o.tex or "SLASH_ARC")
 	local scaleF, fadeF = (o.scaleFrames or 4) * FR, (o.fadeFrames or 10) * FR
 	local spin = o.spin or 0
 	V.Animate(math.max(scaleF, fadeF), function(_, t)
@@ -998,6 +1033,7 @@ function V.Guard(defender: Model, hitPos: Vector3, color: Color3)
 	local center = hrp.Position + dir * 1.8
 	m.CFrame = CFrame.lookAt(center, center + face)
 	m.Parent = folder()
+	V.Unseen(m, "HEX_GRID")
 	V.Animate(12 * FR, function(k)
 		m.Size = base * (0.9 + 0.15 * math.sin(math.min(k * 3, 1) * math.pi * 0.5))
 		m.Transparency = k ^ 1.5
@@ -1143,6 +1179,7 @@ function V.Burst(char: Model, color: Color3)
 	m.CFrame = hrp.CFrame
 	m.Size = Vector3.one * 2
 	m.Parent = folder()
+	V.Unseen(m, "HEX_GRID")
 	V.Animate(20 * FR, function(k)
 		local s = 2 + 18 * (1 - (1 - math.min(k / 0.5, 1)) ^ 3)
 		m.Size = Vector3.one * s
@@ -1195,6 +1232,7 @@ function V.SuperJump(char: Model, color: Color3?)
 	m.TextureID = V.Tex.ENERGY_FLOW
 	m.Color = c
 	m.Parent = folder()
+	V.Unseen(m, "ENERGY_FLOW")
 	V.Animate(14 * FR, function(k)
 		local h = 2 + 16 * (1 - (1 - math.min(k / 0.4, 1)) ^ 2)
 		local r = 3.2 - 1.2 * k

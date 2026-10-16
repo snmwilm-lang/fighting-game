@@ -213,6 +213,39 @@ local function scenario(title, withMeshes, failKeys)
 	end
 
 	local freshBody = #fighter("COUNT", 40).model:GetDescendants()
+	-- (with textures that did not load: nothing drawn with them may be in the world, at any frame)
+	local unseenFails = {}
+	if failKeys and #failKeys > 0 then
+		local function textureOf(d)
+			local st = env.state(d)
+			if d:IsA("Trail") or d:IsA("Beam") then return st.set.Texture and d.Texture end
+			if d:IsA("MeshPart") then return st.set.TextureID and d.TextureID end
+			return nil
+		end
+		-- (once the preload is over: a piece with no texture, or with one that failed, even made
+		-- before the preload ended, e.g. a body dressed on the first frame)
+		local function failed(tex) return tex == "" or (env.preloaded and env.failAssets[tex]) end
+		env.onStep = function()
+			for _, d in env.workspace:GetDescendants() do
+				local tex = textureOf(d)
+				if tex and failed(tex) and not unseenFails[env.label] then
+					unseenFails[env.label] = d.ClassName .. " " .. d:GetFullName()
+				end
+				if d:IsA("ParticleEmitter") and not unseenFails[env.label] then
+					local st = env.state(d)
+					local seen = false
+					for _, k in d.Transparency.Keypoints do
+						if k.Value < 1 then seen = true end
+					end
+					if d.Texture == "" and (st.emitted or 0) > 0 then
+						unseenFails[env.label] = "ParticleEmitter emitting with no texture"
+					elseif env.preloaded and env.failAssets[d.Texture] and seen then
+						unseenFails[env.label] = "ParticleEmitter still shown with a texture that failed: " .. d:GetFullName()
+					end
+				end
+			end
+		end
+	end
 	local sheetIds = { [VfxConfig.texture("HITSPARK_LIGHT_4x4")] = true, [VfxConfig.texture("HITSPARK_HEAVY_4x4")] = true }
 	local noSheet = {}
 	local function emitters()
@@ -246,6 +279,14 @@ local function scenario(title, withMeshes, failKeys)
 
 	env.label = "ready"
 	ready("COMMON")
+	-- a body dressed on the first frame, before the preload is over (the game's order: the first
+	-- call is the frame's update)
+	local early = fighter("KAI", -8)
+	env.label = "KAI dressed before the preload"
+	try("KAI dressed before the preload", function()
+		return pack:update(early, { kit = "KAI", meter = 300, state = "Attack" }, nil, env.clock, Color3.fromHex("FF2A3D"))
+	end)
+	pack:trail(early, "RightHand", true)
 	local kits = {}
 	for kit in VfxConfig.KITS do table.insert(kits, kit) end
 	table.sort(kits)
@@ -278,6 +319,11 @@ local function scenario(title, withMeshes, failKeys)
 		env.run(0.4)
 	end
 	a.model:Destroy()
+	env.label = "KAI dressed before the preload"
+	pack:update(early, { kit = "KAI", meter = 300, state = "Attack" }, nil, env.clock, Color3.fromHex("FF2A3D"))
+	env.run(0.5)
+	pack:undress(early)
+	early.model:Destroy()
 
 	-- every fighter: its impacts at the four tiers, its arc, its dash, its body (trails, aura,
 	-- passive), its passive's moments, its shot
@@ -292,11 +338,12 @@ local function scenario(title, withMeshes, failKeys)
 					return pack:hit(kit, tier, Vector3.new(1, 3.4, 0), 1, color, 8, { f.model, other.model })
 				end)
 				-- (Wilhem's impact sheets drawn at the heart of the blow)
-				local sheet = false
+				local sheets = 0
 				for e in emitters() do
-					if not old[e] and sheetIds[e.Texture] and (env.state(e).emitted or 0) > 0 then sheet = true end
+					if not old[e] and sheetIds[e.Texture] and (env.state(e).emitted or 0) > 0 then sheets += 1 end
 				end
-				if not sheet then table.insert(noSheet, kit .. " " .. tier) end
+				if sheets == 0 then table.insert(noSheet, kit .. " " .. tier) end
+				if sheets > 1 then table.insert(env.errors, { label = kit .. " " .. tier, kind = "two impact sheets", msg = sheets .. " HITSPARK sheets on one blow" }) end
 				env.run(0.35)
 			end
 			try(kit .. " swing", function() return pack:swing(kit, Vector3.new(-1, 3.6, 0.8), 60, color) end)
@@ -396,6 +443,13 @@ local function scenario(title, withMeshes, failKeys)
 		errors += 1
 		print("  FAIL effects left in the world")
 	end
+	for label, what in unseenFails do
+		errors += 1
+		print(("  FAIL [%s] drawn with a texture that did not load: %s"):format(label, what))
+	end
+	if failKeys and #failKeys > 0 and next(unseenFails) == nil then
+		print("  nothing drawn with the textures that did not load, at any frame")
+	end
 	return errors, #noSheet
 end
 
@@ -411,8 +465,12 @@ if noSheetAll > 0 then
 	failed += 1
 	print("  FAIL some blows have no impact sheet")
 end
--- a texture that does not load: left out, every effect still plays (no sheet on a light blow)
-failed += scenario("HITSPARK_LIGHT_4x4 does not load", false, { "HITSPARK_LIGHT_4x4" })
+-- textures that do not load: left out (particles, trails, beams, meshes), every effect still
+-- plays (no sheet on a light blow without HITSPARK_LIGHT)
+failed += scenario("particles, a trail, a beam and meshes do not load", true,
+	{ "HITSPARK_LIGHT_4x4", "TRAIL_CORE", "HEX_GRID", "SLASH_ARC", "ENERGY_FLOW", "AKEMI_KUNAI" })
+failed += scenario("the other trails and blades do not load", true,
+	{ "TRAIL_RIM", "TRAIL_WISPY", "TRAIL_GRADIENT", "SHIN_WATER_RIBBON", "ZEPHYR_AIR_CRESCENT" })
 print(if failed == 0 then "VFX run: all passed" else ("VFX run: %d problems"):format(failed))
 if failed > 0 then error("VFX run failed") end
 '''
@@ -431,7 +489,7 @@ def main():
         src = open(os.path.join(ROOT, p), encoding="utf-8").read()
         chunks.append("\t[%s] = function(...)\n%s\nend," % (lua_str(name), src))
     harness = HARNESS.replace("...CHUNKS...", "{\n" + "\n".join(chunks) + "\n}")
-    path = os.path.join(ROOT, "tests", "_vfxrun.luau")
+    path = os.path.join(ROOT, "tests", "_vfxrun_%d.luau" % os.getpid())  # (one per run; .gitignore)
     with open(path, "w", encoding="utf-8") as f:
         f.write(harness)
     try:

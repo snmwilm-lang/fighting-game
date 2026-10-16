@@ -1,5 +1,41 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.3 — 16 octobre 2026 · Ce que l'agent de validation a refusé dans la 0.36.2
+
+La v0.36.2 a été poussée et sa place envoyée **avant** le verdict de l'agent `validation`, contrairement au circuit. Les tests étaient tous verts. Le verdict est arrivé ensuite : **REFUSÉ**. Cette version corrige ce qu'il a trouvé.
+
+- **B-005 : une texture qui ne charge pas.**
+  - Ce qui manquait : `V.Blank` ne retirait que les particules. Les traînées, rayons et meshes dessinés avec la texture apparaissaient quand même, sans texture, probablement en bande unie.
+  - La correction : `V.Unseen` laisse hors du monde toute pièce dessinée avec une texture qui n'a pas chargé. Les images de cette texture restent vides. Le reste de l'effet joue.
+  - **Deuxième refus**, sur la même version : les pièces créées avant la fin du préchargement restaient affichées. C'est le cas d'un corps habillé dès la première image, au premier combat.
+  - La correction : le pack garde en mémoire ses pièces texturées en vie (traînées, rayons, meshes, émetteurs ; registre faible). `V.Blank` retire celles qui existent déjà quand une texture est déclarée en échec.
+- **Une erreur dans le journal et dans B-004** : le 6e perso dont la signature a déjà sa planche est KUROEN SHIN, pas ELIAN.
+- **`tools/vfxrun.py`**, plus exigeant :
+  - deux passages où 11 textures ne chargent pas (particules, traînées, rayons, meshes) ; à chaque image, rien de ce qu'elles dessinent ne doit être dans le monde ;
+  - le préchargement de la copie du moteur attend maintenant 0,5 s, comme celui de Roblox, et un KAI est habillé dès la première image : l'ordre du jeu ;
+  - une seule planche HITSPARK par coup ;
+  - j'ai retiré trois corrections à la main pour vérifier, dont le retrait des pièces déjà là : l'outil échoue bien sur les trois.
+- **Les fichiers temporaires** de `vfxsmoke` et `vfxrun` ont chacun leur nom et sont ignorés par git (`.gitignore`). Deux passages en même temps ne se marchent plus dessus.
+- `tools/vfxcheck.py` voit aussi les clés des appels `flip(` de `compose`.
+
+**Fichiers** :
+- `src/client/VFX/VFX_Common.luau`, `VFX_Chars.luau`, `VFX_Specials.luau` ;
+- `src/shared/CombatConfig.luau` (0.36.3) ;
+- `tools/vfxrun.py`, `tools/RobloxStrict.luau`, `tools/vfxsmoke.py`, `tools/vfxcheck.py`, `.gitignore` ;
+- `docs/BUGS.md`, `docs/JOURNAL.md`.
+
+**Tests** :
+- les 8 suites rapides passent : CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Lobby 47 ;
+- Kits : 130 passed, 0 failed ;
+- `vfxcheck` sans problème ; `vfxsmoke` 32 sur 32 ; `vfxrun` : les quatre passages passent.
+
+**Validation** : VALIDÉ par l'agent `validation`, au troisième passage. Il a fait 26 mutations, toutes détectées sur les chemins réels du jeu. Il a aussi habillé les 22 persos avant la fin du préchargement : aucune pièce dessinée avec une texture en échec n'apparaît.
+
+**Problèmes ouverts** :
+- ceux de la 0.36.2 (rien n'est vérifié dans Studio ; les 14 meshes sans ID) ;
+- non bloquant, relevé par la validation : dans `VfxPack.preload`, l'appel à `V.Blank` n'est pas protégé par un `pcall`. Une erreur arrêterait le préchargement avant `self.readiness = {}` (risque faible) ;
+- vfxrun ne joue la course avec le préchargement qu'avec KAI, pas avec les 22 persos.
+
 ## Version 0.36.2 — 16 octobre 2026 · Les sprites d'impact du pack sur chaque coup, la place à chaque livraison
 
 Wilhem : « il doit push la place à chaque fois aussi ; déjà, pourquoi t'as pas mis les sprites des impacts sur l'update ?? »
@@ -12,7 +48,7 @@ Wilhem : « il doit push la place à chaque fois aussi ; déjà, pourquoi t'as p
   - HITSPARK_LIGHT pour les coups légers et moyens ;
   - HITSPARK_HEAVY et IMPACT_BURST pour les coups lourds et le K.O. ;
   - la taille est celle de l'impact commun du pack, avec un cœur blanc puis la couleur du perso ;
-  - une signature qui dessine déjà une planche HITSPARK garde la sienne (RYUKEN, RAIJIN, KAZAN, SYLVA, NOVA, ELIAN).
+  - une signature qui dessine déjà une planche HITSPARK garde la sienne (RYUKEN, RAIJIN, KAZAN, SYLVA, NOVA, KUROEN SHIN).
 - **Une texture qui ne charge pas n'éteint plus le pack** (B-003) :
   - en v0.36.1, un seul ID commun mal lu renvoyait tous les persos aux effets du jeu : aucun sprite du tout ;
   - maintenant, la texture fautive est nommée dans la console et laissée de côté : ses particules ne sont pas dessinées, le reste joue (`V.Blank`) ;

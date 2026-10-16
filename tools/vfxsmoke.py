@@ -156,7 +156,7 @@ if failed > 0 then error("VfxPack smoke failed") end
 
 def main():
     body = open(os.path.join(ROOT, "src/client/VfxPack.luau"), encoding="utf-8").read()
-    path = os.path.join(ROOT, "tests", "_vfxsmoke.luau")
+    path = os.path.join(ROOT, "tests", "_vfxsmoke_%d.luau" % os.getpid())  # (one per run; .gitignore)
     with open(path, "w", encoding="utf-8") as f:
         f.write(HEAD + body + TAIL)
     try:

@@ -221,7 +221,7 @@ local function ends(part: BasePart, len: number?): (Attachment, Attachment, Atta
 	return back, front, mid
 end
 
-local function weldMesh(part: BasePart, name: string, size: Vector3, setup: (MeshPart) -> (), offset: CFrame?): MeshPart
+local function weldMesh(part: BasePart, name: string, size: Vector3, setup: (MeshPart) -> (), offset: CFrame?, tex: string?): MeshPart
 	local m = K.meshTemplate(name):Clone()
 	m.Anchored = false
 	m.CanCollide = false
@@ -231,12 +231,16 @@ local function weldMesh(part: BasePart, name: string, size: Vector3, setup: (Mes
 	m.CastShadow = false
 	m.Size = size
 	m.CFrame = part.CFrame * (offset or CFrame.new())
+	if tex then
+		m.TextureID = V.Tex[tex]
+	end
 	setup(m)
 	local w = Instance.new("WeldConstraint")
 	w.Part0 = m
 	w.Part1 = part
 	w.Parent = m
 	m.Parent = part
+	V.Unseen(m, tex)
 	return m
 end
 
@@ -527,6 +531,7 @@ SKILL.KAI = function(a, c)
 		tr.Transparency = NS(0, 0, 1, 1)
 		tr.FaceCamera = true
 		tr.Parent = part
+		V.Unseen(tr, "TRAIL_WISPY")
 		table.insert(tails, tr)
 	end
 	local charge = a.charge or 0.3
@@ -565,9 +570,8 @@ SKILL.ZEPHYR = function(a, c)
 	local part = a.part :: BasePart
 	local blade = weldMesh(part, "CRESCENT_BLADE", Vector3.new(4, 0.3, 1.8) * (a.scale or 1), function(m)
 		m.Material = Enum.Material.ForceField
-		m.TextureID = V.Tex.ZEPHYR_AIR_CRESCENT
 		m.Color = c
-	end, CFrame.Angles(0, 0, math.rad(90))) -- lame dressée face à la caméra (jeu vu de côté)
+	end, CFrame.Angles(0, 0, math.rad(90)), "ZEPHYR_AIR_CRESCENT") -- lame dressée face à la caméra (jeu vu de côté)
 	local back, front = ends(part)
 	local wl = emitterOn(back, { tex = "ZEPHYR_WIND_LINE", color = c, size = NS(0, 2, 1, 3), life = { 10, 16 }, speed = { 1, 3 }, spread = 30, rate = 12, tr = NS(0, 0.35, 1, 1) })
 	return skillHandle("ZEPHYR", a, { blade, wl })
@@ -586,6 +590,7 @@ SKILL.AKEMI = function(a, c)
 	tr.Lifetime, tr.LightEmission, tr.LightInfluence = 0.1, 1, 0
 	tr.FaceCamera = true
 	tr.Parent = part
+	V.Unseen(tr, "TRAIL_RIM")
 	return skillHandle("AKEMI", a, { b, gl, tr })
 end
 
@@ -631,9 +636,8 @@ SKILL.SHIN = function(a, c)
 	local part = a.part :: BasePart
 	local blade = weldMesh(part, "CRESCENT_BLADE", Vector3.new(4.4, 0.3, 2) * (a.scale or 1), function(m)
 		m.Material = Enum.Material.ForceField
-		m.TextureID = V.Tex.SHIN_WATER_RIBBON
 		m.Color = c
-	end, CFrame.Angles(0, 0, math.rad(90)))
+	end, CFrame.Angles(0, 0, math.rad(90)), "SHIN_WATER_RIBBON")
 	local back = ends(part)
 	local d = emitterOn(back, { tex = "DROPLET", color = hot(c), size = NS(0, 0.35, 1, 0.15), life = { 14, 22 }, speed = { 2, 6 }, spread = 60, accel = Vector3.new(0, -40, 0), rate = 30, orient = "VelocityParallel" })
 	return skillHandle("SHIN", a, { blade, d })
@@ -943,6 +947,7 @@ PASSIVE.TARO = function(a, c)
 		tr.LightEmission, tr.LightInfluence, tr.Lifetime = 1, 0, 0.18
 		tr.Transparency = NS(0, 0, 1, 1)
 		tr.Parent = hrp
+		V.Unseen(tr, "TRAIL_RIM")
 		local frame = 0
 		V.Animate(d, function(k, t)
 			local s = t * 9 -- lemniscate (∞) devant le buste
@@ -1030,9 +1035,8 @@ PASSIVE.DAICHA = function(a, c)
 	end)
 	local shell = weldMesh(part, "SPHERE", Vector3.one * sz, function(m)
 		m.Material = Enum.Material.ForceField
-		m.TextureID = V.Tex.HEX_GRID
 		m.Color = c
-	end)
+	end, nil, "HEX_GRID")
 	return handle(function(intensity: number)
 		shell.Transparency = 1 - math.clamp(intensity, 0, 1)
 	end, nil, function()

@@ -8,3 +8,7 @@
 sourcemap.json
 __pycache__/
 tools/.rigcheck.luau
+
+# temporary test files of tools/vfxsmoke.py and tools/vfxrun.py
+tests/_vfxsmoke*.luau
+tests/_vfxrun*.luau

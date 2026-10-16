@@ -15,6 +15,14 @@ Wilhem : « crée un agent pour gérer la production et les décisions, un autre
   - `docs/DECISIONS.md` : 6 décisions du 15 octobre.
 - **`tools/get_luau.sh`** installe `luau` depuis les sorties officielles quand une session ne l'a pas. Essayé : les suites PressQueue et Lobby passent avec.
 - `CLAUDE.md` décrit le circuit : idée → production → validation → livraison.
+- **La routine du matin** (Wilhem : « ils se donnent tout à eux-mêmes tous les matins à 6 h », heure de Paris) : une tâche planifiée ouvre chaque matin à 5 h 50 (heure de Paris) une session neuve sur la branche. Elle enchaîne :
+  1. **bugs** : chasse active ;
+  2. **idees** : tri des fiches ;
+  3. **production** : une seule tâche faisable sans Wilhem ;
+  4. **validation** : toutes les suites, et au plus deux allers-retours, sinon rien n'est livré ;
+  5. la livraison (version, journal, push, place) ;
+  6. le rapport du matin en français.
+- **`tools/build_place.py`** : le script de build de la place, désormais dans le dépôt, pour que la routine construise la place sans Rojo.
 
 **Prochaine étape** : les IDs des 14 meshes ; les retours en jeu sur la DA du pack.
 

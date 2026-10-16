@@ -67,7 +67,29 @@ local function compose(level: string, cf: CFrame, color: Color3, opts: { [string
 		V.Hitstop(o.hitstop)
 	end
 	local before = V.Stats.particles
-	local pending = signature(a, p, lv, S, color) or 0
+	-- (in the game: Wilhem's impact sheets, HITSPARK and IMPACT_BURST, at the heart of every
+	-- blow, under the fighter's own signature; a signature that draws one already keeps its own)
+	local sheets, flip = {}, K.flipFx
+	K.flipFx = function(att, tex, ...)
+		sheets[tex] = true
+		return flip(att, tex, ...)
+	end
+	local ok, pending = pcall(signature, a, p, lv, S, color)
+	K.flipFx = flip
+	if not ok then
+		error(pending, 0)
+	end
+	pending = pending or 0
+	if not (sheets.HITSPARK_LIGHT_4x4 or sheets.HITSPARK_HEAVY_4x4) then
+		local size = ({ 6, 7, 8, 8.7 })[lv] * S -- (the sizes of V.Impact)
+		if lv <= 2 then
+			flip(a, "HITSPARK_LIGHT_4x4", 4, hot(color), size, 14 + lv)
+		else
+			flip(a, "HITSPARK_HEAVY_4x4", 4, hot(color), size, 15 + lv)
+			flip(a, "IMPACT_BURST_2x2", 2, color, NS(0, size * 0.7, 0.15, size * 0.85, 1, size * 0.6), 5 + lv,
+				{ mode = "Random", tr = NS(0, 0, 0.6, 0, 1, 1) })
+		end
+	end
 	if lv == 2 then
 		K.ring(a, "RING_THIN", color, 1.2 * S, 5 * S, 12)
 	elseif lv >= 3 then

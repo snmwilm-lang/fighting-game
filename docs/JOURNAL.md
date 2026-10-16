@@ -1,5 +1,60 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.2 — 16 octobre 2026 · Les sprites d'impact du pack sur chaque coup, la place à chaque livraison
+
+Wilhem : « il doit push la place à chaque fois aussi ; déjà, pourquoi t'as pas mis les sprites des impacts sur l'update ?? »
+
+- **Les sprites d'impact (B-004)** :
+  - **la cause, prouvée** : le jeu appelle l'impact propre à chaque perso du pack (`C.Impact`) ;
+  - les planches HITSPARK et IMPACT_BURST de Wilhem n'étaient que dans l'impact commun (`V.Impact`), que le jeu n'appelle pas, et dans la signature de 6 persos ;
+  - les 16 autres, dont KAI, n'en montraient aucune.
+- **La correction** (`VFX_Chars`, `compose`) : la planche d'impact est au cœur de chaque coup, sous la signature du perso :
+  - HITSPARK_LIGHT pour les coups légers et moyens ;
+  - HITSPARK_HEAVY et IMPACT_BURST pour les coups lourds et le K.O. ;
+  - la taille est celle de l'impact commun du pack, avec un cœur blanc puis la couleur du perso ;
+  - une signature qui dessine déjà une planche HITSPARK garde la sienne (RYUKEN, RAIJIN, KAZAN, SYLVA, NOVA, ELIAN).
+- **Une texture qui ne charge pas n'éteint plus le pack** (B-003) :
+  - en v0.36.1, un seul ID commun mal lu renvoyait tous les persos aux effets du jeu : aucun sprite du tout ;
+  - maintenant, la texture fautive est nommée dans la console et laissée de côté : ses particules ne sont pas dessinées, le reste joue (`V.Blank`) ;
+  - un perso ne repasse aux effets du jeu que s'il perd plus de 20 % de ses textures (au moins 3) ;
+  - un chargement lent (`TimedOut`) n'est plus pris pour un échec, seul `Failure` compte.
+- **`tools/vfxrun.py` + `tools/RobloxStrict.luau` + `tools/RobloxApi.luau`** : le pack joué image par image, à travers le vrai pont, sur une copie stricte du moteur Roblox.
+  - La copie est vérifiée contre l'API réelle (65 classes, 113 Enums, tirés du dump d'API de Roblox).
+  - Elle refuse ce que Roblox refuse : propriété inconnue, mauvais type, Enum inexistant, séquence qui ne commence pas à 0, plage à l'envers, MeshId écrit par un script, parent d'un objet détruit (13 vérifications au début de chaque passage).
+  - Elle joue tout ce que le jeu appelle :
+    - les 17 effets communs ;
+    - pour les 22 persos : les 4 niveaux d'impact, l'arc, le dash, le corps (traînées, aura aux 4 niveaux de jauge, passif), les moments de passif, le tir.
+  - Trois passages :
+    - meshes absents (le jeu aujourd'hui) ;
+    - tous les meshes ;
+    - une texture qui ne charge pas.
+  - **Résultat** : aucune erreur, aucun effet laissé dans le monde après 12 s, la planche d'impact sur les 88 coups.
+  - Le rendu lui-même ne se juge que dans Studio.
+- **La place à chaque livraison, sans exception** :
+  - la routine du matin construit la place et l'envoie à Wilhem après chaque push ;
+  - l'agent `production` et `CLAUDE.md` le disent aussi.
+- **Numéro de version** : la v0.36.2 de NOVA, faite par la première routine, n'est jamais arrivée dans le dépôt. Ce numéro sert donc à cette livraison, et le finisher de NOVA prendra le suivant.
+
+**Fichiers** :
+- `src/client/VFX/VFX_Chars.luau`, `src/client/VFX/VFX_Common.luau`, `src/client/VfxPack.luau` ;
+- `src/shared/CombatConfig.luau` (0.36.2) ;
+- `tools/vfxrun.py`, `tools/RobloxStrict.luau`, `tools/RobloxApi.luau` (nouveaux), `tools/vfxsmoke.py` ;
+- `.claude/agents/production.md`, `validation.md`, `bugs.md` ;
+- `CLAUDE.md` ;
+- `docs/BUGS.md`, `docs/DECISIONS.md`.
+
+**Tests** :
+- CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 312, Lobby 47 : tout passe ;
+- Kits : 130 passed, 0 failed ;
+- `vfxcheck` sans problème ; `vfxsmoke` : 32 vérifications, toutes passent ; `vfxrun` : les trois passages passent.
+
+**Problèmes ouverts** :
+- rien n'est vérifié dans Studio : la taille et l'éclat des planches se règlent à l'œil en jeu ;
+- les 14 meshes n'ont toujours pas d'ID ;
+- si une texture ne charge pas, la console Studio la nomme (`[VFX] these textures did not load …`) : Wilhem peut la recopier.
+
+**Prochaine étape** : le retour de Wilhem sur les impacts en jeu ; les IDs des meshes ; le finisher de NOVA (routine).
+
 ## Organisation — 16 octobre 2026 · Le premier matin de la routine, et sa correction
 
 - **Le premier passage** (16 octobre, de 5 h 50 à 6 h 29, heure de Paris) :

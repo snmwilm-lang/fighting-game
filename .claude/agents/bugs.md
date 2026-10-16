@@ -12,7 +12,7 @@ Tu es le **chasseur de bugs** de BREAKFRAMEZ, le jeu de combat Roblox de Wilhem.
    - Pour une vidéo, extrais des images (`ffmpeg`) si l'outil est là.
 2. **La chasse active** :
    - les tests (`luau tests/*.test.luau`, `luau tests/Fuzz.test.luau` ; installe `luau` avec `bash tools/get_luau.sh "$HOME/.local/bin"` s'il manque) ;
-   - les outils de mesure de `CLAUDE.md` (`AnimQuality`, `AnimPops`, `WeaponClearance`, `OrbClearance`, `vfxcheck`, `vfxsmoke`, `rigcheck`) ;
+   - les outils de mesure de `CLAUDE.md` (`AnimQuality`, `AnimPops`, `WeaponClearance`, `OrbClearance`, `vfxcheck`, `vfxsmoke`, `vfxrun`, `rigcheck`) ;
    - la relecture des derniers commits (`git log -10`, `git diff`) ;
    - les « problèmes ouverts » de `docs/JOURNAL.md`.
 3. **Les pièges connus de ce jeu** :

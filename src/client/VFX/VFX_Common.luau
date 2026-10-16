@@ -46,6 +46,13 @@ V.Tex = {}
 for key in VfxConfig.TEXTURES do
 	V.Tex[key] = VfxConfig.texture(key) or ""
 end
+-- (in the game: a texture that did not load on this client, VfxPack.preload: the particles
+-- that use it are left out, the rest of each effect plays)
+V.Missing = {}
+function V.Blank(key: string)
+	V.Missing[key] = true
+	V.Tex[key] = ""
+end
 -- taille des planches (pour ImageRectOffset / SurfaceGui)
 V.TexSize = { CRACK_2x2 = 512, SPEEDLINES_RADIAL_4x4 = 1024, SPEEDLINES_LINEAR_4x4 = 1024 }
 
@@ -113,6 +120,7 @@ V.Grades = {
 -- Toutes les animations des VFX passent par V.Animate pour pouvoir se figer (gel) ou ralentir.
 local anims = {}
 local emitters = setmetatable({}, { __mode = "k" })
+local blank = setmetatable({}, { __mode = "k" }) -- (in the game: emitters whose texture did not load)
 local timeScale = 1
 local frozenUntil = 0
 local currentTS = 1
@@ -326,6 +334,10 @@ local function emitter(parent: Instance, p: { [string]: any }): ParticleEmitter
 	e.TimeScale = currentTS
 	e.Parent = parent
 	emitters[e] = true
+	if V.Missing[p.tex] then
+		blank[e] = true
+		e.Transparency = NS(1) -- (and the ones a Rate would let out stay unseen)
+	end
 	return e
 end
 V.Emitter = emitter
@@ -333,6 +345,9 @@ V.Emitter = emitter
 --- (in the game: the share of the particles drawn, 0.5 in the reduced mode for phones; set by VfxPack)
 V.Quality = 1
 local function emit(e: ParticleEmitter, n: number)
+	if blank[e] then -- (its texture did not load: left out)
+		return
+	end
 	n = math.max(1, math.floor(n * V.Quality + 0.5))
 	V.Stats.particles += n
 	e:Emit(n)

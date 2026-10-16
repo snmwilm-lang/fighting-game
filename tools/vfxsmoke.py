@@ -27,7 +27,7 @@ local meshes = { children = {} }
 function meshes:FindFirstChild(n) return self.children[n] end
 local fake = {
 	VFX_Common = { ArcCFrame = function() return {} end, Parry = function() log("Parry") end, Guard = function() log("Guard") end,
-		Boom = function() error("boom") end },
+		Boom = function() error("boom") end, Blank = function(key) log("Blank " .. key) end },
 	VFX_Chars = {
 		Impact = function(name, level) log("Impact " .. name .. " " .. level) end,
 		Trail = function(name) return { On = function() log("TrailOn " .. name) end, Off = function() log("TrailOff " .. name) end, Destroy = function() end } end,
@@ -44,11 +44,14 @@ local fake = {
 local folder = { WaitForChild = function(_, n) return n end }
 local script = { Parent = { WaitForChild = function() return folder end } }
 local shared = { VfxConfig = "VfxConfig", CombatConfig = "CombatConfig" }
-local Enum = { AssetFetchStatus = { Success = "Success", Failure = "Failure" } }
+local Enum = { AssetFetchStatus = { Success = "Success", Failure = "Failure", TimedOut = "TimedOut" } }
 local task = { spawn = function(f) f() end }
-local failIds = {}
+local failIds, slowIds = {}, {}
 local contentProvider = { PreloadAsync = function(_, list, done)
-	for _, id in list do done(id, if failIds[id] then Enum.AssetFetchStatus.Failure else Enum.AssetFetchStatus.Success) end
+	for _, id in list do
+		done(id, if failIds[id] then Enum.AssetFetchStatus.Failure
+			elseif slowIds[id] then Enum.AssetFetchStatus.TimedOut else Enum.AssetFetchStatus.Success)
+	end
 end }
 local game = { GetService = function(_, name)
 	if name == "ContentProvider" then return contentProvider end
@@ -118,15 +121,32 @@ check(pack:ready("KAI"), "a kit's own family stays on")
 VfxConfig.TEXTURES.KAI_KI_POP_4x4 = 0
 local fresh = VfxPack.new(effects)
 check(not fresh:ready("KAI") and fresh:ready("TARO"), "one missing texture keeps only KAI on the game's effects")
--- a texture that does not load (a wrong ID): named in the output, its fighter back to the game's
+-- a texture that does not load (a wrong ID): named in the output and left out, the pack stays on
 VfxConfig.TEXTURES.KAI_KI_POP_4x4 = 1
 VfxConfig.TEXTURES.TARO_FIRE_RING_4x4 = 777
 failIds["rbxassetid://777"] = true
 local before = #warned
 local checked = VfxPack.new(effects)
-check(checked:ready("KAI") and not checked:ready("TARO"), "TARO's texture did not load: TARO keeps the game's effects, KAI does not")
+check(checked:ready("KAI") and checked:ready("TARO"), "one texture did not load: the pack stays on for every fighter")
+check(table.find(calls, "Blank TARO_FIRE_RING_4x4") ~= nil, "and that texture is left out of the effects")
 check(#warned == before + 1 and string.find(warned[#warned], "TARO_FIRE_RING_4x4 rbxassetid://777", 1, true) ~= nil,
 	"the texture that did not load is named")
+-- a texture still loading (a slow connection) is not a failure
+VfxConfig.TEXTURES.TARO_FIRE_RING_4x4 = 1
+VfxConfig.TEXTURES.KAI_KI_POP_4x4 = 778
+slowIds["rbxassetid://778"] = true
+before = #warned
+local slow = VfxPack.new(effects)
+check(slow:ready("KAI") and #warned == before and not slow.failed.KAI_KI_POP_4x4, "a time-out is not a failure")
+-- many textures that do not load: that fighter goes back to the game's effects, the others stay
+local need = VfxConfig.kitNeed("TARO")
+local lost = VfxPack.tolerated(#need.textures) + 1
+for i = 1, lost do
+	VfxConfig.TEXTURES[need.textures[#need.textures - i + 1]] = 900 + i
+	failIds["rbxassetid://" .. (900 + i)] = true
+end
+local many = VfxPack.new(effects)
+check(not many:ready("TARO"), ("%d of TARO's %d textures lost: TARO keeps the game's effects"):format(lost, #need.textures))
 for k, id in saved do VfxConfig.TEXTURES[k] = id end
 for k, id in savedMeshes do VfxConfig.MESHES[k] = id end
 print(if failed == 0 then "VfxPack smoke: all passed" else ("VfxPack smoke: %d failed"):format(failed))

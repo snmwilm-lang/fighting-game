@@ -29,7 +29,7 @@ Puis les vérifications ciblées selon ce qui a changé :
 | Armes | `luau tests/WeaponClearance.luau -a all` |
 | Orbe de DAICHA | `luau tests/OrbQuality.luau -a all`, `luau tests/OrbClearance.luau -a all` |
 | `RigBuilder.luau` | `python3 tools/rigcheck.py check` |
-| Pack VFX (`VfxConfig`, `VfxPack`, `src/client/VFX`) | `python3 tools/vfxcheck.py`, `python3 tools/vfxsmoke.py` |
+| Pack VFX (`VfxConfig`, `VfxPack`, `src/client/VFX`) | `python3 tools/vfxcheck.py`, `python3 tools/vfxsmoke.py`, `python3 tools/vfxrun.py` |
 | Code client ou serveur | `luau-compile --null fichier` sur chaque fichier touché |
 
 ### 3. Les règles de `CLAUDE.md`, sur le diff

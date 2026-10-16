@@ -41,6 +41,6 @@ Tu es le **chef de production** de BREAKFRAMEZ, le jeu de combat Roblox de Wilhe
    - mets à jour la version (`CombatConfig.Version`) et `docs/JOURNAL.md` (version, fichiers, tests, problèmes ouverts, prochaine étape) ;
    - committe sur la branche de travail ;
    - pousse ;
-   - construis la place si la session sait le faire.
+   - **à chaque livraison, sans exception** (demande de Wilhem : « il doit push la place à chaque fois ») : construis la place avec `python3 tools/build_place.py . <scratchpad>/BREAKFRAMEZ_vX.Y.Z.rbxlx` et vérifie qu'elle n'est pas vide. Envoie-la à Wilhem avec `SendUserFile` si tu as cet outil ; sinon, donne son chemin complet dans ton compte rendu, pour que la session principale l'envoie. Ne committe jamais le `.rbxlx`.
 3. Mets à jour le statut dans `docs/IDEES.md` ou `docs/BUGS.md` (« faite », « corrigé en vX.Y.Z »).
 4. Ton compte rendu final, en français et court : ce qui a changé pour le joueur, ce qui reste à faire, la question pour Wilhem s'il y en a une.

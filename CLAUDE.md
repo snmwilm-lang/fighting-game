@@ -50,7 +50,8 @@
   donnés par lui, par usage : coups, whoosh, garde, K.O., dash, barrage, ultimes, acier) ;
   chaque perso garde sa matière sonore.
 - Après chaque livraison, mettre à jour `docs/JOURNAL.md` (version, fichiers, tests,
-  problèmes ouverts, prochaine étape).
+  problèmes ouverts, prochaine étape), et à chaque livraison sans exception construire la place
+  (`python3 tools/build_place.py . <scratchpad>/BREAKFRAMEZ_vX.Y.Z.rbxlx`) et l'envoyer à Wilhem.
 - Le jeu est écrit en anglais (langue source de la traduction automatique de Roblox). Tout
   nouveau texte affiché doit avoir sa traduction française dans `src/shared/Locale.luau`
   (`Locale.FR`, ou `Locale.SAME` si le mot est identique) : le test « languages » de
@@ -59,7 +60,9 @@
   `src/shared/VfxConfig.luau` (0 = pas encore envoyé, jamais d'ID inventé ; `python3 tools/vfxids.py liste.txt`
   écrit les IDs qu'il donne), modules du pack dans `src/client/VFX`, pont avec le jeu dans
   `src/client/VfxPack.luau` (un effet du pack ne s'affiche que si tous ses assets ont un ID, sinon l'effet
-  du jeu reste). Après une retouche : `python3 tools/vfxcheck.py` et `python3 tools/vfxsmoke.py`.
+  du jeu reste). Après une retouche : `python3 tools/vfxcheck.py`, `python3 tools/vfxsmoke.py` et
+  `python3 tools/vfxrun.py` (le pack joué effet par effet sur une copie stricte du moteur, vérifiée contre l'API
+  Roblox réelle de `tools/RobloxApi.luau` ; `--refresh` la réécrit depuis le dump d'API de Roblox).
 - Les agents (`.claude/agents`) :
   - `idees` range les idées de Wilhem dans `docs/IDEES.md` ;
   - `production` produit, décide et note ses décisions dans `docs/DECISIONS.md` ;

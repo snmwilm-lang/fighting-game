@@ -7,7 +7,8 @@
 	which needs the shared assets too). EffectsController asks first: a call returns true when
 	the pack drew the effect, false when the game's own procedural effect must stay (assets not
 	uploaded yet, meshes not loaded yet, or a pack effect that failed once: that family then
-	goes back to the game's effects for the session, with one warning).
+	goes back to the game's effects for the session, with one warning). A texture that does not
+	load on the client is named in the output and left out of the pack's effects (preload).
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -95,8 +96,10 @@ function VfxPack:load()
 	return ok
 end
 
--- Every uploaded texture loaded once on this client: one that does not load (a wrong ID, an
--- image refused) is named in the output, and its family keeps the game's effects.
+-- Every uploaded texture loaded once on this client. One that does not load (a wrong ID, an
+-- image refused) is named in the output and left out of the effects (its particles are not
+-- drawn, the rest of each effect plays); a family that loses many goes back to the game's
+-- effects (`ready`). A texture still loading (a slow connection, a time-out) is not a failure.
 function VfxPack:preload()
 	task.spawn(function()
 		local list, keyOf, bad = {}, {}, {}
@@ -109,7 +112,7 @@ function VfxPack:preload()
 		end
 		pcall(function()
 			game:GetService("ContentProvider"):PreloadAsync(list, function(id, status)
-				if status ~= Enum.AssetFetchStatus.Success and keyOf[id] then
+				if status == Enum.AssetFetchStatus.Failure and keyOf[id] then
 					self.failed[keyOf[id]] = true
 					table.insert(bad, keyOf[id] .. " " .. id)
 				end
@@ -117,10 +120,20 @@ function VfxPack:preload()
 		end)
 		if #bad > 0 then
 			table.sort(bad)
-			warn("[VFX] these textures did not load (check their IDs in VfxConfig): " .. table.concat(bad, ", "))
-			self.readiness = {} -- (their families go back to the game's effects)
+			warn("[VFX] these textures did not load, left out of the effects (check their IDs in VfxConfig): "
+				.. table.concat(bad, ", "))
+			if self.V and self.V.Blank then
+				for key in self.failed do self.V.Blank(key) end
+			end
+			self.readiness = {} -- (each family checked again)
 		end
 	end)
+end
+
+-- How many of a family's textures may fail before it goes back to the game's effects: a few
+-- left out still leave the pack's look (a misread ID), not most of it.
+function VfxPack.tolerated(count)
+	return math.max(2, math.floor(count * 0.2))
 end
 
 local function meshesThere(list)
@@ -140,13 +153,15 @@ function VfxPack:ready(family)
 	if self.readiness[family] == false and now - (self.checked[family] or 0) < 2 then return false end
 	self.checked[family] = now
 	local need = if family == "COMMON" then VfxConfig.COMMON else VfxConfig.kitNeed(family) -- (the game's names)
-	-- (the textures decide: a mesh still missing only leaves its piece out, MESH_OF; a texture
-	-- that failed to load, `failed`, keeps its family on the game's effects)
+	-- (the textures decide: a mesh still missing only leaves its piece out, MESH_OF; textures
+	-- that failed to load, `failed`, are left out, and too many keep the family on the game's)
 	local ok = need ~= nil and VfxConfig.ready({ textures = need.textures, meshes = {} }) and self:load()
 	if ok then
+		local lost = 0
 		for _, key in need.textures do
-			if self.failed[key] then ok = false end
+			if self.failed[key] then lost += 1 end
 		end
+		ok = lost <= VfxPack.tolerated(#need.textures)
 	end
 	self.readiness[family] = ok and true or false
 	return self.readiness[family]

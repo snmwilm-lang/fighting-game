@@ -67,7 +67,8 @@
   - `bugs` tient `docs/BUGS.md`, sans rien corriger.
   Le circuit : idée → production → validation → livraison ; un bug → production → validation.
   `luau` manque ? `bash tools/get_luau.sh "$HOME/.local/bin"`. La place : `python3 tools/build_place.py . dossier/BREAKFRAMEZ_vX.Y.Z.rbxlx`.
-  Une routine les lance seuls chaque matin vers 6 h, heure de Paris : chasse aux bugs, tri des idées, une seule livraison
-  validée, puis un rapport. Elle ne fait jamais ce qui attend Wilhem.
+  Une routine les lance seuls chaque matin vers 6 h, heure de Paris, dans la session du jeu (qui a le dépôt en écriture :
+  push automatique) : chasse aux bugs, tri des idées, une seule livraison validée, puis un rapport. Elle ne fait jamais
+  ce qui attend Wilhem.
 - Les arènes : données dans `src/shared/Maps.luau`, construites côté client par
   `src/client/ArenaBuilder.luau`. Le sol de combat (y = 0, x de -28 à 28) ne change jamais.

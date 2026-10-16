@@ -1,5 +1,18 @@
 # Journal du projet — état à transmettre
 
+## Organisation — 16 octobre 2026 · Le premier matin de la routine, et sa correction
+
+- **Le premier passage** (16 octobre, de 5 h 50 à 6 h 29, heure de Paris) :
+  - la chasse aux bugs n'a rien trouvé de nouveau ; les 9 suites passent, Kits compris (130) ;
+  - la routine a produit et validé la **v0.36.2, le FATAL FINISHER de NOVA, « ZERO HOUR »** ;
+  - mais **le push a été refusé** : une session neuve ouverte par une tâche planifiée n'a pas le dépôt attaché, et ne peut pas l'attacher elle-même ;
+  - le travail est resté dans cette session-là ; elle a envoyé à Wilhem le patch git et la place.
+- **La correction** (Wilhem : « le push est auto tout le temps ») :
+  - la routine tourne maintenant **dans la session du jeu**, qui a le dépôt en écriture : le push est automatique ;
+  - elle lance les vrais agents (`bugs`, `idees`, `production`, `validation`) avec l'outil Agent, chaque matin à 5 h 50, heure de Paris ;
+  - l'ancienne routine est désactivée, pas supprimée, pour garder sa session et la v0.36.2.
+- **La v0.36.2 de NOVA** n'est pas dans le dépôt. Si Wilhem renvoie ici le patch reçu ce matin (`v0.36.2-nova-zero-hour.patch`), il sera appliqué, revalidé et poussé ; sinon, la routine de demain refait le finisher de NOVA en premier.
+
 ## Organisation — 16 octobre 2026 · Quatre agents (pas de nouvelle version : aucun code de jeu modifié)
 
 Wilhem : « crée un agent pour gérer la production et les décisions, un autre pour valider, et encore un autre qui prend mes idées », puis « un autre qui te liste les bugs ».

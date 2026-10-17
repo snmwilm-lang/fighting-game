@@ -58,3 +58,52 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Deuxième refus** : une pièce créée **avant** la fin du préchargement restait affichée. C'est le cas des traînées, de l'aura et du passif d'un corps habillé dès la première image, donc au premier combat.
 - **Statut** : `corrigé (v0.36.3)`. `V.Unseen` laisse hors du monde toute pièce dessinée avec une texture qui n'a pas chargé. Le pack garde aussi en mémoire les pièces texturées encore en vie (registre faible) : quand une texture est déclarée en échec, `V.Blank` retire celles qui existent déjà.
 
+## B-006 · En mode réduit, un avertissement « budget hors limites » à presque chaque coup
+- **Date** : 17 octobre 2026.
+- **Source** : trouvé par la chasse (routine du matin). `vfxrun` ne joue jamais le mode réduit (`effects.reduced = false`, `tools/vfxrun.py:260`).
+- **Comment reproduire** :
+  - ici : une copie de `tools/vfxrun.py` avec `reduced = true` qui affiche les avertissements de budget ;
+  - en jeu : SETTINGS → REDUCED EFFECTS (ou un téléphone, ou moins de 38 images par seconde : le mode s'allume tout seul), puis des coups forts, et la console (F9).
+- **Ce qui se passe** (prouvé sur la copie du moteur) :
+  - mode normal : aucun avertissement ;
+  - mode réduit : 84 avertissements par passage, du type `[VFX_Chars] budget heavy hors limites : 16`. Ils tombent sur tous les coups `heavy`, `finisher` et `ko` des 22 persos (66 coups), sur 4 coups légers (KAZAN, KUROEN SHIN, NOVA, RAIJIN) et sur 14 impacts de tirs ;
+  - au passage, le mode réduit émet 67 % des particules (1 617 contre 2 408), pas la moitié annoncée au journal de la v0.36.1 : le complément d'étincelles rattrape une partie de la réduction.
+- **Ce qui devrait se passer** : aucun avertissement en mode réduit, et la part de particules prévue.
+- **Cause** (prouvée) : `V.Emit` compte les particules après la réduction (`src/client/VFX/VFX_Common.luau:351-352`, `V.Quality = 0.5` posé par `src/client/VfxPack.luau:172`). `compose` compare ce total réduit aux fourchettes du mode normal (`src/client/VFX/VFX_Chars.luau:43`, `115-119`). Les étincelles de complément (`VFX_Chars.luau:107-111`) se calculent sur ce même total réduit, puis sont réduites à leur tour. Le défaut existe depuis la v0.36.1.
+- **Gravité** : mineur. Rien ne se voit à l'écran, mais :
+  - le téléphone, c'est-à-dire là où le mode réduit sert, fait un `warn` (et son formatage) presque à chaque coup ;
+  - la console se remplit et noie le message `[VFX] these textures did not load …` dont dépend B-003, si Wilhem regarde en mode réduit.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - dans `compose`, comparer à la fourchette multipliée par `V.Quality` (ou compter les particules demandées avant la réduction), et calculer le complément dans la même unité ;
+  - ajouter à `vfxrun` un passage en mode réduit qui échoue sur un avertissement de budget.
+
+## B-007 · `V.Blank` appelé sans `pcall` dans `VfxPack.preload`
+- **Date** : 17 octobre 2026.
+- **Source** : point non bloquant relevé par l'agent `validation` sur la v0.36.3 (journal, problèmes ouverts).
+- **Le risque décrit** : si `V.Blank` levait une erreur, le fil du préchargement s'arrêterait avant `self.readiness = {}` (`src/client/VfxPack.luau:126-128`). Deux conséquences :
+  - les textures suivantes de la liste ne seraient pas retirées : retour de B-005 pour elles ;
+  - un perso qui a perdu trop de textures resterait sur le pack, car sa disponibilité, déjà notée « prête », ne serait jamais revue.
+- **Ce qui a été vérifié** :
+  - `V.Blank` (`src/client/VFX/VFX_Common.luau:373-387`) ne fait que des écritures qui ne lèvent pas : les tables `V.Missing` et `V.Tex`, la `Transparency` d'un émetteur, et `Parent = nil` sur une pièce qui a encore un parent (une pièce détruite a un parent nul, elle est sautée) ;
+  - il tourne dans son propre fil, après `PreloadAsync`, jamais dans un `AncestryChanged` (le seul cas connu où changer un parent avertit) ;
+  - `self.V` est toujours posé avant, car `preload` n'est lancé que par `load()` (`VfxPack.luau:81-92`) ;
+  - `vfxrun`, passages 3 et 4 : 11 textures en échec, dont des pièces créées avant la fin du préchargement, sans aucune erreur.
+- **Gravité, si cela arrivait** : mineur.
+- **Statut** : `pas un bug (aucun chemin d'erreur trouvé ; c'est une question de robustesse)`.
+- **Piste**, si le code de `V.Blank` grandit : mettre `self.readiness = {}` avant la boucle et chaque `V.Blank(key)` dans un `pcall`. Le coût est nul.
+
+## B-008 · Si `HITSPARK_LIGHT` ne charge pas, RYUKEN, RAIJIN, KAZAN, SYLVA et NOVA perdent aussi la planche de leurs coups lourds
+- **Date** : 17 octobre 2026.
+- **Source** : trouvé par la chasse, dans la sortie de `python3 tools/vfxrun.py`, passage 3 (« particles, a trail, a beam and meshes do not load »).
+- **Comment reproduire** : `python3 tools/vfxrun.py`. Au passage 3, la liste « impact sheet not drawn » contient `KAZAN finisher, KAZAN ko, NOVA finisher, NOVA ko, RAIJIN finisher, RAIJIN ko, RYUKEN finisher, RYUKEN ko, SYLVA finisher, SYLVA ko`. L'outil ne le compte pas comme un échec.
+- **Ce qui se passe** (prouvé) :
+  - les signatures de ces 5 persos dessinent `HITSPARK_LIGHT_4x4` à tous les niveaux (`src/client/VFX/VFX_Chars.luau:368, 559, 753, 822, 879`) ;
+  - `compose` note la planche comme dessinée même quand sa texture est en échec (`VFX_Chars.luau:73-75`), donc il ne pose pas la planche commune `HITSPARK_HEAVY` (`VFX_Chars.luau:83`) ;
+  - résultat : aucune planche sur leurs fins d'enchaînement ni sur leurs coups de K.O., alors que `HITSPARK_HEAVY` a chargé. Les 17 autres persos gardent la leur (KUROEN SHIN dessine `HITSPARK_HEAVY`).
+- **Ce qui devrait se passer** : une planche en échec ne compte pas ; la planche commune la remplace quand elle existe.
+- **Cause** : `src/client/VFX/VFX_Chars.luau:73-75` (le relevé ne regarde pas `V.Missing`).
+- **Gravité** : cosmétique. Il faut un ID de `HITSPARK_LIGHT_4x4` mal recopié (B-003), et cela ne touche que 5 persos.
+- **Statut** : `ouvert`.
+- **Piste** : dans le relevé de `compose`, ne noter `sheets[tex]` que si `not V.Missing[tex]`.
+

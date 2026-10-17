@@ -1365,6 +1365,8 @@ third("NOVA", {
 	Stats = { MaxHealth = 1300, WalkSpeed = 17, AirSpeed = 14.5, JumpVelocity = 44, DashSpeed = 40 },
 	Passive = { Type = "Engineering", Name = "ENGINEERING", Charges = 2, Cooldown = 540 },
 	GateTitle = { text = "機神", sub = "MECHANICAL ARMY" },
+	-- FATAL FINISHER (Finishers.luau): eight drones lock on, dock into a rail before her gauntlet; 3, 2, 1, 0: the shot; the target glitches and crashes.
+	Finisher = { Name = "FATAL ERROR", Length = 660, FinalTick = 450 },
 })
 
 -- ===================================================================== ASURA 阿 · boss

@@ -1,5 +1,42 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.4 — 17 octobre 2026 · Le FATAL FINISHER de NOVA : FATAL ERROR (routine du matin)
+
+Livrée par la routine du matin, avec ses quatre agents : bugs, idées, production, validation (VALIDÉ du premier coup).
+
+- **NOVA · FATAL ERROR** (« ERREUR FATALE », 11 s, coup mortel au tick 450). Son déroulé :
+  - sa visière s'allume, un anneau de scan descend sur elle ;
+  - deux drones décollent, puis huit encerclent la cible ;
+  - ils la scannent, un réticule se referme au sol, la cible lève sa garde ;
+  - les drones s'emboîtent en 8 anneaux devant son gantelet, en rail de canon ;
+  - « 3, 2, 1 », les anneaux s'allument un à un ; « 0 » en silence, gros plan sur sa visière ;
+  - un trait blanc traverse la cible jusqu'au mur ;
+  - le temps s'arrête, la cible « bugue » (copies orange et cyan, pixels qui s'échappent), puis tombe ;
+  - la carte K.O. « FATAL ERROR » ; NOVA debout, gantelet fumant.
+- Les 15 plans sont composés avec `frameOn`. Les sons viennent de la palette, avec sa matière pour ses coups. Aucun ID d'asset.
+- **Le nom** : « ZERO HOUR », celui de la première routine (jamais arrivé dans le dépôt), est écarté. « ZERO » est déjà dans 4 noms (SHIN, YUKINA, KUROEN, KUROEN SHIN). Le nom se change en une ligne de `MoveData` et une de `Locale`.
+- **Tests** (`tests/Cinematography.test.luau`) :
+  - un test commun aux 19 finishers : au moins 6 plans propres au perso, un nom unique, le K.O. jamais avant le coup mortel, la cible à terre, des sons de la palette ;
+  - un test propre à NOVA, joué des deux côtés de l'arène : 8 drones, 8 anneaux alignés sur le gantelet, « 3 2 1 0 » avant le tir, le trait jusqu'au mur ;
+  - `CinematicKit.play` prend un argument `mirror` : la scène se joue avec l'attaquant à droite. Aucun résultat existant ne change.
+
+**Fichiers** :
+- `src/shared/Finishers.luau` (scène `S.NOVA`), `src/shared/MoveData.luau` (Finisher de NOVA), `src/shared/Locale.luau` (ERREUR FATALE), `src/shared/CombatConfig.luau` (0.36.4) ;
+- `tests/Cinematography.test.luau`, `tests/CinematicKit.luau` ;
+- `docs/DECISIONS.md`, `docs/VFX_PROMPT.md`, `docs/IDEES.md`, `docs/BUGS.md` (B-006 à B-010 : la chasse du matin).
+
+**Tests** :
+- CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 316 (+4), Lobby 47 ;
+- Kits 130 : tout passe ;
+- l'agent `validation` a fait 12 mutations, toutes détectées ; storyboard `luau tests/Storyboard.luau -a NOVA Fatal - 1 20` relu.
+
+**Problèmes ouverts** :
+- KUROEN, ASURA et KUROEN SHIN ont encore le fatal classique ;
+- rien n'est vérifié dans Studio : la lisibilité des 8 drones, et le rail sur le gantelet d'un vrai avatar (mesuré sur le rig de test, des deux côtés) ;
+- la chasse du matin : B-006 (mode réduit : un avertissement de budget à presque chaque coup, mineur), B-008 (cosmétique), B-009 et B-010 (vus par production, à confirmer).
+
+**Prochaine étape** : le finisher de KUROEN (routine) ; B-006.
+
 ## Version 0.36.3 — 16 octobre 2026 · Ce que l'agent de validation a refusé dans la 0.36.2
 
 La v0.36.2 a été poussée et sa place envoyée **avant** le verdict de l'agent `validation`, contrairement au circuit. Les tests étaient tous verts. Le verdict est arrivé ensuite : **REFUSÉ**. Cette version corrige ce qu'il a trouvé.

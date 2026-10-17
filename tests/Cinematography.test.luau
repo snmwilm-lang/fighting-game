@@ -20,7 +20,7 @@ local function macro(name)
 	return MACRO[name] == true
 end
 
-local function check(kit, kind, style, hp, center)
+local function check(kit, kind, style, hp, center, mirror)
 	local failures = {}
 	local function fail(info, text)
 		if #failures < 6 then
@@ -61,7 +61,7 @@ local function check(kit, kind, style, hp, center)
 				if maxX < -1 or minX > 1 or maxY < -0.78 or minY > 0.78 then fail(info, "the subject is out of the frame") end
 			end
 		end
-	end)
+	end, mirror)
 	return failures
 end
 
@@ -136,6 +136,16 @@ for _, kit in KITS do
 	end
 end
 
+-- (the lab always puts the attacker on the left: NOVA's FATAL ERROR, staged from her measured
+-- gauntlet on each side, is checked striking from the right too)
+for _, center in { 0, Config.ArenaMinX + 3 } do
+	local name = string.format("NOVA Fatal (K.O.) from the right at x=%d", center)
+	test(name .. ": camera clear of the bodies, subject on screen", function()
+		local failures = check("NOVA", "Fatal", nil, 300, center, true)
+		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
+	end)
+end
+
 test("every finale of KAI's ÉVEIL is well framed", function()
 	for _, r in MoveData.Kits.KAI.FullRoutes do
 		local failures = check("KAI", "Awaken", r.name, nil, 0)
@@ -180,6 +190,145 @@ test("both hands read in every shot: no angle hides one fist behind the other", 
 			local bad = overlappedHands(kit, case[1], case[2], case[3])
 			expect(#bad == 0, string.format("%s %s%s: %s", kit, case[1], if case[3] then " (K.O.)" else "", table.concat(bad, ", ")))
 		end
+	end
+end)
+
+-- FATAL FINISHERS (Finishers.luau): each one its own scene, cut like the others, and the K.O.
+-- itself. Their sounds are the names SoundController:cinematicSound plays, each from the
+-- palette (SoundPalette): the attacker's own matter for whoosh and heavy.
+local FINISHER_SOUNDS = { whoosh = "heavySwing", heavy = "heavyHit", slash = "BlockSteel", boom = "Explosion", charge = "SuperFlash",
+	beam = "Cinematic" }
+test("every FATAL FINISHER is its own scene: own shots and name, no strobe, the K.O. with its name after the blow, the target down", function()
+	local Palette = require("../src/shared/SoundPalette")
+	-- (a move's name without its kanji: "零 · ZERO ABSOLU: ECLIPSE" is ZERO ABSOLU: ECLIPSE)
+	local moveNames = {}
+	for id, m in MoveData.Moves do
+		moveNames[(m.name or ""):gsub("^.* · ", "")] = MoveData.MoveKit[id]
+	end
+	local owners, names = {}, {}
+	for _, kit in KITS do
+		local data = MoveData.Kits[kit].Finisher
+		if not data then continue end
+		expect(not names[data.Name], kit .. " takes the finisher name of " .. tostring(names[data.Name]))
+		local owner = moveNames[data.Name]
+		expect(owner == nil or owner == kit, string.format("%s: its finisher has the name of a move of %s (%s)", kit, tostring(owner), data.Name))
+		names[data.Name] = kit
+		local shots, last, since, short, played = {}, nil, 0, 0, false
+		local koAt, koName, lastPose, sounds = nil, nil, nil, {}
+		Kit.play(kit, "Fatal", nil, 300, 0, function(info)
+			local frame = info.frame
+			played = played or info.cin.finisher == true
+			if frame.shot.name ~= last then
+				if last then
+					local length = info.tick - since
+					expect(length >= 5, string.format("%s: the shot %s lasts %d ticks", kit, last, length))
+					if length < 9 then short += 1 end
+				end
+				last, since = frame.shot.name, info.tick
+				shots[frame.shot.name] = true
+			end
+			local ko = frame.overlay and frame.overlay.ko
+			if ko and not koAt then koAt, koName = info.tick, ko.sub end
+			for _, fx in frame.fx do
+				if fx.kind == "sfx" then sounds[fx.sound] = true end
+			end
+			lastPose = info.views[info.cin.defender].pose
+		end)
+		expect(played, kit .. ": the lab's killing COUP FATAL did not play its finisher")
+		local count = 0
+		for name in shots do
+			count += 1
+			expect(owners[name] == nil, string.format("%s borrows the finisher shot %s of %s", kit, name, tostring(owners[name])))
+			owners[name] = kit
+		end
+		expect(count >= 6, kit .. ": only " .. count .. " shots in its finisher")
+		expect(short <= 2, kit .. ": " .. short .. " shots under 9 ticks")
+		expect(koAt and koAt >= data.FinalTick and koName == data.Name,
+			string.format("%s: the K.O. (%s at %s) before its blow (%d) or without its name", kit, tostring(koName), tostring(koAt), data.FinalTick))
+		expect(lastPose == "DownFace", kit .. ": the target is not down at the end (" .. tostring(lastPose) .. ")")
+		local own = Palette.MATERIALS[kit] or Palette.MATERIALS.KAI
+		for sound in sounds do
+			local key = FINISHER_SOUNDS[sound]
+			expect(key ~= nil, kit .. ": the sound " .. tostring(sound) .. " is not one of the finishers'")
+			if key then expect(own[key] or Palette.ACTIONS[key], kit .. ": " .. sound .. " has no sound in the palette") end
+		end
+	end
+end)
+
+-- NOVA 機 · FATAL ERROR: her drones, her rail, the target's crash; on both sides of the arena.
+test("NOVA's FATAL ERROR: eight drones ring the target, dock in a rail at her gauntlet, 3 2 1 0, the shot through it, it glitches and falls", function()
+	local data = MoveData.Kits.NOVA.Finisher
+	local F = data.FinalTick
+	local function dist(p, q)
+		return math.sqrt((p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 + (p[3] - q[3]) ^ 2)
+	end
+	-- distance from a point to the segment a-b
+	local function toSegment(p, a, b)
+		local ab, ap = { b[1] - a[1], b[2] - a[2], b[3] - a[3] }, { p[1] - a[1], p[2] - a[2], p[3] - a[3] }
+		local t = math.clamp((ap[1] * ab[1] + ap[2] * ab[2] + ap[3] * ab[3]) / math.max(1e-6, ab[1] ^ 2 + ab[2] ^ 2 + ab[3] ^ 2), 0, 1)
+		return dist(p, { a[1] + ab[1] * t, a[2] + ab[2] * t, a[3] + ab[3] * t })
+	end
+	for _, mirror in { false, true } do
+		local side = if mirror then "from the right" else "from the left"
+		local ringed, docked, nearHand, count, through, glitch, guard, moves = 0, 0, math.huge, {}, false, {}, false, {}
+		local lastPose, koName
+		Kit.play("NOVA", "Fatal", nil, 300, 0, function(info)
+			local frame, A, D = info.frame, info.cin.attacker, info.cin.defender
+			local function at(point) return { Kit.resolve(point, info.parts) } end
+			local chest = { info.parts[D].UpperTorso.cframe[1], info.parts[D].UpperTorso.cframe[2], info.parts[D].UpperTorso.cframe[3] }
+			local hand = { info.parts[A].LeftHand.cframe[1], info.parts[A].LeftHand.cframe[2], info.parts[A].LeftHand.cframe[3] }
+			if info.views[A].move then moves[info.views[A].move] = true end
+			if info.tick < F and info.views[D].pose == "Block" then guard = true end
+			if info.tick == 200 then
+				-- (the drones: small balls of her colour round the target)
+				for _, sh in frame.shapes or {} do
+					if sh.kind == "sphere" and sh.radius <= 0.2 then
+						local p = at(sh.pos)
+						local flat = math.sqrt((p[1] - chest[1]) ^ 2 + (p[3] - chest[3]) ^ 2)
+						if flat > 3 and flat < 7 then ringed += 1 end
+					end
+				end
+			elseif info.tick == 330 then
+				-- (the rail: rings turned along the shot, between her gauntlet and the target)
+				for _, sh in frame.shapes or {} do
+					if sh.kind == "ring" and math.abs(sh.normal.x) > 0.9 and sh.radius > 0.6 and sh.radius < 1.2 then
+						local p = at(sh.pos)
+						if toSegment(p, hand, chest) < 0.6 and dist(p, chest) > 1.2 then -- (not the lock on its chest)
+							docked += 1
+							nearHand = math.min(nearHand, dist(p, hand))
+						end
+					end
+				end
+			elseif info.tick == F then
+				-- (the shot: one line through its chest on to the wall)
+				for _, sh in frame.shapes or {} do
+					if sh.kind == "slash" then
+						local from, to = at(sh.from), at(sh.to)
+						if toSegment(chest, from, to) < 0.8 and math.abs(to[1]) >= Config.ArenaMaxX - 1 then through = true end
+					end
+				end
+			end
+			local caption = frame.overlay and frame.overlay.caption
+			if caption and caption.text ~= count[#count] then
+				expect(info.tick < F, side .. ": the count goes on after the shot")
+				table.insert(count, caption.text)
+			end
+			for _, fx in frame.fx do
+				if fx.kind == "afterimage" and fx.slot == D and info.tick > F then glitch[fx.color] = true end
+			end
+			lastPose = info.views[D].pose
+			koName = frame.overlay and frame.overlay.ko and frame.overlay.ko.sub or koName
+		end, mirror)
+		expect(ringed == 8, side .. ": " .. ringed .. " drones round the target, not eight")
+		expect(docked == 8 and nearHand < 1.5, string.format("%s: %d rings in the rail, the first %.2f stud from her gauntlet", side, docked, nearHand))
+		expect(table.concat(count, " ") == "3 2 1 0", side .. ": the count reads " .. table.concat(count, " "))
+		expect(through, side .. ": the shot does not go through the target to the wall")
+		local colours = 0
+		for _ in glitch do colours += 1 end
+		expect(colours >= 2, side .. ": the target does not glitch in her two colours")
+		expect(guard, side .. ": the target never raises its guard")
+		expect(moves.NovaSentinel and moves[MoveData.Kits.NOVA.Roles.KiBlast], side .. ": she does not launch her drones and hold her cannon (her own moves)")
+		expect(lastPose == "DownFace" and koName == data.Name, side .. ": no K.O. " .. data.Name .. " with the target down")
 	end
 end)
 

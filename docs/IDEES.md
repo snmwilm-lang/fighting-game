@@ -48,7 +48,7 @@ Dernier tri : 17 octobre 2026 (routine du matin).
   - le storyboard est vérifié (`luau tests/Storyboard.luau -a KIT Fatal - 1 20`) ;
   - les sons ne viennent que de `SoundPalette`, et chaque perso garde sa matière sonore ;
   - les 9 suites passent.
-- **Statut** : `prête` (NOVA en premier).
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN ensuite, puis ASURA et KUROEN SHIN.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.

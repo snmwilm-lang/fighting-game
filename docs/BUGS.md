@@ -107,3 +107,19 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Statut** : `ouvert`.
 - **Piste** : dans le relevé de `compose`, ne noter `sheets[tex]` que si `not V.Missing[tex]`.
 
+## B-009 · Le finisher d'ASTER porte le même nom que son ÉVEIL
+- **Date** : 17 octobre 2026.
+- **Source** : vu en passant par l'agent `production` (routine du 17/10), à confirmer par l'agent `bugs`.
+- **Ce qui se passe** : le FATAL FINISHER d'ASTER s'appelle STELLAR COLLAPSE, comme son ÉVEIL (`src/shared/MoveData.luau`, vers la ligne 763).
+- **Ce qui devrait se passer** : un nom propre au finisher, comme pour les 18 autres.
+- **Gravité** : cosmétique.
+- **Statut** : `ouvert`. Changer le nom demande un choix de nom : production peut le proposer.
+
+## B-010 · Le finisher de TARO, joué depuis la droite, met la caméra presque au contact d'un corps
+- **Date** : 17 octobre 2026.
+- **Source** : vu en passant par l'agent `production` (routine du 17/10), à confirmer par l'agent `bugs`.
+- **Ce qui se passe** : joué avec TARO à droite, une image met la caméra à 0,24 stud d'un corps, sous la limite de 0,25. Le labo ne joue jamais ce côté.
+- **Comment reproduire** : `Kit.play` avec l'argument `mirror` (nouveau, `tests/CinematicKit.luau`) sur TARO.
+- **Gravité** : mineur (une image).
+- **Statut** : `ouvert`. Étendre le test miroir aux 18 autres finishers le montrerait.
+

@@ -597,6 +597,7 @@ Locale.FR = {
 	["CRIMSON COVENANT"] = "PACTE CRAMOISI",
 	["THE GREAT HUNT"] = "LA GRANDE CHASSE",
 	["FINAL MERCY"] = "DERNIÈRE MISÉRICORDE",
+	["FATAL ERROR"] = "ERREUR FATALE",
 	["FATAL READY"] = "COUP FATAL PRÊT",
 	["FATAL BLOW READY · C —"] = "COUP FATAL PRÊT · C —",
 	["FATAL BLOW · C key (gamepad L1):"] = "COUP FATAL · touche C (manette L1) :",

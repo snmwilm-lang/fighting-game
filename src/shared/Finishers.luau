@@ -2651,6 +2651,317 @@ function Finishers.build(T)
 		end
 	end
 
+	-- ================================================================ NOVA · FATAL ERROR
+	-- The war engineer runs her last program: her drones, a rail, the target's crash.
+	-- 0:00 her visor lights, a scan runs down her body, a hand raised (SENTRY): two drones lift
+	-- off · 0:01 two become eight (ENGINEERING) and ring the target · 0:02.7 they scan it, then
+	-- lock on: the reticle closes, it raises its guard · 0:04 they fly back and dock in front of
+	-- the gauntlet she holds out as a cannon (DRONE SHOT): eight rings, a rail · 0:05.5 the count,
+	-- 3, 2, 1, the rings light one by one · 0:07 0: silence, her visor · 0:07.5 the shot, one
+	-- white line through the target to the wall · 0:08 time stops round it, then it glitches (her
+	-- two colours, its pixels blown out) · 0:09 it crashes · 0:09.7 K.O. on the screen of a
+	-- crashed system · 0:10.3 her gauntlet vents its heat.
+	local NOVA_DRONES = 8
+	local NOVA_GAP, NOVA_ROOM = 10.5, 7 -- (her rail fills the gap; the shot needs room behind the target)
+	local NOVA_COUNT = { { 330, "3" }, { 360, "2" }, { 390, "1" }, { 420, "0" } }
+	function S.NOVA(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local cfg = ctx.config
+		local look = ctx.characters[A]
+		local color, holo = look.Energy, look.Shield or "6FE0FF" -- (her ki and her hologram: orange and cyan, or the other way round)
+		local cx = T.center(ctx, d)
+		local F = 450
+		local o = overlay(frame)
+		frame.grade.tech = true
+		local tx = if dir > 0 then math.min(cx, cfg.ArenaMaxX - NOVA_ROOM) else math.max(cx, cfg.ArenaMinX + NOVA_ROOM)
+		local ax = inside(ctx, tx - dir * NOVA_GAP)
+		tx = ax + dir * NOVA_GAP
+		local up = v(0, 1, 0)
+		local function add(p, q, k)
+			k = k or 1
+			return v(p.x + q.x * k, p.y + q.y * k, p.z + q.z * k)
+		end
+		local function mix(p, q, k)
+			return v(lerp(p.x, q.x, k), lerp(p.y, q.y, k), lerp(p.z, q.z, k))
+		end
+		local function unit(p)
+			local l = math.max(1e-6, math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z))
+			return v(p.x / l, p.y / l, p.z / l)
+		end
+		-- her body's axes as the client turns it (3/4 toward the camera, Config.ModelYaw)
+		local fwd, side = v(dir * 0.93, 0, 0.37), v(-0.37, 0, dir * 0.93)
+		-- the gauntlet held out as a cannon (her DRONE SHOT, measured on the rig), the rail from it
+		-- to the target's chest, the line of the shot on to the wall
+		local recoil = 0.6 * smooth(progress(tick, F, F + 10))
+		local hand = v(ax - dir * recoil + (if dir > 0 then 2.13 else -2.44), 4.5, if dir > 0 then 1.31 else 0.54)
+		local axis = unit(v(tx - hand.x, 4 - hand.y, -hand.z))
+		local function slot(i)
+			return add(hand, axis, 0.9 + 0.66 * (i - 1))
+		end
+		local muzzle = add(hand, axis, 0.9 + 0.66 * (NOVA_DRONES - 1) + 0.5)
+		local wall = if dir > 0 then cfg.ArenaMaxX - 0.5 else cfg.ArenaMinX + 0.5
+		local far = add(hand, axis, (wall - hand.x) / axis.x)
+		local length = math.sqrt((far.x - muzzle.x) ^ 2 + (far.y - muzzle.y) ^ 2 + (far.z - muzzle.z) ^ 2)
+		-- (the drones: born in pairs over her shoulders, each one copying itself; on a ring round
+		-- the target, turning slowly; then docked one after the other in the rail)
+		local function station(i, t)
+			local angle = (i - 1) / NOVA_DRONES * math.pi * 2 + 0.35 + math.max(0, t - 150) / 95
+			return v(tx + math.cos(angle) * 4.6, 4.6 + math.sin(i * 2.3) + 0.12 * math.sin(t / 8 + i), math.sin(angle) * 4.6)
+		end
+		local function born(i)
+			return if i <= 2 then 44 elseif i <= 4 then 78 else 92
+		end
+		local function drone(i, t)
+			local s = if i % 2 == 1 then 1 else -1
+			local shoulder = v(ax + side.x * s * 1.3 - fwd.x * 0.3, 5.5, side.z * s * 1.3 - fwd.z * 0.3)
+			local top = add(shoulder, up, 1.8)
+			local b = born(i)
+			if t < b then return nil, 0 end
+			if i <= 2 and t < 70 then return mix(shoulder, top, smooth(progress(t, b, 70))), 0 end
+			if t < 150 then
+				local q = smooth(progress(t, math.max(70, b + 6), 150))
+				local start = if i <= 2 then top else add(top, side, s * 0.6 * progress(t, b, b + 6))
+				return add(mix(start, station(i, 150), q), up, 2.2 * math.sin(math.pi * q)), 0
+			end
+			local leave = 250 + (i - 1) * 4
+			if t < leave then return station(i, t), 0 end
+			local q = smooth(progress(t, leave, leave + 34))
+			return add(mix(station(i, leave), slot(i), q), up, 1.2 * math.sin(math.pi * q)), q
+		end
+		-- her visor: a line of light across the eyes
+		local function visor(width, alpha, c)
+			local front = v(fwd.x * 0.5, 0.12, fwd.z * 0.5)
+			shape(frame, { kind = "slash", from = P(A, "Head", add(front, side, -0.26)), to = P(A, "Head", add(front, side, 0.26)),
+				width = width, color = c, alpha = alpha })
+		end
+
+		-- the fighters
+		a.x, a.facing = ax - dir * recoil, dir
+		if tick < 24 or (tick >= 100 and tick < 250) or (tick >= F + 44 and tick < 620) then
+			a.state, a.move, a.pose = "Idle", nil, nil
+		elseif tick < 100 then
+			attack(a, moves, "NovaSentinel", true) -- (a hand raised to launch the drones, the other at the visor)
+		elseif tick < F + 44 then
+			attack(a, moves, T.role(ctx, "KiBlast"), true) -- (the gauntlet held out as a cannon, the other hand bracing it)
+		else
+			a.state, a.move, a.pose = "Idle", nil, "StandTall"
+		end
+		d.x, d.z, d.facing, d.hitstop = tx, nil, -dir, 0
+		if tick < 160 then
+			d.state = "Idle"
+		elseif tick < 226 then
+			-- it looks for the drones round it, then they lock on
+			d.state = "Idle"
+			d.lookDir = if tick < 220 then (function()
+				local w = 0.9 * math.sin((tick - 160) / 18)
+				return v(-dir * math.cos(w), 0, math.sin(w))
+			end)() else nil
+		elseif tick < F then
+			d.state, d.pose = "Idle", "Block" -- (its guard up, for nothing)
+		elseif tick < F + 96 then
+			-- the shot: time stops round it; then it glitches
+			d.state, d.pose, d.hitstop = "Hitstun", "HitBody", 1
+			if tick >= F + 40 then
+				local g = (tick - F) // 4
+				d.x, d.z = tx + 0.16 * ((g * 7) % 3 - 1), 0.12 * ((g * 5) % 3 - 1)
+				d.hidden = tick == F + 52 or tick == F + 53 or tick == F + 71 or tick == F + 84 -- (frames dropped)
+				if (tick - F - 40) % 6 == 0 then
+					table.insert(frame.fx, { key = "fe-glitch" .. tick, kind = "afterimage", slot = D, color = if (tick // 6) % 2 == 0 then color else holo,
+						life = 0.3 })
+				end
+			end
+		else
+			-- it crashes: it folds, then falls on its face
+			d.state = "Hitstun"
+			d.pose = if tick < F + 106 then "CrumpleStart" elseif tick < F + 120 then "Crumple" else "DownFace"
+		end
+
+		-- the drones (each a body and its rotor; docked, the rotor is a ring of the rail, lit one
+		-- by one during the count, white at 0; the shot blows them apart). First in the list: the
+		-- client's pool of parts stays the same from one phase to the next.
+		if tick < F + 24 then
+			local blow = progress(tick, F, F + 20)
+			for i = 1, NOVA_DRONES do
+				local pos, dock = drone(i, math.min(tick, F))
+				if pos then
+					local r = lerp(0.42, 0.82, dock) + 0.9 * blow
+					local lit = progress(tick, 330 + (i - 1) * 11, 338 + (i - 1) * 11)
+					if tick < F then
+						shape(frame, { kind = "sphere", pos = At(add(pos, up, r * dock)), radius = lerp(0.17, 0.09, dock), color = color, core = 0.4 })
+					end
+					shape(frame, { kind = "ring", pos = At(pos), normal = unit(mix(up, axis, dock)), radius = r, width = lerp(0.06, 0.1, dock),
+						color = if tick >= 420 then "FFFFFF" elseif lit > 0 then color else holo,
+						alpha = math.max(lerp(0.3, 0.45, dock) * (1 - lit), blow) })
+				end
+			end
+			for i = 3, NOVA_DRONES do
+				local b = born(i)
+				if tick >= b and tick < b + 10 then
+					-- (a copy pops out of its drone)
+					shape(frame, { kind = "ring", pos = At((drone(i, tick))), normal = up, radius = lerp(0.2, 1, progress(tick, b, b + 10)), width = 0.05,
+						color = holo, alpha = progress(tick, b, b + 10) })
+				end
+			end
+		end
+		-- BOOT: the visor, the scan down her body
+		if tick >= 6 and tick < 70 then visor(0.05, lerp(1, 0.15, progress(tick, 6, 16)), holo) end
+		if tick >= 8 and tick < 50 then
+			shape(frame, { kind = "ring", pos = At(v(a.x, lerp(6, 0.2, progress(tick, 8, 50)), 0)), normal = up, radius = 1.3, width = 0.06, color = holo,
+				alpha = 0.3 })
+		end
+		-- LOCK-ON: the reticle closes on the floor round it, four marks turning with it; the scan
+		-- lines sweep its body, then all hold its chest
+		if tick >= 160 and tick < 262 then
+			local locked = tick >= 220
+			local c = if locked then color else holo
+			local fade = progress(tick, 250, 262)
+			local r = lerp(3.6, 1.4, smooth(progress(tick, 160, 216)))
+			local spin = (math.min(tick, 220) - 160) / 40
+			shape(frame, { kind = "ring", pos = At(v(tx, 0.06, 0)), normal = up, radius = r, width = 0.08, color = c, alpha = math.max(0.25, fade) })
+			for k = 0, 3 do
+				local angle = spin + k * math.pi / 2
+				shape(frame, { kind = "slash", from = At(v(tx + math.cos(angle) * r, 0.06, math.sin(angle) * r)),
+					to = At(v(tx + math.cos(angle) * (r - 0.7), 0.06, math.sin(angle) * (r - 0.7))), width = 0.07, color = c, alpha = math.max(0.2, fade) })
+			end
+			if tick < 250 then
+				for i = 1, NOVA_DRONES do
+					local aim = if locked then P(D, "UpperTorso") else P(D, "UpperTorso", v(0, 1.4 * math.sin((tick - 160) / 11 + i * 0.8), 0))
+					shape(frame, { kind = "slash", from = At((drone(i, tick))), to = aim, width = if locked then 0.05 else 0.035, color = c,
+						alpha = if locked then 0.15 else 0.45 })
+				end
+			end
+		end
+		if tick >= 200 and tick < F then
+			-- (the lock on its chest, until the shot)
+			shape(frame, { kind = "ring", pos = P(D, "UpperTorso"), normal = v(dir, 0, 0), radius = lerp(1.8, 0.75, smooth(progress(tick, 200, 220))),
+				width = 0.06, color = if tick >= 220 then color else holo, alpha = 0.3 })
+		end
+		-- THE COUNT: the rail charges, sparks run from ring to ring, the air is drawn into it
+		if tick >= 330 and tick < F then
+			local e1 = unit(add(up, axis, -axis.y))
+			local e2 = unit(v(axis.y * e1.z - axis.z * e1.y, axis.z * e1.x - axis.x * e1.z, axis.x * e1.y - axis.y * e1.x))
+			for i = 1, NOVA_DRONES - 1 do
+				local angle = (tick // 3) * 1.7 + i * 2.3
+				local function rim(k, w)
+					return add(add(slot(k), e1, math.cos(w) * 0.82), e2, math.sin(w) * 0.82)
+				end
+				shape(frame, { kind = "slash", from = At(rim(i, angle)), to = At(rim(i + 1, angle + 0.7)), width = 0.035, color = "FFFFFF", alpha = 0.25 })
+			end
+			shape(frame, { kind = "motes", pos = At(add(hand, axis, 0.4)), radius = 2.4, count = 26, color = color, phase = tick / 45 })
+			if tick >= 420 then
+				shape(frame, { kind = "sphere", pos = At(muzzle), radius = lerp(0.15, 0.55, progress(tick, 420, F)), color = holo, core = 1 })
+			end
+			local current
+			for _, c in NOVA_COUNT do
+				if tick >= c[1] then current = c end
+			end
+			o.caption = { text = current[2], color = if current[2] == "0" then "FFFFFF" else color, age = tick - current[1], fade = 0 }
+			o.desat = if tick < 420 then 0.45 * progress(tick, 330, 420) else 0.85
+			if tick >= 420 then visor(0.08, 0.05, "FFFFFF") end
+		end
+		-- THE SHOT: one line through the target to the wall; the shock rings stand still while time
+		-- does, then go on; the far end bursts
+		if tick >= F then
+			local age = tick - F
+			if age < 94 then
+				shape(frame, { kind = "slash", from = At(muzzle), to = At(far), width = lerp(1, 0.16, progress(age, 0, 12)), color = holo,
+					alpha = progress(age, 64, 94) })
+				for j = 1, 4 do
+					local grow = smooth(progress(age, j, j + 10)) * (1 + 0.25 * j) + 2.2 * smooth(progress(age, 50, 80))
+					shape(frame, { kind = "ring", pos = At(add(muzzle, axis, (j - 0.5) / 4 * length)), normal = axis, radius = 0.3 + grow, width = 0.12,
+						color = if j % 2 == 0 then "FFFFFF" else holo, alpha = math.max(0.15, progress(age, 50, 80)) })
+				end
+			end
+			if age < 40 then
+				local q = smooth(progress(age, 0, 26))
+				shape(frame, { kind = "sphere", pos = At(far), radius = lerp(0.4, 3.2, q), color = holo, core = 1 - q })
+			end
+			if age >= 40 and age < 96 then
+				-- (its pixels blown out)
+				shape(frame, { kind = "motes", pos = P(D, "UpperTorso"), radius = 3, count = 28, color = holo, phase = (age - 40) / 36, out = true })
+			end
+			if age >= 96 and age < 126 then
+				shape(frame, { kind = "motes", pos = P(D, "UpperTorso"), radius = 5, count = 36, color = color, phase = (age - 96) / 30, out = true })
+				shape(frame, { kind = "ring", pos = At(v(tx, 0.06, 0)), normal = up, radius = lerp(0.6, 4.6, smooth(progress(age, 96, 120))), width = 0.1,
+					color = holo, alpha = progress(age, 96, 126) })
+			end
+			if age == 0 then
+				sfx(frame, "fe-shot", "beam")
+				sfx(frame, "fe-blast", "boom")
+				frame.impact = { key = "fe-shot", color = "FFFFFF" }
+				table.insert(frame.fx, { key = "fe-wall", kind = "debris", pos = far, color = holo, scale = 1.2 })
+			end
+			if age == 40 then sfx(frame, "fe-glitch", "charge") end
+			if age == 96 then
+				sfx(frame, "fe-crash", "heavy")
+				T.spark(frame, "fe-crash", v(tx, 1, 0.6), holo, 1.6)
+				table.insert(frame.fx, { key = "fe-crash-debris", kind = "debris", pos = v(tx, 0.5, 0), color = color, scale = 1 })
+			end
+			o.white = if age < 12 then 0.9 * (1 - progress(age, 0, 12)) else nil
+			frame.speedLines = if age < 12 then holo else nil
+			frame.quake = if age < 10 then 0.9 elseif age >= 96 and age < 104 then 0.5 else nil
+			local glitch = progress(age, 40, 56) * (1 - progress(age, 90, 100))
+			o.desat = if age < 40 then 0.6 elseif age < 96 then 0.3 else nil
+			if glitch > 0 then o.tint = { color = holo, amount = 0.35 * glitch } end
+			if tick >= 620 then
+				-- (her gauntlet vents its heat; the visor dims)
+				shape(frame, { kind = "motes", pos = P(A, "LeftHand"), radius = 1.5, count = 14, color = "D8D8E0", phase = tick / 50, out = true })
+				visor(0.04, 0.5, holo)
+			end
+			if tick == F + 130 then sfx(frame, "fe-ko", "boom") end
+			ko(ctx, frame, tick, F + 130, color, if tick < 620 then { bg = "05070C", splash = holo } else nil)
+		end
+		-- sounds of the build-up
+		if tick == 8 then sfx(frame, "fe-boot", "charge") end
+		if tick == 44 or tick == 78 or tick == 92 or tick == 250 then sfx(frame, "fe-drones" .. tick, "whoosh") end
+		if tick == 220 or tick == 330 then sfx(frame, "fe-lock" .. tick, "charge") end
+		if tick == 284 or tick == 296 or tick == 312 or tick == 360 or tick == 390 then sfx(frame, "fe-clamp" .. tick, "slash") end
+
+		-- the shots
+		if tick < 70 then
+			frame.shot = frameOn("nova-fe-boot", dir, { a, { point = true, x = ax, y = 7.4, z = 0 } }, { yaw = 34, pitch = -6, band = "bust",
+				fill = lerp(0.7, 0.8, smooth(progress(tick, 0, 70))), fov = 32, focus = P(A, "Head") })
+		elseif tick < 118 then
+			frame.shot = frameOn("nova-fe-launch", dir, { a, d, { point = true, x = ax, y = 8, z = 0 } }, { yaw = -36, pitch = -16, fill = 0.74, fov = 46,
+				focus = P(A, "UpperTorso") })
+		elseif tick < 160 then
+			frame.shot = frameOn("nova-fe-swarm", dir, { d, { point = true, x = tx - 4.6, y = 5, z = 0 }, { point = true, x = tx + 4.6, y = 5, z = 0 } },
+				{ yaw = 16, pitch = 32, fill = 0.62, fov = 44, focus = P(D, "UpperTorso") })
+		elseif tick < 220 then
+			frame.shot = frameOn("nova-fe-scan", dir, { d }, { yaw = lerp(-50, -20, smooth(progress(tick, 160, 220))), pitch = 22, fill = 0.5, fov = 42,
+				focus = P(D, "Head") })
+		elseif tick < 250 then
+			frame.shot = frameOn("nova-fe-lock", dir, { d }, { yaw = -30, pitch = 2, band = "bust", fill = 0.66, fov = 34, focus = P(D, "Head") })
+		elseif tick < 330 then
+			frame.shot = frameOn("nova-fe-dock", dir, { a, d }, { yaw = 8, pitch = -6, fill = 0.88, fov = 40, focus = P(A, "UpperTorso") })
+		elseif tick < 360 then
+			frame.shot = frameOn("nova-fe-three", dir, { a }, { yaw = 56, pitch = -8, band = "bust", fill = 0.62, fov = 36, focus = P(A, "Head") })
+		elseif tick < 390 then
+			frame.shot = frameOn("nova-fe-two", dir, { a, d }, { yaw = 62, pitch = 4, fill = 0.8, fov = 36, focus = P(A, "Head") })
+		elseif tick < 420 then
+			frame.shot = frameOn("nova-fe-one", dir, { a, d }, { yaw = -56, pitch = 10, fill = 0.8, fov = 34, focus = P(D, "Head") })
+		elseif tick < F then
+			frame.shot = frameOn("nova-fe-zero", dir, { a }, { yaw = 12, pitch = -2, band = "face", fill = 0.72, fov = 28, focus = P(A, "Head") })
+			frame.shot.close = true
+		elseif tick < F + 14 then
+			frame.shot = frameOn("nova-fe-fire", dir, { a, d, { point = true, x = far.x, y = far.y, z = far.z } }, { yaw = 4, pitch = -4, fill = 0.9, fov = 46,
+				focus = P(D, "UpperTorso") })
+		elseif tick < F + 96 then
+			frame.shot = frameOn("nova-fe-freeze", dir, { d }, { yaw = lerp(-75, 5, smooth(progress(tick, F + 14, F + 96))), pitch = 6, fill = 0.55, fov = 40,
+				focus = P(D, "UpperTorso") })
+		elseif tick < F + 130 then
+			frame.shot = frameOn("nova-fe-crash", dir, { d, { point = true, x = tx, y = 5.6, z = 0 } }, { yaw = 24, pitch = 20, fill = 0.6, fov = 40,
+				focus = P(D, "UpperTorso") })
+		elseif tick < 620 then
+			frame.shot = frameOn("nova-fe-ko", dir, { a, d }, { yaw = 18, pitch = 8, fill = 0.66, fov = 40, focus = P(D, "UpperTorso") })
+		else
+			-- (low in the frame: the K.O. reads over her)
+			frame.shot = frameOn("nova-fe-last", dir, { a }, { yaw = 40, pitch = -8, fill = lerp(0.62, 0.7, smooth(progress(tick, 620, 660))), fov = 34,
+				screen = { 0.2, -0.22 }, focus = P(A, "Head") })
+		end
+	end
+
 	-- ================================================================ ELIAN · FINAL MERCY
 	-- The healer gives too much light. 0:00 he walks to the target, calm, a halo over his head ·
 	-- 0:01 his palm on its chest: the light pours in, it glows · 0:03 the light lifts it in a

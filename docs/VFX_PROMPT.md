@@ -724,7 +724,7 @@ Identité : hologrammes, glitch, propulseurs, lasers.
 | **ÉVEIL — OMEGA PROTOCOL** | Rayon orbital : réticule au sol, puis rayon vertical géant | Decal VFX_NOVA_RETICLE + M05 + T17 cyan | VFX_NOVA_RETICLE (1024, sans texte) |
 | **PORTE — 機神 MECHANICAL ARMY** | Barrage de missiles venu du ciel | Petits meshes + Trails de fumée T13 + impacts T06 | VFX_NOVA_MISSILE (mesh) |
 | **FATAL — 終焉 PROGRAMMED EXTINCTION** | Mitrailleuse des gantelets ; l'image se « bugge » | Flashs de bouche T03 + T48 plein écran | — |
-| **FINISHER** | *Pas encore créé* (reste le fatal classique). Idée : un mécha | — | — |
+| **FINISHER — FATAL ERROR** | Huit drones en anneau autour de la cible, puis un rail de huit anneaux devant le gantelet ; le tir blanc jusqu'au mur ; la cible « bugue » (copies orange et cyan, pixels) puis s'effondre | Drones M22 ; anneaux du rail T08 ; tir : Beam T17 cyan ; glitch : T48 ×20 | M22, T48 |
 
 ### 6.20 KUROEN 蝕 — éclipse (l'empereur)
 

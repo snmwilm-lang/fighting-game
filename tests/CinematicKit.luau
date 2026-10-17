@@ -46,14 +46,21 @@ Kit.resolve = resolve
 --[[
 	onFrame(info) for every tick: info = { tick, frame, views, parts = { [slot] = { [part] =
 	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }.
-	center: x where the fight happens; hp: the target's health (low = FINAL FINISH).
+	center: x where the fight happens; hp: the target's health (low = FINAL FINISH); mirror:
+	the attacker starts on the right, striking toward -x (the lab always puts it on the left).
 ]]
-function Kit.play(kit, kind, style, hp, center, onFrame)
+function Kit.play(kit, kind, style, hp, center, onFrame, mirror)
 	local world = Sim.newWorld(Config, MoveData, true)
 	Sim.setKits(world, kit, "KAI")
 	world.phase = "Fight"
 	world.fighters[1].x, world.fighters[2].x = center - 1.3, center + 1.3
 	Sim.debugCinematic(world, 1, kind, style, hp)
+	if mirror then
+		local mid = (world.fighters[1].x + world.fighters[2].x) / 2
+		for _, f in world.fighters do
+			f.x, f.facing = 2 * mid - f.x, -f.facing
+		end
+	end
 	local anims, headings, anchors = {}, {}, {}
 	for i = 1, 2 do
 		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,

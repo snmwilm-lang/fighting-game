@@ -47,9 +47,12 @@ Kit.resolve = resolve
 	onFrame(info) for every tick: info = { tick, frame, views, parts = { [slot] = { [part] =
 	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }.
 	center: x where the fight happens; hp: the target's health (low = FINAL FINISH); mirror:
-	the attacker starts on the right, striking toward -x (the lab always puts it on the left).
+	the attacker starts on the right, striking toward -x (the lab always puts it on the left);
+	wall: the attacker has its back to the wall of its side (the left one, or the right one
+	with mirror), the target in front of it, as startCinematic stages them (center unused).
+	The lab (debugCinematic) never plays that: it keeps the fight 4 studs from the walls.
 ]]
-function Kit.play(kit, kind, style, hp, center, onFrame, mirror)
+function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 	local world = Sim.newWorld(Config, MoveData, true)
 	Sim.setKits(world, kit, "KAI")
 	world.phase = "Fight"
@@ -60,6 +63,13 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror)
 		for _, f in world.fighters do
 			f.x, f.facing = 2 * mid - f.x, -f.facing
 		end
+	end
+	if wall then
+		-- (CombatSimulation startCinematic: the attacker held at the wall, 0.5 from it, the
+		-- target CinematicGap in front of it)
+		local a, d = world.fighters[1], world.fighters[2]
+		a.x = if a.facing > 0 then Config.ArenaMinX + 0.5 else Config.ArenaMaxX - 0.5
+		d.x = a.x + a.facing * (Config.CinematicGap or 2.6)
 	end
 	local anims, headings, anchors = {}, {}, {}
 	for i = 1, 2 do

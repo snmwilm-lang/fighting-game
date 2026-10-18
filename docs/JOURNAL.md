@@ -1,5 +1,40 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.5 — 18 octobre 2026 · SHIN dos au mur : la caméra ne passe plus dans la cible (routine du matin)
+
+Livrée par la routine du matin. La chasse aux bugs a trouvé un bug **majeur** : il passe avant le finisher de KUROEN, reporté à demain. Validé du premier coup.
+
+- **B-011, corrigé** :
+  - le problème : dans le FATAL FINISHER de SHIN, quand SHIN était dos au mur (x au-delà de ±25), la caméra du gros plan de son œil tombait dans le bras de la cible, pendant jusqu'à une seconde ;
+  - la correction : toute la scène recule loin du mur (`room`, dans `Finishers.luau`), pour garder 5,8 studs de sol du côté de SHIN et 3,6 au-delà de la cible ;
+  - **les plans de la planche de Wilhem ne changent pas** : ni la composition, ni l'ordre, ni la durée. Au centre, le storyboard est identique à l'octet près ; dos au mur, la caméra est celle du centre décalée de 22,5 studs ;
+  - au passage : quand la cible avait le dos au mur, SHIN « revenu derrière elle » se retrouvait hors du sol. Il est maintenant toujours 3,6 studs derrière elle.
+- **B-010, corrigé** :
+  - le problème : le finisher de TARO joué depuis la droite mettait une image la caméra à 0,245 stud de son bras ;
+  - la correction : TARO se tient à 3,5 studs de la cible au lieu de 3,4. La caméra est maintenant à 0,275 stud au plus près.
+- **Tests** :
+  - `CinematicKit.play` prend une option `wall` (attaquant dos au mur, à gauche ou à droite) ;
+  - `Storyboard` prend un 6e argument : `left`, `right`, `wall-left` ou `wall-right` ;
+  - 38 tests jouent les 19 finishers dos au mur, des deux côtés. Sur l'ancien code, ils échouent pour SHIN aux deux murs et pour TARO au mur droit.
+
+**Fichiers** :
+- `src/shared/Finishers.luau`, `src/shared/CombatConfig.luau` (0.36.5) ;
+- `tests/CinematicKit.luau`, `tests/Storyboard.luau`, `tests/Cinematography.test.luau` ;
+- `docs/BUGS.md`, `docs/DECISIONS.md`, `docs/IDEES.md`.
+
+**Tests** :
+- CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 354 (+38), Lobby 47 ;
+- Kits 130 : tout passe ;
+- la validation a comparé 770 scènes : seuls les finishers de SHIN (près d'un mur) et de TARO changent.
+
+**Problèmes ouverts** :
+- B-015 (cosmétique, relevé par la validation) : plusieurs finishers dessinent un corps au-delà de la ligne x = 28 ;
+- B-012 à B-014, sur la scène de NOVA ;
+- B-006, B-008, B-009 ;
+- rien n'est vérifié dans Studio.
+
+**Prochaine étape** : le finisher de KUROEN (routine).
+
 ## Version 0.36.4 — 17 octobre 2026 · Le FATAL FINISHER de NOVA : FATAL ERROR (routine du matin)
 
 Livrée par la routine du matin, avec ses quatre agents : bugs, idées, production, validation (VALIDÉ du premier coup).

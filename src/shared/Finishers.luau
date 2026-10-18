@@ -36,6 +36,16 @@ local function inside(ctx, x)
 	return math.clamp(x, ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1)
 end
 
+-- The centre of a scene (the target's x) that needs `back` studs of deck on the attacker's
+-- side of it and `ahead` studs beyond it: near a wall the whole scene stands back from it, as
+-- it plays in the middle of the arena (a fighter pinned by `inside` alone ends up too close to
+-- the other, and a close-up hung on him in the other's body: B-011).
+local function room(ctx, cx, dir, back, ahead)
+	local lo, hi = ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1
+	if dir > 0 then return math.clamp(cx, lo + back, hi - ahead) end
+	return math.clamp(cx, lo + ahead, hi - back)
+end
+
 function Finishers.build(T)
 	local v, P, At, shot, frameOn = T.v, T.P, T.At, T.shot, T.frameOn
 	local lerp, progress, smooth, attack = T.lerp, T.progress, T.smooth, T.attack
@@ -97,7 +107,9 @@ function Finishers.build(T)
 	function S.SHIN(ctx, frame, a, d, tick, dir)
 		local A, D = ctx.cin.attacker, ctx.cin.defender
 		local moves = ctx.moveData.Moves
-		local cx = T.center(ctx, d)
+		-- (his iai stands 5.8 in front of the target, he comes back 3.6 behind it: near a wall the
+		-- whole scene stands back from it, never him alone)
+		local cx = room(ctx, T.center(ctx, d), dir, 5.8, 3.6)
 		local F = 330
 		-- (the cut on the screen follows the blade: down from the high side; K's half on the left)
 		local ANGLE = if dir > 0 then 62 else 118
@@ -344,7 +356,9 @@ function Finishers.build(T)
 			-- through the target's eyes: the first hook, then the chain; it gives ground
 			local back = smooth(progress(tick, 180, 420)) * 2.2
 			d.x, d.state = inside(ctx, cx + dir * back), "Hitstun"
-			a.x, a.facing = d.x - dir * 3.4, dir -- (the glove stops short of the eyes)
+			-- (the glove stops short of the eyes; 3.5: from the right his hooking arm passes the
+			-- lens on its other side, 3.4 put it within 0.25 of it: B-010)
+			a.x, a.facing = d.x - dir * 3.5, dir
 			local side = if index % 2 == 1 then 1 else -1
 			local age = if last then tick - last else 99
 			if last and age < 7 then

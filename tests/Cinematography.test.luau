@@ -20,7 +20,9 @@ local function macro(name)
 	return MACRO[name] == true
 end
 
-local function check(kit, kind, style, hp, center, mirror)
+-- (mirror: the attacker strikes from the right; wall: its back to the wall of its side,
+-- CinematicKit.play)
+local function check(kit, kind, style, hp, center, mirror, wall)
 	local failures = {}
 	local function fail(info, text)
 		if #failures < 6 then
@@ -61,7 +63,7 @@ local function check(kit, kind, style, hp, center, mirror)
 				if maxX < -1 or minX > 1 or maxY < -0.78 or minY > 0.78 then fail(info, "the subject is out of the frame") end
 			end
 		end
-	end, mirror)
+	end, mirror, wall)
 	return failures
 end
 
@@ -144,6 +146,23 @@ for _, center in { 0, Config.ArenaMinX + 3 } do
 		local failures = check("NOVA", "Fatal", nil, 300, center, true)
 		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
 	end)
+end
+
+-- Every FATAL FINISHER with the attacker's back to the wall, on both sides: the lab never
+-- stages it (debugCinematic keeps the fight 4 studs from the walls, the attacker on the left),
+-- the game does whenever the killing COUP FATAL starts there. A scene staged far from the
+-- target must stand back from the wall as a whole (B-011: SHIN's iai pinned at the wall put
+-- the camera of his eye in the target's arm); from the right, every finisher is also played
+-- mirrored (B-010: TARO's hook by the lens of the target's eyes).
+for _, kit in KITS do
+	if not MoveData.Kits[kit].Finisher then continue end
+	for _, mirror in { false, true } do
+		local name = string.format("%s FATAL FINISHER, its back to the %s wall", kit, if mirror then "right" else "left")
+		test(name .. ": camera clear of the bodies, subject on screen", function()
+			local failures = check(kit, "Fatal", nil, 300, 0, mirror, true)
+			expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
+		end)
+	end
 end
 
 test("every finale of KAI's ÉVEIL is well framed", function()

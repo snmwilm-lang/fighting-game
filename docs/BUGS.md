@@ -140,7 +140,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - les autres cinématiques (Rush, Éveil, Porte, Fatal et leurs K.O. ; 22 kits, 2 sens, 11 positions dont les deux murs : 2 904 lectures) n'ont que deux plans qui frôlent la marge du test depuis la droite, à toutes les positions. Le point de mise au point y monte à 0,78 de la demi-hauteur, pour 0,78 permis (0,74-0,77 depuis la gauche) : `zephyr-lune-launch` (Fatal de ZEPHYR, t22-t24) et `daicha-domain-clench` (Rush de DAICHA, t9). Le point reste à l'écran, ce n'est pas un bug, mais un test miroir échouera dessus.
 - **Cause probable** : `src/shared/Finishers.luau:368`. L'œil de la cible porte un décalage `sway` en z, en axes du monde, qui ne change pas avec le côté. Avec le corps tourné de 3/4 vers la caméra (`ModelYaw`, 22°), le crochet de TARO passe un peu plus près de l'objectif quand il frappe depuis la droite.
 - **Gravité** : cosmétique (abaissée : une image, 5 millièmes de stud sous la limite du test).
-- **Statut** : `ouvert` (confirmé).
+- **Statut** : `corrigé (v0.36.5)`. TARO se tient à 3,5 studs de la cible au lieu de 3,4 pendant le plan subjectif : la caméra est à 0,275 stud au plus près depuis la droite, 0,278 depuis la gauche. Testé dos au mur des deux côtés dans `Cinematography`.
 - **Piste** :
   - reculer un peu l'œil (par exemple 0,6 au lieu de 0,55) ;
   - surtout, jouer les 19 finishers en miroir dans `Cinematography` (la boucle de la ligne 129 avec `mirror`), pas seulement NOVA.
@@ -164,7 +164,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - `debugCinematic` centre le combat au plus à ±24 (`src/shared/CombatSimulation.luau:2785`), et l'attaquant y est toujours à gauche ;
   - `Cinematography` ne joue que x = 0 et x = 25 (`tests/Cinematography.test.luau:129`), où c'est la **cible** qui a le dos au mur, jamais l'attaquant.
 - **Gravité** : majeur. Très visible quand cela arrive : une seconde du plan le plus marquant du finisher, celui qui clôt le match, cachée par un bras. Il faut que SHIN soit acculé au moment d'achever : une situation courante en combat (supposé).
-- **Statut** : `ouvert`.
+- **Statut** : `corrigé (v0.36.5)`, à confirmer en jeu par Wilhem. Toute la scène de SHIN recule loin du mur, plans inchangés. Les 19 finishers sont testés dos au mur des deux côtés dans `Cinematography` (38 tests ; sur l'ancien code, ils échouent pour SHIN et TARO).
 - **Piste** :
   - déplacer toute la scène plutôt que SHIN seul, comme le font celles de KAI (`Finishers.luau:455`) et de NOVA (`Finishers.luau:2677-2679`). Par exemple, poser la cible à au moins 5,8 + 1 studs du mur côté SHIN, puis `front` à 5,8 d'elle ;
   - ajouter au test de cadrage un cas « attaquant dos au mur », des deux côtés : une option de placement dans `Kit.play`, pour toutes les cinématiques et tous les finishers.
@@ -222,3 +222,13 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Piste** :
   - en mode réduit, ne pas allumer la lumière des petites sphères (rayon sous 0,3 : les drones) ;
   - ou une seule lumière par scène pour les drones.
+
+## B-015 · Plusieurs finishers dessinent un corps au-delà de la ligne peinte x = 28
+- **Date** : 18 octobre 2026.
+- **Source** : relevé par l'agent `validation` (routine du 18/10), à confirmer par l'agent `bugs`.
+- **Ce qui se passe** : dans HEAD (v0.36.4), plusieurs finishers dessinent un corps au-delà de la ligne x = 28 : SYLVA 31,3, ASTER 31,1, AKEMI 29,8, KAZAN 29,6, YUKINA 28,9, VENOM 28,8, ELIAN 28,2. Dos au mur, ils vont jusqu'à 31,4. Le sol continue jusqu'à ±40.
+- **Ce qui devrait se passer** : les corps restent sur le sol de combat, x de -28 à 28 (`CLAUDE.md` : ce sol ne change jamais).
+- **Piste** : un test « corps sur le sol » sur les 19 finishers, joués au centre et dos au mur ; puis le placement de chaque scène, comme pour SHIN (`room`).
+- **Gravité** : cosmétique.
+- **Statut** : `ouvert`.
+

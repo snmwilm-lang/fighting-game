@@ -1,10 +1,12 @@
 -- Storyboard of one cinematic, as the camera sees it (not a test). Writes frames for
 -- tools/storyboard.py, which draws a contact sheet:
---   luau tests/Storyboard.luau -a KIT KIND [STYLE|-] [FINISH 0|1] [STEP] > story.txt
+--   luau tests/Storyboard.luau -a KIT KIND [STYLE|-] [FINISH 0|1] [STEP] [PLACE] > story.txt
 --   python3 tools/storyboard.py story.txt story.png
 -- KIND: Rush, Awaken or Gate, or KO (the winner's K.O. scene at the end of a match; then the
 -- third argument is the scene's number in the session: a kit with two victories alternates),
 -- or Intro (the match's mini intro; the third argument is the opponent's kit).
+-- PLACE (Rush, Awaken, Gate, Fatal): left (the lab, at the centre: the default), right (the
+-- attacker on the right), wall-left or wall-right (its back to that wall, CinematicKit.play).
 -- Bodies are the KAI block rig posed by the real animator.
 local Kit = require("./CinematicKit")
 local WeaponKit = require("./WeaponKit")
@@ -13,6 +15,9 @@ local kit, kind = args[1] or "KAI", args[2] or "Rush"
 local style = if args[3] and args[3] ~= "-" then args[3] else nil
 local hp = if args[4] == "1" then 300 else nil
 local step = tonumber(args[5]) or 6
+local place = args[6] or "left"
+assert(place == "left" or place == "right" or place == "wall-left" or place == "wall-right", "PLACE: left, right, wall-left or wall-right")
+local mirror, wall = place == "right" or place == "wall-right", place == "wall-left" or place == "wall-right"
 
 local function fmt(n) return string.format("%.3f", n) end
 local seen = {}
@@ -129,4 +134,4 @@ play(kit, kind, style, hp, 0, function(info)
 				fmt(fx.life or 0), fmt(fx.spin or 0), fmt(fx.phase or 0)))
 		end
 	end
-end)
+end, mirror, wall)

@@ -109,17 +109,116 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 
 ## B-009 · Le finisher d'ASTER porte le même nom que son ÉVEIL
 - **Date** : 17 octobre 2026.
-- **Source** : vu en passant par l'agent `production` (routine du 17/10), à confirmer par l'agent `bugs`.
+- **Source** : vu en passant par l'agent `production` (routine du 17/10). Confirmé par la chasse du 18/10.
 - **Ce qui se passe** : le FATAL FINISHER d'ASTER s'appelle STELLAR COLLAPSE, comme son ÉVEIL (`src/shared/MoveData.luau`, vers la ligne 763).
 - **Ce qui devrait se passer** : un nom propre au finisher, comme pour les 18 autres.
+- **Preuve** (18/10) :
+  - `MoveData.luau:763` : STELLAR COLLAPSE est le 27e nom de la liste d'ASTER, donc le rôle `Awakening` (`ROLE_ORDER`, `MoveData.luau:684-688`) ;
+  - `MoveData.luau:1299` : `Finisher = { Name = "STELLAR COLLAPSE", … }` ;
+  - un script compare le nom des 19 finishers aux noms de tous les coups de leur propre kit : seul ASTER est touché (`AsterAwakening`).
+- **Pourquoi le test ne l'a pas vu** : le test commun aux finishers (`tests/Cinematography.test.luau:214`) refuse le nom d'un coup d'un **autre** perso, mais accepte celui d'un coup du même perso (`owner == nil or owner == kit`).
+- **À côté** : « STELLAR COLLAPSE » est deux fois dans `Locale.FR` (`Locale.luau:594` et `:1057`), avec la même traduction. Sans effet, mais il faudra retirer la ligne du finisher au renommage.
 - **Gravité** : cosmétique.
-- **Statut** : `ouvert`. Changer le nom demande un choix de nom : production peut le proposer.
+- **Statut** : `ouvert` (confirmé). Changer le nom demande un choix de nom : production peut le proposer, Wilhem tranche.
+- **Piste** :
+  - un nouveau nom pour le finisher (une ligne de `MoveData`, une de `Locale`) ;
+  - dans le test commun, refuser aussi le nom d'un coup du même perso (`owner == nil`).
 
 ## B-010 · Le finisher de TARO, joué depuis la droite, met la caméra presque au contact d'un corps
 - **Date** : 17 octobre 2026.
-- **Source** : vu en passant par l'agent `production` (routine du 17/10), à confirmer par l'agent `bugs`.
+- **Source** : vu en passant par l'agent `production` (routine du 17/10). Confirmé par la chasse du 18/10.
 - **Ce qui se passe** : joué avec TARO à droite, une image met la caméra à 0,24 stud d'un corps, sous la limite de 0,25. Le labo ne joue jamais ce côté.
-- **Comment reproduire** : `Kit.play` avec l'argument `mirror` (nouveau, `tests/CinematicKit.luau`) sur TARO.
-- **Gravité** : mineur (une image).
-- **Statut** : `ouvert`. Étendre le test miroir aux 18 autres finishers le montrerait.
+- **Comment reproduire** :
+  - `Kit.play` avec l'argument `mirror` (nouveau, `tests/CinematicKit.luau`) sur TARO ;
+  - ou la fonction `check` de `tests/Cinematography.test.luau`, recopiée telle quelle, sur les 19 finishers en miroir aux x = -25, 0 et 25 (script de la chasse, hors dépôt) ;
+  - ou les 19 finishers sur toute l'arène, des deux côtés (même méthode que B-011).
+- **Ce qui a été mesuré** (18/10) :
+  - TARO depuis la droite : **une seule image** (t250, plan subjectif `taro-dr-eyes`), à 0,243-0,245 stud du haut du bras droit de TARO, contre une limite de 0,25. Ce cas se reproduit à **chacune** des 43 positions de l'arène ;
+  - depuis la gauche, jamais ;
+  - c'est 2,5 fois la distance où la caméra commence à couper ce qu'elle voit (0,1, plan proche) : très probablement invisible à l'écran ;
+  - les 17 autres finishers sont propres des deux côtés, à toutes les positions, sauf SHIN dos au mur (B-011, plus grave) ;
+  - les autres cinématiques (Rush, Éveil, Porte, Fatal et leurs K.O. ; 22 kits, 2 sens, 11 positions dont les deux murs : 2 904 lectures) n'ont que deux plans qui frôlent la marge du test depuis la droite, à toutes les positions. Le point de mise au point y monte à 0,78 de la demi-hauteur, pour 0,78 permis (0,74-0,77 depuis la gauche) : `zephyr-lune-launch` (Fatal de ZEPHYR, t22-t24) et `daicha-domain-clench` (Rush de DAICHA, t9). Le point reste à l'écran, ce n'est pas un bug, mais un test miroir échouera dessus.
+- **Cause probable** : `src/shared/Finishers.luau:368`. L'œil de la cible porte un décalage `sway` en z, en axes du monde, qui ne change pas avec le côté. Avec le corps tourné de 3/4 vers la caméra (`ModelYaw`, 22°), le crochet de TARO passe un peu plus près de l'objectif quand il frappe depuis la droite.
+- **Gravité** : cosmétique (abaissée : une image, 5 millièmes de stud sous la limite du test).
+- **Statut** : `ouvert` (confirmé).
+- **Piste** :
+  - reculer un peu l'œil (par exemple 0,6 au lieu de 0,55) ;
+  - surtout, jouer les 19 finishers en miroir dans `Cinematography` (la boucle de la ligne 129 avec `mirror`), pas seulement NOVA.
 
+## B-011 · SHIN dos au mur : son FATAL FINISHER met la caméra dans le bras de la cible
+- **Date** : 18 octobre 2026.
+- **Source** : trouvé par la chasse, en jouant les 19 finishers à toutes les positions possibles de l'arène, des deux côtés.
+- **Comment reproduire** :
+  - ici : une copie de `Kit.play` (`tests/CinematicKit.luau`) qui place la cible et l'attaquant comme `startCinematic` (écart 2,6, murs à ±27,5), puis la fonction `check` de `tests/Cinematography.test.luau` recopiée telle quelle, sur SHIN, `Fatal`, `hp` 300, attaquant de x = -27,5 à 27,5 tous les 0,2 stud ;
+  - en jeu : SHIN a déjà gagné une manche, il a **le dos au mur** (à moins de 2,5 studs), et son COUP FATAL tue : FINAL DIVISION se joue.
+- **Ce qui se passe** (prouvé sur le labo) :
+  - plan `shin-fd-eye` (gros plan de son œil, t60-t119, une seconde) ;
+  - quand SHIN est au-delà de x = 25,1 (mur droit, il frappe vers la gauche) ou en deçà de x = -25,5 (mur gauche, il frappe vers la droite), la caméra passe entre 0 et 0,33 stud de l'avant-bras ou de la main de la cible, sur 12 à 60 images (limite d'un gros plan : 0,35) ;
+  - de x = -27,5 à -26,1, et de 25,5 à 26,3, la caméra est **dans** le bras (0,000) pendant tout le plan ;
+  - sur le storyboard rendu dos au mur gauche : à t60 et t72, toute l'image est l'avant-bras de la cible ; de t84 à t108, son bras et le katana coupent l'image. Au centre, le même plan montre bien la tête de SHIN.
+- **Ce qui devrait se passer** : le gros plan de l'œil de SHIN, dégagé, où qu'il soit dans l'arène.
+- **Cause** (prouvée) :
+  - `src/shared/Finishers.luau:107` : `front = inside(ctx, cx - dir * 5.8)`. SHIN se place à 5,8 studs devant la cible. Dos au mur, `inside` (`Finishers.luau:35-37`) le bloque à ±27 : il n'est plus qu'à 2,1-3,8 studs de la cible ;
+  - la caméra du plan de l'œil (`Finishers.luau:134`) est à 1,85-2,4 studs de sa tête, du côté de la cible : elle tombe dans le bras de la cible.
+- **Pourquoi le labo ne le voit pas** :
+  - `debugCinematic` centre le combat au plus à ±24 (`src/shared/CombatSimulation.luau:2785`), et l'attaquant y est toujours à gauche ;
+  - `Cinematography` ne joue que x = 0 et x = 25 (`tests/Cinematography.test.luau:129`), où c'est la **cible** qui a le dos au mur, jamais l'attaquant.
+- **Gravité** : majeur. Très visible quand cela arrive : une seconde du plan le plus marquant du finisher, celui qui clôt le match, cachée par un bras. Il faut que SHIN soit acculé au moment d'achever : une situation courante en combat (supposé).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - déplacer toute la scène plutôt que SHIN seul, comme le font celles de KAI (`Finishers.luau:455`) et de NOVA (`Finishers.luau:2677-2679`). Par exemple, poser la cible à au moins 5,8 + 1 studs du mur côté SHIN, puis `front` à 5,8 d'elle ;
+  - ajouter au test de cadrage un cas « attaquant dos au mur », des deux côtés : une option de placement dans `Kit.play`, pour toutes les cinématiques et tous les finishers.
+
+## B-012 · NOVA, FATAL ERROR : la visière est enfouie dans sa tête au gros plan du « 0 »
+- **Date** : 18 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant le storyboard de la v0.36.4 (`luau tests/Storyboard.luau -a NOVA Fatal - 1 20`).
+- **Comment reproduire** :
+  - le storyboard ne le montre pas : il dessine les formes par-dessus les corps, sans profondeur ;
+  - ici : on joue la scène des deux côtés (`Kit.play`, avec et sans `mirror`). À chaque image, on mesure quelle part du trait de visière (les `slash` posés sur `Head`) tombe dans la boîte de sa tête (1,1 × 1,1 × 1,0).
+- **Ce qui se passe** (prouvé sur le labo, même chose des deux côtés) :
+  - t420-t449, plan `nova-fe-zero` (« 0 », silence, gros plan `face` sur sa visière) : **85 à 88 %** du trait est dans la tête, 12 à 15 % dépasse sur le visage ;
+  - t620-t659, plan `nova-fe-last` (sa visière s'éteint) : 80 à 88 % dans la tête ;
+  - t6-t23 (démarrage, avant sa pose d'attaque) : 63 % ;
+  - seul t24-t69 est entièrement sur le visage ;
+  - le client dessine un `slash` en deux pièces 3D (`src/client/CinematicController.luau:1128-1138`) : la tête cache ce qui est dedans. Au gros plan du « 0 », on ne verrait sans doute qu'un bout de trait sur le côté du visage (supposé : non vérifiable d'ici).
+- **Ce qui devrait se passer** : un trait de lumière en travers des yeux, devant le visage, surtout dans le plan qui lui est consacré.
+- **Cause** (prouvée) :
+  - `src/shared/Finishers.luau:2693` : `fwd` et `side` sont les axes du **corps** (tourné de 3/4, `ModelYaw`) ;
+  - `visor()` (`Finishers.luau:2733-2737`) pose le trait avec `P(A, "Head", décalage)`, dont le décalage est en axes du monde (`CinematicController.luau:774-789`, `tests/CinematicKit.luau:33-43`) ;
+  - dans sa pose de tir, sa tête est tournée d'environ 40° de plus vers la caméra que son corps ; au repos, d'environ 17° dans l'autre sens. Dans les deux cas, le trait passe à travers la tête.
+- **À côté**, sans entrée propre : les étincelles de la boule de KAI (MAXIMUM KAIENHA) et le trait du pied de ZEPHYR sont posés de la même façon, en partie dans le corps. Mais ce sont des éclats brefs, qui tournent : ce n'est pas l'objet de leur plan.
+- **Gravité** : mineur (visuel, ponctuel, mais c'est le sujet du plan).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - poser la visière dans le repère de la tête : une option de point « décalage dans le repère de la pièce », à ajouter dans `CinematicController` (`resolve`) et dans `CinematicKit.resolve` ;
+  - ou, plus simple, l'avancer (environ 0,75 au lieu de 0,5) et vérifier au moins la pose de tir ;
+  - un test : le trait de visière hors de la boîte de la tête aux plans `nova-fe-zero` et `nova-fe-last`.
+
+## B-013 · NOVA, FATAL ERROR : le rail part d'une main mesurée sur le rig du labo, pas de sa vraie main
+- **Date** : 18 octobre 2026.
+- **Source** : trouvé par la chasse en relisant `S.NOVA`. Le journal de la v0.36.4 le note déjà en problème ouvert (« le rail sur le gantelet d'un vrai avatar »), mais il n'était pas dans cette liste.
+- **Ce qui est prouvé** :
+  - `src/shared/Finishers.luau:2697` : la main est faite de nombres fixes (2,13 ou -2,44 ; 4,5 ; 1,31 ou 0,54), mesurés sur le rig KAI du labo. Les 8 anneaux, la bouche du canon et le trait du tir en découlent (`Finishers.luau:2698-2705`) ;
+  - en jeu, chaque joueur se bat avec son propre avatar Roblox, R15 ou R6, habillé du kit (`src/server/RigBuilder.luau:1750`, `preferredRig` vers la ligne 1930). La taille et les bras changent d'un avatar à l'autre ;
+  - c'est la seule scène de finisher qui pose une forme sur une main mesurée : ailleurs, ce qui part d'une main suit la vraie pièce (`P(A, "LeftHand")`, etc.).
+- **Ce qui est supposé** : sur un R15 petit ou grand, ou sur un R6, le premier anneau peut flotter à quelques dixièmes de stud du gantelet, ou entrer dans le bras. Ce n'est pas mesurable d'ici : `CinematicKit` ne pose que le rig KAI.
+- **Comment le vérifier** : en jeu, avec un avatar R6 puis un petit R15, gagner une manche avec NOVA et tuer au COUP FATAL. Regarder les plans `nova-fe-dock` (t250-t329) et `nova-fe-three` (t330-t359).
+- **Gravité** : cosmétique (si confirmé).
+- **Statut** : `à confirmer` (Wilhem, en jeu).
+- **Piste** : poser les anneaux sur la vraie main, avec `P(A, "LeftHand", axe × k)`, en gardant l'axe calculé vers la cible.
+
+## B-014 · NOVA, FATAL ERROR : la scène la plus lourde du jeu, 9 lumières à la fois, même en mode réduit
+- **Date** : 18 octobre 2026.
+- **Source** : trouvé par la chasse (piège connu : le mobile, le mode réduit, les performances).
+- **Comment reproduire** : on joue les 19 finishers (`Kit.play`), et on compte ce que le pool de `CinematicController:drawShapes` doit tenir à chaque image. Pièces par forme : sphère 3 plus une `PointLight`, anneau 22, poussière 40, trait 2.
+- **Ce qui a été mesuré** (prouvé, sur le labo) :
+  - NOVA : jusqu'à **30 formes** dans une image, environ **417 pièces** dans le pool, **9 lumières** allumées en même temps (ses 8 drones et la boule du canon) ;
+  - le plus lourd des 18 autres : KAI, 251 pièces et 1 lumière. Aucun autre finisher n'allume plus d'une lumière à la fois ;
+  - en mode réduit, les sphères gardent leur lumière (`src/client/CinematicController.luau:1052-1064`, aucun test de `reduced`) ; les anneaux n'affichent que 12 segments, mais en gardent 22.
+- **Ce qui est supposé** : une baisse d'images par seconde sur téléphone, de t44 (premiers drones) à t450 (le tir). Ce n'est pas mesurable d'ici.
+- **Ce qui devrait se passer** : en mode réduit, une scène qui ne coûte pas plus que les autres.
+- **Gravité** : mineur (si confirmé : le mobile, pendant 7 secondes).
+- **Statut** : `à confirmer` (Wilhem : la scène sur un téléphone, ou avec SETTINGS → REDUCED EFFECTS et le compteur d'images de Roblox, par exemple le MicroProfiler, Ctrl+F6).
+- **Piste** :
+  - en mode réduit, ne pas allumer la lumière des petites sphères (rayon sous 0,3 : les drones) ;
+  - ou une seule lumière par scène pour les drones.

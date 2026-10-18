@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 17 octobre 2026 (routine du matin).
+Dernier tri : 18 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,11 +20,27 @@ Dernier tri : 17 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 17 octobre 2026) :
-  - 18 persos ont leur finisher : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
-  - NOVA, KUROEN, ASURA et KUROEN SHIN n'ont **ni l'une ni l'autre**. Ils jouent encore le fatal classique ;
-  - le finisher de NOVA, « ZERO HOUR », fait par la première routine le 16 octobre, n'est jamais arrivé dans le dépôt. Le patch envoyé à Wilhem (`v0.36.2-nova-zero-hour.patch`) n'est pas revenu et n'est pas non plus dans le dossier de travail. D'après le journal, la routine le refait en premier ;
+- **Ce qui existe** (vérifié le 18 octobre 2026) :
+  - 19 persos ont leur finisher : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
+  - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
+  - KUROEN, ASURA et KUROEN SHIN n'ont **ni ligne ni scène**. Ils jouent encore le fatal classique ;
+  - un test commun aux finishers existe depuis la v0.36.4 (`Cinematography`). Il vérifie : au moins 6 plans propres au perso, un nom unique qui n'est le nom d'aucun coup d'un autre perso, le K.O. après le coup mortel, la cible à terre, des sons de la palette ;
   - la règle de déclenchement existe déjà dans `CombatSimulation` : un coup fatal qui tue, lancé par un perso qui a déjà gagné un round. Il n'y a rien à changer.
+- **Pour KUROEN (la prochaine), ce que production doit savoir** :
+  - **son identité** : 蝕, l'empereur de l'éclipse. Rouge E0102E et noir, « courts et brutaux » (fiche VFX 6.20). Il frappe avec les poings, les coudes, les genoux et des rafales de ki rouge à cœur noir, et laisse un petit soleil noir à l'impact (`KitFX`). Sa jauge DOMINATION a trois niveaux : trois marques rouges dans le dos, et au niveau III, ÉCLIPSE. Son son : des gantelets sur l'os, et un boom sourd en salle sur les gros coups (`SoundPalette.KUROEN`). Son allure : crinière blanche à mèches rouges, peau sombre, yeux rouges, tenue noire déchirée ;
+  - **ses ultimes, à ne pas recopier** (`CinematicDirector`, `GEN.add("KUROEN")`) :
+    - R, EMPEROR RUSH : des coups de tous les côtés, de plus en plus vite ; le dernier projette la cible ;
+    - ÉVEIL, ZERO ABSOLU : ECLIPSE : la lumière s'éteint, une éclipse rouge apparaît dans le ciel, et il frappe depuis le noir ;
+    - PORTE, EMPEROR'S GATE : une tempête de poings ;
+    - FATAL, TOTAL ECLIPSE : le dernier coup sous l'éclipse (jonglage, couronne, dôme noir) ;
+    - sa chope, CLINCH DE L'ÉCLIPSE : un genou, le coude sur la tête, puis la paume de ki à bout portant ;
+    - l'éclipse dans le ciel est déjà prise deux fois : par son ÉVEIL, et par la PORTE de DAICHA (sa sphère devient un disque noir) ;
+  - **les noms déjà pris** :
+    - les 19 finishers : MAXIMUM KAIENHA, DEMPSEY ROLL: FINAL ROUND, GALE EXCALIBUR, THOUSAND SHADOWS, TEN FISTS OF RAGE, FINAL DIVISION, INVERTED WORLD, THRONE OF RUINS, SPEAR OF THE THUNDER GOD, FROZEN REQUIEM, TOXIC FEAST, TITAN QUAKE, STELLAR COLLAPSE, RESONANCE, CAGE OF CLAWS, CRIMSON COVENANT, THE GREAT HUNT, FINAL MERCY, FATAL ERROR ;
+    - ses ultimes et ceux de KUROEN SHIN : EMPEROR RUSH, ZERO ABSOLU : ECLIPSE, EMPEROR'S GATE, TOTAL ECLIPSE, DIVINE EMPEROR RUSH, ZERO ABSOLU : TRUE ECLIPSE, ETERNAL ECLIPSE ;
+    - les autres noms en ECLIPSE et en EMPEROR : HALF ECLIPSE (DAICHA), ECLIPSE BREAKER, ECLIPSE KICK, ECLIPSE CLINCH, DIVINE ECLIPSE, EMPEROR STEP, EMPEROR'S DECREE, FALLING EMPEROR, TRUE EMPEROR ;
+    - « ZERO » reste à sa famille (décision du 17/10). Mais un troisième « ZERO ABSOLU » se confondrait avec son ÉVEIL ; B-009 montre ce qui arrive quand le nom d'un finisher reprend celui d'un ÉVEIL (ASTER) ;
+    - KUREN (CRIMSON COVENANT) a presque le même rouge (D0102E) : la scène doit se lire « éclipse », noir et rouge avec un soleil noir, et non « sang ».
 - **Persos et systèmes touchés** :
   - NOVA (drones et gantelets, orange FF8A2A) ;
   - KUROEN (éclipse rouge et noire, E0102E) ;
@@ -35,10 +51,12 @@ Dernier tri : 17 octobre 2026 (routine du matin).
 - **Valeur / effort** : forte / gros. Une scène par perso, donc une par livraison : NOVA, puis KUROEN, puis les deux bosses.
 - **Risques** :
   - les bosses ne déclenchent leur finisher qu'en relais : le joueur amène 2 ou 3 persos et le boss en a déjà mis un K.O. La scène sera rare en combat et se verra surtout au labo ;
-  - KUROEN a déjà un ultime nommé ZERO ABSOLU : ECLIPSE, et KUROEN SHIN un ZERO ABSOLU : TRUE ECLIPSE. Le nom du finisher doit être différent ;
+  - KUROEN a déjà un ultime nommé ZERO ABSOLU : ECLIPSE, et KUROEN SHIN un ZERO ABSOLU : TRUE ECLIPSE. Le nom du finisher doit être différent (voir les noms pris plus haut) ;
+  - KUROEN SHIN reprend les coups de KUROEN : sa scène, plus tard, devra se distinguer de celle de KUROEN (blanc et or, divin) ;
   - ASURA reprend les coups de KAI. Sa scène ne doit pas recopier MAXIMUM KAIENHA et doit montrer ses quatre bras ;
   - décision du 15/10 : le K.O. et l'aura FATAL gardent les effets du jeu, pas ceux du pack VFX.
-- **Questions ouvertes** : aucune qui bloque. Production propose les noms (dont « ZERO HOUR » pour NOVA) et la mise en scène. Wilhem pourra les faire refaire d'après ses planches, comme SHIN, TARO, KAI et ZEPHYR en v0.32.0.
+- **Questions ouvertes** : aucune qui bloque. Production propose le nom et la mise en scène de KUROEN, comme FATAL ERROR pour NOVA. Wilhem pourra les faire refaire d'après ses planches, comme SHIN, TARO, KAI et ZEPHYR en v0.32.0.
+  - Pour Wilhem, sans bloquer : a-t-il une planche ou un nom en tête pour KUROEN ? Choix : a) oui, il l'envoie et production la suit ; b) non, production propose. **Recommandation : b)**, la scène se change ensuite comme les autres.
 - **Critères d'acceptation** :
   - chaque perso a sa ligne `Finisher` dans `MoveData.luau` et sa scène dans `Finishers.luau`, avec son plan K.O. et le nom de son finisher ;
   - quand son COUP FATAL tue et qu'il a déjà gagné un round, la scène remplace le fatal classique. Sinon, le fatal classique joue, inchangé ;
@@ -47,8 +65,9 @@ Dernier tri : 17 octobre 2026 (routine du matin).
   - les plans sont composés avec `frameOn` ;
   - le storyboard est vérifié (`luau tests/Storyboard.luau -a KIT Fatal - 1 20`) ;
   - les sons ne viennent que de `SoundPalette`, et chaque perso garde sa matière sonore ;
+  - le test commun des finishers passe (`Cinematography`) ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN ensuite, puis ASURA et KUROEN SHIN.
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN est la prochaine, puis ASURA et KUROEN SHIN.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.

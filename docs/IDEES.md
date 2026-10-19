@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 18 octobre 2026 (routine du matin).
+Dernier tri : 19 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,11 +20,13 @@ Dernier tri : 18 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 18 octobre 2026) :
+- **Ce qui existe** (vérifié le 19 octobre 2026) :
   - 19 persos ont leur finisher : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
+  - la scène de NOVA a trois bugs ouverts depuis le 18/10 (B-012 à B-014 : la visière dans sa tête, le rail posé sur une main mesurée au labo, 9 lumières à la fois). Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
   - KUROEN, ASURA et KUROEN SHIN n'ont **ni ligne ni scène**. Ils jouent encore le fatal classique ;
   - un test commun aux finishers existe depuis la v0.36.4 (`Cinematography`). Il vérifie : au moins 6 plans propres au perso, un nom unique qui n'est le nom d'aucun coup d'un autre perso, le K.O. après le coup mortel, la cible à terre, des sons de la palette ;
+  - depuis la v0.36.5, `Cinematography` joue aussi chaque finisher avec l'attaquant dos au mur, à gauche puis à droite (38 tests). Un perso qui reçoit sa ligne `Finisher` y entre tout seul ;
   - la règle de déclenchement existe déjà dans `CombatSimulation` : un coup fatal qui tue, lancé par un perso qui a déjà gagné un round. Il n'y a rien à changer.
 - **Pour KUROEN (la prochaine), ce que production doit savoir** :
   - **son identité** : 蝕, l'empereur de l'éclipse. Rouge E0102E et noir, « courts et brutaux » (fiche VFX 6.20). Il frappe avec les poings, les coudes, les genoux et des rafales de ki rouge à cœur noir, et laisse un petit soleil noir à l'impact (`KitFX`). Sa jauge DOMINATION a trois niveaux : trois marques rouges dans le dos, et au niveau III, ÉCLIPSE. Son son : des gantelets sur l'os, et un boom sourd en salle sur les gros coups (`SoundPalette.KUROEN`). Son allure : crinière blanche à mèches rouges, peau sombre, yeux rouges, tenue noire déchirée ;
@@ -38,9 +40,15 @@ Dernier tri : 18 octobre 2026 (routine du matin).
   - **les noms déjà pris** :
     - les 19 finishers : MAXIMUM KAIENHA, DEMPSEY ROLL: FINAL ROUND, GALE EXCALIBUR, THOUSAND SHADOWS, TEN FISTS OF RAGE, FINAL DIVISION, INVERTED WORLD, THRONE OF RUINS, SPEAR OF THE THUNDER GOD, FROZEN REQUIEM, TOXIC FEAST, TITAN QUAKE, STELLAR COLLAPSE, RESONANCE, CAGE OF CLAWS, CRIMSON COVENANT, THE GREAT HUNT, FINAL MERCY, FATAL ERROR ;
     - ses ultimes et ceux de KUROEN SHIN : EMPEROR RUSH, ZERO ABSOLU : ECLIPSE, EMPEROR'S GATE, TOTAL ECLIPSE, DIVINE EMPEROR RUSH, ZERO ABSOLU : TRUE ECLIPSE, ETERNAL ECLIPSE ;
-    - les autres noms en ECLIPSE et en EMPEROR : HALF ECLIPSE (DAICHA), ECLIPSE BREAKER, ECLIPSE KICK, ECLIPSE CLINCH, DIVINE ECLIPSE, EMPEROR STEP, EMPEROR'S DECREE, FALLING EMPEROR, TRUE EMPEROR ;
+    - les autres noms en ECLIPSE et en EMPEROR : HALF ECLIPSE (DAICHA), ECLIPSE BREAKER, ECLIPSE KICK, ECLIPSE CLINCH, DIVINE ECLIPSE, EMPEROR STEP, EMPEROR'S DECREE, FALLING EMPEROR, TRUE EMPEROR, TRUE EMPEROR'S EQUAL (un titre de défi) ;
     - « ZERO » reste à sa famille (décision du 17/10). Mais un troisième « ZERO ABSOLU » se confondrait avec son ÉVEIL ; B-009 montre ce qui arrive quand le nom d'un finisher reprend celui d'un ÉVEIL (ASTER) ;
-    - KUREN (CRIMSON COVENANT) a presque le même rouge (D0102E) : la scène doit se lire « éclipse », noir et rouge avec un soleil noir, et non « sang ».
+    - KUREN (CRIMSON COVENANT) a presque le même rouge (D0102E) : la scène doit se lire « éclipse », noir et rouge avec un soleil noir, et non « sang » ;
+  - **ce qu'ont appris les dernières livraisons** :
+    - v0.36.5 (B-011, B-010) : sa scène doit passer le test « dos au mur, des deux côtés » de `tests/Cinematography.test.luau`. Pour la voir ainsi : `luau tests/Storyboard.luau -a KUROEN Fatal - 1 20 wall-left`, puis `wall-right` ;
+    - prévoir son placement dès le départ avec `room`, dans `Finishers.luau`, comme SHIN : près d'un mur, toute la scène recule, jamais lui seul. Sinon, un perso collé au mur se retrouve trop près de l'autre, et la caméra d'un gros plan tombe dans un corps ;
+    - garder les deux corps sur le sol de combat, x de -28 à 28 : sept finishers en sortent (B-015, ouvert). `room` sert aussi à ça ;
+    - poser ses formes (ki, soleil noir) sur les vraies pièces du corps, par exemple `P(A, "RightHand")`, et non sur des nombres mesurés sur le rig du labo (B-013). Un trait posé sur sa tête doit bien sortir de la tête (B-012) ;
+    - au plus une lumière allumée à la fois, comme les 18 premiers finishers : NOVA en allume 9 et c'est la scène la plus lourde du jeu (B-014, mobile et mode réduit).
 - **Persos et systèmes touchés** :
   - NOVA (drones et gantelets, orange FF8A2A) ;
   - KUROEN (éclipse rouge et noire, E0102E) ;
@@ -63,11 +71,12 @@ Dernier tri : 18 octobre 2026 (routine du matin).
   - il y a un seul K.O. et une seule fin de round. En relais, le perso suivant entre après la scène ;
   - le nom du finisher a sa traduction dans `Locale.luau` ;
   - les plans sont composés avec `frameOn` ;
-  - le storyboard est vérifié (`luau tests/Storyboard.luau -a KIT Fatal - 1 20`) ;
+  - le storyboard est vérifié au centre et dos au mur (`luau tests/Storyboard.luau -a KIT Fatal - 1 20`, puis avec `wall-left` et `wall-right`) ;
   - les sons ne viennent que de `SoundPalette`, et chaque perso garde sa matière sonore ;
   - le test commun des finishers passe (`Cinematography`) ;
+  - le test « dos au mur, des deux côtés » passe pour lui (`Cinematography`, v0.36.5) ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN est la prochaine, puis ASURA et KUROEN SHIN.
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN est la prochaine (reportée le 18/10, car le bug majeur B-011 est passé avant ; corrigé en v0.36.5), puis ASURA et KUROEN SHIN.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.

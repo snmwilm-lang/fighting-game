@@ -165,6 +165,10 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - `Cinematography` ne joue que x = 0 et x = 25 (`tests/Cinematography.test.luau:129`), où c'est la **cible** qui a le dos au mur, jamais l'attaquant.
 - **Gravité** : majeur. Très visible quand cela arrive : une seconde du plan le plus marquant du finisher, celui qui clôt le match, cachée par un bras. Il faut que SHIN soit acculé au moment d'achever : une situation courante en combat (supposé).
 - **Statut** : `corrigé (v0.36.5)`, à confirmer en jeu par Wilhem. Toute la scène de SHIN recule loin du mur, plans inchangés. Les 19 finishers sont testés dos au mur des deux côtés dans `Cinematography` (38 tests ; sur l'ancien code, ils échouent pour SHIN et TARO).
+- **Vérifié par la chasse du 19/10** :
+  - storyboards `luau tests/Storyboard.luau -a SHIN Fatal - 1 20 wall-left|wall-right` : le gros plan de l'œil est dégagé ; dos au mur gauche, chaque caméra est celle du centre décalée de 22,5 studs, à l'identique ;
+  - SHIN, à toutes les places de l'arène (cible de -27,5 à 27,5 tous les 0,5 stud, deux sens) : aucun corps au-delà de x = 27, aucun plan où la cible cache son sujet.
+- **Le même mécanisme existe ailleurs** : dans le COUP FATAL classique de SHIN (ISSEN), voir B-017, et dans d'autres scènes, voir B-018.
 - **Piste** :
   - déplacer toute la scène plutôt que SHIN seul, comme le font celles de KAI (`Finishers.luau:455`) et de NOVA (`Finishers.luau:2677-2679`). Par exemple, poser la cible à au moins 5,8 + 1 studs du mur côté SHIN, puis `front` à 5,8 d'elle ;
   - ajouter au test de cadrage un cas « attaquant dos au mur », des deux côtés : une option de placement dans `Kit.play`, pour toutes les cinématiques et tous les finishers.
@@ -228,7 +232,153 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Source** : relevé par l'agent `validation` (routine du 18/10), à confirmer par l'agent `bugs`.
 - **Ce qui se passe** : dans HEAD (v0.36.4), plusieurs finishers dessinent un corps au-delà de la ligne x = 28 : SYLVA 31,3, ASTER 31,1, AKEMI 29,8, KAZAN 29,6, YUKINA 28,9, VENOM 28,8, ELIAN 28,2. Dos au mur, ils vont jusqu'à 31,4. Le sol continue jusqu'à ±40.
 - **Ce qui devrait se passer** : les corps restent sur le sol de combat, x de -28 à 28 (`CLAUDE.md` : ce sol ne change jamais).
-- **Piste** : un test « corps sur le sol » sur les 19 finishers, joués au centre et dos au mur ; puis le placement de chaque scène, comme pour SHIN (`room`).
-- **Gravité** : cosmétique.
-- **Statut** : `ouvert`.
+- **Confirmé par la chasse du 19/10, sur la v0.36.5** :
+  - **comment reproduire** : un script hors dépôt joue les 19 finishers (`Fatal`, `hp` 300) à toutes les places possibles, comme `startCinematic` (`src/shared/CombatSimulation.luau:1349-1356`) : cible de x = -27,5 à 27,5 tous les 0,5 stud, attaquant à 2,6 d'un côté ou de l'autre, soit 222 parties par finisher. Il relève la position du corps (`view.x`, celle que le client donne au rig) à chaque image ;
+  - **ce qui a été mesuré** : 11 finishers sur 19 posent un corps au-delà de x = 28, et toujours à l'écran. La validation ne jouait pas la **cible dos au mur** (cible à ±27,5) : c'est là que les écarts sont les plus grands ;
 
+    | Finisher | Corps le plus loin | Corps entier au-delà (x > 29) | Plans |
+    |---|---|---|---|
+    | SYLVA | 33,5 | 5,6 s (attaquant dos au mur) | `sylva-gh-aim`, `-bind`, `-roots`, `-hunt`, `-stalk` |
+    | ASTER | 33,3 (cible en l'air, y = 11) | 0,9 s | `aster-sc-orbit`, `-collapse` |
+    | AKEMI | 32,0 | 1,8 s (cible dos au mur) | `akemi-ts-after` |
+    | KAZAN | 31,6 | 4,0 s (cible dos au mur) | `kazan-cc-rake`, `-x`, `-after` |
+    | YUKINA | 31,1 | 3,9 s (attaquant dos au mur) | `yukina-fr-away`, `-shatter`, `-after` |
+    | VENOM | 31,0 | 1,1 s | `venom-tf-kneel`, `-strike2` |
+    | ELIAN | 30,4 | 0,6 s | `elian-fm-walk` |
+    | ZEPHYR | 30,0 | 0,4 s | `zephyr-ge-flash` |
+    | DAICHA | 29,7 | 2,6 s | `daicha-iw-crash`, `-after` |
+    | HIBECARES, TARO | 28,7 et 28,4 | jamais | (moins d'un stud au-delà) |
+
+  - les 8 autres restent sur le sol : KAI, RAIJIN, RYUKEN, SHIN, HIBIKI, GORAN, KUREN, NOVA ;
+  - aucun corps ne sort du plancher (x = ±40).
+- **Cause** (prouvée) : ces scènes placent l'attaquant ou la cible à une distance fixe du centre, sans `inside` ni `room`. Exemples :
+  - SYLVA : `src/shared/Finishers.luau:2624` (`cx - dir * 6.5`) et `:2642` (`cx + dir * 4.2`) ;
+  - KAZAN : `:2412` (`cx + dir * 2.6`) ;
+  - YUKINA : `:1768-1775` (`cx - dir * 6.2`) ;
+  - ELIAN : `:3001` (`cx - dir * lerp(5.5, 2.4, q)`).
+- **Pourquoi aucun test ne le voit** : `Cinematography` ne regarde que la caméra et le cadrage, jamais où sont les corps.
+- **Piste** :
+  - un test « corps sur le sol » sur les 19 finishers, joués au centre, l'attaquant dos au mur **et la cible dos au mur** (`Kit.play` n'a pas encore ce dernier placement) ;
+  - puis le placement de chaque scène, comme pour SHIN (`room`).
+- **Gravité** : mineur, relevée depuis « cosmétique ». C'est visible : jusqu'à 5,5 studs au-delà de la ligne, ou un corps entier au-delà pendant 5,6 s (SYLVA), toujours à l'écran. Mais rien n'est faux en combat.
+- **Statut** : `ouvert` (confirmé le 19/10). Les autres cinématiques ont le même défaut, en plus fort : voir B-016.
+
+## B-016 · Près d'un mur, les ultimes posent des corps loin au-delà de la ligne x = 28, et la caméra au-delà du bout du sol
+- **Date** : 19 octobre 2026.
+- **Source** : trouvé par la chasse (routine du matin), en jouant Rush, Éveil, Porte et Fatal dos au mur, ce qu'aucun test ne fait.
+- **Comment reproduire** :
+  - `Kit.play(kit, kind, style, hp, 0, onFrame, mirror, true)` (option `wall` de `tests/CinematicKit.luau`), des deux côtés, en relevant `views[i].x` et la caméra ;
+  - pour la cible dos au mur, le même placement que `startCinematic` (`src/shared/CombatSimulation.luau:1349-1356`) avec la cible à ±27,5 (script de la chasse, hors dépôt) ;
+  - le plus parlant : `luau tests/Storyboard.luau -a KAI Rush - 0 6 wall-left`, puis `python3 tools/storyboard.py`.
+- **Ce qui se passe** (prouvé sur le labo, v0.36.5, 22 kits × Rush, Éveil, Porte, Fatal, 11 places dont les deux murs, deux sens) :
+  - 84 cinématiques sur 88 posent un corps au-delà de x = 28, 56 un corps entier au-delà de x = 29, 17 au-delà de x = 31. Toujours dans l'image ;
+  - les pires :
+
+    | Cinématique | Corps le plus loin | Placement | Plans |
+    |---|---|---|---|
+    | DAICHA, Rush | cible à **37,0** (3 studs du bout du sol) | cible dos au mur | `daicha-domain-blast`, `-after` |
+    | AKEMI, Fatal | 34,5 | cible dos au mur | `akemi-instant-leave` |
+    | KAI, Rush et Éveil | 33,9 (KAI 6,4 studs derrière le mur) | KAI dos au mur | `rush-ready`, `rush-dash`, `eveil-eyes` |
+    | SHIN, Porte | 32,9, pendant 2,5 s | SHIN dos au mur | `shin-zero-horizon` à `shin-zero-hilt` |
+    | ZEPHYR, Rush et Éveil | 32,9, pendant 2 s | ZEPHYR dos au mur | `zephyr-vent-gather` … `-dash` |
+    | DAICHA, Fatal | 32,4, au-delà de 28 pendant 5,8 s | DAICHA dos au mur | `daicha-void-bind` … |
+
+  - la caméra passe au-delà du bout du sol (x = ±40) dans 42 cinématiques sur 88. Les pires : SHIN, Porte (x = 49 à 50,7, plan `shin-zero-horizon`), DAICHA, Rush (47 à 48), ZEPHYR, KAI, GORAN, Rush (43 à 44). Au centre, jamais ;
+  - au plan `shin-zero-horizon` dos au mur droit, toute l'extrémité du sol (x = 40, de z = -11 à 11) est dans l'image ; au centre, ni la ligne x = 28 ni le bout du sol n'y sont.
+- **Ce qui est supposé** (non vérifiable d'ici, rendu Roblox) : le bout du plancher et le vide derrière lui se voient dans ces plans larges ; un perso qui attend 6 studs derrière la ligne néon se lit comme « hors de l'arène ».
+- **Ce qui ne casse pas** : avec la vérification de `Cinematography` recopiée telle quelle, dos aux deux murs, les 22 kits passent, à deux plans près. Ces deux plans échouent depuis la droite, mur ou pas, et ils sont déjà connus (B-010) : `zephyr-lune-launch` (Fatal de ZEPHYR, point de mise au point à 0,7845 de la demi-hauteur pour 0,78 permis) et `daicha-domain-clench` (Rush de DAICHA, 0,7802). Un test Rush/Éveil/Porte dos au mur droit échouera d'abord sur eux. Le COUP FATAL classique qui tue (sans FATAL FINISHER, son lanceur n'a pas encore gagné de manche), jamais joué par le labo pour les 19 kits qui ont un finisher, passe aussi : 114 parties, seul `zephyr-lune-launch` échoue.
+- **Ce qui devrait se passer** : les corps restent sur le sol de combat, et la scène recule loin du mur, comme celle de SHIN depuis B-011.
+- **Cause** (prouvée) :
+  - `src/shared/CinematicDirector.luau` pose les places à une distance fixe du centre, sans borne :
+    - KAI, Rush : `:269` (`cx - dir * 9`) ;
+    - ZEPHYR, Rush : `:972` (`home = cx - dir * 8`) ;
+    - SHIN, Porte : `:1961` (`cx - dir * 8`) ;
+    - DAICHA, Rush : la cible est poussée de 4,5 (`:2041`), puis projetée de 5 (`:2123`). `roomAhead` (`:230`) existe pour cela, mais cette scène ne s'en sert pas ;
+  - `clean` (`:5098-5106`) écarte l'attaquant à `ROOM` = 2,8 de la cible (`:5094`) sans le garder sur le sol.
+- **Pourquoi aucun test ne le voit** : `Cinematography` ne joue Rush, Éveil et Porte qu'à x = 0 et x = 25, l'attaquant à gauche (`tests/Cinematography.test.luau:127-139`). L'attaquant n'y est jamais dos au mur, et aucun test ne regarde où sont les corps.
+- **Gravité** : mineur. C'est très fréquent (un ultime lancé acculé), et visible plusieurs secondes, mais rien n'est faux en combat : le serveur garde ses positions et le client revient sur elles à la fin.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - le même `room` que pour SHIN (`Finishers.luau:43-47`), à porter dans le directeur pour les scènes « loin du centre » ;
+  - `roomAhead` pour les cibles projetées ;
+  - un `clean` qui garde l'attaquant sur le sol (il recule alors la cible) ;
+  - un test « corps sur le sol » sur toutes les cinématiques, au centre et dos à chaque mur (attaquant et cible) ;
+  - ajouter les Rush, Éveil et Porte dos au mur à `Cinematography`, en traitant d'abord les deux plans de B-010.
+
+## B-017 · SHIN, COUP FATAL ISSEN dos au mur : le duel à 12 studs se joue à 2,8, et la cible cache SHIN dans ses gros plans
+- **Date** : 19 octobre 2026.
+- **Source** : trouvé par la chasse, dans le COUP FATAL classique de SHIN (一閃 ISSEN, l'idée de Wilhem : « un vieux film de samouraï », les deux très loin l'un de l'autre). C'est le défaut de B-011, dans une autre scène.
+- **Comment reproduire** :
+  - `luau tests/Storyboard.luau -a SHIN Fatal - 0 12 wall-right`, puis `python3 tools/storyboard.py`, à comparer avec `… left` ;
+  - en jeu : SHIN acculé à son mur lance son COUP FATAL (qu'il tue ou non : le fatal classique se joue à chaque fois que ce n'est pas un FATAL FINISHER).
+- **Ce qui se passe** (prouvé sur le labo) :
+  - au centre, SHIN attend à 12 studs de la cible. Dès qu'il est à moins de 11 studs de la ligne de son côté (x = ±17), l'écart fond : 9,5 studs à x = ±20,1, et 2,8 seulement dos au mur ;
+  - dos au mur, sur le storyboard :
+    - le plan large `shin-issen-duel` montre deux corps collés ;
+    - le gros plan des yeux (`shin-issen-eyes`) et celui de la cible (`shin-issen-foe`) sont encombrés par l'autre corps et le katana ;
+    - au plan `shin-issen-still`, les corps se confondent ;
+  - la main sur la garde (`shin-issen-hilt`, t88-t127) : SHIN au mur droit, sa tête est cachée par la cible à 60 % en moyenne, à plus de moitié pendant 35 images sur 40. Au mur gauche, 27 % en moyenne. Au centre, 0 % ;
+  - la vérification de `Cinematography` passe : elle ne regarde pas si le sujet est caché.
+- **Ce qui devrait se passer** : le même film qu'au centre, où que soit SHIN.
+- **Cause** (prouvée) :
+  - `src/shared/CinematicDirector.luau:2999` : `far = FATAL.inside(ctx, cx - dir * 12)`. Dos au mur, `FATAL.inside` le bloque à ±27, à 2,1 studs de la cible ;
+  - puis `clean` (`:5098-5106`) l'écarte à 2,8 ;
+  - la v0.36.5 a corrigé ce mécanisme dans le FATAL FINISHER de SHIN seulement (`room`, `Finishers.luau:43-47`).
+- **Gravité** : majeur. Ce COUP FATAL se voit bien plus souvent que le finisher, et toute sa mise en scène (le duel à distance, la garde, l'immobilité) disparaît pendant 2,5 secondes.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - reculer toute la scène loin du mur, comme `room` : 12 studs de sol du côté de SHIN, 10 au-delà de la cible (`beyond`) ;
+  - un test : le fatal de chaque kit dos au mur, avec une vérification « sujet caché par l'autre corps » (voir B-018).
+
+## B-018 · Dos au mur, d'autres plans cachent leur sujet derrière l'autre corps
+- **Date** : 19 octobre 2026.
+- **Source** : trouvé par la chasse, avec une mesure que les tests n'ont pas. Pour le point visé de chaque plan (`focus`), on échantillonne la pièce visée en 27 ou 125 points, et on compte la part que l'autre corps cache à la caméra.
+- **Comment reproduire** :
+  - `Kit.play` au centre (gauche, puis `mirror`) et dos à chaque mur (`wall`), toutes les cinématiques des 22 kits, finishers compris (script de la chasse, hors dépôt) ;
+  - sont retenus les plans où un placement cache plus de la moitié du sujet pendant au moins 15 images, alors que le labo (centre, gauche) le fait moins de 5 fois ;
+  - storyboards : `luau tests/Storyboard.luau -a KUREN Fatal - 1 15 wall-right` ; `-a TARO Fatal - 1 20 wall-right` ; `-a HIBIKI Fatal - 0 6 wall-right`.
+- **Ce qui se passe** (prouvé sur le labo, rig KAI) :
+
+  | Plan | Placement | Sujet caché à plus de 50 % | Au centre |
+  |---|---|---|---|
+  | KUREN, FATAL FINISHER, `kuren-cv-palm` (ouverture, t0-t89) | KUREN dos au mur droit | sa tête : 83 images sur 90, 63 % en moyenne | 0 % |
+  | TARO, FATAL FINISHER, `taro-dr-guard` (t0-t59) | TARO dos au mur droit | sa tête : 44 images sur 60, 61 % en moyenne | 0 % |
+  | HIBIKI, COUP FATAL, `hibiki-fatal-blow` (le coup) | HIBIKI dos au mur, des deux côtés | la cible : 21 à 24 images sur 24, 76 à 85 % | 4 % |
+  | ELIAN, Porte, `elian-gate-advance` | ELIAN dos au mur gauche | la cible : 35 images sur 42, 48 % | 10 % |
+
+  - dans le gros plan de la garde de TARO, la boîte de la cible couvre jusqu'à 64-70 % de l'image dos au mur, contre 15-20 % au centre. Le plan est écrit pour que la cible reste hors champ (`Finishers.luau:347`) ;
+  - plus courts, 15 à 20 images : NOVA (Rush, `nova-rush-blows-a`), KUROEN SHIN (Éveil, `trueemperor-eveil-approach`), ELIAN (Fatal, `elian-fatal-levitate`), SYLVA (Éveil, `sylva-eveil-backturn`), HIBIKI (Éveil, `hibiki-eveil-final`), ASURA (Éveil, `asura-eveil-crater`).
+- **Ce qui devrait se passer** : le sujet du plan visible, comme au centre.
+- **Cause** (prouvée pour les trois premiers) : comme B-011, l'attaquant est bloqué au mur au lieu de reculer toute la scène, puis `clean` le met à 2,8 de la cible. Le plan, composé pour l'écart prévu, met alors la cible dans l'axe :
+  - KUREN : `src/shared/Finishers.luau:2454` (`inside(ctx, cx - dir * 4.6)`). L'écart passe de 4,6 à 2,8 ;
+  - TARO : `Finishers.luau:316` (`start = inside(ctx, cx - dir * 5.2)`), et la caméra est posée sur `start` (`:349`), alors que `clean` a mis TARO ailleurs (27,7 au lieu de 27). L'écart passe de 5,2 à 2,8 ;
+  - HIBIKI : `GEN.place` (`src/shared/CinematicDirector.luau:3669-3671`) sur `cx - dir * GEN.reach(style)` (`:3853`). L'écart passe de 5,5 à 2,2.
+- **Ce qui ne se mesure pas d'ici** : les vrais avatars n'ont pas la taille du rig KAI du labo ; la part cachée change avec eux.
+- **Gravité** : mineur. Le pire est l'ouverture du finisher de KUREN (1,5 s, visage aux deux tiers caché).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - `room` dans ces scènes (et dans `GEN.place` pour les ultimes générés), puis poser les caméras sur les places réelles ;
+  - ajouter à `Cinematography` une vérification « sujet caché par l'autre corps » (part de la pièce visée derrière l'autre corps, hors plans par-dessus l'épaule et vue subjective), jouée au centre et dos aux murs.
+
+## B-019 · Joués depuis la droite, la PORTE de KUROEN et le FATAL FINISHER d'ELIAN cachent leur perso derrière la cible
+- **Date** : 19 octobre 2026.
+- **Source** : trouvé par la chasse, avec la même mesure que B-018. Ce n'est pas lié aux murs : c'est le côté. Le labo ne joue ces cinématiques que depuis la gauche (comme B-010).
+- **Comment reproduire** :
+  - `luau tests/Storyboard.luau -a KUROEN Gate - 0 12 right`, à comparer avec `… left` ;
+  - `luau tests/Storyboard.luau -a ELIAN Fatal - 1 20 right` ;
+  - en jeu : KUROEN lance sa PORTE alors qu'il est à droite de sa cible ; ELIAN achève au COUP FATAL après une manche gagnée, à droite de sa cible.
+- **Ce qui se passe** (prouvé sur le labo, rig KAI) :
+  - KUROEN, Porte, plan d'ouverture `kuroen-gate-backturn` (t0-t69 : il tourne le dos, puis se retourne vers la caméra) :
+    - depuis la droite, sa tête est cachée par la tête et le dos de la cible à 76 % en moyenne, à plus de moitié pendant 51 images sur 70 ;
+    - dos au mur, 70 sur 70 (jusqu'à 97 % au mur droit) ;
+    - depuis la gauche, 12 % ;
+  - ELIAN, FATAL FINISHER, plan d'ouverture `elian-fm-walk` (t0-t89) : depuis la droite, sa tête est cachée à 39 % en moyenne, à plus de moitié pendant 41 images sur 90. Depuis la gauche, 4 % ;
+  - HIBIKI, COUP FATAL, `hibiki-fatal-blow` : 34 % depuis la droite contre 4 % (8 images à plus de moitié) ; dos au mur, c'est B-018 ;
+  - la vérification de `Cinematography` passe dans les deux cas.
+- **Cause probable** (supposée) : le rig est tourné de 3/4 vers la caméra (`ModelYaw`, 22°) du même côté quel que soit le sens. Ces plans, réglés depuis la gauche, mettent alors la cible dans l'axe quand on les joue en miroir. Pour KUROEN, l'ouverture `backturn` (`src/shared/CinematicDirector.luau:3935-3944`) a un angle propre à son kit (`turn`, `["gate-backturn"] = 30`, `:4906`).
+- **Ce qui devrait se passer** : le perso visible au plan qui le présente, des deux côtés.
+- **Gravité** : mineur. Mais fréquent : une PORTE de KUROEN sur deux environ, n'importe où dans l'arène.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - jouer toutes les cinématiques en miroir dans `Cinematography`, avec la vérification « sujet caché » de B-018 ;
+  - pour KUROEN, un angle de `backturn` qui dépend du sens.

@@ -2675,6 +2675,17 @@ function FATAL.inside(ctx, x)
 	return math.clamp(x, ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1)
 end
 
+-- The centre of a scene (the target's x) that needs `back` studs of deck on the attacker's
+-- side of it and `ahead` studs beyond it: near a wall the whole scene stands back from it, as
+-- it plays in the middle of the arena (a fighter pinned by `inside` alone ends up too close to
+-- the other, and a close-up hung on him shows the other's body: B-017). The same rule as
+-- Finishers.luau's room (B-011), which the classic scenes cannot borrow: they play without it.
+function FATAL.room(ctx, cx, dir, back, ahead)
+	local lo, hi = ctx.config.ArenaMinX + 1, ctx.config.ArenaMaxX - 1
+	if dir > 0 then return math.clamp(cx, lo + back, hi - ahead) end
+	return math.clamp(cx, lo + ahead, hi - back)
+end
+
 -- The target after the blow: it falls (finish: it stays down) or ends on one knee.
 function FATAL.fall(cin, d, tick, F, fromY)
 	local p = progress(tick, F, F + 20)
@@ -2994,9 +3005,11 @@ function FATAL.SHIN(ctx, frame, a, d, tick, dir)
 	local data = ctx.moveData.Cinematics[cin.move]
 	local A, D = cin.attacker, cin.defender
 	local F = data.FinalTick
-	local cx = center(ctx, d)
+	-- (he waits 12 studs from the target and comes out 10 beyond it: near a wall the whole duel
+	-- stands back from it, never him alone, so it is the same film anywhere in the arena)
+	local cx = FATAL.room(ctx, center(ctx, d), dir, 12, 10)
 	local blood = "C8102E"
-	local far, beyond = FATAL.inside(ctx, cx - dir * 12), FATAL.inside(ctx, cx + dir * 10)
+	local far, beyond = cx - dir * 12, cx + dir * 10
 	frame.grade.mono = true
 	if tick < F + 56 then d.x, d.y, d.state = cx, 0, "Idle" end -- (still standing until the sheath clicks)
 	if tick < 40 then

@@ -325,7 +325,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - puis `clean` (`:5098-5106`) l'écarte à 2,8 ;
   - la v0.36.5 a corrigé ce mécanisme dans le FATAL FINISHER de SHIN seulement (`room`, `Finishers.luau:43-47`).
 - **Gravité** : majeur. Ce COUP FATAL se voit bien plus souvent que le finisher, et toute sa mise en scène (le duel à distance, la garde, l'immobilité) disparaît pendant 2,5 secondes.
-- **Statut** : `ouvert`.
+- **Statut** : `corrigé (v0.36.6)`, à confirmer en jeu par Wilhem. Toute la scène recule loin du mur (`FATAL.room`, dans `CinematicDirector.luau`) : 12 studs de sol du côté de SHIN, 10 au-delà de la cible. Au centre, la planche est identique à l'octet près ; dos au mur, c'est le même film décalé de 16,3 studs. Quatre tests dans `Cinematography` (SHIN dos à chaque mur, cible près de chaque mur) ; ils échouent sur l'ancien code. Validé au deuxième passage (le premier a refusé une exception de test trop large pour ZEPHYR, resserrée depuis).
 - **Piste** :
   - reculer toute la scène loin du mur, comme `room` : 12 studs de sol du côté de SHIN, 10 au-delà de la cible (`beyond`) ;
   - un test : le fatal de chaque kit dos au mur, avec une vérification « sujet caché par l'autre corps » (voir B-018).

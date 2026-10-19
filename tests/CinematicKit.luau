@@ -214,6 +214,55 @@ function Kit.boxDistance(part, x, y, z)
 	return math.sqrt(ox * ox + oy * oy + oz * oz)
 end
 
+-- Does the segment from a to b ({ x, y, z }) cross a part's box?
+local function crosses(part, a, b)
+	local t, s = part.cframe, part.size
+	local function loc(p)
+		local dx, dy, dz = p[1] - t[1], p[2] - t[2], p[3] - t[3]
+		return { dx * t[4] + dy * t[7] + dz * t[10], dx * t[5] + dy * t[8] + dz * t[11], dx * t[6] + dy * t[9] + dz * t[12] }
+	end
+	local p, q = loc(a), loc(b)
+	local t0, t1 = 0, 1
+	for i = 1, 3 do
+		local h = s[i] / 2
+		local d = q[i] - p[i]
+		if math.abs(d) < 1e-9 then
+			if p[i] < -h or p[i] > h then return false end
+		else
+			local u, v = (-h - p[i]) / d, (h - p[i]) / d
+			if u > v then u, v = v, u end
+			t0, t1 = math.max(t0, u), math.min(t1, v)
+			if t0 > t1 then return false end
+		end
+	end
+	return true
+end
+
+-- Share (0..1) of `part` hidden from the camera `cam` by a `body` (its parts, as info.parts[slot]
+-- gives them): the part is sampled in 3 x 3 x 3 points, a point is hidden when the line from the
+-- camera to it crosses one of the body's boxes. A close-up whose subject stands behind the
+-- other fighter (B-017: SHIN pinned at the wall, his head behind the target's).
+function Kit.hiddenShare(part, body, cam)
+	local t, sz = part.cframe, part.size
+	local hidden = 0
+	for i = -1, 1 do
+		for j = -1, 1 do
+			for k = -1, 1 do
+				local lx, ly, lz = i / 3 * sz[1], j / 3 * sz[2], k / 3 * sz[3]
+				local p = { t[1] + t[4] * lx + t[5] * ly + t[6] * lz, t[2] + t[7] * lx + t[8] * ly + t[9] * lz,
+					t[3] + t[10] * lx + t[11] * ly + t[12] * lz }
+				for _, other in body do
+					if crosses(other, cam, p) then
+						hidden += 1
+						break
+					end
+				end
+			end
+		end
+	end
+	return hidden / 27
+end
+
 -- Camera basis and projection to normalized screen coordinates (x, y in [-1, 1] inside the
 -- 16:9 frame; nil behind the camera).
 function Kit.projector(cam, target, fov, roll)

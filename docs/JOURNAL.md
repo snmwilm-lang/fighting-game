@@ -1,5 +1,42 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.6 — 19 octobre 2026 · L'ISSEN de SHIN dos au mur garde son duel (routine du matin)
+
+Livrée par la routine du matin. La chasse aux bugs a trouvé un nouveau bug **majeur**, B-017, qui passe avant le finisher de KUROEN : celui-ci est reporté à demain. La validation a refusé la première version, à cause d'une exception de test trop large, puis a validé la seconde.
+
+- **B-017, corrigé**. Le COUP FATAL classique de SHIN (一閃 ISSEN, le « film de samouraï ») avait deux défauts quand SHIN était dos au mur :
+  - le duel prévu à 12 studs se jouait à 2,8 ;
+  - la cible cachait SHIN dans ses gros plans, jusqu'à 74 % de sa tête.
+
+  Ce fatal se voit bien plus souvent que le finisher.
+  - **La correction** : toute la scène recule loin du mur (`FATAL.room`, dans `CinematicDirector.luau`). Il reste toujours 12 studs de sol du côté de SHIN et 10 au-delà de la cible.
+  - **Les plans ne changent pas**. Au centre, la planche est identique à l'octet près. Dos au mur, c'est le même film décalé de 16,3 studs.
+  - **La cible près du mur** est corrigée aussi : SHIN ne ressort plus à 1,7 stud au-delà d'elle, hors du sol.
+- **Les tests** :
+  - 4 tests ISSEN : SHIN dos à chaque mur, et la cible près de chaque mur. Ils vérifient la distance du duel, les corps sur le sol, et jamais plus d'un quart du sujet caché, grâce à la nouvelle mesure `Kit.hiddenShare` de `CinematicKit`. Ils échouent sur l'ancien code.
+  - 44 tests : les COUPS FATAUX classiques des 22 kits, dos au mur, des deux côtés.
+  - Une seule exception, bornée : le plan `zephyr-lune-launch` joué depuis la droite (déjà noté en B-010 et B-016). Il est limité à 5 images (t22 à t24) et à |fy| ≤ 0,79. Une aggravation de ce plan, ou tout autre défaut de ZEPHYR, fait échouer le test.
+
+**Fichiers** :
+- `src/shared/CinematicDirector.luau` ;
+- `src/shared/CombatConfig.luau` (0.36.6) ;
+- `tests/CinematicKit.luau`, `tests/Cinematography.test.luau` ;
+- `docs/BUGS.md`, `docs/DECISIONS.md`, `docs/IDEES.md`.
+
+**Tests** :
+- CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 402 (+48), Lobby 47 ;
+- Kits 130 : tout passe ;
+- la validation a comparé 3 058 combinaisons de scènes : seul le COUP FATAL classique de SHIN loin du centre change.
+
+**Problèmes ouverts** :
+- B-016 (mineur) : près d'un mur, les ultimes posent des corps au-delà de la ligne x = 28, et la caméra peut dépasser le bout du sol ;
+- B-018 et B-019 (mineurs) : dans quelques plans, un perso est caché derrière l'autre (finishers de KUREN et TARO, fatal d'HIBIKI, Porte d'ELIAN, Porte de KUROEN) ;
+- B-015 (mineur, confirmé) ;
+- B-012 à B-014 (NOVA), B-006, B-008, B-009 ;
+- rien n'est vérifié dans Studio.
+
+**Prochaine étape** : le finisher de KUROEN (routine), si aucun bug majeur ne passe devant.
+
 ## Version 0.36.5 — 18 octobre 2026 · SHIN dos au mur : la caméra ne passe plus dans la cible (routine du matin)
 
 Livrée par la routine du matin. La chasse aux bugs a trouvé un bug **majeur** : il passe avant le finisher de KUROEN, reporté à demain. Validé du premier coup.

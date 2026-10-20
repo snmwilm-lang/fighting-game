@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 19 octobre 2026 (routine du matin).
+Dernier tri : 20 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,13 +20,15 @@ Dernier tri : 19 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 19 octobre 2026) :
+- **Ce qui existe** (vérifié le 20 octobre 2026) :
   - 19 persos ont leur finisher : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
-  - la scène de NOVA a trois bugs ouverts depuis le 18/10 (B-012 à B-014 : la visière dans sa tête, le rail posé sur une main mesurée au labo, 9 lumières à la fois). Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
+  - la scène de NOVA a trois bugs relevés le 18/10 : B-012 (la visière dans sa tête) est ouvert ; B-013 (le rail posé sur une main mesurée au labo) et B-014 (9 lumières à la fois) attendent que Wilhem les confirme en jeu. Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
   - KUROEN, ASURA et KUROEN SHIN n'ont **ni ligne ni scène**. Ils jouent encore le fatal classique ;
   - un test commun aux finishers existe depuis la v0.36.4 (`Cinematography`). Il vérifie : au moins 6 plans propres au perso, un nom unique qui n'est le nom d'aucun coup d'un autre perso, le K.O. après le coup mortel, la cible à terre, des sons de la palette ;
   - depuis la v0.36.5, `Cinematography` joue aussi chaque finisher avec l'attaquant dos au mur, à gauche puis à droite (38 tests). Un perso qui reçoit sa ligne `Finisher` y entre tout seul ;
+  - depuis la v0.36.6, `Cinematography` joue aussi les COUPS FATAUX classiques des 22 kits dos au mur, des deux côtés (44 tests). Celui de KUROEN, TOTAL ECLIPSE, y passe ;
+  - depuis la v0.36.6, l'outil `Kit.hiddenShare` (`tests/CinematicKit.luau`) mesure quelle part du sujet d'un plan est cachée par l'autre corps. Pour l'instant, seuls les 4 tests ISSEN de SHIN s'en servent (décision du 19/10) : contrairement au test « dos au mur », **un nouveau finisher n'y entre pas tout seul** ;
   - la règle de déclenchement existe déjà dans `CombatSimulation` : un coup fatal qui tue, lancé par un perso qui a déjà gagné un round. Il n'y a rien à changer.
 - **Pour KUROEN (la prochaine), ce que production doit savoir** :
   - **son identité** : 蝕, l'empereur de l'éclipse. Rouge E0102E et noir, « courts et brutaux » (fiche VFX 6.20). Il frappe avec les poings, les coudes, les genoux et des rafales de ki rouge à cœur noir, et laisse un petit soleil noir à l'impact (`KitFX`). Sa jauge DOMINATION a trois niveaux : trois marques rouges dans le dos, et au niveau III, ÉCLIPSE. Son son : des gantelets sur l'os, et un boom sourd en salle sur les gros coups (`SoundPalette.KUROEN`). Son allure : crinière blanche à mèches rouges, peau sombre, yeux rouges, tenue noire déchirée ;
@@ -45,8 +47,10 @@ Dernier tri : 19 octobre 2026 (routine du matin).
     - KUREN (CRIMSON COVENANT) a presque le même rouge (D0102E) : la scène doit se lire « éclipse », noir et rouge avec un soleil noir, et non « sang » ;
   - **ce qu'ont appris les dernières livraisons** :
     - v0.36.5 (B-011, B-010) : sa scène doit passer le test « dos au mur, des deux côtés » de `tests/Cinematography.test.luau`. Pour la voir ainsi : `luau tests/Storyboard.luau -a KUROEN Fatal - 1 20 wall-left`, puis `wall-right` ;
-    - prévoir son placement dès le départ avec `room`, dans `Finishers.luau`, comme SHIN : près d'un mur, toute la scène recule, jamais lui seul. Sinon, un perso collé au mur se retrouve trop près de l'autre, et la caméra d'un gros plan tombe dans un corps ;
-    - garder les deux corps sur le sol de combat, x de -28 à 28 : sept finishers en sortent (B-015, ouvert). `room` sert aussi à ça ;
+    - prévoir son placement dès le départ avec `room`, dans `Finishers.luau`, comme SHIN : près d'un mur, toute la scène recule, jamais lui seul. Sinon, un perso collé au mur se retrouve trop près de l'autre, et la caméra d'un gros plan tombe dans un corps. La v0.36.6 a fait de même pour le fatal classique de SHIN (`FATAL.room`, dans `CinematicDirector.luau`). Les finishers de KUREN et de TARO montrent ce qui arrive sans `room` : dos au mur, leur visage est caché aux deux tiers à l'ouverture (B-018, ouvert) ;
+    - garder les deux corps sur le sol de combat, x de -28 à 28 : 11 finishers sur 19 en sortent (B-015, confirmé le 19/10), surtout quand **la cible** est près du mur. Il faut donc jouer aussi la cible près de chaque mur, comme les tests ISSEN (la scène centrée à ±25). `room` sert aussi à ça ;
+    - v0.36.6 (B-017) : la mesure `Kit.hiddenShare` (`tests/CinematicKit.luau`) compte la part du sujet d'un plan (27 points de la pièce visée) que l'autre corps cache à la caméra. Sa scène doit la passer : **jamais plus d'un quart du sujet caché**, à chaque image, au centre et dos à chaque mur. Le test commun ne l'applique pas encore : production ajoute un test pour la scène de KUROEN dans `Cinematography`, sur le modèle des tests ISSEN (fonction `issen`). La mesure se fait sur le rig KAI du labo, et les vrais avatars n'ont pas sa taille (B-018) : garder de la marge ;
+    - la jouer aussi **depuis la droite**, au centre : le labo ne joue que depuis la gauche. Sa propre PORTE le montre : à l'ouverture (`kuroen-gate-backturn`), il tourne le dos avec un angle fixe ; depuis la droite, sa tête est alors cachée derrière la cible à 76 % en moyenne (B-019, ouvert). Un plan où il se retourne doit avoir un angle qui dépend du côté ;
     - poser ses formes (ki, soleil noir) sur les vraies pièces du corps, par exemple `P(A, "RightHand")`, et non sur des nombres mesurés sur le rig du labo (B-013). Un trait posé sur sa tête doit bien sortir de la tête (B-012) ;
     - au plus une lumière allumée à la fois, comme les 18 premiers finishers : NOVA en allume 9 et c'est la scène la plus lourde du jeu (B-014, mobile et mode réduit).
 - **Persos et systèmes touchés** :
@@ -75,8 +79,9 @@ Dernier tri : 19 octobre 2026 (routine du matin).
   - les sons ne viennent que de `SoundPalette`, et chaque perso garde sa matière sonore ;
   - le test commun des finishers passe (`Cinematography`) ;
   - le test « dos au mur, des deux côtés » passe pour lui (`Cinematography`, v0.36.5) ;
+  - pour chaque nouvelle scène (KUROEN, puis ASURA et KUROEN SHIN) : un test avec `Kit.hiddenShare` (v0.36.6) vérifie qu'à aucune image plus d'un quart du sujet n'est caché par l'autre corps. Il est joué au centre, des deux côtés, et dos à chaque mur ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR) ; KUROEN est la prochaine (reportée le 18/10, car le bug majeur B-011 est passé avant ; corrigé en v0.36.5), puis ASURA et KUROEN SHIN.
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). KUROEN est la prochaine. Elle a été reportée deux fois, à cause de deux bugs majeurs passés avant elle : le 18/10 pour B-011 (corrigé en v0.36.5), puis le 19/10 pour B-017 (corrigé en v0.36.6). Viendront ensuite ASURA et KUROEN SHIN.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.

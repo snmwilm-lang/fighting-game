@@ -356,6 +356,16 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui ne se mesure pas d'ici** : les vrais avatars n'ont pas la taille du rig KAI du labo ; la part cachée change avec eux.
 - **Gravité** : mineur. Le pire est l'ouverture du finisher de KUREN (1,5 s, visage aux deux tiers caché).
 - **Statut** : `ouvert`.
+- **Revérifié par la chasse du 20/10, sur la v0.36.6**, avec la mesure du dépôt (`Kit.hiddenShare` de `tests/CinematicKit.luau`, appliquée au point visé de chaque plan, comme le test ISSEN) :
+
+  | Plan | Centre | Mur gauche | Mur droit |
+  |---|---|---|---|
+  | `kuren-cv-palm` | 0 % | 7 % | 72 % en moyenne, 83 images sur 90 à plus de moitié |
+  | `taro-dr-guard` | 0 % | 23 % | 61 %, 43 sur 60 |
+  | `hibiki-fatal-blow` | 4 % | 76 %, 58 sur 68 | 87 %, 68 sur 68 |
+  | `elian-gate-advance` | 9 % | 49 %, 52 sur 70 | 22 % |
+
+  Le défaut est inchangé : la v0.36.6 n'a touché que l'ISSEN de SHIN. Le test ISSEN fournit maintenant la mesure : il suffit de l'étendre à ces quatre scènes.
 - **Piste** :
   - `room` dans ces scènes (et dans `GEN.place` pour les ultimes générés), puis poser les caméras sur les places réelles ;
   - ajouter à `Cinematography` une vérification « sujet caché par l'autre corps » (part de la pièce visée derrière l'autre corps, hors plans par-dessus l'épaule et vue subjective), jouée au centre et dos aux murs.
@@ -382,3 +392,143 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Piste** :
   - jouer toutes les cinématiques en miroir dans `Cinematography`, avec la vérification « sujet caché » de B-018 ;
   - pour KUROEN, un angle de `backturn` qui dépend du sens.
+
+## B-020 · CHALLENGE · ASURA : un ultime qui l'abat dans sa première vie joue un K.O. complet, puis il se relève
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, avec un fuzz de relais hors dépôt (3 contre 3, défi ASURA, SURVIE) qui vérifie qu'un coup annoncé K.O. finit bien la manche. Le Fuzz du dépôt ne joue ni les relais ni les boss.
+- **Comment reproduire** :
+  - ici, dans le vrai déroulé, sans le labo : `Sim.setKits(w, "KAI", "ASURA")`, KAI à 20 % de vie et jauge pleine, ASURA à 50 PV, puis KAI appuie sur C (COUP FATAL) ;
+  - le fuzz de la chasse le trouve seul dans 20 défis ASURA sur 40 : 15 COUPS FATAUX, 4 ÉVEILS, 1 PORTE. Ce fuzz baisse la vie toutes les 700 images, ce qui favorise le COUP FATAL ;
+  - en jeu : CHALLENGE · ASURA, l'abattre la première fois avec un COUP FATAL, un ÉVEIL ou une PORTE.
+- **Ce qui se passe** (prouvé dans la simulation ; l'affichage est déduit du code client) :
+  - le coup final part avec `ko = true` : la voix K.O. joue (`src/client/SoundController.luau:192`) ;
+  - la cinématique se joue en version « qui tue » (`finish`) :
+    - COUP FATAL : la cible reste à terre et le titre « K.O. » s'affiche (`FATAL.title`, `src/shared/CinematicDirector.luau:2705`) ;
+    - ÉVEIL ou PORTE : la scène K.O. complète de 200 images, avec le fondu au noir et « K.O. · <perso> · VICTORY » (`CinematicDirector.luau:5172-5175`, `:5067`) ;
+  - au tick même de `CinematicEnd`, ASURA se relève dans son aura noire (`Revive`), et le combat reprend ;
+  - puis, quand le joueur l'abat pour de bon, le vrai K.O. n'a **ni titre ni scène** :
+    - `world.finishedByCinematic` est resté à `true` depuis la cinématique (il n'est remis à zéro qu'à la manche suivante, `src/shared/CombatSimulation.luau:106`). Le `RoundEnd` part donc avec `inCinematic = true` (mesuré), et le HUD tait le « K.O. » (`src/client/HUDController.luau:1439`) ;
+    - le client a noté `finishEpoch` pendant la cinématique (`src/client/CinematicController.luau:759`). L'epoch n'a pas changé, donc la scène K.O. du match est sautée (`:725`) ;
+    - le match se termine sur l'écran de résultat, sans aucun K.O. à l'écran (supposé : non vérifiable d'ici) ;
+  - le titre NO MERCY compte ce faux K.O. : `GameModes.featEvent` lit `event.ko` sur un coup `fatal` (`src/shared/GameModes.luau:174`).
+- **Ce qui devrait se passer** : abattu dans sa première vie, ASURA tombe sans K.O. annoncé, puis se relève. Le seul K.O. est celui de la fin, avec sa scène.
+- **Cause** (prouvée) :
+  - un coup normal tient compte de la seconde vie : `event.ko = not CombatSimulation.canRevive(d)` (`CombatSimulation.luau:2029`) ;
+  - une cinématique ne le fait pas :
+    - `finish` est décidé sans `canRevive` (`CombatSimulation.luau:1281` pour le COUP FATAL, `:1288` pour l'ÉVEIL et la PORTE) ;
+    - le coup final annonce `ko = d.hp <= 0` (`:2412`) ;
+    - la fin pose `finishedByCinematic = state.finish or d.hp <= 0` (`:2441`) ;
+  - ASURA est le seul kit avec `SecondLife` (`src/shared/MoveData.luau:1400`). Le défaut ne touche donc que le défi ASURA, le mode boss le plus mis en avant.
+- **Gravité** : majeur. C'est très visible : un « K.O. · VICTORY » suivi d'un boss qui se relève, puis une victoire sans K.O. Et c'est fréquent : il suffit qu'un ultime l'abatte, ce qui arrive dès qu'il descend sous 960 PV (ÉVEIL, PORTE) ou sous 1 600 PV après un combo (COUP FATAL), sur 3 200.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - dans `startCinematic`, `finish = finish and not CombatSimulation.canRevive(d)`, pour que la scène joue sa version « cible encore debout » ;
+  - au coup final, laisser la vie tomber à 0 (seconde vie déclenchée), avec `ko = not canRevive(d)`, et ne pas poser `finishedByCinematic` dans ce cas ;
+  - production choisit si la scène doit aussi mettre en scène la chute avant la résurrection ;
+  - un test dans `CombatSimulation` : un COUP FATAL, un ÉVEIL, une PORTE et un RUSH qui abattent ASURA dans sa première vie. On attend : aucun `Hit` avec `ko`, pas de `finish`, un `Revive`, puis, au vrai K.O., un `RoundEnd` avec `inCinematic = false` ;
+  - ajouter les relais et les boss au Fuzz, avec l'invariant « un coup annoncé K.O. finit la manche ».
+
+## B-021 · La cote 2v2 et 3v3, les compteurs des titres et leur étoile sont perdus à chaque reconnexion
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant le chargement des profils (`src/server/init.server.luau`) à côté des modules purs qui écrivent dans le profil.
+- **Comment reproduire** :
+  - ici : un script hors dépôt recopie tels quels `defaultProfile()` (`init.server.luau:117-144`) et la boucle de chargement (`:196-198`). Il joue une session (cote 1v1 1180, 2v2 1240, 3v3 1310 ; compteurs de titres ; NO MERCY gagné), la sauvegarde comme `writeProfile` (`table.clone`), puis la recharge. Résultat :
+    - 1v1 : 1180, gardée ;
+    - 2v2 et 3v3 : **1000**, et `played` passe à faux ;
+    - `feats` et `earnedTitles` : `nil` ;
+    - NO MERCY reste dans la liste des titres, mais **sans son étoile** ;
+    - BREAKER : 0 sur 25, au lieu de 24 ;
+  - en jeu : jouer un CLASSÉ 2v2, quitter, revenir. Le menu affiche 1000 en 2v2.
+- **Ce qui se passe** (prouvé sur le code recopié) :
+  - au chargement, seules les clés présentes dans `defaultProfile()`, et du même type, sont reprises de la sauvegarde (`init.server.luau:196-198`) ;
+  - trois champs écrits par les modules purs n'y sont pas :
+    - `ratings` (`Matchmaker.setRating`, `src/server/Matchmaker.luau:169-170`) ;
+    - `feats` (`GameModes.featEvent`, `src/shared/GameModes.luau:161-163`) ;
+    - `earnedTitles` (`GameModes.grantFeatTitles`, `:202-207`) ;
+  - ils sont donc ignorés au chargement. La première écriture de la nouvelle session (`GlobalQueue.stamp` du profil entier) les **efface** aussi de la sauvegarde ;
+  - conséquences :
+    - la cote 2v2 et 3v3 repart de 1000 à chaque session. Le matchmaking CLASSÉ 2v2 et 3v3 se fait sur cette cote, puis le classement 2v2 ou 3v3 reçoit la cote remise à zéro au premier match ;
+    - un titre à exploit (BREAKER : 25 bris de garde ; UNTOUCHABLE : 3 manches PERFECT ; NO MERCY : 5 K.O. au COUP FATAL…) ne s'obtient que dans une seule session ;
+    - l'étoile « gagné en jouant » disparaît à la reconnexion. Le titre se gagne alors une seconde fois, avec une nouvelle annonce.
+- **Depuis quand** : la v0.23.29 pour `ratings`, la v0.23.37 pour l'étoile (6 octobre).
+- **Pourquoi aucun test ne le voit** : `defaultProfile` et le chargement vivent dans `init.server.luau`, que les tests ne chargent pas. `Lobby.test` vérifie bien que la cote 2v2 est rangée sous une clé texte (`tests/Lobby.test.luau:295`), mais jamais un aller-retour sauvegarde puis chargement.
+- **Ce qui devrait se passer** : tout ce qu'un module écrit dans le profil revient à la session suivante.
+- **Gravité** : bloquant (progression perdue à chaque reconnexion : cote CLASSÉE 2v2 et 3v3, progression des titres).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - ajouter `ratings = {}`, `feats = {}` et `earnedTitles = {}` à `defaultProfile()` ;
+  - mieux : sortir `defaultProfile` et la boucle de chargement dans un module pur (par exemple `src/server/Profile.luau`), avec un test d'aller-retour. Ce test fait écrire chaque module (Matchmaker, GameModes, Store, Economy, Quests, AntiCheat, Champions), puis sauvegarde, recharge et compare ;
+  - récupération possible pour la cote : tant que le joueur n'a pas rejoué en 2v2 ou en 3v3, les classements `JeuxCombat_Classement_2v2_v1` et `_3v3_v1` gardent sa dernière cote (ils ne sont écrits que si `played` est vrai). Le chargement peut la relire quand `ratings` manque. Les compteurs des titres et les étoiles sont perdus.
+
+## B-022 · SURVIE : chaque vague gagnée par K.O. n'affiche pas « K.O. »
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, en suivant les `RoundEnd` d'une SURVIE jouée CPU contre CPU, avec la règle du serveur qui ajoute l'adversaire suivant.
+- **Comment reproduire** :
+  - ici : `Sim.setTeams(w, { kit }, { adversaire })`, deux `FighterAI`. À chaque `RoundEnd`, on ajoute l'adversaire suivant comme le serveur (`init.server.luau:2002-2008`) ;
+  - sur 3 parties, chaque vague gagnée (jusqu'à 9 de suite) part avec `matchOver = true`, puis la manche suivante commence ;
+  - en jeu : SURVIE, gagner la première vague par K.O.
+- **Ce qui se passe** :
+  - prouvé : `endRound` calcule `matchOver = team.index > #team.kits` (`src/shared/CombatSimulation.luau:2482`). L'équipe CPU n'a qu'un combattant à la fois : à chaque vague gagnée, c'est vrai. Le serveur n'ajoute l'adversaire suivant qu'**après** l'événement (`init.server.luau:2008`), et l'événement part tel quel (`:2129-2147`) ;
+  - déduit du code client : le HUD tait le « K.O. » quand `matchOver` est vrai, parce qu'il compte sur la scène K.O. du match (`src/client/HUDController.luau:1439`). Mais cette scène ne se joue pas : l'instantané montre déjà une équipe CPU allongée, donc `Director.matchDecided` est faux (`src/shared/CinematicDirector.luau:5206-5214`) ;
+  - résultat : ni « K.O. · … WINS THE ROUND », ni scène K.O., à chaque vague. Il reste la voix K.O. et le jingle K.O. Une manche PERFECT affiche toujours « PERFECT ».
+- **Ce qui devrait se passer** : « K.O. » à chaque vague gagnée, et la scène K.O. seulement à la vraie fin.
+- **Gravité** : mineur (visuel, mais à chaque vague d'un mode entier).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - dans `followEvents`, quand le serveur ajoute l'adversaire, remettre `event.matchOver = false` sur ce `RoundEnd`. C'est la même table que celle envoyée juste après, dans `batch` ;
+  - ou laisser la simulation savoir qu'une équipe est sans fin (`world.endless[2]`) ;
+  - un test `CombatSimulation` : en SURVIE, un `RoundEnd` de vague gagnée a `matchOver = false`.
+
+## B-023 · CLASSÉ : quitter dans les 25 premières secondes ne coûte aucun point
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant `endVersus` (`src/server/init.server.luau:663-759`) à côté de la règle annoncée : « CLASSÉ : the one who left loses points » (`:576`).
+- **Comment reproduire** :
+  - ici : un script hors dépôt refait le calcul de cote de `endVersus` (`:672-728`) avec `AntiCheat` et `Matchmaker`. Un joueur à 1500 quitte face à un joueur à 1200 :
+
+    | Départ | Actions (lui, l'autre) | Cote de celui qui part | Raison |
+    |---|---|---|---|
+    | après 12 s | 4, 6 | 1500 → **1500** | `short` |
+    | après 24 s | 30, 40 | 1500 → **1500** | `short` |
+    | après 60 s | 12, 80 | 1500 → **1500** | `idle` |
+    | après 60 s | 80, 80 | 1500 → 1473 | compté |
+
+  - en jeu : un CLASSÉ contre un adversaire plus fort, puis quitter le match (ou le jeu) pendant l'intro ou le début de la première manche.
+- **Ce qui se passe** (prouvé sur les modules purs, avec le calcul recopié) :
+  - `unseat` appelle `endVersus(match, 3 - i, i)` (`init.server.luau:584`) ;
+  - la part anti-farm de la cote est `math.min(shareA.rating, shareB.rating)` (`:676`). Elle vaut 0 si le match dure moins de `MIN_MATCH` = 25 s, intro comprise (`src/server/AntiCheat.luau:88`), ou si l'un des deux a fait moins de 20 actions (`:90`) ;
+  - la cote ne bouge alors pour personne (`init.server.luau:725`). Celui qui part ne perd que ses pièces et sa série.
+- **Ce qui devrait se passer** : celui qui quitte un CLASSÉ perd ses points, comme annoncé. Le filtre anti-farm sert à ne pas **donner** de gains (un compte secondaire qui part tout de suite), pas à épargner une perte.
+- **Gravité** : majeur. Le résultat d'un CLASSÉ abandonné est faux, et le défaut s'exploite : on fuit sans frais tout match mal parti dans les 25 premières secondes, et le classement (donc le champion de la semaine) se fausse. Rien ne se voit à l'écran.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - quand `leftSlot` est donné, appliquer la perte Elo entière à celui qui part, quel que soit `share`, et ne rien donner à celui qui reste si `share` vaut 0 (un compte secondaire ne fait pas monter le principal) ;
+  - sortir cette décision dans une fonction pure (`AntiCheat` ou `Matchmaker`), avec un test dans `Lobby.test` : « celui qui quitte un CLASSÉ perd des points, même après 10 s ».
+
+## B-024 · `!give … title <titre de la boutique>` donne un titre impossible à porter
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, en comparant `Admin.apply` et `Store.buyItem`.
+- **Comment reproduire** :
+  - ici : pour les 6 titres de la boutique hors Game Pass, `Admin.apply(profil, Admin.parse("!give me title <nom>"))`, puis la règle du serveur pour porter un titre (`Champions.canShow` ou `Store.passTitle`, `src/server/init.server.luau:1479`). Le titre est possédé (`Store.ownsItem` vrai), mais **pas portable**. Acheté avec des pièces, il est portable ;
+  - en jeu : `!give <joueur> title FRAME PERFECT`, puis ce joueur essaie de le porter.
+- **Ce qui se passe** (prouvé sur les modules purs) :
+  - `Admin.apply` n'écrit que `profile.ownedItems[id] = true` (`src/server/Admin.luau:92`, et `:109` pour `!give … item`) ;
+  - `Store.buyItem` ajoute en plus le nom à `profile.titles` (`src/shared/Store.luau:136-139`) ;
+  - le serveur n'accepte de porter qu'un titre de `profile.titles`, ou celui d'un Game Pass. La boutique le montre possédé (on ne peut plus l'acheter), mais le serveur refuse de le porter, sans message (supposé pour le menu).
+- **Pourquoi le test ne le voit pas** : `tests/Lobby.test.luau:1312` vérifie `ownedItems`, pas que le titre se porte.
+- **Gravité** : mineur. Un outil du propriétaire, mais le joueur qui reçoit le cadeau ne peut pas s'en servir.
+- **Statut** : `ouvert`.
+- **Piste** : dans `Admin.apply`, pour un objet `TITLE` (branches `title` et `item`), ajouter aussi le nom à `profile.titles`. Dans le test, vérifier `Champions.canShow`.
+
+## B-025 · Le verrou de session d'un joueur inactif expire alors qu'il est encore sur le serveur
+- **Date** : 20 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant `SaveQueue` et `GlobalQueue` (verrou de session).
+- **Comment reproduire** :
+  - ici, avec les modules purs : un profil chargé, un changement à t = 1, la boucle de vidage toutes les 15 s. Seule l'écriture de t = 15 a lieu, et le verrou reste daté de t = 15. À t = 76, le joueur est toujours sur le serveur A, mais `GlobalQueue.canLock(sauvegarde, "B", 76)` est vrai : un autre serveur peut prendre le profil ;
+  - la course elle-même (deux serveurs, DataStore) n'est pas reproductible d'ici.
+- **Ce qui se passe** :
+  - prouvé : le verrou n'est réécrit que lors d'une écriture (`src/server/init.server.luau:254-266`), et on n'écrit qu'un profil modifié (`src/server/SaveQueue.luau:61`). Un joueur qui ne change rien pendant plus de 60 s (`LOCK_TTL`) a un verrou « périmé », que `canLock` traite comme celui d'un serveur planté (`src/server/GlobalQueue.luau:104`) ;
+  - supposé, le risque : le joueur change de serveur ou d'appareil juste après un changement (fin de match, achat avec des pièces), alors que son dernier verrou date de plus de 60 s. Si le nouveau serveur charge le profil avant que l'écriture de départ de l'ancien arrive, il le prend aussitôt et lit l'ancienne version. L'écriture de départ arrive ensuite, voit un verrou frais d'un autre serveur, et n'est pas écrite (« held by another server », `:271-273`). Les derniers changements sont perdus.
+- **Ce qui devrait se passer** : tant que le joueur est sur le serveur, son verrou reste frais ; seul un serveur planté laisse un verrou périmé.
+- **Gravité** : mineur. Si cela arrivait, ce serait une perte de progression. Mais il faut une course serrée, et l'écriture de départ part dès que le joueur quitte, avant que l'autre serveur ne charge.
+- **Statut** : `ouvert` (risque supposé, mécanisme prouvé).
+- **Piste** : dans la boucle de vidage, réécrire aussi (renouveler le verrou) tout profil chargé dont la dernière écriture date de plus de `LOCK_TTL / 2`. Par exemple, une fonction `SaveQueue.stale(q, now, ttl)`, avec un test dans `Lobby.test`.

@@ -1324,4 +1324,162 @@ test("owner commands: only the owner, !give coins / fighter / style / title / it
 	expect(#Admin.targets("zz", players, 1) == 0, "nobody")
 end)
 
+-- B-021: the join keeps only the fields of Profile.default (of the same type). The 2v2 / 3v3
+-- ratings, the titles' feats and their stars were not there: lost at each join, then erased
+-- from the save by the first write of the session.
+test("saved profile: everything the modules write comes back at the next join (2v2 / 3v3 ratings, feats, earned titles)", function()
+	local Profile = require("../src/server/Profile")
+	local Taunts = require("../src/shared/Taunts")
+	local Economy = require("../src/shared/Economy")
+	local Quests = require("../src/shared/Quests")
+	local Store = require("../src/shared/Store")
+	local StoreConfig = require("../src/shared/StoreConfig")
+	local CharacterData = require("../src/shared/CharacterData")
+	local Champions = require("../src/server/Champions")
+	local AC = require("../src/server/AntiCheat")
+	local Admin = require("../src/server/Admin")
+	local G = require("../src/server/GlobalQueue")
+	local deps = { startRating = Matchmaker.START_RATING, taunts = Taunts.DEFAULT, achievementSeason = GameModes.ACHIEVEMENT_SEASON }
+	local defaults = Profile.default(deps)
+	for _, k in { "ratings", "feats", "earnedTitles" } do
+		expect(type(defaults[k]) == "table", "no " .. k .. " table in Profile.default: it is lost at each join")
+	end
+	-- (the DataStore keeps plain values: a save is a deep copy)
+	local function copy(v)
+		if type(v) ~= "table" then return v end
+		local out = {}
+		for k, x in v do out[k] = copy(x) end
+		return out
+	end
+	local function same(a, b, path)
+		if type(a) ~= "table" or type(b) ~= "table" then
+			return a == b, path .. ": " .. tostring(a) .. " then " .. tostring(b)
+		end
+		for k, v in a do
+			local ok, why = same(v, b[k], path .. "." .. tostring(k))
+			if not ok then return false, why end
+		end
+		for k, v in b do
+			if a[k] == nil then return false, path .. "." .. tostring(k) .. ": nil then " .. tostring(v) end
+		end
+		return true, ""
+	end
+
+	-- A whole session through every module that writes in the profile, and the server's own
+	-- writes (init.server.luau). A field missing from the defaults is caught as it is written.
+	-- A NEW WRITER of the profile goes in this list.
+	local added = {}
+	local p = setmetatable(Profile.default(deps), { __newindex = function(t, k, v)
+		added[tostring(k)] = true
+		rawset(t, k, v)
+	end })
+	local now = 1760000000
+	local idx = Store.index(StoreConfig)
+	-- RANKED (Matchmaker): 1v1, 2v2, 3v3
+	Matchmaker.setRating(p, 1, 1180)
+	Matchmaker.setRating(p, 2, 1240)
+	Matchmaker.setRating(p, 3, 1310)
+	-- TITLES (GameModes): 5 K.O. by a FATAL BLOW (NO MERCY earned), 24 guard breaks (BREAKER: 24 / 25)
+	local fatal
+	for name, m in MoveData.Moves do
+		if m.fatal then fatal = name break end
+	end
+	for _ = 1, 5 do GameModes.featEvent(p, { kind = "Hit", attacker = 1, combo = 12, move = fatal, ko = true }, 1, MoveData.Moves) end
+	for _ = 1, 24 do GameModes.featEvent(p, { kind = "GuardBreak", attacker = 1 }, 1, MoveData.Moves) end
+	GameModes.featEvent(p, { kind = "RoundEnd", winner = 1, perfect = true }, 1, MoveData.Moves)
+	GameModes.featEvent(p, { kind = "PromptGrade", attacker = 1, grade = "PERFECT" }, 1, MoveData.Moves)
+	p.asuraGrade, p.asuraDamage, p.shinGrade = 2, 87, 1 -- (the server: CHALLENGE · ASURA, KUROEN SHIN)
+	GameModes.featBosses(p)
+	local earned = GameModes.grantFeatTitles(p)
+	expect(#earned == 2 and table.find(earned, "NO MERCY") and table.find(earned, "FINAL BOSS"), "the session's titles: " .. table.concat(earned, ", "))
+	-- ACHIEVEMENTS, coins, MATCH HISTORY (GameModes)
+	GameModes.achievementSeason(p)
+	GameModes.achievementProgress(p, { won = true })
+	GameModes.achievementProgress(p, { rating = 1180, survival = 4, asuraDamage = 87, asuraGrade = 2, shinGrade = 1 })
+	GameModes.addCoins(p, "win")
+	GameModes.addHistory(p, { t = now, mode = "VERSUS", queue = "RANKED", opp = "BOB", oppKit = "TARO", kit = "KAI", r = "W", coins = 150, delta = 18 })
+	-- the owner's commands (Admin)
+	local catalogs = { kits = MoveData.KitOrder, styles = CharacterData.Skins, items = idx.item, titles = GameModes.CHALLENGE_TITLES }
+	for _, line in { "!give me coins 60000", "!give me fighter zephyr", "!give me style raijin gold", "!give me title asura slayer",
+		"!give me item EMOTE_CALCULATED" } do
+		expect(Admin.apply(p, Admin.parse(line), catalogs), "the owner's " .. line)
+	end
+	-- FIGHTERS, DAILY REWARD, WIN STREAK (Economy); a shop style (CharacterData)
+	expect(Economy.buyFighter(p, "AKEMI", MoveData.KitOrder), "a fighter bought")
+	p.freePicks = 1 -- (an old tester's pick)
+	expect(Economy.claimFighter(p, "SHIN", MoveData.KitOrder), "a free pick")
+	expect(Economy.claimDaily(p, Economy.dayOf(now)) ~= nil, "the daily reward")
+	Economy.streak(p, "win", true)
+	local style
+	for name, item in CharacterData.SHOP do
+		if not item.quest and not p.ownedSkins[name] then style = name break end
+	end
+	expect(CharacterData.buy(p, style, Economy.skinPrice(CharacterData.SHOP[style].kit)), "a shop style bought")
+	-- the SHOP (Store): a title and an aura bought, the aura worn, a pass, two Robux receipts
+	expect(Store.buyItem(idx, p, "TITLE_BREAKER"), "a shop title")
+	expect(Store.buyItem(idx, p, "VFX_EMBER") and Store.equip(idx, p, "VFX", "VFX_EMBER"), "an aura worn")
+	expect(Store.setPass(p, "VIP", true), "a pass")
+	expect(Store.grantReceipt(p, "receipt-1", idx.product.COINS_1000, now) == "granted", "coins for Robux")
+	expect(Store.grantReceipt(p, "receipt-2", idx.product.SKIN_KAI_GOLD, now) == "granted", "a style for Robux")
+	-- QUESTS
+	for _ = 1, 30 do Quests.record(p, { won = true, pvp = true, kits = { "KAI" } }) end
+	Quests.grant(p)
+	-- WEEKLY ranking and CHAMPION OF THE WEEK (Champions)
+	local week = Champions.week(now)
+	Champions.addPoints(p, week, "win", 1)
+	expect(Champions.grant(p, 42, { { week = week - 1, id = 42, name = "WILHEM", rating = 1500 } }) == 1, "the champion's title")
+	-- ANTI-CHEAT: today's opponents, the coins of the day
+	AC.record(p, 7, now)
+	p.coins += AC.capCoins(p, 150, now)
+	-- the server: a match, the menu, SETTINGS, the taunts' wheel, a title worn, a style worn
+	p.wins += 1
+	p.losses += 1
+	p.survivalBest, p.hero, p.language, p.howToPlay, p.devOff = 4, "AKEMI", "FR", 3, true
+	p.optReduced, p.optSound, p.optMusic, p.optTaunts, p.tauntKey = true, false, false, false, "T"
+	p.taunts = Taunts.sanitize({ "calculated", "ez" }, p)
+	p.title = "NO MERCY"
+	p.equipped.RAIJIN = "RAIJIN GOLD"
+	setmetatable(p, nil)
+	local unknown = {}
+	for k in added do table.insert(unknown, k) end
+	table.sort(unknown)
+	expect(#unknown == 0, "written in the profile but not in Profile.default (lost at the next join): " .. table.concat(unknown, ", "))
+	for k, v in p do
+		expect(type(defaults[k]) == type(v), "the profile's " .. tostring(k) .. " is a " .. type(v) .. ", its default a "
+			.. type(defaults[k]) .. ": dropped at the next join")
+	end
+
+	-- The save (writeProfile: the profile with the session lock, GlobalQueue.stamp), the next
+	-- join (Profile.merge, as loadProfile), that session's first write, and the join after it.
+	local loaded = Profile.merge(Profile.default(deps), copy(G.stamp(p, "server-A", now, false)), deps)
+	local ok, why = same(p, loaded, "profile")
+	expect(ok, "changed by a save and the next join: " .. why)
+	expect(loaded._session == nil, "the session lock came into the profile")
+	local again = Profile.merge(Profile.default(deps), copy(G.stamp(loaded, "server-B", now + 60, false)), deps)
+	ok, why = same(p, again, "profile")
+	expect(ok, "lost after the first write of the next session: " .. why)
+	-- what the player sees after the join
+	expect(Matchmaker.ratingOf(again, 1) == 1180 and Matchmaker.ratingOf(again, 2) == 1240 and Matchmaker.ratingOf(again, 3) == 1310
+		and Matchmaker.played(again, 2) and Matchmaker.played(again, 3), "the RANKED ratings after a join")
+	expect(GameModes.featProgress(again, "BREAKER") == 24 and GameModes.featProgress(again, "NO MERCY") == 5, "the titles' feats after a join")
+	expect(GameModes.titleDisplay(again, "NO MERCY") == "NO MERCY ★" and GameModes.titleDisplay(again, "BREAKER") == "BREAKER",
+		"the star of a title earned by playing (and none for a bought one) after a join")
+	expect(#GameModes.grantFeatTitles(again) == 0, "a title earned a second time after a join")
+
+	-- The merge: a saved value of another type keeps the default (never a broken value in the
+	-- game), the others are taken; nothing saved: a new player, on no 2v2 / 3v3 board.
+	local broken = Profile.merge(Profile.default(deps), { ratings = 1240, feats = "x", earnedTitles = true, coins = "999", wins = 3 }, deps)
+	expect(next(broken.ratings) == nil and next(broken.feats) == nil and next(broken.earnedTitles) == nil and broken.coins == 0
+		and broken.wins == 3, "a saved value of another type")
+	local fresh = Profile.merge(Profile.default(deps), nil, deps)
+	expect((same(fresh, defaults, "new")) and not Matchmaker.played(fresh, 2) and not Matchmaker.played(fresh, 3)
+		and Matchmaker.ratingOf(fresh, 3) == Matchmaker.START_RATING, "a new player's profile")
+	-- two profiles never share a table (nor the taunts' list of Taunts)
+	local other = Profile.default(deps)
+	for k, v in defaults do
+		expect(type(v) ~= "table" or v ~= other[k], "two new profiles share their " .. k)
+	end
+	expect(defaults.taunts ~= Taunts.DEFAULT, "a profile shares Taunts.DEFAULT")
+end)
+
 T.finish()

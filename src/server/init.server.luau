@@ -33,6 +33,7 @@ local RigBuilder = require(script.RigBuilder)
 local Lobby = require(script.Lobby)
 local Matchmaker = require(script.Matchmaker)
 local SaveQueue = require(script.SaveQueue)
+local Profile = require(script.Profile)
 local GlobalQueue = require(script.GlobalQueue)
 local AntiCheat = require(script.AntiCheat)
 local Taunts = require(Shared.Taunts)
@@ -114,33 +115,11 @@ do
 	local ok, result = pcall(DataStoreService.GetDataStore, DataStoreService, "JeuxCombat_Joueurs_v1")
 	if ok then store = result end
 end
+-- A new player's profile and the merge of a save at the join (Profile, pure): EVERY field a
+-- module writes in the profile is listed there, or the next join drops it (B-021).
+local PROFILE_DEPS = { startRating = Matchmaker.START_RATING, taunts = Taunts.DEFAULT, achievementSeason = GameModes.ACHIEVEMENT_SEASON }
 local function defaultProfile()
-	return { rating = Matchmaker.START_RATING, wins = 0, losses = 0, survivalBest = 0, hero = "KAI", coins = 0,
-		recentOpp = {}, coinDay = 0, coinToday = 0, -- (anti-cheat: today's opponents, the daily coin cap)
-		asuraGrade = 0, asuraDamage = 0, title = "", -- CHALLENGE: best grade, best damage share, title
-		shinGrade = 0, -- CHALLENGE · KUROEN SHIN: best grade (1+ unlocks KUROEN's DIVINE style)
-		ownedSkins = {}, -- SHOP: the shop and quest styles owned (name -> true, CharacterData.SHOP)
-		ownedKits = {}, -- the fighters unlocked with coins (name -> true; the free ones: Economy.FREE)
-		equipped = {}, -- the style worn with each fighter (kit -> style name)
-		quests = {}, -- QUESTS: the counters and the quests rewarded (Quests)
-		titles = {}, championWeeks = {}, -- the titles owned (challenges, champion of the week)
-		weekId = 0, weekPoints = 0, -- WEEKLY ranking: the points of the week (Champions)
-		freePicks = 0, picksGiven = false, -- the old testers' free picks (Economy.claimFighter)
-		tester = false, -- TESTERS: every fighter (Economy.makeTester)
-		winStreak = 0, bestStreak = 0, -- WIN STREAK: online wins in a row (a real match), the best
-		howToPlay = 0, -- HOW TO PLAY: the version of the guide already shown (once per player)
-		dailyDay = 0, dailyStreak = 0, -- DAILY REWARD: the last day claimed, the series (Economy.claimDaily)
-		history = {}, -- MATCH HISTORY: the last 10 matches (GameModes.addHistory)
-		-- SHOP (Store, StoreConfig): the Game Passes last confirmed, the cosmetics bought with
-		-- coins, the ones worn, and the Robux receipts already granted (never twice)
-		passes = {}, ownedItems = {}, cosmetics = {}, receipts = {},
-		devOff = false, -- (developer access only: switched off to play as a new player)
-		language = "AUTO", -- SETTINGS › LANGUAGE: AUTO (Roblox's translation), EN or FR
-		optReduced = false, optSound = true, optMusic = true, -- SETTINGS: effects reduced, sound, music (kept)
-		optTaunts = true, tauntKey = "V", -- SETTINGS: the opponents' taunts shown, the key of the taunt wheel
-		taunts = table.clone(Taunts.DEFAULT), -- TAUNTS: the 6 on the wheel (ids, Taunts.LIST)
-		-- ACHIEVEMENTS: their own counters, reset by a new season (GameModes.achievementSeason)
-		achSeason = GameModes.ACHIEVEMENT_SEASON, achWins = 0, achRating = 0, achSurvival = 0, achAsuraDamage = 0, achAsuraGrade = 0, achShinGrade = 0 }
+	return Profile.default(PROFILE_DEPS)
 end
 -- ANTI-CHEAT: packets the real client never sends add suspicion; past AntiCheat.KICK the
 -- player is kicked (a server log line says why).
@@ -193,9 +172,7 @@ local function loadProfile(player, client)
 			end
 			if ok and not locked then
 				if type(data) == "table" then
-					for k, v in defaultProfile() do
-						if type(data[k]) == type(v) then client.profile[k] = data[k] end
-					end
+					Profile.merge(client.profile, data, PROFILE_DEPS) -- (the fields of the defaults, of the same type)
 					if not MoveData.Kits[client.profile.hero] then client.profile.hero = "KAI" end
 					if type(data.achSeason) ~= "number" then client.profile.achSeason = 0 end -- (saved before the seasons)
 					GameModes.achievementSeason(client.profile)

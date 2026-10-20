@@ -454,7 +454,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Pourquoi aucun test ne le voit** : `defaultProfile` et le chargement vivent dans `init.server.luau`, que les tests ne chargent pas. `Lobby.test` vérifie bien que la cote 2v2 est rangée sous une clé texte (`tests/Lobby.test.luau:295`), mais jamais un aller-retour sauvegarde puis chargement.
 - **Ce qui devrait se passer** : tout ce qu'un module écrit dans le profil revient à la session suivante.
 - **Gravité** : bloquant (progression perdue à chaque reconnexion : cote CLASSÉE 2v2 et 3v3, progression des titres).
-- **Statut** : `ouvert`.
+- **Statut** : `corrigé (v0.36.7)`, à confirmer en jeu par Wilhem (une reconnexion après un CLASSÉ 2v2). Les valeurs par défaut et la fusion du chargement passent dans un module pur, `src/server/Profile.luau`, avec `ratings`, `feats` et `earnedTitles`. Un test de `Lobby.test` (« saved profile ») fait écrire chaque module, sauvegarde, recharge et compare ; il échoue sur l'ancien code. Validé : l'ancienne et la nouvelle fusion donnent le même résultat sur 20 006 sauvegardes, aux trois champs ajoutés près.
 - **Piste** :
   - ajouter `ratings = {}`, `feats = {}` et `earnedTitles = {}` à `defaultProfile()` ;
   - mieux : sortir `defaultProfile` et la boucle de chargement dans un module pur (par exemple `src/server/Profile.luau`), avec un test d'aller-retour. Ce test fait écrire chaque module (Matchmaker, GameModes, Store, Economy, Quests, AntiCheat, Champions), puis sauvegarde, recharge et compare ;

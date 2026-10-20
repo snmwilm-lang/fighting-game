@@ -1,5 +1,48 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.7 — 20 octobre 2026 · La cote 2v2 / 3v3 et les titres ne se perdent plus à la reconnexion (routine du matin)
+
+Livrée par la routine du matin. La chasse aux bugs, tournée vers le combat et le hub, a trouvé un bug **bloquant** : il passe avant tout le reste, et le finisher de KUROEN est de nouveau reporté. Validé du premier coup.
+
+- **B-021, corrigé**. Le problème touchait trois champs du profil :
+  - `defaultProfile()` (`init.server.luau`) n'avait ni `ratings` (la cote 2v2 et 3v3), ni `feats` (les compteurs des titres), ni `earnedTitles` (l'étoile « gagné en jouant ») ;
+  - le chargement ne reprend que les champs des valeurs par défaut : à chaque reconnexion, ces trois-là revenaient à zéro ;
+  - la première écriture suivante les effaçait aussi de la sauvegarde ;
+  - le défaut existait depuis la v0.23.29.
+- **La correction** :
+  - les valeurs par défaut et la fusion du chargement passent dans un **module pur**, `src/server/Profile.luau` (`Profile.default`, `Profile.merge`), ajouté à la liste de `CLAUDE.md` ;
+  - les trois champs y figurent : `ratings = {}`, `feats = {}`, `earnedTitles = {}`. Un nouveau joueur n'entre pas dans les classements 2v2 et 3v3 avant d'y avoir joué ;
+  - la fusion est inchangée pour tous les autres champs : la validation l'a vérifié sur 20 006 sauvegardes ;
+  - le nom du DataStore et le verrou de session ne changent pas.
+- **Le test** « saved profile » (`Lobby.test.luau`) travaille à trois niveaux :
+  - les trois champs nommés ;
+  - un balayage : chaque fonction qui écrit dans le profil est jouée, et une clé absente des valeurs par défaut fait échouer le test ;
+  - un double aller-retour sauvegarde, chargement, écriture, chargement.
+  
+  Il échoue sur l'ancien code, à chacun de ses niveaux.
+- **Ce qui revient tout seul** : une sauvegarde qui contient encore ces champs, écrite à la fin de la dernière session, les retrouve dès cette version.
+- **Ce qui reste perdu**, pour les joueurs déjà touchés :
+  - les compteurs des titres ;
+  - les cotes 2v2 et 3v3 rejouées depuis. Récupération proposée, non appliquée, à décider par Wilhem : relire la cote dans les classements 2v2 et 3v3, et rendre l'étoile aux titres à exploit possédés sans achat en boutique.
+
+**Fichiers** :
+- `src/server/Profile.luau` (nouveau), `src/server/init.server.luau`, `src/shared/CombatConfig.luau` (0.36.7) ;
+- `tests/Lobby.test.luau` ;
+- `CLAUDE.md`, `docs/BUGS.md`, `docs/DECISIONS.md`, `docs/IDEES.md`.
+
+**Tests** : CombatSimulation 169, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 402, Lobby 48 (+1), Kits 130. Tout passe.
+
+**Problèmes ouverts** (la chasse du 20/10) :
+- **B-020 (majeur)** : en CHALLENGE, un ultime qui abat ASURA dans sa première vie joue un K.O. complet, puis il se relève ; le vrai K.O. final n'a ensuite ni titre ni scène ;
+- **B-023 (majeur)** : en CLASSÉ, quitter dans les 25 premières secondes ne coûte aucun point (filtre anti-farm) ;
+- B-022 : en SURVIE, pas de « K.O. » à chaque vague ;
+- B-024 : un titre de boutique donné par `!give` ne se porte pas ;
+- B-025 : le verrou de session d'un joueur inactif expire ;
+- et ceux des jours précédents ;
+- rien n'est vérifié dans Studio, ni le vrai DataStore.
+
+**Prochaine étape** : B-020 ou B-023 (majeurs), avant le finisher de KUROEN.
+
 ## Version 0.36.6 — 19 octobre 2026 · L'ISSEN de SHIN dos au mur garde son duel (routine du matin)
 
 Livrée par la routine du matin. La chasse aux bugs a trouvé un nouveau bug **majeur**, B-017, qui passe avant le finisher de KUROEN : celui-ci est reporté à demain. La validation a refusé la première version, à cause d'une exception de test trop large, puis a validé la seconde.

@@ -420,12 +420,40 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
     - la fin pose `finishedByCinematic = state.finish or d.hp <= 0` (`:2441`) ;
   - ASURA est le seul kit avec `SecondLife` (`src/shared/MoveData.luau:1400`). Le défaut ne touche donc que le défi ASURA, le mode boss le plus mis en avant.
 - **Gravité** : majeur. C'est très visible : un « K.O. · VICTORY » suivi d'un boss qui se relève, puis une victoire sans K.O. Et c'est fréquent : il suffit qu'un ultime l'abatte, ce qui arrive dès qu'il descend sous 960 PV (ÉVEIL, PORTE) ou sous 1 600 PV après un combo (COUP FATAL), sur 3 200.
-- **Statut** : `ouvert`.
-- **Piste** :
-  - dans `startCinematic`, `finish = finish and not CombatSimulation.canRevive(d)`, pour que la scène joue sa version « cible encore debout » ;
-  - au coup final, laisser la vie tomber à 0 (seconde vie déclenchée), avec `ko = not canRevive(d)`, et ne pas poser `finishedByCinematic` dans ce cas ;
+- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7).
+- **Revérifié par la chasse du 21/10, sur la v0.36.7** (le code de `CombatSimulation` n'a pas changé depuis le 20/10 ; toutes les lignes citées tiennent) :
+  - script hors dépôt, dans le vrai déroulé (`Sim.newWorld` hors entraînement, `Sim.setKits(w, KIT, "ASURA")`, attaquant à 20 % et jauge pleine, ASURA à 50 PV), puis on achève ASURA relevé à coups de poing, et on fait suivre chaque événement à `GameModes.featEvent` comme le serveur :
+
+    | Lanceur, coup | Coup final | Fin de la cinématique | Vrai K.O. | NO MERCY |
+    |---|---|---|---|---|
+    | KAI, COUP FATAL | t312 `Hit` `ko = true`, `finish = true` | t490 `CinematicEnd`, puis `Revive` au même tick | t623 `RoundEnd` avec `inCinematic = true` | compté (1) |
+    | SHIN, COUP FATAL | t312, idem | t490, idem | t623, idem | compté (1) |
+    | KAI, RUSH (R seul) | t299 `Hit` `ko = true`, `finish = false` | t411, `Revive` | t545 `RoundEnd` avec `inCinematic = true` | non |
+    | DAICHA, RUSH | t229 `Hit` `ko = true`, `finish = false` | t318, `Revive` | t437, idem | non |
+
+  - **nouveau : le RUSH aussi.** Son dernier coup peut tuer (`canKO`, `CombatSimulation.luau:2405-2406`) et annonce `ko = true` (`:2412`) : la voix K.O. joue, ASURA se relève. Comme `finish` est faux, le client ne note pas `finishEpoch` : la scène K.O. du match se joue bien à la fin (déduit du code, `CinematicController.luau:725`, `:759`). Seuls la voix et `inCinematic` sont faux. C'est la forme la plus fréquente : le RUSH ne demande ni combo ni vie basse ;
+  - **aggravé par la v0.36.7** : depuis la correction de B-021, le compteur `feats.fatalKO` est sauvegardé. Chaque CHALLENGE · ASURA où un COUP FATAL abat sa première vie ajoute un faux K.O. au titre NO MERCY, **pour de bon**.
+- **Piste de correction précise** (`src/shared/CombatSimulation.luau`, 5 lignes) :
+  1. `:1281` et `:1288` (`startCinematic`) : `finish = … and not CombatSimulation.canRevive(d)`. La scène joue alors sa version « cible encore debout », sans titre K.O. ni scène K.O. ;
+  2. `:2352` (le même calcul, refait après les QTE) : ajouter la même condition ;
+  3. `:2405` : `local canKO = step.final and (state.type == "Rush" or CombatSimulation.canRevive(d))`. L'ultime peut faire tomber la première vie à 0, et la branche « jeté au sol » (`:2417-2420`) s'applique. Sans ce point, l'ultime le laisse à 1 PV (`math.max(1, …)`), et il faut un coup de plus pour déclencher la seconde vie. Ce choix revient à production ;
+  4. `:2412` : `ko = d.hp <= 0 and not CombatSimulation.canRevive(d)`. Le revive n'est posé qu'au tick de `CinematicEnd` (mesuré), donc `canRevive` est encore vrai au coup final ;
+  5. `:2441` : `world.finishedByCinematic = state.finish or (d.hp <= 0 and not CombatSimulation.canRevive(d))`.
+
+  Le test à ajouter dans `CombatSimulation` : COUP FATAL, ÉVEIL, PORTE et RUSH qui abattent ASURA dans sa première vie. On attend :
+  - aucun `Hit` avec `ko`, et `finish` faux ;
+  - un `Revive` ;
+  - au vrai K.O., `RoundEnd` avec `inCinematic = false` ;
+  - `feats.fatalKO` inchangé.
+
+  Puis les relais et les boss dans le Fuzz, avec l'invariant « un coup annoncé K.O. finit la manche » (le fuzz de relais de la chasse du 21/10 : 24 matchs 2v2 et 3v3, 77 manches, aucun écart hors ASURA).
+- **Risque de la correction : faible.**
+  - `canRevive(d)` n'est vrai que pour ASURA avant sa résurrection (`SecondLife`, `MoveData.luau:1400`, seul kit à l'avoir). Pour les 21 autres cibles, les cinq expressions redeviennent exactement les anciennes : aucun changement possible hors du défi ASURA ;
+  - pour ASURA, la scène change de version : « cible debout » au lieu de « K.O. ». À relire au storyboard ;
+  - le FATAL FINISHER ne peut pas se déclencher contre lui : le joueur n'a aucune manche gagnée avant la fin du défi ;
+  - à relancer : CombatSimulation, Fuzz, Kits, Cinematography, `BossDuel` (ASURA).
+- **Ancienne piste** (20/10, toujours valable) :
   - production choisit si la scène doit aussi mettre en scène la chute avant la résurrection ;
-  - un test dans `CombatSimulation` : un COUP FATAL, un ÉVEIL, une PORTE et un RUSH qui abattent ASURA dans sa première vie. On attend : aucun `Hit` avec `ko`, pas de `finish`, un `Revive`, puis, au vrai K.O., un `RoundEnd` avec `inCinematic = false` ;
   - ajouter les relais et les boss au Fuzz, avec l'invariant « un coup annoncé K.O. finit la manche ».
 
 ## B-021 · La cote 2v2 et 3v3, les compteurs des titres et leur étoile sont perdus à chaque reconnexion
@@ -455,6 +483,12 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : tout ce qu'un module écrit dans le profil revient à la session suivante.
 - **Gravité** : bloquant (progression perdue à chaque reconnexion : cote CLASSÉE 2v2 et 3v3, progression des titres).
 - **Statut** : `corrigé (v0.36.7)`, à confirmer en jeu par Wilhem (une reconnexion après un CLASSÉ 2v2). Les valeurs par défaut et la fusion du chargement passent dans un module pur, `src/server/Profile.luau`, avec `ratings`, `feats` et `earnedTitles`. Un test de `Lobby.test` (« saved profile ») fait écrire chaque module, sauvegarde, recharge et compare ; il échoue sur l'ancien code. Validé : l'ancienne et la nouvelle fusion donnent le même résultat sur 20 006 sauvegardes, aux trois champs ajoutés près.
+- **Relu par la chasse du 21/10** (`git diff 0c2ed8e..HEAD`) :
+  - `Profile.luau` est pur : aucun `require`, aucune API Roblox ;
+  - `init.server.luau` l'appelle à deux endroits : `defaultProfile()` (`:120-123`) et la fusion du chargement (`:175`). Le reste du chargement est inchangé : kit inconnu, saison des succès, testeurs ;
+  - tous les champs du profil écrits par le serveur et les modules purs ont été relevés (recherche des écritures `profile.X =`, `+=` et `profile[…]` dans `src/server` et `src/shared`). Chacun figure dans `Profile.default`, avec le bon type ;
+  - Lobby : 48 tests, dont « saved profile », tous passés.
+- **Ce qui reste** (pas un nouveau bug) : la récupération de la cote 2v2 et 3v3 perdue avant la v0.36.7 (piste 3 ci-dessous) n'a pas été faite. Un joueur qui avait joué ces catégories avant le 20/10 repart de 1000 ; seuls les classements `_2v2_v1` et `_3v3_v1` gardent sa dernière cote. Production peut décider de la relire au chargement quand `ratings` est vide.
 - **Piste** :
   - ajouter `ratings = {}`, `feats = {}` et `earnedTitles = {}` à `defaultProfile()` ;
   - mieux : sortir `defaultProfile` et la boucle de chargement dans un module pur (par exemple `src/server/Profile.luau`), avec un test d'aller-retour. Ce test fait écrire chaque module (Matchmaker, GameModes, Store, Economy, Quests, AntiCheat, Champions), puis sauvegarde, recharge et compare ;
@@ -473,7 +507,8 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - résultat : ni « K.O. · … WINS THE ROUND », ni scène K.O., à chaque vague. Il reste la voix K.O. et le jingle K.O. Une manche PERFECT affiche toujours « PERFECT ».
 - **Ce qui devrait se passer** : « K.O. » à chaque vague gagnée, et la scène K.O. seulement à la vraie fin.
 - **Gravité** : mineur (visuel, mais à chaque vague d'un mode entier).
-- **Statut** : `ouvert`.
+- **Statut** : `ouvert` (code inchangé au 21/10). Depuis la v0.36.7, les lignes du serveur ont bougé : l'ajout de l'adversaire est en `init.server.luau:1979-1985`, et l'événement part dans `batch` en `:2109`, puis il est envoyé en `:2121-2123`, après `followEvents` (`:2111`).
+- **À côté** : une vague gagnée par un ÉVEIL ou une PORTE qui tue finit, elle, sur « K.O. · … · VICTORY » (B-026).
 - **Piste** :
   - dans `followEvents`, quand le serveur ajoute l'adversaire, remettre `event.matchOver = false` sur ce `RoundEnd`. C'est la même table que celle envoyée juste après, dans `batch` ;
   - ou laisser la simulation savoir qu'une équipe est sans fin (`world.endless[2]`) ;
@@ -499,10 +534,44 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - la cote ne bouge alors pour personne (`init.server.luau:725`). Celui qui part ne perd que ses pièces et sa série.
 - **Ce qui devrait se passer** : celui qui quitte un CLASSÉ perd ses points, comme annoncé. Le filtre anti-farm sert à ne pas **donner** de gains (un compte secondaire qui part tout de suite), pas à épargner une perte.
 - **Gravité** : majeur. Le résultat d'un CLASSÉ abandonné est faux, et le défaut s'exploite : on fuit sans frais tout match mal parti dans les 25 premières secondes, et le classement (donc le champion de la semaine) se fausse. Rien ne se voit à l'écran.
-- **Statut** : `ouvert`.
-- **Piste** :
-  - quand `leftSlot` est donné, appliquer la perte Elo entière à celui qui part, quel que soit `share`, et ne rien donner à celui qui reste si `share` vaut 0 (un compte secondaire ne fait pas monter le principal) ;
-  - sortir cette décision dans une fonction pure (`AntiCheat` ou `Matchmaker`), avec un test dans `Lobby.test` : « celui qui quitte un CLASSÉ perd des points, même après 10 s ».
+- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7).
+- **Revérifié par la chasse du 21/10** : `AntiCheat` et `Matchmaker` n'ont pas changé. Depuis la v0.36.7, les lignes du serveur ont bougé :
+  - `unseat` : `init.server.luau:555`, appel `endVersus(match, 3 - i, i)` en `:561` ;
+  - `endVersus` : `:640` ;
+  - `share` : `:653` ;
+  - victoires et défaites : `:656` ;
+  - cote : `:702`.
+
+  Le calcul recopié donne, pour un joueur à 1500 qui quitte face à un joueur à 1200 :
+
+  | Départ | Actions (lui, l'autre) | Cote de celui qui part | Raison |
+  |---|---|---|---|
+  | après 12 s | 4, 6 | 1500 → **1500** | `short` |
+  | après 24 s | 30, 40 | 1500 → **1500** | `short` |
+  | après 60 s | 12, 80 | 1500 → **1500** | `idle` |
+  | après 120 s | 19, 300 | 1500 → **1500** | `idle` |
+  | après 60 s | 80, 80 | 1500 → 1473 | compté |
+  | 2v2 ou 3v3, après 20 s | 40, 40 | 1300 → **1300** | `short` |
+
+  - **précisions nouvelles** :
+    - la fuite gratuite ne dure pas que 25 s. Un joueur qui reste sous 20 actions (`MIN_ACTIONS`, `AntiCheat.luau:90`) peut partir à tout moment sans rien perdre ;
+    - la défaite n'est pas comptée non plus (`losses`, `:656-658`) ;
+    - le défaut touche aussi le CLASSÉ 2v2 et 3v3.
+- **Piste de correction précise** :
+  1. une fonction pure, par exemple `AntiCheat.ratingShares(shareA, shareB, leftSlot)`, qui rend une part par place :
+     - sans départ : `min(shareA.rating, shareB.rating)` pour les deux (inchangé) ;
+     - avec départ : **1** pour celui qui part (perte Elo entière) et `min(...)` pour celui qui reste (0 si le match est trop court : un compte secondaire qui part tout de suite ne fait pas monter le principal) ;
+  2. dans `endVersus`, `:702-705` : `Matchmaker.setRating(ca.profile, size, AntiCheat.scaleRating(before[1], newA, shares[1]))`, et de même pour B. La condition `share > 0` devient `shares[slot] > 0` pour chaque place ;
+  3. `:656-658` : compter la défaite de celui qui part, même si `share` vaut 0 ;
+  4. tests dans `Lobby.test` :
+     - « celui qui quitte un CLASSÉ perd des points, même après 10 s, ou avec moins de 20 actions » ;
+     - « celui qui reste ne gagne rien si le match est trop court » ;
+     - « sans départ, rien ne change ».
+- **Risque de la correction : faible dans le code, mais deux décisions à prendre.**
+  - La cote n'est plus à somme nulle : celui qui part perd, celui qui reste peut ne rien gagner. Le classement baisse donc un peu au fil des abandons. C'est voulu (contre les comptes secondaires), mais production doit l'acter ;
+  - **un départ subi est puni comme un abandon.** C'est la règle annoncée pour une coupure réseau. Mais c'est aussi le cas à la mise à jour du serveur (B-028) : la correction étendrait cette punition aux 25 premières secondes. Il faut corriger B-028 en même temps ;
+  - `endVersus` vit dans `init.server.luau`, que les tests ne chargent pas : sans la fonction pure, rien ne vérifie la correction.
+- **Ancienne piste** (20/10) : la même, en moins détaillé.
 
 ## B-024 · `!give … title <titre de la boutique>` donne un titre impossible à porter
 - **Date** : 20 octobre 2026.
@@ -516,7 +585,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - le serveur n'accepte de porter qu'un titre de `profile.titles`, ou celui d'un Game Pass. La boutique le montre possédé (on ne peut plus l'acheter), mais le serveur refuse de le porter, sans message (supposé pour le menu).
 - **Pourquoi le test ne le voit pas** : `tests/Lobby.test.luau:1312` vérifie `ownedItems`, pas que le titre se porte.
 - **Gravité** : mineur. Un outil du propriétaire, mais le joueur qui reçoit le cadeau ne peut pas s'en servir.
-- **Statut** : `ouvert`.
+- **Statut** : `ouvert` (code inchangé au 21/10). Depuis la v0.36.7, la règle pour porter un titre est en `init.server.luau:1456` (et `:1156`, à la mise à jour des badges et cosmétiques du joueur, qui retire un titre porté non permis).
 - **Piste** : dans `Admin.apply`, pour un objet `TITLE` (branches `title` et `item`), ajouter aussi le nom à `profile.titles`. Dans le test, vérifier `Champions.canShow`.
 
 ## B-025 · Le verrou de session d'un joueur inactif expire alors qu'il est encore sur le serveur
@@ -530,5 +599,103 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - supposé, le risque : le joueur change de serveur ou d'appareil juste après un changement (fin de match, achat avec des pièces), alors que son dernier verrou date de plus de 60 s. Si le nouveau serveur charge le profil avant que l'écriture de départ de l'ancien arrive, il le prend aussitôt et lit l'ancienne version. L'écriture de départ arrive ensuite, voit un verrou frais d'un autre serveur, et n'est pas écrite (« held by another server », `:271-273`). Les derniers changements sont perdus.
 - **Ce qui devrait se passer** : tant que le joueur est sur le serveur, son verrou reste frais ; seul un serveur planté laisse un verrou périmé.
 - **Gravité** : mineur. Si cela arrivait, ce serait une perte de progression. Mais il faut une course serrée, et l'écriture de départ part dès que le joueur quitte, avant que l'autre serveur ne charge.
-- **Statut** : `ouvert` (risque supposé, mécanisme prouvé).
+- **Statut** : `ouvert` (risque supposé, mécanisme prouvé ; code inchangé au 21/10). Depuis la v0.36.7, l'écriture est `writeProfile`, `init.server.luau:231-250` (verrou posé en `:242`, refus « held by another server » en `:248-250`).
 - **Piste** : dans la boucle de vidage, réécrire aussi (renouveler le verrou) tout profil chargé dont la dernière écriture date de plus de `LOCK_TTL / 2`. Par exemple, une fonction `SaveQueue.stale(q, now, ttl)`, avec un test dans `Lobby.test`.
+
+## B-026 · Un ÉVEIL ou une PORTE qui tue avant la dernière manche finit sur « K.O. · … · VICTORY », puis le match continue
+- **Date** : 21 octobre 2026.
+- **Source** : trouvé par la chasse, en suivant les fins de manche des modes (1 VS 1 · CPU, relais, SURVIE).
+- **Comment reproduire** :
+  - ici : script de la chasse, hors dépôt. On prend un monde hors entraînement, manche 1, aucune manche gagnée. On lance `Sim.debugCinematic(w, 1, "Gate" ou "Awaken", nil, 30 % de la vie de la cible)`, puis on appelle `Director.cinematic` à chaque tick et on relève le dernier titre affiché ;
+  - en jeu : 1 VS 1 · CPU, dès la manche 1, une PORTE ou un ÉVEIL sur un adversaire sous 30 % de sa vie maximale (FINAL FINISH).
+- **Ce qui se passe** (prouvé sur la simulation et le directeur) :
+
+  | Lanceur, ultime | Dernier titre à l'écran | `RoundEnd` | Ensuite |
+  |---|---|---|---|
+  | KAI, PORTE | « K.O. » / « … · VICTORY » | `matchOver = false`, `inCinematic = true` | manche 2 (score 1-0) |
+  | TARO, ÉVEIL | idem | idem | manche 2 |
+  | SHIN, PORTE | idem | idem | manche 2 |
+
+  - un FINAL FINISH joue toujours la scène K.O. complète, jusqu'au fondu au noir (c'est voulu : « Scène de K.O. (FINAL FINISH et K.O. qui gagne le match) », `docs/JOURNAL.md`) ;
+  - mais le sous-titre « · VICTORY » est écrit sans regarder si le match est gagné ;
+  - le HUD se tait (`inCinematic`, `HUDController.luau:1439`) : « VICTORY » est le seul texte de cette fin de manche ;
+  - même chose au premier K.O. d'un relais 2v2 ou 3v3, à chaque vague de SURVIE gagnée ainsi, et dans le faux K.O. d'ASURA (B-020) ;
+  - le COUP FATAL classique n'a pas ce défaut : il n'écrit que « K.O. » et le nom du coup (`FATAL.title`, `CinematicDirector.luau:2702-2710`). Le FATAL FINISHER non plus : aucun titre « VICTORY » dans `Finishers.luau`.
+- **Ce qui devrait se passer** : « VICTORY » seulement quand ce K.O. gagne le match. Sinon, « K.O. » avec le nom, ou le numéro de la manche.
+- **Cause** (prouvée) :
+  - `src/shared/CinematicDirector.luau:5172-5174` : `cin.finish` lance `Director.ko` quel que soit le score ;
+  - le dernier plan de la scène K.O. écrit `· VICTORY` en dur : `:5067` (KAI) et `koEnd`, `:3221` (les 8 scènes K.O. propres à un kit).
+- **Gravité** : mineur. C'est un mot, mais sur un écran noir, à la fin d'une longue scène : le joueur croit le match gagné. Et c'est fréquent : il suffit d'un ÉVEIL ou d'une PORTE sur une cible sous 30 % de sa vie maximale (`MaxHealthShare = 0.3`, `MoveData.luau:927`, `:962`), à n'importe quelle manche.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - la simulation sait, au coup final, si ce K.O. décide le match : c'est le même calcul que `matchOver` dans `endRound` (`CombatSimulation.luau:2479-2483`), avec une victoire de plus ou un perso de moins. On le pose dans `world.cinematic` (par exemple `decides = true`), qui part dans l'instantané ;
+  - la scène K.O. écrit « VICTORY » seulement si `ctx.cin.decides`, ou si elle joue après la fin du match (`victoryScene`) ;
+  - un test dans `Cinematography` : un FINAL FINISH à la manche 1 n'affiche pas VICTORY ; à la balle de match, il l'affiche ;
+  - en SURVIE, ce calcul dit « décidé » à chaque vague (même cause que B-022) : à corriger ensemble.
+
+## B-027 · Temps écoulé : la manche va au plus de PV, pas à la barre de vie la plus pleine
+- **Date** : 21 octobre 2026.
+- **Source** : trouvé par la chasse (modes et règles de fin de manche).
+- **Comment reproduire** :
+  - ici : script de la chasse, hors dépôt, deux kits de vies différentes, `timerTicks = 2`, puis on regarde le `RoundEnd` :
+
+    | Combattant 1 | Combattant 2 | Gagnant |
+    |---|---|---|
+    | GORAN 680/1700 (barre 40 %) | AKEMI 630/1050 (barre 60 %) | **GORAN** |
+    | TARO 780/1560 (barre 50 %) | YUKINA 775/1250 (barre 62 %) | **TARO** |
+    | KAI 930/1550 (barre 60 %) | ASURA 960/3200 (barre 30 %), défi en relais | **ASURA** |
+
+  - en jeu : laisser filer les 99 s avec la barre la plus pleine, face à un perso qui a plus de vie maximale.
+- **Ce qui se passe** (prouvé) :
+  - `src/shared/CombatSimulation.luau:2455` : `winner = if a.hp > b.hp then 1 elseif b.hp > a.hp then 2 else 0`, en PV absolus ;
+  - les vies maximales vont de 1 050 (AKEMI) à 1 700 (GORAN), 3 200 pour ASURA, 3 000 pour KUROEN SHIN ;
+  - le HUD dessine des barres proportionnelles (`view.hp / view.maxHp`, `src/client/HUDController.luau:1457`) : le joueur voit sa barre plus pleine et perd la manche ;
+  - au défi ASURA, un temps écoulé élimine le perso du joueur tant qu'ASURA a plus de PV absolus, donc presque toujours ;
+  - le test du dépôt (`tests/CombatSimulation.test.luau:1083`) ne joue que KAI contre KAI.
+- **Fréquence mesurée** : aucun temps écoulé sur 101 manches CPU contre CPU (77 manches de niveau 4, sur 5 paires de kits aux vies très différentes ; 24 contre ASURA). Des joueurs prudents vont plus souvent au bout des 99 s ; cela ne se mesure pas d'ici.
+- **Ce qui devrait se passer** : à décider. Le cahier des charges demande de « définir double K.O. et timeout avant implémentation » (`docs/Roblox_Guide_Claude.md:156`), et la règle n'est écrite nulle part pour des vies différentes. L'usage des jeux de combat, et ce que montre le HUD, c'est la part de vie restante.
+- **Gravité** : mineur. C'est rare, mais faux en combat quand cela arrive, et toujours en défaveur du perso fragile ou du joueur face au boss.
+- **Statut** : `à confirmer` (règle à trancher par Wilhem ou production : part de vie, comme la barre, ou PV absolus).
+- **Piste** :
+  - comparer `a.hp / a.maxHp` à `b.hp / b.maxHp`, avec égalité = manche nulle comme aujourd'hui ;
+  - un test avec deux kits de vies différentes, et un relais contre ASURA ;
+  - relancer Balance, même si les temps écoulés y sont rares.
+
+## B-028 · Une mise à jour du serveur pendant un CLASSÉ compte comme un abandon pour le premier joueur retiré
+- **Date** : 21 octobre 2026.
+- **Source** : trouvé par la chasse, en préparant la piste de B-023 (qui part de `unseat`).
+- **Comment reproduire** :
+  - ici : relecture du code ; la fermeture d'un serveur Roblox ne se rejoue pas hors Studio ;
+  - en jeu : deux comptes en CLASSÉ, depuis plus de 25 s, chacun avec au moins 20 actions. Wilhem publie, puis « Migrate to Latest Update » (ou « Shut Down All Servers »). On compare ensuite la cote, la série et l'historique des deux.
+- **Ce qui se passe** :
+  - prouvé dans le code :
+    - `Players.PlayerRemoving` (`src/server/init.server.luau:1269-1274`) appelle `unseat`, qui appelle `endVersus(match, 3 - i, i)` (`:561`) : le joueur retiré est traité en déserteur ;
+    - rien ne marque la fermeture du serveur : `BindToClose` (`:2152-2171`) prévient les clients (`updating = true`) et écrit les profils, c'est tout ;
+    - celui qui part le premier perd donc sa cote (si le match compte, voir B-023), ses pièces et sa série (`Economy.streak`, « left ») ;
+    - l'autre gagne la victoire, les pièces, la série, les quêtes et les points de la semaine ;
+  - supposé (non vérifiable d'ici) : à la fermeture, Roblox retire les joueurs un par un (téléportation vers le nouveau serveur, ou déconnexion), et le premier retiré déclenche `PlayerRemoving` pendant que l'autre est encore assis. L'ordre entre `BindToClose` et `PlayerRemoving` n'est pas connu d'ici.
+- **Ce qui devrait se passer** : un match coupé par le serveur ne compte pour personne (aucun point, aucune série perdue), comme un match annulé.
+- **Gravité** : mineur. Cela ne touche que les CLASSÉS en cours au moment d'une mise à jour, mais les livraisons sont quotidiennes (à chaque publication suivie d'un « Migrate », supposé), et le joueur perd des points sans rien avoir fait. La correction de B-023, si elle ne traite pas ce cas, l'aggrave : la perte s'appliquerait dès la première seconde.
+- **Statut** : `à confirmer` (le mécanisme est prouvé, l'ordre des événements de Roblox à la fermeture ne l'est pas).
+- **Piste** :
+  - un drapeau `closing = true` posé en tête de `BindToClose`. `unseat` n'appelle alors pas `endVersus`, ou l'appelle sans points ni série (« no contest ») ;
+  - si Roblox retire les joueurs **avant** d'appeler `BindToClose`, ce drapeau arrive trop tard. Repli possible : ne rien compter quand les deux joueurs d'un match partent à moins de quelques secondes d'écart. Le premier départ attendrait alors un court délai avant de conclure ;
+  - à faire en même temps que B-023.
+
+## B-029 · SURVIE : un double K.O. compte l'adversaire comme battu
+- **Date** : 21 octobre 2026.
+- **Source** : trouvé par la chasse, en rejouant les règles de SURVIE du serveur.
+- **Comment reproduire** :
+  - ici : script de la chasse, hors dépôt. On recopie les règles du serveur (`init.server.luau:610-614`, `:1979-1985`, `:2004-2012`), puis on fait tomber les deux combattants au même tick de la vague 1 ;
+  - en jeu : un double K.O. (ou un temps écoulé à vie égale) en SURVIE.
+- **Ce qui se passe** (prouvé sur la simulation, avec les règles du serveur recopiées) :
+  - `RoundEnd` `winner = 0` : les deux équipes perdent leur combattant (`CombatSimulation.luau:2458-2468`) ;
+  - le serveur voit l'équipe CPU vide, ajoute l'adversaire suivant et passe à la vague 2 (`:1981-1985`) ;
+  - la partie finit (`MatchEnd`, le CPU gagne), et le serveur compte `beaten = match.wave - 1 = 1` (`:2006`) : 10 pièces, record de SURVIE 1, succès SURVIVOR avancé d'un adversaire qui n'a pas été battu.
+- **Ce qui devrait se passer** : seuls les adversaires vraiment battus comptent. Un double K.O. finit la course au score d'avant.
+- **Gravité** : cosmétique (rare, un adversaire de trop dans le compte).
+- **Statut** : `ouvert`.
+- **Piste** :
+  - dans `followEvents`, n'ajouter l'adversaire suivant (et `match.wave += 1`) que si `event.winner == 1` ;
+  - ou compter les vagues gagnées à part (`match.beaten`) ;
+  - un test avec la correction de B-022, qui touche le même endroit.

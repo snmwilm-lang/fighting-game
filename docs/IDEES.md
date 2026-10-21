@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 20 octobre 2026 (routine du matin).
+Dernier tri : 21 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,7 +20,7 @@ Dernier tri : 20 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 20 octobre 2026) :
+- **Ce qui existe** (vérifié le 21 octobre 2026) :
   - 19 persos ont leur finisher : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
   - la scène de NOVA a trois bugs relevés le 18/10 : B-012 (la visière dans sa tête) est ouvert ; B-013 (le rail posé sur une main mesurée au labo) et B-014 (9 lumières à la fois) attendent que Wilhem les confirme en jeu. Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
@@ -29,7 +29,8 @@ Dernier tri : 20 octobre 2026 (routine du matin).
   - depuis la v0.36.5, `Cinematography` joue aussi chaque finisher avec l'attaquant dos au mur, à gauche puis à droite (38 tests). Un perso qui reçoit sa ligne `Finisher` y entre tout seul ;
   - depuis la v0.36.6, `Cinematography` joue aussi les COUPS FATAUX classiques des 22 kits dos au mur, des deux côtés (44 tests). Celui de KUROEN, TOTAL ECLIPSE, y passe ;
   - depuis la v0.36.6, l'outil `Kit.hiddenShare` (`tests/CinematicKit.luau`) mesure quelle part du sujet d'un plan est cachée par l'autre corps. Pour l'instant, seuls les 4 tests ISSEN de SHIN s'en servent (décision du 19/10) : contrairement au test « dos au mur », **un nouveau finisher n'y entre pas tout seul** ;
-  - la règle de déclenchement existe déjà dans `CombatSimulation` : un coup fatal qui tue, lancé par un perso qui a déjà gagné un round. Il n'y a rien à changer.
+  - la règle de déclenchement existe déjà dans `CombatSimulation` : un coup fatal qui tue, lancé par un perso qui a déjà gagné un round. Il n'y a rien à changer ;
+  - la correction de B-020, qui passera avant KUROEN, touchera la même décision (`finish`, dans `startCinematic`). D'après sa piste, un COUP FATAL qui abat ASURA dans sa première vie ne comptera plus comme un coup qui tue : aucun finisher ne s'y jouera. La scène de KUROEN n'a rien à prévoir pour ce cas.
 - **Pour KUROEN (la prochaine), ce que production doit savoir** :
   - **son identité** : 蝕, l'empereur de l'éclipse. Rouge E0102E et noir, « courts et brutaux » (fiche VFX 6.20). Il frappe avec les poings, les coudes, les genoux et des rafales de ki rouge à cœur noir, et laisse un petit soleil noir à l'impact (`KitFX`). Sa jauge DOMINATION a trois niveaux : trois marques rouges dans le dos, et au niveau III, ÉCLIPSE. Son son : des gantelets sur l'os, et un boom sourd en salle sur les gros coups (`SoundPalette.KUROEN`). Son allure : crinière blanche à mèches rouges, peau sombre, yeux rouges, tenue noire déchirée ;
   - **ses ultimes, à ne pas recopier** (`CinematicDirector`, `GEN.add("KUROEN")`) :
@@ -81,7 +82,12 @@ Dernier tri : 20 octobre 2026 (routine du matin).
   - le test « dos au mur, des deux côtés » passe pour lui (`Cinematography`, v0.36.5) ;
   - pour chaque nouvelle scène (KUROEN, puis ASURA et KUROEN SHIN) : un test avec `Kit.hiddenShare` (v0.36.6) vérifie qu'à aucune image plus d'un quart du sujet n'est caché par l'autre corps. Il est joué au centre, des deux côtés, et dos à chaque mur ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). KUROEN est la prochaine. Elle a été reportée deux fois, à cause de deux bugs majeurs passés avant elle : le 18/10 pour B-011 (corrigé en v0.36.5), puis le 19/10 pour B-017 (corrigé en v0.36.6). Viendront ensuite ASURA et KUROEN SHIN.
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). KUROEN est la prochaine. Elle a été reportée trois fois, par des bugs passés avant elle :
+  - le 18/10 pour B-011 (majeur, corrigé en v0.36.5) ;
+  - le 19/10 pour B-017 (majeur, corrigé en v0.36.6) ;
+  - le 20/10 pour B-021 (bloquant, corrigé en v0.36.7).
+  
+  Deux bugs majeurs sont encore ouverts et passeront aussi avant elle : B-020 (en CHALLENGE, ASURA abattu par un ultime dans sa première vie) et B-023 (quitter un CLASSÉ dans les 25 premières secondes ne coûte aucun point). Viendront ensuite ASURA et KUROEN SHIN.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.
@@ -135,3 +141,58 @@ Dernier tri : 20 octobre 2026 (routine du matin).
   1. Des captures ou des vidéos en jeu de ce qui ne colle pas : trop gros, trop chargé, mauvaise couleur, ou un effet qu'il préférait avant ?
   2. Le premier retour attendu : les planches d'impact de la v0.36.3 sur les coups (taille, éclat). Il faudrait aussi le message de la console Studio si une texture ne charge pas (B-003).
 - **Statut** : `à clarifier`.
+
+## I-004 · Rendre aux joueurs touchés par B-021 leur cote 2v2 / 3v3 et l'étoile de leurs titres
+- **Date** : 20 octobre 2026 pour la proposition (routine du matin, v0.36.7). Fiche ouverte le 21 octobre 2026.
+- **Wilhem** : rien encore. L'idée ne vient pas de lui : la routine la propose dans `BUGS.md` (B-021, piste) et dans le journal (v0.36.7) : « Récupération proposée, non appliquée, à décider par Wilhem : relire la cote dans les classements 2v2 et 3v3, et rendre l'étoile aux titres à exploit possédés sans achat en boutique. »
+- **Interprétation** : à sa prochaine connexion, un joueur touché par B-021 retrouve :
+  - sa cote CLASSÉE 2v2 et 3v3 : le menu affiche la dernière qu'il avait, au lieu de 1000 ;
+  - l'étoile « gagné en jouant » sur ses titres à exploit qu'il n'a pas achetés (UNTOUCHABLE, COMBO ARTIST, FRAME PERFECT, NO MERCY, FINAL BOSS, BREAKER), sans nouvelle annonce « titre gagné ».
+  
+  Les compteurs des titres pas encore gagnés (par exemple BREAKER à 24 sur 25) restent perdus : rien ne les garde ailleurs.
+- **Ce qui existe** (vérifié le 21 octobre 2026) :
+  - la cause est corrigée depuis la v0.36.7 (`src/server/Profile.luau`) : plus personne ne perd ces champs. Une sauvegarde qui les contenait encore à la fin de la dernière session les retrouve seule ;
+  - **la cote** :
+    - les classements `JeuxCombat_Classement_2v2_v1` et `_3v3_v1` (`Matchmaker.BOARDS`) gardent la dernière cote écrite de chaque joueur. Le serveur ne les écrit que pour une catégorie déjà jouée (`init.server.luau:255-264`) ;
+    - un joueur qui n'a pas rejoué en 2v2 ou en 3v3 depuis la perte y a donc encore sa dernière cote ;
+    - aujourd'hui, le serveur ne lit ces classements que par le haut (les 10 premiers), jamais la ligne d'un joueur ;
+  - **l'étoile** :
+    - un titre à exploit n'entre dans la liste des titres (`titles`) que de deux façons : acheté avec des pièces (`Store.buyItem`, qui note aussi l'achat dans `ownedItems`), ou gagné en jouant (`GameModes.grantFeatTitles`) ;
+    - `ownedItems` est dans les valeurs par défaut du profil depuis la boutique (v0.20.0) : un achat n'a jamais été perdu ;
+    - `!give … title` ne l'ajoute pas à `titles` (B-024). Les Game Pass et les Robux ne donnent aucun de ces six titres ;
+    - donc un titre à exploit présent dans `titles` sans achat dans `ownedItems` a forcément été gagné en jouant. On peut lui rendre son étoile sans aucune lecture en plus ;
+    - FINAL BOSS revient déjà seul, car son compteur est recalculé à partir des notes des défis (`featBosses`), jamais perdues. Mais il ne revient qu'au combat suivant, avec une seconde annonce ;
+  - décision du 20/10 (`DECISIONS.md`) : pas de récupération automatique, elle est seulement proposée. Elle touche la cote CLASSÉE, que les joueurs voient.
+- **Persos et systèmes touchés** :
+  - aucun perso, rien sur le combat ni l'équilibrage ;
+  - le chargement du profil (`init.server.luau`, `Profile.luau`), la cote CLASSÉE (`Matchmaker`), les titres et leur étoile (`GameModes`), les classements (DataStore) ;
+  - le menu montre le résultat. Aucun texte nouveau à traduire si le retour se fait en silence.
+- **Valeur / effort** : moyenne / petit.
+  - Valeur : elle ne concerne que les joueurs touchés, mais c'est leur progression visible (la cote CLASSÉE, et l'étoile qui distingue un titre gagné d'un titre acheté).
+  - Effort : pour l'étoile, une règle pure avec un test ; pour la cote, deux lectures au chargement et un test de la règle.
+- **Risques** :
+  - **des lectures en plus à chaque connexion** :
+    - relire la cote coûte deux lectures DataStore (une par classement) pour chaque joueur sans cote 2v2 ou 3v3. C'est le cas de la plupart des joueurs, qui n'ont jamais joué ces modes. Sans limite, ces lectures se feraient à chaque connexion, pour toujours, et pour rien ;
+    - elles prennent sur le budget DataStore du serveur, le même que celui des profils et du CLASSÉ entre serveurs ;
+    - la parade : **une seule fois par joueur**. Un marqueur dans le profil (un champ de plus dans `Profile.default`, vérifié par le test « saved profile ») n'est posé que si les deux lectures ont répondu. La lecture ne bloque pas l'entrée dans le hub, et elle n'écrase jamais une cote jouée entre-temps ;
+  - **des cas où la cote relue est fausse** :
+    - le classement est écrit après le profil, à part (`init.server.luau:260`). Si cette écriture a échoué, il garde une cote plus ancienne, et c'est elle qui revient ;
+    - un joueur qui a rejoué en 2v2 ou en 3v3 après la perte est reparti de 1000. Sa vraie cote est perdue, et le classement a gardé la nouvelle. La récupération ne peut rien pour lui (elle ne se lance pas, puisqu'il a une cote) ;
+    - chaque jour où la v0.36.7 tourne en ligne sans la récupération, des joueurs touchés rejouent et ne peuvent plus être récupérés. Si la v0.36.7 n'est pas encore publiée sur Roblox, mieux vaut publier les deux ensemble ;
+    - si un jour une cote est remise à zéro exprès (nouvelle saison, tricheur) sans vider les classements, la relecture la rendrait. Rien ne le fait aujourd'hui, et le marqueur « une seule fois » écarte ce cas ;
+  - **des cas où l'étoile est fausse** :
+    - un titre acheté puis gagné en jouant ne retrouve pas son étoile, car on ne peut pas le distinguer d'un titre seulement acheté. Le joueur doit refaire l'exploit ;
+    - si un jour un titre à exploit est donné autrement (récompense de quête, cadeau du propriétaire sans `ownedItems`), la règle lui mettrait une étoile à tort. Un commentaire dans le code et le test doivent le rappeler.
+- **Questions ouvertes** (pour Wilhem) :
+  1. Faut-il rendre ce qui a été perdu ? Choix : a) oui, la cote et les étoiles ; b) seulement les étoiles (aucune lecture en plus, aucun risque de valeur fausse) ; c) non, on laisse comme c'est. **Recommandation : a)**, une seule fois par joueur, en silence, et vite : chaque jour, moins de joueurs peuvent retrouver leur cote.
+- **Statut** : `à clarifier`. Rendre une cote CLASSÉE que les joueurs voient est un choix de Wilhem (décision du 20/10).
+- **Critères d'acceptation** (si Wilhem dit oui) :
+  - une règle pure (dans `Profile.luau` ou `GameModes`), testée dans `Lobby.test` :
+    - au chargement, un titre à exploit présent dans `titles` et sans achat dans `ownedItems` reçoit son étoile ;
+    - un titre acheté n'en reçoit pas, un titre hors des six n'est jamais touché ;
+    - aucune annonce « titre gagné » ;
+  - à la connexion, pour une catégorie sans cote (`Matchmaker.played` faux), le serveur lit la ligne du joueur dans le classement 2v2 ou 3v3. S'il y trouve un nombre, `Matchmaker.setRating` le rend ; sinon, rien ne change ;
+  - une seule fois par joueur : le marqueur figure dans `Profile.default` et n'est posé que si les deux lectures ont répondu. Une lecture en échec est refaite à la connexion suivante ;
+  - la lecture ne bloque pas le chargement, et une cote jouée entre-temps n'est jamais écrasée ;
+  - le test « saved profile » passe avec le nouveau champ, et les 9 suites passent ;
+  - rien n'est affirmé testé sur le vrai DataStore : Wilhem confirme en jeu (un joueur touché revoit sa cote 2v2).

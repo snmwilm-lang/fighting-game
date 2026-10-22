@@ -420,7 +420,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
     - la fin pose `finishedByCinematic = state.finish or d.hp <= 0` (`:2441`) ;
   - ASURA est le seul kit avec `SecondLife` (`src/shared/MoveData.luau:1400`). Le défaut ne touche donc que le défi ASURA, le mode boss le plus mis en avant.
 - **Gravité** : majeur. C'est très visible : un « K.O. · VICTORY » suivi d'un boss qui se relève, puis une victoire sans K.O. Et c'est fréquent : il suffit qu'un ultime l'abatte, ce qui arrive dès qu'il descend sous 960 PV (ÉVEIL, PORTE) ou sous 1 600 PV après un combo (COUP FATAL), sur 3 200.
-- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7).
+- **Statut** : `corrigé (v0.36.8)`, à confirmer en jeu par Wilhem. Correction dans `CombatSimulation.luau` (`fells` séparé de `finish`) et 5 tests dans `CombatSimulation.test` ; validé le 21/10 (378 duels et 480 défis CPU instrumentés : 0 faux K.O. au lieu de 132 ; les 21 autres cibles identiques au tick près). Livré le 22/10 : la livraison du 21 avait été oubliée après le verdict.
 - **Revérifié par la chasse du 21/10, sur la v0.36.7** (le code de `CombatSimulation` n'a pas changé depuis le 20/10 ; toutes les lignes citées tiennent) :
   - script hors dépôt, dans le vrai déroulé (`Sim.newWorld` hors entraînement, `Sim.setKits(w, KIT, "ASURA")`, attaquant à 20 % et jauge pleine, ASURA à 50 PV), puis on achève ASURA relevé à coups de poing, et on fait suivre chaque événement à `GameModes.featEvent` comme le serveur :
 

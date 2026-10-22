@@ -1,5 +1,36 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.8 — 22 octobre 2026 · ASURA abattu dans sa première vie : plus de faux K.O. (routine du 21, livrée le 22)
+
+Produite et **validée par la routine du 21 octobre**. La livraison avait été oubliée après le verdict, et la session l'a terminée le 22 au matin. Le code est celui que la validation a relu, sans changement.
+
+- **B-020, corrigé** :
+  - le problème : en CHALLENGE · ASURA, un ultime qui l'abattait dans sa première vie (COUP FATAL, ÉVEIL, PORTE, et même un simple RUSH) jouait un K.O. complet : voix K.O., scène K.O. ou FATAL FINISHER, et le titre NO MERCY compté. Ensuite ASURA se relevait, et le vrai K.O. final n'avait plus ni titre ni scène ;
+  - la correction (`CombatSimulation.luau`) sépare deux choses : `fells` (le coup l'abat, l'ancienne condition, inchangée) et `finish` (la scène joue sa version K.O.), qui vaut `fells and not canRevive`. Le FATAL FINISHER, `ko` et `finishedByCinematic` suivent la même règle ;
+  - **la seconde vie d'ASURA ne change pas** (décision de Wilhem) : il se relève avec la même vie ;
+  - abattu la première fois, il voit la scène d'un ultime qui ne tue pas, puis il se relève dans son aura, comme le faisait déjà le RUSH.
+- **Tests** : 5 dans `CombatSimulation.test`. Quatre portent sur les ultimes qui abattent la première vie, sans et avec QTE, suivis du vrai K.O. Le cinquième est une garde sur KAI et KUROEN SHIN. Les quatre premiers échouent sur l'ancien code.
+- **La validation** a mesuré sur des duels CPU instrumentés contre ASURA :
+  - 132 faux K.O. avant, 0 après ;
+  - 71 NO MERCY comptés à tort avant, 0 après ;
+  - les résurrections sont identiques.
+  
+  Elle a aussi joué le défi au vrai format : 127 faux K.O. avant, 0 après. Les 21 autres cibles sont identiques au tick près, sur plus de 8 000 ultimes et 520 matchs.
+- **Une limite, notée** : avec les QTE allumés (pas dans le jeu livré), un COUP FATAL raté qui aurait joué le FATAL FINISHER sur une autre cible peut laisser la première vie d'ASURA debout.
+
+**Fichiers** :
+- `src/shared/CombatSimulation.luau`, `src/shared/CombatConfig.luau` (0.36.8) ;
+- `tests/CombatSimulation.test.luau` ;
+- `docs/BUGS.md`, `docs/DECISIONS.md`.
+
+**Tests** : CombatSimulation 174 (+5), FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 402, Lobby 48, Kits 130. Tout passe, relancé le 22 sur le même arbre.
+
+**Problèmes ouverts** :
+- B-023 (majeur) : quitter un CLASSÉ tôt, ou avec moins de 20 actions, ne coûte aucun point. À corriger avec B-028 (une mise à jour du serveur compte comme un abandon) ;
+- B-022, B-024 à B-029 ;
+- I-004 attend Wilhem ;
+- rien n'est vérifié dans Studio.
+
 ## Version 0.36.7 — 20 octobre 2026 · La cote 2v2 / 3v3 et les titres ne se perdent plus à la reconnexion (routine du matin)
 
 Livrée par la routine du matin. La chasse aux bugs, tournée vers le combat et le hub, a trouvé un bug **bloquant** : il passe avant tout le reste, et le finisher de KUROEN est de nouveau reporté. Validé du premier coup.

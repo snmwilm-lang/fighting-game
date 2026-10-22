@@ -1739,6 +1739,168 @@ test("ASURA's SECOND LIFE: felled once, he rises in a black aura (half health, h
 	expect(not Sim.canRevive(k.fighters[2]) and Sim.canRevive(k.fighters[1]), "SECOND LIFE is not ASURA's alone")
 end)
 
+-- B-020: an ultimate that fells ASURA in his first life is no K.O. (Wilhem: « le son qui dit KO
+-- doit venir que sur les KO »): no K.O. voice (Hit.ko), no K.O. title or scene and no FATAL
+-- FINISHER (finish), nothing for NO MERCY; he rises in his SECOND LIFE. The real K.O. is his
+-- second fall, and it keeps all of its own.
+local GameModes = require("../src/shared/GameModes")
+local B020_KINDS = { "Rush", "Fatal", "Awaken", "Gate" }
+
+-- Both fighters free (after a cinematic, a fall, a rise), then face to face, 3 studs apart.
+local function faceOff(world)
+	for _ = 1, 900 do
+		local free = world.cinematic == nil
+		for _, f in world.fighters do
+			if f.state == "KO" or f.move or f.stun > 0 or f.hitstop > 0 or f.knockdown > 0 or f.getUp > 0
+				or f.launched or f.y > 0 then free = false end
+		end
+		if free then break end
+		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+	end
+	local a, d = world.fighters[1], world.fighters[2]
+	a.x, d.x, a.facing, d.facing = -1.5, 1.5, 1, -1
+	-- (no wake-up invincibility; KUROEN SHIN's DIVINE INSTINCT put aside: the blow must land)
+	d.wakeInvuln, d.evadeCharges, d.evadeCharge = 0, 0, 1e9
+end
+
+-- KAI plays `kind` on the fighter of slot 2, whose health is set to `hp` first: the RUSH (R
+-- alone) and the COUP FATAL (raw) from neutral, the ÉVEIL and the PORTE at the end of a clean
+-- full route (which takes 251 to 278 of it). Returns every event of the 1300 ticks that follow.
+local function ultimateOn(world, kind, hp)
+	faceOff(world)
+	local a, d = world.fighters[1], world.fighters[2]
+	d.hp, a.meter = hp, world.config.MaxMeter
+	if kind == "Awaken" or kind == "Gate" then
+		return (playEarned(world, routeKeys(MoveData.FullRoutes[1], if kind == "Awaken" then "R" else "U"),
+			{ ticks = 1300, prompts = true }))
+	end
+	a.hp, a.fatalUsed = math.floor(a.maxHp * 0.2), nil -- (the COUP FATAL: his last breath, again)
+	return run(world, 1300, function(t)
+		return { input({ ultimate = kind == "Rush" and t == 1, fatal = kind == "Fatal" and t == 1 }) }
+	end)
+end
+
+local function indexOf(events, kind)
+	for i, e in events do if e.kind == kind then return i end end
+	return nil
+end
+
+-- The cinematic's last blow (the one that can fell), and how many blows announced a K.O.
+local function finalBlow(events)
+	for _, e in events do if e.kind == "Hit" and e.cinematic and e.heavy then return e end end
+	return nil
+end
+
+local function koAnnounced(events)
+	local n = 0
+	for _, e in events do if e.kind == "Hit" and e.ko then n += 1 end end
+	return n
+end
+
+-- The feats the server counts from these events for the player (slot 1): NO MERCY = fatalKO.
+local function feats(events, profile)
+	profile = profile or {}
+	for _, e in events do GameModes.featEvent(profile, e, 1, Moves) end
+	return profile
+end
+
+-- (ASURA's BURST breaks a combo by chance: put aside, so the routes are played whole)
+local function withoutBurst(fn)
+	local roll = Sim.burstRoll
+	Sim.burstRoll = function() return 1 end
+	local ok, err = pcall(fn)
+	Sim.burstRoll = roll
+	if not ok then error(err, 0) end
+end
+
+for _, kind in B020_KINDS do
+	test("B-020: " .. kind .. " fells ASURA's first life: no K.O. (voice, title, scene, finisher, NO MERCY), he rises; then the real K.O., with its own", function()
+		withoutBurst(function()
+			local id = MoveData.Kits.KAI.Ultimates[kind]
+			local hp = if kind == "Awaken" or kind == "Gate" then 400 else 50
+			-- the shipped game (no QTE: decided when it starts) and the QTE on (decided again once judged)
+			for _, config in { ShippedConfig, Config } do
+				-- the real K.O. by plain blows, or by the same ultimate
+				for _, last in { "blows", "ultimate" } do
+					local label = kind .. (if config.CinematicPrompts then " (QTE)" else "") .. ", then " .. last
+					local world = Sim.newWorld(config, MoveData, false)
+					Sim.setKits(world, "KAI", "ASURA")
+					world.phase = "Fight"
+					-- (a round already won: a COUP FATAL that kills would be the FATAL FINISHER)
+					world.fighters[1].wins = 1
+					local boss = world.fighters[2]
+					local events = ultimateOn(world, kind, hp)
+					local start, fell, ending = find(events, "CinematicStart"), finalBlow(events), find(events, "CinematicEnd")
+					expect(start and start.move == id, label .. ": no " .. id .. " (" .. compactRoute(events) .. ")")
+					expect(start.finish == false and not start.finisher,
+						label .. ": his first fall is staged as a K.O. (finish " .. tostring(start.finish) .. ", finisher " .. tostring(start.finisher) .. ")")
+					expect(fell and fell.ko == false and not fell.finish, label .. ": the blow that fells his first life is announced as a K.O.")
+					expect(koAnnounced(events) == 0, label .. ": a K.O. announced on his first life")
+					expect(ending and ending.finish == false, label .. ": the cinematic ends on a K.O.")
+					expect(world.finishedByCinematic == false, label .. ": the cinematic keeps the round's K.O. for itself")
+					local rise = indexOf(events, "Revive")
+					expect(rise and rise > indexOf(events, "CinematicEnd"), label .. ": he did not rise after the cinematic")
+					expect(find(events, "RoundEnd") == nil and world.phase == "Fight", label .. ": the round ended on his first fall")
+					local life = MoveData.Kits.ASURA.Stats.SecondLife.Health
+					expect(boss.revived and boss.hp == math.floor(boss.maxHp * life + 0.5),
+						label .. ": his second life is " .. boss.hp .. " hp")
+					local profile = feats(events)
+					expect(not profile.feats.fatalKO, label .. ": NO MERCY counted his first fall")
+					-- the real K.O.: his second fall
+					local final, roundEnd
+					if last == "blows" then
+						faceOff(world)
+						boss.hp = 1
+						final = run(world, 300, function(t) return { input({ light = t % 8 == 1 }) } end)
+						roundEnd = find(final, "RoundEnd")
+						expect(roundEnd and roundEnd.inCinematic == false,
+							label .. ": the real K.O. is left to a cinematic (no K.O. title, no K.O. scene)")
+					else
+						final = ultimateOn(world, kind, hp)
+						roundEnd = find(final, "RoundEnd")
+						local start2, fell2 = find(final, "CinematicStart"), finalBlow(final)
+						local finishes = kind ~= "Rush" -- (the RUSH has no K.O. version: its K.O. is the round's)
+						expect(start2 and start2.move == id and start2.finish == finishes,
+							label .. ": the real K.O. is not staged as one (" .. compactRoute(final) .. ")")
+						expect((start2.finisher == true) == (kind == "Fatal"), label .. ": the FATAL FINISHER is not played on the real K.O.")
+						expect(fell2 and fell2.ko == true and fell2.finish == finishes, label .. ": the real K.O. is not announced")
+						expect(roundEnd and roundEnd.inCinematic == true, label .. ": the real K.O.'s own scene is not flagged")
+						feats(final, profile)
+						expect((profile.feats.fatalKO or 0) == (if kind == "Fatal" then 1 else 0),
+							label .. ": NO MERCY counted " .. tostring(profile.feats.fatalKO))
+					end
+					expect(koAnnounced(final) >= 1, label .. ": the real K.O. is not announced")
+					expect(roundEnd and roundEnd.winner == 1 and roundEnd.reason == "KO", label .. ": the real K.O. did not end the round")
+					expect(find(final, "Revive") == nil, label .. ": a third life")
+				end
+			end
+		end)
+	end)
+end
+
+test("B-020: every other target keeps it as before: an ultimate that fells it is its K.O. (KAI, KUROEN SHIN)", function()
+	for _, foe in { "KAI", "KUROEN SHIN" } do
+		for _, kind in B020_KINDS do
+			local label = kind .. " on " .. foe
+			local world = Sim.newWorld(ShippedConfig, MoveData, false)
+			Sim.setKits(world, "KAI", foe)
+			world.phase = "Fight"
+			world.fighters[1].wins = 1
+			local events = ultimateOn(world, kind, if kind == "Awaken" or kind == "Gate" then 400 else 50)
+			local start, fell, roundEnd = find(events, "CinematicStart"), finalBlow(events), find(events, "RoundEnd")
+			local finishes = kind ~= "Rush"
+			expect(start and start.move == MoveData.Kits.KAI.Ultimates[kind] and start.finish == finishes,
+				label .. ": not staged as a K.O. (" .. compactRoute(events) .. ")")
+			expect((start.finisher == true) == (kind == "Fatal"), label .. ": the FATAL FINISHER")
+			expect(fell and fell.ko == true and fell.finish == finishes and koAnnounced(events) == 1, label .. ": the K.O. is not announced")
+			expect(find(events, "CinematicEnd").finish == finishes, label .. ": the cinematic does not end on its K.O.")
+			expect(roundEnd and roundEnd.winner == 1 and roundEnd.inCinematic == true, label .. ": the round's end is not the cinematic's")
+			expect(find(events, "Revive") == nil, label .. ": rose again")
+			expect((feats(events).feats.fatalKO or 0) == (if kind == "Fatal" then 1 else 0), label .. ": NO MERCY")
+		end
+	end
+end)
+
 test("ASURA against long reach: four arms reach farther, his forward dash charges through one blow", function()
 	local w = kitDuel("ASURA", "KAI", 3)
 	local a, k = w.fighters[1], w.fighters[2]

@@ -1274,18 +1274,18 @@ end
 local function startCinematic(world, a, d, events, moveId)
 	local c = world.config
 	local cin = world.moveData.Cinematics[moveId]
-	local plan, finish = {}, false
+	local plan, fells = {}, false
 	if cin.Type == "Fatal" then
 		-- COUP FATAL: one blow, a share of the target's MAXIMUM health (much more from a combo).
 		local total = math.floor(d.maxHp * (if a.fatalCombo then cin.ComboShare else cin.RawShare))
-		finish = total >= d.hp and (not cin.FinishThreshold or d.hp < d.maxHp * cin.FinishThreshold)
+		fells = total >= d.hp and (not cin.FinishThreshold or d.hp < d.maxHp * cin.FinishThreshold)
 		table.insert(plan, { tick = cin.FinalTick, damage = total, final = true })
 	elseif cin.MaxHealthShare then
 		-- A share of the target's MAXIMUM health, ignoring combo scaling (Gate, Awaken); the
 		-- rhythm prompts can still take some off (MissShare), so it only KOs if what is left
 		-- of it can take the remaining health (decided again once the prompts are judged).
 		local total = math.floor(d.maxHp * cin.MaxHealthShare)
-		finish = total >= d.hp
+		fells = total >= d.hp
 		local share = math.floor(total * cin.HitShare)
 		for _, t in cin.Hits do table.insert(plan, { tick = t, damage = share }) end
 		table.insert(plan, { tick = cin.FinalTick, damage = total - share * #cin.Hits, final = true })
@@ -1296,6 +1296,10 @@ local function startCinematic(world, a, d, events, moveId)
 		end
 		table.insert(plan, { tick = cin.FinalTick, damage = math.max(1, math.floor(cin.FinalDamage * scale + 0.5)), final = true })
 	end
+	-- SECOND LIFE (B-020): felling a target that will rise again (ASURA's first life) is no
+	-- K.O. The blow still takes that life (`fells`), but the scene plays its "still standing"
+	-- version: no K.O. title, no K.O. scene, no FATAL FINISHER. The K.O. is his second fall.
+	local finish = fells and not CombatSimulation.canRevive(d)
 	-- ÉVEIL ÉCARLATE: rhythm prompts during the rush, taken from the route that was played.
 	-- (0.25.0: the rhythm prompts are off by default, Config.CinematicPrompts: a cinematic is a
 	-- reward to watch, not a minigame; the blows deal their plain damage, no bonus, no cut)
@@ -1333,7 +1337,7 @@ local function startCinematic(world, a, d, events, moveId)
 		prompts = {} -- (a finisher is watched, never a rhythm game)
 	end
 	world.cinematic = {
-		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, style = style,
+		attacker = a.slot, defender = d.slot, move = moveId, type = cin.Type, tick = 0, finish = finish, fells = fells, style = style,
 		kit = a.kit, -- (ASURA plays KAI's moves with his own cinematics)
 		finisher = finisher ~= nil or nil,
 		length = if finisher then finisher.Length else cin.Length + (if finish then cin.FinishExtra else 0),
@@ -2349,8 +2353,9 @@ local function judgePrompts(world, state, input, events, force)
 			for _, step in state.plan do
 				if not step.done then remaining += step.damage end
 			end
-			state.finish = remaining >= d.hp
+			state.fells = remaining >= d.hp
 				and (not cin.FinishThreshold or (state.startHp or d.hp) < d.maxHp * cin.FinishThreshold)
+			state.finish = state.fells and not CombatSimulation.canRevive(d) -- (B-020: a first life is no K.O.)
 			if not state.finisher then state.length = cin.Length + (if state.finish then cin.FinishExtra else 0) end
 		end
 		table.insert(events, { kind = "PromptGrade", attacker = state.attacker, grade = state.grade })
@@ -2401,15 +2406,17 @@ local function stepCinematic(world, events, inputs)
 			step.done = true
 			local finishing = step.final and state.finish
 			-- Only the rush's last blow or a FINAL FINISH can KO; the awakening otherwise
-			-- always leaves the target standing on its last 5 %.
+			-- always leaves the target standing on its last 5 %. (B-020: a first life felled
+			-- where anyone else would be finished drops to 0 too, but no K.O.: he rises again.)
 			local canKO = step.final and state.type == "Rush"
-			d.hp = if finishing then 0 else math.max(if canKO then 0 else 1, d.hp - step.damage)
+			d.hp = if finishing or (step.final and state.fells) then 0
+				else math.max(if canKO then 0 else 1, d.hp - step.damage)
 			d.comboHits += 1
 			d.comboDamage += step.damage
 			if state.type == "Rush" then gainMeter(d, step.damage * c.MeterWhenHit, c) end
 			table.insert(events, {
 				kind = "Hit", attacker = a.slot, defender = d.slot, move = state.move, cinematic = true,
-				heavy = step.final == true, ko = d.hp <= 0, damage = step.damage, combo = d.comboHits,
+				heavy = step.final == true, ko = d.hp <= 0 and not CombatSimulation.canRevive(d), damage = step.damage, combo = d.comboHits,
 				comboDamage = d.comboDamage, x = d.x - dir * 0.6, y = d.y + 3.4, finish = finishing,
 			})
 			if step.final then
@@ -2437,8 +2444,9 @@ local function stepCinematic(world, events, inputs)
 	end
 	if state.tick >= state.length then
 		world.cinematic = nil
-		-- (it killed: its ending was the K.O. on screen, the round's end must not show another)
-		world.finishedByCinematic = state.finish or d.hp <= 0
+		-- (it killed: its ending was the K.O. on screen, the round's end must not show another;
+		-- a first life felled showed none, B-020: the real K.O. keeps its own)
+		world.finishedByCinematic = state.finish or (d.hp <= 0 and not CombatSimulation.canRevive(d))
 		a.move, a.moveContact, a.state = nil, nil, "Idle"
 		a.awakenStyle, a.fatalCombo = nil, nil
 		table.insert(events, { kind = "CinematicEnd", attacker = a.slot, defender = d.slot, finish = state.finish })

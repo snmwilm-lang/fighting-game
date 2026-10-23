@@ -558,7 +558,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - la cote ne bouge alors pour personne (`init.server.luau:725`). Celui qui part ne perd que ses pièces et sa série.
 - **Ce qui devrait se passer** : celui qui quitte un CLASSÉ perd ses points, comme annoncé. Le filtre anti-farm sert à ne pas **donner** de gains (un compte secondaire qui part tout de suite), pas à épargner une perte.
 - **Gravité** : majeur. Le résultat d'un CLASSÉ abandonné est faux, et le défaut s'exploite : on fuit sans frais tout match mal parti dans les 25 premières secondes, et le classement (donc le champion de la semaine) se fausse. Rien ne se voit à l'écran.
-- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous.
+- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous. **Reporté par production le 22/10** : B-025 doit passer avant (voir « Reporté par production » en bas de la fiche).
 - **Revérifié par la chasse du 21/10** : `AntiCheat` et `Matchmaker` n'ont pas changé. Depuis la v0.36.7, les lignes du serveur ont bougé :
   - `unseat` : `init.server.luau:555`, appel `endVersus(match, 3 - i, i)` en `:561` ;
   - `endVersus` : `:640` ;
@@ -599,7 +599,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Piste commune B-023 + B-028 (chasse du 22/10)**. Elle remplace les deux pistes séparées.
   - **Ce que la relecture du 22/10 ajoute** (prouvé dans le code) :
     - le profil de celui qui part est écrit **tout de suite** dans `PlayerRemoving`, avec le verrou relâché (`init.server.luau:1276-1281`), puis `clients[player] = nil` (`:1291`). Et `endVersus` ne fait rien si l'un des deux clients manque (`:644-645`). Une décision prise plus tard, après quelques secondes d'attente, ne pourrait donc plus toucher son profil ;
-    - le serveur qui charge un profil encore verrouillé attend jusqu'à `LOCK_TTL + 5` = 65 s (`:166-170`). Retarder de quelques secondes l'écriture finale de celui qui part ne fait rien perdre ;
+    - le serveur qui charge un profil encore verrouillé attend jusqu'à `LOCK_TTL + 5` = 65 s (`:166-170`). Retarder de quelques secondes l'écriture finale de celui qui part ne fait rien perdre *(dépassé le 22/10 : faux quand le verrou de session est périmé, ce qui est presque toujours le cas après un match ; voir le report ci-dessous)* ;
     - Roblox ne dit pas pourquoi un joueur part. `PlayerRemoving` reçoit bien une raison, mais `Enum.PlayerExitReason` ne vaut que `Unknown`, `PlatformKick` ou `CreatorKick` (`Full-API-Dump.json`, la source de `tools/vfxrun.py --refresh`, copie du 16/10). Aucune propriété lisible par un script ne dit non plus « serveur en fermeture ». Seuls signaux : l'appel de `BindToClose`, et le départ des deux joueurs à quelques secondes d'écart ;
     - le CLASSÉ entre serveurs se joue sur un serveur réservé (`TeleportToPrivateServer`, `:1013`), avec le même `endVersus` : il est touché de la même façon.
   - **Trois façons de quitter un match contre un joueur, trois règles** :
@@ -641,6 +641,34 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
     - les points 1 et 2 sont simples et testables ;
     - les points 3 et 4 touchent le départ des joueurs et l'écriture des profils (le verrou de session). Aucun test hors ligne ne les couvre, et ils ne se vérifient qu'en jeu publié (B-028) ;
     - le point 3 seul, sans le délai de grâce, est sûr mais ne couvre que l'ordre « `BindToClose` d'abord ». Sans le point 3 ni le point 4, corriger B-023 étendrait la perte de B-028 aux 25 premières secondes.
+- **Reporté par production le 22/10** (routine du matin ; KUROEN passe à sa place, `DECISIONS.md`).
+  - **Ce qui est vérifié** : la chasse a raison sur le fond, aucune décision n'attend Wilhem :
+    - « Quitter un 1v1 le donne perdu » est la règle annoncée (`docs/JOURNAL.md:3013`, commentaire de `unseat`) ;
+    - « l'Elo reste à somme nulle » est écrit dans le bloc anti-triche de la v0.17.0 (`docs/JOURNAL.md:2485`), sans citation de Wilhem : c'est un choix de Claude ;
+    - le « +0 » de celui qui reste après un départ rapide existe déjà aujourd'hui (`share` = 0 pour les deux).
+  - **La raison exacte du report** : le point 4 (l'écriture finale retardée de quelques secondes) peut faire perdre l'écriture de départ. C'est prouvé sur les modules purs (`GlobalQueue.canLock`, script hors dépôt) :
+    - rien n'écrit le profil pendant un match. `saveProfile` n'est appelé qu'à la fin (`endVersus`, `followEvents`), et la boucle de vidage n'écrit qu'un profil modifié (`SaveQueue.due`). Un CLASSÉ de plus de 60 s a donc toujours un verrou périmé (B-025) quand un joueur le quitte ;
+    - le joueur arrive sur un autre serveur pendant les 5 s de grâce. Une migration le fait (« Migrate to Latest Update » le téléporte), un retour rapide aussi. Le nouveau serveur prend alors le verrou périmé, et charge le profil d'avant ;
+    - l'écriture retardée de l'ancien serveur est ensuite refusée (« held by another server », `writeProfile`). Cela touche la perte de cote, mais aussi tout ce qui n'était pas encore écrit ;
+    - les mesures :
+
+      | Match commencé | Départ | Grâce | Arrivée sur l'autre serveur | Ce que charge l'autre serveur | Écriture finale de l'ancien |
+      |---|---|---|---|---|---|
+      | t = 0 | t = 30 | 0 s (aujourd'hui) | t = 33 | le profil à jour | écrite |
+      | t = 0 | t = 30 | 5 s | t = 33 | rien : il attend le verrou | écrite |
+      | t = 0 | t = 120 | 0 s (aujourd'hui) | t = 123 | le profil à jour | écrite |
+      | t = 0 | t = 120 | 5 s | t = 123 | **le profil d'avant** | **refusée** |
+
+    - le reste dépend de l'ordre des événements de Roblox à la fermeture, qui ne se rejoue pas hors ligne : `BindToClose` avant ou après les `PlayerRemoving`, l'écart entre les départs des deux joueurs d'un match, le temps qui reste aux fils lancés pendant l'attente de `BindToClose`. Un test hors ligne ne pourrait qu'encoder une supposition ;
+    - corriger B-023 sans le point 4 étendrait la perte de B-028 à toute la durée du match (consigne de la routine : ne pas le corriger seul).
+  - **L'ordre proposé** :
+    1. **B-025 d'abord** : renouveler le verrou de tout profil chargé, même sans changement, pendant tout le temps où le joueur est sur le serveur. Le nouveau serveur attend alors toujours l'écriture finale de l'ancien (2e ligne du tableau). C'est un module pur (`SaveQueue`) avec un test ;
+    2. **un relevé dans le jeu publié** (Wilhem, sans risque) : une ligne de console dans `PlayerRemoving` et une dans `BindToClose`, avec l'heure (`os.clock()`) et le nombre de joueurs encore là. Pendant une migration, Wilhem lit les journaux du serveur (console développeur, onglet Server) : quel événement arrive d'abord, et à quel écart partent les deux joueurs d'un match ;
+    3. **puis B-023 et B-028 ensemble**, avec la piste commune ci-dessus. La décision du délai de grâce est un module pur (le point 5), et un test rejoue les ordres d'événements relevés au point 2.
+  - **Ce qu'il faudrait vérifier sur le jeu publié** :
+    - l'ordre `BindToClose` / `PlayerRemoving` à une migration et à « Shut Down All Servers » (le relevé du point 2) ;
+    - après la correction de B-025 : un joueur qui quitte un CLASSÉ de plus de 60 s et rejoint un autre serveur dans les 5 s retrouve bien sa défaite (pas de « held by another server » dans la console de l'ancien serveur) ;
+    - le test de B-028 (deux comptes en CLASSÉ, puis une migration : aucun ne doit bouger).
 
 ## B-024 · `!give … title <titre de la boutique>` donne un titre impossible à porter
 - **Date** : 20 octobre 2026.
@@ -804,3 +832,12 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - un test dans `Cinematography` : un COUP FATAL qui abat la première vie d'ASURA finit en `DownFace`, avec le titre « FATAL BLOW » et non « K.O. ». Le même coup sur une cible qui reste debout finit toujours à genoux ;
   - à relire au storyboard. `tests/Storyboard.luau` ne choisit pas la cible (corps de KAI) : il faut lui passer `fells = true, finish = false` à la main, ou lui ajouter une cible ASURA ;
   - risque faible : seule la première vie d'ASURA a `fells` vrai et `finish` faux (prouvé par la comparaison de la chasse du 22/10, B-020).
+
+## B-031 · BLACK SUN (KUROEN) : le grand soleil saute à l'impact
+- **Date** : 22 octobre 2026.
+- **Source** : relevé par l'agent `validation` (routine du 22/10).
+- **Ce qui se passe** : au tick 440, dans le même plan (`kuroen-bs-blow`), le grand soleil saute de 3,62 studs (2,29 depuis la droite). Les poings de KUROEN finissent ailleurs que là où il apparaît (`pos = At(v(tx + dir * 0.3, …))`, `S.KUROEN`). Le test ne suit que les trois petits soleils.
+- **Piste** : faire voyager le grand soleil depuis `P(A, "RightHand")` jusqu'au point d'impact, lui donner un `mark`, et étendre le test au grand soleil.
+- **Gravité** : cosmétique.
+- **Statut** : `ouvert`.
+

@@ -91,7 +91,7 @@ Dernier tri : 22 octobre 2026 (routine du matin).
   - le test « dos au mur, des deux côtés » passe pour lui (`Cinematography`, v0.36.5) ;
   - pour chaque nouvelle scène (KUROEN, puis ASURA et KUROEN SHIN) : un test avec `Kit.hiddenShare` (v0.36.6) vérifie qu'à aucune image plus d'un quart du sujet n'est caché par l'autre corps. Il est joué au centre, des deux côtés, et dos à chaque mur ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). KUROEN est la prochaine. Elle a été reportée quatre fois, par des bugs passés avant elle :
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). **KUROEN faite (v0.36.9, BLACK SUN / SOLEIL NOIR)**, validée le 22/10 et livrée le 23/10. ASURA est le prochain, puis KUROEN SHIN. B-023 a été reporté ce matin (`BUGS.md`). Elle avait été reportée quatre fois, par des bugs passés avant elle :
   - le 18/10 pour B-011 (majeur, corrigé en v0.36.5) ;
   - le 19/10 pour B-017 (majeur, corrigé en v0.36.6) ;
   - le 20/10 pour B-021 (bloquant, corrigé en v0.36.7) ;

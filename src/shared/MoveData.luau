@@ -1329,6 +1329,8 @@ third("KUROEN", {
 	Stats = { MaxHealth = 1300, WalkSpeed = 18, AirSpeed = 15, JumpVelocity = 45, DashSpeed = 46 }, -- (0.25.1: 1350 -> 1300, the throws took him to 66 %)
 	Passive = { Type = "Domination", Name = "DOMINATION", Max = 3, ComboHits = 4, Idle = 360, Step = "KuroenEmperorStep" },
 	GateTitle = { text = "皇", sub = "EMPEROR'S GATE" },
+	-- FATAL FINISHER (Finishers.luau): the three marks of DOMINATION, three blows, three small black suns; they gather in his raised fist, both fists bring the black sun down.
+	Finisher = { Name = "BLACK SUN", Length = 640, FinalTick = 440 },
 })
 third("KUREN", {
 	Kanji = "血", Role = "SACRIFICE", Difficulty = 3, Energy = "D0102E", Light = "FF8090",

@@ -14,6 +14,7 @@
 	                   { kind = "motes", pos, radius, count, color, phase, out } sucked in / blown out
 	                   { kind = "slash", from, to, width, color, alpha } a streak of a blade
 	                   { kind = "dome", pos, radius, color, alpha }     an explosion's shell
+	                 (a shape may carry `mark`, a handle the tests follow it by; the client ignores it)
 	  frame.overlay  full-screen direction:
 	                   desat 0..1 (the colour drains), blur 0..1 (a directional blur pulse),
 	                   firstPerson = slot (that fighter's head and arms are hidden: the camera is its eyes),
@@ -2974,6 +2975,248 @@ function Finishers.build(T)
 			frame.shot = frameOn("nova-fe-last", dir, { a }, { yaw = 40, pitch = -8, fill = lerp(0.62, 0.7, smooth(progress(tick, 620, 660))), fov = 34,
 				screen = { 0.2, -0.22 }, focus = P(A, "Head") })
 		end
+	end
+
+	-- ================================================================ KUROEN · BLACK SUN
+	-- The emperor of the eclipse spends his DOMINATION, short and brutal: fists, elbows, knees.
+	-- 0:00 his back: the three red marks of DOMINATION light one by one, I, II, III; the light
+	-- falls (his grade) · 0:01.4 his eyes; it raises its guard · 0:01.8 CRIMSON STEP: he is on
+	-- it, the knee; a small black sun stays on its belly · 0:02.6 the elbow down: it drops to its
+	-- knees, a second sun on its shoulder · 0:03.5 the palm into its chest: the third · 0:04.9
+	-- the emperor over it, his fist raised: the three suns leave its body and gather in his fist,
+	-- one black sun with a red corona · 0:06.2 silence, the sun over his fist · 0:07.1 AXE OF
+	-- NIGHT: both fists bring the sun down on it; it is driven face down into the deck, the corona
+	-- runs along the floor, his seal under it · 0:08.3 K.O. · 0:09.8 his back, the marks gone
+	-- dark. No eclipse in the sky (his ÉVEIL and DAICHA's PORTE have it), no juggle (his FATAL),
+	-- no storm of fists (his PORTE): the sun is born on the deck, out of his blows.
+	local KUROEN_GAP, KUROEN_FAR = 2.9, 6 -- (where he strikes from; where he stands first)
+	local KUROEN_SUN = "07040C" -- (the black of his small black sun, KitFX)
+	-- (each blow: its tick, his role, where its sun stays on the target, offset in the target's
+	-- own axes: forward (toward him), up, toward the camera side; the impact for the burst)
+	local KUROEN_BLOWS = {
+		{ tick = 132, role = "Kick", part = "UpperTorso", off = { 0.7, -0.45, 0.25 }, burst = 2.3, sound = "heavy" },
+		{ tick = 180, role = "Elbow", part = "UpperTorso", off = { 0.3, 1.02, 0.85 }, burst = 3.7, sound = "heavy" },
+		{ tick = 252, role = "PalmStrike", part = "UpperTorso", off = { 0.76, 0.1, 0.2 }, burst = 3, sound = "heavy" },
+	}
+	local KUROEN_LIFT = { 304, 320, 336 } -- (when each sun leaves the target for his fist)
+	local KUROEN_FLIGHT = 28
+	-- The shots, in order (to: the tick it ends; subjects: "a", "d" or "ad", and sky: a point over him
+	-- at that height, his raised fist; focus: slot and part)
+	local KUROEN_SHOTS = {
+		{ to = 84, name = "kuroen-bs-back", subjects = "a", yaw = -128, pitch = 4, band = "bust", fill = 0.7, fov = 34, focus = { "A", "UpperTorso" } },
+		{ to = 110, name = "kuroen-bs-eyes", subjects = "a", yaw = 14, pitch = -6, band = "bust", fill = 0.75, fov = 30, focus = { "A", "Head" } },
+		{ to = 124, name = "kuroen-bs-step", subjects = "ad", yaw = -10, pitch = 8, fill = 0.62, fov = 42, focus = { "A", "UpperTorso" } },
+		{ to = 156, name = "kuroen-bs-knee", subjects = "ad", yaw = 24, pitch = -14, fill = 0.86, fov = 38, focus = { "D", "UpperTorso" } },
+		{ to = 188, name = "kuroen-bs-elbow", subjects = "ad", yaw = -16, pitch = 44, fill = 0.82, fov = 38, focus = { "A", "UpperTorso" } },
+		{ to = 212, name = "kuroen-bs-knees", subjects = "ad", yaw = 96, pitch = 28, fill = 0.82, fov = 38, focus = { "D", "UpperTorso" } },
+		{ to = 296, name = "kuroen-bs-palm", subjects = "ad", yaw = 30, pitch = 4, fill = 0.85, fov = 36, focus = { "D", "UpperTorso" } },
+		{ to = 372, name = "kuroen-bs-throne", subjects = "ad", sky = 8.2, yaw = 44, pitch = -16, fill = 0.92, fov = 38, focus = { "A", "Head" } },
+		{ to = 436, name = "kuroen-bs-sun", subjects = "a", sky = 8.4, yaw = 24, pitch = -24, fill = 0.8, fov = 34, focus = { "A", "RightHand" } },
+		{ to = 470, name = "kuroen-bs-blow", subjects = "ad", yaw = 16, pitch = 6, fill = 0.84, fov = 40, focus = { "D", "UpperTorso" } },
+		{ to = 510, name = "kuroen-bs-crater", subjects = "ad", yaw = 10, pitch = 56, fill = 0.62, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = 590, name = "kuroen-bs-ko", subjects = "ad", yaw = 26, pitch = 10, fill = 0.6, fov = 40, focus = { "D", "UpperTorso" } },
+		{ to = math.huge, name = "kuroen-bs-last", subjects = "a", yaw = -112, pitch = 2, fill = 0.6, fov = 36, screen = { 0.2, -0.22 },
+			focus = { "A", "UpperTorso" } },
+	}
+	function S.KUROEN(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local color = ctx.characters[A].Energy -- (his ki: red, or his style's)
+		local F = 440
+		local o = overlay(frame)
+		-- (he stands KUROEN_FAR from it first, it is driven back 1 stud and lies beyond: near a
+		-- wall the whole scene stands back from it, never him alone)
+		local tx = room(ctx, T.center(ctx, d), dir, KUROEN_FAR + 1.2, 3.6)
+		local ax = tx - dir * KUROEN_GAP
+		local up = v(0, 1, 0)
+		local function add(p, q, k)
+			k = k or 1
+			return v(p.x + q.x * k, p.y + q.y * k, p.z + q.z * k)
+		end
+		-- a body's axes as the client turns it (3/4 toward the camera, Config.ModelYaw): forward,
+		-- and the side toward the camera
+		local turn = math.rad(ctx.config.ModelYaw or 22)
+		local function axes(facing)
+			return v(facing * math.cos(turn), 0, math.sin(turn)), v(-facing * math.sin(turn), 0, math.cos(turn))
+		end
+		local hisFwd = axes(dir)
+		local itsFwd, itsSide = axes(-dir)
+		-- (the lab rig's raised fist (his RISING UPPER) and kneeling chest, in each body's own axes:
+		-- right, forward; only where the suns leave from is staged with them)
+		local function rightOf(f) return v(-f.z, 0, f.x) end
+		local hisFist = add(v(rightOf(hisFwd).x * 0.48, 0, rightOf(hisFwd).z * 0.48), hisFwd, 0.08)
+		local itsChest = add(v(rightOf(itsFwd).x * 0.06, 0, rightOf(itsFwd).z * 0.06), itsFwd, 0.31)
+		-- the shot of this tick (its angle also turns the rings toward the camera)
+		local current
+		for _, s_ in KUROEN_SHOTS do
+			if tick < s_.to then
+				current = s_
+				break
+			end
+		end
+		local yaw, pitch = math.rad(current.yaw * dir), math.rad(current.pitch)
+		local toCamera = v(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+
+		-- the fighters
+		d.x, d.z, d.facing, d.hitstop = tx, nil, -dir, 0
+		a.facing, a.z = dir, nil
+		if tick < 110 then
+			a.x, a.state, a.move, a.pose = tx - dir * KUROEN_FAR, "Idle", nil, "StandTall"
+		elseif tick < 118 then
+			-- CRIMSON STEP: on it in a blink
+			a.x = lerp(tx - dir * KUROEN_FAR, ax, smooth(progress(tick, 110, 118)))
+			attack(a, moves, T.role(ctx, "Rising"), true)
+		else
+			a.x = ax
+		end
+		local blow = nil
+		for i, b in KUROEN_BLOWS do
+			if tick >= b.tick - 14 and tick < b.tick + 20 then blow = i end
+		end
+		if tick >= 118 and tick < 296 then
+			if blow then
+				attack(a, moves, T.role(ctx, KUROEN_BLOWS[blow].role), tick >= KUROEN_BLOWS[blow].tick - 4)
+			else
+				a.state, a.move, a.pose = "Idle", nil, nil
+			end
+		elseif tick >= 296 and tick < F - 16 then
+			attack(a, moves, T.role(ctx, "Uppercut"), true) -- (his fist raised: the suns come to it)
+		elseif tick >= F - 16 and tick < F + 40 then
+			attack(a, moves, T.role(ctx, "Hammer"), tick >= F - 4) -- (AXE OF NIGHT: both fists up, then down)
+		elseif tick >= F + 40 then
+			a.state, a.move, a.pose = "Idle", nil, "StandTall"
+			a.x = lerp(ax, tx - dir * 3.6, smooth(progress(tick, F + 40, F + 80))) -- (half a step back from it)
+			if tick < F + 80 then a.state, a.pose, a.vx = "Walking", nil, -dir * 1.2 end
+		end
+		if tick < 84 then
+			d.state, d.pose = "Idle", nil
+		elseif tick < 132 then
+			d.state, d.pose = "Idle", "Block" -- (its guard up, for nothing)
+		elseif tick < 180 then
+			d.state, d.pose = "Hitstun", "HitBody"
+		elseif tick < 186 then
+			d.state, d.pose = "Hitstun", "CrumpleStart"
+		elseif tick < F then
+			d.state, d.pose = "Hitstun", "Kneel"
+			if tick >= 252 and tick < 262 then d.x = tx + dir * 0.15 * math.sin(progress(tick, 252, 262) * math.pi) end
+		else
+			-- driven face down into the deck, a stud back
+			d.state = "Hitstun"
+			d.x = tx + dir * smooth(progress(tick, F, F + 10))
+			d.pose = if tick < F + 6 then "Crumple" else "DownFace"
+		end
+
+		-- DOMINATION: the three red marks on his back, along his spine, lit one by one; they flare
+		-- and are spent when he moves (their order: I high, III low)
+		if tick >= 16 and tick < 110 then
+			local back = v(-hisFwd.x, 0, -hisFwd.z)
+			for k = 1, 3 do
+				local lit = 16 + (k - 1) * 24
+				if tick >= lit then
+					local flare = 1 - progress(tick, lit, lit + 8) + progress(tick, 100, 110)
+					local pos = P(A, "UpperTorso", v(back.x * 0.7, 0.42 - (k - 1) * 0.42, back.z * 0.7))
+					shape(frame, { kind = "ring", pos = pos, normal = back, radius = 0.16 + 0.12 * flare, width = 0.07, color = color,
+						alpha = math.clamp(0.15 + 0.5 * flare, 0, 0.95) })
+				end
+			end
+		end
+		-- the suns left on the target by his blows (its corona turned to the camera), then their
+		-- flight to his raised fist
+		local fist = P(A, "RightHand", v(0, 0.9, 0))
+		local arrived = 0
+		for i, b in KUROEN_BLOWS do
+			local lift = KUROEN_LIFT[i]
+			if tick >= b.tick and tick < lift + KUROEN_FLIGHT then
+				local off = add(v(itsFwd.x * b.off[1], b.off[2], itsFwd.z * b.off[1]), itsSide, b.off[3])
+				local q = smooth(progress(tick, lift, lift + KUROEN_FLIGHT))
+				local pos = P(D, b.part, off)
+				if q > 0 then
+					-- (from the body to his fist, hung on his real fist all the way: it lands in it on
+					-- every avatar; only where it leaves from is staged, the gap between its chest and
+					-- his raised fist as the lab's rig has them, B-013)
+					local gap = add(add(add(v(tx - ax, 2.91 - 6.27 - 0.9, 0), off), itsChest), hisFist, -1)
+					pos = P(A, "RightHand", v(gap.x * (1 - q), 0.9 + gap.y * (1 - q) + 1.4 * math.sin(math.pi * q), gap.z * (1 - q)))
+				end
+				shape(frame, { kind = "ring", pos = pos, normal = toCamera, radius = lerp(0.3, 0.2, q), width = 0.08, color = color,
+					alpha = 0.2 + 0.3 * q, mark = i })
+			elseif tick >= lift + KUROEN_FLIGHT then
+				arrived += 1
+			end
+		end
+		-- THE BLACK SUN: in his raised fist, growing with each sun it takes; brought down with both
+		-- fists; driven into the deck under the target
+		if arrived > 0 and tick < F + 18 then
+			local r = 0.26 + 0.18 * (arrived - 1) + 0.04 * math.sin(tick / 5)
+			local pos = fist
+			if tick >= F - 16 and tick < F then
+				pos = P(A, "RightHand", v(0, 0.6, 0))
+			elseif tick >= F then
+				local q = progress(tick, F, F + 18)
+				pos = At(v(tx + dir * 0.3, lerp(1.6, -0.4, q), 0.3))
+				r *= 1 - 0.6 * q
+			end
+			shape(frame, { kind = "sphere", pos = pos, radius = r, color = KUROEN_SUN, core = 0 })
+			shape(frame, { kind = "ring", pos = pos, normal = toCamera, radius = r * 1.45, width = 0.1, color = color, alpha = 0.1 })
+		end
+		if tick >= 300 and tick < F then
+			shape(frame, { kind = "motes", pos = fist, radius = 2.2, count = 18, color = color, phase = tick / 40 })
+			o.tint = { color = "40101A", amount = 0.3 * smooth(progress(tick, 300, 340)) }
+		end
+		-- the blow: the corona runs along the floor, the deck breaks under it, his seal
+		if tick >= F and tick < F + 80 then
+			local age = tick - F
+			for j = 0, 1 do
+				local q = smooth(progress(age, j * 8, 44 + j * 8))
+				if q > 0 then
+					shape(frame, { kind = "ring", pos = At(v(tx + dir, 0.08, 0)), normal = up, radius = lerp(0.8, 6.5 - j * 2, q), width = 0.22,
+						color = if j == 0 then color else "FFFFFF", alpha = progress(age, 24 + j * 8, 70) })
+				end
+			end
+			if age < 40 then
+				shape(frame, { kind = "motes", pos = At(v(tx + dir, 1, 0.4)), radius = 4, count = 26, color = color, phase = age / 40, out = true })
+			end
+			if age == 0 then
+				T.impact(frame, "bs-blow", v(tx + dir * 0.4, 1.4, 0.4), color, 2.6)
+				table.insert(frame.fx, { key = "bs-seal", kind = "eclipseSeal", pos = v(tx + dir, 0, 0), color = color, radius = 3.4 })
+				table.insert(frame.fx, { key = "bs-debris", kind = "debris", pos = v(tx + dir, 0.4, 0), color = color, scale = 1.2 })
+				sfx(frame, "bs-blow", "heavy")
+				sfx(frame, "bs-boom", "boom")
+			end
+			frame.quake = if age < 10 then 0.9 else nil
+			frame.speedLines = if age < 12 then color else nil
+		end
+
+		-- the blows: a small black sun at each impact (KitFX: his own), a spark, the gauntlet on bone
+		for i, b in KUROEN_BLOWS do
+			if tick == b.tick then
+				local p = v(tx - dir * 0.5, b.burst, 0.5)
+				table.insert(frame.fx, { key = "bs-sun" .. i, kind = "eclipse", pos = p, color = color, scale = 0.12, life = 0.75 }) -- (gone before the next: one light)
+				T.spark(frame, "bs-hit" .. i, p, color, 1.2)
+				frame.impact = { key = "bs-hit" .. i, color = color }
+				sfx(frame, "bs-hit" .. i, b.sound)
+				if i == 3 then sfx(frame, "bs-hit-boom", "boom") end
+			end
+			if tick >= b.tick and tick < b.tick + 6 then frame.quake = 0.4 end
+		end
+		if tick == 110 then
+			table.insert(frame.fx, { key = "bs-step", kind = "afterimage", slot = A, color = color, life = 0.35 })
+			sfx(frame, "bs-step", "whoosh")
+		end
+		if tick == 16 or tick == 40 then sfx(frame, "bs-mark" .. tick, "charge") end
+		if tick == 64 then sfx(frame, "bs-mark-iii", "boom") end
+		if tick == 300 then sfx(frame, "bs-lift", "charge") end
+		if tick == F - 16 then sfx(frame, "bs-raise", "whoosh") end
+		if tick == F + 60 then sfx(frame, "bs-ko", "boom") end
+		-- his grade (the light falls) from DOMINATION III; his aura while it lasts
+		frame.grade.eclipse = tick >= 64
+		if tick >= 64 and tick < 118 then frame.aura = A end
+		ko(ctx, frame, tick, F + 60, color, if tick < F + 140 then { bg = KUROEN_SUN, splash = color } else nil)
+
+		-- the shot
+		local subjects = if current.subjects == "a" then { a } elseif current.subjects == "d" then { d } else { a, d }
+		if current.sky then table.insert(subjects, { point = true, x = a.x, y = current.sky, z = 0 }) end
+		frame.shot = frameOn(current.name, dir, subjects, { yaw = current.yaw, pitch = current.pitch, band = current.band, fill = current.fill,
+			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
 	end
 
 	-- ================================================================ ELIAN · FINAL MERCY

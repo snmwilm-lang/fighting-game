@@ -1,5 +1,42 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.9 — 23 octobre 2026 · Le FATAL FINISHER de KUROEN : BLACK SUN (routine du 22, livrée le 23)
+
+Produite et **validée par la routine du 22 octobre**. Comme la veille, la livraison a été interrompue après le verdict, et la session l'a terminée le 23 au matin. Le code est celui que la validation a relu.
+
+- **B-023 reporté**, avec la preuve :
+  - sa correction retarde de quelques secondes l'écriture du profil de celui qui part ;
+  - rejoué sur `GlobalQueue.canLock` (production et validation, chacune avec son script) : si le joueur arrive sur un autre serveur pendant ce délai, ce serveur charge le profil d'avant le match et l'écriture de l'ancien est refusée ;
+  - l'ordre proposé dans `BUGS.md` : d'abord B-025 (renouveler le verrou de session), puis un relevé de l'ordre des événements de Roblox sur le jeu publié, puis B-023 et B-028 ensemble.
+- **KUROEN · BLACK SUN** (« SOLEIL NOIR », 10,7 s, coup mortel au tick 440) :
+  - les trois marques de DOMINATION s'allument dans son dos ;
+  - trois coups (genou, coude, paume) laissent chacun un petit soleil noir sur la cible ;
+  - les trois soleils volent dans son poing levé et n'en font plus qu'un ;
+  - AXE OF NIGHT l'abat des deux poings, la couronne rouge court sur le sol ;
+  - K.O. « BLACK SUN », jamais « VICTORY ».
+- **Ce qui est évité** : la scène ne reprend ni l'éclipse du ciel, ni le jonglage, ni la tempête de poings. Les pièges de NOVA sont évités : une lumière à la fois, les marques sur les vraies pièces du corps, `room` près d'un mur.
+- **Tests** : 7 dans `Cinematography` :
+  - la scène jouée des deux côtés ;
+  - six placements avec `Kit.hiddenShare`, au pire 22 % du sujet caché.
+
+  Le test « kit sans finisher » de `CombatSimulation` porte maintenant sur les bosses. La validation a vérifié 12 mutations, 1 123 scènes inchangées et 222 places réelles du combat.
+- **Relevé par la validation, livré tel quel** :
+  - les trois coups sont ceux de sa chope ECLIPSE CLINCH. Assumé dans `DECISIONS.md`, à revoir par Wilhem ;
+  - le grand soleil saute de 3,6 studs à l'impact (B-031, cosmétique).
+
+**Fichiers** :
+- `src/shared/Finishers.luau`, `MoveData.luau`, `Locale.luau` (SOLEIL NOIR), `CombatConfig.luau` (0.36.9) ;
+- `tests/Cinematography.test.luau`, `tests/CombatSimulation.test.luau` ;
+- `docs/BUGS.md`, `docs/DECISIONS.md`, `docs/IDEES.md`.
+
+**Tests** : CombatSimulation 174, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 411 (+9), Lobby 48, Kits 130 : tout passe. Les 8 suites rapides ont été relancées le 23 sur le même arbre.
+
+**Problèmes ouverts** :
+- B-023, B-025 et B-028 (CLASSÉ, verrou de session) ;
+- B-031 ;
+- ASURA et KUROEN SHIN n'ont pas de finisher ;
+- rien n'est vérifié dans Studio.
+
 ## Version 0.36.8 — 22 octobre 2026 · ASURA abattu dans sa première vie : plus de faux K.O. (routine du 21, livrée le 22)
 
 Produite et **validée par la routine du 21 octobre**. La livraison avait été oubliée après le verdict, et la session l'a terminée le 22 au matin. Le code est celui que la validation a relu, sans changement.

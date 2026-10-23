@@ -469,6 +469,208 @@ test("NOVA's FATAL ERROR: eight drones ring the target, dock in a rail at her ga
 	end
 end)
 
+-- KUROEN 蝕 · BLACK SUN: the three red marks of DOMINATION on his back, three blows of his own
+-- (the knee, the elbow, the palm), a small black sun left on the target by each, the three
+-- gathered in his raised fist (his RISING UPPER) and brought down by both fists (AXE OF NIGHT).
+-- What the last finishers taught: the marks on the bodies, never in them (B-012: NOVA's visor
+-- inside her head); one light at a time (B-014: NOVA lit nine); no VICTORY (B-026). On both
+-- sides of the arena.
+local SHAPE_PARTS = { sphere = 3, ring = 22, motes = 40, slash = 2, dome = 1 } -- (CinematicController:drawShapes)
+local KUROEN_FIRST_BLOW = 132 -- (the knee: its guard is up before it)
+test("KUROEN's BLACK SUN: three marks on his back, three blows, three black suns gathered in his raised fist, brought down; one light at a time", function()
+	local data = MoveData.Kits.KUROEN.Finisher
+	expect(data ~= nil, "KUROEN has no FATAL FINISHER (MoveData: Finisher)")
+	local roles = MoveData.Kits.KUROEN.Roles
+	local F = data.FinalTick
+	local SUN = "07040C"
+	local function dist(p, q)
+		return math.sqrt((p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 + (p[3] - q[3]) ^ 2)
+	end
+	local function center(part)
+		return { part.cframe[1], part.cframe[2], part.cframe[3] }
+	end
+	for _, mirror in { false, true } do
+		local side = if mirror then "from the right" else "from the left"
+		local backMarks, targetMarks, inside, sunInFist, fistUp, sunDown = 0, 0, {}, false, false, false
+		local lightsMax, partsMax, moves, guard, knelt, victory = 0, 0, {}, false, false, false
+		local lastPose, koName
+		local eclipses, flights, jump = {}, {}, { d = 0 }
+		Kit.play("KUROEN", "Fatal", nil, 300, 0, function(info)
+			local frame, A, D, tick = info.frame, info.cin.attacker, info.cin.defender, info.tick
+			if info.views[A].move then moves[info.views[A].move] = true end
+			local pose = info.views[D].pose
+			if tick < KUROEN_FIRST_BLOW and pose == "Block" then guard = true end
+			if tick < F and pose == "Kneel" then knelt = true end
+			lastPose = pose
+			local over = frame.overlay or {}
+			if over.ko then
+				koName = over.ko.sub
+				if tostring(over.ko.text):find("VICTORY") or tostring(over.ko.sub):find("VICTORY") then victory = true end
+			end
+			if frame.title and (tostring(frame.title.text):find("VICTORY") or tostring(frame.title.sub):find("VICTORY")) then victory = true end
+			-- (the lights: each sphere of the frame has one, and each small black sun of the
+			-- effects while it lives)
+			for _, fx in frame.fx do
+				if fx.kind == "eclipse" and not eclipses[fx.key] then eclipses[fx.key] = tick + (fx.life or 2) * 60 end
+			end
+			local lights, parts, suns = 0, 0, {}
+			for _, last in eclipses do
+				if tick <= last then lights += 1 end
+			end
+			for _, sh in frame.shapes or {} do
+				parts += SHAPE_PARTS[sh.kind] or 0
+				-- (each sun from the target to his fist, never a jump: B-013, a rail hung on a hand
+				-- measured on the lab's rig)
+				if sh.mark then
+					local p, last = { Kit.resolve(sh.pos, info.parts) }, flights[sh.mark]
+					if last and last.tick == tick - 1 and dist(p, last.p) > jump.d then jump = { d = dist(p, last.p), tick = tick, mark = sh.mark } end
+					flights[sh.mark] = { p = p, tick = tick }
+				end
+				if sh.kind == "sphere" then
+					lights += 1
+					if sh.color == SUN then table.insert(suns, { Kit.resolve(sh.pos, info.parts) }) end
+				end
+				-- (a mark hung on a body: on it, never in it; his are on his back, the rings at his
+				-- fist are the black sun's corona, over it)
+				if sh.kind == "ring" and sh.pos.slot and (sh.pos.slot == D or sh.pos.part == "UpperTorso") then
+					local part = info.parts[sh.pos.slot][sh.pos.part]
+					local p = { Kit.resolve(sh.pos, info.parts) }
+					local gap = Kit.boxDistance(part, p[1], p[2], p[3])
+					local within = nil -- (nor in any other part of that body: its head, its arms)
+					for name, other in info.parts[sh.pos.slot] do
+						if Kit.boxDistance(other, p[1], p[2], p[3]) <= 0.02 then within = name end
+					end
+					local limit = if sh.pos.slot == A then 0.45 else 0.6
+					local behind = true
+					if sh.pos.slot == A then
+						-- (on his back: behind his chest, the rig facing its -Z)
+						local t, c = part.cframe, center(part)
+						behind = (p[1] - c[1]) * -t[6] + (p[2] - c[2]) * -t[9] + (p[3] - c[3]) * -t[12] < 0
+					end
+					if gap <= 0.02 or gap > limit or not behind or within then
+						table.insert(inside, string.format("t%d %s %s: %.2f from its box%s%s", tick, if sh.pos.slot == A then "his" else "its",
+							sh.pos.part, gap, if behind then "" else ", not on his back", if within then ", inside its " .. within else ""))
+					end
+				end
+			end
+			lightsMax, partsMax = math.max(lightsMax, lights), math.max(partsMax, parts)
+			if tick == 100 then
+				for _, sh in frame.shapes or {} do
+					if sh.kind == "ring" and sh.pos.slot == A and sh.pos.part == "UpperTorso" then backMarks += 1 end
+				end
+			elseif tick == 290 then
+				for _, sh in frame.shapes or {} do
+					if sh.kind == "ring" and sh.pos.slot == D then targetMarks += 1 end
+				end
+			elseif tick == 400 then
+				local hand, head = center(info.parts[A].RightHand), center(info.parts[A].Head)
+				fistUp = hand[2] > head[2] + 0.6
+				sunInFist = #suns == 1 and dist(suns[1], hand) < 1.3
+			elseif tick == F + 4 then
+				local chest = center(info.parts[D].UpperTorso)
+				sunDown = #suns == 1 and math.abs(suns[1][1] - chest[1]) < 2.5 and suns[1][2] < 2
+			end
+		end, mirror)
+		expect(backMarks == 3, side .. ": " .. backMarks .. " marks of DOMINATION on his back, not three")
+		expect(targetMarks == 3, side .. ": " .. targetMarks .. " black suns left on the target, not three")
+		expect(#inside == 0, side .. ": a mark is not on its body (" .. #inside .. " frames)\n         " .. table.concat(inside, "\n         ", 1, math.min(6, #inside)))
+		expect(fistUp and sunInFist, side .. ": the black sun is not in his raised fist")
+		expect(jump.d <= 0.5, string.format("%s: sun %s jumps %.2f studs at t%s", side, tostring(jump.mark), jump.d, tostring(jump.tick)))
+		expect(sunDown, side .. ": the black sun is not brought down on the target")
+		expect(lightsMax <= 1, side .. ": " .. lightsMax .. " lights at once (B-014: one at most)")
+		expect(partsMax <= 250, side .. ": " .. partsMax .. " parts of light in one frame")
+		for _, r in { "Kick", "Elbow", "PalmStrike", "Uppercut", "Hammer" } do
+			expect(moves[roles[r]], side .. ": he does not strike with his own " .. r .. " (" .. tostring(roles[r]) .. ")")
+		end
+		expect(guard and knelt, side .. ": the target never raises its guard, or never kneels before him")
+		expect(lastPose == "DownFace" and koName == data.Name, side .. ": no K.O. " .. data.Name .. " with the target down")
+		expect(not victory, side .. ": VICTORY on screen (B-026: a finisher may not end the match)")
+	end
+end)
+
+-- BLACK SUN near the walls (as SHIN's ISSEN, B-017): his back to the left wall, to the right one,
+-- and the target near the wall in front of him. Wherever it starts it is the film of the middle
+-- of the arena moved along the line (`room`: the whole scene stands back, never him alone):
+-- the same shots, the same camera on the same bodies, both on the deck, the camera over the floor
+-- (it ends at x = ±40, B-016); and in no frame, there or in the middle, from either side, is more
+-- than a quarter of a shot's subject hidden behind the other body (Kit.hiddenShare; the lab's KAI
+-- rig: real avatars are not its size, B-018).
+local function film(kit, center, mirror, wall)
+	local frames = {}
+	Kit.play(kit, "Fatal", nil, 300, center, function(info)
+		if frames[info.tick] then return end
+		local s = info.frame.shot
+		local f = s.focus
+		local hidden = 0
+		if f and f.slot and f.part and not info.views[3 - f.slot].hidden then
+			hidden = Kit.hiddenShare(info.parts[f.slot][f.part], info.parts[3 - f.slot], info.cam)
+		end
+		frames[info.tick] = { shot = s.name, fov = s.fov, a = info.views[info.cin.attacker].x, d = info.views[info.cin.defender].x,
+			cam = info.cam, target = info.target, hidden = hidden, finisher = info.cin.finisher == true }
+	end, mirror, wall)
+	return frames
+end
+local BLACK_SUN_MIDDLE = {}
+for _, place in { { "in the middle, from the left", 0, false, false, true }, { "in the middle, from the right", 0, true, false, true },
+	{ "his back to the left wall", 0, false, true }, { "his back to the right wall", 0, true, true },
+	{ "the target near the right wall", Config.ArenaMaxX - 3, false, false },
+	{ "the target near the left wall", Config.ArenaMinX + 3, true, false } } do
+	local name = "KUROEN's BLACK SUN, " .. place[1]
+	test(name .. ": the film of the middle moved along the line, both on the deck, nobody hidden by the other", function()
+		local mirror = place[3]
+		BLACK_SUN_MIDDLE[mirror] = BLACK_SUN_MIDDLE[mirror] or film("KUROEN", 0, mirror, false)
+		local middle = BLACK_SUN_MIDDLE[mirror]
+		local frames = if place[5] then middle else film("KUROEN", place[2], mirror, place[4])
+		-- (each kind of failure once: its first tick, its worst value, how many ticks)
+		local kinds, order = {}, {}
+		local function fail(tick, kind, value, text)
+			local k = kinds[kind]
+			if not k then
+				k = { n = 0, first = tick, worst = value, text = text }
+				kinds[kind] = k
+				table.insert(order, kind)
+			end
+			k.n += 1
+			if value > k.worst then k.worst, k.text = value, text end
+		end
+		expect(frames[0] ~= nil and frames[0].finisher, name .. ": the finisher did not play")
+		local shift = frames[0].d - middle[0].d
+		local last = 0
+		for tick in middle do last = math.max(last, tick) end
+		for tick = 0, last do
+			local m, fr = middle[tick], frames[tick]
+			if not m then continue end
+			if not fr then
+				fail(tick, "missing", 0, "the scene stops early")
+				continue
+			end
+			if fr.shot ~= m.shot or fr.fov ~= m.fov then fail(tick, "shot", 0, fr.shot .. " in place of " .. m.shot) end
+			local out = math.max(Config.ArenaMinX - fr.a, fr.a - Config.ArenaMaxX, Config.ArenaMinX - fr.d, fr.d - Config.ArenaMaxX)
+			if out > 0 then fail(tick, "deck", out, string.format("%s: a body off the deck (%.2f, %.2f)", fr.shot, fr.a, fr.d)) end
+			if math.abs(fr.cam[1]) > 40 then
+				fail(tick, "floor", math.abs(fr.cam[1]) - 40, string.format("%s: the camera beyond the end of the floor (x = %.2f)", fr.shot, fr.cam[1]))
+			end
+			local moved = math.abs(fr.a - m.a - shift) + math.abs(fr.d - m.d - shift)
+			for i = 1, 3 do
+				local off = if i == 1 then shift else 0
+				moved += math.abs(fr.cam[i] - m.cam[i] - off) + math.abs(fr.target[i] - m.target[i] - off)
+			end
+			if moved > 0.01 then
+				fail(tick, "moved", moved, string.format("%s: not the staging of the middle moved by %.2f (off by %.2f)", fr.shot, shift, moved))
+			end
+			if fr.hidden > 0.25 then
+				fail(tick, "hidden", fr.hidden, string.format("%s: %.0f %% of its subject hidden by the other body", fr.shot, fr.hidden * 100))
+			end
+		end
+		local failures = {}
+		for _, kind in order do
+			local k = kinds[kind]
+			table.insert(failures, string.format("from t%d, %d ticks; worst: %s", k.first, k.n, k.text))
+		end
+		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
+	end)
+end
+
 test("one K.O. on screen: the HUD keeps quiet when the K.O. scene ends the match (1v1 rounds, relays)", function()
 	local Director = require("../src/shared/CinematicDirector")
 	local cfg = { RoundsToWin = 2 }

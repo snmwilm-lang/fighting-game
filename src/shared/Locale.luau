@@ -598,6 +598,7 @@ Locale.FR = {
 	["THE GREAT HUNT"] = "LA GRANDE CHASSE",
 	["FINAL MERCY"] = "DERNIÈRE MISÉRICORDE",
 	["FATAL ERROR"] = "ERREUR FATALE",
+	["BLACK SUN"] = "SOLEIL NOIR",
 	["FATAL READY"] = "COUP FATAL PRÊT",
 	["FATAL BLOW READY · C —"] = "COUP FATAL PRÊT · C —",
 	["FATAL BLOW · C key (gamepad L1):"] = "COUP FATAL · touche C (manette L1) :",

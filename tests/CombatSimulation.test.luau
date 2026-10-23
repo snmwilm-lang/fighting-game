@@ -1319,9 +1319,21 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
 		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
 		expect(start and not start.finish and not start.finisher and state.length == own.Length, kit .. ": a finisher on a target not low")
 	end
-	-- a kit without its finisher yet: the classic fatal, round won or not
-	for _, kit in MoveData.KitOrder do
+	-- a kit without its finisher yet: the classic fatal, round won or not (every playable kit has
+	-- its own since KUROEN's BLACK SUN: the bosses, ASURA and KUROEN SHIN, are the ones left)
+	local candidates = table.clone(MoveData.KitOrder)
+	for name, data in MoveData.Kits do
+		if data.Boss then table.insert(candidates, name) end
+	end
+	table.sort(candidates, function(x, y)
+		local bx, by = MoveData.Kits[x].Boss == true, MoveData.Kits[y].Boss == true
+		if bx ~= by then return by end
+		return if bx then x < y else table.find(MoveData.KitOrder, x) < table.find(MoveData.KitOrder, y)
+	end)
+	local without = nil
+	for _, kit in candidates do
 		if not MoveData.Kits[kit].Finisher then
+			without = kit
 			local world = fatalWorld(3)
 			Sim.setKits(world, kit, "KAI")
 			world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
@@ -1335,6 +1347,7 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
 			break
 		end
 	end
+	expect(without ~= nil, "no kit left without a finisher: this check has nothing to play")
 end)
 
 test("FATAL FINISHER in a relay: a fighter knocked out counts as the round won; the next fighter comes in after it", function()

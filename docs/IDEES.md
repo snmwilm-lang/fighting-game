@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 23 octobre 2026 (routine du matin).
+Dernier tri : 24 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,14 +20,22 @@ Dernier tri : 23 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 23 octobre 2026) :
+- **Ce qui existe** (vérifié le 24 octobre 2026) :
   - 20 persos ont leur finisher, tous les persos jouables : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
   - la scène de NOVA a trois bugs relevés le 18/10 : B-012 (la visière dans sa tête) est ouvert ; B-013 (le rail posé sur une main mesurée au labo) et B-014 (9 lumières à la fois) attendent que Wilhem les confirme en jeu. Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
   - **KUROEN est fait (v0.36.9)** : BLACK SUN (SOLEIL NOIR), 10,7 s. Les trois marques de DOMINATION s'allument dans son dos. Trois coups (genou, coude, paume) laissent chacun un petit soleil noir sur la cible. Les trois soleils volent dans son poing levé et n'en font plus qu'un, puis AXE OF NIGHT abat la cible des deux poings. Deux points se suivent ailleurs et ne rouvrent pas l'idée :
     - ses trois coups sont ceux de sa chope, ECLIPSE CLINCH : assumé pour cette livraison, à revoir par Wilhem (`DECISIONS.md`, 22/10) ;
     - le grand soleil saute de 3,6 studs au coup mortel (B-031, cosmétique, ouvert) ;
-  - ASURA et KUROEN SHIN n'ont **ni ligne ni scène**. Ils jouent encore leur fatal classique : 阿修羅 · FINAL WRATH pour ASURA, 真 · ETERNAL ECLIPSE pour KUROEN SHIN ;
+  - ASURA et KUROEN SHIN n'ont **ni ligne ni scène**. Ils jouent encore leur fatal classique : 阿修羅 · FINAL WRATH pour ASURA, 真 · ETERNAL ECLIPSE pour KUROEN SHIN. Ce que le dépôt a déjà pour eux (relevé le 24/10, v0.36.9) :
+    - **ASURA** :
+      - `Finishers.luau` : rien. Les 20 scènes sont des `S.KIT`, aucune `S.ASURA`. Le réalisateur cherche la scène sous le nom du kit de l'attaquant (`CinematicDirector.luau:5179`) ;
+      - `MoveData.luau` : son kit (`:1374-1413`), sans ligne `Finisher`. Ses rôles et ses ultimes sont ceux de KAI : son COUP FATAL est le `Fatal` de KAI (滅 · DEAD SKY, 300 de jauge), joué avec ses propres plans. À côté : sa seconde vie (`SecondLife`, `:1402`), son titre de PORTE (阿修羅 · WRATH OF THE FOUR ARMS), la durée de son R (`CinematicTuning`) et sa chope (`Throws.ASURA`, `:1573-1575`) ;
+      - `CinematicDirector.luau` : son thème, `GEN.add("ASURA")` (`:4824-4838`). Il fabrique son `FATAL.ASURA` : 阿修羅 · FINAL WRATH, archétype `grapple` (la cible saisie, écrasée d'un côté puis de l'autre), ouverture `stride` (il marche sur elle), fin `pin` (clouée au sol). Deux plans de ce FATAL sont tournés de 30° (`fatal-blow`, `fatal-stride`) ;
+    - **KUROEN SHIN** :
+      - `Finishers.luau` : rien. **Son nom contient une espace** : sa scène s'écrira `S["KUROEN SHIN"] = function(ctx, frame, a, d, tick, dir)`, et non `function S.KUROEN SHIN`. C'est sous ce nom exact que le réalisateur la cherche (`cin.kit`) ;
+      - `MoveData.luau` : son kit (`:1415-1443`), sans ligne `Finisher`. Il ne prend pas celle de KUROEN : vérifié le 24/10, `Kits["KUROEN SHIN"].Finisher` est vide, et BLACK SUN reste à KUROEN seul. Ses rôles et ses ultimes sont ceux de KUROEN : son COUP FATAL est `KuroenFatal` (蝕 · TOTAL ECLIPSE dans `MoveData`, 300 de jauge), affiché avec le nom de son thème. À côté : son titre de PORTE (真 · TRUE EMPEROR) et sa chope à lui (`Throws["KUROEN SHIN"]`, `:1569-1572`) ;
+      - `CinematicDirector.luau` : son thème, `GEN.add("KUROEN SHIN")` (`:4928-4941`). Il fabrique son `FATAL["KUROEN SHIN"]` : 真 · ETERNAL ECLIPSE, archétype `pillar` (des piliers de lumière appelés du ciel sur la cible, de loin), ouverture `emerge` (il sort du sol, dans son sceau), fin `skyward` (un uppercut envoie la cible vers le ciel) ;
   - un test commun aux finishers existe depuis la v0.36.4 (`Cinematography`). Il vérifie : au moins 6 plans propres au perso, un nom unique qui n'est le nom d'aucun coup d'un autre perso, le K.O. après le coup mortel, la cible à terre, des sons de la palette. Il joue aussi les bosses : un finisher d'ASURA y entre tout seul ;
   - depuis la v0.36.5, `Cinematography` joue aussi chaque finisher avec l'attaquant dos au mur, à gauche puis à droite. Un perso qui reçoit sa ligne `Finisher` y entre tout seul, bosses compris ;
   - depuis la v0.36.6, `Cinematography` joue aussi les COUPS FATAUX classiques des 22 kits dos au mur, des deux côtés (44 tests) ;
@@ -90,7 +98,7 @@ Dernier tri : 23 octobre 2026 (routine du matin).
       - un plan ou une forme accrochés à ses poings du bas (`AsuraFistLeft`, `AsuraFistRight`) marchent en jeu, car `RigReader.part` trouve la pièce par son nom. Mais ils font planter les outils : `resolve` (`CinematicKit`) ne connaît pas ces pièces ;
       - seul le storyboard les dessine (`WeaponKit.fourArms`) ;
       - avant de filmer ses bras du bas ou d'y accrocher une forme, production les ajoute aux corps des outils, à partir de `WeaponKit.fourArms`. Sinon, ne s'accrocher qu'aux vraies pièces ;
-    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2 (`init.server.luau:609`), qui commence à droite (`SpawnX`). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
+    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2, qui commence à droite (`SpawnX`). C'est l'appel `Sim.setTeams(world, request.team, { boss })` au lancement d'un défi, dans `init.server.luau` (ligne 609 de la v0.36.9 ; elle bougera avec la correction de B-025 en cours). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
     - **la cible est l'un des 20 persos jouables**, avec son arme s'il en a une (le katana de SHIN, la lance de RAIJIN, l'orbe de DAICHA…). Les outils prennent KAI : garder de la marge (B-018) ;
     - **sa seconde vie** : la scène peut se jouer pendant sa seconde vie, le corps assombri dans son aura noire (`EffectsController.luau:1965`), que les outils ne dessinent pas. Elle doit rester lisible ainsi : de l'or sur du noir ;
     - **la couleur** : l'or FFD23F est aussi celui de KAI en SACRÉ et en ÉVEILLÉ, et du thème OR de la boutique. KUROEN SHIN est blanc et or, ELIAN or pâle (FINAL MERCY, ses ailes). La scène doit se lire « ASURA » (quatre bras, colère, or sur noir et rouge sang), et non « divin » ou « lumière » ;
@@ -103,12 +111,59 @@ Dernier tri : 23 octobre 2026 (routine du matin).
       - un défi à 2 ou 3 persos, dont un déjà mis K.O. par ASURA : c'est sa « manche gagnée » (une marque par perso K.O., `:2473`). Contre un seul perso, son premier K.O. finit le défi : jamais de finisher ;
       - sa vie sous 30 % (`FatalHealth`), soit 960 PV sur 3 200. Sa seconde vie repart à 45 % (1 440 PV), jauge pleine ;
       - son COUP FATAL pas encore utilisé : il n'en a qu'un par match, d'un perso à l'autre du relais (`:91`) ;
-      - le CPU qui le lance, après un coup qui touche et selon le hasard de son niveau (`FighterAI.luau:496-501`), et un coup qui tue ;
-    - **correction de la fiche** : « se verra surtout au labo » est faux pour les bosses. Le labo ne joue que le perso du joueur (`debugCinematic`, `init.server.luau:1945`), et un boss n'est jouable nulle part, même à l'entraînement (`GameModes.validate` ne prend que `KitOrder`). Sa scène ne se verra qu'en défi, et sur les storyboards.
+      - un coup qui tue : la cible sous la moitié de sa vie (`FinishThreshold`), et la part du COUP FATAL au moins égale à sa vie restante (`CombatSimulation.luau:1281`). Le CPU, lui, ne retient rien : son niveau a `ultimate = 1` (`FighterAI.luau:72-74`), il lance donc le COUP FATAL à chaque fois qu'il est prêt, sur un coup qui touche (`:496-501`). La rareté vient des conditions, pas du hasard (précisé le 24/10 ; la fiche disait « selon le hasard de son niveau ») ;
+    - **correction de la fiche** : « se verra surtout au labo » est faux pour les bosses. Le labo ne joue que le perso du joueur (`Sim.debugCinematic`, appelé par le serveur), et un boss n'est jouable nulle part, même à l'entraînement (`GameModes.validate` ne prend que `KitOrder`). Sa scène ne se verra qu'en défi, et sur les storyboards.
   - **les leçons de la v0.36.9, relevées par la validation** :
     - **ne pas reprendre sa chope** : les trois coups de BLACK SUN sont ceux de la chope de KUROEN, alors que la fiche la rangeait dans « à ne pas recopier ». Pour ASURA : pas de cible saisie à la taille, soulevée au-dessus de sa tête, puis jetée ;
     - **aucun objet qui saute à l'impact** (B-031) : le grand soleil de BLACK SUN apparaît à un point fixe au lieu de suivre les poings, et saute de 3,6 studs au coup mortel. Toute forme qui traverse le coup mortel part d'une vraie pièce et voyage sans saut. Chacune porte un `mark`, et le test les suit **toutes** (celui de BLACK SUN ne suivait que les trois petits soleils) ;
     - **le test « kit sans finisher »** (`CombatSimulation.test`) prend le premier kit sans ligne `Finisher`, les bosses en dernier : aujourd'hui ASURA. Quand ASURA aura sa ligne, il passera tout seul à KUROEN SHIN, et réussira encore. Il échouera exprès (« no kit left without a finisher ») quand KUROEN SHIN aura la sienne : cette livraison-là devra tester la règle autrement, et le noter dans `DECISIONS.md`, sans la supprimer en silence.
+- **Pour KUROEN SHIN (après ASURA), ce que production doit savoir** (préparé le 24/10) :
+  - **son identité** :
+    - 真, « KUROEN au-delà de toute limite » (sa description, `Locale`). Wilhem le voulait « cassé comme Gogeta » (journal, v0.17.0 ; « like Gogeta in FighterZ » en tête de son kit) et plus fort qu'ASURA (« SHIN », v0.23.22). C'est le boss du CHALLENGE · KUROEN SHIN, jamais jouable (il n'est pas dans `KitOrder`) ;
+    - blanc et or : cheveux blancs à pointes d'or, yeux d'or, gilet et chemise blanc cassé (F4F0E6) bordés d'or, pantalon noir, ki FFE9A0. Il n'a qu'un style, TRUE EMPEROR (`CharacterData.luau:211`) ;
+    - son allure : debout et calme, les mains basses et ouvertes, « pas de garde à tenir » (`PoseLibrary`). Il ouvre ses ultimes en lévitation (`Levitate`), et entre en scène debout (`StandTall`) ;
+    - ce qui le rend « cassé » : l'INSTINCT DIVIN (le premier coup qui l'atteint est esquivé, et il réapparaît dans le dos de l'attaquant), un dash qui traverse les coups (« transmission instantanée »), et la DOMINATION née en ÉCLIPSE (niveau III), qui ne se perd jamais. Son thème le résume : « il est derrière toi avant que tu le voies » ;
+    - ses effets : poing, auréole et sceau divins (`KitFX` : `divineFist`, `divineHalo`, `divineSeal`). Dans le pack (6.22) : un éclat blanc avec des plumes de lumière, et un dash en téléportation, trois images fantômes blanches puis un anneau d'or ;
+    - **son son** : il n'a pas de matière à lui dans `SoundPalette.MATERIALS`. En jeu, ses coups sonnent donc comme ceux de KAI (repli de `SoundController`, fonction `material`), et les sons d'une scène (`whoosh`, `heavy`) aussi. Le test des sons (`Kits`) ne regarde que les 20 jouables. Production choisit, et le note : garder ce repli, ou lui donner une matière (celle de KUROEN, ou une variante), prise dans la palette seulement. Pas d'acier (`slash`) : il frappe des poings.
+  - **ses ultimes, à ne pas recopier** (`GEN.add("KUROEN SHIN")`) :
+    - R, 真 · DIVINE EMPEROR RUSH : la cible tirée vers lui à chaque coup (`pull`) ;
+    - ÉVEIL, 真 · ZERO ABSOLU: TRUE ECLIPSE : une tempête de poings de tous les côtés, avec ses images fantômes (`gatling`, ouverture `clones`) ;
+    - PORTE, 真 · TRUE EMPEROR : il tourne autour de la cible plus vite que l'œil (`orbit`) ;
+    - FATAL, 真 · ETERNAL ECLIPSE : il sort du sol, des piliers de lumière tombent du ciel sur la cible, un uppercut l'envoie en l'air (`pillar`, `skyward`) ;
+    - **sa chope** : la cible soulevée d'une main par la gorge, le ki pulse deux fois, la paume qui l'envoie (`MoveData.Throws`) ;
+    - **et ceux de KUROEN, dont il reprend les coups** :
+      - BLACK SUN : les trois marques qui s'allument dans le dos, trois coups (genou, coude, paume), trois petits soleils, AXE OF NIGHT des deux poings ;
+      - sa chope ECLIPSE CLINCH (genou, coude, paume) ;
+      - son R (des coups de tous les côtés, de plus en plus vite), son ÉVEIL (la lumière s'éteint, une éclipse rouge dans le ciel), sa PORTE (une tempête de poings), son FATAL (le jonglage sous l'éclipse).
+  - **le piège de son double** :
+    - le style ÉCLIPSE DIVINE de KUROEN, gagné en battant KUROEN SHIN, a **exactement** ses couleurs (`CharacterData.luau:211-212`). Et BLACK SUN prend le ki du style (`ctx.characters[A].Energy`). Un joueur en ÉCLIPSE DIVINE joue donc déjà un BLACK SUN blanc et or, avec le visage de KUROEN SHIN ;
+    - sa scène doit se distinguer de BLACK SUN **par ses gestes et son déroulé**, pas seulement par ses couleurs ;
+    - une piste, pas une consigne : ce qu'aucune de ses scènes ne montre encore, c'est l'INSTINCT DIVIN (le coup esquivé, lui déjà dans le dos) et son calme (les mains basses, sans garde).
+  - **la couleur** :
+    - le blanc et la lumière sont aussi à ELIAN. FINAL MERCY, c'est la paume, le pilier, sept auréoles, le blanc, la croix, des ailes. Le pack donne à KUROEN SHIN les plumes d'ELIAN (`FEATHER_2x2`) ;
+    - le mesh d'aile (`WING`, M25 du prompt VFX) est prévu pour ELIAN et pour lui, mais il n'a pas d'ID (`VfxConfig` : 0). Il n'est donc pas utilisable ;
+    - un pilier de lumière est déjà pris deux fois : par son propre FATAL et par FINAL MERCY. La PORTE de RAIJIN appelle déjà des piliers de foudre ;
+    - l'or FFD23F est celui d'ASURA, de KAI en SACRÉ et en ÉVEILLÉ, et du thème OR ;
+    - la scène doit se lire « KUROEN au-delà de toute limite » : des poings, des coudes, des genoux, l'empereur. Elle ne doit pas se lire « ange » ou « lumière ».
+  - **les noms déjà pris** :
+    - les 20 finishers (liste d'ASURA, plus haut) et **celui que recevra ASURA** ;
+    - les siens : 真 · DIVINE EMPEROR RUSH, 真 · ZERO ABSOLU: TRUE ECLIPSE, 真 · ETERNAL ECLIPSE, 真 · TRUE EMPEROR, TRUE DOMINATION (son passif), DIVINE INSTINCT, son style TRUE EMPEROR, les titres du défi (GOD SLAYER, ECLIPSE BREAKER, TRUE EMPEROR'S EQUAL, TRUE EMPEROR), les succès GOD SLAYER et TRUE EMPEROR, la provocation ECLIPSED ;
+    - ceux de KUROEN : ses 29 coups (dont AXE OF NIGHT, RISING UPPER, CROWN BREAKER, FALLING EMPEROR, SOVEREIGN UPPER, TYRANT'S FIST, EMPEROR'S DECREE, ECLIPSE BREAKER, CRIMSON STEP, EMPEROR RUSH, 零 · ZERO ABSOLU: ECLIPSE, 皇 · EMPEROR'S GATE, 蝕 · TOTAL ECLIPSE), EMPEROR STEP, DOMINATION, BLACK SUN, ses styles (EMPEROR, BLOOD MOON, DIVINE ECLIPSE) ;
+    - les mots usés dans sa famille : ECLIPSE (au moins 8 noms), EMPEROR (au moins 7), DIVINE (5, dont 雷神 · DIVINE WRATH de RAIJIN et DIVINE MIRACLE d'ELIAN), TRUE (4), ZERO (4 : décision du 17/10), SUN (BLACK SUN). BLACK SUN a évité ECLIPSE, EMPEROR et ZERO pour cette raison (décision du 22/10) ;
+    - **le test commun ne voit pas ses noms**, comme pour ASURA : ils vivent dans son thème (`names`) et son `GateTitle`. Si la livraison d'ASURA étend le test à ces noms, il en profite. Sinon, vérifier à la main.
+  - **ses pièges à lui** :
+    - **en défi, depuis la droite**, comme ASURA : le boss est l'équipe 2, qui commence à droite ;
+    - **la cible** est l'un des 20 persos jouables, avec son arme s'il en a une. Garder de la marge (B-018) ;
+    - **aucun outil à étendre** : il n'a ni arme ni bras en plus. Les outils le dessinent avec le corps de KAI, comme KUROEN. Son effort est celui de KUROEN, plus le test « kit sans finisher » à refaire ;
+    - **sa DOMINATION est toujours au niveau III** (`Start = 3`, `NoLoss` ; pack : « comme KUROEN, en or »). Allumer les trois marques une à une, comme BLACK SUN, n'aurait pas de sens pour lui : elles sont déjà allumées ;
+    - **la scène sera rare**, comme celle d'ASURA. Il faut, à la fois :
+      - un défi à 2 ou 3 persos, dont un déjà mis K.O. par lui ;
+      - sa vie sous 30 %, soit 900 PV sur 3 000 ;
+      - son COUP FATAL pas encore utilisé (un par match) ;
+      - un coup qui tue.
+      
+      Le CPU lance son COUP FATAL à chaque fois qu'il est prêt (`ultimate = 1`, `FighterAI.luau:75-77`). Il n'a pas de seconde vie, et ses cibles non plus : `finish` vaut `fells`, rien à changer (B-020) ;
+    - **les leçons de BLACK SUN valent pour lui** : ne reprendre aucune chope (ni la sienne, ni celle de KUROEN) ; aucun objet qui saute à l'impact (B-031), une `mark` sur chaque forme ; une lumière à la fois (B-014) ; jamais VICTORY ni sa pose de victoire, puisqu'en relais son finisher tombe souvent avant la fin du défi.
 - **Persos et systèmes touchés** :
   - NOVA (drones et gantelets, orange FF8A2A) ;
   - KUROEN (éclipse rouge et noire, E0102E) ;
@@ -116,18 +171,20 @@ Dernier tri : 23 octobre 2026 (routine du matin).
   - KUROEN SHIN (boss, or et blanc) ;
   - fichiers : `MoveData.luau`, `Finishers.luau`, `Locale.luau` (le nom du finisher en français), sons de cinématique (`SoundPalette`), storyboards ;
   - pour ASURA, en plus : `FourArms.luau` si ses bras du bas font un geste nouveau, et les outils de test (`tests/CinematicKit.luau`, `tests/WeaponKit.luau`) pour qu'ils voient ses bras du bas ;
+  - pour KUROEN SHIN, en plus : `SoundPalette.luau` si production lui donne sa propre matière, et le test « kit sans finisher » de `tests/CombatSimulation.test.luau` à refaire. Aucun outil de test à étendre ;
   - aucun dégât ni aucune vie : pas d'équilibrage.
 - **Valeur / effort** : forte / gros. Une scène par perso, donc une par livraison : NOVA, puis KUROEN, puis les deux bosses.
-  - Pour les bosses, la valeur est moindre : leur scène sera rare (voir « Pour ASURA »).
+  - Pour les bosses, la valeur est moindre : leur scène sera rare (voir « Pour ASURA » et « Pour KUROEN SHIN »).
   - L'effort d'ASURA est un peu plus gros que celui de KUROEN : ses bras du bas sont à montrer aux outils de test.
+  - L'effort de KUROEN SHIN est celui de KUROEN, plus le test « kit sans finisher » à refaire.
 - **Risques** :
   - les bosses ne déclenchent leur finisher qu'en relais : le joueur amène 2 ou 3 persos et le boss en a déjà mis un K.O. Pour ASURA, il faut en plus sa vie sous 30 % et son COUP FATAL lancé par le CPU. Un boss n'est jouable nulle part, même au labo : la scène se verra rarement en combat, et surtout sur les storyboards ;
   - KUROEN SHIN a déjà un ultime nommé ZERO ABSOLU : TRUE ECLIPSE. Le nom de son finisher devra être différent, comme celui de KUROEN l'a été (BLACK SUN) ;
-  - KUROEN SHIN reprend les coups de KUROEN : sa scène, plus tard, devra se distinguer de BLACK SUN (blanc et or, divin) ;
+  - KUROEN SHIN reprend les coups de KUROEN : sa scène devra se distinguer de BLACK SUN par ses gestes, pas seulement par ses couleurs. KUROEN en style ÉCLIPSE DIVINE joue déjà BLACK SUN en blanc et or (voir « Pour KUROEN SHIN ») ;
   - ASURA reprend les coups de KAI. Sa scène ne doit pas recopier MAXIMUM KAIENHA et doit montrer ses quatre bras ;
   - décision du 15/10 : le K.O. et l'aura FATAL gardent les effets du jeu, pas ceux du pack VFX.
-- **Questions ouvertes** : aucune qui bloque. Production propose le nom et la mise en scène d'ASURA, comme FATAL ERROR pour NOVA et BLACK SUN pour KUROEN. Wilhem pourra les faire refaire d'après ses planches, comme SHIN, TARO, KAI et ZEPHYR en v0.32.0. Pour Wilhem, sans bloquer :
-  1. A-t-il une planche ou un nom en tête pour ASURA ? Choix : a) oui, il l'envoie et production la suit ; b) non, production propose. **Recommandation : b)**, la scène se change ensuite comme les autres.
+- **Questions ouvertes** : aucune qui bloque. Production propose le nom et la mise en scène d'ASURA, puis de KUROEN SHIN, comme FATAL ERROR pour NOVA et BLACK SUN pour KUROEN. Wilhem pourra les faire refaire d'après ses planches, comme SHIN, TARO, KAI et ZEPHYR en v0.32.0. Pour Wilhem, sans bloquer :
+  1. A-t-il une planche ou un nom en tête pour ASURA, ou pour KUROEN SHIN ? Choix : a) oui, il l'envoie et production la suit ; b) non, production propose. **Recommandation : b)**, la scène se change ensuite comme les autres.
   2. BLACK SUN reprend les trois coups de la chope de KUROEN (genou, coude, paume). Choix : a) on garde ; b) production les change (avec une nouvelle validation). **Recommandation : a)**, sauf s'il trouve en jeu que la scène ressemble trop à la chope. Elle filme ces coups en gros plan avec les soleils noirs, et ne reprend ni l'éclipse, ni le jonglage, ni la tempête de poings.
   3. Comment voir la scène d'ASURA, puisque aucun joueur ne peut la lancer au labo ? Choix : a) sur les storyboards envoyés avec la livraison ; b) avec un bouton du labo réservé à l'accès développeur (une autre idée, à ranger à part). **Recommandation : a)** pour cette livraison.
 - **Critères d'acceptation** :
@@ -151,14 +208,35 @@ Dernier tri : 23 octobre 2026 (routine du matin).
     - toutes ses formes portent un `mark`, et aucune ne saute de plus de 0,5 stud d'une image à l'autre dans un même plan, coup mortel compris (B-031) ;
     - son nom ne reprend aucun nom de la liste « les noms déjà pris », y compris ceux de son thème que le test commun ne voit pas ;
     - le test « kit sans finisher » de `CombatSimulation` joue KUROEN SHIN et passe ;
+  - **pour KUROEN SHIN, en plus** :
+    - sa ligne `Finisher` est sur son kit, et sa scène est `S["KUROEN SHIN"]`. BLACK SUN ne change pas : ses 7 tests passent sans retouche ;
+    - la scène ne reprend aucune de ces scènes : ni sa chope (la gorge, d'une main), ni celle de KUROEN (genou, coude, paume) ; ni les étapes de BLACK SUN (les marques qui s'allument, les trois soleils, AXE OF NIGHT des deux poings) ; ni ses ultimes (la cible tirée vers lui, la tempête de poings, le tour autour d'elle, les piliers de lumière) ;
+    - un test joue le vrai défi : KUROEN SHIN contre une équipe de 3. Il met le premier perso K.O., puis son COUP FATAL tue le deuxième : la scène joue, sans VICTORY, et le troisième entre après elle. Contre un seul perso, jamais de finisher ;
+    - la scène est vérifiée depuis la droite autant que depuis la gauche (au centre, dos au mur, storyboard) ;
+    - toutes ses formes portent un `mark`, et aucune ne saute de plus de 0,5 stud d'une image à l'autre dans un même plan, coup mortel compris (B-031) ;
+    - son nom ne reprend aucun nom de sa liste « les noms déjà pris », ni le nom choisi pour ASURA. Il évite les mots usés de sa famille (ECLIPSE, EMPEROR, DIVINE, TRUE, ZERO), comme BLACK SUN l'a fait (décision du 22/10) ;
+    - la règle « un kit sans finisher joue le fatal classique » reste testée, autrement qu'avec un vrai kit, puisqu'il n'en reste plus. Le changement est noté dans `DECISIONS.md` : le test n'est jamais supprimé en silence ;
+    - sa matière sonore est décidée et notée dans `DECISIONS.md` : soit le repli sur KAI est gardé, soit il reçoit une matière à lui, tirée de la palette seulement ;
   - les 9 suites passent.
-- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). **KUROEN fait (v0.36.9, BLACK SUN / SOLEIL NOIR)**, validé le 22/10 et livré le 23/10. **ASURA est le prochain, et rien ne le bloque** : aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Puis KUROEN SHIN. L'idée avait été reportée quatre fois, par des bugs passés avant elle :
+- **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). **KUROEN fait (v0.36.9, BLACK SUN / SOLEIL NOIR)**, validé le 22/10 et livré le 23/10.
+  - **ASURA est le prochain, et rien ne le bloque.** Aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Revérifié le 24/10 :
+    - depuis le tri d'hier, le dépôt n'a changé que dans `BUGS.md` (c3bf80e) ;
+    - la correction en cours de B-025 et B-032 ne touche que le serveur des profils (`SaveQueue`, `GlobalQueue`, `init.server.luau`) et `Lobby.test` ;
+    - toutes les références de la fiche à la simulation, à l'IA, au réalisateur et aux effets tiennent. Seules deux lignes du serveur bougeront, et la fiche les cite maintenant par leur appel ;
+    - un point a été précisé : le CPU lance toujours son COUP FATAL dès qu'il est prêt (`ultimate = 1`).
+  - **KUROEN SHIN est préparé (24/10), et prêt après ASURA.** Rien n'attend Wilhem. Il passe second parce qu'on livre une scène par livraison, et parce qu'il hérite de la livraison d'ASURA : le nom à éviter, peut-être le test commun étendu aux noms des thèmes. Ce qui le distingue est dans « Pour KUROEN SHIN » :
+    - le double blanc et or de BLACK SUN ;
+    - sa matière sonore, à décider ;
+    - le test « kit sans finisher », à refaire.
+  - **Ce matin, un bug passe avant** : production corrige B-025 (majeur depuis le 23/10) et B-032, pas encore validés. La routine ne fait qu'une livraison : si celle-ci est validée, ASURA passe à la suivante.
+
+  L'idée avait été reportée quatre fois, par des bugs passés avant elle :
   - le 18/10 pour B-011 (majeur, corrigé en v0.36.5) ;
   - le 19/10 pour B-017 (majeur, corrigé en v0.36.6) ;
   - le 20/10 pour B-021 (bloquant, corrigé en v0.36.7) ;
   - le 21/10 pour B-020 (majeur, corrigé en v0.36.8, livré le 22/10).
   
-  B-023 (CLASSÉ : quitter tôt ne coûte aucun point) reste le seul bug majeur ouvert, mais il est reporté depuis le 22/10 (`BUGS.md`, `DECISIONS.md`). Son plan commence par B-025 (mineur, faisable sans Wilhem), puis attend un relevé sur le jeu publié que seul Wilhem peut lire ; B-023 et B-028 viendront ensuite ensemble. ASURA ne dépend pas de ce chemin.
+  B-023 (CLASSÉ : quitter tôt ne coûte aucun point) est reporté depuis le 22/10 (`BUGS.md`, `DECISIONS.md`). Son plan commence par B-025 : relevé en majeur le 23/10, il est en correction ce matin, avec B-032. Ensuite, il attend un relevé sur le jeu publié que seul Wilhem peut lire. B-023 et B-028 viendront ensemble, après ce relevé. ASURA et KUROEN SHIN ne dépendent pas de ce chemin.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.
@@ -233,7 +311,13 @@ Dernier tri : 23 octobre 2026 (routine du matin).
     - `!give … title` ne l'ajoute pas à `titles` (B-024). Les Game Pass et les Robux ne donnent aucun de ces six titres ;
     - donc un titre à exploit présent dans `titles` sans achat dans `ownedItems` a forcément été gagné en jouant. On peut lui rendre son étoile sans aucune lecture en plus ;
     - FINAL BOSS revient déjà seul, car son compteur est recalculé à partir des notes des défis (`featBosses`), jamais perdues. Mais il ne revient qu'au combat suivant, avec une seconde annonce ;
-  - décision du 20/10 (`DECISIONS.md`) : pas de récupération automatique, elle est seulement proposée. Elle touche la cote CLASSÉE, que les joueurs voient.
+  - décision du 20/10 (`DECISIONS.md`) : pas de récupération automatique, elle est seulement proposée. Elle touche la cote CLASSÉE, que les joueurs voient ;
+  - **noté le 24/10** : la correction de B-025 et B-032 est en cours ce matin, pas encore validée. Elle change le chargement et l'écriture du profil (`DECISIONS.md`, 23/10) :
+    - chaque visite d'un joueur devient une session (`SaveQueue`) ;
+    - une nouvelle visite attend que l'ancienne libère le profil, jusqu'à 65 s (`SaveQueue.held`) ;
+    - `writeProfile` n'écrit qu'un profil chargé par sa propre session.
+
+    Si elle est livrée, la relecture de la cote se fera après ce chargement, et le marqueur « une seule fois » passera par `writeProfile`, comme le reste du profil. Les lignes de `init.server.luau` citées ici sont celles de la v0.36.9 : elles bougeront. L'écriture des classements 2v2 et 3v3 est en `:255-264`. La fiche est à relire quand cette correction sera livrée. Elle reste à clarifier : la réponse attend toujours Wilhem.
 - **Persos et systèmes touchés** :
   - aucun perso, rien sur le combat ni l'équilibrage ;
   - le chargement du profil (`init.server.luau`, `Profile.luau`), la cote CLASSÉE (`Matchmaker`), les titres et leur étoile (`GameModes`), les classements (DataStore) ;

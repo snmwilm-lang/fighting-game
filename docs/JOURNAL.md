@@ -1,5 +1,52 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.10 — 24 octobre 2026 · Le verrou de session ne se périme plus (B-025) et l'écriture de départ est retentée (B-032)
+
+Produite par la routine du 23 octobre. La première validation (23/10) l'a **refusée**. La seconde (24/10) l'a **validée**.
+
+- **B-025 (majeur), corrigé** :
+  - **le problème** : le verrou de session n'était renouvelé qu'à une écriture, et un profil n'était écrit que s'il avait changé. Un joueur inactif, ou en CLASSÉ (rien n'écrit pendant un match, et tous durent plus de 60 s), avait un verrou périmé dès la 61e seconde. Un autre serveur pouvait alors charger le profil d'avant le match, et l'écriture de départ de l'ancien était refusée : le résultat du match était perdu ;
+  - **la correction** :
+    - `SaveQueue` (pur) renouvelle tout profil chargé dont la dernière écriture **réussie** date de 20 s ou plus, sans la limite `BATCH` (`RENEW`, `renewals`, `flush`) ;
+    - un profil qu'un autre serveur a pris n'est plus jamais écrit d'ici (`lost`). La transformation d'écriture vit dans `GlobalQueue.write` (pur), et une écriture partie avant le départ ne reprend jamais le verrou relâché (« gone ») ;
+    - pendant une fermeture (`closing`, première ligne de `BindToClose`), plus aucun renouvellement ;
+  - **le défaut de la première passe, refusé** : un joueur revenu sur le **même** serveur pendant les nouveaux essais de son écriture de départ comptait comme chargé avant son propre chargement. Si celui-ci échouait, un achat pouvait écrire le profil par défaut sur la vraie sauvegarde (rejoué par la validation). Correction : chaque visite est une **session** dans `SaveQueue`. La nouvelle visite attend la fin de l'ancienne (`held`, 65 s au plus), et `writeProfile` n'écrit que le profil que sa session a chargé (« unloaded »).
+- **B-032 (mineur), corrigé** : l'écriture de départ (`PlayerRemoving`, `BindToClose`) est retentée jusqu'à 4 fois (après 1, 2 et 4 s), seulement sur une erreur du DataStore, jamais sur un refus de verrou (`SaveQueue.finalRetry`). `BindToClose` attend aussi les écritures de départ encore en cours, dans sa limite de 25 s.
+- **Ce que le joueur voit** :
+  - tant qu'il reste sur un serveur, même inactif ou pendant un long CLASSÉ, aucun autre serveur ne prend son profil ;
+  - le serveur suivant attend l'écriture de départ de l'ancien et retrouve le dernier résultat ;
+  - **risque accepté, à revoir par Wilhem** (`DECISIONS.md`) : un joueur coupé que l'ancien serveur garde plus d'environ 73 s voit « SAVES UNAVAILABLE » (vers 81 s) sur le nouveau, au lieu d'un écrasement silencieux.
+- **Console** (`print`, pour B-023 et B-028 sur le jeu publié) : `[FightingGame] leave <id> at …`, `[FightingGame] closing at …`, et une ligne au chargement quand il a attendu.
+- **Budget DataStore** : 2 écritures de profil par minute pour un joueur inactif, 4 au plus. Par serveur, au plus min(4N, 32 + 2N) par minute, contre un budget de 60 + 10N. Le contenu écrit et le nom du DataStore ne changent pas.
+- **Tests** : 5 dans `Lobby.test`, avec un banc `saveWorld` :
+  - un joueur présent pendant 10 min d'inactivité et pendant un CLASSÉ de 3 min ;
+  - 100 joueurs ;
+  - un joueur parti et un autre serveur ;
+  - les nouveaux essais ;
+  - le retour sur le même serveur, dans les deux ordres d'événements.
+
+  Ils échouent sur la v0.36.9, et le dernier échoue sur le premier diff. La validation a fait tourner le texte exact d'`init.server.luau` sur un ordonnanceur et un DataStore simulés : 6 scènes, aucune vérification ratée. La chasse du 24/10 a passé 30 000 scénarios aléatoires sans échec.
+
+**Fichiers** :
+- `src/server/SaveQueue.luau`, `src/server/GlobalQueue.luau`, `src/server/init.server.luau` ;
+- `src/shared/CombatConfig.luau` (0.36.10) ;
+- `tests/Lobby.test.luau` ;
+- `docs/BUGS.md` (B-025 et B-032 corrigés ; B-033 et B-034 nouveaux), `docs/DECISIONS.md`.
+
+**Tests** : CombatSimulation 174, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 411, Lobby 53 (+5), Kits 130 : tout passe.
+
+**Problèmes ouverts** :
+- **non corrigés dans cette livraison** :
+  - la ligne de console du chargement ne compte pas l'attente d'une ancienne visite sur le même serveur ;
+  - au-delà de 65 s sur le même serveur, les derniers changements de l'ancienne visite peuvent encore se perdre (mieux qu'avant, noté dans B-025) ;
+- B-023 et B-028, maintenant débloqués ;
+- B-033 : les bosses mélangent leur matière sonore ;
+- B-034 : KUROEN et DAICHA ont un ultime du même nom ;
+- ASURA et KUROEN SHIN n'ont pas de FATAL FINISHER ;
+- rien n'est vérifié dans Studio.
+
+**Prochaine étape** : I-001, le FATAL FINISHER d'ASURA (sa fiche est prête). Ensuite, B-023 et B-028, à partir des lignes de console relevées sur le jeu publié.
+
 ## Version 0.36.9 — 23 octobre 2026 · Le FATAL FINISHER de KUROEN : BLACK SUN (routine du 22, livrée le 23)
 
 Produite et **validée par la routine du 22 octobre**. Comme la veille, la livraison a été interrompue après le verdict, et la session l'a terminée le 23 au matin. Le code est celui que la validation a relu.

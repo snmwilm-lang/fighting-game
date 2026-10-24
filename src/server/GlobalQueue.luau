@@ -91,8 +91,9 @@ end
 	The session lock of a saved profile (a field `_session` = { job, t } in the saved data):
 	a server may load and write a profile only if no other server holds a fresh lock on it
 	(the player left one server for another, e.g. a cross-server match). Each write renews
-	the lock; leaving releases it. A lock older than LOCK_TTL is the trace of a crashed
-	server: it is taken over.
+	the lock, and a present player's profile is rewritten often enough for it to stay fresh
+	(SaveQueue.renewals); leaving releases it. A lock older than LOCK_TTL is the trace of a
+	crashed server: it is taken over.
 ]]
 GlobalQueue.LOCK_TTL = 60
 GlobalQueue.LOCK_RETRY = 3 -- (seconds between two tries while another server holds the lock)
@@ -109,6 +110,18 @@ function GlobalQueue.stamp(profile, job, now, release)
 	local data = table.clone(profile)
 	data._session = if release then nil else { job = job, t = now }
 	return data
+end
+
+-- One profile write (the DataStore UpdateAsync transform, `saved` = what the store holds):
+-- the data to write, or nil and why nothing is written:
+--   • "gone": a write that is not the last one (a flush, a lock renewal) for a player who
+--     left (`present` false): the last write released the lock, this one must not take it
+--     back;
+--   • "lost": another server holds a fresh lock: the player is there, its copy is newer.
+function GlobalQueue.write(saved, profile, job, now, release, present)
+	if not release and not present then return nil, "gone" end
+	if not GlobalQueue.canLock(saved, job, now) then return nil, "lost" end
+	return GlobalQueue.stamp(profile, job, now, release), nil
 end
 
 return GlobalQueue

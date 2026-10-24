@@ -576,6 +576,466 @@ test("cross-server RANKED: one initiator per pair, same size, close ratings, ato
 	expect(stamped._session.job == "jobA" and G.stamp({ rating = 1 }, "jobA", now, true)._session == nil, "the lock is not written or released")
 end)
 
+-- The profile writes of a server "A" against the DataStore, second by second, as
+-- init.server.luau runs them (B-025, B-032). Each visit of a player is a session (the
+-- server's client table). writeProfile: only the session that loaded the profile
+-- (SaveQueue.isLoaded), SaveQueue.writing, GlobalQueue.write in the UpdateAsync transform,
+-- then SaveQueue.written / failed / lost. The flush every FLUSH_PERIOD s (SaveQueue.flush),
+-- for the player's current visit. The last write of a visit that leaves (SaveQueue.leaving,
+-- retried by SaveQueue.finalRetry, then forget). loadProfile: wait while an older visit
+-- holds the id (SaveQueue.held), then the tries of the load. A write lands `latency` s after
+-- it starts; `down(id, t)` makes the DataStore fail a request made at t. Another server is
+-- played by the test itself, on `w.store`.
+local function saveWorld(SaveQueue, G, opts)
+	opts = opts or {}
+	local w = {
+		q = SaveQueue.new(), store = {}, current = {}, flights = {}, timers = {}, loading = {}, writes = {},
+		latency = opts.latency or 0.4, phase = opts.phase or 7, closing = false, down = opts.down,
+	}
+	local function session(id, profile)
+		local s = { id = id, profile = profile, present = true, profileLoaded = false, writes = 0 }
+		w.current[id] = s
+		return s
+	end
+	-- writeProfile, up to the UpdateAsync call (the rest when it lands)
+	function w.write(s, now, release, attempt)
+		if not SaveQueue.isLoaded(w.q, s.id, s) then return "unloaded" end
+		if SaveQueue.isLost(w.q, s.id, s) then return "lost" end
+		SaveQueue.writing(w.q, s.id, now, s)
+		w.writes[s.id] = (w.writes[s.id] or 0) + 1
+		s.writes += 1
+		table.insert(w.flights, { at = now + w.latency, started = now, s = s, release = release, attempt = attempt,
+			profile = table.clone(s.profile) })
+		return nil
+	end
+	-- a visit that loads at once (loadProfile, nothing in the way)
+	function w.join(id, now, version)
+		local s = session(id, { v = version or 1 })
+		w.store[id] = G.stamp(s.profile, "A", now, false)
+		SaveQueue.loaded(w.q, id, now, s)
+		s.profileLoaded = true
+		return s
+	end
+	-- a visit that loads as loadProfile does, from the default profile (v = 0)
+	function w.arrive(id, now)
+		local s = session(id, { v = 0 })
+		w.loading[s] = { next = now, phase = "held", held = 0, attempt = 0, waited = 0 }
+		return s
+	end
+	-- a change (saveProfile), in the player's current visit
+	function w.change(id, now, version, urgent)
+		local s = w.current[id]
+		s.profile.v = version
+		SaveQueue.mark(w.q, id, now, s)
+		if urgent and SaveQueue.isLoaded(w.q, id, s) then w.write(s, now, false) end
+	end
+	-- a Developer Product bought (ProcessReceipt): granted only on a loaded profile, once written
+	function w.receipt(s, now)
+		if not s.profileLoaded or not SaveQueue.isLoaded(w.q, s.id, s) then return "NotProcessedYet" end
+		s.profile.v += 1000
+		if w.write(s, now, false) then return "NotProcessedYet" end
+		return "written"
+	end
+	-- the visit leaves (PlayerRemoving): its last write, retried, then forget this visit
+	function w.leave(id, now, s)
+		s = s or w.current[id]
+		s.present = false
+		if w.current[id] == s then w.current[id] = nil end
+		if SaveQueue.isLoaded(w.q, id, s) then
+			SaveQueue.leaving(w.q, id, s)
+			if w.write(s, now, true, 1) then SaveQueue.forget(w.q, id, s) end
+		else
+			SaveQueue.forget(w.q, id, s)
+		end
+	end
+	local function land(f)
+		local s, why = f.s, nil
+		if w.down and w.down(s.id, f.started) then
+			why = "error"
+		else
+			local data
+			data, why = G.write(w.store[s.id], f.profile, "A", f.at, f.release, s.present)
+			if data then w.store[s.id] = data end
+		end
+		if why == "error" then
+			SaveQueue.failed(w.q, s.id, f.at, s)
+		elseif why == "lost" then
+			SaveQueue.lost(w.q, s.id, s)
+		elseif why == nil and not f.release then
+			SaveQueue.written(w.q, s.id, f.started, s)
+		end
+		if f.attempt then -- (the leaving thread: finalWrite, then forget)
+			local delay = if why then SaveQueue.finalRetry(why, f.attempt) else nil
+			if delay then
+				table.insert(w.timers, { at = f.at + delay, s = s, attempt = f.attempt + 1 })
+			else
+				SaveQueue.forget(w.q, s.id, s)
+			end
+		end
+	end
+	-- one step of loadProfile
+	local function load(s, L, t)
+		if not s.present then w.loading[s] = nil return end -- (clients[player] ~= client)
+		if L.phase == "held" then
+			if SaveQueue.held(w.q, s.id, s) and L.held < G.LOCK_TTL + 5 then
+				L.held += 1
+				L.next = t + 1
+				return
+			end
+			L.phase = "load"
+		end
+		if L.phase == "unavailable" then -- (SAVES UNAVAILABLE: never loaded)
+			s.profileLoaded = true
+			w.loading[s] = nil
+			return
+		end
+		local ok = not (w.down and w.down(s.id, t))
+		local locked = ok and not G.canLock(w.store[s.id], "A", t)
+		if ok and locked and L.waited < G.LOCK_TTL + 5 then
+			L.waited += G.LOCK_RETRY
+			L.next = t + G.LOCK_RETRY
+			return
+		end
+		if ok and not locked then
+			local saved = w.store[s.id]
+			s.profile = { v = if saved then saved.v else 0 } -- (Profile.merge)
+			w.store[s.id] = G.stamp(saved or {}, "A", t, false)
+			SaveQueue.loaded(w.q, s.id, t, s)
+			s.profileLoaded = true
+			w.loading[s] = nil
+			return
+		end
+		L.attempt += 1
+		L.next = t + SaveQueue.retryDelay(L.attempt)
+		if L.attempt >= SaveQueue.LOAD_TRIES then L.phase = "unavailable" end
+	end
+	-- the server's time goes on, one second at a time; `each(t)` at the end of each second
+	function w.run(from, to, each)
+		for t = from, to do
+			table.sort(w.flights, function(a, b) return a.at < b.at end)
+			while w.flights[1] and w.flights[1].at <= t do land(table.remove(w.flights, 1)) end
+			for i = #w.timers, 1, -1 do
+				local r = w.timers[i]
+				if r.at <= t then
+					table.remove(w.timers, i)
+					if w.write(r.s, t, true, r.attempt) then SaveQueue.forget(w.q, r.s.id, r.s) end
+				end
+			end
+			for s, L in w.loading do
+				if L.next <= t then load(s, L, t) end
+			end
+			if t >= w.phase and (t - w.phase) % SaveQueue.FLUSH_PERIOD == 0 then
+				for _, id in SaveQueue.flush(w.q, t, w.closing) do
+					local s = w.current[id] -- (the flush: GetPlayerByUserId, then its client)
+					if s then w.write(s, t, false) end
+				end
+			end
+			if each then each(t) end
+		end
+	end
+	return w
+end
+
+test("session lock (B-025): a player who stays keeps a fresh lock, idle for 10 minutes or through a 3-minute RANKED match", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local G = require("../src/server/GlobalQueue")
+	expect(SaveQueue.RENEW > SaveQueue.MIN_GAP and SaveQueue.RENEW + 2 * SaveQueue.FLUSH_PERIOD < G.LOCK_TTL,
+		"one failed renewal lets the lock expire (RENEW + 2 flushes must stay under LOCK_TTL)")
+	-- idle: nothing changes for 10 minutes (the hub, the queue), whatever the flush's phase
+	for phase = 0, SaveQueue.FLUSH_PERIOD - 1 do
+		local w = saveWorld(SaveQueue, G, { phase = phase })
+		w.join(1, 0)
+		local stale, oldest = nil, 0
+		w.run(0, 600, function(t)
+			if G.canLock(w.store[1], "B", t) then stale = stale or t end
+			oldest = math.max(oldest, t - w.store[1]._session.t)
+		end)
+		expect(stale == nil, string.format("idle (flush phase %d): another server can take the profile from t = %s", phase, tostring(stale)))
+		expect(oldest < SaveQueue.RENEW + SaveQueue.FLUSH_PERIOD + 1, string.format("idle (phase %d): a lock %.1f s old", phase, oldest))
+		expect(w.writes[1] <= 21, string.format("idle (phase %d): %d writes in 10 minutes (2 a minute expected)", phase, w.writes[1]))
+	end
+	-- a 3-minute RANKED match: a change in the menu, nothing at all during the match, its
+	-- result at the end; the player leaves 5 s later. Another server tries 2 s before the
+	-- leave (another device, a quick rejoin), then every LOCK_RETRY s (loadProfile)
+	local w = saveWorld(SaveQueue, G)
+	w.join(1, 0)
+	local stale
+	w.run(0, 214, function(t)
+		if t == 5 then w.change(1, t, 2) end -- (a style worn in the menu)
+		if t == 210 then w.change(1, t, 3) end -- (MatchEnd: rating, coins, history)
+		if G.canLock(w.store[1], "B", t) then stale = stale or t end
+	end)
+	expect(stale == nil, "a 3-minute match (from t = 30 to 210): another server can take the profile from t = " .. tostring(stale))
+	w.leave(1, 215)
+	local loadedAt, version
+	w.run(215, 300, function(t)
+		if not loadedAt and (t - 213) % G.LOCK_RETRY == 0 and G.canLock(w.store[1], "B", t) then
+			loadedAt, version = t, w.store[1].v
+		end
+	end)
+	expect(version == 3 and loadedAt and loadedAt - 213 <= 2 * G.LOCK_RETRY,
+		"the other server loads " .. tostring(version) .. " at t = " .. tostring(loadedAt) .. " (the match result, 3, just after the leave)")
+end)
+
+test("session lock (B-025): 100 players on one server all keep a fresh lock, idle or busy, within the DataStore budget", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local G = require("../src/server/GlobalQueue")
+	local N = 100
+	for _, busy in { false, true } do
+		local w = saveWorld(SaveQueue, G)
+		local staleSeconds, oldest = 0, 0
+		w.run(0, 615, function(t)
+			for id = 1, N do
+				if t < SaveQueue.FLUSH_PERIOD and id % SaveQueue.FLUSH_PERIOD == t then w.join(id, t) end -- (they join over 15 s)
+				if busy and w.current[id] then w.change(id, t, t) end -- (a change every second)
+				if t >= SaveQueue.FLUSH_PERIOD then
+					if G.canLock(w.store[id], "B", t) then staleSeconds += 1 end
+					oldest = math.max(oldest, t - w.store[id]._session.t)
+				end
+			end
+		end)
+		local total = 0
+		for id = 1, N do total += w.writes[id] or 0 end
+		local perPlayerMinute = total / N / (616 / 60)
+		local kind = if busy then "busy" else "idle"
+		expect(staleSeconds == 0, string.format("%d %s players: %d player-seconds where another server could take a profile", N, kind, staleSeconds))
+		expect(oldest < SaveQueue.RENEW + SaveQueue.FLUSH_PERIOD + 1, string.format("%d %s players: a lock %.1f s old", N, kind, oldest))
+		-- the budget: one write per player and flush at most (4 a minute), under Roblox's
+		-- 60 + 10 per player and per minute; an idle player 2 a minute
+		expect(perPlayerMinute <= 60 / SaveQueue.FLUSH_PERIOD and perPlayerMinute * N <= 60 + 10 * N,
+			string.format("%d %s players: %.2f writes per player and minute", N, kind, perPlayerMinute))
+		expect(busy or perPlayerMinute <= 2.1, string.format("%d idle players: %.2f writes per player and minute", N, perPlayerMinute))
+	end
+	-- one failed renewal, with 30 busy players filling every BATCH: caught up at the next flush
+	local failedOnce = false
+	local w = saveWorld(SaveQueue, G, { down = function(id)
+		if id == 1 and not failedOnce then failedOnce = true return true end
+		return false
+	end })
+	w.join(1, 0)
+	local stale, oldest = nil, 0
+	w.run(0, 300, function(t)
+		for id = 2, 31 do
+			if t == 0 then w.join(id, 0) end
+			w.change(id, t, t)
+		end
+		if G.canLock(w.store[1], "B", t) then stale = stale or t end
+		oldest = math.max(oldest, t - w.store[1]._session.t)
+	end)
+	expect(failedOnce and stale == nil, "after one failed renewal, another server can take the profile from t = " .. tostring(stale))
+	expect(oldest < SaveQueue.RENEW + 2 * SaveQueue.FLUSH_PERIOD + 1, string.format("after one failed renewal: a lock %.1f s old", oldest))
+end)
+
+test("session lock (B-025): a player who left is never renewed, a late write never takes the lock back, never over another server's profile", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local G = require("../src/server/GlobalQueue")
+	-- the rules: nothing before RENEW s after the load; a leaving player (its last write still
+	-- retried) is neither flushed nor renewed; a closing server renews nothing
+	local q = SaveQueue.new()
+	SaveQueue.loaded(q, 1, 100)
+	expect(#SaveQueue.flush(q, 100 + SaveQueue.RENEW - 1, false) == 0, "a lock renewed right after the load")
+	expect(SaveQueue.flush(q, 100 + SaveQueue.RENEW, false)[1] == 1, "a lock RENEW s old is not renewed")
+	expect(#SaveQueue.flush(q, 1000, true) == 0, "a closing server takes back the locks its last writes released")
+	SaveQueue.mark(q, 1, 101)
+	SaveQueue.leaving(q, 1)
+	expect(#SaveQueue.flush(q, 1000, false) == 0 and #SaveQueue.renewals(q, 1000) == 0, "a player who left is still written by the flush")
+	SaveQueue.forget(q, 1)
+	expect(not SaveQueue.isLoaded(q, 1) and #SaveQueue.flush(q, 2000, false) == 0, "a player forgotten is renewed")
+	-- a player leaves: the last write releases the lock, then nothing from A any more
+	local w = saveWorld(SaveQueue, G)
+	local s = w.join(1, 0)
+	w.run(0, 49)
+	local before = w.writes[1] or 0
+	w.leave(1, 50)
+	w.run(50, 600)
+	expect(w.writes[1] - before == 1 and w.store[1]._session == nil and not SaveQueue.isLoaded(w.q, 1, s),
+		string.format("after the leave: %d writes, lock %s", w.writes[1] - before, if w.store[1]._session then "still held" else "released"))
+	-- a flush or renewal stuck in the DataStore's queue lands after the last write: it writes
+	-- nothing (the player is gone), the lock stays released
+	local w2 = saveWorld(SaveQueue, G, { latency = 0.3 })
+	w2.join(1, 0)
+	w2.run(0, 30)
+	w2.latency = 5
+	w2.write(w2.current[1], 31, false) -- (lands at t = 36)
+	w2.latency = 0.3
+	w2.leave(1, 32) -- (lands at t = 32.3)
+	local retaken
+	w2.run(32, 120, function(t)
+		if t >= 33 and not G.canLock(w2.store[1], "B", t) then retaken = retaken or t end
+	end)
+	expect(retaken == nil, "a write sent before the leave took the lock back at t = " .. tostring(retaken) .. ": the next server waits a minute")
+	-- another server took the profile (A's DataStore failed from t = 10 to 100, its lock
+	-- expired; A still believes the player is here). While that lock is fresh, every write of
+	-- A is refused (GlobalQueue.write); then A never writes the profile again, even after the
+	-- other server released it: its copy there is newer
+	local w3 = saveWorld(SaveQueue, G, { down = function(_, t) return t >= 10 and t < 100 end })
+	local s3 = w3.join(1, 0)
+	local bHolds, overwritten, aWhileB = false, nil, nil
+	w3.run(0, 400, function(t)
+		if t == 70 then
+			expect(G.canLock(w3.store[1], "B", t), "the scene: A's lock should have expired after 60 s of failed writes")
+			w3.store[1] = G.stamp({ v = 2 }, "B", t, false) -- (the player is on B now)
+			bHolds = true
+		end
+		if bHolds and t % 20 == 10 then w3.store[1] = G.stamp({ v = w3.store[1].v + 1 }, "B", t, false) end -- (B's writes)
+		if t == 200 then
+			w3.store[1] = G.stamp({ v = 10 }, "B", t, true) -- (the player leaves B: released)
+			bHolds = false
+		end
+		if t == 80 or t == 250 then w3.change(1, t, 99) end -- (a change on A, for a player who is not there)
+		if t == 300 then w3.leave(1, t) end -- (A finally sees the player go)
+		if bHolds and w3.store[1]._session.job ~= "B" then aWhileB = aWhileB or t end
+		if t > 70 and w3.store[1].v == 99 then overwritten = overwritten or t end
+	end)
+	expect(aWhileB == nil, "A wrote while another server held a fresh lock, at t = " .. tostring(aWhileB))
+	expect(overwritten == nil and w3.store[1].v == 10 and w3.store[1]._session == nil,
+		"A wrote over the profile of another server at t = " .. tostring(overwritten) .. " (version " .. tostring(w3.store[1].v) .. ")")
+	expect(not SaveQueue.isLoaded(w3.q, 1, s3), "a lost profile is still in the queue after the leave")
+	-- the transform itself: a write never stamps over another server's fresh lock
+	local held = G.stamp({ v = 5 }, "B", 1000, false)
+	local data, why = G.write(held, { v = 1 }, "A", 1010, false, true)
+	expect(data == nil and why == "lost", "a write over another server's fresh lock")
+	data, why = G.write(held, { v = 1 }, "A", 1010, true, false)
+	expect(data == nil and why == "lost", "a last write over another server's fresh lock")
+	data, why = G.write(nil, { v = 1 }, "A", 1010, false, false)
+	expect(data == nil and why == "gone", "a renewal for a player who left")
+	data, why = G.write({ v = 0, _session = { job = "A", t = 990 } }, { v = 1 }, "A", 1010, false, true)
+	expect(why == nil and data.v == 1 and data._session.job == "A" and data._session.t == 1010, "a renewal of its own lock")
+end)
+
+test("last write (B-032): retried after 1, 2 and 4 s on a DataStore error, never on a lock held by another server", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local G = require("../src/server/GlobalQueue")
+	-- the rule
+	expect(SaveQueue.finalRetry("error", 1) == 1 and SaveQueue.finalRetry("error", 2) == 2 and SaveQueue.finalRetry("error", 3) == 4,
+		"a failed last write is not retried after 1, 2 and 4 s")
+	expect(SaveQueue.finalRetry("error", SaveQueue.FINAL_TRIES) == nil, "the last write is retried forever")
+	expect(SaveQueue.finalRetry("lost", 1) == nil and SaveQueue.finalRetry("gone", 1) == nil and SaveQueue.finalRetry(nil, 1) == nil,
+		"a last write refused by another server's lock is retried")
+	local waits = 0
+	for attempt = 1, SaveQueue.FINAL_TRIES - 1 do waits += SaveQueue.finalRetry("error", attempt) end
+	expect(waits == 7, "the retries wait " .. waits .. " s (7 expected, inside the 25 s of BindToClose)")
+	-- a RANKED match ends at t = 120 (its result in the profile), the player leaves at t = 125,
+	-- before the next flush (t = 127), and the DataStore fails that write once
+	local w = saveWorld(SaveQueue, G, { down = function(_, t) return t == 125 end })
+	local s = w.join(1, 0)
+	w.run(0, 119)
+	w.change(1, 120, 2)
+	w.run(120, 124)
+	local before = w.writes[1] or 0
+	w.leave(1, 125)
+	local loaded
+	w.run(125, 200, function(t)
+		if t == 130 and G.canLock(w.store[1], "B", t) then loaded = w.store[1].v end -- (the player joins B at t = 130)
+	end)
+	expect(w.store[1].v == 2 and w.store[1]._session == nil,
+		string.format("after one DataStore error, the save holds version %s, lock %s (the match result, released, expected)",
+			tostring(w.store[1].v), if w.store[1]._session then "still held" else "released"))
+	expect(w.writes[1] - before == 2 and not SaveQueue.isLoaded(w.q, 1, s), "one error: " .. (w.writes[1] - before) .. " tries")
+	expect(loaded == 2, "the next server loads " .. tostring(loaded) .. " at t = 130 (the match result, 2, expected)")
+	-- an error that lasts: FINAL_TRIES tries, then the queue forgets the player
+	local wd = saveWorld(SaveQueue, G, { down = function(_, t) return t >= 125 end })
+	local sd = wd.join(1, 0)
+	wd.run(0, 124)
+	before = wd.writes[1] or 0
+	wd.leave(1, 125)
+	wd.run(125, 200)
+	expect(wd.writes[1] - before == SaveQueue.FINAL_TRIES and not SaveQueue.isLoaded(wd.q, 1, sd),
+		"a lasting error: " .. (wd.writes[1] - before) .. " tries (" .. SaveQueue.FINAL_TRIES .. " expected)")
+	-- another server holds the lock: one try, refused, never retried
+	local wl = saveWorld(SaveQueue, G)
+	local sl = wl.join(1, 0)
+	wl.run(0, 120)
+	wl.store[1] = G.stamp({ v = 7 }, "B", 121, false)
+	before = wl.writes[1] or 0
+	wl.leave(1, 125)
+	wl.run(125, 200)
+	expect(wl.writes[1] - before == 1 and wl.store[1].v == 7 and wl.store[1]._session.job == "B" and not SaveQueue.isLoaded(wl.q, 1, sl),
+		"a last write refused by another server's lock: " .. (wl.writes[1] - before) .. " tries, version " .. tostring(wl.store[1].v))
+end)
+
+test("back on the same server while the last write is retried: the new visit never writes a profile it did not load, and loads the last one", function()
+	local SaveQueue = require("../src/server/SaveQueue")
+	local G = require("../src/server/GlobalQueue")
+	-- the first visit: its real save is 25000; a RANKED result (26000) is not written yet when
+	-- it leaves. Two orders: the old visit removed before the new one is added ("removed
+	-- first"), or the new one added first (Roblox's order is not known)
+	local function scene(down, removedFirst, latency)
+		local w = saveWorld(SaveQueue, G, { down = down })
+		local s1 = w.join(1, 0, 25000)
+		w.run(0, 98)
+		w.change(1, 99, 26000)
+		w.run(99, 99)
+		local s2
+		if latency then w.latency = latency end
+		if removedFirst then
+			w.leave(1, 100, s1)
+			w.latency = 0.4
+			w.run(100, 100)
+			s2 = w.arrive(1, 101)
+			w.run(101, 101)
+		else
+			s2 = w.arrive(1, 100)
+			w.run(100, 100)
+			w.leave(1, 101, s1)
+			w.latency = 0.4
+			w.run(101, 101)
+		end
+		return w, s1, s2
+	end
+	for _, removedFirst in { true, false } do
+		local order = if removedFirst then "removed first" else "added first"
+		-- the load fails (the DataStore is down from t = 100 to 124): SAVES UNAVAILABLE. Nothing
+		-- of the new visit is ever written: not its purchase, not its changes
+		local w, _, s2 = scene(function(_, t) return t >= 100 and t < 125 end, removedFirst)
+		local loadedEver, receipt = false, nil
+		w.run(102, 400, function(t)
+			if SaveQueue.isLoaded(w.q, 1, s2) then loadedEver = true end
+			if t == 130 then receipt = w.receipt(s2, t) end -- (a Developer Product bought)
+			if t == 131 then w.change(1, t, 5, true) end -- (a style bought with coins: an urgent save)
+		end)
+		expect(s2.profileLoaded and not loadedEver, order .. ": a visit whose load failed counts as loaded")
+		expect(receipt == "NotProcessedYet", order .. ": a purchase on a profile that never loaded is " .. tostring(receipt))
+		expect(s2.writes == 0 and w.store[1].v == 25000,
+			string.format("%s: the new visit wrote %d times, the save holds %s (25000, the real save, expected)", order, s2.writes, tostring(w.store[1].v)))
+		-- the load works: the new visit waits for the old one's last write (one error, then
+		-- written; or a slow write, 5 s in the DataStore's queue), loads it, and from then on
+		-- keeps its own lock: flushed, renewed, never released by the old visit's last write
+		for _, case in { { "one error", function(_, t) return t == 100 or t == 101 end }, { "a slow last write", nil, 5 } } do
+			local wl, _, n2 = scene(case[2], removedFirst, case[3])
+			local loadedAt, version, unlocked, stale
+			wl.run(102, 400, function(t)
+				if not loadedAt and SaveQueue.isLoaded(wl.q, 1, n2) then loadedAt, version = t, n2.profile.v end
+				if loadedAt then
+					if wl.store[1]._session == nil then unlocked = unlocked or t end
+					if G.canLock(wl.store[1], "B", t) then stale = stale or t end
+				end
+			end)
+			local what = order .. ", " .. case[1]
+			expect(loadedAt and version == 26000,
+				string.format("%s: the new visit loads %s at t = %s (26000, the old visit's last write, expected)", what, tostring(version), tostring(loadedAt)))
+			expect(unlocked == nil, what .. ": the old visit's last write released the new visit's lock at t = " .. tostring(unlocked))
+			expect(stale == nil, what .. ": the new visit's lock expired at t = " .. tostring(stale))
+			expect(n2.writes >= 8 and wl.store[1].v == 26000, string.format("%s: the new visit wrote %d times, the save holds %s", what, n2.writes, tostring(wl.store[1].v)))
+		end
+	end
+	-- the rules themselves: a visit is never "loaded" because an older one of the same player
+	-- was; it never marks, leaves nor forgets the older one; it waits while that one holds the id
+	local q = SaveQueue.new()
+	local old, new = {}, {}
+	SaveQueue.loaded(q, 1, 0, old)
+	expect(not SaveQueue.isLoaded(q, 1, new) and SaveQueue.held(q, 1, new) and not SaveQueue.held(q, 1, old), "a new visit reads an old one as its own")
+	SaveQueue.leaving(q, 1, new)
+	SaveQueue.mark(q, 1, 5, new)
+	expect(SaveQueue.flush(q, 100, false)[1] == 1 and not SaveQueue.isDirty(q, 1, old), "a new visit marked or let go the old one's entry")
+	expect(not SaveQueue.forget(q, 1, new) and SaveQueue.isLoaded(q, 1, old), "a new visit forgot the old one")
+	SaveQueue.leaving(q, 1, old)
+	expect(SaveQueue.held(q, 1, new) and #SaveQueue.flush(q, 200, false) == 0, "the old visit's last write is not waited for, or it is renewed")
+	expect(SaveQueue.forget(q, 1, old) and not SaveQueue.held(q, 1, new), "the old visit is never forgotten")
+	SaveQueue.loaded(q, 1, 210, new)
+	expect(SaveQueue.isLoaded(q, 1, new) and not SaveQueue.forget(q, 1, old) and SaveQueue.isLoaded(q, 1, new), "the old visit forgot the new one")
+end)
+
 test("anti-cheat: forged packets kick, a real player never does; no farming (short matches, the same pair, daily cap)", function()
 	local AC = require("../src/server/AntiCheat")
 	local ac = AC.new()

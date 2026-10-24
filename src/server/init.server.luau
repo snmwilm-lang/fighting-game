@@ -146,16 +146,29 @@ local function devOn(player, client)
 	return DevAccess.active(isDev(player), client and client.profile)
 end
 local saves = SaveQueue.new() -- when to write (SaveQueue: spacing, batches, never an unloaded profile)
+local closing = false -- (BindToClose was called: no lock renewal after the closing writes)
+local finalWrites = 0 -- (the last writes of players who left, still running: BindToClose waits for them)
 local function loadProfile(player, client)
 	client.profile = defaultProfile()
 	if not store then return end
 	task.spawn(function()
+		-- (the same player's previous visit still on this server: back while its last write is
+		-- retried, or added before the old one was removed. Its last write goes first: the
+		-- load then reads it, and its release never lands after this session's lock.
+		-- SaveQueue.held; at most as long as another server's lock)
+		local held = 0
+		while SaveQueue.held(saves, player.UserId, client) and held < GlobalQueue.LOCK_TTL + 5 do
+			task.wait(1)
+			held += 1
+			if clients[player] ~= client then return end
+		end
 		-- (a DataStore hiccup is retried; a profile that never loads is never written over; a
 		-- profile another server still holds (the player just came from it) is waited for:
 		-- the session lock, GlobalQueue.canLock)
 		local attempt, waited = 0, 0
 		while attempt < SaveQueue.LOAD_TRIES do
 			local data, locked = nil, false
+			local tried = os.clock() -- (this load stamps the session lock: SaveQueue renews it from then)
 			local ok = pcall(store.UpdateAsync, store, "joueur_" .. player.UserId, function(old)
 				if not GlobalQueue.canLock(old, JOB, os.time()) then
 					locked = true
@@ -189,7 +202,11 @@ local function loadProfile(player, client)
 				if p.title ~= "" and not table.find(p.titles, p.title) then table.insert(p.titles, p.title) end
 				-- (a favourite that is not playable any more, a locked fighter: KAI, free, instead)
 				if not Economy.canPlay(p, p.hero, "VERSUS", devOn(player, client)) then p.hero = "KAI" end
-				SaveQueue.loaded(saves, player.UserId)
+				SaveQueue.loaded(saves, player.UserId, tried, client)
+				if held > 0 or waited > 0 then -- (B-025: how long a player waits for the lock, in the server's log)
+					print(string.format("[FightingGame] profile %d loaded at %d (os.time) after %d s for this server's previous visit, %d s for another server's lock",
+						player.UserId, os.time(), held, waited))
+				end
 				SaveQueue.boardChanged(saves, player.UserId, math.floor(client.profile.rating)) -- (already on the board)
 				client.profileLoaded = true
 				client.onProfileLoaded(type(data) == "table")
@@ -199,6 +216,8 @@ local function loadProfile(player, client)
 			task.wait(SaveQueue.retryDelay(attempt))
 		end
 		client.profileLoaded = true
+		print(string.format("[FightingGame] profile %d not loaded at %d (os.time) after %d s for another server's lock: saves unavailable",
+			player.UserId, os.time(), waited))
 		if clients[player] == client then
 			client.checkPasses() -- (the perks still show; nothing can be bought on this session)
 			menuRemote:FireClient(player, { error = "SAVES UNAVAILABLE: this session will not be kept" })
@@ -227,28 +246,37 @@ local function weeklyBoard(week)
 end
 local weeklyWritten = {} -- user id -> "week:points" last written (only changes are written)
 -- One write of a profile (UpdateAsync, safe if another server touched it), then the board
--- only when the rating changed. Yields: called in its own thread.
+-- only when the rating changed. Yields: called in its own thread. Returns true, or false and
+-- why: "error" (the DataStore failed: retried), "lost" (another server holds the profile:
+-- never written from here again), "gone" (not the last write, and the player left),
+-- "unloaded" (THIS session never loaded the profile: never written, whatever the caller).
 local function writeProfile(player, client, release)
 	local id = player.UserId
+	if not SaveQueue.isLoaded(saves, id, client) then return false, "unloaded" end
+	if SaveQueue.isLost(saves, id, client) then return false, "lost" end
 	local profile = table.clone(client.profile)
-	SaveQueue.writing(saves, id, os.clock())
-	local lost = false
+	local started = os.clock()
+	SaveQueue.writing(saves, id, started, client)
+	local why = nil
 	local ok = pcall(store.UpdateAsync, store, "joueur_" .. id, function(old)
-		-- (only while this server holds the session lock; `release` lets it go: leaving)
-		if not GlobalQueue.canLock(old, JOB, os.time()) then
-			lost = true
-			return nil
-		end
-		return GlobalQueue.stamp(profile, JOB, os.time(), release)
+		-- (only while this server holds the session lock; `release` lets it go: leaving. A
+		-- flush or a lock renewal that lands after the player left writes nothing: the last
+		-- write released the lock, it is not taken back)
+		local data
+		data, why = GlobalQueue.write(old, profile, JOB, os.time(), release, clients[player] == client)
+		return data
 	end)
 	if not ok then
-		SaveQueue.failed(saves, id, os.clock())
-		return false
+		SaveQueue.failed(saves, id, os.clock(), client)
+		return false, "error"
 	end
-	if lost then
-		warn("[FightingGame] profile " .. id .. " is held by another server: not written")
-		return false
+	if why == "lost" then
+		SaveQueue.lost(saves, id, client)
+		warn("[FightingGame] profile " .. id .. " is held by another server: not written, and not any more from this server")
+		return false, why
 	end
+	if why then return false, why end
+	if not release then SaveQueue.written(saves, id, started, client) end -- (the session lock is that fresh)
 	local data = profile
 	local rating = math.floor(data.rating)
 	if board and SaveQueue.boardChanged(saves, id, rating) then pcall(board.SetAsync, board, tostring(id), rating) end
@@ -275,15 +303,31 @@ end
 -- A change to keep: written by the next flush (urgent: now, when leaving or closing).
 local function saveProfile(player, client, urgent)
 	if not store or not client.profile then return end
-	SaveQueue.mark(saves, player.UserId, os.clock())
-	if urgent and SaveQueue.isLoaded(saves, player.UserId) then
+	SaveQueue.mark(saves, player.UserId, os.clock(), client)
+	if urgent and SaveQueue.isLoaded(saves, player.UserId, client) then
 		task.spawn(writeProfile, player, client)
 	end
 end
+-- The last write of a player (leaving, closing): it releases the session lock. A DataStore
+-- error is retried (SaveQueue.finalRetry: after 1, 2 and 4 s), never a lock held by another
+-- server. (A new visit of the same player on this server waits for it: SaveQueue.held.)
+local function finalWrite(player, client)
+	local attempt = 1
+	while true do
+		local ok, why = writeProfile(player, client, true)
+		local delay = if ok then nil else SaveQueue.finalRetry(why, attempt)
+		if not delay then return ok, why end
+		task.wait(delay)
+		attempt += 1
+	end
+end
+-- The flush: the dirty profiles, and every loaded one whose session lock is getting old,
+-- rewritten as it is (SaveQueue.flush): a present player keeps a fresh lock even when
+-- nothing changes (idle, a whole match); none once the server closes.
 task.spawn(function()
 	while true do
 		task.wait(SaveQueue.FLUSH_PERIOD)
-		for _, id in SaveQueue.due(saves, os.clock(), false) do
+		for _, id in SaveQueue.flush(saves, os.clock(), closing) do
 			local player = Players:GetPlayerByUserId(id)
 			local client = player and clients[player]
 			if client then task.spawn(writeProfile, player, client) end
@@ -756,7 +800,7 @@ function menuStatus(player, bought, unlocked)
 		end)(),
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest, coins = profile.coins or 0,
 		-- (only once the saved profile is in: the defaults must not be applied in its place)
-		options = if not store or SaveQueue.isLoaded(saves, player.UserId)
+		options = if not store or SaveQueue.isLoaded(saves, player.UserId, client)
 			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic,
 				optTaunts = profile.optTaunts, tauntKey = profile.tauntKey } else nil,
 		taunts = Taunts.sanitize(profile.taunts, profile), -- (the wheel, and the menu's TAUNTS page)
@@ -765,11 +809,11 @@ function menuStatus(player, bought, unlocked)
 		ownedKits = profile.ownedKits or {}, unlocked = unlocked, equipped = profile.equipped or {}, freePicks = profile.freePicks or 0, tester = profile.tester == true,
 		winStreak = profile.winStreak or 0, bestStreak = profile.bestStreak or 0,
 		dailyStreak = profile.dailyStreak or 0, dailyDay = profile.dailyDay or 0, today = Economy.dayOf(os.time()),
-		howToPlay = if not store or SaveQueue.isLoaded(saves, player.UserId) then profile.howToPlay or 0 else nil,
+		howToPlay = if not store or SaveQueue.isLoaded(saves, player.UserId, client) then profile.howToPlay or 0 else nil,
 		quests = profile.quests or {}, titles = profile.titles or {}, champions = championHistory,
 		-- SHOP: passes, cosmetics, what may be bought with Robux (a real id and the policy known)
 		passes = profile.passes or {}, ownedItems = profile.ownedItems or {}, cosmetics = profile.cosmetics or {},
-		paid = client.policy ~= nil and (not store or SaveQueue.isLoaded(saves, player.UserId)),
+		paid = client.policy ~= nil and (not store or SaveQueue.isLoaded(saves, player.UserId, client)),
 		coinMultiplier = Store.coinMultiplier(StoreConfig, profile),
 		isDev = isDev(player), dev = devOn(player, client),
 		asuraGrade = profile.asuraGrade, asuraDamage = profile.asuraDamage, title = profile.title,
@@ -798,7 +842,7 @@ if store then
 	if ok then championStore = result end
 end
 local function grantChampion(player, client)
-	if not (client and client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId))) then return end
+	if not (client and client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId, client))) then return end
 	if Champions.grant(client.profile, player.UserId, championHistory) > 0 then
 		saveProfile(player, client, true)
 		menuRemote:FireClient(player, { champion = true })
@@ -1208,7 +1252,7 @@ MarketplaceService.ProcessReceipt = function(receipt)
 	end
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
 	local client = player and clients[player]
-	if not client or not client.profile or not client.profileLoaded or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
+	if not client or not client.profile or not client.profileLoaded or (store and not SaveQueue.isLoaded(saves, player.UserId, client)) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- (the player left, or the profile is not in yet)
 	end
 	local result = Store.grantReceipt(client.profile, tostring(receipt.PurchaseId), product, os.time())
@@ -1267,20 +1311,26 @@ local function joined(player)
 end
 Players.PlayerAdded:Connect(joined)
 Players.PlayerRemoving:Connect(function(player)
+	-- (the order of the leaves and of the closing, in the server's log: B-023, B-028)
+	print(string.format("[FightingGame] leave %d at %.2f s (os.time %d) · match %s · %d players listed · closing %s", player.UserId,
+		os.clock(), os.time(), tostring(player:GetAttribute("MatchId")), #Players:GetPlayers(), tostring(closing)))
 	AntiCheat.forget(ac, player.UserId)
 	local client = clients[player]
 	if client then
 		Matchmaker.leave(matchmaker, player.UserId)
 		unseat(player)
-		-- (the last write, right away; then the queue forgets the player)
-		if store and client.profile and SaveQueue.isLoaded(saves, player.UserId) then
+		-- (the last write, right away, retried on a DataStore error; then the queue forgets this
+		-- visit, and only this one: a new visit of the same player waited for it)
+		if store and client.profile and SaveQueue.isLoaded(saves, player.UserId, client) then
+			local id = player.UserId
+			SaveQueue.leaving(saves, id, client) -- (no flush, no lock renewal: only this last write)
+			finalWrites += 1
 			task.spawn(function()
-				writeProfile(player, client, true) -- (the last write releases the session lock)
-				SaveQueue.forget(saves, player.UserId)
-				boardWritten[player.UserId] = nil
+				pcall(finalWrite, player, client) -- (the last write releases the session lock)
+				finalWrites -= 1
+				if SaveQueue.forget(saves, id, client) then boardWritten[id] = nil end
 			end)
-		else
-			SaveQueue.forget(saves, player.UserId)
+		elseif SaveQueue.forget(saves, player.UserId, client) then
 			boardWritten[player.UserId] = nil
 		end
 		local holder = fightersFolder:FindFirstChild("Lobby_" .. player.UserId)
@@ -1393,7 +1443,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	elseif action == "buySkin" then
 		-- SHOP: a style bought with coins (price and ownership checked here, never by the client).
 		if typeof(packet.skin) ~= "string" then return suspect(player, "malformed") end
-		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId, client)) then
 			local item = CharacterData.SHOP[packet.skin]
 			local ok, why = CharacterData.buy(client.profile, packet.skin, item and Economy.skinPrice(item.kit))
 			if ok then
@@ -1408,7 +1458,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		-- A fighter unlocked for coins (Economy: price, ownership; kept forever). Only once the
 		-- saved profile is in (never bought on a default profile that would be lost).
 		if typeof(packet.kit) ~= "string" then return suspect(player, "malformed") end
-		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId, client)) then
 			local ok, why = Economy.buyFighter(client.profile, packet.kit, MoveData.KitOrder)
 			if ok then
 				saveProfile(player, client, true)
@@ -1421,7 +1471,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 	elseif action == "claimFighter" then
 		-- A tester's free pick (Economy.claimFighter: only with picks left, kept forever).
 		if typeof(packet.kit) ~= "string" then return suspect(player, "malformed") end
-		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId, client)) then
 			local ok = Economy.claimFighter(client.profile, packet.kit, MoveData.KitOrder)
 			if ok then
 				saveProfile(player, client, true)
@@ -1473,7 +1523,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		-- SHOP · COSMETICS: an item bought with coins (Store.buyItem: price, ownership, never a
 		-- pass item or a COMING SOON one), once the saved profile is in.
 		if typeof(packet.id) ~= "string" then return suspect(player, "malformed") end
-		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId)) then
+		if client.profile and (not store or SaveQueue.isLoaded(saves, player.UserId, client)) then
 			local ok, why = Store.buyItem(storeIdx, client.profile, packet.id)
 			if ok then
 				saveProfile(player, client, true)
@@ -1498,7 +1548,7 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 		if typeof(packet.kind) ~= "string" or typeof(packet.key) ~= "string" then return suspect(player, "malformed") end
 		local entry = if packet.kind == "pass" then storeIdx.pass[packet.key] elseif packet.kind == "product" then storeIdx.product[packet.key] else nil
 		if not entry then return suspect(player, "malformed") end
-		if not client.profile or (store and not SaveQueue.isLoaded(saves, player.UserId)) then
+		if not client.profile or (store and not SaveQueue.isLoaded(saves, player.UserId, client)) then
 			menuRemote:FireClient(player, { error = "YOUR SAVE IS NOT LOADED YET" })
 		elseif not Store.canPrompt(entry, client.policy) then
 			menuRemote:FireClient(player, { error = if entry.id <= 0 then "COMING SOON" else "NOT AVAILABLE FOR YOUR ACCOUNT" })
@@ -2150,6 +2200,8 @@ print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per
 -- The server closing (update, shutdown): every loaded profile is written before it goes
 -- (Roblox waits up to 30 s for this).
 game:BindToClose(function()
+	closing = true -- (first: no lock renewal takes back a lock the closing writes released)
+	print(string.format("[FightingGame] closing at %.2f s · %d players listed", os.clock(), #Players:GetPlayers()))
 	-- (an update: "Migrate to Latest Update" closes the old servers and Roblox moves every
 	-- player to a new one; they are told on screen, and their profiles are saved below)
 	for player in clients do
@@ -2158,14 +2210,15 @@ game:BindToClose(function()
 	if not store then return end
 	local pending = 0
 	for player, client in clients do
-		if client.profile and SaveQueue.isLoaded(saves, player.UserId) then
+		if client.profile and SaveQueue.isLoaded(saves, player.UserId, client) then
 			pending += 1
 			task.spawn(function()
-				writeProfile(player, client, true)
+				pcall(finalWrite, player, client) -- (retried on a DataStore error)
 				pending -= 1
 			end)
 		end
 	end
+	-- (and the last writes of the players who left just before, still retrying)
 	local started = os.clock()
-	while pending > 0 and os.clock() - started < 25 do task.wait(0.2) end
+	while (pending > 0 or finalWrites > 0) and os.clock() - started < 25 do task.wait(0.2) end
 end)

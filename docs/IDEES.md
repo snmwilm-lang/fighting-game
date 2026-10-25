@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 24 octobre 2026 (routine du matin).
+Dernier tri : 25 octobre 2026 (routine du matin).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,7 +20,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 24 octobre 2026) :
+- **Ce qui existe** (vérifié le 24 octobre 2026, revérifié le 25 sur la v0.36.10) :
   - 20 persos ont leur finisher, tous les persos jouables : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
   - la scène de NOVA a trois bugs relevés le 18/10 : B-012 (la visière dans sa tête) est ouvert ; B-013 (le rail posé sur une main mesurée au labo) et B-014 (9 lumières à la fois) attendent que Wilhem les confirme en jeu. Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
@@ -59,7 +59,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - 阿, « un KAI à quatre bras, sorti de la Porte des Cieux » (sa description). C'est le boss du CHALLENGE · ASURA, jamais jouable (il n'est pas dans `KitOrder`) ;
     - l'or FFD23F sur du noir, avec du rouge sang : peau sombre, cheveux noirs à pointes d'or, yeux d'or, gilet noir bordé d'or, chemise rouge très sombre, bandes d'or. Il n'a qu'un style (`CharacterData`) ;
     - ses effets (`KitFX`) : des poings de ki dorés, deux coups dorés à la fois. Dans ses ultimes : un poing doré (`asuraFist`), une auréole des quatre bras (`asuraHalo`), un sceau brûlant au sol (`asuraSeal`), le sol qui tremble sous ses pas lourds ;
-    - son son (`SoundPalette.ASURA`) : « les coups de KAI, plus graves, en salle » (souffle, poing, boom). Pas d'acier : le son `slash` n'est pas sa matière ;
+    - son son (`SoundPalette.ASURA`) : « les coups de KAI, plus graves, en salle » (souffle, poing, boom). Pas d'acier : le son `slash` n'est pas sa matière. Mais en combat, ses coups sonnent comme ceux de KAI : c'est B-033, ouvert depuis le 24/10 (voir « le son de sa scène », plus bas) ;
     - ses poses : le rugissement (`Roar`) ouvre ses ultimes ; au repos, il se tient debout (`StandTall`). Ses deux victoires viennent des images d'Asura's Wrath envoyées par Wilhem (« tu peux alterner les deux ») : double biceps de face, bras en auréole de dos ;
     - sa seconde vie : abattu une fois, il se relève dans une aura noire (corps assombri, contour rouge sang, « ASURA RISES AGAIN »), avec la musique WRATH ;
     - il a les coups de KAI (les mêmes rôles), mais chacun avec sa propre pose (test Animation ; Wilhem : « chaque animation est obligatoirement différente »).
@@ -91,18 +91,23 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - les siens : FOUR-ARMED GATLING, THOUSAND ARMS, WRATH OF THE FOUR ARMS, 阿修羅 · FINAL WRATH, ASURA'S WRATH (son passif), ASURA RISES AGAIN, ASURA CRUSHED YOU, les titres du défi (ASURA SLAYER, ARM BREAKER, ASURA'S EQUAL, ASURA) et le succès FACE THE GATE ;
     - ceux de KAI : KAIEN RUSH, SCARLET AWAKENING, 開天 · GATE OF HEAVEN, 滅 · DEAD SKY ;
     - les mots déjà très pris : WRATH (4 noms, dont 雷神 · DIVINE WRATH de RAIJIN), THOUSAND (THOUSAND ARMS, THOUSAND SHADOWS, THOUSAND BOLTS, THOUSAND THRUSTS), ARMS, FINAL (FINAL ROUND, FINAL DIVISION, FINAL MERCY, FINAL WRATH, 終 · FINAL BELL), FIST (TEN FISTS OF RAGE, FIST FURY, 砕 · WORLD FIST) ;
-    - **attention, le test commun ne voit pas ses noms** : il compare le nom du finisher aux noms des coups de `MoveData`. Ceux d'ASURA vivent dans `CinematicDirector` (les noms de son thème, son `GateTitle`), et son E n'appartient à aucun kit (`MoveKit`). Un finisher appelé THOUSAND ARMS passerait le test, comme celui d'ASTER, qui porte le nom de son ÉVEIL (B-009). Vérifier à la main, ou étendre le test à ces noms.
+    - **attention, le test commun ne voit pas ses noms** : il compare le nom du finisher aux noms des coups de `MoveData`. Ceux d'ASURA vivent dans `CinematicDirector` (les noms de son thème, son `GateTitle`), et son E n'appartient à aucun kit (`MoveKit`). Un finisher appelé THOUSAND ARMS passerait le test, comme celui d'ASTER, qui porte le nom de son ÉVEIL (B-009). Vérifier à la main, ou étendre le test à ces noms ;
+    - **un test voisin est proposé par B-034** (24/10) : aucun nom d'ultime ni de finisher partagé entre deux kits. Il échouerait aujourd'hui sur « 蝕 · TOTAL ECLIPSE » (KUROEN et DAICHA), dont le nouveau nom attend Wilhem. Si production étend le test des finishers aux noms des thèmes, elle peut l'écrire pour qu'il serve aussi à B-034 plus tard. Mais elle ne doit pas le faire échouer sur ce doublon : ce n'est pas l'objet de cette livraison.
   - **ses pièges à lui** :
     - **les outils de test ne voient pas ses bras du bas**. `CinematicKit` ne construit que le squelette de KAI (`info.parts`), sans eux :
       - `Kit.hiddenShare` ne les compte pas parmi ce qui cache la cible ;
       - un plan ou une forme accrochés à ses poings du bas (`AsuraFistLeft`, `AsuraFistRight`) marchent en jeu, car `RigReader.part` trouve la pièce par son nom. Mais ils font planter les outils : `resolve` (`CinematicKit`) ne connaît pas ces pièces ;
       - seul le storyboard les dessine (`WeaponKit.fourArms`) ;
       - avant de filmer ses bras du bas ou d'y accrocher une forme, production les ajoute aux corps des outils, à partir de `WeaponKit.fourArms`. Sinon, ne s'accrocher qu'aux vraies pièces ;
-    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2, qui commence à droite (`SpawnX`). C'est l'appel `Sim.setTeams(world, request.team, { boss })` au lancement d'un défi, dans `init.server.luau` (ligne 609 de la v0.36.9 ; elle bougera avec la correction de B-025 en cours). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
+    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2, qui commence à droite (`SpawnX`). C'est l'appel `Sim.setTeams(world, request.team, { GameModes.find(mode).boss })` au lancement d'un défi, dans `init.server.luau` (ligne 653 de la v0.36.10 ; elle était en 609 avant la correction de B-025). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
     - **la cible est l'un des 20 persos jouables**, avec son arme s'il en a une (le katana de SHIN, la lance de RAIJIN, l'orbe de DAICHA…). Les outils prennent KAI : garder de la marge (B-018) ;
     - **sa seconde vie** : la scène peut se jouer pendant sa seconde vie, le corps assombri dans son aura noire (`EffectsController.luau:1965`), que les outils ne dessinent pas. Elle doit rester lisible ainsi : de l'or sur du noir ;
     - **la couleur** : l'or FFD23F est aussi celui de KAI en SACRÉ et en ÉVEILLÉ, et du thème OR de la boutique. KUROEN SHIN est blanc et or, ELIAN or pâle (FINAL MERCY, ses ailes). La scène doit se lire « ASURA » (quatre bras, colère, or sur noir et rouge sang), et non « divin » ou « lumière » ;
-    - **ni VICTORY, ni ses poses de victoire** : en défi, son finisher tombe souvent en plein relais. Ses poses `Victory` et `VictoryAlt` appartiennent à la fin du match, et elles changent aussi la pose de ses bras du bas.
+    - **ni VICTORY, ni ses poses de victoire** : en défi, son finisher tombe souvent en plein relais. Ses poses `Victory` et `VictoryAlt` appartiennent à la fin du match, et elles changent aussi la pose de ses bras du bas ;
+    - **le son de sa scène et B-033** (relevé le 25/10 dans le code) : sa scène mélangera deux matières tant que B-033 est ouvert.
+      - Les sons que la scène joue elle-même (`sfx` : `whoosh`, `heavy`) prennent le kit de l'attaquant, `cin.kit` (`CinematicController.luau:760`, `SoundController:cinematicSound`). Pour lui, c'est donc sa matière à lui, `SoundPalette.ASURA`. C'est juste.
+      - Les coups que la simulation porte pendant la scène (événements `Hit` avec `cinematic = true`, `CombatSimulation.luau:2418`) prennent le propriétaire du coup, `MoveKit[event.move]` (`SoundController.luau:186`). Son COUP FATAL est le `Fatal` de KAI : ils sonneront donc comme KAI, comme tous ses autres coups.
+      - Cela ne bloque pas la scène. Production choisit, et le note : corriger B-033 dans la même livraison (sa piste touche `SoundPalette`, `SoundController` et `Kits.test`, pour les deux bosses), ou livrer la scène et laisser B-033 ouvert, à sa place dans `BUGS.md`. Recommandation : le laisser à part, une livraison pour une chose. Le critère « chaque perso garde sa matière » se juge alors sur les sons propres à la scène.
   - **seconde vie et B-020 : vérifié le 23/10, rien ne bloque quand c'est lui l'attaquant** :
     - `finish` ne regarde que la **cible** (`fells and not canRevive(d)`). Les cibles d'ASURA sont les persos du joueur, et aucun n'a de seconde vie : seul ASURA en a une (`SecondLife`, `MoveData.luau:1402`), et il n'est jamais dans l'équipe du joueur. Pour lui, `finish` vaut donc `fells`, comme pour tout autre attaquant ;
     - la ligne `Finisher` se lit sur **son** kit (`kitOf(world, a)`, `CombatSimulation.luau:1330-1332`), pas sur celui de KAI, et sa scène se cherche sous son nom (`kit = a.kit`, `:1341` ; `CinematicDirector.luau:5179`) : ce sera `S.ASURA`. KAI garde MAXIMUM KAIENHA ;
@@ -124,7 +129,10 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - son allure : debout et calme, les mains basses et ouvertes, « pas de garde à tenir » (`PoseLibrary`). Il ouvre ses ultimes en lévitation (`Levitate`), et entre en scène debout (`StandTall`) ;
     - ce qui le rend « cassé » : l'INSTINCT DIVIN (le premier coup qui l'atteint est esquivé, et il réapparaît dans le dos de l'attaquant), un dash qui traverse les coups (« transmission instantanée »), et la DOMINATION née en ÉCLIPSE (niveau III), qui ne se perd jamais. Son thème le résume : « il est derrière toi avant que tu le voies » ;
     - ses effets : poing, auréole et sceau divins (`KitFX` : `divineFist`, `divineHalo`, `divineSeal`). Dans le pack (6.22) : un éclat blanc avec des plumes de lumière, et un dash en téléportation, trois images fantômes blanches puis un anneau d'or ;
-    - **son son** : il n'a pas de matière à lui dans `SoundPalette.MATERIALS`. En jeu, ses coups sonnent donc comme ceux de KAI (repli de `SoundController`, fonction `material`), et les sons d'une scène (`whoosh`, `heavy`) aussi. Le test des sons (`Kits`) ne regarde que les 20 jouables. Production choisit, et le note : garder ce repli, ou lui donner une matière (celle de KUROEN, ou une variante), prise dans la palette seulement. Pas d'acier (`slash`) : il frappe des poings.
+    - **son son** : il n'a pas de matière à lui dans `SoundPalette.MATERIALS`. En jeu, ses élans, ses pas et les temps de sa chope sonnent donc comme ceux de KAI (repli de `SoundController`, fonction `material`), et les sons d'une scène (`whoosh`, `heavy`) aussi. Le test des sons (`Kits`) ne regarde que les 20 jouables. Production choisit, et le note : garder ce repli, ou lui donner une matière (celle de KUROEN, ou une variante), prise dans la palette seulement. Pas d'acier (`slash`) : il frappe des poings.
+      - **Depuis le 24/10, ce point est aussi un bug : B-033** (mineur, ouvert). La chasse a précisé le mélange : ses coups portés par la simulation, eux, sonnent comme KUROEN (`MoveKit`), et le reste comme KAI. Garder le repli, c'est laisser B-033 ouvert.
+      - La piste de B-033 donne la bonne façon de lui faire une matière : une entrée `["KUROEN SHIN"]` faite de **nouvelles tables** (par exemple celles de KUROEN, un peu plus graves, en salle), jamais `MATERIALS["KUROEN SHIN"] = MATERIALS.KUROEN` : une table partagée prendrait le nom d'un seul des deux kits, et un son de Wilhem nommé `KUROEN.hit` pourrait ne plus être trouvé (`SoundController.new`).
+      - Recommandation : corriger B-033 avant sa scène, ou avec elle. Ainsi la question de sa matière est réglée une fois, pour la scène et pour le combat.
   - **ses ultimes, à ne pas recopier** (`GEN.add("KUROEN SHIN")`) :
     - R, 真 · DIVINE EMPEROR RUSH : la cible tirée vers lui à chaque coup (`pull`) ;
     - ÉVEIL, 真 · ZERO ABSOLU: TRUE ECLIPSE : une tempête de poings de tous les côtés, avec ses images fantômes (`gatling`, ouverture `clones`) ;
@@ -150,7 +158,8 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - les siens : 真 · DIVINE EMPEROR RUSH, 真 · ZERO ABSOLU: TRUE ECLIPSE, 真 · ETERNAL ECLIPSE, 真 · TRUE EMPEROR, TRUE DOMINATION (son passif), DIVINE INSTINCT, son style TRUE EMPEROR, les titres du défi (GOD SLAYER, ECLIPSE BREAKER, TRUE EMPEROR'S EQUAL, TRUE EMPEROR), les succès GOD SLAYER et TRUE EMPEROR, la provocation ECLIPSED ;
     - ceux de KUROEN : ses 29 coups (dont AXE OF NIGHT, RISING UPPER, CROWN BREAKER, FALLING EMPEROR, SOVEREIGN UPPER, TYRANT'S FIST, EMPEROR'S DECREE, ECLIPSE BREAKER, CRIMSON STEP, EMPEROR RUSH, 零 · ZERO ABSOLU: ECLIPSE, 皇 · EMPEROR'S GATE, 蝕 · TOTAL ECLIPSE), EMPEROR STEP, DOMINATION, BLACK SUN, ses styles (EMPEROR, BLOOD MOON, DIVINE ECLIPSE) ;
     - les mots usés dans sa famille : ECLIPSE (au moins 8 noms), EMPEROR (au moins 7), DIVINE (5, dont 雷神 · DIVINE WRATH de RAIJIN et DIVINE MIRACLE d'ELIAN), TRUE (4), ZERO (4 : décision du 17/10), SUN (BLACK SUN). BLACK SUN a évité ECLIPSE, EMPEROR et ZERO pour cette raison (décision du 22/10) ;
-    - **le test commun ne voit pas ses noms**, comme pour ASURA : ils vivent dans son thème (`names`) et son `GateTitle`. Si la livraison d'ASURA étend le test à ces noms, il en profite. Sinon, vérifier à la main.
+    - **le test commun ne voit pas ses noms**, comme pour ASURA : ils vivent dans son thème (`names`) et son `GateTitle`. Si la livraison d'ASURA étend le test à ces noms, il en profite. Sinon, vérifier à la main ;
+    - **B-034** (ouvert depuis le 24/10) : le COUP FATAL de KUROEN, celui qu'il emprunte, porte le nom de la PORTE de DAICHA, « 蝕 · TOTAL ECLIPSE » (`MoveData.luau:785` et `:617`). C'est le nom de KUROEN qui devrait changer, et ce nom attend Wilhem. Pour lui, rien ne change à l'écran : son thème affiche son FATAL sous son propre nom, 真 · ETERNAL ECLIPSE. Mais si KUROEN est renommé avant sa scène, ce nouveau nom s'ajoute à la liste des noms pris.
   - **ses pièges à lui** :
     - **en défi, depuis la droite**, comme ASURA : le boss est l'équipe 2, qui commence à droite ;
     - **la cible** est l'un des 20 persos jouables, avec son arme s'il en a une. Garder de la marge (B-018) ;
@@ -172,6 +181,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
   - fichiers : `MoveData.luau`, `Finishers.luau`, `Locale.luau` (le nom du finisher en français), sons de cinématique (`SoundPalette`), storyboards ;
   - pour ASURA, en plus : `FourArms.luau` si ses bras du bas font un geste nouveau, et les outils de test (`tests/CinematicKit.luau`, `tests/WeaponKit.luau`) pour qu'ils voient ses bras du bas ;
   - pour KUROEN SHIN, en plus : `SoundPalette.luau` si production lui donne sa propre matière, et le test « kit sans finisher » de `tests/CombatSimulation.test.luau` à refaire. Aucun outil de test à étendre ;
+  - si B-033 est corrigé avec l'une des deux scènes : `SoundController.luau` (client) et `tests/Kits.test.luau`, en plus de `SoundPalette.luau` (piste de B-033) ;
   - aucun dégât ni aucune vie : pas d'équilibrage.
 - **Valeur / effort** : forte / gros. Une scène par perso, donc une par livraison : NOVA, puis KUROEN, puis les deux bosses.
   - Pour les bosses, la valeur est moindre : leur scène sera rare (voir « Pour ASURA » et « Pour KUROEN SHIN »).
@@ -207,6 +217,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - la scène est vérifiée depuis la droite autant que depuis la gauche (au centre, dos au mur, storyboard) ;
     - toutes ses formes portent un `mark`, et aucune ne saute de plus de 0,5 stud d'une image à l'autre dans un même plan, coup mortel compris (B-031) ;
     - son nom ne reprend aucun nom de la liste « les noms déjà pris », y compris ceux de son thème que le test commun ne voit pas ;
+    - les sons que joue sa scène (`sfx`) sont dans sa matière à lui (`SoundPalette.ASURA`, choisie par `cin.kit`). Ses coups portés par la simulation sonnent comme ses autres coups : en KAI tant que B-033 est ouvert. Si B-033 est corrigé avec la scène, ils passent à sa matière, avec les tests de sa piste ;
     - le test « kit sans finisher » de `CombatSimulation` joue KUROEN SHIN et passe ;
   - **pour KUROEN SHIN, en plus** :
     - sa ligne `Finisher` est sur son kit, et sa scène est `S["KUROEN SHIN"]`. BLACK SUN ne change pas : ses 7 tests passent sans retouche ;
@@ -216,27 +227,30 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - toutes ses formes portent un `mark`, et aucune ne saute de plus de 0,5 stud d'une image à l'autre dans un même plan, coup mortel compris (B-031) ;
     - son nom ne reprend aucun nom de sa liste « les noms déjà pris », ni le nom choisi pour ASURA. Il évite les mots usés de sa famille (ECLIPSE, EMPEROR, DIVINE, TRUE, ZERO), comme BLACK SUN l'a fait (décision du 22/10) ;
     - la règle « un kit sans finisher joue le fatal classique » reste testée, autrement qu'avec un vrai kit, puisqu'il n'en reste plus. Le changement est noté dans `DECISIONS.md` : le test n'est jamais supprimé en silence ;
-    - sa matière sonore est décidée et notée dans `DECISIONS.md` : soit le repli sur KAI est gardé, soit il reçoit une matière à lui, tirée de la palette seulement ;
+    - sa matière sonore est décidée et notée dans `DECISIONS.md` : soit le repli sur KAI est gardé, et B-033 reste ouvert ; soit il reçoit une matière à lui, faite de nouvelles tables tirées de la palette seulement, et B-033 est corrigé pour lui (recommandé) ;
   - les 9 suites passent.
 - **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). **KUROEN fait (v0.36.9, BLACK SUN / SOLEIL NOIR)**, validé le 22/10 et livré le 23/10.
-  - **ASURA est le prochain, et rien ne le bloque.** Aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Revérifié le 24/10 :
-    - depuis le tri d'hier, le dépôt n'a changé que dans `BUGS.md` (c3bf80e) ;
-    - la correction en cours de B-025 et B-032 ne touche que le serveur des profils (`SaveQueue`, `GlobalQueue`, `init.server.luau`) et `Lobby.test` ;
-    - toutes les références de la fiche à la simulation, à l'IA, au réalisateur et aux effets tiennent. Seules deux lignes du serveur bougeront, et la fiche les cite maintenant par leur appel ;
-    - un point a été précisé : le CPU lance toujours son COUP FATAL dès qu'il est prêt (`ultimate = 1`).
+  - **ASURA est le prochain, prêt pour la production de ce matin (25/10), et rien ne le bloque.** Aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Revérifié le 25/10 sur la v0.36.10 (HEAD 45a8b55) :
+    - depuis le tri d'hier, la v0.36.10 n'a changé que le serveur des profils (`SaveQueue`, `GlobalQueue`, `init.server.luau`), `Lobby.test`, la version (`CombatConfig`) et les documents. Rien dans `MoveData`, `Finishers`, `CinematicDirector`, `CombatSimulation`, `FighterAI`, `FourArms`, `SoundPalette`, le client ni les outils de test ;
+    - toutes les références de la fiche tiennent, relues une à une : la recherche de la scène (`CinematicDirector.luau:5179`), son thème (`:4824-4838`), son kit et sa seconde vie (`MoveData.luau:1374-1413`, `:1402`), sa chope (`:1573-1575`), `MoveKit` (`:1459`), la règle du finisher (`CombatSimulation.luau:1330-1332`, `:1341`), « qui tue » (`:1281`), la résurrection (`:1204-1212`), la manche gagnée (`:2473`), le COUP FATAL unique (`:91`), son niveau (`FighterAI.luau:72-74`), le COUP FATAL du CPU (`:496-501`), son aura noire (`EffectsController.luau:1965`) ;
+    - la seule ligne qui a bougé : l'appel qui lance un défi (`Sim.setTeams`) passe de la ligne 609 à la ligne 653 d'`init.server.luau`. La fiche est à jour. Le snapshot de la scène (`finish`, `finisher`, `kit`) est en `:1960-1961` ;
+    - un point nouveau, sans blocage : B-033 (24/10), le son de ses coups. Voir « le son de sa scène et B-033 » ;
+    - aucun bug majeur ou bloquant ne peut passer avant lui ce matin : B-023, le seul majeur ouvert, attend un relevé sur le jeu publié que seul Wilhem peut lire (voir plus bas).
   - **KUROEN SHIN est préparé (24/10), et prêt après ASURA.** Rien n'attend Wilhem. Il passe second parce qu'on livre une scène par livraison, et parce qu'il hérite de la livraison d'ASURA : le nom à éviter, peut-être le test commun étendu aux noms des thèmes. Ce qui le distingue est dans « Pour KUROEN SHIN » :
     - le double blanc et or de BLACK SUN ;
-    - sa matière sonore, à décider ;
+    - sa matière sonore, à décider : c'est maintenant aussi B-033 (recommandé : le corriger avant sa scène, ou avec elle) ;
     - le test « kit sans finisher », à refaire.
-  - **Ce matin, un bug passe avant** : production corrige B-025 (majeur depuis le 23/10) et B-032, pas encore validés. La routine ne fait qu'une livraison : si celle-ci est validée, ASURA passe à la suivante.
 
-  L'idée avait été reportée quatre fois, par des bugs passés avant elle :
+    B-034 (le nom du COUP FATAL de KUROEN) attend Wilhem, mais ne le bloque pas : seule la liste des noms pris peut grandir.
+
+  L'idée avait été reportée six matins, par des bugs passés avant elle :
   - le 18/10 pour B-011 (majeur, corrigé en v0.36.5) ;
   - le 19/10 pour B-017 (majeur, corrigé en v0.36.6) ;
   - le 20/10 pour B-021 (bloquant, corrigé en v0.36.7) ;
-  - le 21/10 pour B-020 (majeur, corrigé en v0.36.8, livré le 22/10).
+  - le 21/10 pour B-020 (majeur, corrigé en v0.36.8, livré le 22/10) ;
+  - les 23 et 24/10 pour B-025 (majeur) et B-032, corrigés en v0.36.10 : refusés par la première validation le 23/10, validés et livrés le 24/10.
   
-  B-023 (CLASSÉ : quitter tôt ne coûte aucun point) est reporté depuis le 22/10 (`BUGS.md`, `DECISIONS.md`). Son plan commence par B-025 : relevé en majeur le 23/10, il est en correction ce matin, avec B-032. Ensuite, il attend un relevé sur le jeu publié que seul Wilhem peut lire. B-023 et B-028 viendront ensemble, après ce relevé. ASURA et KUROEN SHIN ne dépendent pas de ce chemin.
+  B-023 (CLASSÉ : quitter tôt ne coûte aucun point) est reporté depuis le 22/10 (`BUGS.md`, `DECISIONS.md`). Son plan commençait par B-025, livré en v0.36.10 avec les lignes de console qui servent au relevé. Il attend maintenant ce relevé sur le jeu publié, que seul Wilhem peut lire. B-023 et B-028 viendront ensemble, après ce relevé. ASURA et KUROEN SHIN ne dépendent pas de ce chemin.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.
@@ -273,7 +287,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
   1. Comment avance l'étape 4 ? Choix : a) Wilhem envoie l'étape 4 du pack (code et textures) ; b) production dessine dès maintenant les effets des ultimes avec les 19 assets. **Recommandation : a)**, pour ne pas faire le travail deux fois ni choisir la DA à sa place.
   2. Les IDs des 19 assets (Bulk Import, comme les autres), à envoyer avec ceux des 14 meshes.
   3. Dans les cinématiques, les effets du pack s'ajoutent-ils à la lumière 3D actuelle ou la remplacent-ils ? Choix : a) ils s'ajoutent, la mise en scène reste ; b) ils la remplacent ; c) on décide au cas par cas. **Recommandation : a)**, surtout pour les finishers faits d'après ses planches.
-- **Statut** : `à clarifier`. La fiche attend l'étape 4 du pack et les IDs.
+- **Statut** : `à clarifier`. La fiche attend l'étape 4 du pack et les IDs. Rien de nouveau au 25/10 : `assets/vfx` et `VfxConfig.luau` n'ont pas changé.
 
 ## I-003 · Le pack VFX vraiment dans la DA du jeu
 - **Date** : 15 octobre 2026.
@@ -289,7 +303,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
 - **Questions ouvertes** :
   1. Des captures ou des vidéos en jeu de ce qui ne colle pas : trop gros, trop chargé, mauvaise couleur, ou un effet qu'il préférait avant ?
   2. Le premier retour attendu : les planches d'impact de la v0.36.3 sur les coups (taille, éclat). Il faudrait aussi le message de la console Studio si une texture ne charge pas (B-003).
-- **Statut** : `à clarifier`.
+- **Statut** : `à clarifier`. Aucun retour de Wilhem au 25/10.
 
 ## I-004 · Rendre aux joueurs touchés par B-021 leur cote 2v2 / 3v3 et l'étoile de leurs titres
 - **Date** : 20 octobre 2026 pour la proposition (routine du matin, v0.36.7). Fiche ouverte le 21 octobre 2026.
@@ -302,7 +316,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
 - **Ce qui existe** (vérifié le 21 octobre 2026) :
   - la cause est corrigée depuis la v0.36.7 (`src/server/Profile.luau`) : plus personne ne perd ces champs. Une sauvegarde qui les contenait encore à la fin de la dernière session les retrouve seule ;
   - **la cote** :
-    - les classements `JeuxCombat_Classement_2v2_v1` et `_3v3_v1` (`Matchmaker.BOARDS`) gardent la dernière cote écrite de chaque joueur. Le serveur ne les écrit que pour une catégorie déjà jouée (`init.server.luau:255-264`) ;
+    - les classements `JeuxCombat_Classement_2v2_v1` et `_3v3_v1` (`Matchmaker.BOARDS`) gardent la dernière cote écrite de chaque joueur. Le serveur ne les écrit que pour une catégorie déjà jouée, dans `writeProfile`, après une écriture réussie du profil (`init.server.luau:283-292` de la v0.36.10) ;
     - un joueur qui n'a pas rejoué en 2v2 ou en 3v3 depuis la perte y a donc encore sa dernière cote ;
     - aujourd'hui, le serveur ne lit ces classements que par le haut (les 10 premiers), jamais la ligne d'un joueur ;
   - **l'étoile** :
@@ -312,12 +326,20 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - donc un titre à exploit présent dans `titles` sans achat dans `ownedItems` a forcément été gagné en jouant. On peut lui rendre son étoile sans aucune lecture en plus ;
     - FINAL BOSS revient déjà seul, car son compteur est recalculé à partir des notes des défis (`featBosses`), jamais perdues. Mais il ne revient qu'au combat suivant, avec une seconde annonce ;
   - décision du 20/10 (`DECISIONS.md`) : pas de récupération automatique, elle est seulement proposée. Elle touche la cote CLASSÉE, que les joueurs voient ;
-  - **noté le 24/10** : la correction de B-025 et B-032 est en cours ce matin, pas encore validée. Elle change le chargement et l'écriture du profil (`DECISIONS.md`, 23/10) :
-    - chaque visite d'un joueur devient une session (`SaveQueue`) ;
-    - une nouvelle visite attend que l'ancienne libère le profil, jusqu'à 65 s (`SaveQueue.held`) ;
-    - `writeProfile` n'écrit qu'un profil chargé par sa propre session.
+  - **relu le 25/10 sur la v0.36.10** (B-025 et B-032, livrée le 24/10). Elle a changé le chargement et l'écriture du profil (`DECISIONS.md`, 23/10) :
+    - chaque visite d'un joueur est une session (`SaveQueue`) ;
+    - une nouvelle visite attend que l'ancienne libère le profil, jusqu'à 65 s (`SaveQueue.held`, `init.server.luau:159-164`), puis le verrou d'un autre serveur (`:168-217`) ;
+    - `writeProfile` (`:253-302`) est le seul point d'écriture du profil. Il n'écrit qu'un profil chargé par sa propre session (« unloaded »), et plus jamais un profil qu'un autre serveur a pris (« lost ») ;
+    - le verrou d'un profil chargé est réécrit dès qu'il a 20 s, au vidage suivant (toutes les 15 s), même sans changement (`SaveQueue.RENEW`).
 
-    Si elle est livrée, la relecture de la cote se fera après ce chargement, et le marqueur « une seule fois » passera par `writeProfile`, comme le reste du profil. Les lignes de `init.server.luau` citées ici sont celles de la v0.36.9 : elles bougeront. L'écriture des classements 2v2 et 3v3 est en `:255-264`. La fiche est à relire quand cette correction sera livrée. Elle reste à clarifier : la réponse attend toujours Wilhem.
+    **Ce que cela change pour la récupération** (à suivre si Wilhem dit oui) :
+    - **où** : dans `loadProfile` (`:151-226`), une fois la session chargée (`SaveQueue.loaded`, `:205`), dans son propre fil, pour ne pas retarder l'entrée dans le hub. Jamais sur une session « SAVES UNAVAILABLE » (`:218-224`) : `writeProfile` refuserait d'écrire, et les lectures seraient perdues ;
+    - **après chaque lecture** (elle attend la réponse du DataStore) : vérifier que c'est toujours la même visite (`clients[player] == client`, comme le chargement en `:163` et `:180`), et que la catégorie n'a toujours pas de cote (`Matchmaker.played` faux). Sinon, ne rien changer ;
+    - **l'écriture** : la récupération n'écrit rien elle-même. Elle change le profil en mémoire (`Matchmaker.setRating`, l'étoile, le marqueur), puis `saveProfile(player, client)` le marque, et le vidage suivant l'écrit par `writeProfile`, comme le reste. Si un autre serveur a pris le profil (« lost »), rien n'est écrit d'ici, ni la cote ni le marqueur : la récupération se refera au prochain chargement. La règle « une seule fois » tient ;
+    - **le classement** : après `setRating`, la catégorie compte comme jouée. L'écriture suivante remet donc la même cote dans le classement (`:284-291`) : une écriture de plus, sans effet ;
+    - **le budget** : les renouvellements du verrou (2 écritures par minute pour un joueur inactif) et les essais d'un chargement qui attend un autre serveur (un toutes les 3 s) prennent aussi sur le budget DataStore du serveur. Raison de plus pour ne faire les deux lectures qu'une fois par joueur.
+
+    Rien de cela ne change la question posée à Wilhem, ni la recommandation. La fiche reste à clarifier : la réponse attend toujours Wilhem.
 - **Persos et systèmes touchés** :
   - aucun perso, rien sur le combat ni l'équilibrage ;
   - le chargement du profil (`init.server.luau`, `Profile.luau`), la cote CLASSÉE (`Matchmaker`), les titres et leur étoile (`GameModes`), les classements (DataStore) ;
@@ -331,7 +353,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - elles prennent sur le budget DataStore du serveur, le même que celui des profils et du CLASSÉ entre serveurs ;
     - la parade : **une seule fois par joueur**. Un marqueur dans le profil (un champ de plus dans `Profile.default`, vérifié par le test « saved profile ») n'est posé que si les deux lectures ont répondu. La lecture ne bloque pas l'entrée dans le hub, et elle n'écrase jamais une cote jouée entre-temps ;
   - **des cas où la cote relue est fausse** :
-    - le classement est écrit après le profil, à part (`init.server.luau:260`). Si cette écriture a échoué, il garde une cote plus ancienne, et c'est elle qui revient ;
+    - le classement est écrit après le profil, à part (`init.server.luau:288` de la v0.36.10). Si cette écriture a échoué, il garde une cote plus ancienne, et c'est elle qui revient ;
     - un joueur qui a rejoué en 2v2 ou en 3v3 après la perte est reparti de 1000. Sa vraie cote est perdue, et le classement a gardé la nouvelle. La récupération ne peut rien pour lui (elle ne se lance pas, puisqu'il a une cote) ;
     - chaque jour où la v0.36.7 tourne en ligne sans la récupération, des joueurs touchés rejouent et ne peuvent plus être récupérés. Si la v0.36.7 n'est pas encore publiée sur Roblox, mieux vaut publier les deux ensemble ;
     - si un jour une cote est remise à zéro exprès (nouvelle saison, tricheur) sans vider les classements, la relecture la rendrait. Rien ne le fait aujourd'hui, et le marqueur « une seule fois » écarte ce cas ;
@@ -340,7 +362,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
     - si un jour un titre à exploit est donné autrement (récompense de quête, cadeau du propriétaire sans `ownedItems`), la règle lui mettrait une étoile à tort. Un commentaire dans le code et le test doivent le rappeler.
 - **Questions ouvertes** (pour Wilhem) :
   1. Faut-il rendre ce qui a été perdu ? Choix : a) oui, la cote et les étoiles ; b) seulement les étoiles (aucune lecture en plus, aucun risque de valeur fausse) ; c) non, on laisse comme c'est. **Recommandation : a)**, une seule fois par joueur, en silence, et vite : chaque jour, moins de joueurs peuvent retrouver leur cote.
-- **Statut** : `à clarifier`. Rendre une cote CLASSÉE que les joueurs voient est un choix de Wilhem (décision du 20/10).
+- **Statut** : `à clarifier`. Rendre une cote CLASSÉE que les joueurs voient est un choix de Wilhem (décision du 20/10). Relue le 25/10 après la v0.36.10 : la fiche suit le nouveau chargement, et aucune décision de Wilhem n'est arrivée depuis.
 - **Critères d'acceptation** (si Wilhem dit oui) :
   - une règle pure (dans `Profile.luau` ou `GameModes`), testée dans `Lobby.test` :
     - au chargement, un titre à exploit présent dans `titles` et sans achat dans `ownedItems` reçoit son étoile ;
@@ -349,5 +371,7 @@ Dernier tri : 24 octobre 2026 (routine du matin).
   - à la connexion, pour une catégorie sans cote (`Matchmaker.played` faux), le serveur lit la ligne du joueur dans le classement 2v2 ou 3v3. S'il y trouve un nombre, `Matchmaker.setRating` le rend ; sinon, rien ne change ;
   - une seule fois par joueur : le marqueur figure dans `Profile.default` et n'est posé que si les deux lectures ont répondu. Une lecture en échec est refaite à la connexion suivante ;
   - la lecture ne bloque pas le chargement, et une cote jouée entre-temps n'est jamais écrasée ;
+  - elle ne se lance qu'une fois la session chargée (`SaveQueue.loaded`), jamais sur une session « SAVES UNAVAILABLE ». Après chaque lecture, elle ne change rien si la visite a changé ;
+  - elle n'écrit rien elle-même : la cote, l'étoile et le marqueur passent par `saveProfile`, puis par `writeProfile`, comme le reste du profil ;
   - le test « saved profile » passe avec le nouveau champ, et les 9 suites passent ;
   - rien n'est affirmé testé sur le vrai DataStore : Wilhem confirme en jeu (un joueur touché revoit sa cote 2v2).

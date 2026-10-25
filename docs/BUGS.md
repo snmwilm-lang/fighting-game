@@ -533,6 +533,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Statut** : `ouvert` (code inchangé au 21/10). Depuis la v0.36.7, les lignes du serveur ont bougé : l'ajout de l'adversaire est en `init.server.luau:1979-1985`, et l'événement part dans `batch` en `:2109`, puis il est envoyé en `:2121-2123`, après `followEvents` (`:2111`).
 - **Revu le 22/10 sur la v0.36.8** (code inchangé, lignes identiques) : le fuzz de la chasse (240 SURVIES, avec l'ajout de l'adversaire recopié du serveur) compte 1 382 fins de manche, **toutes** avec `matchOver = true`, vagues gagnées comprises.
 - **23/10** : code inchangé sur la v0.36.9 (elle ne touche ni le serveur, ni la simulation, ni le directeur) ; lignes citées valables.
+- **25/10** : code inchangé sur la v0.36.10 (elle ne touche que l'écriture des profils), mais les lignes du serveur ont bougé : l'ajout de l'adversaire est en `init.server.luau:2029-2037` (`match.wave += 1` en `:2033`), l'événement part dans `batch` en `:2159`, `followEvents` en `:2161`, l'envoi en `:2171-2173`. Côté simulation, depuis la v0.36.8, `matchOver` est calculé en `CombatSimulation.luau:2487-2491` (la ligne citée plus haut, `:2482`, est devenue `:2490`). `HUDController.luau:1439` : inchangé.
 - **À côté** : une vague gagnée par un ÉVEIL ou une PORTE qui tue finit, elle, sur « K.O. · … · VICTORY » (B-026).
 - **Piste** :
   - dans `followEvents`, quand le serveur ajoute l'adversaire, remettre `event.matchOver = false` sur ce `RoundEnd`. C'est la même table que celle envoyée juste après, dans `batch` ;
@@ -559,7 +560,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - la cote ne bouge alors pour personne (`init.server.luau:725`). Celui qui part ne perd que ses pièces et sa série.
 - **Ce qui devrait se passer** : celui qui quitte un CLASSÉ perd ses points, comme annoncé. Le filtre anti-farm sert à ne pas **donner** de gains (un compte secondaire qui part tout de suite), pas à épargner une perte.
 - **Gravité** : majeur. Le résultat d'un CLASSÉ abandonné est faux, et le défaut s'exploite : on fuit sans frais tout match mal parti dans les 25 premières secondes, et le classement (donc le champion de la semaine) se fausse. Rien ne se voit à l'écran.
-- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous. **Reporté par production le 22/10** : B-025 doit passer avant (voir « Reporté par production » en bas de la fiche).
+- **Statut** : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous. **Reporté par production le 22/10** : B-025 doit passer avant (voir « Reporté par production » en bas de la fiche). **25/10 : la raison du report est levée par la v0.36.10. B-023 est faisable sans Wilhem, et sans attendre le relevé** (prouvé, voir « Chasse du 25/10 » tout en bas de la fiche). Le relevé ne sert plus qu'à mesurer ce que la correction couvre de B-028.
 - **24/10** : code inchangé (HEAD 7fada09) ; les lignes de la v0.36.9 tiennent. Quand la correction de B-025 et B-032 (arbre de travail, en validation) sera livrée, elles descendent de 44 lignes avant `PlayerRemoving` et d'environ 50 après : `unseat` en `:599` (appel `endVersus` en `:605`), `endVersus` en `:684`, `share` en `:697`, `PlayerRemoving` en `:1313` (`unseat` en `:1321`), `BindToClose` en `:2202`. Ce diff pose déjà le drapeau `closing` et les deux lignes de console du point 2 de la piste commune.
 - **Revérifié par la chasse du 21/10** : `AntiCheat` et `Matchmaker` n'ont pas changé. Depuis la v0.36.7, les lignes du serveur ont bougé :
   - `unseat` : `init.server.luau:555`, appel `endVersus(match, 3 - i, i)` en `:561` ;
@@ -672,6 +673,67 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
     - l'ordre `BindToClose` / `PlayerRemoving` à une migration et à « Shut Down All Servers » (le relevé du point 2) ;
     - après la correction de B-025 : un joueur qui quitte un CLASSÉ de plus de 60 s et rejoint un autre serveur dans les 5 s retrouve bien sa défaite (pas de « held by another server » dans la console de l'ancien serveur) ;
     - le test de B-028 (deux comptes en CLASSÉ, puis une migration : aucun ne doit bouger).
+- **Chasse du 25/10, sur la v0.36.10 (HEAD 45a8b55) : faisable sans Wilhem.**
+  - **Les lignes après la v0.36.10** (`AntiCheat` et `Matchmaker` inchangés : `AntiCheat.luau:88`, `:90`, `scaleRating` en `:149-152`) :
+    - `unseat` : `init.server.luau:599`, condition en `:604`, appel `endVersus` en `:605`, retour au menu de l'autre en `:622-630` ;
+    - `endVersus` : `:684`. Il sort en `:688-689` si l'un des deux clients manque ;
+    - `share` : `:697` ; victoires et défaites : `:700-706` ; pièces : `:709-716` ; points de la semaine : `:718-725` ; série : `:727-730` ; quêtes : `:733-742` ; cote : `:746-754` ; historique : `:756-763` ; carte de résultat : `:764-779` ;
+    - `PlayerRemoving` : `:1313-1343`. La ligne de console est en `:1315-1316`, `unseat` en `:1321`, l'écriture de départ en `:1324-1335`, et `clients[player] = nil` en `:1341` ;
+    - `BindToClose` : `:2202-2224`. `closing = true` est en `:2203`, sa ligne de console en `:2204`, l'attente en `:2223` ;
+    - `stepMatch` : `:2129` ; les départs volontaires : `leave` en `:1615-1618`, un autre mode en `:1600`, un DÉFI accepté en `:1371`.
+  - **La raison du report du 22/10 ne tient plus.** Une grâce de 5 s faisait charger le profil d'avant à un autre serveur, parce qu'à la fin d'un CLASSÉ le verrou était périmé. Depuis la v0.36.10, le verrou d'un joueur présent a 35 s au plus quand il part (20 s, plus un vidage de 15 s ; 50 s si un renouvellement a raté). L'autre serveur l'attend donc.
+  - **Prouvé** sur les `SaveQueue` et `GlobalQueue` livrés. Le fuzz de la chasse (script hors dépôt) recopie le fil de `PlayerRemoving`. L'écriture de départ y part après la grâce, avec la décision d'abandon appliquée au profil à ce moment. Un autre serveur arrive de 5 s avant à 20 s après le départ :
+
+    | Grâce | Renouvellement du verrou | Scénarios | L'autre serveur charge une version d'avant la décision | Son attente, au plus |
+    |---|---|---|---|---|
+    | 0 s | oui (v0.36.10) | 8 000 | 0 | 6 s |
+    | 5 s | oui (v0.36.10) | 8 000 | **0** | 9 s |
+    | 5 s | retiré (`RENEW` = 100 000) | 3 000 | **56** | 9 s |
+    | 0 s | retiré | 3 000 | 31 | 6 s |
+
+    - avec des pannes du DataStore (15 % des requêtes, plus des coupures de 1 à 30 s), l'autre serveur charge une version d'avant dans 0,56 % des cas sans grâce, 0,61 % avec 5 s, et 0,91 % avec 10 s (12 000 scénarios chacun) ;
+    - **5 s n'ajoute rien de mesurable. Il ne faut pas aller au-delà.**
+  - **Ce que le relevé de Wilhem décide encore** : seulement ce que la correction couvre de B-028, dans un ordre précis des événements (ci-dessous). Ce n'est plus une condition de sûreté : on peut livrer, puis lire les lignes de console.
+  - **Deux façons de livrer, les deux sans Wilhem** :
+    - **V1, rien n'est retardé** : les parts de cote par place (points 1 et 2 ci-dessous) et le drapeau de fermeture (point 3). Elle corrige B-023 en entier, et B-028 quand `BindToClose` arrive avant les départs. Elle laisse un cas : si Roblox retire les joueurs avant d'appeler `BindToClose`, le premier retiré perd, comme aujourd'hui, et désormais même dans les 25 premières secondes. Production a écarté cette option le 22/10 pour cette raison ;
+    - **V2, la piste commune (recommandée)** : V1, plus la grâce de 5 s sur `PlayerRemoving` (point 4). Elle couvre aussi l'ordre « départs d'abord », si les deux joueurs d'un match partent à moins de 5 s d'écart ou si `BindToClose` arrive dans ces 5 s. Le seul cas laissé : des départs espacés de plus de 5 s, avant `BindToClose`. Le relevé dira s'il existe.
+  - **Le code de V2** :
+    1. `AntiCheat.luau` (pur) :
+       - `AntiCheat.versusShares(ratingA, ratingB, leftSlot)` rend une part par place. Sans départ : `min` pour les deux. Avec un départ : 1 pour celui qui part, `min` pour l'autre ;
+       - `AntiCheat.departure({ voluntary, closing, otherGone })` rend `"abandon"` ou `"void"`, dans cet ordre : `closing` donne `"void"`, puis `voluntary` donne `"abandon"`, puis `otherGone` donne `"void"`. Sinon, `"abandon"`.
+    2. `endVersus` (`:684`) :
+       - **les clients** : `:688` lit `clients[a]`. Pendant la grâce, celui qui part n'y est plus (`:1341`). Il faut lui passer le client gardé (`match.held`), sinon `endVersus` sort en `:689` sans rien compter ;
+       - `:697` : `local shares = AntiCheat.versusShares(shareA.rating, shareB.rating, leftSlot)` ;
+       - `:700-706` : la défaite de celui qui part compte toujours (D5). La victoire de l'autre ne compte que si sa part est > 0 ;
+       - `:718-742` : les points, la série (`share > 0` devient `shares[slot] > 0`) et les quêtes, chacun avec la part de sa place ;
+       - `:746-749` : en CLASSÉ, chaque place dont la part est > 0 reçoit `AntiCheat.scaleRating(before[slot], new, shares[slot])`. Une part de 1 donne la perte Elo entière ;
+       - `:731` et `:764-779` : rien n'est envoyé au joueur déjà retiré (pas de `SetAttribute` ni de `FireClient`), il n'y a que son écriture.
+    3. **la fermeture** : en `:2203`, juste après `closing = true`, chaque match VERSUS en cours devient sans résultat (`match.finished = true`, `match.void = true`). Celui qui reste reçoit « NO CONTEST ». Dans `unseat`, `and not closing` s'ajoute à la condition de `:604`.
+    4. **la grâce** (`PlayerRemoving`, `:1313-1343`), quand le joueur quitte un VERSUS entre joueurs en cours, hors fermeture :
+       - `match.paused = true` : `stepMatch` (`:2129`) ne l'avance plus. Le perso abandonné ne peut donc pas être mis K.O. entre-temps, ce qui ferait un vrai `MatchEnd` ;
+       - `match.held = { slot = i, player = player, client = client }`. La place garde son propriétaire jusqu'à la décision : `endVersus` lit `match.slots[i].owner` (`:687`). `player.Character = nil` se fait tout de suite, comme `unseat` le fait en `:613`, pour que Roblox ne détruise pas le modèle du perso ;
+       - le retour au menu de l'autre (`:622-630`) attend la décision ;
+       - `SaveQueue.leaving` se fait tout de suite, comme aujourd'hui. `finalWrites += 1` se fait **dès le départ**, pour que `BindToClose` (`:2223`) attende aussi les décisions en cours ;
+       - au bout de `GRACE = 5` s, on appelle `AntiCheat.departure({ closing = closing, otherGone = <l'autre a eu son propre PlayerRemoving> })`. Sur `"abandon"` : `endVersus(match, 3 - i, i)` avec le client gardé, puis `finalWrite`. Sur `"void"` : rien n'est compté, puis `finalWrite` ;
+       - celui qui reste voit « OPPONENT DISCONNECTED » pendant ces 5 s.
+    5. **les départs volontaires** (`:1371`, `:1600`, `:1615-1618`) n'ont pas de grâce : `departure` rend `"abandon"` tout de suite.
+  - **Les tests** (`Lobby.test`) :
+    - `versusShares` :
+      - un départ après 10 s, ou avec 3 actions : celui qui part perd ses points en entier (−27 pour un joueur à 1500 qui part face à un joueur à 1200), et celui qui reste ne gagne rien ;
+      - après 60 s et 80 actions chacun : les deux cotes sont celles d'aujourd'hui ;
+      - sans départ : `min` pour les deux ;
+      - en 2v2 et en 3v3 aussi ;
+    - `departure` : les quatre cas, puis quatre ordres d'événements rejoués :
+      - `BindToClose`, puis les deux départs : sans résultat ;
+      - départ de A, 2 s plus tard départ de B, puis `BindToClose` : sans résultat ;
+      - départ de A seul : abandon ;
+      - départs espacés de plus de 5 s, avant `BindToClose` : abandon. C'est la limite connue, et le test l'écrit ;
+    - sur le banc `saveWorld` de B-025 : un joueur quitte un CLASSÉ de 3 min, et son écriture de départ part 5 s plus tard avec la perte de cote. Un autre serveur, arrivé 3 s après le départ, charge la version avec la perte. Sans le renouvellement, ce même cas perd la décision (tableau ci-dessus) ;
+    - « languages » : « OPPONENT DISCONNECTED » et « NO CONTEST » ont leur ligne dans `Locale.FR`.
+  - **Le risque qui reste** :
+    - le fil de la grâce vit dans `init.server.luau`, que les tests ne chargent pas. La validation doit le rejouer sur un ordonnanceur et un DataStore simulés, comme pour la v0.36.10. Ce banc n'est pas dans le dépôt ;
+    - une double panne : un renouvellement raté juste avant le départ (le verrou a alors 50 s), puis une écriture de départ ratée. Les nouveaux essais (après 1, 2 et 4 s) dépassent alors les 60 s, et un autre serveur peut prendre le verrou. C'est le cas de B-032, à peine élargi par la grâce (pas de différence mesurable à 5 s, ci-dessus) ;
+    - les décisions D1, D3, D4 et D5 (plus haut) : production les tranche et les note dans `DECISIONS.md`. **Wilhem doit savoir que les joueurs verront « +0 » et « NO CONTEST »**, mais rien ne l'attend.
 
 ## B-024 · `!give … title <titre de la boutique>` donne un titre impossible à porter
 - **Date** : 20 octobre 2026.
@@ -685,7 +747,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - le serveur n'accepte de porter qu'un titre de `profile.titles`, ou celui d'un Game Pass. La boutique le montre possédé (on ne peut plus l'acheter), mais le serveur refuse de le porter, sans message (supposé pour le menu).
 - **Pourquoi le test ne le voit pas** : `tests/Lobby.test.luau:1312` vérifie `ownedItems`, pas que le titre se porte.
 - **Gravité** : mineur. Un outil du propriétaire, mais le joueur qui reçoit le cadeau ne peut pas s'en servir.
-- **Statut** : `ouvert` (code inchangé au 24/10 ; après la correction de B-025, ces deux lignes seront `:1506` et `:1200`). Depuis la v0.36.7, la règle pour porter un titre est en `init.server.luau:1456` (et `:1156`, à la mise à jour des badges et cosmétiques du joueur, qui retire un titre porté non permis).
+- **Statut** : `ouvert` (code inchangé au 25/10, sur la v0.36.10 : `Admin.luau:92` et `:109` tiennent ; la règle pour porter un titre est en `init.server.luau:1506`, le retrait d'un titre porté non permis en `:1200`). Depuis la v0.36.7, la règle pour porter un titre est en `init.server.luau:1456` (et `:1156`, à la mise à jour des badges et cosmétiques du joueur, qui retire un titre porté non permis).
 - **Piste** : dans `Admin.apply`, pour un objet `TITLE` (branches `title` et `item`), ajouter aussi le nom à `profile.titles`. Dans le test, vérifier `Champions.canShow`.
 
 ## B-025 · Le verrou de session d'un joueur inactif expire alors qu'il est encore sur le serveur
@@ -704,6 +766,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - c'est lui qui bloque la correction de B-023 et B-028, deux bugs majeurs.
 
   Pas bloquant : aujourd'hui, la perte demande encore que l'autre serveur charge le profil avant que l'écriture de départ de l'ancien arrive.
+- **Revu par la chasse du 25/10 sur le code livré** (HEAD 45a8b55) : `SaveQueue` et `GlobalQueue` sont identiques à ceux que le fuzz du 24/10 avait passés. Le même fuzz, rejoué sur les fichiers livrés, passe 24 000 scénarios sans échec (12 000 sans panne, 12 000 avec des pannes du DataStore). Tous les appels à `SaveQueue` du serveur passent la session (`client`), et `client` est défini à chaque endroit (`menuStatus`, menu, achats, `grantChampion`, `ProcessReceipt`). Seuls `loadProfile` et `writeProfile` écrivent la clé `joueur_…`. Les classements ne sont pas réécrits par les renouvellements : seulement quand une valeur change (`:282-300`). Deux effets de bord trouvés, sans lien avec la justesse du verrou : B-035 (le menu pendant l'attente du chargement) et B-036 (une écriture en vol pendant un achat).
 - **Statut** : `corrigé (v0.36.10)`, à confirmer sur le jeu publié. Livré le 24/10 avec B-032, validé à la seconde passe (la première, le 23/10, a refusé le cas du joueur revenu sur le même serveur). Reproduit le 23/10 sur la v0.36.9. Avant la correction, l'écriture était `writeProfile`, `init.server.luau:231-251` (verrou posé en `:242`, refus « held by another server » en `:248-250`) et la boucle de vidage `:283-292`. La correction suit la piste du 23/10, avec quatre écarts notés dans `DECISIONS.md` :
   - le renouvellement compte depuis la dernière écriture **réussie** ;
   - un profil pris par un autre serveur n'est plus jamais écrit d'ici ;
@@ -763,7 +826,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - hors de cette correction : si Roblox ajoute la nouvelle visite avant de retirer l'ancienne, le départ de l'ancienne appelle aussi `Lobby.leave` et `Matchmaker.leave` sur le même id (déduit du code, non vérifié).
 - **À vérifier sur le jeu publié, après la correction** :
   - un joueur reste 2 minutes sans rien faire dans le hub, puis rejoint un autre serveur. La console de l'ancien serveur ne doit pas afficher « held by another server » ;
-  - **le relevé de l'attente** : l'écart entre la ligne `[FightingGame] leave <id> at … (os.time …)` de l'ancien serveur et la ligne `[FightingGame] profile <id> loaded at … (os.time) after …` du nouveau. Cette ligne n'apparaît que si le chargement a attendu. Le cas à relever : fermer le jeu brutalement (coupure réseau), puis rejoindre aussitôt. Si l'ancien serveur garde le verrou plus d'environ 73 s, la ligne `profile <id> not loaded … saves unavailable` apparaît à la place, vers 81 s. **Attention** : la ligne `loaded … after …` (`init.server.luau:219-220`) ne compte pas l'attente d'une ancienne visite sur le **même** serveur (`held`) ; elle peut afficher « after 0 s » après 7 s d'attente (relevé par la validation, non corrigé dans la v0.36.10). Sur un autre serveur, elle est juste ;
+  - **le relevé de l'attente** : l'écart entre la ligne `[FightingGame] leave <id> at … (os.time …)` de l'ancien serveur et la ligne `[FightingGame] profile <id> loaded at … (os.time) after …` du nouveau. Cette ligne n'apparaît que si le chargement a attendu. Le cas à relever : fermer le jeu brutalement (coupure réseau), puis rejoindre aussitôt. Si l'ancien serveur garde le verrou plus d'environ 73 s, la ligne `profile <id> not loaded … saves unavailable` apparaît à la place, vers 81 s. **Attention** : la ligne `profile <id> not loaded … after N s … saves unavailable` (`init.server.luau:219-220`) ne compte pas l'attente d'une ancienne visite sur le **même** serveur (`held`). Elle peut afficher « after 0 s » après 7 s d'attente (relevé par la validation, non corrigé dans la v0.36.10). *(Précisé par la chasse du 25/10 : la ligne `profile <id> loaded … after …`, elle, est en `:206-209` et donne les deux attentes séparément, celle de l'ancienne visite et celle du verrou d'un autre serveur ; le défaut ne touche que la ligne d'échec. La note du journal de la v0.36.10, « la ligne de console du chargement ne compte pas l'attente d'une ancienne visite », vise donc la ligne d'échec seulement.)* Sur un autre serveur, les deux lignes sont justes ;
   - un retour sur le même serveur (par exemple « Rejoindre » sur un ami) juste après un départ : le profil revient à jour.
 - **Ancienne piste** (20/10) : la même idée (`SaveQueue.stale(q, now, ttl)` à `LOCK_TTL / 2`). Elle est remplacée par celle du 23/10 : à 30 s, avec un vidage toutes les 15 s, la marge ne couvre pas un renouvellement raté, et la limite `BATCH` affamait les renouvellements.
 
@@ -791,7 +854,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - `src/shared/CinematicDirector.luau:5172-5174` : `cin.finish` lance `Director.ko` quel que soit le score ;
   - le dernier plan de la scène K.O. écrit `· VICTORY` en dur : `:5067` (KAI) et `koEnd`, `:3221` (les 8 scènes K.O. propres à un kit).
 - **Gravité** : mineur. C'est un mot, mais sur un écran noir, à la fin d'une longue scène : le joueur croit le match gagné. Et c'est fréquent : il suffit d'un ÉVEIL ou d'une PORTE sur une cible sous 30 % de sa vie maximale (`MaxHealthShare = 0.3`, `MoveData.luau:927`, `:962`), à n'importe quelle manche.
-- **Statut** : `ouvert` (code inchangé au 23/10, sur la v0.36.9 ; la v0.36.8 retire seulement le cas du faux K.O. d'ASURA). Le FATAL FINISHER de KUROEN (v0.36.9) n'écrit jamais VICTORY : un test de `Cinematography` le vérifie.
+- **Statut** : `ouvert` (code inchangé au 23/10, sur la v0.36.9 ; la v0.36.8 retire seulement le cas du faux K.O. d'ASURA). Le FATAL FINISHER de KUROEN (v0.36.9) n'écrit jamais VICTORY : un test de `Cinematography` le vérifie. **25/10** : inchangé sur la v0.36.10. `CinematicDirector.luau:5174`, `:5067` et `:3221` tiennent. Le calcul de `matchOver` cité dans la piste est maintenant en `CombatSimulation.luau:2487-2491` (et non plus `:2479-2483`).
 - **Piste** :
   - la simulation sait, au coup final, si ce K.O. décide le match : c'est le même calcul que `matchOver` dans `endRound` (`CombatSimulation.luau:2479-2483`), avec une victoire de plus ou un perso de moins. On le pose dans `world.cinematic` (par exemple `decides = true`), qui part dans l'instantané ;
   - la scène K.O. écrit « VICTORY » seulement si `ctx.cin.decides`, ou si elle joue après la fin du match (`victoryScene`) ;
@@ -820,7 +883,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Fréquence mesurée** : aucun temps écoulé sur 101 manches CPU contre CPU (77 manches de niveau 4, sur 5 paires de kits aux vies très différentes ; 24 contre ASURA). Des joueurs prudents vont plus souvent au bout des 99 s ; cela ne se mesure pas d'ici.
 - **Ce qui devrait se passer** : à décider. Le cahier des charges demande de « définir double K.O. et timeout avant implémentation » (`docs/Roblox_Guide_Claude.md:156`), et la règle n'est écrite nulle part pour des vies différentes. L'usage des jeux de combat, et ce que montre le HUD, c'est la part de vie restante.
 - **Gravité** : mineur. C'est rare, mais faux en combat quand cela arrive, et toujours en défaveur du perso fragile ou du joueur face au boss.
-- **Statut** : `à confirmer` (règle à trancher par Wilhem ou production : part de vie, comme la barre, ou PV absolus ; code inchangé au 23/10).
+- **Statut** : `à confirmer` (règle à trancher par Wilhem ou production : part de vie, comme la barre, ou PV absolus ; code inchangé au 25/10). Depuis la v0.36.8, la ligne fautive est `CombatSimulation.luau:2463` (et non plus `:2455`) ; le test du dépôt commence en `tests/CombatSimulation.test.luau:1082`.
 - **Piste** :
   - comparer `a.hp / a.maxHp` à `b.hp / b.maxHp`, avec égalité = manche nulle comme aujourd'hui ;
   - un test avec deux kits de vies différentes, et un relais contre ASURA ;
@@ -842,6 +905,11 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : un match coupé par le serveur ne compte pour personne (aucun point, aucune série perdue), comme un match annulé.
 - **Gravité** : mineur. Cela ne touche que les CLASSÉS en cours au moment d'une mise à jour, mais les livraisons sont quotidiennes (à chaque publication suivie d'un « Migrate », supposé), et le joueur perd des points sans rien avoir fait. La correction de B-023, si elle ne traite pas ce cas, l'aggrave : la perte s'appliquerait dès la première seconde.
 - **Statut** : `à confirmer` (le mécanisme est prouvé, l'ordre des événements de Roblox à la fermeture ne l'est pas). Code inchangé au 24/10. À corriger avec B-023, après B-025 et B-032. Le diff de B-025 (en validation) pose déjà le drapeau `closing` en tête de `BindToClose`, et deux lignes de console qui donneront l'ordre réel des événements : `[FightingGame] leave <id> at … · closing true|false` et `[FightingGame] closing at …`. Il ne change pas `unseat` : la perte décrite ici reste.
+- **25/10, sur la v0.36.10** : B-025 et B-032 sont livrés. Le drapeau `closing` est en `init.server.luau:149` (posé en `:2203`), les lignes de console en `:1315-1316` et `:2204`. `unseat` (`:599-606`) ne le lit pas encore : la perte reste. **La correction n'attend plus le relevé** (voir « Chasse du 25/10 » dans B-023) :
+  - le drapeau de fermeture couvre l'ordre « `BindToClose` d'abord » sans rien retarder ;
+  - la grâce de 5 s couvre l'ordre « départs d'abord » si les départs des deux joueurs, ou `BindToClose`, tombent dans ces 5 s. Elle ne perd plus l'écriture de départ (prouvé) ;
+  - le relevé dira s'il reste un cas, des départs espacés de plus de 5 s avant `BindToClose`, et s'il faut régler la grâce.
+- **Précision du 25/10** (déduite du code) : dans l'ordre « `BindToClose` d'abord », la perte ne se garde pas toujours. L'écriture de fermeture (`:2211-2220`) écrit le profil d'avant le résultat et relâche le verrou. Puis le départ du joueur appelle `endVersus` et lance une nouvelle écriture de départ. Si le nouveau serveur du joueur (la migration) a déjà pris le verrou, elle est refusée (« lost ») : la perte reste en mémoire seulement. Sinon, elle est écrite. Le résultat dépend donc d'une course, et le test en jeu peut donner l'un ou l'autre.
 - **Revu par la chasse du 22/10** :
   - aucun signal sûr d'une fermeture, à part `BindToClose` lui-même. `PlayerRemoving` reçoit une raison, mais `Enum.PlayerExitReason` ne vaut que `Unknown`, `PlatformKick` ou `CreatorKick`, et aucune propriété lisible par un script ne dit « en fermeture » (dump d'API complet de Roblox, copie du 16/10) ;
   - Wilhem met à jour par « Migrate to Latest Update » (`docs/JOURNAL.md`, v0.24.5). Chaque livraison suivie d'une migration touche donc les CLASSÉS en cours, y compris ceux des serveurs réservés (CLASSÉ entre serveurs, `init.server.luau:1013`) ;
@@ -864,7 +932,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - la partie finit (`MatchEnd`, le CPU gagne), et le serveur compte `beaten = match.wave - 1 = 1` (`:2006`) : 10 pièces, record de SURVIE 1, succès SURVIVOR avancé d'un adversaire qui n'a pas été battu.
 - **Ce qui devrait se passer** : seuls les adversaires vraiment battus comptent. Un double K.O. finit la course au score d'avant.
 - **Gravité** : cosmétique (rare, un adversaire de trop dans le compte).
-- **Statut** : `ouvert` (code inchangé au 24/10 ; aucun double K.O. dans les 240 SURVIES du fuzz de la chasse du 22/10 : c'est rare). Après la correction de B-025, les lignes citées descendent de 44 (`:654-658`) et de 50 (`:2029-2035`, `:2054-2062`).
+- **Statut** : `ouvert` (code inchangé au 24/10 ; aucun double K.O. dans les 240 SURVIES du fuzz de la chasse du 22/10 : c'est rare). Après la correction de B-025, les lignes citées descendent de 44 (`:654-658`) et de 50 (`:2029-2035`, `:2054-2062`). **25/10, vérifié sur la v0.36.10** : le départ de la SURVIE est en `init.server.luau:654-658`, l'ajout de l'adversaire en `:2029-2037`, et `beaten = match.wave - 1` en `:2056`. Côté simulation, le relais (les deux équipes perdent leur combattant sur un nul) est en `CombatSimulation.luau:2466-2477`.
 - **Piste** :
   - dans `followEvents`, n'ajouter l'adversaire suivant (et `match.wave += 1`) que si `event.winner == 1` ;
   - ou compter les vagues gagnées à part (`match.beaten`) ;
@@ -893,7 +961,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : abattu, ASURA finit la scène au sol, sans titre K.O., puis se relève dans son aura.
 - **Cause probable** : le snapshot n'envoie que `finish` (`src/server/init.server.luau:1910`), pas `fells`. Le directeur ne peut donc pas savoir que la cible est abattue sans être K.O.
 - **Gravité** : cosmétique. Un faux raccord, au moment d'une coupe de caméra, une fois par défi au plus (la seconde vie ne revient pas). Mais c'est le moment fort du défi, le plus mis en avant.
-- **Statut** : `ouvert` (mécanisme prouvé ; l'effet à l'écran est à juger en jeu). Code inchangé au 24/10. Après la correction de B-025, le snapshot sera en `init.server.luau:1960`.
+- **Statut** : `ouvert` (mécanisme prouvé ; l'effet à l'écran est à juger en jeu). Code inchangé au 25/10 : le snapshot est en `init.server.luau:1960` (v0.36.10). `FATAL.fall` (`CinematicDirector.luau:2690-2699`), `GEN.lie` (`:4186`) et `revive` (`CombatSimulation.luau:1204-1212`) tiennent.
 - **Piste** :
   - ajouter `fells = world.cinematic.fells` au snapshot (`init.server.luau:1910`) ;
   - pour la **pose** seulement : `cin.finish or cin.fells` dans `FATAL.fall` (`CinematicDirector.luau:2694`) et dans `GEN.lie` (`:4186`). Le **titre** reste sur `cin.finish` (`FATAL.title`, `:2705`), comme la scène K.O. et `finishEpoch` (`src/client/CinematicController.luau:759`) ;
@@ -907,7 +975,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui se passe** : au tick 440, dans le même plan (`kuroen-bs-blow`), le grand soleil saute de 3,62 studs (2,29 depuis la droite). Les poings de KUROEN finissent ailleurs que là où il apparaît (`pos = At(v(tx + dir * 0.3, …))`, `S.KUROEN`). Le test ne suit que les trois petits soleils.
 - **Piste** : faire voyager le grand soleil depuis `P(A, "RightHand")` jusqu'au point d'impact, lui donner un `mark`, et étendre le test au grand soleil.
 - **Gravité** : cosmétique.
-- **Statut** : `ouvert` (confirmé le 23/10 sur la v0.36.9 ; `Finishers.luau` inchangé au 24/10).
+- **Statut** : `ouvert` (confirmé le 23/10 sur la v0.36.9 ; `Finishers.luau` inchangé au 25/10, sur la v0.36.10).
 - **Confirmé par la chasse du 23/10** :
   - comment : script hors dépôt, `Kit.play("KUROEN", "Fatal", nil, 300, 0, …)` des deux côtés. On suit la sphère noire (`07040C`) et on relève chaque saut de plus de 0,5 stud d'une image à l'autre ;
   - au tick 440, dans le plan `kuroen-bs-blow` : 3,62 studs depuis la gauche, 2,29 depuis la droite, comme l'a mesuré la validation. Cause : `src/shared/Finishers.luau:3155` (`pos = At(v(tx + dir * 0.3, lerp(1.6, -0.4, q), 0.3))`). Jusqu'au tick 439, le soleil est accroché à la main (`:3152`) ; au tick 440, il passe d'un coup à ce point fixe ;
@@ -928,7 +996,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : l'écriture finale est retentée quelques fois tant que le serveur vit ; seule une erreur qui dure fait perdre les derniers changements.
 - **Cause** : `src/server/init.server.luau:1276-1281` (départ) et `:2160-2167` (fermeture).
 - **Gravité** : mineur. C'est rare, mais c'est de la progression perdue quand cela arrive. Et la correction de B-025 le rend plus visible : une attente au chargement suivant.
-- **Statut** : `corrigé (v0.36.10)`, à confirmer sur le jeu publié. Livré le 24/10 avec B-025. Règle pure `SaveQueue.finalRetry`, et `BindToClose` attend aussi les écritures de départ encore en cours.
+- **Statut** : `corrigé (v0.36.10)`, à confirmer sur le jeu publié. Livré le 24/10 avec B-025. Règle pure `SaveQueue.finalRetry`, et `BindToClose` attend aussi les écritures de départ encore en cours. **Relu le 25/10 sur le code livré** : les nouveaux essais sont dans `finalWrite` (`init.server.luau:314-323`), appelés au départ (`:1324-1332`) et à la fermeture (`:2211-2220`), et `BindToClose` attend `finalWrites` (`:2223`). Dans le fuzz rejoué avec pannes, 3 856 nouveaux essais sur 12 000 scénarios, sans échec.
 - **Piste** :
   - `writeProfile` rend la raison d'un échec : `false, "error"` (le `pcall` a échoué) ou `false, "lost"` (le verrou est à un autre serveur ; réessayer ne sert à rien) ;
   - dans `PlayerRemoving` et dans `BindToClose` : jusqu'à `SaveQueue.LOAD_TRIES` (4) tentatives, avec `task.wait(SaveQueue.retryDelay(n))` entre deux (1, 2, 4 s : 7 s en tout, dans les 25 s de `BindToClose`), seulement sur `"error"`. Puis `forget` ;
@@ -955,7 +1023,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Pourquoi les tests ne le voient pas** : les vérifications des matières de `tests/Kits.test.luau` (`:508-513` et `:535-547`, « does not land with », « has no sound material », « hits like ») ne parcourent que `MoveData.KitOrder`, sans les bosses. Le choix lui-même est dans `SoundController`, du code client qui ne se teste pas hors ligne.
 - **Ce qui devrait se passer** : chaque boss sonne avec sa matière à lui, du premier élan au dernier coup : KUROEN SHIN comme un KUROEN plus lourd, ASURA comme le prévoit son entrée.
 - **Gravité** : mineur. C'est du son, assez discret (même famille de fichiers, mais ni le même bus ni la même hauteur), et cela dure tout le combat des deux défis, le moment fort du jeu.
-- **Statut** : `ouvert` (mécanisme prouvé ; l'écart s'entend en jeu, à juger par Wilhem).
+- **Statut** : `ouvert` (mécanisme prouvé ; l'écart s'entend en jeu, à juger par Wilhem). Code inchangé au 25/10 : la v0.36.10 ne touche ni `SoundPalette`, ni `SoundController`, ni `MoveData`.
 - **Piste** :
   - `SoundPalette.luau` : une entrée `["KUROEN SHIN"]` à lui, faite de **nouvelles tables**, par exemple celles de KUROEN un peu plus graves et dans `hall`, comme ASURA par rapport à KAI. Pas `MATERIALS["KUROEN SHIN"] = MATERIALS.KUROEN` : `SoundController.new` range chaque liste sous la clé `kit .. "." .. part` (`:45-49`). Une table partagée prendrait le nom du dernier kit parcouru, et un son de Wilhem nommé `KUROEN.hit` ne serait peut-être plus trouvé ;
   - le choix dans une fonction pure de `SoundPalette`, testable. Par exemple `Palette.materialOf(kit, moveKit, isBoss)` : le kit de l'attaquant s'il est un boss qui a sa matière, sinon le propriétaire du coup, sinon le kit. `SoundController` l'appelle en `:182`, `:186`, `:198` et `:237` (l'événement `Projectile` porte déjà `attacker`, `CombatSimulation.luau:1032`) ;
@@ -978,8 +1046,68 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Pourquoi les tests ne le voient pas** : aucun test ne compare les noms des ultimes entre deux kits. Le test commun des finishers (`tests/Cinematography.test.luau`, B-009) ne regarde que les finishers.
 - **Ce qui devrait se passer** : chaque ultime a un nom à lui. Le joueur qui voit « TOTAL ECLIPSE » sait de quelle scène il s'agit.
 - **Gravité** : cosmétique.
-- **Statut** : `ouvert` (confirmé). Le renommage demande un nom : production peut le proposer, Wilhem tranche, surtout si le nom vient de lui. Le nom à changer est plutôt celui de KUROEN : celui de DAICHA vient de sa planche (« 蝕 TOTAL ECLIPSE, porte », `docs/JOURNAL.md:2086`) et de son titre de PORTE.
+- **Statut** : `ouvert` (confirmé ; `MoveData.luau` inchangé au 25/10). Le renommage demande un nom : production peut le proposer, Wilhem tranche, surtout si le nom vient de lui. Le nom à changer est plutôt celui de KUROEN : celui de DAICHA vient de sa planche (« 蝕 TOTAL ECLIPSE, porte », `docs/JOURNAL.md:2086`) et de son titre de PORTE.
 - **Piste** :
   - un autre nom pour `KuroenFatal` : une ligne de `MoveData.luau:785`, et une ligne de `Locale.FR` à ajouter. Garder `["蝕 · TOTAL ECLIPSE"]` (`Locale.luau:1307`) pour DAICHA ;
   - sans ECLIPSE, EMPEROR ni ZERO, déjà dans une quinzaine de noms de sa famille (`DECISIONS.md`, 22/10, le nom de BLACK SUN) ;
   - un test dans `Kits.test` ou `Lobby.test` : aucun nom d'ultime ou de finisher (sans le kanji) n'est partagé entre deux kits jouables, les bosses et le titre de PORTE de son propre kit mis à part. Il échoue aujourd'hui sur ce doublon seul ; l'étendre au même kit attrape aussi B-009.
+
+## B-035 · Pendant que le profil charge, le menu montre un profil vierge, et un CLASSÉ se lance avec lui
+- **Date** : 25 octobre 2026.
+- **Source** : trouvé par la chasse, en cherchant ce que la v0.36.10 change ailleurs dans le serveur (l'attente du verrou au chargement).
+- **Comment reproduire** :
+  - ici : un script hors dépôt charge les vrais `Profile` et `Matchmaker`. Le joueur a une sauvegarde à 1600, 40 victoires et 5 000 pièces. Pendant l'attente, il gagne un CLASSÉ contre un joueur à 1000 sur le profil par défaut, puis la sauvegarde arrive :
+
+    | Moment | Cote | Victoires | Pièces | Ce que perd l'adversaire à 1000 |
+    |---|---|---|---|---|
+    | menu pendant l'attente | 1000 | 0 | 0 | |
+    | fin du match, avant le chargement | 1016 | 1 | 40 | **−16** (contre sa vraie cote de 1600 : −1) |
+    | après le chargement (`Profile.merge`) | 1600 | 40 | 5 000 | |
+
+    Le match est effacé pour lui, et l'adversaire a perdu 16 points au lieu d'un ;
+  - en jeu : un joueur dont le chargement attend. Par exemple, couper le réseau en plein jeu, puis rejoindre aussitôt un autre serveur. La ligne de console `profile <id> loaded … after N s` donne l'attente. Pendant ce temps, ouvrir le menu, puis lancer un CLASSÉ.
+- **Ce qui se passe** (prouvé dans le code, et sur les modules rejoués) :
+  - `loadProfile` pose le profil par défaut (`src/server/init.server.luau:152`). Il ne le remplace par la sauvegarde qu'à la fin de l'attente : `:160-164` pour une ancienne visite sur ce serveur, `:181-184` pour le verrou d'un autre serveur, puis la fusion en `:188` ;
+  - `menuStatus` envoie ce profil par défaut (`:783` et suivantes) : cote 1000, 0 pièce, aucun perso acheté. Seuls les réglages, le guide et les achats Robux attendent le chargement (`:803`, `:812`, `:816`). Le menu n'a aucun état « sauvegarde en cours de chargement » ; seule la boutique le dit (`src/client/ShopPage.luau:220`) ;
+  - l'action `start` (`:1586-1609`) n'attend pas le chargement. Un CLASSÉ part avec la cote par défaut (`:1605-1606`) et les seuls persos gratuits : `Economy.teamAllowed` lit le profil par défaut (`:1593`), et un perso acheté répond « FIGHTER LOCKED … (TRAINING ONLY) ». Les achats, eux, attendent le chargement (`:1446`, `:1461`, `:1474`, `:1526`, `:1551`) ;
+  - si le chargement finit pendant le match, la cote comptée à la fin est la vraie (`endVersus` relit `ratingOf` en `:745`) : seul l'appariement s'est fait à 1000. Si le match finit avant le chargement, il est compté sur le profil par défaut. Puis `Profile.merge` (`src/server/Profile.luau:58-64`) remet chaque champ sauvegardé : c'est le tableau ci-dessus. Même chose pour une SURVIE ou un défi joués pendant l'attente ;
+  - même cause pour `!give` (`:1701`) : `profileLoaded` est aussi vrai quand le chargement a **échoué** (`:218`, « SAVES UNAVAILABLE »). Le propriétaire lit « GIVEN TO … », et le joueur voit le cadeau. Mais rien n'est écrit, puisque `saveProfile` n'écrit qu'un profil chargé (`:307`) : le cadeau disparaît à la session suivante.
+- **Ce que la v0.36.10 change** (déduit, non mesuré) :
+  - avant elle, le verrou d'un joueur qui changeait de serveur était presque toujours périmé (B-025) : le nouveau serveur chargeait tout de suite ;
+  - maintenant, il attend toujours l'écriture de départ de l'ancien serveur. Ce n'est rien si elle est déjà arrivée, et 3 s par essai sinon. C'est jusqu'à environ 73 s quand l'ancien serveur tarde à retirer le joueur (risque accepté, `DECISIONS.md` du 23/10), puis « SAVES UNAVAILABLE » ;
+  - supposé : la plupart des changements de serveur durent plus longtemps que l'écriture de départ, et ne voient aucune attente. La fréquence réelle ne se mesure qu'en jeu publié.
+- **Ce qui devrait se passer** : tant que la sauvegarde n'est pas là, le menu le dit, et rien de ce qui compte (CLASSÉ, modes qui paient, cadeaux du propriétaire) ne part du profil par défaut.
+- **Gravité** : mineur. C'est très visible quand cela arrive (le joueur croit sa progression perdue, et ses persos achetés sont verrouillés), mais passager. La perte réelle, un match effacé et une cote faussée pour l'adversaire, demande en plus un match fini avant le chargement.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - une règle pure, par exemple `GameModes.needsSave(mode)` : vraie pour VERSUS (CLASSÉ et NORMAL), 1 VS 1 · CPU, la SURVIE et les défis, fausse pour TRAINING. Dans `start` (`:1586`) : `if store and GameModes.needsSave(request.mode) and not SaveQueue.isLoaded(saves, player.UserId, client)`, alors « YOUR SAVE IS NOT LOADED YET » (déjà traduit, `Locale.luau:1596`) ;
+  - la même garde pour l'acceptation d'un DÉFI (`:1363-1374` : pas de cote, mais des pièces et l'historique) ;
+  - `!give` : `SaveQueue.isLoaded(saves, t.id, c)` au lieu de `c.profileLoaded` (`:1701`), avec la réponse « SAVES UNAVAILABLE » quand le chargement a échoué ;
+  - le menu : un bandeau « LOADING YOUR SAVE… » tant que le statut n'a pas `options`. C'est un nouveau texte, avec sa ligne dans `Locale.FR` ;
+  - les tests : `needsSave` dans `Lobby.test` (seul TRAINING est permis), et le texte dans « languages ».
+
+## B-036 · Une écriture partie juste avant l'achat d'un pack de pièces peut garder le reçu sans les pièces
+- **Date** : 25 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant les achats après la v0.36.10 (les renouvellements multiplient les écritures en vol).
+- **Comment reproduire** :
+  - ici : un script hors dépôt charge les vrais `Store` et `GlobalQueue`, et suit l'ordre des étapes du serveur :
+    1. un renouvellement copie le profil (`table.clone`), sa requête attend son tour ;
+    2. `ProcessReceipt` donne un pack de 1 000 pièces au profil vivant ;
+    3. la transformation du renouvellement s'exécute.
+
+    Résultat : la sauvegarde a **100 pièces et le reçu `PID-1`**. Si l'écriture de `ProcessReceipt` échoue et qu'aucune écriture suivante ne réussit, Roblox renvoie le reçu au serveur suivant. `Store.grantReceipt` y répond `"duplicate"`, le serveur rend `PurchaseGranted`, et les 1 000 pièces ne sont jamais données ;
+  - en jeu : cela ne se provoque pas. Il faut une panne du DataStore, ou un serveur planté, juste après l'achat.
+- **Ce qui se passe** :
+  - prouvé : `writeProfile` copie le profil avec `table.clone` (`src/server/init.server.luau:257`), une copie **superficielle**. Les tables du profil (`receipts`, `history`, `ratings`, `ownedItems`…) restent partagées avec le profil vivant jusqu'à ce que la transformation d'`UpdateAsync` s'exécute, plus tard. `GlobalQueue.stamp` (`src/server/GlobalQueue.luau:109-113`) ne recopie que le premier niveau, lui aussi ;
+  - prouvé : `Store.grantReceipt` (`src/shared/Store.luau:89-112`) ajoute les pièces au premier niveau (`profile.coins`, `:96`) et le reçu dans une table imbriquée (`profile.receipts`, `:103`). Une écriture partie avant l'achat emporte donc le reçu, mais pas les pièces ;
+  - prouvé : un reçu déjà présent rend `"duplicate"` (`:94`), et `ProcessReceipt` répond alors `PurchaseGranted` (`init.server.luau:1258-1270`) ;
+  - en temps normal, rien n'est perdu. Les requêtes d'une même clé passent dans l'ordre (supposé), et l'écriture de `ProcessReceipt`, ou le vidage suivant, écrit les pièces. La perte demande que **toutes** les écritures suivantes de la session échouent : une panne qui dure, ou un serveur planté ;
+  - ce que la v0.36.10 change : avant elle, un joueur qui ne faisait rien n'avait aucune écriture en vol. Maintenant, chaque joueur présent en a une toutes les 20 à 35 s, et un joueur qui regarde la boutique est souvent dans ce cas ;
+  - le même partage touche d'autres paires (un objet acheté avec des pièces, l'historique et la cote d'un match), mais dans l'autre sens ou sans perte : un objet gardé sans que les pièces soient retirées, un historique en avance sur la cote.
+- **Ce qui devrait se passer** : une écriture contient le profil tel qu'il était à son départ, tout entier.
+- **Gravité** : mineur. C'est très rare, mais ce sont des Robux payés et jamais rendus.
+- **Statut** : `ouvert` (mécanisme prouvé sur les modules ; la fenêtre réelle, qui demande une panne au mauvais moment, n'est pas mesurable d'ici).
+- **Piste** :
+  - le plus simple : une copie profonde dans `writeProfile` (`:257`), par exemple une fonction pure `Profile.copy`. Une écriture ne voit alors jamais un changement fait après son départ. Le profil reste petit (10 lignes d'historique, 200 reçus au plus, `Store.KEEP_RECEIPTS`) ;
+  - ou, plus étroit : dans `Store.grantReceipt`, remplacer `profile.receipts` par une copie avant d'y ajouter le reçu (`profile.receipts = table.clone(profile.receipts)`). Cela ne couvre que les reçus ;
+  - un test dans `Lobby.test` : une copie faite avant `grantReceipt` ne contient pas le reçu. Il échoue aujourd'hui.

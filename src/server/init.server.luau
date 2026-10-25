@@ -580,6 +580,9 @@ local function seat(match, i, player)
 	player:SetAttribute("FighterSlot", i)
 	player:SetAttribute("Mode", match.mode)
 	player:SetAttribute("Map", match.map) -- (the client builds this stage)
+	-- (B-023: in a 1v1 between players, the challenges sent and received before go; the hub
+	-- shows it at its next send)
+	if match.mode == "VERSUS" then Lobby.drop(lobby, player.UserId) end
 end
 
 -- Builds the rigs and starts a match whose slots and teams are set.
@@ -594,15 +597,20 @@ local function launch(match)
 end
 
 -- A player leaves their match (back to the menu). The match closes once no player is left;
--- a 1v1 between players ends: the one who stays wins (CLASSÉ: the one who left loses points).
+-- a 1v1 between players ends: the one who stays wins (CLASSÉ: the one who left loses points,
+-- at any time: AntiCheat.versusShares, B-023). Once the server is closing, a leave settles
+-- nothing: no result for anyone (AntiCheat.departure, B-028).
 local endVersus
 local function unseat(player)
 	local client = clients[player]
 	local match = client and client.match
 	if not match then return end
 	local i = client.slot
-	if match.mode == "VERSUS" and not match.finished and match.slots[3 - i].owner then
-		endVersus(match, 3 - i, i) -- (the one who leaves gets nothing)
+	local how = AntiCheat.departure(match, i, closing)
+	if how == "abandon" then
+		endVersus(match, 3 - i, i) -- (the one who leaves gets nothing; RANKED: loses in full)
+	elseif how == "void" then
+		AntiCheat.noContest(match) -- (an update moves every player: no one left on purpose)
 	end
 	match.slots[i].owner = nil
 	client.match, client.slot = nil, nil
@@ -629,6 +637,13 @@ local function unseat(player)
 			end
 		end)
 	end
+end
+-- In a 1v1 between players still being played (a leave would settle it: AntiCheat.departure)?
+-- Only the player itself may take itself out of it (B-023): a challenge it sent is never
+-- accepted then (Lobby.accept, Lobby.challenge).
+local function inVersus(player)
+	local client = player and clients[player]
+	return client ~= nil and client.match ~= nil and AntiCheat.departure(client.match, client.slot, closing) ~= nil
 end
 
 -- ===================================================================== modes
@@ -680,7 +695,9 @@ local function startVersus(playerA, playerB, queue)
 	launch(match)
 end
 
--- End of a 1v1 between players: ratings (CLASSÉ), wins / losses, result to both.
+-- End of a 1v1 between players: ratings (CLASSÉ), wins / losses, result to both. Each place
+-- counts by its own share (AntiCheat.versusShares, B-023). Never after a no contest (the
+-- server closing, B-028: `finished` is set).
 function endVersus(match, winnerSlot, leftSlot)
 	if match.finished then return end
 	match.finished = true
@@ -694,15 +711,19 @@ function endVersus(match, winnerSlot, leftSlot)
 	local actionsA, actionsB = match.slots[1].actions or 0, match.slots[2].actions or 0
 	local shareA = AntiCheat.share(ca.profile, b.UserId, seconds, now, actionsA, actionsB)
 	local shareB = AntiCheat.share(cb.profile, a.UserId, seconds, now, actionsB, actionsA)
-	local share = math.min(shareA.rating, shareB.rating) -- (the rating stays a zero-sum)
+	-- (one share per place, B-023: played to the end, the smaller one for both, the rating
+	-- stays a zero-sum; RANKED, the one who left loses in full, the other gains only a match
+	-- that counts)
+	local shares = AntiCheat.versusShares(shareA.rating, shareB.rating, leftSlot, match.queue)
 	AntiCheat.record(ca.profile, b.UserId, now)
 	AntiCheat.record(cb.profile, a.UserId, now)
-	if share > 0 then
-		if winnerSlot == 1 then ca.profile.wins += 1; cb.profile.losses += 1
-		elseif winnerSlot == 2 then cb.profile.wins += 1; ca.profile.losses += 1 end
-		if winnerSlot == 1 or winnerSlot == 2 then
-			GameModes.achievementProgress((if winnerSlot == 1 then ca else cb).profile, { won = true })
+	if winnerSlot == 1 or winnerSlot == 2 then
+		local winner, loser = (if winnerSlot == 1 then ca else cb), (if winnerSlot == 1 then cb else ca)
+		if shares[winnerSlot] > 0 then
+			winner.profile.wins += 1
+			GameModes.achievementProgress(winner.profile, { won = true })
 		end
+		if shares[3 - winnerSlot] > 0 then loser.profile.losses += 1 end
 	end
 	-- COINS (Economy): a win WIN, a loss LOSS, nothing for the one who left; the anti-farm
 	-- share applies, then the Game Passes' bonus (Store.fightCoins: coins only, capped).
@@ -715,41 +736,39 @@ function endVersus(match, winnerSlot, leftSlot)
 	end
 	local gains = { pay(ca.profile, 1, shareA.coins), pay(cb.profile, 2, shareB.coins) }
 	-- WEEKLY ranking: the points of the week (a real match only; nothing for the one who left)
-	if share > 0 then
-		local week = Champions.week(now)
-		for slot, client in { ca, cb } do
-			if slot ~= leftSlot then
-				Champions.addPoints(client.profile, week, if winnerSlot == slot then "win" elseif winnerSlot == 0 then "draw" else "loss", share)
-			end
+	local week = Champions.week(now)
+	for slot, client in { ca, cb } do
+		if slot ~= leftSlot and shares[slot] > 0 then
+			Champions.addPoints(client.profile, week, if winnerSlot == slot then "win" elseif winnerSlot == 0 then "draw" else "loss", shares[slot])
 		end
 	end
 	-- WIN STREAK: online wins in a row (a real match only; a draw changes nothing; leaving ends it)
 	for slot, client in { ca, cb } do
 		Economy.streak(client.profile, if slot == leftSlot then "left" elseif winnerSlot == slot then "win"
-			elseif winnerSlot == 0 then "draw" else "loss", share > 0)
+			elseif winnerSlot == 0 then "draw" else "loss", shares[slot] > 0)
 	end
 	for _, player in { a, b } do player:SetAttribute("Streak", clients[player].profile.winStreak or 0) end
 	-- QUESTS: a real match (counted by the anti-farm) moves them; never the one who left.
-	if share > 0 then
-		for slot, client in { ca, cb } do
-			if slot ~= leftSlot then
-				local team = match.world.teams and match.world.teams[slot]
-				Quests.record(client.profile, { won = winnerSlot == slot, pvp = true,
-					kits = if team then team.kits else { match.world.kits[slot] } })
-				client.questGifts = Quests.grant(client.profile)
-			end
+	for slot, client in { ca, cb } do
+		if slot ~= leftSlot and shares[slot] > 0 then
+			local team = match.world.teams and match.world.teams[slot]
+			Quests.record(client.profile, { won = winnerSlot == slot, pvp = true,
+				kits = if team then team.kits else { match.world.kits[slot] } })
+			client.questGifts = Quests.grant(client.profile)
 		end
 	end
-	-- RANKED: the rating of the match's category (1v1, 2v2, 3v3: the teams' size)
+	-- RANKED: the rating of the match's category (1v1, 2v2, 3v3: the teams' size), each place
+	-- by its own share (a share of 0 leaves it as it was)
 	local size = Matchmaker.category(match.world.teams and #match.world.teams[1].kits or 1)
 	local before = { Matchmaker.ratingOf(ca.profile, size), Matchmaker.ratingOf(cb.profile, size) }
-	if match.queue == "RANKED" and share > 0 then
+	if match.queue == "RANKED" and (shares[1] > 0 or shares[2] > 0) then
 		local newA, newB = Matchmaker.elo(before[1], before[2], scoreA)
-		Matchmaker.setRating(ca.profile, size, AntiCheat.scaleRating(before[1], newA, share))
-		Matchmaker.setRating(cb.profile, size, AntiCheat.scaleRating(before[2], newB, share))
+		if shares[1] > 0 then Matchmaker.setRating(ca.profile, size, AntiCheat.scaleRating(before[1], newA, shares[1])) end
+		if shares[2] > 0 then Matchmaker.setRating(cb.profile, size, AntiCheat.scaleRating(before[2], newB, shares[2])) end
+		-- (the RISING STAR / LEGEND counters: only a place whose rating this match counts)
 		if size == 1 then
-			GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating })
-			GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating })
+			if shares[1] > 0 then GameModes.achievementProgress(ca.profile, { rating = ca.profile.rating }) end
+			if shares[2] > 0 then GameModes.achievementProgress(cb.profile, { rating = cb.profile.rating }) end
 		end
 	end
 	-- MATCH HISTORY (both, the one who left too) and the REMATCH's opponent
@@ -1359,9 +1378,13 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 		return
 	end
 	local ok
-	if action == "challenge" then ok = target ~= nil and Lobby.challenge(lobby, id, target, now)
+	if action == "challenge" then ok = target ~= nil and Lobby.challenge(lobby, id, target, now, inVersus(player))
 	elseif action == "accept" then
-		ok = target ~= nil and Lobby.accept(lobby, id, target, now)
+		-- (B-023: accepting is the accepter's own leave, an abandon of its own 1v1 if any; never
+		-- the challenger's: a challenger in a 1v1 between players has its challenge withdrawn)
+		local why
+		if target ~= nil then ok, why = Lobby.accept(lobby, id, target, now, inVersus(Players:GetPlayerByUserId(target))) end
+		if why == "busy" then broadcastHub() end -- (the withdrawn challenge leaves the hub)
 		lobby.slots = {}
 		local challenger = ok and Players:GetPlayerByUserId(target)
 		if challenger and clients[challenger] then
@@ -2202,10 +2225,20 @@ print("[FightingGame] " .. Config.Version .. " ready — menus, many matches per
 game:BindToClose(function()
 	closing = true -- (first: no lock renewal takes back a lock the closing writes released)
 	print(string.format("[FightingGame] closing at %.2f s · %d players listed", os.clock(), #Players:GetPlayers()))
+	-- (B-028: every 1v1 between players still being played ends with no result, before any
+	-- player is removed: an update makes no one lose or win. AntiCheat.noContest)
+	local stopped = {}
+	for _, match in matches do
+		if AntiCheat.noContest(match) then
+			for _, slot in match.slots do
+				if slot.owner then stopped[slot.owner] = true end
+			end
+		end
+	end
 	-- (an update: "Migrate to Latest Update" closes the old servers and Roblox moves every
 	-- player to a new one; they are told on screen, and their profiles are saved below)
 	for player in clients do
-		pcall(menuRemote.FireClient, menuRemote, player, { updating = true })
+		pcall(menuRemote.FireClient, menuRemote, player, { updating = true, noContest = stopped[player] or nil })
 	end
 	if not store then return end
 	local pending = 0

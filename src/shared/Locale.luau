@@ -972,6 +972,10 @@ Locale.FR = {
 	["CONTINUE"] = "CONTINUER",
 	["Moving you to the new version…"] = "On te déplace vers la nouvelle version…",
 	["UPDATE: moving you to the new version…"] = "MISE À JOUR : on te déplace vers la nouvelle version…",
+	-- (B-028: a 1v1 between players stopped by an update counts for no one)
+	["NO CONTEST"] = "MATCH ANNULÉ",
+	["NO CONTEST · Moving you to the new version…"] = "MATCH ANNULÉ · On te déplace vers la nouvelle version…",
+	["NO CONTEST · UPDATE: moving you to the new version…"] = "MATCH ANNULÉ · MISE À JOUR : on te déplace vers la nouvelle version…",
 	["★ CREATOR"] = "★ CRÉATEUR",
 	["THE ONE WHO MADE BREAKFRAMEZ"] = "CELUI QUI A CRÉÉ BREAKFRAMEZ",
 	["CLASH STEP!"] = "PAS DE CHOC !",

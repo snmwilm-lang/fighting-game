@@ -18,6 +18,17 @@
 	   • the same two players again and again: from the REPEAT_SOFT-th match of the day the
 	     gains are divided, from REPEAT_HARD on they stop (two alt accounts);
 	   • the coins of the day are still counted in the profile (coinToday), only to be seen.
+	3. LEAVING A MATCH BETWEEN PLAYERS (B-023, B-028). The anti-farm stops GAINS, never a loss:
+	   • versusShares: the rating share of each place. Played to the end (or outside RANKED):
+	     the smaller of the two shares for both, as before (the rating stays a zero-sum). In
+	     RANKED, the one who left loses in full (share 1: after 3 s, or with 3 actions, too),
+	     and the one who stays gains only a match that counts (0 when too short or too calm:
+	     an alt who leaves at once makes its main gain nothing). Leaving is not a zero-sum;
+	   • departure: what a leave does to a match still being played: "abandon" (settled now,
+	     the one who left loses) or "void" (the server is closing: no one left on purpose);
+	   • noContest: the server closes (BindToClose: an update, a shutdown). Every 1v1 between
+	     players still being played ends with no result for both, before any player is
+	     removed; nothing that arrives after (a leave, a K.O.) counts.
 	Tests: tests/Lobby.test.luau.
 ]]
 local AntiCheat = {}
@@ -145,10 +156,45 @@ function AntiCheat.capCoins(profile, gain, time)
 	return allowed
 end
 
--- A rating change scaled by the share (the loser loses as much as the winner gains).
+-- A rating change scaled by the share (with the same share on both places, the loser loses as
+-- much as the winner gains; a share of 0 changes nothing).
 function AntiCheat.scaleRating(before, after, share)
 	local delta = after - before
 	return before + math.sign(delta) * math.floor(math.abs(delta) * share + 0.5)
+end
+
+-- The rating share of each place of a match between players (B-023), from the two anti-farm
+-- shares (AntiCheat.share(...).rating), the place that left (nil: played to the end) and the
+-- queue. Returns { share of place 1, share of place 2 }; each place's wins / losses, points,
+-- streak, quests and rating count only when its own share is above 0.
+function AntiCheat.versusShares(ratingA, ratingB, leftSlot, queue)
+	local both = math.min(ratingA, ratingB)
+	local shares = { both, both }
+	-- (RANKED: the one who left loses in full, whatever the time or the actions)
+	if queue == "RANKED" and (leftSlot == 1 or leftSlot == 2) then shares[leftSlot] = 1 end
+	return shares
+end
+
+-- A player leaves the place `slot` of `match` (QUIT, another mode, a challenge accepted, or the
+-- server: a closed game, a lost connection, an update), `closing` once BindToClose was called.
+-- "abandon": the match ends now, the other place wins (versusShares); "void": no result for
+-- anyone (AntiCheat.noContest); nil: nothing to settle (not a 1v1 between players, already
+-- over, or no opponent left).
+function AntiCheat.departure(match, slot, closing)
+	if match.mode ~= "VERSUS" or match.finished then return nil end
+	local other = match.slots[3 - slot]
+	if not (other and other.owner) then return nil end
+	if closing then return "void" end
+	return "abandon"
+end
+
+-- No contest (B-028): a 1v1 between players still being played ends with no result (no
+-- rating, coins, streak, points, quests, win or loss, no history line). True when this call
+-- stopped it; the match's own end (endVersus) then never counts.
+function AntiCheat.noContest(match)
+	if match.mode ~= "VERSUS" or match.finished then return false end
+	match.finished, match.void = true, true
+	return true
 end
 
 return AntiCheat

@@ -1,5 +1,61 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.11 — 25 octobre 2026 · Quitter un CLASSÉ coûte toujours ses points (B-023), et une mise à jour n'en fait plus perdre (B-028, en partie)
+
+Produite par la routine du 25 octobre. La première validation l'a **refusée**, la seconde l'a **validée**, le même matin.
+
+- **B-023 (majeur), corrigé** :
+  - **le problème** : en CLASSÉ, celui qui quittait dans les 25 premières secondes (ou un match trop calme) ne perdait aucun point. On pouvait fuir sans frais un match mal parti ;
+  - **la correction** (portée V1, rien n'est retardé) : `AntiCheat` (pur) donne une part de cote **par place** (`versusShares`) et décide d'un départ (`departure`). `endVersus` compte chaque place avec sa part : victoires et défaites, points de la semaine, série, quêtes, cote ;
+  - **les règles** (décisions D1 à D5 de la production, `DECISIONS.md`) :
+    - en CLASSÉ, celui qui part perd ses points en entier, à tout moment, et sa défaite compte ;
+    - celui qui reste ne gagne que si le match compte (25 s et assez d'actions), comme avant ;
+    - une déconnexion reste un abandon ;
+    - NORMAL et AMI ne changent pas ;
+    - un match joué jusqu'au bout reste à somme nulle (« l'Elo à somme nulle » était un choix de Claude, v0.17.0, pas de Wilhem).
+- **B-028 (en partie)** : à une mise à jour, si `BindToClose` arrive avant les départs, chaque 1v1 entre joueurs est arrêté sans résultat. Les deux joueurs lisent « UPDATE · NO CONTEST · Moving you to the new version… » (« MATCH ANNULÉ »), et rien n'est compté. Si Roblox retire les joueurs d'abord, le premier retiré perd toujours. La suite (grâce de 5 s au plus) attend le relevé des lignes de console sur le jeu publié.
+- **Le défaut refusé à la première passe** : accepter un défi encore ouvert sortait de son CLASSÉ celui qui l'avait lancé, qui perdait donc 27 points sans rien avoir quitté. Avant, cela ne coûtait rien dans les 25 premières secondes. La correction est dans `Lobby` (pur) :
+  - les défis d'un joueur disparaissent quand il s'assoit dans un 1v1 contre un joueur ;
+  - il ne peut pas en envoyer pendant ce match ;
+  - un défi venant de lui est retiré au lieu d'être accepté.
+
+  Celui qui accepte en plein CLASSÉ quitte son propre match : c'est son abandon.
+- **Les succès RISING STAR et LEGEND** n'avancent plus pour celui qui reste après un départ rapide (part 0).
+- **Ce que le joueur voit** :
+  - celui qui quitte un CLASSÉ : « DEFEAT · -27 PTS » ;
+  - celui qui reste après un départ rapide : « VICTORY · +0 PTS » ;
+  - à une mise à jour : NO CONTEST ;
+  - ses anciens défis disparaissent du hub dès qu'il entre dans un 1v1 contre un joueur.
+- **Tests** : 4 dans `Lobby.test` (bancs `versusBench` et défis), et « languages » complété :
+  - les départs à 0, 10, 24, 26, 60 et 120 s ;
+  - 2v2 et 3v3 ;
+  - l'anti-farm ;
+  - les matchs joués jusqu'au bout ;
+  - la fermeture ;
+  - le défi accepté pendant un CLASSÉ.
+
+  Ils échouent sur la v0.36.10. La validation a fait tourner le texte exact du serveur (`unseat`, `endVersus`, `seat`, `startVersus`, le hub, REVANCHE, `PlayerRemoving`, `BindToClose`) sur un banc simulé, avec plus de 20 scènes, et 4 mutations de `Lobby`, chacune attrapée.
+
+**Fichiers** :
+- `src/server/AntiCheat.luau`, `src/server/Lobby.luau`, `src/server/init.server.luau` ;
+- `src/client/init.client.luau` (NO CONTEST) ;
+- `src/shared/Locale.luau` (MATCH ANNULÉ), `src/shared/CombatConfig.luau` (0.36.11) ;
+- `tests/Lobby.test.luau` ;
+- `docs/BUGS.md` (B-023 corrigé, B-028 en partie, B-035 et B-036 nouveaux), `docs/DECISIONS.md`.
+
+**Tests** : CombatSimulation 174, FighterAI 19, CinematicDirector 872, Animation 64, PressQueue 4, Fuzz 2, Cinematography 411, Lobby 57 (+4), Kits 130 : tout passe.
+
+**Problèmes ouverts** :
+- **mineur, relevé par la validation, aucun point en jeu** : la REVANCHE (`init.server.luau:1510`) n'applique pas le refus d'envoi depuis un CLASSÉ. Un paquet forgé envoie encore un défi, qui sera retiré en silence ;
+- B-028 quand Roblox retire les joueurs avant `BindToClose` ;
+- B-035 : pendant le chargement, le menu montre un profil vierge et un CLASSÉ peut se lancer avec ;
+- B-036 : un reçu peut être gardé sans les pièces, très rare ;
+- B-033, B-034 ;
+- ASURA et KUROEN SHIN n'ont pas de FATAL FINISHER ;
+- rien n'est vérifié dans Studio.
+
+**Prochaine étape** : B-035, mineur mais visible depuis la v0.36.10, ou le FATAL FINISHER d'ASURA (I-001, fiche prête), selon la chasse de demain.
+
 ## Version 0.36.10 — 24 octobre 2026 · Le verrou de session ne se périme plus (B-025) et l'écriture de départ est retentée (B-032)
 
 Produite par la routine du 23 octobre. La première validation (23/10) l'a **refusée**. La seconde (24/10) l'a **validée**.

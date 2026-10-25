@@ -323,6 +323,12 @@ test("languages: the game is in English, every move, fighter text and menu line 
 		for _, r in kit.FullRoutes do need(r.name) end
 	end
 	for _, mode in GameModes.List or {} do need(mode.description) end
+	-- (B-028: an update stops a 1v1 between players, init.client.luau)
+	for _, line in { "NO CONTEST", "NO CONTEST · Moving you to the new version…", "NO CONTEST · UPDATE: moving you to the new version…" } do
+		need(line)
+	end
+	expect(Locale.translate("NO CONTEST · UPDATE: moving you to the new version…", "FR")
+		== "MATCH ANNULÉ · MISE À JOUR : on te déplace vers la nouvelle version…", "the no contest line")
 	-- whole lines, format lines and lines built from pieces
 	expect(Locale.translate("ROUTE CLEARED · CLEAN ✓", "FR") == "ROUTE RÉUSSIE · PROPRE ✓", "a whole line")
 	expect(Locale.translate("You need 3 ki bars (you have 1): turn ULTIMATES: ON at the top", "FR")
@@ -1085,6 +1091,313 @@ test("anti-cheat: forged packets kick, a real player never does; no farming (sho
 	expect(AC.share({}, 7, 90, time, 300, 3).coins == 0 and AC.share({}, 7, 90, time, 2, 300).rating == 0, "an idle player's match pays")
 	expect(AC.share({}, 7, 90, time, 300, 250).coins == 1, "a real match is punished")
 	expect(AC.scaleRating(1000, 1016, 0.25) == 1004 and AC.scaleRating(1000, 984, 0.25) == 996, "the rating share is wrong")
+end)
+
+-- A 1v1 between players as the server counts it (B-023, B-028). The decisions are the real
+-- ones (AntiCheat.departure, noContest, share, versusShares, scaleRating; Matchmaker.elo); the
+-- few lines that apply them copy endVersus (wins / losses, rating), unseat and BindToClose of
+-- src/server/init.server.luau, which the tests do not load.
+local function versusBench(queue, ratings, size, owners)
+	local AC = require("../src/server/AntiCheat")
+	size = size or 1
+	owners = owners or { "A", "B" }
+	local w = { closing = false, seconds = 60, actions = { 80, 80 }, settled = 0, now = 1000000 }
+	w.match = { mode = "VERSUS", queue = queue, slots = { { owner = owners[1] }, { owner = owners[2] } } }
+	w.profiles = { { wins = 0, losses = 0 }, { wins = 0, losses = 0 } }
+	for s = 1, 2 do
+		Matchmaker.setRating(w.profiles[s], size, ratings[s])
+		GameModes.achievementSeason(w.profiles[s]) -- (the achievement counters, at 0)
+	end
+	-- endVersus(match, winnerSlot, leftSlot)
+	function w.finish(winner, left)
+		local m = w.match
+		if m.finished then return end
+		m.finished = true
+		w.settled += 1
+		local p = w.profiles
+		local shareA = AC.share(p[1], "B", w.seconds, w.now, w.actions[1], w.actions[2])
+		local shareB = AC.share(p[2], "A", w.seconds, w.now, w.actions[2], w.actions[1])
+		local shares = AC.versusShares(shareA.rating, shareB.rating, left, m.queue)
+		if winner == 1 or winner == 2 then
+			if shares[winner] > 0 then p[winner].wins += 1 end
+			if shares[3 - winner] > 0 then p[3 - winner].losses += 1 end
+		end
+		local before = { Matchmaker.ratingOf(p[1], size), Matchmaker.ratingOf(p[2], size) }
+		if m.queue == "RANKED" and (shares[1] > 0 or shares[2] > 0) then
+			local new = { Matchmaker.elo(before[1], before[2], if winner == 1 then 1 elseif winner == 2 then 0 else 0.5) }
+			for s = 1, 2 do
+				if shares[s] > 0 then Matchmaker.setRating(p[s], size, AC.scaleRating(before[s], new[s], shares[s])) end
+			end
+			-- (RISING STAR / LEGEND: only a place whose rating counts)
+			for s = 1, 2 do
+				if size == 1 and shares[s] > 0 then GameModes.achievementProgress(p[s], { rating = p[s].rating }) end
+			end
+		end
+	end
+	-- unseat: a leave (QUIT, another mode, a challenge, or the server's PlayerRemoving)
+	function w.leave(slot)
+		local how = AC.departure(w.match, slot, w.closing)
+		if how == "abandon" then w.finish(3 - slot, slot) elseif how == "void" then AC.noContest(w.match) end
+		w.match.slots[slot].owner = nil
+		return how
+	end
+	-- BindToClose: `closing` first, then every 1v1 still being played ends with no result
+	function w.close()
+		w.closing = true
+		return AC.noContest(w.match)
+	end
+	-- the fight's own end (MatchEnd)
+	function w.ko(winner) w.finish(winner) end
+	function w.rating(s) return Matchmaker.ratingOf(w.profiles[s], size) end
+	function w.unchanged(ratings)
+		local p = w.profiles
+		return w.rating(1) == ratings[1] and w.rating(2) == ratings[2] and p[1].wins + p[1].losses + p[2].wins + p[2].losses == 0
+	end
+	return w
+end
+
+test("RANKED (B-023): leaving costs the points in full at any time (0, 10, 24, 26, 60 s, 3 actions too); the one who stays gains only a match that counts", function()
+	-- (1500 leaves against 1200: Elo gives -27 / +27)
+	for _, case in {
+		{ t = 0, acts = { 0, 0 }, counted = false }, -- (during the intro)
+		{ t = 10, acts = { 4, 6 }, counted = false },
+		{ t = 24, acts = { 30, 40 }, counted = false }, -- (MIN_MATCH is 25 s)
+		{ t = 26, acts = { 30, 40 }, counted = true },
+		{ t = 60, acts = { 12, 80 }, counted = false }, -- (fewer than MIN_ACTIONS: an idle match)
+		{ t = 60, acts = { 80, 80 }, counted = true },
+		{ t = 120, acts = { 19, 300 }, counted = false },
+	} do
+		local w = versusBench("RANKED", { 1500, 1200 })
+		w.seconds, w.actions = case.t, case.acts
+		local what = string.format("leaving at %d s (%d / %d actions)", case.t, case.acts[1], case.acts[2])
+		expect(w.leave(1) == "abandon", what .. ": not settled as an abandon")
+		expect(w.rating(1) == 1473, what .. ": the one who left keeps " .. w.rating(1) .. " (1473 expected: the full loss)")
+		expect(w.profiles[1].losses == 1, what .. ": the defeat of the one who left is not counted")
+		expect(w.rating(2) == (if case.counted then 1227 else 1200), what .. ": the one who stays has " .. w.rating(2))
+		expect(w.profiles[2].wins == (if case.counted then 1 else 0), what .. ": the win of the one who stays")
+		expect(w.profiles[2].achRating == (if case.counted then 1227 else 0) and w.profiles[1].achRating == 1473,
+			what .. ": the RISING STAR / LEGEND counter of the one who stays moved on a match that does not count ("
+			.. w.profiles[2].achRating .. ")")
+		-- (the one who stays goes back to the menu: nothing more is settled)
+		expect(w.leave(2) == nil and w.settled == 1 and w.rating(1) == 1473, what .. ": the second leave settled the match again")
+	end
+	-- the same in 2v2 and 3v3 (their own rating), and the same pair for the 8th time today
+	for size = 2, 3 do
+		local w = versusBench("RANKED", { 1500, 1200 }, size)
+		w.seconds = 10
+		w.leave(1)
+		expect(w.rating(1) == 1473 and w.rating(2) == 1200 and w.profiles[1].rating == nil,
+			size .. "v" .. size .. ": leaving after 10 s gives " .. w.rating(1) .. " / " .. w.rating(2))
+	end
+	local AC = require("../src/server/AntiCheat")
+	local w = versusBench("RANKED", { 1500, 1200 })
+	for _ = 1, AC.REPEAT_HARD do AC.record(w.profiles[1], "B", w.now); AC.record(w.profiles[2], "A", w.now) end
+	w.leave(1)
+	expect(w.rating(1) == 1473 and w.rating(2) == 1200, "the same pair for the 8th time: leaving gives " .. w.rating(1) .. " / " .. w.rating(2))
+	-- the one who stays leaves too (a quit in the menu): the leaver is the first one, the other gets nothing more
+	w = versusBench("RANKED", { 1300, 1300 })
+	w.seconds = 5
+	w.leave(2)
+	w.leave(1)
+	expect(w.rating(2) == 1284 and w.rating(1) == 1300 and w.profiles[2].losses == 1 and w.profiles[1].wins == 0,
+		"both leave: " .. w.rating(1) .. " / " .. w.rating(2))
+	-- outside RANKED, leaving stays what it was: a loss only when the match counts, no rating
+	w = versusBench("NORMAL", { 1500, 1200 })
+	w.seconds = 10
+	w.leave(1)
+	expect(w.unchanged({ 1500, 1200 }), "NORMAL: leaving after 10 s now counts")
+	w = versusBench("FRIEND", { 1500, 1200 })
+	w.leave(1)
+	expect(w.rating(1) == 1500 and w.profiles[1].losses == 1 and w.profiles[2].wins == 1, "FRIEND: leaving after 60 s")
+end)
+
+test("RANKED (B-023): played to the end, nothing changes: the smaller share for both, the rating stays a zero-sum", function()
+	local AC = require("../src/server/AntiCheat")
+	local shares = AC.versusShares(1, 0.25, nil, "RANKED")
+	expect(shares[1] == 0.25 and shares[2] == 0.25, "no leave: the smaller share for both")
+	shares = AC.versusShares(0, 0, 2, "RANKED")
+	expect(shares[1] == 0 and shares[2] == 1, "RANKED, place 2 left: " .. shares[1] .. " / " .. shares[2])
+	shares = AC.versusShares(0, 1, 1, "NORMAL")
+	expect(shares[1] == 0 and shares[2] == 0, "NORMAL: the one who left gets a share")
+	-- a K.O. after 60 s: the usual Elo, zero-sum
+	local w = versusBench("RANKED", { 1500, 1200 })
+	w.ko(1)
+	expect(w.rating(1) == 1505 and w.rating(2) == 1195 and w.profiles[1].wins == 1 and w.profiles[2].losses == 1,
+		"a K.O. after 60 s: " .. w.rating(1) .. " / " .. w.rating(2))
+	-- a K.O. after 10 s, or an idle one: nothing for anyone (the anti-farm, as before)
+	w = versusBench("RANKED", { 1500, 1200 })
+	w.seconds = 10
+	w.ko(2)
+	expect(w.unchanged({ 1500, 1200 }), "a K.O. after 10 s moved something")
+	w = versusBench("RANKED", { 1500, 1200 })
+	w.actions = { 80, 5 }
+	w.ko(1)
+	expect(w.unchanged({ 1500, 1200 }), "an idle match moved something")
+	-- the same pair for the 4th time today: a quarter for both, still a zero-sum; a draw
+	w = versusBench("RANKED", { 1000, 1000 })
+	for _ = 1, AC.REPEAT_SOFT do AC.record(w.profiles[1], "B", w.now); AC.record(w.profiles[2], "A", w.now) end
+	w.ko(2)
+	expect(w.rating(1) == 996 and w.rating(2) == 1004, "the 4th match of the day: " .. w.rating(1) .. " / " .. w.rating(2))
+	w = versusBench("RANKED", { 1200, 1200 })
+	w.ko(0)
+	expect(w.unchanged({ 1200, 1200 }), "a draw between equals moved something")
+	-- many matches: without a leave, the points of the two always add up to the same
+	local seed = 7
+	for _ = 1, 200 do
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		local ra, rb = 800 + seed % 1200, 800 + (seed // 1200) % 1200
+		local w2 = versusBench("RANKED", { ra, rb })
+		w2.seconds, w2.actions = 10 + seed % 200, { seed % 60, (seed // 60) % 60 }
+		w2.ko(seed % 3)
+		expect(w2.rating(1) + w2.rating(2) == ra + rb, string.format("not a zero-sum: %d + %d became %d + %d", ra, rb, w2.rating(1), w2.rating(2)))
+	end
+end)
+
+test("the server closing (B-028): an update before the leaves makes it a no contest; a leave before it is an abandon (the known limit)", function()
+	local AC = require("../src/server/AntiCheat")
+	-- BindToClose, then both players are removed (an update, "Migrate to Latest Update")
+	for _, t in { 0, 10, 24, 26, 60 } do
+		local w = versusBench("RANKED", { 1500, 1200 })
+		w.seconds = t
+		expect(w.close() and w.match.void, "the closing at " .. t .. " s did not stop the match")
+		w.leave(1)
+		w.leave(2)
+		expect(w.settled == 0 and w.unchanged({ 1500, 1200 }), "BindToClose at " .. t .. " s, then the leaves: "
+			.. w.rating(1) .. " / " .. w.rating(2))
+	end
+	-- the other way round for the second removed, and a K.O. landing during the closing
+	local w = versusBench("RANKED", { 1500, 1200 })
+	w.close()
+	w.leave(2)
+	w.ko(1)
+	w.leave(1)
+	expect(w.settled == 0 and w.unchanged({ 1500, 1200 }), "a K.O. during the closing counted")
+	expect(not w.close(), "a match stopped twice")
+	-- a match that started after BindToClose (a search answered during the closing): a leave settles nothing
+	w = versusBench("RANKED", { 1500, 1200 })
+	w.closing = true
+	expect(w.leave(1) == "void" and w.match.void and w.unchanged({ 1500, 1200 }), "a leave during the closing counted")
+	w.ko(2)
+	expect(w.settled == 0, "the K.O. after it counted")
+	-- a leave BEFORE BindToClose is an abandon: a real leave just before an update counts, and
+	-- an update that removes the players before calling BindToClose still costs the first one
+	-- removed (the limit of this fix, B-028; the console lines of PlayerRemoving and
+	-- BindToClose will tell whether Roblox does that)
+	w = versusBench("RANKED", { 1500, 1200 })
+	w.seconds = 10
+	w.leave(1)
+	w.seconds = 12
+	w.leave(2)
+	expect(not w.close() and w.rating(1) == 1473 and w.rating(2) == 1200, "a leave before the closing: " .. w.rating(1) .. " / " .. w.rating(2))
+	-- only the 1v1 between players: the solo modes are never stopped
+	for _, mode in { "VERSUS_CPU", "SURVIVAL", "TRAINING", "CHALLENGE" } do
+		local m = { mode = mode, slots = { { owner = "A" }, { owner = nil } } }
+		expect(not AC.noContest(m) and not m.finished and AC.departure(m, 1, true) == nil, mode .. " stopped by the closing")
+	end
+	local alone = { mode = "VERSUS", slots = { { owner = "A" }, { owner = nil } } }
+	expect(AC.departure(alone, 1, false) == nil, "a leave with no opponent left settles the match")
+end)
+
+test("a challenge accepted during a RANKED match (B-023): never the challenger's match, only the accepter's own", function()
+	local AC = require("../src/server/AntiCheat")
+	local A, B, C, D = 101, 202, 303, 404
+	-- the hub handler of src/server/init.server.luau: `busy` is inVersus (AntiCheat.departure);
+	-- an accepted challenge takes the accepter, then the challenger, out of their matches
+	-- (unseat); seat drops the challenges of a player sitting in a 1v1 between players
+	local function hub()
+		local h = { l = Lobby.new(), benches = {}, started = nil }
+		for _, id in { A, B, C, D } do Lobby.join(h.l, id, tostring(id)) end
+		h.l.slots = {}
+		local function find(id)
+			for _, w in h.benches do
+				for s, slot in w.match.slots do
+					if slot.owner == id then return w, s end
+				end
+			end
+			return nil, nil
+		end
+		function h.busy(id)
+			local w, s = find(id)
+			return w ~= nil and AC.departure(w.match, s, w.closing) ~= nil
+		end
+		function h.challenge(from, to, now) return Lobby.challenge(h.l, from, to, now, h.busy(from)) end
+		function h.accept(to, from, now)
+			local ok, why = Lobby.accept(h.l, to, from, now, h.busy(from))
+			if ok then
+				for _, id in { to, from } do
+					local w, s = find(id)
+					if w then w.leave(s) end
+				end
+				h.started = { from, to }
+			end
+			return ok, why
+		end
+		-- a match starts (startVersus: seat each player; `drop` false: the challenges kept, to
+		-- check the accept on its own)
+		function h.start(w, drop)
+			table.insert(h.benches, w)
+			if drop ~= false and w.match.mode == "VERSUS" then
+				for _, slot in w.match.slots do
+					if slot.owner then Lobby.drop(h.l, slot.owner) end
+				end
+			end
+			return w
+		end
+		return h
+	end
+	-- 1. A challenged C, then played a RANKED match against B (a REMATCH, a search answered in
+	-- a second); C accepts 5 or 24 s later: A's match goes on, untouched, and ends as usual
+	for _, t in { 5, 24 } do
+		local h = hub()
+		expect(h.challenge(A, C, 100), "the challenge was not sent")
+		local w = h.start(versusBench("RANKED", { 1500, 1200 }, 1, { A, B }), false)
+		w.seconds = t
+		local ok, why = h.accept(C, A, 100 + t)
+		expect(not ok and why == "busy" and h.started == nil, "C's accept took A out of his RANKED match after " .. t .. " s")
+		expect(w.rating(1) == 1500 and w.profiles[1].losses == 0 and not w.match.finished,
+			"C's accept settled A's match after " .. t .. " s: A at " .. w.rating(1))
+		expect(h.l.challenges[A] == nil and not Lobby.accept(h.l, C, A, 101 + t), "the withdrawn challenge can still be accepted")
+		w.seconds = 90
+		w.ko(1)
+		expect(w.rating(1) == 1505 and w.rating(2) == 1195 and w.settled == 1, "A's match, played on: " .. w.rating(1) .. " / " .. w.rating(2))
+	end
+	-- 2. the same, as the server does it: sitting in the match drops the challenge, the hub no
+	-- longer shows it, and an accept finds nothing
+	local h = hub()
+	h.challenge(A, C, 100)
+	h.challenge(D, A, 100)
+	local w = h.start(versusBench("RANKED", { 1500, 1200 }, 1, { A, B }))
+	local status = Lobby.status(h.l)
+	for _, e in status do
+		expect(not (e.id == C and #e.from > 0) and not (e.id == A and (e.sent or #e.from > 0)), "the hub still shows A's challenges")
+	end
+	expect(not h.accept(C, A, 105) and not h.accept(A, D, 105) and w.rating(1) == 1500 and not w.match.finished, "a dropped challenge was accepted")
+	-- 3. a player in a 1v1 between players sends no challenge (its acceptance would take it out)
+	expect(not h.challenge(A, C, 106) and h.l.challenges[A] == nil, "A sent a challenge from his RANKED match")
+	-- 4. the challenger and the accepter in the same RANKED match (paired after the challenge)
+	h = hub()
+	h.challenge(A, C, 100)
+	w = h.start(versusBench("RANKED", { 1500, 1200 }, 1, { A, C }), false)
+	w.seconds = 10
+	expect(not h.accept(C, A, 105) and w.unchanged({ 1500, 1200 }) and not w.match.finished, "an accept inside their own match settled it")
+	-- 5. the accepter is in a RANKED match: accepting is its own leave, an abandon of its own
+	-- match; its opponent's result is the usual one; the challenger, in the hub, is not touched
+	for _, case in { { t = 10, stays = 1200, win = 0 }, { t = 60, stays = 1227, win = 1 } } do
+		h = hub()
+		w = h.start(versusBench("RANKED", { 1500, 1200 }, 1, { C, B }))
+		expect(h.challenge(D, C, 100), "D could not challenge a player in a match")
+		w.seconds = case.t
+		expect(h.accept(C, D, 105) and h.started[1] == D and h.started[2] == C, "C could not accept D's challenge")
+		expect(w.rating(1) == 1473 and w.profiles[1].losses == 1 and w.rating(2) == case.stays and w.profiles[2].wins == case.win,
+			string.format("C accepts after %d s: C %d, B %d (W%d)", case.t, w.rating(1), w.rating(2), w.profiles[2].wins))
+	end
+	-- 6. the challenger in a solo match (the CPU, training): accepted, as before (nothing to settle)
+	h = hub()
+	h.challenge(A, C, 100)
+	w = versusBench("RANKED", { 1500, 1200 }, 1, { A, nil })
+	w.match.mode = "VERSUS_CPU"
+	h.start(w)
+	expect(h.accept(C, A, 105) and h.started[1] == A and w.settled == 0, "a challenger playing the CPU cannot be accepted")
 end)
 
 test("taunts: predefined only, a slot number of the saved wheel, 5 s server cooldown, two players at once, six saved, locked ones", function()

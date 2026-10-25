@@ -180,11 +180,15 @@ hud.onDebug = function()
 	return effects.debug
 end
 hud:setEffectsReduced(effects.reduced)
--- (the server closes for an update: Roblox moves everyone to the new version in a moment)
+-- (the server closes for an update: Roblox moves everyone to the new version in a moment; a
+-- 1v1 between players stopped by it counts for no one, B-028: "NO CONTEST")
 menuRemote.OnClientEvent:Connect(function(packet)
 	if typeof(packet) == "table" and packet.updating then
-		hud:announceText("UPDATE", "Moving you to the new version…", Color3.fromHex("FFD23F"), 0.8, 6)
-		menu:notify("UPDATE: moving you to the new version…", Color3.fromHex("FFD23F"))
+		local stopped = packet.noContest == true
+		hud:announceText("UPDATE", if stopped then "NO CONTEST · Moving you to the new version…" else "Moving you to the new version…",
+			Color3.fromHex("FFD23F"), 0.8, 6)
+		menu:notify(if stopped then "NO CONTEST · UPDATE: moving you to the new version…" else "UPDATE: moving you to the new version…",
+			Color3.fromHex("FFD23F"))
 	end
 end)
 

@@ -10,6 +10,8 @@ Gravité :
 
 Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas un bug (raison)`.
 
+Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides passent (1 603 tests). La v0.36.11 ne touche ni la simulation, ni le directeur, ni les finishers, ni les VFX, ni le son, ni `MoveData` : les lignes citées dans ces fichiers tiennent. Dans `init.server.luau`, tout ce qui est après la ligne 580 a bougé ; les fiches concernées ont une note « 26/10 ».
+
 ---
 
 ## B-001 · L'écran K.O. des FATAL FINISH avait l'air cassé
@@ -534,6 +536,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Revu le 22/10 sur la v0.36.8** (code inchangé, lignes identiques) : le fuzz de la chasse (240 SURVIES, avec l'ajout de l'adversaire recopié du serveur) compte 1 382 fins de manche, **toutes** avec `matchOver = true`, vagues gagnées comprises.
 - **23/10** : code inchangé sur la v0.36.9 (elle ne touche ni le serveur, ni la simulation, ni le directeur) ; lignes citées valables.
 - **25/10** : code inchangé sur la v0.36.10 (elle ne touche que l'écriture des profils), mais les lignes du serveur ont bougé : l'ajout de l'adversaire est en `init.server.luau:2029-2037` (`match.wave += 1` en `:2033`), l'événement part dans `batch` en `:2159`, `followEvents` en `:2161`, l'envoi en `:2171-2173`. Côté simulation, depuis la v0.36.8, `matchOver` est calculé en `CombatSimulation.luau:2487-2491` (la ligne citée plus haut, `:2482`, est devenue `:2490`). `HUDController.luau:1439` : inchangé.
+- **26/10** : code inchangé sur la v0.36.11, mais les lignes du serveur ont encore bougé : l'ajout de l'adversaire est en `init.server.luau:2052-2060` (`match.wave += 1` en `:2056`), l'événement part dans `batch` en `:2182`, `followEvents` en `:2184`, l'envoi en `:2194-2198`. `CombatSimulation.luau:2487-2491` et `HUDController.luau:1439` tiennent.
 - **À côté** : une vague gagnée par un ÉVEIL ou une PORTE qui tue finit, elle, sur « K.O. · … · VICTORY » (B-026).
 - **Piste** :
   - dans `followEvents`, quand le serveur ajoute l'adversaire, remettre `event.matchOver = false` sur ce `RoundEnd`. C'est la même table que celle envoyée juste après, dans `batch` ;
@@ -560,7 +563,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - la cote ne bouge alors pour personne (`init.server.luau:725`). Celui qui part ne perd que ses pièces et sa série.
 - **Ce qui devrait se passer** : celui qui quitte un CLASSÉ perd ses points, comme annoncé. Le filtre anti-farm sert à ne pas **donner** de gains (un compte secondaire qui part tout de suite), pas à épargner une perte.
 - **Gravité** : majeur. Le résultat d'un CLASSÉ abandonné est faux, et le défaut s'exploite : on fuit sans frais tout match mal parti dans les 25 premières secondes, et le classement (donc le champion de la semaine) se fausse. Rien ne se voit à l'écran.
-- **Statut** : `corrigé (v0.36.11)`, à confirmer sur le jeu publié. Livré le 25/10, portée V1, validé à la seconde passe (la première a refusé le défi accepté qui sortait de son CLASSÉ celui qui l'avait lancé ; voir « Correction du 25/10 » tout en bas de la fiche). **Reste ouvert, mineur** (relevé par la validation, aucun point en jeu) : la REVANCHE (`init.server.luau:1510`) appelle `Lobby.challenge` sans `fromBusy`, si bien qu'un paquet forgé depuis un CLASSÉ envoie encore un défi (son ACCEPT est ensuite retiré en silence) ; et le résumé de l'API en tête de `Lobby.luau:24-25` ne cite pas `fromBusy`. Avant : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous. **Reporté par production le 22/10** : B-025 doit passer avant (voir « Reporté par production » en bas de la fiche). **25/10 : la raison du report est levée par la v0.36.10. B-023 est faisable sans Wilhem, et sans attendre le relevé** (prouvé, voir « Chasse du 25/10 » tout en bas de la fiche). Le relevé ne sert plus qu'à mesurer ce que la correction couvre de B-028.
+- **Statut** : `corrigé (v0.36.11)`, à confirmer sur le jeu publié. Livré le 25/10, portée V1, validé à la seconde passe (la première a refusé le défi accepté qui sortait de son CLASSÉ celui qui l'avait lancé ; voir « Correction du 25/10 » tout en bas de la fiche). Le reste relevé par la validation (la REVANCHE sans `fromBusy`, `init.server.luau:1510`, et le résumé de l'API de `Lobby.luau:24-25`) est suivi depuis le 26/10 dans **B-038**, avec les défis reçus en plein combat. Deux effets de bord de la correction, trouvés le 26/10 : B-037 (la touche P) et B-038 (un défi reçu pendant un CLASSÉ). Avant : `ouvert` (reconfirmé le 21/10 sur la v0.36.7 ; code inchangé au 22/10 sur la v0.36.8, toutes les lignes citées tiennent). À corriger **avec B-028**, par la piste commune du 22/10 ci-dessous. **Reporté par production le 22/10** : B-025 doit passer avant (voir « Reporté par production » en bas de la fiche). **25/10 : la raison du report est levée par la v0.36.10. B-023 est faisable sans Wilhem, et sans attendre le relevé** (prouvé, voir « Chasse du 25/10 » tout en bas de la fiche). Le relevé ne sert plus qu'à mesurer ce que la correction couvre de B-028.
 - **24/10** : code inchangé (HEAD 7fada09) ; les lignes de la v0.36.9 tiennent. Quand la correction de B-025 et B-032 (arbre de travail, en validation) sera livrée, elles descendent de 44 lignes avant `PlayerRemoving` et d'environ 50 après : `unseat` en `:599` (appel `endVersus` en `:605`), `endVersus` en `:684`, `share` en `:697`, `PlayerRemoving` en `:1313` (`unseat` en `:1321`), `BindToClose` en `:2202`. Ce diff pose déjà le drapeau `closing` et les deux lignes de console du point 2 de la piste commune.
 - **Revérifié par la chasse du 21/10** : `AntiCheat` et `Matchmaker` n'ont pas changé. Depuis la v0.36.7, les lignes du serveur ont bougé :
   - `unseat` : `init.server.luau:555`, appel `endVersus(match, 3 - i, i)` en `:561` ;
@@ -757,6 +760,12 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 
     Ils échouent sur la v0.36.10. `:1301` échoue sur le premier diff (A à 1473 à 5 et 24 s). Le banc de la validation, sur le texte exact du serveur, donne pour A : 1500 → 1500 (S10 à 5 et 60 s, S12, S13), puis 1505 après le K.O.
   - **Ce qui reste (la suite, V2)** : la grâce de 5 s au plus sur `PlayerRemoving`, avec le match en pause et le client gardé pour `endVersus` (son piège : il sort sans rien compter si le client de celui qui part n'est plus dans `clients`). C'est elle qui couvrirait l'ordre « départs d'abord » de B-028. Elle attend le relevé des lignes de console sur le jeu publié (`[FightingGame] leave …` et `[FightingGame] closing at …`). La piste et les mesures de la chasse du 25/10, plus haut, restent valables.
+- **Relu par la chasse du 26/10, sur le code livré (HEAD 331765b)** :
+  - toutes les lignes de « Correction du 25/10 » tiennent. Plus loin, `PlayerRemoving` est en `:1332-1362` (`unseat` en `:1340`), `leave` en `:1638-1642`, un autre mode en `:1621-1623`, le DÉFI accepté en `:1382-1397`. Dans `AntiCheat.luau`, `MIN_MATCH` est en `:44`, `MIN_ACTIONS` en `:47`, `share` en `:98-113` ;
+  - le banc de la validation, rejoué sur des sources identiques à HEAD (seule la version de `CombatConfig` change), donne la même sortie à la ligne près ;
+  - rien de cassé dans le reste du serveur, prouvé sur ce banc et par la relecture : hors VERSUS, `departure` rend `nil` et `unseat` ne fait rien, comme avant ; joué jusqu'au bout, les deux places ont la même part, donc victoires, pièces, points de la semaine, série, quêtes, cote et historique sont ceux de la v0.36.10 ; après un départ, celui qui reste garde la part d'avant, et celui qui part n'a que sa perte (sa série tombait déjà à 0 : `Economy.streak`, « left ») ; `achRating` est un maximum (`GameModes.luau:294`), une cote qui baisse ne le fait pas reculer ; `Matchmaker`, `GlobalQueue`, `Champions`, `Quests` et `Profile` n'ont pas changé ;
+  - un match lancé **pendant** l'attente de `BindToClose` (la boucle de recherche tourne encore) n'est pas dans la boucle de `noContest`, mais le départ de ses joueurs rend `"void"` (`closing`) : il est couvert ;
+  - **deux effets de bord**, parce qu'un départ coûte maintenant la cote entière dès la 1re seconde (avant : rien pendant 25 s) : la touche P quitte un CLASSÉ d'un seul appui (**B-037**), et n'importe quel joueur peut afficher un défi, avec son bouton ACCEPT, par-dessus le combat d'un joueur en CLASSÉ (**B-038**).
 
 ## B-024 · `!give … title <titre de la boutique>` donne un titre impossible à porter
 - **Date** : 20 octobre 2026.
@@ -771,6 +780,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Pourquoi le test ne le voit pas** : `tests/Lobby.test.luau:1312` vérifie `ownedItems`, pas que le titre se porte.
 - **Gravité** : mineur. Un outil du propriétaire, mais le joueur qui reçoit le cadeau ne peut pas s'en servir.
 - **Statut** : `ouvert` (code inchangé au 25/10, sur la v0.36.10 : `Admin.luau:92` et `:109` tiennent ; la règle pour porter un titre est en `init.server.luau:1506`, le retrait d'un titre porté non permis en `:1200`). Depuis la v0.36.7, la règle pour porter un titre est en `init.server.luau:1456` (et `:1156`, à la mise à jour des badges et cosmétiques du joueur, qui retire un titre porté non permis).
+- **26/10** : code inchangé sur la v0.36.11 (`Admin.luau` et `Store.luau` n'ont pas bougé). Dans le serveur, la règle pour porter un titre est maintenant en `init.server.luau:1529`, le retrait d'un titre porté non permis en `:1219`, et `!give` en `:1724`.
 - **Piste** : dans `Admin.apply`, pour un objet `TITLE` (branches `title` et `item`), ajouter aussi le nom à `profile.titles`. Dans le test, vérifier `Champions.canShow`.
 
 ## B-025 · Le verrou de session d'un joueur inactif expire alors qu'il est encore sur le serveur
@@ -877,7 +887,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - `src/shared/CinematicDirector.luau:5172-5174` : `cin.finish` lance `Director.ko` quel que soit le score ;
   - le dernier plan de la scène K.O. écrit `· VICTORY` en dur : `:5067` (KAI) et `koEnd`, `:3221` (les 8 scènes K.O. propres à un kit).
 - **Gravité** : mineur. C'est un mot, mais sur un écran noir, à la fin d'une longue scène : le joueur croit le match gagné. Et c'est fréquent : il suffit d'un ÉVEIL ou d'une PORTE sur une cible sous 30 % de sa vie maximale (`MaxHealthShare = 0.3`, `MoveData.luau:927`, `:962`), à n'importe quelle manche.
-- **Statut** : `ouvert` (code inchangé au 23/10, sur la v0.36.9 ; la v0.36.8 retire seulement le cas du faux K.O. d'ASURA). Le FATAL FINISHER de KUROEN (v0.36.9) n'écrit jamais VICTORY : un test de `Cinematography` le vérifie. **25/10** : inchangé sur la v0.36.10. `CinematicDirector.luau:5174`, `:5067` et `:3221` tiennent. Le calcul de `matchOver` cité dans la piste est maintenant en `CombatSimulation.luau:2487-2491` (et non plus `:2479-2483`).
+- **Statut** : `ouvert` (code inchangé au 23/10, sur la v0.36.9 ; la v0.36.8 retire seulement le cas du faux K.O. d'ASURA). Le FATAL FINISHER de KUROEN (v0.36.9) n'écrit jamais VICTORY : un test de `Cinematography` le vérifie. **25/10** : inchangé sur la v0.36.10. `CinematicDirector.luau:5174`, `:5067` et `:3221` tiennent. Le calcul de `matchOver` cité dans la piste est maintenant en `CombatSimulation.luau:2487-2491` (et non plus `:2479-2483`). **26/10** : inchangé sur la v0.36.11, lignes valables.
 - **Piste** :
   - la simulation sait, au coup final, si ce K.O. décide le match : c'est le même calcul que `matchOver` dans `endRound` (`CombatSimulation.luau:2479-2483`), avec une victoire de plus ou un perso de moins. On le pose dans `world.cinematic` (par exemple `decides = true`), qui part dans l'instantané ;
   - la scène K.O. écrit « VICTORY » seulement si `ctx.cin.decides`, ou si elle joue après la fin du match (`victoryScene`) ;
@@ -947,6 +957,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - **pas couvert : l'ordre « départs d'abord »**. Si Roblox retire les joueurs avant d'appeler `BindToClose`, le premier retiré perd, comme avant. Depuis la correction de B-023, il perd aussi dans les 25 premières secondes. Le test `Lobby.test:1256` l'écrit comme la limite connue ;
   - **la suite** : relever sur le jeu publié l'ordre des lignes `[FightingGame] leave …` et `[FightingGame] closing at …` à une migration. Si les départs arrivent avant, faire V2 (la grâce de 5 s au plus sur `PlayerRemoving`, piste de la chasse du 25/10 dans B-023) ;
   - **comment le confirmer** : le test en jeu ci-dessus (deux comptes en CLASSÉ, puis « Migrate to Latest Update »). Avec cette correction, aucun ne doit bouger si `BindToClose` arrive d'abord. Sinon, le premier retiré perd : c'est le signe qu'il faut V2.
+- **26/10, sur la v0.36.11** : rien de nouveau du jeu publié (le relevé n'est pas encore fait). Les lignes : le drapeau `closing` en `init.server.luau:149`, posé en `:2226` ; les lignes de console en `:1334-1335` (`leave …`) et `:2227` (`closing at …`) ; la boucle `noContest` en `:2230-2237` ; l'envoi de « NO CONTEST » en `:2240-2242` ; les écritures de fermeture en `:2245-2253`, l'attente en `:2256`. Un match lancé pendant l'attente de `BindToClose` est couvert par la décision `"void"` au départ de ses joueurs (relu, voir la note du 26/10 de B-023).
 
 ## B-029 · SURVIE : un double K.O. compte l'adversaire comme battu
 - **Date** : 21 octobre 2026.
@@ -961,6 +972,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : seuls les adversaires vraiment battus comptent. Un double K.O. finit la course au score d'avant.
 - **Gravité** : cosmétique (rare, un adversaire de trop dans le compte).
 - **Statut** : `ouvert` (code inchangé au 24/10 ; aucun double K.O. dans les 240 SURVIES du fuzz de la chasse du 22/10 : c'est rare). Après la correction de B-025, les lignes citées descendent de 44 (`:654-658`) et de 50 (`:2029-2035`, `:2054-2062`). **25/10, vérifié sur la v0.36.10** : le départ de la SURVIE est en `init.server.luau:654-658`, l'ajout de l'adversaire en `:2029-2037`, et `beaten = match.wave - 1` en `:2056`. Côté simulation, le relais (les deux équipes perdent leur combattant sur un nul) est en `CombatSimulation.luau:2466-2477`.
+- **26/10** : code inchangé sur la v0.36.11 ; les lignes du serveur ont bougé : le départ de la SURVIE est en `init.server.luau:669-673` (`match.wave, match.seed = 1, …` en `:670`), l'ajout de l'adversaire en `:2052-2060`, et `beaten = match.wave - 1` en `:2079`. `CombatSimulation.luau:2466-2477` tient.
 - **Piste** :
   - dans `followEvents`, n'ajouter l'adversaire suivant (et `match.wave += 1`) que si `event.winner == 1` ;
   - ou compter les vagues gagnées à part (`match.beaten`) ;
@@ -989,7 +1001,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : abattu, ASURA finit la scène au sol, sans titre K.O., puis se relève dans son aura.
 - **Cause probable** : le snapshot n'envoie que `finish` (`src/server/init.server.luau:1910`), pas `fells`. Le directeur ne peut donc pas savoir que la cible est abattue sans être K.O.
 - **Gravité** : cosmétique. Un faux raccord, au moment d'une coupe de caméra, une fois par défi au plus (la seconde vie ne revient pas). Mais c'est le moment fort du défi, le plus mis en avant.
-- **Statut** : `ouvert` (mécanisme prouvé ; l'effet à l'écran est à juger en jeu). Code inchangé au 25/10 : le snapshot est en `init.server.luau:1960` (v0.36.10). `FATAL.fall` (`CinematicDirector.luau:2690-2699`), `GEN.lie` (`:4186`) et `revive` (`CombatSimulation.luau:1204-1212`) tiennent.
+- **Statut** : `ouvert` (mécanisme prouvé ; l'effet à l'écran est à juger en jeu). Code inchangé au 25/10 : le snapshot est en `init.server.luau:1960` (v0.36.10). `FATAL.fall` (`CinematicDirector.luau:2690-2699`), `GEN.lie` (`:4186`) et `revive` (`CombatSimulation.luau:1204-1212`) tiennent. **26/10** : inchangé sur la v0.36.11 ; le snapshot de la cinématique (`finish = world.cinematic.finish`) est maintenant en `init.server.luau:1983`.
 - **Piste** :
   - ajouter `fells = world.cinematic.fells` au snapshot (`init.server.luau:1910`) ;
   - pour la **pose** seulement : `cin.finish or cin.fells` dans `FATAL.fall` (`CinematicDirector.luau:2694`) et dans `GEN.lie` (`:4186`). Le **titre** reste sur `cin.finish` (`FATAL.title`, `:2705`), comme la scène K.O. et `finishEpoch` (`src/client/CinematicController.luau:759`) ;
@@ -1024,7 +1036,7 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
 - **Ce qui devrait se passer** : l'écriture finale est retentée quelques fois tant que le serveur vit ; seule une erreur qui dure fait perdre les derniers changements.
 - **Cause** : `src/server/init.server.luau:1276-1281` (départ) et `:2160-2167` (fermeture).
 - **Gravité** : mineur. C'est rare, mais c'est de la progression perdue quand cela arrive. Et la correction de B-025 le rend plus visible : une attente au chargement suivant.
-- **Statut** : `corrigé (v0.36.10)`, à confirmer sur le jeu publié. Livré le 24/10 avec B-025. Règle pure `SaveQueue.finalRetry`, et `BindToClose` attend aussi les écritures de départ encore en cours. **Relu le 25/10 sur le code livré** : les nouveaux essais sont dans `finalWrite` (`init.server.luau:314-323`), appelés au départ (`:1324-1332`) et à la fermeture (`:2211-2220`), et `BindToClose` attend `finalWrites` (`:2223`). Dans le fuzz rejoué avec pannes, 3 856 nouveaux essais sur 12 000 scénarios, sans échec.
+- **Statut** : `corrigé (v0.36.10)`, à confirmer sur le jeu publié. Livré le 24/10 avec B-025. Règle pure `SaveQueue.finalRetry`, et `BindToClose` attend aussi les écritures de départ encore en cours. **Relu le 25/10 sur le code livré** : les nouveaux essais sont dans `finalWrite` (`init.server.luau:314-323`), appelés au départ (`:1324-1332`) et à la fermeture (`:2211-2220`), et `BindToClose` attend `finalWrites` (`:2223`). Dans le fuzz rejoué avec pannes, 3 856 nouveaux essais sur 12 000 scénarios, sans échec. **26/10** : depuis la v0.36.11, l'écriture de départ est en `init.server.luau:1343-1351`, celles de la fermeture en `:2245-2253`, l'attente en `:2256` ; `finalWrite` (`:314-323`) n'a pas bougé.
 - **Piste** :
   - `writeProfile` rend la raison d'un échec : `false, "error"` (le `pcall` a échoué) ou `false, "lost"` (le verrou est à un autre serveur ; réessayer ne sert à rien) ;
   - dans `PlayerRemoving` et dans `BindToClose` : jusqu'à `SaveQueue.LOAD_TRIES` (4) tentatives, avec `task.wait(SaveQueue.retryDelay(n))` entre deux (1, 2, 4 s : 7 s en tout, dans les 25 s de `BindToClose`), seulement sur `"error"`. Puis `forget` ;
@@ -1106,13 +1118,16 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - supposé : la plupart des changements de serveur durent plus longtemps que l'écriture de départ, et ne voient aucune attente. La fréquence réelle ne se mesure qu'en jeu publié.
 - **Ce qui devrait se passer** : tant que la sauvegarde n'est pas là, le menu le dit, et rien de ce qui compte (CLASSÉ, modes qui paient, cadeaux du propriétaire) ne part du profil par défaut.
 - **Gravité** : mineur. C'est très visible quand cela arrive (le joueur croit sa progression perdue, et ses persos achetés sont verrouillés), mais passager. La perte réelle, un match effacé et une cote faussée pour l'adversaire, demande en plus un match fini avant le chargement.
-- **Statut** : `ouvert`.
-- **Piste** :
-  - une règle pure, par exemple `GameModes.needsSave(mode)` : vraie pour VERSUS (CLASSÉ et NORMAL), 1 VS 1 · CPU, la SURVIE et les défis, fausse pour TRAINING. Dans `start` (`:1586`) : `if store and GameModes.needsSave(request.mode) and not SaveQueue.isLoaded(saves, player.UserId, client)`, alors « YOUR SAVE IS NOT LOADED YET » (déjà traduit, `Locale.luau:1596`) ;
-  - la même garde pour l'acceptation d'un DÉFI (`:1363-1374` : pas de cote, mais des pièces et l'historique) ;
-  - `!give` : `SaveQueue.isLoaded(saves, t.id, c)` au lieu de `c.profileLoaded` (`:1701`), avec la réponse « SAVES UNAVAILABLE » quand le chargement a échoué ;
-  - le menu : un bandeau « LOADING YOUR SAVE… » tant que le statut n'a pas `options`. C'est un nouveau texte, avec sa ligne dans `Locale.FR` ;
-  - les tests : `needsSave` dans `Lobby.test` (seul TRAINING est permis), et le texte dans « languages ».
+- **Statut** : `ouvert` (code inchangé au 26/10 ; la v0.36.11 ne touche ni le chargement ni le menu).
+- **26/10, les lignes après la v0.36.11** : `loadProfile` n'a pas bougé (`:152`, `:160-164`, `:181-184`, `:188`, `profileLoaded` en `:211` et `:218`). Plus loin : `menuStatus` en `:802` (`options` en `:822`, le guide en `:831`, les achats Robux en `:835`) ; `start` en `:1609-1633` (`Economy.teamAllowed` en `:1616`, la file avec la cote en `:1628-1629`) ; les achats attendent en `:1469`, `:1484`, `:1497`, `:1549` et `:1574` ; `endVersus` relit `ratingOf` en `:763` ; le DÉFI accepté en `:1382-1397` ; `!give` en `:1724`. `writeProfile` refuse un profil non chargé en `:255` (« unloaded »). « YOUR SAVE IS NOT LOADED YET » est en `Locale.luau:1600`.
+- **Ce que la v0.36.11 y ajoute** (déduit du code, avec le banc de la validation) : celui qui quitte un CLASSÉ perd maintenant toute sa cote. S'il le quitte **avant** la fin de son chargement, cette perte tombe sur le profil par défaut, qui n'est jamais écrit (`PlayerRemoving` n'écrit qu'un profil chargé, `:1343`), puis la sauvegarde revient telle quelle à la session suivante : il ne perd rien. Même cas sur le serveur réservé du CLASSÉ entre serveurs, qui lance le match au bout de 20 s même si un profil n'est pas là (`:1176-1182`).
+- **Piste** (précisée le 26/10) :
+  - une règle pure, par exemple `GameModes.needsSave(mode)` : vraie pour VERSUS (CLASSÉ, NORMAL, AMI), 1 VS 1 · CPU, la SURVIE et les défis, fausse pour TRAINING ;
+  - dans `start` (`:1609`), **avant** `Economy.teamAllowed` (`:1616`, sinon un perso acheté répond « FIGHTER LOCKED » d'abord) : `if store and GameModes.needsSave(request.mode) and not client.profileLoaded then` « YOUR SAVE IS NOT LOADED YET », et rien d'autre. **`client.profileLoaded`, pas `SaveQueue.isLoaded`** : `profileLoaded` devient vrai aussi quand le chargement a échoué (`:218`, « SAVES UNAVAILABLE »). Avec `isLoaded`, un joueur dont les sauvegardes sont indisponibles ne pourrait plus jouer qu'en TRAINING de toute la session ; aujourd'hui, il joue sans être sauvegardé, et il est prévenu ;
+  - la même garde pour un DÉFI accepté (`:1382-1397`), sur les deux joueurs (pas de cote, mais des pièces, l'historique, et l'abandon de celui qui accepte) ;
+  - `!give` (`:1724`) : `SaveQueue.isLoaded(saves, t.id, c)` au lieu de `c.profileLoaded`, avec la réponse « SAVES UNAVAILABLE » quand le chargement a échoué (là, le cadeau serait perdu) ;
+  - le menu : un bandeau « LOADING YOUR SAVE… » tant que le statut n'a pas `options` **et** que le serveur a des sauvegardes (sans sauvegardes, dans Studio, `options` est toujours là, `:822`). C'est un nouveau texte, avec sa ligne dans `Locale.FR` ;
+  - les tests : `needsSave` dans `Lobby.test` (seul TRAINING est permis), et le texte dans « languages ». Le fil de `start` vit dans `init.server.luau` : la validation peut le rejouer sur le banc du 25/10 (`unseat`, `endVersus` et le hub y sont déjà, au texte exact).
 
 ## B-036 · Une écriture partie juste avant l'achat d'un pack de pièces peut garder le reçu sans les pièces
 - **Date** : 25 octobre 2026.
@@ -1134,8 +1149,80 @@ Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas u
   - le même partage touche d'autres paires (un objet acheté avec des pièces, l'historique et la cote d'un match), mais dans l'autre sens ou sans perte : un objet gardé sans que les pièces soient retirées, un historique en avance sur la cote.
 - **Ce qui devrait se passer** : une écriture contient le profil tel qu'il était à son départ, tout entier.
 - **Gravité** : mineur. C'est très rare, mais ce sont des Robux payés et jamais rendus.
-- **Statut** : `ouvert` (mécanisme prouvé sur les modules ; la fenêtre réelle, qui demande une panne au mauvais moment, n'est pas mesurable d'ici).
+- **Statut** : `ouvert` (mécanisme prouvé sur les modules ; la fenêtre réelle, qui demande une panne au mauvais moment, n'est pas mesurable d'ici). **26/10** : code inchangé sur la v0.36.11. `table.clone` est toujours en `init.server.luau:257` ; `ProcessReceipt` est maintenant en `:1266-1290` (un reçu `"duplicate"` est réécrit, puis `PurchaseGranted` en `:1289`).
 - **Piste** :
   - le plus simple : une copie profonde dans `writeProfile` (`:257`), par exemple une fonction pure `Profile.copy`. Une écriture ne voit alors jamais un changement fait après son départ. Le profil reste petit (10 lignes d'historique, 200 reçus au plus, `Store.KEEP_RECEIPTS`) ;
   - ou, plus étroit : dans `Store.grantReceipt`, remplacer `profile.receipts` par une copie avant d'y ajouter le reçu (`profile.receipts = table.clone(profile.receipts)`). Cela ne couvre que les reçus ;
   - un test dans `Lobby.test` : une copie faite avant `grantReceipt` ne contient pas le reçu. Il échoue aujourd'hui.
+
+## B-037 · La touche P quitte un combat d'un seul appui : depuis la v0.36.11, une fausse touche coûte toute la cote d'un CLASSÉ
+- **Date** : 26 octobre 2026.
+- **Source** : trouvé par la chasse, en cherchant ce que la v0.36.11 change pour les départs volontaires.
+- **Comment reproduire** :
+  - ici : le banc de la validation du 25/10, au texte exact du serveur (`unseat`, `endVersus`), copié dans le bloc-notes de la chasse. Scène H3 : A (1500) quitte un CLASSÉ contre B (1200) au bout de 2 s par l'action `leave` du menu, celle qu'envoie P. Résultat : A passe à **1473**, une défaite comptée, sa série à 0 ; B ne gagne rien. Sur la v0.36.10, ce départ ne coûtait rien avant 25 s ;
+  - en jeu : un CLASSÉ, puis P dès les premières secondes du combat. La carte de défaite arrive aussitôt, avec la perte de points (−27 pour un joueur à 1500 face à un joueur à 1200).
+- **Ce qui se passe** :
+  - prouvé dans le code : P envoie tout de suite `{ action = "leave" }`, dans n'importe quel match, sans maintien ni confirmation (`src/client/init.client.luau:125-128`, puis `MenuController:leave`, `src/client/MenuController.luau:2994-2996`). Le serveur fait `unseat` (`src/server/init.server.luau:1638-1642`), donc un abandon : en CLASSÉ, la perte entière à tout moment (`AntiCheat.versusShares`, part 1) ;
+  - la manette, elle, demande de **maintenir L3 une seconde**, avec une jauge, et le code dit pourquoi : « no leaving a RANKED match by accident » (`init.client.luau:129-148`). Le clavier n'a pas cette garde ;
+  - P est collé aux touches de combat de la main droite : `InputConfig.luau:18-22` donne J (coup), K et L (lourd), U (spéciale), I (garde), O (ultime). Sur QWERTY comme sur AZERTY, P est juste à droite de O, l'ultime, et au-dessus de L. L'aide en combat l'annonce : « P: menu » (`HUDController.luau:637`) ;
+  - le bouton ◀ MENU du HUD n'a pas ce défaut : il est dans la colonne des outils, fermée par défaut (deux clics, `HUDController.luau:507-515`).
+- **Ce qui devrait se passer** : comme à la manette, on ne quitte pas un CLASSÉ par accident.
+- **Cause** : `src/client/init.client.luau:126-128`. Le défaut date de la v0.14.0 (P), et la garde de la manette de la v0.19.0. La v0.36.11 l'aggrave : avant, une fausse touche ne coûtait aucun point pendant les 25 premières secondes (seulement la série).
+- **Gravité** : mineur. La perte est réelle (la cote, la fiche V/D, la série), mais il faut jouer avec les touches de la main droite, que l'aide ne montre pas (sauf J + K pour la chope), et toucher P au lieu de O ou de L.
+- **Statut** : `ouvert` (mécanisme prouvé sur le banc ; le client ne se teste pas hors ligne).
+- **Piste** :
+  - P comme L3 : maintenir une seconde pour quitter, avec la même jauge (`hud:setLeaveProgress`, `HUDController.luau:807`). Le plus simple : le même fil que L3 (`init.client.luau:132-148`), avec P en plus de `ButtonL3` ;
+  - la jauge écrit « HOLD L3 TO LEAVE » en dur (`HUDController.luau:815`) : un texte selon la touche (« HOLD P TO LEAVE »), avec sa ligne dans `Locale.FR`. L'aide « P: menu » devient « HOLD P: menu » (et sa ligne `Locale.luau:86`) ;
+  - le garder partout (entraînement compris), comme L3 : une seule règle à apprendre ;
+  - rien côté serveur. Production peut trancher : la règle existe déjà à la manette.
+
+## B-038 · Pendant un CLASSÉ, n'importe quel joueur peut afficher un défi par-dessus le combat, et son ACCEPT coûte toute la cote ; la REVANCHE passe encore depuis un CLASSÉ
+- **Date** : 26 octobre 2026.
+- **Source** : trouvé par la chasse, en cherchant les effets de bord de la v0.36.11 (les défis). La partie REVANCHE vient de la validation du 25/10 (notée jusqu'ici dans B-023).
+- **Comment reproduire** :
+  - ici : le banc de la validation du 25/10, au texte exact de `seat`, `startVersus`, du gestionnaire du hub et de la REVANCHE, copié dans le bloc-notes de la chasse. Scène H1 : D avait défié A ; A entre dans un CLASSÉ contre B ; D le redéfie 2 s plus tard ; A accepte à 3 s :
+
+    | A accepte à | Le défi d'avant | Le nouveau défi de D | Le hub de A | A (1500) | B (1200) |
+    |---|---|---|---|---|---|
+    | 3 s | retiré par `seat` | **envoyé** | 1 défi reçu | **1473**, une défaite | 1200 |
+    | 60 s | retiré | envoyé | 1 défi reçu | 1473, une défaite | 1227, une victoire |
+
+    Sur la v0.36.10, l'acceptation à 3 s ne coûtait rien. La scène S16 de la validation donne la même chose. La scène S15 (REVANCHE envoyée depuis un CLASSÉ, paquet forgé) : le défi part, puis l'ACCEPT est retiré sans un mot ;
+  - en jeu : deux comptes en CLASSÉ, un troisième dans le menu qui clique CHALLENGE sur l'un d'eux (sa ligne dit « IN A FIGHT »). Le bandeau « … CHALLENGES YOU TO A 1 VS 1! » s'affiche en plein combat.
+- **Ce qui se passe** :
+  - prouvé sur le banc : `Lobby.challenge` ne regarde que l'état de **celui qui envoie** (`fromBusy`, `src/server/Lobby.luau:92-99`). La place de la cible n'est jamais vue : `lobby.slots` est toujours vide (`init.server.luau:1327`, `:1359`, `:1388`). `seat` retire bien les défis reçus **avant** le match (`:585`), mais un nouveau arrive aussitôt après ;
+  - prouvé dans le code client : le bandeau s'affiche dès qu'un défi est reçu, sans regarder le match (`src/client/HubController.luau:323-338`). `setInMatch` ne cache que la fenêtre du hub (`:224-228`). Le hub est un `ScreenGui` d'ordre 30 (`:57`), au-dessus du HUD (5), des commandes tactiles (10) et des cinématiques (20) : le bandeau, jusqu'à 420 × 132 px à 150 px du haut (`:124-127`), passe par-dessus le combat et les ultimes. Son ACCEPT (`:140-142`) fait sortir celui qui accepte de son match (`init.server.luau:1391-1395`) : c'est son abandon, donc en CLASSÉ toute sa cote à tout moment depuis la v0.36.11 ;
+  - la liste du hub propose CHALLENGE sur la ligne de chaque autre joueur, « IN A FIGHT » compris (`HubController.luau:297-310`). DECLINE cache le bandeau, mais l'autre peut redéfier aussitôt (une action du hub toutes les 0,4 s, `init.server.luau:1372`) : le bandeau revient tant qu'il insiste ;
+  - la REVANCHE (`init.server.luau:1510`) appelle `Lobby.challenge` sans `fromBusy` : un paquet forgé depuis un CLASSÉ envoie encore un défi, dont l'ACCEPT est retiré en silence. Le résumé de l'API en tête de `Lobby.luau:24-25` ne cite pas `fromBusy` ;
+  - **ce qui est voulu** : « celui qui accepte en plein CLASSÉ quitte son propre match : c'est son abandon » est une décision de production (`DECISIONS.md`, 25/10, le défi accepté), testée exprès (`tests/Lobby.test.luau:1383-1393`, cas 5 : « D could not challenge a player in a match »). Le défaut n'est pas cette règle, c'est ce qu'elle laisse faire : un autre joueur pose sur l'écran d'un joueur en CLASSÉ un bouton qui lui fait perdre son match en un clic, et le reposer à volonté. La même décision retire les défis reçus à l'entrée dans le match pour éviter « un bouton ACCEPT qui ne mène à rien » : ceux qui arrivent pendant le match passent à côté.
+- **Ce qui devrait se passer** : pendant un 1v1 entre joueurs, aucun bandeau de défi par-dessus le combat ; un défi ne fait quitter un CLASSÉ que si le joueur le veut vraiment.
+- **Gravité** : mineur. Visible et gênant quand cela arrive (le bandeau couvre le haut de l'arène, ultimes compris), et un clic sur ACCEPT coûte un CLASSÉ, mais il faut qu'un autre joueur du serveur défie un joueur en plein combat. Ce peut être un ami sans mauvaise intention (le bandeau dit bien « the fight starts as soon as you accept »), ou quelqu'un qui harcèle.
+- **Statut** : `ouvert` (prouvé sur le banc pour le serveur ; l'affichage est déduit du code client, à voir en jeu). Le choix entre les deux pistes ci-dessous revient à production, la seconde revoit son cas 5.
+- **Piste** :
+  1. **client, sans toucher à la règle** : dans `HubController:render` (`:323-338`), ne pas montrer le bandeau quand le joueur local est dans un 1v1 entre joueurs. Le serveur le dit déjà : `where == "IN A FIGHT"` sur sa propre ligne (`hubStatus`, `init.server.luau:906`). Le défi reste dans la liste du hub, avec son bouton ACCEPT, pour qui l'ouvre exprès (H) ;
+  2. **serveur, plus fort** : `Lobby.challenge(lobby, from, to, now, fromBusy, toBusy)` refuse aussi quand la cible est dans un 1v1 entre joueurs ; le hub passe `inVersus(Players:GetPlayerByUserId(target))` (`:1381`). Le cas 5 de `Lobby.test` s'écrit alors : D ne peut pas défier C pendant le CLASSÉ de C ; C peut toujours quitter, puis accepter. Côté client, la ligne d'un joueur « IN A FIGHT » montre un CHALLENGE grisé ;
+  3. **la REVANCHE**, dans les deux cas : `Lobby.challenge(lobby, player.UserId, target.UserId, now, inVersus(player))` (`:1510`), et `inVersus(target)` en plus avec la piste 2. Un test : une REVANCHE envoyée depuis un CLASSÉ ne part pas ;
+  4. compléter le résumé de l'API (`Lobby.luau:24-25`).
+- **À côté** (cosmétique) : le commentaire dit que le bandeau montre « le plus récent » des défis reçus (`HubController.luau:323`), mais il montre celui de l'id le plus grand : `Lobby.status` trie les défis reçus par id (`Lobby.luau:158`).
+
+## B-039 · Serveur réservé du CLASSÉ entre serveurs : le premier arrivé peut lancer un autre mode en attendant, et il est alors assis dans deux matchs
+- **Date** : 26 octobre 2026.
+- **Source** : trouvé par la chasse, en relisant `GlobalQueue` et le serveur réservé après la v0.36.11.
+- **Comment reproduire** :
+  - ici : le même banc (texte exact de `seat`, `startVersus`, `unseat` et `endVersus`). Scène H4 : A est assis dans un match contre le CPU (`newMatch` puis `seat`, comme `startSolo`) et a relancé une recherche CLASSÉ (`client.queue = "RANKED"`). Puis le serveur réservé lance le CLASSÉ, `startVersus(A, B, "RANKED")`. Résultat : le match contre le CPU a **toujours A pour propriétaire**, après `startVersus`, après la fin du CLASSÉ et après le `unseat` de A ; il reste dans `matches`. Et la file de A reste « RANKED » pendant tout le CLASSÉ, et après ;
+  - en jeu : un CLASSÉ entre serveurs (deux comptes sur deux serveurs, plus de 6 s de recherche). Sur le serveur réservé, le premier arrivé voit le menu normal : y lancer TRAINING ou 1 VS 1 · CPU, ou relancer RANKED, avant l'arrivée de l'autre.
+- **Ce qui se passe** :
+  - prouvé dans le code : le premier arrivé attend l'autre jusqu'à 40 s (`GlobalQueue.ARRIVE_TIMEOUT`, `src/server/GlobalQueue.luau:24`), puis les deux profils jusqu'à 20 s (`init.server.luau:1176-1181`). Pendant ce temps, son menu est le menu normal (« menu », `menuStatus`) : rien ne dit qu'un match arrive, et tous les modes sont permis ;
+  - prouvé sur le banc : `startVersus` (`:679-696`) assoit les deux joueurs sans `unseat`, sans `Matchmaker.leave` et sans vider `client.queue`. Les deux autres appelants s'en chargent : le DÉFI accepté sort les deux joueurs de leur match et de leur file (`:1391-1395`) ; la recherche vide la file (`:1654`), et ses joueurs ne sont dans aucun match (`start` les en a sortis, `:1621-1623`). Le serveur réservé ne fait ni l'un ni l'autre (`:1182`) ;
+  - déduit du code, ce qui suit :
+    - le match d'avant n'est jamais fermé : il garde A comme propriétaire et tourne à chaque image jusqu'à la fin du serveur. Ses événements partent vers A (`recipients`, `:1916-1922`). Le client trie les instantanés par match (`init.client.luau:281`), pas les événements (`:326-345`) : sons, effets et jingles du combat contre le CPU tombent sur les corps du CLASSÉ. Sa fin écrit une ligne d'historique contre le CPU et des quêtes dans le profil de A ;
+    - si A avait relancé RANKED, `crossStep` le publie dans la file mondiale **pendant** son CLASSÉ : la publication ne regarde pas `client.match` (`:1090`). Si un autre serveur le prend, `teleportToMatch` (`:1069-1081`) le téléporte en plein match : c'est un départ, donc toute sa cote depuis la v0.36.11. Cette partie ne se rejoue pas d'ici (MemoryStore, téléportation).
+- **Ce qui devrait se passer** : entrer dans le CLASSÉ du serveur réservé sort le joueur de tout autre match et de toute file, comme partout ailleurs.
+- **Cause** : `src/server/init.server.luau:1182` (et `startVersus`, `:679-696`, qui ne le fait pas lui-même).
+- **Gravité** : mineur. Il faut se servir du menu pendant les quelques secondes d'attente du serveur réservé, mais le menu ne montre rien d'autre : un joueur qui croit la recherche perdue relance RANKED. Le pire cas (téléporté en plein CLASSÉ, cote perdue) demande en plus qu'un autre serveur le prenne.
+- **Statut** : `ouvert` (la double place est prouvée sur le banc ; la téléportation en plein match est déduite du code).
+- **Piste** :
+  - dans `startVersus` (`:679`), avant les deux `seat`, pour chaque joueur : `Matchmaker.leave(matchmaker, p.UserId)`, `clients[p].queue = nil`, `unseat(p)`. C'est ce que font déjà le DÉFI accepté et la recherche : les trois appelants passent alors par le même chemin. Attention : `unseat` d'un joueur en 1v1 entre joueurs est un abandon. Sur le serveur réservé, il ne peut pas en jouer un autre (les deux seuls joueurs sont ceux du match) ;
+  - dans `crossStep` (`:1090`), ne publier que `not client.match` ;
+  - le menu du serveur réservé pourrait dire « OPPONENT FOUND · CONNECTING… » (nouveau texte, `Locale.FR`) : à voir avec B-035, qui y montre aussi un profil vierge pendant le chargement ;
+  - un test : le fil vit dans `init.server.luau` ; la validation peut le rejouer sur le banc du 25/10 (scène H4).

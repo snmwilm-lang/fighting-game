@@ -12,7 +12,7 @@ Statuts :
 
 ---
 
-Dernier tri : 25 octobre 2026 (routine du matin).
+Dernier tri : 26 octobre 2026 (routine du matin, sur la v0.36.11).
 
 ## I-001 · Un FATAL FINISHER pour NOVA, KUROEN, ASURA et KUROEN SHIN
 - **Date** : 12 octobre 2026 pour l'idée (v0.27.0) ; ces quatre persos attendent depuis la v0.33.0.
@@ -20,7 +20,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
   - « une animation comme les Legendary Finish de DBL quand le fatal tue, une anime spéciale plus longue » (rappelé en tête de `Finishers.luau`) ;
   - la règle : « seulement sur la deuxième vie… si l'adversaire n'a pas peu d'HP et l'utilisateur du final n'a pas déjà un round gagné, le FATAL FINISHER s'active pas, il y a juste le fatal classique » (journal, v0.27.0).
 - **Interprétation** : quand le COUP FATAL de l'un de ces quatre persos tue, le joueur voit une scène d'environ 10 s propre au perso. Cette scène est le K.O. lui-même, avec le nom du finisher.
-- **Ce qui existe** (vérifié le 24 octobre 2026, revérifié le 25 sur la v0.36.10) :
+- **Ce qui existe** (vérifié le 24 octobre 2026, revérifié le 25 sur la v0.36.10 et le 26 sur la v0.36.11) :
   - 20 persos ont leur finisher, tous les persos jouables : une ligne `Finisher = { Name, Length, FinalTick }` dans `MoveData.luau` et une scène `S.KIT` dans `Finishers.luau` ;
   - **NOVA est faite (v0.36.4)** : FATAL ERROR (ERREUR FATALE), 11 s. Huit drones se rangent en rail d'anneaux devant son gantelet, puis un compte 3-2-1-0 et un seul tir ; la cible « bugue », puis tombe. « ZERO HOUR » a été écarté (décision du 17/10) ;
   - la scène de NOVA a trois bugs relevés le 18/10 : B-012 (la visière dans sa tête) est ouvert ; B-013 (le rail posé sur une main mesurée au labo) et B-014 (9 lumières à la fois) attendent que Wilhem les confirme en jeu. Ils se suivent dans `BUGS.md` et ne rouvrent pas l'idée ;
@@ -99,7 +99,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
       - un plan ou une forme accrochés à ses poings du bas (`AsuraFistLeft`, `AsuraFistRight`) marchent en jeu, car `RigReader.part` trouve la pièce par son nom. Mais ils font planter les outils : `resolve` (`CinematicKit`) ne connaît pas ces pièces ;
       - seul le storyboard les dessine (`WeaponKit.fourArms`) ;
       - avant de filmer ses bras du bas ou d'y accrocher une forme, production les ajoute aux corps des outils, à partir de `WeaponKit.fourArms`. Sinon, ne s'accrocher qu'aux vraies pièces ;
-    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2, qui commence à droite (`SpawnX`). C'est l'appel `Sim.setTeams(world, request.team, { GameModes.find(mode).boss })` au lancement d'un défi, dans `init.server.luau` (ligne 653 de la v0.36.10 ; elle était en 609 avant la correction de B-025). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
+    - **en défi, sa scène se jouera surtout depuis la droite** : ASURA est l'emplacement 2, qui commence à droite (`SpawnX`). C'est l'appel `Sim.setTeams(world, request.team, { GameModes.find(mode).boss })` au lancement d'un défi, dans `init.server.luau` (ligne 668 de la v0.36.11 ; 653 en v0.36.10, 609 avant la correction de B-025). Le labo ne joue que depuis la gauche : pour lui, les tests et les planches depuis la droite (`right`, `wall-right`) comptent autant que les autres ;
     - **la cible est l'un des 20 persos jouables**, avec son arme s'il en a une (le katana de SHIN, la lance de RAIJIN, l'orbe de DAICHA…). Les outils prennent KAI : garder de la marge (B-018) ;
     - **sa seconde vie** : la scène peut se jouer pendant sa seconde vie, le corps assombri dans son aura noire (`EffectsController.luau:1965`), que les outils ne dessinent pas. Elle doit rester lisible ainsi : de l'or sur du noir ;
     - **la couleur** : l'or FFD23F est aussi celui de KAI en SACRÉ et en ÉVEILLÉ, et du thème OR de la boutique. KUROEN SHIN est blanc et or, ELIAN or pâle (FINAL MERCY, ses ailes). La scène doit se lire « ASURA » (quatre bras, colère, or sur noir et rouge sang), et non « divin » ou « lumière » ;
@@ -230,27 +230,29 @@ Dernier tri : 25 octobre 2026 (routine du matin).
     - sa matière sonore est décidée et notée dans `DECISIONS.md` : soit le repli sur KAI est gardé, et B-033 reste ouvert ; soit il reçoit une matière à lui, faite de nouvelles tables tirées de la palette seulement, et B-033 est corrigé pour lui (recommandé) ;
   - les 9 suites passent.
 - **Statut** : `en production` : NOVA faite (v0.36.4, FATAL ERROR). **KUROEN fait (v0.36.9, BLACK SUN / SOLEIL NOIR)**, validé le 22/10 et livré le 23/10.
-  - **ASURA est le prochain, prêt pour la production de ce matin (25/10), et rien ne le bloque.** Aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Revérifié le 25/10 sur la v0.36.10 (HEAD 45a8b55) :
-    - depuis le tri d'hier, la v0.36.10 n'a changé que le serveur des profils (`SaveQueue`, `GlobalQueue`, `init.server.luau`), `Lobby.test`, la version (`CombatConfig`) et les documents. Rien dans `MoveData`, `Finishers`, `CinematicDirector`, `CombatSimulation`, `FighterAI`, `FourArms`, `SoundPalette`, le client ni les outils de test ;
-    - toutes les références de la fiche tiennent, relues une à une : la recherche de la scène (`CinematicDirector.luau:5179`), son thème (`:4824-4838`), son kit et sa seconde vie (`MoveData.luau:1374-1413`, `:1402`), sa chope (`:1573-1575`), `MoveKit` (`:1459`), la règle du finisher (`CombatSimulation.luau:1330-1332`, `:1341`), « qui tue » (`:1281`), la résurrection (`:1204-1212`), la manche gagnée (`:2473`), le COUP FATAL unique (`:91`), son niveau (`FighterAI.luau:72-74`), le COUP FATAL du CPU (`:496-501`), son aura noire (`EffectsController.luau:1965`) ;
-    - la seule ligne qui a bougé : l'appel qui lance un défi (`Sim.setTeams`) passe de la ligne 609 à la ligne 653 d'`init.server.luau`. La fiche est à jour. Le snapshot de la scène (`finish`, `finisher`, `kit`) est en `:1960-1961` ;
-    - un point nouveau, sans blocage : B-033 (24/10), le son de ses coups. Voir « le son de sa scène et B-033 » ;
-    - aucun bug majeur ou bloquant ne peut passer avant lui ce matin : B-023, le seul majeur ouvert, attend un relevé sur le jeu publié que seul Wilhem peut lire (voir plus bas).
-  - **KUROEN SHIN est préparé (24/10), et prêt après ASURA.** Rien n'attend Wilhem. Il passe second parce qu'on livre une scène par livraison, et parce qu'il hérite de la livraison d'ASURA : le nom à éviter, peut-être le test commun étendu aux noms des thèmes. Ce qui le distingue est dans « Pour KUROEN SHIN » :
+  - **ASURA est le prochain, prêt pour la production de ce matin (26/10), et rien ne le bloque.** Aucune question n'attend Wilhem, et sa seconde vie ne gêne pas (vérifié le 23/10). Revérifié le 26/10 sur la v0.36.11 (HEAD 331765b) :
+    - depuis le tri d'hier, la v0.36.11 n'a changé que les départs du CLASSÉ et les défis du hub : `AntiCheat`, `Lobby`, `init.server.luau`, le bandeau NO CONTEST du client (`init.client.luau`), `Locale` (MATCH ANNULÉ), la version (`CombatConfig`), `Lobby.test` et les documents. Rien dans `MoveData`, `Finishers`, `CinematicDirector`, `CombatSimulation`, `FighterAI`, `FourArms`, `SoundPalette`, `CharacterData`, les contrôleurs du client (effets, sons, cinématiques) ni les outils de test ;
+    - toutes les références de la fiche tiennent, relues une à une : la recherche de la scène (`CinematicDirector.luau:5179`), son thème (`:4824-4838`), son kit et sa seconde vie (`MoveData.luau:1374-1413`, `:1402`), sa chope (`:1573-1575`), `MoveKit` (`:1459`), la règle du finisher (`CombatSimulation.luau:1330-1332`, `:1341`), « qui tue » (`:1281`), la résurrection (`:1204-1212`), les coups de la scène (`:2418`), la manche gagnée (`:2473`), le COUP FATAL unique (`:91`), son niveau (`FighterAI.luau:72-74`), le COUP FATAL du CPU (`:496-501`), son aura noire (`EffectsController.luau:1965`), les sons de la scène (`CinematicController.luau:760`, `SoundController.luau:186`) ;
+    - deux lignes ont bougé, toutes deux dans `init.server.luau` : l'appel qui lance un défi (`Sim.setTeams`) passe de 653 à 668, et le snapshot de la scène envoyé aux joueurs (`finish`, `kit`, `finisher`) de 1960-1961 à 1983-1984. La fiche est à jour (elle situait ce snapshot sans nommer le fichier : c'est bien `init.server.luau`) ;
+    - ce que la v0.36.11 change en jeu ne touche pas son défi : les nouvelles règles de départ ne valent que pour un VERSUS entre deux joueurs (`AntiCheat.departure` ne rend rien pour un autre mode), et les « défis » du hub sont ceux d'un joueur à un autre, pas le CHALLENGE · ASURA ;
+    - un point connu, sans blocage : B-033 (24/10), le son de ses coups. Voir « le son de sa scène et B-033 » ;
+    - **aucun bug majeur ni bloquant n'est ouvert ce matin** : B-023 est corrigé (v0.36.11), B-028 l'est en partie. Les bugs ouverts sont mineurs ou cosmétiques. Le journal propose aussi B-035 (mineur, le profil vierge pendant le chargement) pour la prochaine livraison : production choisit, mais rien n'oblige à passer un bug avant lui.
+  - **KUROEN SHIN est préparé (24/10), et prêt après ASURA.** Rien n'attend Wilhem. Revérifié le 26/10 sur la v0.36.11 : ses références tiennent (son kit `MoveData.luau:1415-1443`, sa chope `:1569-1572`, son thème `CinematicDirector.luau:4928-4941`, son niveau `FighterAI.luau:75-77`, son style et celui de KUROEN `CharacterData.luau:211-212`, les deux « 蝕 · TOTAL ECLIPSE » de B-034 en `MoveData.luau:617` et `:785`). Il passe second parce qu'on livre une scène par livraison, et parce qu'il hérite de la livraison d'ASURA : le nom à éviter, peut-être le test commun étendu aux noms des thèmes. Ce qui le distingue est dans « Pour KUROEN SHIN » :
     - le double blanc et or de BLACK SUN ;
     - sa matière sonore, à décider : c'est maintenant aussi B-033 (recommandé : le corriger avant sa scène, ou avec elle) ;
     - le test « kit sans finisher », à refaire.
 
     B-034 (le nom du COUP FATAL de KUROEN) attend Wilhem, mais ne le bloque pas : seule la liste des noms pris peut grandir.
 
-  L'idée avait été reportée six matins, par des bugs passés avant elle :
+  L'idée avait été reportée sept matins, par des bugs passés avant elle :
   - le 18/10 pour B-011 (majeur, corrigé en v0.36.5) ;
   - le 19/10 pour B-017 (majeur, corrigé en v0.36.6) ;
   - le 20/10 pour B-021 (bloquant, corrigé en v0.36.7) ;
   - le 21/10 pour B-020 (majeur, corrigé en v0.36.8, livré le 22/10) ;
-  - les 23 et 24/10 pour B-025 (majeur) et B-032, corrigés en v0.36.10 : refusés par la première validation le 23/10, validés et livrés le 24/10.
+  - les 23 et 24/10 pour B-025 (majeur) et B-032, corrigés en v0.36.10 : refusés par la première validation le 23/10, validés et livrés le 24/10 ;
+  - le 25/10 pour B-023 (majeur) et B-028 en partie, corrigés en v0.36.11 : refusés par la première validation, validés à la seconde le même matin.
   
-  B-023 (CLASSÉ : quitter tôt ne coûte aucun point) est reporté depuis le 22/10 (`BUGS.md`, `DECISIONS.md`). Son plan commençait par B-025, livré en v0.36.10 avec les lignes de console qui servent au relevé. Il attend maintenant ce relevé sur le jeu publié, que seul Wilhem peut lire. B-023 et B-028 viendront ensemble, après ce relevé. ASURA et KUROEN SHIN ne dépendent pas de ce chemin.
+  B-023 n'a finalement pas attendu le relevé de Wilhem : production l'a corrigé le 25/10 en portée V1, sans délai de grâce (`DECISIONS.md`, 25/10). Seule la suite de B-028 (le cas où Roblox retire les joueurs avant `BindToClose`, et la grâce de 5 s au plus) attend encore ce relevé des lignes de console sur le jeu publié, que seul Wilhem peut lire. ASURA et KUROEN SHIN ne dépendent pas de ce chemin.
 
 ## I-002 · Étape 4 du pack VFX : les ultimes, puis les arènes et l'interface
 - **Date** : 15 octobre 2026.
@@ -287,7 +289,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
   1. Comment avance l'étape 4 ? Choix : a) Wilhem envoie l'étape 4 du pack (code et textures) ; b) production dessine dès maintenant les effets des ultimes avec les 19 assets. **Recommandation : a)**, pour ne pas faire le travail deux fois ni choisir la DA à sa place.
   2. Les IDs des 19 assets (Bulk Import, comme les autres), à envoyer avec ceux des 14 meshes.
   3. Dans les cinématiques, les effets du pack s'ajoutent-ils à la lumière 3D actuelle ou la remplacent-ils ? Choix : a) ils s'ajoutent, la mise en scène reste ; b) ils la remplacent ; c) on décide au cas par cas. **Recommandation : a)**, surtout pour les finishers faits d'après ses planches.
-- **Statut** : `à clarifier`. La fiche attend l'étape 4 du pack et les IDs. Rien de nouveau au 25/10 : `assets/vfx` et `VfxConfig.luau` n'ont pas changé.
+- **Statut** : `à clarifier`. La fiche attend l'étape 4 du pack et les IDs. Rien de nouveau au 26/10 : `assets/vfx`, `VfxConfig.luau`, `src/client/VFX` et `VfxPack.luau` n'ont pas changé (la v0.36.11 ne touche que les départs du CLASSÉ et le hub).
 
 ## I-003 · Le pack VFX vraiment dans la DA du jeu
 - **Date** : 15 octobre 2026.
@@ -303,7 +305,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
 - **Questions ouvertes** :
   1. Des captures ou des vidéos en jeu de ce qui ne colle pas : trop gros, trop chargé, mauvaise couleur, ou un effet qu'il préférait avant ?
   2. Le premier retour attendu : les planches d'impact de la v0.36.3 sur les coups (taille, éclat). Il faudrait aussi le message de la console Studio si une texture ne charge pas (B-003).
-- **Statut** : `à clarifier`. Aucun retour de Wilhem au 25/10.
+- **Statut** : `à clarifier`. Aucun retour de Wilhem au 26/10.
 
 ## I-004 · Rendre aux joueurs touchés par B-021 leur cote 2v2 / 3v3 et l'étoile de leurs titres
 - **Date** : 20 octobre 2026 pour la proposition (routine du matin, v0.36.7). Fiche ouverte le 21 octobre 2026.
@@ -340,6 +342,13 @@ Dernier tri : 25 octobre 2026 (routine du matin).
     - **le budget** : les renouvellements du verrou (2 écritures par minute pour un joueur inactif) et les essais d'un chargement qui attend un autre serveur (un toutes les 3 s) prennent aussi sur le budget DataStore du serveur. Raison de plus pour ne faire les deux lectures qu'une fois par joueur.
 
     Rien de cela ne change la question posée à Wilhem, ni la recommandation. La fiche reste à clarifier : la réponse attend toujours Wilhem.
+  - **relu le 26/10 sur la v0.36.11** (B-023 et B-028 en partie, livrée le 25/10) :
+    - **ce qui ne bouge pas** : le chargement et l'écriture du profil, `Profile.luau` et `Matchmaker.luau`. La v0.36.11 ne touche `init.server.luau` qu'après la ligne 580 : toutes les lignes citées plus haut tiennent (`:151-226`, `:159-164`, `:168-217`, `:205`, `:218-224`, `:253-302`, `:283-292`) ;
+    - **ce qui change** : `endVersus` compte maintenant chaque place avec sa propre part (`AntiCheat.versusShares`, décision D1 du 25/10). En CLASSÉ 2v2 ou 3v3, celui qui part perd toujours ses points, même à la première seconde. Pour un joueur touché par B-021, la cote d'une catégorie sans cote vaut 1000 (`Matchmaker.ratingOf`). Il repart donc de 1000, moins sa perte, et la catégorie compte comme jouée (`Matchmaker.played`) : la récupération ne se lancera plus pour lui. Avant la v0.36.11, un départ dans les 25 premières secondes ne touchait pas sa cote, et il restait récupérable. C'est une façon de plus de devenir irrécupérable : la recommandation « vite » compte encore plus ;
+    - **sans effet** : celui qui reste après un départ rapide (part 0) ne reçoit aucune cote, et reste récupérable. Un match arrêté par une mise à jour (NO CONTEST, décision D3) ne touche à aucune cote ;
+    - **B-035** (trouvé par la chasse du 25/10, mineur, ouvert) touche la même fenêtre : pendant l'attente du chargement, un CLASSÉ se lance sur le profil par défaut, à 1000. La récupération part après `SaveQueue.loaded`, donc après la fusion : sa règle tient. Il reste un cas rare. Un joueur touché fait sa première visite depuis la v0.36.7 : sa sauvegarde n'a pas encore de champ `ratings`. S'il finit un CLASSÉ 2v2 ou 3v3 pendant l'attente, la fusion garde la cote jouée sur 1000, faute de champ à reprendre dans la sauvegarde (`Profile.merge`), et la récupération ne se lance plus. Si sa sauvegarde a déjà ce champ, la fusion efface le match (le tableau de B-035), et la récupération reste possible. Corriger B-035 avant elle, ou avec elle (la piste `needsSave` : aucun CLASSÉ avant le chargement), ferme ce cas. C'est la recommandation pour production, si Wilhem dit oui.
+
+    La question posée à Wilhem et la recommandation ne changent pas.
 - **Persos et systèmes touchés** :
   - aucun perso, rien sur le combat ni l'équilibrage ;
   - le chargement du profil (`init.server.luau`, `Profile.luau`), la cote CLASSÉE (`Matchmaker`), les titres et leur étoile (`GameModes`), les classements (DataStore) ;
@@ -354,7 +363,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
     - la parade : **une seule fois par joueur**. Un marqueur dans le profil (un champ de plus dans `Profile.default`, vérifié par le test « saved profile ») n'est posé que si les deux lectures ont répondu. La lecture ne bloque pas l'entrée dans le hub, et elle n'écrase jamais une cote jouée entre-temps ;
   - **des cas où la cote relue est fausse** :
     - le classement est écrit après le profil, à part (`init.server.luau:288` de la v0.36.10). Si cette écriture a échoué, il garde une cote plus ancienne, et c'est elle qui revient ;
-    - un joueur qui a rejoué en 2v2 ou en 3v3 après la perte est reparti de 1000. Sa vraie cote est perdue, et le classement a gardé la nouvelle. La récupération ne peut rien pour lui (elle ne se lance pas, puisqu'il a une cote) ;
+    - un joueur qui a rejoué en 2v2 ou en 3v3 après la perte est reparti de 1000. Sa vraie cote est perdue, et le classement a gardé la nouvelle. La récupération ne peut rien pour lui (elle ne se lance pas, puisqu'il a une cote). Depuis la v0.36.11, c'est vrai aussi pour un CLASSÉ 2v2 ou 3v3 quitté tout de suite ;
     - chaque jour où la v0.36.7 tourne en ligne sans la récupération, des joueurs touchés rejouent et ne peuvent plus être récupérés. Si la v0.36.7 n'est pas encore publiée sur Roblox, mieux vaut publier les deux ensemble ;
     - si un jour une cote est remise à zéro exprès (nouvelle saison, tricheur) sans vider les classements, la relecture la rendrait. Rien ne le fait aujourd'hui, et le marqueur « une seule fois » écarte ce cas ;
   - **des cas où l'étoile est fausse** :
@@ -362,7 +371,7 @@ Dernier tri : 25 octobre 2026 (routine du matin).
     - si un jour un titre à exploit est donné autrement (récompense de quête, cadeau du propriétaire sans `ownedItems`), la règle lui mettrait une étoile à tort. Un commentaire dans le code et le test doivent le rappeler.
 - **Questions ouvertes** (pour Wilhem) :
   1. Faut-il rendre ce qui a été perdu ? Choix : a) oui, la cote et les étoiles ; b) seulement les étoiles (aucune lecture en plus, aucun risque de valeur fausse) ; c) non, on laisse comme c'est. **Recommandation : a)**, une seule fois par joueur, en silence, et vite : chaque jour, moins de joueurs peuvent retrouver leur cote.
-- **Statut** : `à clarifier`. Rendre une cote CLASSÉE que les joueurs voient est un choix de Wilhem (décision du 20/10). Relue le 25/10 après la v0.36.10 : la fiche suit le nouveau chargement, et aucune décision de Wilhem n'est arrivée depuis.
+- **Statut** : `à clarifier`. Rendre une cote CLASSÉE que les joueurs voient est un choix de Wilhem (décision du 20/10). Relue le 25/10 après la v0.36.10, puis le 26/10 après la v0.36.11 : la fiche suit le nouveau chargement et les nouvelles règles de départ. Aucune décision de Wilhem n'est arrivée depuis.
 - **Critères d'acceptation** (si Wilhem dit oui) :
   - une règle pure (dans `Profile.luau` ou `GameModes`), testée dans `Lobby.test` :
     - au chargement, un titre à exploit présent dans `titles` et sans achat dans `ownedItems` reçoit son étoile ;
@@ -373,5 +382,6 @@ Dernier tri : 25 octobre 2026 (routine du matin).
   - la lecture ne bloque pas le chargement, et une cote jouée entre-temps n'est jamais écrasée ;
   - elle ne se lance qu'une fois la session chargée (`SaveQueue.loaded`), jamais sur une session « SAVES UNAVAILABLE ». Après chaque lecture, elle ne change rien si la visite a changé ;
   - elle n'écrit rien elle-même : la cote, l'étoile et le marqueur passent par `saveProfile`, puis par `writeProfile`, comme le reste du profil ;
+  - si B-035 est encore ouvert, il est corrigé avec elle (aucun CLASSÉ ne part avant le chargement). Sinon, le cas rare du CLASSÉ fini pendant l'attente est noté dans `DECISIONS.md` ;
   - le test « saved profile » passe avec le nouveau champ, et les 9 suites passent ;
   - rien n'est affirmé testé sur le vrai DataStore : Wilhem confirme en jeu (un joueur touché revoit sa cote 2v2).

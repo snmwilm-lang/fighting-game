@@ -1,5 +1,55 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.12 — 26 octobre 2026 · Le FATAL FINISHER d'ASURA : SAMSARA
+
+Produite et **validée par la routine du 26 octobre**. Il n'y avait aucun bug bloquant ni majeur ouvert ; I-001 (les FATAL FINISHERS, une demande de Wilhem) passait donc avant les bugs mineurs.
+
+- **ASURA · SAMSARA** (même mot en français) : 10,7 s, coup mortel au tick 430, 12 plans composés avec `frameOn`.
+  - Son dos dans l'aura noire, le sol se fend en X sous ses pieds.
+  - Il jette ses quatre bras en X, et une roue d'or s'allume derrière lui.
+  - Ses quatre poings prennent feu un à un, dans l'ordre du X, et la roue tourne à chaque battement.
+  - Les feux s'éteignent pendant un pas lourd, puis se rallument ensemble, dans le silence.
+  - Ses deux paumes ouvrent la garde, ses deux poings du bas entrent dans le ventre : éclair blanc, le temps s'arrête.
+  - La cible retombe dans la roue gravée au sol.
+  - K.O. « SAMSARA », jamais « VICTORY ».
+- **Le nom** : le royaume des asuras est l'une des six voies de la roue des renaissances. ASURA est celui qui se relève, sa cible non. Le mot n'est utilisé nulle part ailleurs dans le jeu.
+- **Ce qui est évité** :
+  - ni sa gatling, ni le jonglage, ni sa chope, ni vague ni boule de ki ;
+  - une seule lumière à la fois (B-014) ;
+  - `room` recule la scène près d'un mur : au pire 7 % du sujet est caché.
+- **Les règles du défi ne changent pas** :
+  - SAMSARA ne se joue qu'en CHALLENGE contre une équipe de 2 ou 3, sur un vrai K.O. ;
+  - la seconde vie d'ASURA ne change pas (décision de Wilhem).
+- **Ses gestes** : trois poses de scène à lui (`AsuraWheel`, `AsuraChamber`, `AsuraFourStrike`) et trois clés de `FourArms` (`spokes`, `cocked`, `converge`). Les outils de test (`CinematicKit`, `WeaponKit`, `Storyboard`) voient maintenant ses bras du bas, et les storyboards montrent les vraies couleurs de chaque perso.
+- **Tests** : Cinematography +10, CombatSimulation +1, Animation +1.
+  - Cinematography : la scène des deux côtés, 6 placements `hiddenShare`, et un test des noms des finishers des bosses.
+  - CombatSimulation : le vrai défi contre 3 persos, en première et en seconde vie.
+  - Contrôles : la production a fait 15 mutations, toutes attrapées. La validation en a fait 34, dont 32 attrapées ; les deux trous sont notés plus bas.
+- **Relevé par la validation, livré tel quel** (non bloquant) :
+  - trois plans à revoir :
+    - `asura-ss-guard` : ASURA à moitié hors cadre au bord gauche ;
+    - `asura-ss-step` : la roue vue par la tranche ;
+    - `asura-ss-draw` : plongée de 46°, deux de ses poings à moitié cachés par son propre corps ;
+  - le test des noms laisse passer un nom égal à un thème de la boutique ou à une provocation ;
+  - le placement « cible au mur » ne va jamais au-delà de x = 25,3, que ce soit pour SAMSARA ou pour BLACK SUN ;
+  - B-040 (nouveau) : dans 18 finishers sur 21, la cible se retourne d'un coup au sol.
+
+**Fichiers** :
+- `src/shared/Finishers.luau`, `MoveData.luau`, `Locale.luau` (SAMSARA), `PoseLibrary.luau`, `FourArms.luau`, `CombatConfig.luau` (0.36.12) ;
+- `tests/Cinematography.test.luau`, `CombatSimulation.test.luau`, `Animation.test.luau`, `CinematicKit.luau`, `WeaponKit.luau`, `Storyboard.luau`, `PoseSheet.luau` ;
+- `docs/BUGS.md` (B-037 à B-040), `docs/DECISIONS.md`, `docs/IDEES.md`.
+
+**Tests** : CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 57, Kits 130 : tout passe. AnimQuality et AnimPops sont inchangés.
+
+**Problèmes ouverts** :
+- KUROEN SHIN est le dernier sans FATAL FINISHER ;
+- B-033 : les coups d'ASURA en combat sonnent toujours comme KAI ;
+- B-035 : le profil vierge pendant le chargement ;
+- B-036, B-037, B-038, B-039, B-040 ;
+- rien n'est vérifié dans Studio, en particulier l'or de la roue sur l'aura noire de sa seconde vie.
+
+**Prochaine étape** : B-035, mineur mais visible. Ensuite, le FATAL FINISHER de KUROEN SHIN, avec sa matière sonore (B-033).
+
 ## Version 0.36.11 — 25 octobre 2026 · Quitter un CLASSÉ coûte toujours ses points (B-023), et une mise à jour n'en fait plus perdre (B-028, en partie)
 
 Produite par la routine du 25 octobre. La première validation l'a **refusée**, la seconde l'a **validée**, le même matin.

@@ -671,6 +671,332 @@ for _, place in { { "in the middle, from the left", 0, false, false, true }, { "
 	end)
 end
 
+-- ASURA 阿 · SAMSARA, the boss's own FATAL FINISHER (I-001): his four arms thrown out in an X
+-- (the real pair up, the extra pair down: PoseLibrary AsuraWheel, FourArms "spokes"), a golden
+-- wheel behind his back with its spokes along them, his four fists taking fire one by one along
+-- the X, all four drawn back to his hips (AsuraChamber, FourArms "cocked"), then his two palms
+-- and, a beat after, his two lower fists converging into it (AsuraFourStrike, "converge"); the
+-- target blown back into the wheel stamped into the deck.
+-- What the last finishers taught: the tools see his lower arms (CinematicKit: his parts carry
+-- them, eased as the client eases them), every shape carries a mark and none jumps (B-031),
+-- one light at a time (B-014), no VICTORY nor his victory poses (B-026), not his throw (the
+-- target lifted over his head), not his gatling; his matter only (no steel). On both sides:
+-- in the CHALLENGE he is team 2 and strikes from the right.
+local SAMSARA_FISTS = { "RightHand", "AsuraFistLeft", "LeftHand", "AsuraFistRight" } -- (the order they take fire: the X's diagonals)
+-- (the effects that carry a light, with their life in seconds when the request has none)
+local LIGHT_FX = { eclipse = 2, afterimage = 1, asuraFist = 0.75, rageFist = 0.75, divineFist = 0.75, crimsonFist = 0.75, lightning = 0.12 }
+local function center3(part)
+	return { part.cframe[1], part.cframe[2], part.cframe[3] }
+end
+local function dist3(p, q)
+	return math.sqrt((p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 + (p[3] - q[3]) ^ 2)
+end
+test("ASURA's SAMSARA: his four arms in an X before a golden wheel, his four fists take fire one by one, two palms then two fists; one light at a time, nothing jumps", function()
+	local data = MoveData.Kits.ASURA.Finisher
+	expect(data ~= nil and data.Name == "SAMSARA", "ASURA has no FATAL FINISHER of his own (MoveData: Finisher on his kit)")
+	expect(MoveData.Kits.KAI.Finisher.Name == "MAXIMUM KAIENHA", "KAI's finisher is not MAXIMUM KAIENHA any more")
+	local Director = require("../src/shared/CinematicDirector")
+	expect(Director.finishers and Director.finishers.ASURA ~= nil, "no scene S.ASURA in Finishers.luau")
+	local F = data.FinalTick
+	local ALLOWED = { whoosh = true, heavy = true, boom = true, charge = true } -- (his matter: no steel, no beam)
+	for _, mirror in { false, true } do
+		local side = if mirror then "from the right" else "from the left"
+		local played, own, unmarked, lightsMax, partsMax = false, true, 0, 0, 0
+		local last, jump, lit, fx = {}, { d = 0 }, {}, {}
+		local poses, moves, sounds, issues = {}, {}, {}, {}
+		local xShape, spokes, wheelBehind, fireOnFist, ringRound, burningAtDraw, handsOnIt = false, 0, false, true, true, 0, 0
+		local guard, broken, lifted, victory, lastPose, koName, seal, endChest = false, false, 0, false, nil, nil, nil, nil
+		local function issue(text)
+			if #issues < 8 then table.insert(issues, text) end
+		end
+		Kit.play("ASURA", "Fatal", nil, 300, 0, function(info)
+			local frame, A, D, tick = info.frame, info.cin.attacker, info.cin.defender, info.tick
+			local shot = frame.shot.name
+			played = played or (info.cin.finisher == true and info.cin.kit == "ASURA")
+			own = own and shot:find("^asura%-ss%-") ~= nil
+			local me, it = info.views[A], info.views[D]
+			if me.pose then poses[me.pose] = true end
+			if me.move then moves[me.move] = true end
+			if me.victory or me.pose == "Victory" or me.pose == "VictoryAlt" then victory = true end
+			if me.state == "Throwing" or it.state == "Thrown" then moves.throw = true end
+			if tick < F - 10 and it.pose == "Block" then guard = true end
+			if tick >= F - 10 and tick < F and it.pose == "GuardBroken" then broken = true end
+			lifted = math.max(lifted, it.y or 0)
+			lastPose = it.pose
+			local over = frame.overlay or {}
+			if over.ko then
+				koName = over.ko.sub
+				if tostring(over.ko.text):find("VICTORY") or tostring(over.ko.sub):find("VICTORY") then victory = true end
+			end
+			if frame.title and (tostring(frame.title.text):find("VICTORY") or tostring(frame.title.sub):find("VICTORY")) then victory = true end
+			-- (the lights: each sphere of the frame, and each effect that carries one while it lives)
+			local lights, parts = 0, 0
+			for _, e in frame.fx do
+				if e.kind == "sfx" then sounds[e.sound] = true end
+				if LIGHT_FX[e.kind] and not fx[e.key] then fx[e.key] = tick + (e.life or LIGHT_FX[e.kind]) * 60 end
+			end
+			for _, ends in fx do
+				if tick <= ends then lights += 1 end
+			end
+			local body, its = info.parts[A], info.parts[D]
+			local head, chest = center3(body.Head), center3(body.UpperTorso)
+			local t = body.UpperTorso.cframe
+			local rightAxis, frontAxis = { t[4], t[7], t[10] }, { -t[6], -t[9], -t[12] }
+			local function lateral(p) return (p[1] - chest[1]) * rightAxis[1] + (p[2] - chest[2]) * rightAxis[2] + (p[3] - chest[3]) * rightAxis[3] end
+			-- (his extra arms are on his body for the tools, and never rise before his face)
+			for _, name in { "AsuraFistLeft", "AsuraFistRight" } do
+				local f = body[name]
+				if not f then
+					issue("t" .. tick .. ": the tools do not see his " .. name)
+				else
+					local p = center3(f)
+					if p[2] > head[2] - 0.5 and math.abs(lateral(p)) < 1.5 then issue(string.format("t%d %s: his %s before his face", tick, shot, name)) end
+				end
+			end
+			local marks = {}
+			for _, sh in frame.shapes or {} do
+				parts += SHAPE_PARTS[sh.kind] or 0
+				if sh.kind == "sphere" then lights += 1 end
+				if not sh.mark then
+					unmarked += 1
+				else
+					-- (every shape followed, its centre or both ends: never a jump inside a shot, B-031)
+					local points = {}
+					for _, key in { "pos", "from", "to" } do
+						if sh[key] then table.insert(points, { Kit.resolve(sh[key], info.parts) }) end
+					end
+					local prev = last[sh.mark]
+					if prev and prev.tick == tick - 1 and prev.shot == shot then
+						for k, p in points do
+							local d = dist3(p, prev.points[k])
+							if d > jump.d then jump = { d = d, tick = tick, mark = sh.mark, shot = shot } end
+						end
+					end
+					last[sh.mark] = { points = points, tick = tick, shot = shot }
+					marks[sh.mark] = { shape = sh, points = points }
+				end
+			end
+			lightsMax, partsMax = math.max(lightsMax, lights), math.max(partsMax, parts)
+			-- THE FISTS: each fire is a ring round its own fist (two real hands, two lower fists),
+			-- lit in the order of the X; never inside the fist
+			for i, part in SAMSARA_FISTS do
+				local m = marks["fist" .. i]
+				if m then
+					lit[i] = lit[i] or tick
+					if m.shape.pos.part ~= part or m.shape.pos.slot ~= A or dist3(m.points[1], center3(body[part])) > 0.01 then fireOnFist = false end
+					local half = math.max(table.unpack(body[part].size)) / 2
+					if m.shape.radius < half + 0.05 then ringRound = false end
+				end
+			end
+			if tick == F - 12 then
+				for i = 1, 4 do
+					if marks["fist" .. i] then burningAtDraw += 1 end
+				end
+			end
+			-- THE X and THE WHEEL (before the first fist takes fire: the wheel not yet turned)
+			if tick == 220 then
+				local hands = {}
+				for _, part in SAMSARA_FISTS do hands[part] = center3(body[part]) end
+				local up = hands.RightHand[2] > head[2] and hands.LeftHand[2] > head[2]
+				local down = hands.AsuraFistLeft[2] < chest[2] - 1 and hands.AsuraFistRight[2] < chest[2] - 1
+				local out = true
+				for _, p in hands do
+					if math.abs(lateral(p)) < 2 then out = false end
+				end
+				xShape = up and down and out and lateral(hands.RightHand) > 0 and lateral(hands.AsuraFistRight) > 0
+					and lateral(hands.LeftHand) < 0 and lateral(hands.AsuraFistLeft) < 0
+				local wheel = marks.wheel
+				if wheel then
+					local p = wheel.points[1]
+					local back = (p[1] - chest[1]) * frontAxis[1] + (p[2] - chest[2]) * frontAxis[2] + (p[3] - chest[3]) * frontAxis[3]
+					local clear = math.huge
+					for _, part in body do clear = math.min(clear, Kit.boxDistance(part, p[1], p[2], p[3])) end
+					wheelBehind = back < -0.3 and clear >= 0.15
+					-- (each fist at the end of a spoke: in the wheel's plane, the angle from its hub)
+					for _, part in SAMSARA_FISTS do
+						local h = hands[part]
+						local best = math.huge
+						for k = 1, 4 do
+							local s_ = marks["spoke" .. k]
+							if s_ then
+								local a1 = { s_.points[2][1] - s_.points[1][1], s_.points[2][2] - s_.points[1][2], s_.points[2][3] - s_.points[1][3] }
+								local a2 = { h[1] - p[1], h[2] - p[2], h[3] - p[3] }
+								-- (the fist seen from his front: its offset along his facing left out)
+								local along = a2[1] * frontAxis[1] + a2[2] * frontAxis[2] + a2[3] * frontAxis[3]
+								a2 = { a2[1] - frontAxis[1] * along, a2[2] - frontAxis[2] * along, a2[3] - frontAxis[3] * along }
+								local c = (a1[1] * a2[1] + a1[2] * a2[2] + a1[3] * a2[3]) / (math.sqrt(a1[1] ^ 2 + a1[2] ^ 2 + a1[3] ^ 2)
+									* math.sqrt(a2[1] ^ 2 + a2[2] ^ 2 + a2[3] ^ 2))
+								best = math.min(best, math.deg(math.acos(math.clamp(c, -1, 1))))
+							end
+						end
+						if best < 25 then spokes += 1 end
+					end
+				end
+			end
+			-- THE BLOW: his two palms and his two lower fists on it
+			if tick == F then
+				for _, part in SAMSARA_FISTS do
+					local p = center3(body[part])
+					local near = math.huge
+					for _, other in its do near = math.min(near, Kit.boxDistance(other, p[1], p[2], p[3])) end
+					if near < 0.9 then handsOnIt += 1 end
+				end
+			end
+			if marks.seal then seal = marks.seal.points[1] end
+			endChest = center3(its.UpperTorso)
+		end, mirror)
+		expect(played and own, side .. ": the killing COUP FATAL did not play SAMSARA (its own shots)")
+		expect(#issues == 0, side .. "\n         " .. table.concat(issues, "\n         "))
+		expect(poses.AsuraWheel and xShape, side .. ": his four arms are not out in an X (the real pair up, the extra pair down)")
+		expect(wheelBehind, side .. ": the wheel is not behind his back, clear of his body")
+		expect(spokes == 4, side .. ": " .. spokes .. " of his four fists at the end of a spoke of the wheel")
+		expect(#lit == 4 and fireOnFist and ringRound, side .. ": his four fists do not each take fire, a ring round the fist")
+		expect(lit[1] and lit[2] and lit[3] and lit[4] and lit[1] < lit[2] and lit[2] < lit[3] and lit[3] < lit[4],
+			side .. ": his fists do not take fire one after the other, along the X")
+		expect(burningAtDraw == 4, side .. ": " .. burningAtDraw .. " fists burning as he draws them back")
+		expect(handsOnIt == 4, side .. ": " .. handsOnIt .. " of his four hands on the target on the blow")
+		expect(poses.AsuraChamber and poses.AsuraFourStrike, side .. ": his four fists are not drawn back, then driven in together")
+		expect(not moves.AsuraGatling and not moves.throw, side .. ": his gatling, or his throw (the target lifted over his head)")
+		expect(guard and broken and lifted < 1.2, string.format("%s: the target does not raise its guard and see it torn open, or is lifted (%.1f)", side, lifted))
+		expect(seal and seal[2] < 0.2 and endChest and math.sqrt((seal[1] - endChest[1]) ^ 2 + (seal[3] - endChest[3]) ^ 2) < 1.5,
+			side .. ": the target does not lie in the wheel stamped into the deck")
+		expect(unmarked == 0, side .. ": " .. unmarked .. " shapes without a mark")
+		expect(jump.d <= 0.5, string.format("%s: %s jumps %.2f studs at t%s (%s)", side, tostring(jump.mark), jump.d, tostring(jump.tick), tostring(jump.shot)))
+		expect(lightsMax <= 1, side .. ": " .. lightsMax .. " lights at once (B-014: one at most)")
+		expect(partsMax <= 250, side .. ": " .. partsMax .. " parts of light in one frame")
+		for sound in sounds do
+			expect(ALLOWED[sound], side .. ": the sound " .. sound .. " is not his matter")
+		end
+		expect(lastPose == "DownFace" and koName == data.Name, side .. ": no K.O. " .. data.Name .. " with the target down")
+		expect(not victory, side .. ": VICTORY, or his victory poses (B-026: a finisher may not end the match)")
+	end
+end)
+
+-- SAMSARA near the walls, as BLACK SUN: his back to the left wall, to the right one, the target
+-- near the wall in front of him, and the middle from both sides. Wherever it starts it is the
+-- film of the middle moved along the line (`room`); both on the deck, the camera over the
+-- floor, and never more than a quarter of a shot's subject hidden behind the other body, his
+-- lower arms included (they are on his body for the tools).
+local SAMSARA_MIDDLE = {}
+for _, place in { { "in the middle, from the left", 0, false, false, true }, { "in the middle, from the right", 0, true, false, true },
+	{ "his back to the left wall", 0, false, true }, { "his back to the right wall", 0, true, true },
+	{ "the target near the right wall", Config.ArenaMaxX - 3, false, false },
+	{ "the target near the left wall", Config.ArenaMinX + 3, true, false } } do
+	local name = "ASURA's SAMSARA, " .. place[1]
+	test(name .. ": the film of the middle moved along the line, both on the deck, nobody hidden by the other", function()
+		local mirror = place[3]
+		SAMSARA_MIDDLE[mirror] = SAMSARA_MIDDLE[mirror] or film("ASURA", 0, mirror, false)
+		local middle = SAMSARA_MIDDLE[mirror]
+		local frames = if place[5] then middle else film("ASURA", place[2], mirror, place[4])
+		local kinds, order = {}, {}
+		local function fail(tick, kind, value, text)
+			local k = kinds[kind]
+			if not k then
+				k = { n = 0, first = tick, worst = value, text = text }
+				kinds[kind] = k
+				table.insert(order, kind)
+			end
+			k.n += 1
+			if value > k.worst then k.worst, k.text = value, text end
+		end
+		expect(frames[0] ~= nil and frames[0].finisher, name .. ": the finisher did not play")
+		local shift = frames[0].d - middle[0].d
+		local last = 0
+		for tick in middle do last = math.max(last, tick) end
+		for tick = 0, last do
+			local m, fr = middle[tick], frames[tick]
+			if not m then continue end
+			if not fr then
+				fail(tick, "missing", 0, "the scene stops early")
+				continue
+			end
+			if fr.shot ~= m.shot or fr.fov ~= m.fov then fail(tick, "shot", 0, fr.shot .. " in place of " .. m.shot) end
+			local out = math.max(Config.ArenaMinX - fr.a, fr.a - Config.ArenaMaxX, Config.ArenaMinX - fr.d, fr.d - Config.ArenaMaxX)
+			if out > 0 then fail(tick, "deck", out, string.format("%s: a body off the deck (%.2f, %.2f)", fr.shot, fr.a, fr.d)) end
+			if math.abs(fr.cam[1]) > 40 then
+				fail(tick, "floor", math.abs(fr.cam[1]) - 40, string.format("%s: the camera beyond the end of the floor (x = %.2f)", fr.shot, fr.cam[1]))
+			end
+			local moved = math.abs(fr.a - m.a - shift) + math.abs(fr.d - m.d - shift)
+			for i = 1, 3 do
+				local off = if i == 1 then shift else 0
+				moved += math.abs(fr.cam[i] - m.cam[i] - off) + math.abs(fr.target[i] - m.target[i] - off)
+			end
+			if moved > 0.01 then
+				fail(tick, "moved", moved, string.format("%s: not the staging of the middle moved by %.2f (off by %.2f)", fr.shot, shift, moved))
+			end
+			if fr.hidden > 0.25 then
+				fail(tick, "hidden", fr.hidden, string.format("%s: %.0f %% of its subject hidden by the other body", fr.shot, fr.hidden * 100))
+			end
+		end
+		local failures = {}
+		for _, kind in order do
+			local k = kinds[kind]
+			table.insert(failures, string.format("from t%d, %d ticks; worst: %s", k.first, k.n, k.text))
+		end
+		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
+	end)
+end
+
+-- A boss's FATAL FINISHER is named like nothing else in the game. The common test above only
+-- compares it with the moves of the other kits; a boss's names live elsewhere too (his theme's
+-- ultimates, his PORTE title, his passive, his E, the challenge's titles and achievements: B-009
+-- for the trap). Its name (without a kanji) is none of them, appears in no other text the game
+-- shows (Locale), and none of its words is already worn by more than two of them (WRATH,
+-- THOUSAND, ARMS, FINAL, FIST for ASURA; ECLIPSE, EMPEROR, DIVINE, TRUE, ZERO for KUROEN SHIN).
+-- (Bosses only: ASTER's B-009 and KUROEN's B-034 wait for Wilhem.)
+test("a boss's FATAL FINISHER is named like nothing else: no move, ultimate, title, passive or achievement; no worn word", function()
+	local Director = require("../src/shared/CinematicDirector")
+	local Locale = require("../src/shared/Locale")
+	local GameModes = require("../src/shared/GameModes")
+	local function bare(name) return (tostring(name):gsub("^.* · ", "")) end
+	local taken = {}
+	local function take(name, what)
+		if name then taken[bare(name)] = taken[bare(name)] or what end
+	end
+	for id, m in MoveData.Moves do take(m.name, "the move " .. id) end
+	for kit, data in MoveData.Kits do
+		if data.GateTitle then
+			take(data.GateTitle.sub, kit .. "'s PORTE title")
+			take(data.GateTitle.text, kit .. "'s PORTE title")
+		end
+		if data.Passive then take(data.Passive.Name, kit .. "'s passive") end
+	end
+	for kit, theme in Director.THEMES do
+		for kind, name in theme.names or {} do take(name, kit .. "'s " .. kind) end
+	end
+	for name in GameModes.TITLE_LOOKS do take(name, "a title") end
+	for _, list in { GameModes.CHALLENGE_TITLES, GameModes.SHIN_TITLES } do
+		for _, name in list do take(name, "a challenge title") end
+	end
+	for _, a in GameModes.ACHIEVEMENTS do take(a.name, "an achievement") end
+	local texts = {}
+	for key in Locale.FR do texts[key] = true end
+	for key in Locale.SAME do texts[key] = true end
+	local checked = 0
+	for kit, data in MoveData.Kits do
+		if not (data.Boss and data.Finisher) then continue end
+		checked += 1
+		local name = data.Finisher.Name
+		expect(not taken[bare(name)], string.format("%s: its finisher %s is the name of %s", kit, name, tostring(taken[bare(name)])))
+		for other, d in MoveData.Kits do
+			expect(other == kit or not d.Finisher or bare(d.Finisher.Name) ~= bare(name), kit .. ": its finisher has " .. other .. "'s name")
+		end
+		for text in texts do
+			expect(text == name or not text:find(name, 1, true), string.format("%s: its finisher %s is already in « %s »", kit, name, text))
+		end
+		for word in bare(name):gmatch("[%a']+") do
+			if #word >= 4 then
+				local worn = 0
+				for text in texts do
+					if text ~= name and (" " .. text .. " "):find("[^%a]" .. word .. "[^%a]") then worn += 1 end
+				end
+				expect(worn <= 2, string.format("%s: the word %s of its finisher is already in %d texts", kit, word, worn))
+			end
+		end
+	end
+	expect(checked >= 1, "no boss has a FATAL FINISHER: this check has nothing to read")
+end)
+
 test("one K.O. on screen: the HUD keeps quiet when the K.O. scene ends the match (1v1 rounds, relays)", function()
 	local Director = require("../src/shared/CinematicDirector")
 	local cfg = { RoundsToWin = 2 }

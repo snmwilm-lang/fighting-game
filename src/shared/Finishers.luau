@@ -3219,6 +3219,276 @@ function Finishers.build(T)
 			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
 	end
 
+	-- ================================================================ ASURA · SAMSARA
+	-- The demigod of wrath turns the wheel. The realm of the asuras is one of the six of the wheel
+	-- of rebirth (samsara), and he is the one who rises again: his foe does not.
+	-- 0:00 his back, in his black aura: the deck cracks under his feet in four directions · 0:01.3
+	-- his face · 0:02 he throws his four arms out in an X, the real pair up, the extra pair down
+	-- (AsuraWheel): a golden wheel lights behind his back, its four spokes along his arms ·
+	-- 0:03.6 the wheel turns a step at each beat and a fist takes fire, one after the other,
+	-- along the X: up right, down left, up left, down right; the light goes blood red · 0:05.1
+	-- it raises its guard · 0:05.8 the fires go out, one heavy step in · 0:06.2 silence, the four
+	-- fists drawn back to his hips; 0:06.4 they take fire again, all four at once; the wheel
+	-- fades · 0:07 his two palms tear its guard open and his two lower fists drive
+	-- in a beat after (his second pair always follows the first) · 0:07.2 time stops · 0:07.5 it
+	-- is blown back and lands face down in the wheel stamped into the deck, cracked in four ·
+	-- 0:08.3 K.O. · 0:09.7 he stands, his arms heavy. Not his gatling (R), his juggle (ÉVEIL), his swing (PORTE), his seize
+	-- (FATAL) nor his throw (lifted over his head); no wave nor ball of ki (KAI's).
+	local ASURA_FAR, ASURA_GAP, ASURA_BLOWN = 4.6, 3.2, 2.6 -- (where he stands first; strikes from: his palms touch it; how far it is blown back)
+	local ASURA_STEP = { 350, 372 } -- (his one heavy step in)
+	local ASURA_REFIRE = 386 -- (the four fists take fire again together, drawn back and still)
+	local ASURA_WHEEL = 3 -- (the wheel's radius: his raised fists reach it)
+	-- the four fists, in the order they take fire (the diagonals of the X), and their beat
+	local ASURA_FISTS = {
+		{ part = "RightHand", tick = 222 }, { part = "AsuraFistLeft", tick = 244 },
+		{ part = "LeftHand", tick = 266 }, { part = "AsuraFistRight", tick = 288 },
+	}
+	-- The shots, in order (to: the tick it ends; subjects: "a", "d" or "ad"; spread: his four
+	-- fists out in the X taken into the frame; ground: the wheel stamped into the deck; focus:
+	-- slot and part)
+	local ASURA_SHOTS = {
+		{ to = 80, name = "asura-ss-rage", subjects = "a", yaw = -132, pitch = -8, fill = 0.7, fov = 40, focus = { "A", "UpperTorso" } },
+		{ to = 124, name = "asura-ss-face", subjects = "a", band = "face", yaw = 26, pitch = -8, fill = 0.66, fov = 30, focus = { "A", "Head" } },
+		{ to = 214, name = "asura-ss-wheel", subjects = "a", spread = true, yaw = 36, pitch = -12, fill = 0.84, fov = 38, focus = { "A", "Head" } },
+		{ to = 260, name = "asura-ss-ignite", subjects = "a", spread = true, yaw = 24, pitch = -6, fill = 0.86, fov = 36, focus = { "A", "UpperTorso" } },
+		{ to = 304, name = "asura-ss-ignite-b", subjects = "a", spread = true, yaw = 44, pitch = -18, fill = 0.84, fov = 38, focus = { "A", "Head" } },
+		{ to = 350, name = "asura-ss-guard", subjects = "d", band = "bust", yaw = -40, pitch = 2, fill = 0.7, fov = 34, focus = { "D", "Head" } },
+		{ to = 372, name = "asura-ss-step", subjects = "ad", yaw = -36, pitch = 4, fill = 0.8, fov = 40, focus = { "A", "UpperTorso" } },
+		{ to = 420, name = "asura-ss-draw", subjects = "ad", yaw = 14, pitch = 46, fill = 0.82, fov = 38, focus = { "A", "UpperTorso" } },
+		{ to = 448, name = "asura-ss-strike", subjects = "ad", yaw = -24, pitch = 6, fill = 0.9, fov = 42, focus = { "A", "UpperTorso" } },
+		{ to = 500, name = "asura-ss-blown", subjects = "d", ground = true, yaw = 12, pitch = 38, fill = 0.6, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = 580, name = "asura-ss-ko", subjects = "ad", yaw = 22, pitch = 12, fill = 0.62, fov = 40, focus = { "D", "UpperTorso" } },
+		{ to = math.huge, name = "asura-ss-last", subjects = "a", yaw = 58, pitch = -12, fill = 0.64, fov = 36, screen = { -0.2, -0.2 },
+			focus = { "A", "UpperTorso" } },
+	}
+	function S.ASURA(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local look = ctx.characters[A]
+		local gold, blood = look.Energy, look.Shield or "FF2A3D" -- (his gold, and the blood red of his style)
+		local F = 430
+		local o = overlay(frame)
+		frame.grade.asura = true
+		-- (he stands ASURA_FAR from it first and strikes from ASURA_GAP, the target is blown
+		-- ASURA_BLOWN beyond and lies there: near a wall the whole scene stands back from it,
+		-- never him alone)
+		local tx = room(ctx, T.center(ctx, d), dir, ASURA_FAR + 2.6, ASURA_BLOWN + 3.4)
+		local step = smooth(progress(tick, ASURA_STEP[1], ASURA_STEP[2]))
+		local ax = tx - dir * lerp(ASURA_FAR, ASURA_GAP, step)
+		local lands = tx + dir * ASURA_BLOWN
+		local up = v(0, 1, 0)
+		local function add(p, q, k)
+			k = k or 1
+			return v(p.x + q.x * k, p.y + q.y * k, p.z + q.z * k)
+		end
+		-- his body's axes as the client turns it (3/4 toward the camera, Config.ModelYaw): forward,
+		-- and his right (the plane of the wheel)
+		local turn = math.rad(ctx.config.ModelYaw or 22)
+		local fwd = v(dir * math.cos(turn), 0, math.sin(turn))
+		local right = v(-fwd.z, 0, fwd.x)
+		-- the shot of this tick (its angle also turns the rings of his fists toward the camera)
+		local current
+		for _, s_ in ASURA_SHOTS do
+			if tick < s_.to then
+				current = s_
+				break
+			end
+		end
+		local yaw, pitch = math.rad(current.yaw * dir), math.rad(current.pitch)
+		local toCamera = v(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+
+		-- the fighters
+		a.x, a.z, a.facing = ax, nil, dir
+		if tick < 124 then
+			a.state, a.move, a.pose = "Idle", nil, "StandTall"
+		elseif tick < ASURA_STEP[1] then
+			a.state, a.move, a.pose = "Idle", nil, "AsuraWheel" -- (the X of his four arms)
+		elseif tick < ASURA_STEP[2] then
+			a.state, a.move, a.pose, a.vx = "Walking", nil, nil, dir * 4 -- (one heavy step in)
+		elseif tick < F - 10 then
+			-- all four fists drawn back to his hips, square to it (not turned to the camera: his
+			-- four hands go to its body, not beside it)
+			a.state, a.move, a.pose, a.lookDir = "Idle", nil, "AsuraChamber", v(dir, 0, 0)
+		elseif tick < F + 40 then
+			-- the four together: his two palms tear its guard open, his two lower fists, which the
+			-- client eases, drive into its belly a beat after, on F
+			a.state, a.move, a.pose, a.lookDir = "Idle", nil, "AsuraFourStrike", v(dir, 0, 0)
+		else
+			a.state, a.move, a.pose = "Idle", nil, "StandTall"
+		end
+		d.x, d.z, d.y, d.facing, d.hitstop = tx, nil, 0, -dir, 0
+		if tick < 304 then
+			d.state, d.pose = "Idle", nil
+		elseif tick < F - 8 then
+			d.state, d.pose = "Idle", "Block" -- (its guard up, for nothing)
+		elseif tick < F then
+			d.state, d.pose = "Hitstun", "GuardBroken"
+		elseif tick < F + 18 then
+			d.state, d.pose, d.hitstop = "Hitstun", "HitBody", 1 -- (time stops on the blow)
+		else
+			-- blown back along the deck, face down in the wheel
+			local q = smooth(progress(tick, F + 18, F + 34))
+			d.state, d.x = "Hitstun", tx + dir * ASURA_BLOWN * q
+			if q < 1 then
+				d.pose, d.y = "Launched", 0.8 * math.sin(math.pi * q)
+			else
+				d.pose = if tick < F + 40 then "DownImpact" else "DownFace"
+			end
+		end
+
+		-- THE WHEEL behind his back: it lights when his arms go out, its spokes along them, and
+		-- turns an eighth at each fist that takes fire (the X, then a cross, then the X again);
+		-- it fades in the silence before the blow
+		if tick >= 130 and tick < F - 10 then
+			local back = v(-fwd.x, 0, -fwd.z)
+			local hub = P(A, "UpperTorso", v(back.x * 0.9, 0.1, back.z * 0.9))
+			local r = lerp(0.6, ASURA_WHEEL, smooth(progress(tick, 130, 158)))
+			local alpha = math.max(lerp(0.6, 0.15, progress(tick, 130, 150)), progress(tick, F - 40, F - 12))
+			local spin = 0
+			for _, f in ASURA_FISTS do
+				spin += math.pi / 4 * smooth(progress(tick, f.tick, f.tick + 14))
+			end
+			shape(frame, { kind = "ring", pos = hub, normal = fwd, radius = r, width = 0.14, color = gold, alpha = alpha, mark = "wheel" })
+			shape(frame, { kind = "ring", pos = hub, normal = fwd, radius = 0.32 * r, width = 0.1, color = blood, alpha = alpha, mark = "hub" })
+			for k = 0, 3 do
+				local angle = spin + math.pi / 4 + k * math.pi / 2
+				local spoke = v(right.x * math.cos(angle), math.sin(angle), right.z * math.cos(angle))
+				local function along(l)
+					return P(A, "UpperTorso", add(v(back.x * 0.9, 0.1, back.z * 0.9), spoke, l))
+				end
+				shape(frame, { kind = "slash", from = along(0.32 * r), to = along(r), width = 0.12, color = gold, alpha = alpha, mark = "spoke" .. (k + 1) })
+			end
+		end
+		-- THE FOUR FISTS take fire one after the other, each on its beat (a ring round the fist,
+		-- turned to the camera; embers drawn into it). They go out while his arms come down and
+		-- he steps in (a fire hung on a fist that swings would jump: B-031), and take fire again
+		-- all four together once drawn back and still, until he throws them
+		for i, f in ASURA_FISTS do
+			local from = if tick >= ASURA_REFIRE then ASURA_REFIRE else f.tick
+			if tick >= f.tick and tick < F - 10 and (tick < ASURA_STEP[1] or tick >= ASURA_REFIRE) then
+				local age = tick - from
+				local q = smooth(progress(age, 0, 12))
+				local pos = P(A, f.part)
+				-- (it flares out of the fist and settles round it, never inside it)
+				shape(frame, { kind = "ring", pos = pos, normal = toCamera, radius = lerp(1, 0.62, q) + 0.04 * math.sin(tick / 4 + i), width = 0.1,
+					color = gold, alpha = lerp(0.6, 0.2, q), mark = "fist" .. i })
+				if age < 18 and tick < ASURA_STEP[1] then -- (embers at each beat; the four together flare bare)
+					shape(frame, { kind = "motes", pos = pos, radius = 1.6, count = 14, color = if i % 2 == 0 then blood else gold, phase = age / 18,
+						mark = "embers" .. i })
+				end
+			end
+		end
+		-- THE BLOW: a flash where the four land (the one light), the shock round the line; gone
+		-- with the shot of the blow (the next one is close to it)
+		if tick >= F and tick < F + 18 then
+			local age = tick - F
+			local q = smooth(progress(age, 0, 16))
+			local at = v(tx - dir * 0.55, 2.8, 0.35)
+			shape(frame, { kind = "sphere", pos = At(at), radius = lerp(0.3, 1.5, q), color = gold, core = 1 - q, mark = "blow" })
+			for j = 1, 2 do
+				local g = smooth(progress(age, (j - 1) * 3, 14 + (j - 1) * 3))
+				if g > 0 then
+					shape(frame, { kind = "ring", pos = At(v(tx + dir * 0.2 * j, 2.8, 0.35)), normal = v(dir, 0, 0), radius = lerp(0.5, 3 + j * 0.4, g),
+						width = 0.16, color = if j == 1 then gold else "FFFFFF", alpha = progress(age, 6, 18), mark = "shock" .. j })
+				end
+			end
+		end
+		-- THE WHEEL STAMPED into the deck where it lands: a ring, its hub and four spokes along the
+		-- diagonals (the X again); it stays to the end and fades with the scene
+		if tick >= F + 26 then
+			local q = smooth(progress(tick, F + 26, F + 50))
+			local alpha = math.max(0.2, progress(tick, F + 170, F + 205))
+			if alpha < 1 then
+				local c = v(lands, 0.07, 0)
+				shape(frame, { kind = "ring", pos = At(c), normal = up, radius = lerp(0.6, 3.4, q), width = 0.2, color = gold, alpha = alpha, mark = "seal" })
+				shape(frame, { kind = "ring", pos = At(c), normal = up, radius = lerp(0.3, 1.1, q), width = 0.14, color = blood, alpha = alpha, mark = "seal-hub" })
+				for k = 0, 3 do
+					local angle = math.pi / 4 + k * math.pi / 2
+					local dx, dz = math.cos(angle), math.sin(angle)
+					shape(frame, { kind = "slash", from = At(v(c.x + dx * 1.1 * q, 0.07, dz * 1.1 * q)), to = At(v(c.x + dx * lerp(0.6, 3.4, q), 0.07, dz * lerp(0.6, 3.4, q))),
+						width = 0.16, color = gold, alpha = alpha, mark = "seal-spoke" .. (k + 1) })
+				end
+			end
+		end
+
+		-- the deck cracks under his feet in four directions (the X), his aura, the beats
+		for k = 0, 3 do
+			local at = 16 + k * 12
+			if tick == at then
+				local angle = math.pi / 4 + k * math.pi / 2
+				table.insert(frame.fx, { key = "ss-crack" .. k, kind = "crack", from = v(ax, 0.05, 0), to = v(ax + math.cos(angle) * 5, 0.05, math.sin(angle) * 5),
+					color = gold })
+			end
+		end
+		if tick >= 16 and tick < 58 then frame.quake = 0.25 end
+		if tick < F - 10 then frame.aura = A end
+		if tick == 0 then sfx(frame, "ss-rage", "charge") end
+		if tick == 16 then sfx(frame, "ss-crack", "heavy") end
+		if tick == 52 then sfx(frame, "ss-crack-boom", "boom") end
+		if tick == 124 then sfx(frame, "ss-arms", "whoosh") end
+		if tick == 136 then
+			sfx(frame, "ss-wheel", "boom")
+			table.insert(frame.fx, { key = "ss-wheel-wave", kind = "shockwave", pos = v(ax, 0, 0), color = gold })
+		end
+		if tick >= 136 and tick < 146 then frame.quake = 0.5 end
+		for i, f in ASURA_FISTS do
+			if tick == f.tick then sfx(frame, "ss-fire" .. i, "heavy") end
+			if tick >= f.tick and tick < f.tick + 4 then frame.quake = 0.3 end
+		end
+		if tick >= 214 and tick < F + 18 then
+			-- (the light goes blood red while his fists take fire; silence before the blow)
+			o.tint = { color = "3A0A10", amount = 0.3 * smooth(progress(tick, 214, 260)) }
+		end
+		if tick == ASURA_STEP[2] - 4 then sfx(frame, "ss-step", "heavy") end -- (his foot comes down)
+		if tick >= ASURA_STEP[2] - 4 and tick < ASURA_STEP[2] + 4 then frame.quake = 0.45 end
+		if tick == ASURA_STEP[2] then sfx(frame, "ss-draw", "charge") end
+		if tick == ASURA_REFIRE then sfx(frame, "ss-refire", "heavy") end
+		if tick >= ASURA_STEP[2] and tick < F - 10 then o.desat = 0.45 * smooth(progress(tick, ASURA_STEP[2], ASURA_STEP[2] + 30)) end
+		if tick == F - 10 then
+			sfx(frame, "ss-thrust", "whoosh")
+			for i, f in ASURA_FISTS do
+				table.insert(frame.fx, { key = "ss-spent" .. i, kind = "spark", pos = v(ax + dir * 0.8, if i % 2 == 1 then 3.4 else 2, 0.4), color = gold, scale = 0.7 })
+			end
+		end
+		if tick >= F - 10 and tick < F + 10 then frame.speedLines = gold end
+		if tick >= F and tick < F + 18 then
+			local age = tick - F
+			if age == 0 then
+				T.impact(frame, "ss-blow", v(tx - dir * 0.55, 2.8, 0.35), gold, 2.8)
+				sfx(frame, "ss-blow", "heavy")
+				sfx(frame, "ss-blow-boom", "boom")
+			end
+			o.white = if age < 10 then 0.9 * (1 - progress(age, 0, 10)) else nil
+			o.desat = 0.6
+			frame.quake = if age < 10 then 0.9 else nil
+		end
+		if tick == F + 26 then
+			table.insert(frame.fx, { key = "ss-seal", kind = "asuraSeal", pos = v(lands, 0, 0), color = gold, radius = 3.4 })
+			table.insert(frame.fx, { key = "ss-debris", kind = "debris", pos = v(lands, 0.4, 0), color = gold, scale = 1.2 })
+			for k = 0, 3 do
+				local angle = math.pi / 4 + k * math.pi / 2
+				table.insert(frame.fx, { key = "ss-split" .. k, kind = "crack", from = v(lands, 0.05, 0),
+					to = v(lands + math.cos(angle) * 4.5, 0.05, math.sin(angle) * 4.5), color = gold })
+			end
+			sfx(frame, "ss-land", "heavy")
+		end
+		if tick >= F + 26 and tick < F + 34 then frame.quake = 0.5 end
+		if tick == F + 70 then sfx(frame, "ss-ko", "boom") end
+		ko(ctx, frame, tick, F + 70, gold, if tick < F + 150 then { bg = "0B0507", splash = blood } else nil)
+
+		-- the shot
+		local subjects = if current.subjects == "a" then { a } elseif current.subjects == "d" then { d } else { a, d }
+		if current.spread then
+			-- (his four fists out in the X, where the lab's rig holds them: the frame takes them in)
+			for _, s_ in { 1, -1 } do
+				table.insert(subjects, { point = true, x = ax + right.x * s_ * 2.7, y = 5.6, z = right.z * s_ * 2.7 })
+				table.insert(subjects, { point = true, x = ax + right.x * s_ * 2.7, y = 1.5, z = right.z * s_ * 2.7 })
+			end
+		end
+		if current.ground then table.insert(subjects, { point = true, x = lands, y = 0, z = 0 }) end
+		frame.shot = frameOn(current.name, dir, subjects, { yaw = current.yaw, pitch = current.pitch, band = current.band, fill = current.fill,
+			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
+	end
+
 	-- ================================================================ ELIAN · FINAL MERCY
 	-- The healer gives too much light. 0:00 he walks to the target, calm, a halo over his head ·
 	-- 0:01 his palm on its chest: the light pours in, it glows · 0:03 the light lifts it in a

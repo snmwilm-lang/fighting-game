@@ -19,6 +19,14 @@ local place = args[6] or "left"
 assert(place == "left" or place == "right" or place == "wall-left" or place == "wall-right", "PLACE: left, right, wall-left or wall-right")
 local mirror, wall = place == "right" or place == "wall-right", place == "wall-left" or place == "wall-right"
 
+-- (the scenes in each fighter's own colours: the attacker's first style, the target KAI's,
+-- as in game; the module's own slots are KAI CLASSIC and NIGHT)
+local CharacterData = require("../src/shared/CharacterData")
+if kind ~= "KO" and kind ~= "Intro" then
+	local mine = CharacterData.defaultStyle(kit)
+	Kit.characters = { CharacterData.Skins[mine], CharacterData.Skins[CharacterData.defaultStyle("KAI", mine)] }
+end
+
 local function fmt(n) return string.format("%.3f", n) end
 local seen = {}
 local play = if kind == "KO" then function(_, _, _, _, _, onFrame) Kit.playKO(kit, tonumber(args[3]) or 1, onFrame) end
@@ -54,11 +62,14 @@ play(kit, kind, style, hp, 0, function(info)
 			if over.firstPerson == slot and (name == "Head" or name:find("Arm") or name:find("Hand")) then continue end
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(part.cframe[i]) end
-			print(string.format("PART %d %s %s %s %s %s", slot, name, table.concat(out, " "),
-				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3])))
+			-- (ASURA's second pair of arms, eased as in game by CinematicKit, carry their colour)
+			print(string.format("PART %d %s %s %s %s %s%s", slot, name, table.concat(out, " "),
+				fmt(part.size[1]), fmt(part.size[2]), fmt(part.size[3]), if part.color then " " .. part.color else ""))
 		end
-		-- The fighter's weapon in its hand (SHIN's katana, DAICHA's orb).
-		for _, piece in WeaponKit.pieces(info.views[slot].kit, info.parts[slot], nil, { view = info.views[slot], time = info.tick / 60 }) do
+		-- The fighter's weapon in its hand (SHIN's katana, DAICHA's orb; ASURA's extra arms when
+		-- his body does not carry them yet: the K.O. scene, the intro).
+		local carried = info.parts[slot].AsuraFistLeft ~= nil
+		for _, piece in if carried then {} else WeaponKit.pieces(info.views[slot].kit, info.parts[slot], nil, { view = info.views[slot], time = info.tick / 60 }) do
 			local out = {}
 			for i = 1, 12 do out[i] = fmt(piece.cframe[i]) end
 			print(string.format("PART %d %s %s %s %s %s %s", slot, piece.name, table.concat(out, " "),

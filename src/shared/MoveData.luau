@@ -1410,6 +1410,10 @@ kit("ASURA", {
 	FullRouteNames = { "TORNADO", "GUST", "DRAGON", "THUNDER", "WALL", "MOON" },
 	GateTitle = { text = "阿修羅", sub = "WRATH OF THE FOUR ARMS" },
 	Colors = { TORNADO = "FFD23F", GUST = "FF7A2A", DRAGON = "FFD23F", THUNDER = "FFE9B0", WALL = "FFD23F", MOON = "FFE9B0" },
+	-- FATAL FINISHER (Finishers.luau, on his own kit: KAI keeps MAXIMUM KAIENHA): his four arms
+	-- in an X, a golden wheel behind him, his four fists take fire one by one; two palms and two
+	-- fists a beat after; it lies in the wheel stamped into the deck.
+	Finisher = { Name = "SAMSARA", Length = 640, FinalTick = 430 },
 })
 
 -- ===================================================================== KUROEN SHIN 真 · boss

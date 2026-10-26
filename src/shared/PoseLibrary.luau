@@ -4230,6 +4230,33 @@ Poses.Kits.ASURA.VictoryAlt = feet({
 	LeftShoulder = { 150, 0, -50 }, LeftElbow = { 10, 0, 0 }, RightShoulder = { 150, 0, 50 }, RightElbow = { 10, 0, 0 },
 	Look = { 0 },
 }, -0.8, 0.8, 0, 0, 16)
+-- His FATAL FINISHER, SAMSARA (Finishers.luau): the wheel of his four arms, a statue of a deity
+-- in wrath. Square to the front, the legs wide and low, the chest out, the head up; the real
+-- pair thrust up and out in a V, fists clenched, elbows a little bent. The extra pair goes down
+-- and out under it (FourArms: "spokes"): the four arms are the X of the spokes of the golden
+-- wheel lit behind his back. Not a victory: the arms are out in his own plane, not over his
+-- head, and his face is to the target.
+Poses.Kits.ASURA.AsuraWheel = blind(feet({
+	Root = { 0, 0, 0, -0.62, 0 }, Waist = { 8, 0, 0 }, Neck = { 10, 0, 0 },
+	LeftShoulder = { 6, 0, -128 }, LeftElbow = { 26, 0, 0 },
+	RightShoulder = { 6, 0, 128 }, RightElbow = { 26, 0, 0 },
+}, -0.3, 0.3, 0, 0, 24))
+-- SAMSARA's last breath: low and wide like a sumo, square to the target, both fists pulled back
+-- to the hips (elbows behind him), the head down toward it (the extra pair drawn back too:
+-- FourArms "draw"). Lower and squarer than his kiai, which opens his ultimates.
+Poses.Kits.ASURA.AsuraChamber = blind(feet({
+	Root = { 0, 0, 0, -0.9, 0 }, Waist = { -8, 0, 0 }, Neck = { 12, 0, 0 },
+	LeftShoulder = { -58, 0, -22 }, LeftElbow = { 104, 0, 0 },
+	RightShoulder = { -58, 0, 22 }, RightElbow = { 104, 0, 0 },
+}, -0.55, 0.6, 0, -8, 26))
+-- SAMSARA's blow: the four together. A lunge, square to it, both palms driven straight into its
+-- chest side by side, wrists bent back (the extra pair's fists converge into its belly a beat
+-- after: FourArms "converge").
+Poses.Kits.ASURA.AsuraFourStrike = blind(feet({
+	Root = { 0, 0, 0, -0.75, -0.35 }, Waist = { -14, 0, 0 }, Neck = { 10, 0, 0 },
+	LeftShoulder = { 82, 0, 10 }, LeftElbow = { 26, 0, 0 }, LeftWrist = { -60, 0, 0 },
+	RightShoulder = { 82, 0, -10 }, RightElbow = { 26, 0, 0 }, RightWrist = { -60, 0, 0 },
+}, -1.2, 0.65, 0, -16, 16))
 
 --[[
 	No animation shared (Wilhem: « vérifie qu'aucune animation soit partagée »). The moves, the

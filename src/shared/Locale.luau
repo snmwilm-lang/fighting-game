@@ -1326,6 +1326,7 @@ Locale.SAME = {
 	["SIT DOWN"] = true, ["WHAT WAS THAT?!"] = true, ["GOD SLAIN 👑"] = true, ["ECLIPSED 🌑"] = true, ["GG, GO NEXT"] = true,
 	["K.O."] = true, ["INFERNO"] = true, ["SAKURA"] = true, ["STYLE"] = true, ["BREAKFRAMEZ"] = true, ["BREAK"] = true, ["FRAMEZ"] = true, ["NOTIFICATIONS"] = true,
 	["ASURA"] = true,
+	["SAMSARA"] = true, -- (ASURA's FATAL FINISHER: the same word in French)
 	["KUROEN SHIN"] = true,
 	["CHALLENGE · KUROEN SHIN"] = true,
 	["DOMINATION"] = true,

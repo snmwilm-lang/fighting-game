@@ -1973,6 +1973,83 @@ test("ASURA's second pair of arms: raised guard, strikes, gatling pistons, never
 	end
 end)
 
+-- ASURA's FATAL FINISHER, SAMSARA (Finishers.luau): three staged poses of his own and their
+-- keys for the extra pair (FourArms.SCENE). The wheel: the real pair up in a V, the extra pair
+-- down and out, an X; the last breath: the four fists drawn back to his hips; the blow: the
+-- two palms straight ahead side by side, the two lower fists converging under them. Feet on the
+-- floor and joints in range (the library tests); here their shape on R15, an avatar and R6, and
+-- the extra arms (never through his body nor before his face: the test above, every SCENE key).
+test("ASURA's SAMSARA poses: the X of the wheel, the four fists drawn back, the four driven in together (R15, avatar, R6)", function()
+	local function bodyOf(name, label, body)
+		local pose = Poses.Kits.ASURA[name]
+		expect(pose ~= nil, "ASURA has no " .. name)
+		if body[2] then
+			local rt = Retarget.new(K, body[2])
+			local _, lift, parts, virtual = Retarget.solve(rt, r6Animator(rt):resolve(pose), 0)
+			local lowest = math.huge
+			for part, t in parts do
+				local size = rt.r6.sizes[part]
+				lowest = math.min(lowest, K.boxBottom(t, size[1] / 2, size[2] / 2, size[3] / 2))
+			end
+			local height = lowest + lift - rt.r6.floor
+			expect(math.abs(height) < 0.03, string.format("%s %s: the R6 body floats or sinks %.2f", label, name, height))
+			-- (the R6 hand: the virtual hand its arm is laid toward, as for the weapons: a one-piece
+			-- arm cannot fold its elbow)
+			local function hand(side) return { virtual[side][1], virtual[side][2], virtual[side][3] } end
+			return { RightHand = hand("RightHand"), LeftHand = hand("LeftHand"), Head = { parts.Head[1], parts.Head[2], parts.Head[3] },
+				UpperTorso = { parts.Torso[1], parts.Torso[2], parts.Torso[3] } }
+		end
+		local anim = newAnimator(body[1])
+		anim.kit = "ASURA"
+		local resolved = anim:resolve(pose)
+		local left, right = feetAboveFloor(anim, resolved)
+		expect(left < 0.06 and right < 0.06, string.format("%s %s: a foot floats (%.2f, %.2f)", label, name, left, right))
+		local s = K.solve(body[1], resolved, anim:groundLift(resolved, 0))
+		local out = {}
+		for _, part in { "RightHand", "LeftHand", "Head", "UpperTorso" } do out[part] = { s[part][1], s[part][2], s[part][3] } end
+		return out
+	end
+	for label, body in BODIES do
+		-- the wheel: the real fists up over his shoulders and out, one each side (an R6 arm hangs
+		-- lower on its body: over the top of its chest)
+		local wheel = bodyOf("AsuraWheel", label, body)
+		for side, sign in { RightHand = 1, LeftHand = -1 } do
+			local h = wheel[side]
+			expect(h[2] > wheel.UpperTorso[2] + 0.7 and (h[1] - wheel.Head[1]) * sign > 1.5,
+				string.format("%s wheel: the real %s is not up and out (%.2f, %.2f)", label, side, h[1], h[2]))
+		end
+		-- the last breath: the real fists drawn back to the hips, far under the head, not ahead
+		local chamber = bodyOf("AsuraChamber", label, body)
+		for _, side in { "RightHand", "LeftHand" } do
+			local h = chamber[side]
+			expect(h[2] < chamber.Head[2] - 1.4 and h[3] > chamber.UpperTorso[3] - 0.7,
+				string.format("%s last breath: the real %s is not drawn back to the hip (y %.2f, z %.2f)", label, side, h[2], h[3]))
+		end
+		-- the blow: both palms straight ahead, side by side, at its chest
+		local strike = bodyOf("AsuraFourStrike", label, body)
+		local apart = math.abs(strike.RightHand[1] - strike.LeftHand[1])
+		for _, side in { "RightHand", "LeftHand" } do
+			local h = strike[side]
+			expect(h[3] < strike.UpperTorso[3] - 1.2 and h[2] > strike.UpperTorso[2] - 1,
+				string.format("%s blow: the %s is not driven ahead at chest height (y %.2f, z %.2f)", label, side, h[2], h[3]))
+		end
+		expect(apart > 0.8 and apart < 2.6, string.format("%s blow: the palms %.2f apart, not side by side", label, apart))
+	end
+	-- the extra pair (torso space, -Z ahead): down and out under the V, an X; drawn back; converging
+	local wheel = asuraArms({ state = "Idle", pose = "AsuraWheel" }, 0)
+	local chamber = asuraArms({ state = "Idle", pose = "AsuraChamber" }, 0)
+	local strike = asuraArms({ state = "Idle", pose = "AsuraFourStrike" }, 0)
+	for side, sign in { Right = 1, Left = -1 } do
+		local f = wheel[side].fist
+		expect(f[2] < -1 and f[1] * sign > 2, string.format("wheel: the extra %s fist is not down and out (%.2f, %.2f)", side, f[1], f[2]))
+		local c = chamber[side].fist
+		expect(c[2] < -1 and c[3] > -0.6, string.format("last breath: the extra %s fist is not drawn back (y %.2f, z %.2f)", side, c[2], c[3]))
+		local s = strike[side].fist
+		expect(s[3] < -1.6 and math.abs(s[1]) < 1.2 and s[2] < -0.5,
+			string.format("blow: the extra %s fist does not converge ahead, under the palms (%.2f, %.2f, %.2f)", side, s[1], s[2], s[3]))
+	end
+end)
+
 test("ZEPHYR never does the splits: in every fight script, his thighs stay under 125° apart when both legs are straight", function()
 	-- (Wilhem: « des fois il fait le grand écart, ça rend pas très bien »: the free leg tucks,
 	-- the high kicks stay a little lower)

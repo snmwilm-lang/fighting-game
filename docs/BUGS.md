@@ -1226,3 +1226,11 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
   - dans `crossStep` (`:1090`), ne publier que `not client.match` ;
   - le menu du serveur réservé pourrait dire « OPPONENT FOUND · CONNECTING… » (nouveau texte, `Locale.FR`) : à voir avec B-035, qui y montre aussi un profil vierge pendant le chargement ;
   - un test : le fil vit dans `init.server.luau` ; la validation peut le rejouer sur le banc du 25/10 (scène H4).
+
+## B-040 · Dans 18 FATAL FINISHERS sur 21, la cible se retourne d'un coup au sol (sa tête saute de plus de 4 studs en une image)
+- **Date** : 26 octobre 2026.
+- **Source** : relevé par la validation de SAMSARA (ASURA, v0.36.12), avec le script `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/qa/scripts/tgtpop.luau`. Pas encore repris par la chasse.
+- **Ce qui se passe** : au passage de la pose `DownImpact` à `DownFace`, la cible passe de dos à face contre terre en une seule image. Dans SAMSARA, c'est à t470 (`Finishers.luau:3334`, plan `asura-ss-blown`), avec un saut de la tête de 4,56 studs au milieu du plan. Le même saut existe dans 18 finishers sur 21.
+- **Ce qui devrait se passer** : la cible roule ou se retourne en quelques images, ou le changement tombe sur une coupe de plan.
+- **Gravité** : cosmétique (déjà là avant la v0.36.12, pas une régression).
+- **Statut** : `ouvert`. À confirmer par la chasse (liste des finishers touchés, tick de chaque saut).

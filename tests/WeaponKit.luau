@@ -61,13 +61,15 @@ end
 -- and the time (`flight` = { view, time }); without them it is drawn in the hand.
 -- ASURA's second pair of arms, posed as the client poses them (RigBuilder.addFourArms,
 -- AnimationController:swingFourArms, without its easing): { name, cframe, size, color }.
-function WeaponKit.fourArms(parts, view, time)
+-- `arms` (optional): the angles to draw ({ Left, Right }, FourArms.pose's format), e.g. eased
+-- the way the client eases them (CinematicKit.play); else FourArms.pose for that view.
+function WeaponKit.fourArms(parts, view, time, arms)
 	local torso = parts.UpperTorso or parts.Torso
 	if not torso then return {} end
 	local spec, out = FourArms.SPEC, {}
 	local scale = torso.size[1] / 2
 	local upper, fore, w = spec.upper * scale, spec.fore * scale, 0.62 * scale
-	local arms = FourArms.pose(view, time, MoveData.Moves)
+	arms = arms or FourArms.pose(view, time, MoveData.Moves)
 	for name, a in arms do
 		local side = if name == "Left" then -1 else 1
 		local pitch, yaw, roll, bend, twist = FourArms.angles(side, a)

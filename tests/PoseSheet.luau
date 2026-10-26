@@ -77,6 +77,10 @@ add("Victory", 40, still("Idle", { victory = true, wins = 0 }))
 if MoveData.Kits[kitName] and Poses.Kits[kitName] and Poses.Kits[kitName].VictoryAlt then
 	add("VictoryAlt", 40, still("Idle", { victory = true, wins = 1 }))
 end
+-- (the staged poses of a kit's own FATAL FINISHER: ASURA's SAMSARA, the wheel, the last breath, the blow)
+for _, name in { "AsuraWheel", "AsuraChamber", "AsuraFourStrike" } do
+	if Poses.Kits[kitName] and Poses.Kits[kitName][name] then add(name, 40, still("Idle", { pose = name })) end
+end
 for _, id in { "Jab", "Cross", "Elbow", "Kick", "Uppercut", "SpinKick", "Hammer", "Sweep", "LowKick", "AirKick", "BodyBlow",
 	"KiBlast" } do
 	local f, show = attack(id)

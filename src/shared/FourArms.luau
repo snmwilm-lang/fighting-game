@@ -67,6 +67,17 @@ local KEYS = {
 	flex = { 0, 0, 82, 95, 90 },
 	halo = { 5, 0, 100, 6, 0 },
 	kneel = { 34, 0, 22, 30, 0 },
+	-- His FATAL FINISHER, SAMSARA (PoseLibrary AsuraWheel): the lower spokes of the wheel, thrown
+	-- down and out in his own plane under the real pair raised in a V, nearly straight: the four
+	-- arms make an X, one burning fist at the end of each spoke. Never up before his face.
+	spokes = { 6, 0, 50, 10, 0 },
+	-- Its last breath (AsuraChamber): both fists pulled back to his hips, elbows behind him, like
+	-- the real pair over them.
+	cocked = { -34, 0, 34, 96, 0 },
+	-- Its blow (AsuraFourStrike): thrown ahead, a little down, under the real pair's palms, the
+	-- forearms folding in like two hooks (the upper arm straight ahead: turned in at the
+	-- shoulder, it went through his flank): both fists converge into the target's belly.
+	converge = { 76, 0, 18, 60, -90 },
 }
 
 -- Staged poses of a scene -> the extra arms' key (others: the guard).
@@ -76,6 +87,7 @@ local SCENE = {
 	Kiai = "flare", Roar = "flare", WindGather = "flare", Levitate = "flare", Colossus = "flare", KiBeamDown = "flare",
 	Kneel = "kneel",
 	Launched = "hit",
+	AsuraWheel = "spokes", AsuraChamber = "cocked", AsuraFourStrike = "converge",
 }
 FourArms.SCENE = SCENE
 FourArms.KEYS = KEYS

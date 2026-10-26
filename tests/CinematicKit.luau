@@ -12,9 +12,39 @@ local RigSpec = require("../src/shared/RigSpec")
 local K = require("../src/shared/Kinematics")
 local Poses = require("../src/shared/PoseLibrary")
 local Animator = require("../src/shared/Animator")
+local FourArms = require("../src/shared/FourArms")
+local WeaponKit = require("./WeaponKit")
 
 local Kit = {}
 local SKELETON = K.fromSpec(RigSpec.KAI)
+-- The looks of the two slots (ctx.characters: the ki colours of the scenes). Nil: the module's
+-- own slots (KAI CLASSIC, KAI NIGHT); the storyboards set each fighter's own style.
+Kit.characters = nil
+
+-- ASURA's second pair of arms (RigBuilder.addFourArms) on his posed body, as the client poses
+-- them (AnimationController:swingFourArms): each frame FourArms.pose, eased toward it at its
+-- rate (30 per second in his gatling and in hitstun, else 12; the first frame is the key
+-- itself). Added to his parts by their names (AsuraArmLeft, AsuraForearmLeft, AsuraFistLeft
+-- and the Right ones, each with its colour): the tests see them like his other limbs (a
+-- camera in them, a subject hidden behind them: Kit.hiddenShare), and a scene's point hung on
+-- AsuraFistLeft is resolved like a hand (the client finds the part by its name, RigReader.part).
+local function addFourArms(state, parts, view, now)
+	local goal = FourArms.pose(view, now, MoveData.Moves)
+	local arms = state.arms
+	if not arms then
+		arms = { Left = table.clone(goal.Left), Right = table.clone(goal.Right) }
+		state.arms = arms
+	else
+		local fast = view.move == "AsuraGatling" or view.state == "Hitstun"
+		local follow = 1 - math.exp(-(if fast then 30 else 12) / 60)
+		for name, a in arms do
+			for i = 1, 5 do a[i] = (a[i] or 0) + ((goal[name][i] or 0) - (a[i] or 0)) * follow end
+		end
+	end
+	for _, piece in WeaponKit.fourArms(parts, view, now, arms) do
+		parts[piece.name] = { cframe = piece.cframe, size = piece.size, color = piece.color }
+	end
+end
 
 -- Root frame of a rig as the client places it (3/4 turn toward the camera, or lookDir).
 local function rootFrame(view, heading)
@@ -45,7 +75,8 @@ Kit.resolve = resolve
 
 --[[
 	onFrame(info) for every tick: info = { tick, frame, views, parts = { [slot] = { [part] =
-	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }.
+	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }
+	(ASURA's parts also carry his second pair of arms, with their colour: addFourArms).
 	center: x where the fight happens; hp: the target's health (low = FINAL FINISH); mirror:
 	the attacker starts on the right, striking toward -x (the lab always puts it on the left);
 	wall: the attacker has its back to the wall of its side (the left one, or the right one
@@ -71,7 +102,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 		a.x = if a.facing > 0 then Config.ArenaMinX + 0.5 else Config.ArenaMaxX - 0.5
 		d.x = a.x + a.facing * (Config.CinematicGap or 2.6)
 	end
-	local anims, headings, anchors = {}, {}, {}
+	local anims, headings, anchors, extra = {}, {}, {}, { {}, {} }
 	for i = 1, 2 do
 		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
 			kits = MoveData.Kits, moveKit = MoveData.MoveKit })
@@ -85,7 +116,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 				moveFrame = f.moveFrame, hp = f.hp, wins = f.wins, hitstop = f.hitstop, combo = f.comboHits, kit = f.kit }
 		end
 		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views, anchors = anchors, moveData = MoveData,
-			config = Config, characters = CharacterData })
+			config = Config, characters = Kit.characters or CharacterData })
 		if frame then
 			local parts, poses = {}, {}
 			for i = 1, 2 do
@@ -101,6 +132,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 					local size = SKELETON.sizes[name]
 					if size and name ~= "HumanoidRootPart" then parts[i][name] = { cframe = K.mul(root, t), size = size } end
 				end
+				if v.kit == "ASURA" then addFourArms(extra[i], parts[i], v, tick / 60) end
 			end
 			local s = frame.shot
 			local cx, cy, cz = resolve(s.from, parts)

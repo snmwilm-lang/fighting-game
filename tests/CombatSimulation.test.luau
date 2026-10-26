@@ -1320,7 +1320,8 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
 		expect(start and not start.finish and not start.finisher and state.length == own.Length, kit .. ": a finisher on a target not low")
 	end
 	-- a kit without its finisher yet: the classic fatal, round won or not (every playable kit has
-	-- its own since KUROEN's BLACK SUN: the bosses, ASURA and KUROEN SHIN, are the ones left)
+	-- its own since KUROEN's BLACK SUN, and ASURA since SAMSARA: KUROEN SHIN is the one left;
+	-- when he has his, this check must play the rule another way, I-001)
 	local candidates = table.clone(MoveData.KitOrder)
 	for name, data in MoveData.Kits do
 		if data.Boss then table.insert(candidates, name) end
@@ -1371,6 +1372,107 @@ test("FATAL FINISHER in a relay: a fighter knocked out counts as the round won; 
 	start = find(events, "CinematicStart")
 	expect(start and start.finisher, "no finisher once SHIN had knocked out TARO")
 	expect(count(events, "RoundEnd") == 1 and world.fighters[2].hp <= 0, "the finisher of the relay did not K.O. once")
+end)
+
+-- ASURA's FATAL FINISHER (SAMSARA) in the real CHALLENGE (I-001): the boss is team 2, on the
+-- right (init.server.luau: Sim.setTeams(world, request.team, { boss })), and his "round won" is
+-- a fighter of the player's team knocked out. Then his killing COUP FATAL plays his own scene
+-- (the Finisher of his kit, under his name: KAI keeps MAXIMUM KAIENHA), with one K.O. that does
+-- not end the match, and the next fighter comes in after it; the same once he has risen in his
+-- SECOND LIFE; against a lone fighter his first K.O. ends the challenge: never a finisher.
+test("ASURA's FATAL FINISHER in the CHALLENGE: after a fighter is down, his killing COUP FATAL plays SAMSARA and the next one comes in; in his second life too; never against one fighter", function()
+	local own = MoveData.Kits.ASURA.Finisher
+	expect(own and own.Name == "SAMSARA", "ASURA has no FATAL FINISHER of his own")
+	expect(MoveData.Kits.KAI.Finisher.Name == "MAXIMUM KAIENHA", "KAI's finisher is not MAXIMUM KAIENHA any more")
+	local Director = require("../src/shared/CinematicDirector")
+	local function challenge(team)
+		local world = Sim.newWorld(ShippedConfig, MoveData, false)
+		Sim.setTeams(world, team, { "ASURA" })
+		return world
+	end
+	-- (both free, face to face: the player's fighter on the left, ASURA on the right)
+	local function faceUp(world)
+		for _ = 1, 600 do
+			local free = world.cinematic == nil and world.phase ~= "KO"
+			for _, f in world.fighters do
+				if f.state == "KO" or f.move or f.stun > 0 or f.hitstop > 0 or f.knockdown > 0 or f.getUp > 0 or f.launched or f.y > 0 then free = false end
+			end
+			if free then break end
+			Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+		end
+		world.phase = "Fight"
+		local p, boss = world.fighters[1], world.fighters[2]
+		p.x, boss.x, p.facing, boss.facing = -1.5, 1.5, 1, -1
+		p.wakeInvuln, boss.wakeInvuln = 0, 0
+	end
+	-- one side's single blow on the other, its health set first; every event until it is over
+	local function blow(world, slot, hp, fields, ticks)
+		faceUp(world)
+		world.fighters[3 - slot].hp = hp
+		return run(world, ticks or 200, function(t)
+			local i = { Sim.neutralInput(), Sim.neutralInput() }
+			if t == 1 then i[slot] = input(fields) end
+			return i
+		end)
+	end
+	-- ASURA's COUP FATAL (under 30 % of his health, his gauge full) on a fighter at 30 %
+	local function bossFatal(world)
+		faceUp(world)
+		local boss = world.fighters[2]
+		boss.meter, boss.hp = ShippedConfig.MaxMeter, math.floor(boss.maxHp * ShippedConfig.FatalHealth) - 10
+		local start
+		local events = run(world, 1300, function(t)
+			if world.cinematic and not start then start = table.clone(world.cinematic) end
+			return { Sim.neutralInput(), input({ fatal = t == 1 }) }
+		end)
+		return events, start
+	end
+	local function knockOut(world, label)
+		local before = world.fighters[2].wins
+		local events = blow(world, 2, 1, { light = true })
+		local roundEnd = find(events, "RoundEnd")
+		expect(roundEnd and roundEnd.winner == 2 and not roundEnd.matchOver and world.fighters[2].wins == before + 1,
+			label .. ": ASURA did not knock the first fighter out")
+		run(world, ShippedConfig.KOTicks + 5)
+	end
+	local function finisherPlays(world, label, nextKit)
+		world.fighters[1].hp = math.floor(world.fighters[1].maxHp * 0.3)
+		local events, start = bossFatal(world)
+		local roundEnd = find(events, "RoundEnd")
+		expect(start and start.type == "Fatal" and start.finisher and start.kit == "ASURA" and start.attacker == 2,
+			label .. ": his killing COUP FATAL did not play his FATAL FINISHER")
+		expect(start.length == own.Length and start.finalTick == own.FinalTick, label .. ": not SAMSARA's length and beat")
+		local kos = 0
+		for _, e in events do
+			if e.kind == "Hit" and e.ko then kos += 1 end
+		end
+		expect(kos == 1 and count(events, "RoundEnd") == 1 and roundEnd.winner == 2 and roundEnd.inCinematic,
+			label .. ": not one K.O. on the scene's blow")
+		expect(not roundEnd.matchOver and not Director.matchDecided(world, ShippedConfig, 2),
+			label .. ": the finisher ends the challenge (VICTORY) with a fighter left")
+		run(world, ShippedConfig.KOTicks + 5)
+		expect(world.fighters[1].kit == nextKit and world.fighters[1].hp > 0, label .. ": " .. nextKit .. " did not come in after the scene")
+	end
+	-- his first life: KAI down, his COUP FATAL kills TARO; SHIN comes in
+	local world = challenge({ "KAI", "TARO", "SHIN" })
+	knockOut(world, "first life")
+	expect(world.fighters[1].kit == "TARO", "first life: TARO did not come in")
+	finisherPlays(world, "first life", "SHIN")
+	-- his second life: KAI down, TARO fells his first life and he rises; his COUP FATAL kills TARO
+	world = challenge({ "KAI", "TARO", "SHIN" })
+	knockOut(world, "second life")
+	local fell = blow(world, 1, 1, { light = true })
+	local rise = run(world, 300)
+	expect(find(fell, "Revive") or find(rise, "Revive"), "second life: ASURA did not rise")
+	expect(world.fighters[2].revived and world.fighters[1].kit == "TARO", "second life: not risen, or TARO is gone")
+	finisherPlays(world, "second life", "SHIN")
+	-- a lone fighter: his first K.O. ends the challenge, the classic fatal
+	world = challenge({ "KAI" })
+	world.fighters[1].hp = math.floor(world.fighters[1].maxHp * 0.3)
+	local events, start = bossFatal(world)
+	local roundEnd = find(events, "RoundEnd")
+	expect(start and start.finish and not start.finisher, "alone: a finisher on the K.O. that ends the challenge")
+	expect(roundEnd and roundEnd.winner == 2 and roundEnd.matchOver, "alone: the COUP FATAL did not end the challenge")
 end)
 
 test("a far player's missed QTE is judged before the final blow: the K.O. is decided once", function()

@@ -10,7 +10,9 @@ Gravité :
 
 Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas un bug (raison)`.
 
-Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides passent (1 603 tests). La v0.36.11 ne touche ni la simulation, ni le directeur, ni les finishers, ni les VFX, ni le son, ni `MoveData` : les lignes citées dans ces fichiers tiennent. Dans `init.server.luau`, tout ce qui est après la ligne 580 a bougé ; les fiches concernées ont une note « 26/10 ».
+Dernière chasse : 27/10, sur la v0.36.12 (HEAD 8c1c308). Les 8 suites rapides passent (1 615 tests : CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 57). AnimPops est identique au relevé de la validation (16 sauts, tous déjà connus), et AnimQuality d'ASURA est identique avant et après la v0.36.12 : rien n'a changé pour lui en combat. La v0.36.12 ne touche ni le serveur, ni le client, ni la simulation, ni le directeur, ni le son, ni les VFX. Lignes décalées : `Finishers.luau` après la ligne 3219 (+270), `MoveData.luau` après 1410 (+4), `Locale.luau` après 1329 (+1) ; les fiches concernées ont une note « 27/10 ». Les autres lignes citées tiennent.
+
+Ancienne chasse : 26/10, sur la v0.36.11 (HEAD 331765b), 1 603 tests.
 
 ---
 
@@ -122,6 +124,7 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
 - **À côté** : « STELLAR COLLAPSE » est deux fois dans `Locale.FR` (`Locale.luau:594` et `:1057`), avec la même traduction. Sans effet, mais il faudra retirer la ligne du finisher au renommage.
 - **Gravité** : cosmétique.
 - **Statut** : `ouvert` (confirmé). Changer le nom demande un choix de nom : production peut le proposer, Wilhem tranche. Le même genre de doublon, entre deux persos cette fois : B-034 (TOTAL ECLIPSE).
+- **27/10** : inchangé. Les deux lignes de `Locale.FR` sont maintenant `Locale.luau:594` et `:1062` ; `MoveData.luau:763` et `:1299` tiennent. Les 21 noms de finishers comparés à tous les textes du jeu (hors `Locale`) : seul STELLAR COLLAPSE est en double. SAMSARA n'est nulle part ailleurs.
 - **Piste** :
   - un nouveau nom pour le finisher (une ligne de `MoveData`, une de `Locale`) ;
   - dans le test commun, refuser aussi le nom d'un coup du même perso (`owner == nil`).
@@ -264,6 +267,9 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
   - puis le placement de chaque scène, comme pour SHIN (`room`).
 - **Gravité** : mineur, relevée depuis « cosmétique ». C'est visible : jusqu'à 5,5 studs au-delà de la ligne, ou un corps entier au-delà pendant 5,6 s (SYLVA), toujours à l'écran. Mais rien n'est faux en combat.
 - **Statut** : `ouvert` (confirmé le 19/10). Les autres cinématiques ont le même défaut, en plus fort : voir B-016. Depuis la v0.36.9, la ligne d'ELIAN est `Finishers.luau:3244` (et non plus `:3001`). La nouvelle scène de KUROEN, elle, reste sur le sol (`room`, tests de placement de `Cinematography`).
+- **27/10, sur la v0.36.12** : la ligne d'ELIAN est maintenant `Finishers.luau:3514` (SAMSARA est inséré avant elle) ; les autres lignes citées n'ont pas bougé. Script de la chasse : les 21 finishers dans 6 placements (centre des deux côtés, attaquant dos à chaque mur, **cible** dos à chaque mur, à x = ±27,5 comme `startCinematic` ; une option ajoutée à une copie de `CinematicKit`, hors dépôt), en relevant la pièce de corps la plus loin :
+  - SAMSARA (ASURA) et BLACK SUN (KUROEN) restent sur le sol partout : 27,4 au plus (une main), grâce à `room`. La validation notait que son placement « cible au mur » ne dépasse jamais x = 25,3 : pour ces deux scènes, cela ne change rien, `room` ramène la cible au même endroit depuis 25,3 ou 27,5 ;
+  - les 11 autres du tableau ci-dessus sortent toujours, comme le 19/10 (mesure par pièce, donc un peu plus loin que la mesure par corps : jusqu'à 36,5 pour une main d'ASTER).
 
 ## B-016 · Près d'un mur, les ultimes posent des corps loin au-delà de la ligne x = 28, et la caméra au-delà du bout du sol
 - **Date** : 19 octobre 2026.
@@ -1064,6 +1070,7 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
 - **Ce qui devrait se passer** : chaque boss sonne avec sa matière à lui, du premier élan au dernier coup : KUROEN SHIN comme un KUROEN plus lourd, ASURA comme le prévoit son entrée.
 - **Gravité** : mineur. C'est du son, assez discret (même famille de fichiers, mais ni le même bus ni la même hauteur), et cela dure tout le combat des deux défis, le moment fort du jeu.
 - **Statut** : `ouvert` (mécanisme prouvé ; l'écart s'entend en jeu, à juger par Wilhem). Code inchangé au 25/10 : la v0.36.10 ne touche ni `SoundPalette`, ni `SoundController`, ni `MoveData`.
+- **27/10** : inchangé sur la v0.36.12. La ligne de `MoveKit` est maintenant `MoveData.luau:1463` (et non plus `:1459`). Dans SAMSARA, les sons de la scène (`sfx`) prennent bien la matière d'ASURA (`cin.kit`) ; le coup porté par la simulation sonne encore comme KAI. Choix noté par production le 26/10 (`DECISIONS.md`).
 - **Piste** :
   - `SoundPalette.luau` : une entrée `["KUROEN SHIN"]` à lui, faite de **nouvelles tables**, par exemple celles de KUROEN un peu plus graves et dans `hall`, comme ASURA par rapport à KAI. Pas `MATERIALS["KUROEN SHIN"] = MATERIALS.KUROEN` : `SoundController.new` range chaque liste sous la clé `kit .. "." .. part` (`:45-49`). Une table partagée prendrait le nom du dernier kit parcouru, et un son de Wilhem nommé `KUROEN.hit` ne serait peut-être plus trouvé ;
   - le choix dans une fonction pure de `SoundPalette`, testable. Par exemple `Palette.materialOf(kit, moveKit, isBoss)` : le kit de l'attaquant s'il est un boss qui a sa matière, sinon le propriétaire du coup, sinon le kit. `SoundController` l'appelle en `:182`, `:186`, `:198` et `:237` (l'événement `Projectile` porte déjà `attacker`, `CombatSimulation.luau:1032`) ;
@@ -1118,7 +1125,7 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
   - supposé : la plupart des changements de serveur durent plus longtemps que l'écriture de départ, et ne voient aucune attente. La fréquence réelle ne se mesure qu'en jeu publié.
 - **Ce qui devrait se passer** : tant que la sauvegarde n'est pas là, le menu le dit, et rien de ce qui compte (CLASSÉ, modes qui paient, cadeaux du propriétaire) ne part du profil par défaut.
 - **Gravité** : mineur. C'est très visible quand cela arrive (le joueur croit sa progression perdue, et ses persos achetés sont verrouillés), mais passager. La perte réelle, un match effacé et une cote faussée pour l'adversaire, demande en plus un match fini avant le chargement.
-- **Statut** : `ouvert` (code inchangé au 26/10 ; la v0.36.11 ne touche ni le chargement ni le menu).
+- **Statut** : `ouvert` (code inchangé au 27/10 ; ni la v0.36.11 ni la v0.36.12 ne touchent le chargement ou le menu). Prévu comme tâche du jour par production ; la piste est à jour (voir « 27/10 » en bas de la fiche).
 - **26/10, les lignes après la v0.36.11** : `loadProfile` n'a pas bougé (`:152`, `:160-164`, `:181-184`, `:188`, `profileLoaded` en `:211` et `:218`). Plus loin : `menuStatus` en `:802` (`options` en `:822`, le guide en `:831`, les achats Robux en `:835`) ; `start` en `:1609-1633` (`Economy.teamAllowed` en `:1616`, la file avec la cote en `:1628-1629`) ; les achats attendent en `:1469`, `:1484`, `:1497`, `:1549` et `:1574` ; `endVersus` relit `ratingOf` en `:763` ; le DÉFI accepté en `:1382-1397` ; `!give` en `:1724`. `writeProfile` refuse un profil non chargé en `:255` (« unloaded »). « YOUR SAVE IS NOT LOADED YET » est en `Locale.luau:1600`.
 - **Ce que la v0.36.11 y ajoute** (déduit du code, avec le banc de la validation) : celui qui quitte un CLASSÉ perd maintenant toute sa cote. S'il le quitte **avant** la fin de son chargement, cette perte tombe sur le profil par défaut, qui n'est jamais écrit (`PlayerRemoving` n'écrit qu'un profil chargé, `:1343`), puis la sauvegarde revient telle quelle à la session suivante : il ne perd rien. Même cas sur le serveur réservé du CLASSÉ entre serveurs, qui lance le match au bout de 20 s même si un profil n'est pas là (`:1176-1182`).
 - **Piste** (précisée le 26/10) :
@@ -1128,6 +1135,10 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
   - `!give` (`:1724`) : `SaveQueue.isLoaded(saves, t.id, c)` au lieu de `c.profileLoaded`, avec la réponse « SAVES UNAVAILABLE » quand le chargement a échoué (là, le cadeau serait perdu) ;
   - le menu : un bandeau « LOADING YOUR SAVE… » tant que le statut n'a pas `options` **et** que le serveur a des sauvegardes (sans sauvegardes, dans Studio, `options` est toujours là, `:822`). C'est un nouveau texte, avec sa ligne dans `Locale.FR` ;
   - les tests : `needsSave` dans `Lobby.test` (seul TRAINING est permis), et le texte dans « languages ». Le fil de `start` vit dans `init.server.luau` : la validation peut le rejouer sur le banc du 25/10 (`unseat`, `endVersus` et le hub y sont déjà, au texte exact).
+- **27/10, relu sur la v0.36.12** (elle ne touche pas le serveur) : toutes les lignes de la note du 26/10 tiennent, relues une à une (`:152`, `:160-164`, `:181-184`, `:188`, `:211`, `:218`, `:255`, `:802`, `:822`, `:831`, `:835`, `:1609`, `:1616`, `:1628-1629`, `:1469`, `:1484`, `:1497`, `:1549`, `:1574`, `:763`, `:1382-1397`, `:1724`). Seule différence : « YOUR SAVE IS NOT LOADED YET » est maintenant en `Locale.luau:1601`. La piste tient, avec trois précisions :
+  - **le bandeau du menu ne peut pas se fier à l'absence d'`options`.** `options` manque tant que `SaveQueue.isLoaded` est faux (`:822`), donc aussi pendant **toute** une session dont le chargement a échoué (`profileLoaded` vrai, `isLoaded` faux, `:218`). Le bandeau « LOADING YOUR SAVE… » y resterait jusqu'au départ du joueur. Il vaut mieux un champ à lui dans `menuStatus` (`:802`), par exemple `loading = store ~= nil and not client.profileLoaded` ;
+  - **un `menuStatus` à la fin de chaque chargement.** Il part déjà en fin de chargement réussi (`client.onProfileLoaded`, `:1312` et `:1317`). Après un échec, le serveur n'envoie que l'erreur « SAVES UNAVAILABLE » (`:221-224`), sans nouveau statut : le bandeau ne s'éteindrait jamais. Ajouter `menuStatus(player)` après cette erreur ;
+  - **le serveur réservé du CLASSÉ entre serveurs** (`:1176-1182`) n'entre pas par `start` : la garde ne le couvre pas. Il attend les deux profils 20 s, puis lance quand même. Le plus simple : attendre jusqu'à `GlobalQueue.LOCK_TTL + 5` (65 s, l'attente la plus longue d'un chargement) au lieu de 20, puis, si un profil manque encore, ne pas lancer le match (les deux joueurs retournent au menu). À trancher par production ; c'est aussi le terrain de B-039.
 
 ## B-036 · Une écriture partie juste avant l'achat d'un pack de pièces peut garder le reçu sans les pièces
 - **Date** : 25 octobre 2026.
@@ -1227,10 +1238,88 @@ Dernière chasse : 26/10, sur la v0.36.11 (HEAD 331765b). Les 8 suites rapides p
   - le menu du serveur réservé pourrait dire « OPPONENT FOUND · CONNECTING… » (nouveau texte, `Locale.FR`) : à voir avec B-035, qui y montre aussi un profil vierge pendant le chargement ;
   - un test : le fil vit dans `init.server.luau` ; la validation peut le rejouer sur le banc du 25/10 (scène H4).
 
-## B-040 · Dans 18 FATAL FINISHERS sur 21, la cible se retourne d'un coup au sol (sa tête saute de plus de 4 studs en une image)
-- **Date** : 26 octobre 2026.
-- **Source** : relevé par la validation de SAMSARA (ASURA, v0.36.12), avec le script `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/qa/scripts/tgtpop.luau`. Pas encore repris par la chasse.
-- **Ce qui se passe** : au passage de la pose `DownImpact` à `DownFace`, la cible passe de dos à face contre terre en une seule image. Dans SAMSARA, c'est à t470 (`Finishers.luau:3334`, plan `asura-ss-blown`), avec un saut de la tête de 4,56 studs au milieu du plan. Le même saut existe dans 18 finishers sur 21.
-- **Ce qui devrait se passer** : la cible roule ou se retourne en quelques images, ou le changement tombe sur une coupe de plan.
-- **Gravité** : cosmétique (déjà là avant la v0.36.12, pas une régression).
-- **Statut** : `ouvert`. À confirmer par la chasse (liste des finishers touchés, tick de chaque saut).
+## B-040 · La cible se retourne d'un coup au sol (face contre terre en une image) : 16 FATAL FINISHERS, la scène K.O. de fin de match des 22 persos, et chaque ÉVEIL ou PORTE qui tue
+- **Date** : 26 octobre 2026 (validation). Confirmé et étendu par la chasse du 27 octobre.
+- **Source** : relevé par la validation de SAMSARA (ASURA, v0.36.12), avec le script `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/qa/scripts/tgtpop.luau`. Repris par la chasse le 27/10 (scripts `b040.luau`, `ultpop.luau`, `kopop.luau` et `camjump.luau` dans `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/hunt27/`, sur une copie de `src` et `tests`).
+- **Comment reproduire** :
+  - ici, les finishers : `Kit.play(kit, "Fatal", nil, 300, 0, …)` (`tests/CinematicKit.luau`). On suit la tête de la cible et on relève chaque saut de plus de 2 studs d'une image à l'autre dans un même plan, après le coup mortel (le critère de la validation). Mêmes résultats depuis la droite et dos au mur (`mirror`, `wall`), au centième de stud près ;
+  - ici, le reste : `Kit.playKO(kit, 1 ou 2, …)` (la scène K.O. de fin de match), et `Kit.play(kit, "Rush" | "Awaken" | "Gate" | "Fatal", nil, 300, …)` sans finisher (copie du module où `world.labFinisher` est forcé à faux) ;
+  - à l'œil : `luau tests/Storyboard.luau -a ASURA Fatal - 1 1`, puis `python3 tools/storyboard.py`, images t463 à t471 ;
+  - en jeu : n'importe quel match gagné par K.O. Le premier plan de la scène K.O. (noir et blanc, le corps qui tombe) se termine, à 0,37 s, par ce retournement.
+- **Ce qui se passe** (prouvé sur le labo : rig KAI, animateur réel) :
+  - **les finishers** (critère de la validation) : **19 sur 21**, et non 18. Il y a **16 vraies bascules face contre terre** (plus de 4 studs, vers `DownFace`) :
+
+    | Finisher | Tick | Plan | Saut de la tête | Poses | À l'écran |
+    |---|---|---|---|---|---|
+    | AKEMI | t492 | `akemi-ts-neck` | 4,73 | `Launched` → `DownFace` | oui |
+    | ASTER | t500 | `aster-sc-crash` | 4,76 | idem | oui, sous le titre K.O. |
+    | ASURA | t464 puis t470 | `asura-ss-blown` | 3,06 puis 4,56 | `Launched` → `DownImpact` → `DownFace` | oui |
+    | DAICHA | t520 | `daicha-iw-after` | 4,76 | `Launched` → `DownFace` | oui, sous le titre K.O. |
+    | ELIAN | t560 | `elian-fm-after` | 4,76 | idem | oui, sous le titre K.O. |
+    | HIBIKI | t482 | `hibiki-rs-after` | 4,80 | idem | non : la tête est hors du cadre |
+    | KAI | t525 | `kai-mx-blast` | 4,82 | idem | oui |
+    | KAZAN | t470 | `kazan-cc-x` | 4,76 | idem | oui |
+    | KUREN | t500 | `kuren-cv-after` | 4,76 | idem | oui, sous le titre K.O. |
+    | RAIJIN | t514 | `raijin-st-bolt` | 4,87 | idem | oui |
+    | RYUKEN | t520 | `ryuken-tf-wall` | 4,85 | idem | oui |
+    | SHIN | t560 | `shin-fd-ko` | 4,75 | idem | oui, sous la carte K.O. (la scène reste visible dessous depuis B-001) |
+    | SYLVA | t486 | `sylva-gh-through` | 4,76 | idem | oui |
+    | TARO | t552 | `taro-dr-crash` | 5,47 | idem | oui |
+    | VENOM | t474 | `venom-tf-burst` | 4,76 | idem | oui |
+    | YUKINA | t488 | `yukina-fr-shatter` | 4,76 | idem | oui |
+
+    - les 3 autres qui passent le critère sont d'une autre nature : GORAN t496 (`goran-tq-slam`, 3,18, un rebond `DownImpact` → `Launched`), HIBECARES t478 (`hibecares-tr-crater`, 5,04 : debout, `HitHigh`, à couché sur le dos, `DownImpact`, d'un coup) puis t500 (3,20, rebond), KUROEN t446 (`kuroen-bs-blow`, 2,07, `Crumple` → `DownFace`). Aussi SHIN t540 et SYLVA t466 (2,4 : `HitBody` → `Launched`) ;
+    - propres : NOVA et ZEPHYR ;
+  - **la caméra suit le saut** quand le plan cadre le corps de la cible : dans SAMSARA, `asura-ss-blown` (`subjects = "d"`, `frameOn`) saute de **7,0 studs** à t464 et à t470, parce que la boîte du corps change d'un coup. Même chose pour KUREN t480 (`kuren-cv-pierce`, 7,6 studs, `HitHigh` → `Launched`), SYLVA (`sylva-gh-stalk`, 2,5 à 3,4 studs à t230, t238, t270, t278, t310 et t318, quand la cible passe de `Launched` à `HitBody` et retour) et RAIJIN (`raijin-st-lit`, 5,6 studs toutes les 3 images de t453 à t471). Chez RAIJIN, le clignotement de la cible foudroyée est voulu (`HitHigh` et `Launched` en alternance, `Finishers.luau:1638`) ; la caméra qui saute avec lui, sans doute pas ;
+  - **le même saut ailleurs, bien plus souvent** :
+    - **la scène K.O. de fin de match** (`Director.ko`) : les **22 persos**, et les deux scènes de ceux qui en ont deux. À t22 (t24 pour KAI et ZEPHYR), au premier plan `ko-…-fall`, 4,8 à 5,1 studs. C'est la scène de presque chaque match gagné par K.O. ;
+    - **un ÉVEIL ou une PORTE qui tue** : 22 sur 22 et 22 sur 22. Ils enchaînent sur la même chute (`ko-…-fall`, à t242 ou t232) ;
+    - **un COUP FATAL classique qui tue** (sans finisher) : 11 sur 22 (`FATAL.fall`), par exemple `shin-issen-fall` t226 ou `kai-ciel-back` t170. Quand il ne tue pas, les mêmes 11 passent de `Launched` à `Kneel` en une image (2,4 studs) ;
+    - **un RUSH qui tue** : 4 sur 22 (KAI `rush-meteor` t102, 5,85 ; ASTER t146 ; RYUKEN t103 ; YUKINA t139) ;
+    - à part, des sauts de 7 à 11 studs, répétés toutes les 7 à 8 images, dans des scènes qui écrasent la cible au sol coup après coup : le RUSH de GORAN (`goran-rush-blows-a`, `-b`, `-c`), l'ÉVEIL de HIBECARES (`hibecares-chatiment-punish`) et celui de KAZAN (`kazan-eveil-blows-a`, `-b`). C'est peut-être voulu (des images d'impact) : à juger avec le reste.
+- **Ce qui devrait se passer** : la cible tombe, roule ou se retourne en quelques images, ou le changement tombe sur une coupe de plan ; la caméra ne saute pas au milieu d'un plan.
+- **Cause** (prouvée) :
+  - `src/shared/Animator.luau:494` et `:496` : une pose de scène donne la clé `"Pose:" .. nom`. Toutes les poses de scène sont donc dans la même famille, `Pose` ;
+  - `Animator.luau:830` : `instant = snap or family == last`. D'une pose de scène à une autre, l'animateur ne fond jamais : il coupe. `Launched` (`src/shared/PoseLibrary.luau:197`, le bassin penché en arrière de 40°) ou `DownImpact` (`:208`, sur le dos, 84°) devient `DownFace` (`:219`, face contre terre, −90°) d'une image à l'autre : 130 à 174° de rotation d'un coup ;
+  - les scènes qui le font :
+    - `FATAL.fall` (`src/shared/CinematicDirector.luau:2690-2699`), appelé 19 fois dans `Finishers.luau` et par les COUPS FATAUX du directeur ;
+    - les chutes des scènes K.O. : `CinematicDirector.luau:3233`, `:3283`, `:3334`, `:3392`, `:3437`, `:3488`, `:3536`, `:4784`, `:5022` (`if t < 22 then "Launched" else "DownFace"`), et celle du RUSH de KAI (`:317`) ;
+    - `GEN.lie` (`:4183-4191`), pour les ultimes générés ;
+    - SAMSARA : `src/shared/Finishers.luau:3329-3335` ;
+  - le combat n'a pas ce défaut : un corps qui tombe y est déjà penché sur le dos (`Launched` puis `LaunchedFall`, 40 à 72°), la coupe vers `DownImpact` (84°) est donc petite, puis il se fond vers `Down` (sur le dos) par étapes (`Animator.luau:599-606`).
+- **Ce qui ne se mesure pas d'ici** : à 60 images par seconde, le saut dure une image. En jeu, il peut se lire comme un choc voulu, ou comme un corps qui « clignote ». Le client place les corps et les anime avec le même animateur (`src/client/init.client.luau:585-600`, `AnimationController:update`) : rien ne lisse le saut.
+- **Gravité** : **mineur** (relevée depuis « cosmétique »). C'est visuel et ça ne dure qu'une image, mais c'est dans presque chaque match (la scène K.O. de fin), dans un plan qui ne montre que ce corps qui tombe. Ce n'est pas une régression de la v0.36.12.
+- **Statut** : `ouvert` (confirmé le 27/10).
+- **Piste** (le choix revient à production) :
+  1. **une règle dans l'animateur**, la plus large : quand une pose de scène passe à une pose couchée (`DownFace`, `DownImpact`, `Down`, `Kneel`) depuis une pose en l'air ou frappée (`Launched`, `HitHigh`, `HitBody`, `Crumple`…), fondre en 0,1 à 0,15 s au lieu de couper (`Animator.luau:830` : une famille à part pour ces poses, avec son `BLEND_TIMES`). Attention : un fondu linéaire du bassin de +40° à −90° fait pivoter le corps vers l'avant en passant par la verticale. À juger avec `luau tests/AnimClip.luau` et le storyboard ; une pose intermédiaire « sur le côté » rendrait le retournement plus lisible ;
+  2. **ou, scène par scène** : faire basculer le corps vers l'avant pendant la chute (une pose `FallFace` : penché en avant, les mains tendues), pour que l'arrivée en `DownFace` ne tourne plus que d'environ 30°. Sans la règle 1, la coupe a seulement lieu en l'air ;
+  3. **ou, un choix de mise en scène** (production, ou Wilhem s'il tient au « face contre terre ») : tomber sur le dos comme en combat (`DownImpact`, puis `Down`), et garder `DownFace` pour les scènes qui jettent la cible vers l'avant ;
+  4. **dans tous les cas, un test** dans `Cinematography` : dans un même plan, la tête de la cible ne saute jamais de plus de 2 studs d'une image à l'autre, et la caméra jamais de plus de 1,5 stud. À faire sur les 21 finishers, les ultimes qui tuent et les 22 scènes K.O., avec les exceptions nommées (`vanish` de DAICHA, cible cachée).
+
+## B-041 · TOXIC FEAST (VENOM) : après chacune de ses trois frappes, VENOM saute de 6 à 9 studs en une image, dans le même plan, et la caméra avec lui
+- **Date** : 27 octobre 2026.
+- **Source** : trouvé par la chasse, en relevant les sauts de caméra à l'intérieur d'un plan sur les 21 FATAL FINISHERS (`camjump.luau`, dans `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/hunt27/`).
+- **Comment reproduire** :
+  - ici : `Kit.play("VENOM", "Fatal", nil, 300, 0, …)`, en suivant la place de VENOM (`views[A].x`, `.z`), la caméra (`info.cam`) et le cadre (`Kit.projector`, `Kit.bodyBounds`) autour des ticks 164, 214 et 264. Ou `luau tests/Storyboard.luau -a VENOM Fatal - 1 1`, images t163 et t164 ;
+  - en jeu : gagner une manche avec VENOM, puis tuer au COUP FATAL. Regarder la fin de chacune des trois frappes qui sortent de la brume (de 2,7 s à 4,4 s).
+- **Ce qui se passe** (prouvé sur le labo, même chose depuis la droite, en miroir) :
+
+  | Frappe | Tick | Plan | VENOM (x ; z), avant → après | Saut | Caméra | À l'écran |
+  |---|---|---|---|---|---|---|
+  | 1 | t164 | `venom-tf-strike1` | (0,29 ; −2,61) → (7,21 ; −4,02) | 7,1 studs | 5,2 studs | oui, avant et après |
+  | 2 | t214 | `venom-tf-strike2` | (4,10 ; −0,12) → (5,77 ; −5,77) | 5,9 studs | 1,6 stud | oui |
+  | 3 | t264 | `venom-tf-strike3` | (0,51 ; 2,68) → (−2,92 ; −5,99) | 9,3 studs | 3,0 studs | oui |
+
+  - le plan de la frappe est gardé 12 images de plus (« the strike's shot holds while he goes »), mais il est composé sur les deux corps (`frameOn` sur `{ a, d }`). Il se recompose donc aussitôt sur la nouvelle place de VENOM : la caméra saute avec lui ;
+  - rien ne le cache : il n'est pas masqué (`hidden`), et les bouffées de brume (`smoke`) sont posées au hasard autour de la cible, pas sur lui. Le client place les corps sans lissage (`src/client/init.client.luau:585-600`).
+- **Ce qui devrait se passer** : comme le dit le commentaire, il « se fond dans la brume » : il glisse vers l'arrière, ou disparaît, pendant que le plan tient.
+- **Cause** (prouvée) : `src/shared/Finishers.luau:1843-1844`. La frappe dure jusqu'à `s + 14`, puis vient `after`. À `s + 14`, VENOM quitte sa place de frappe (`circle(a, cx, dir, s_[3], 2.8, 0)`, `:1851`) pour sa ronde autour de la proie (l'ellipse, `:1875`), d'une image à l'autre. Le plan gardé (`:1888-1891`) est recomposé sur lui.
+- **Gravité** : cosmétique. Trois sauts d'une image, dans des plans courts, au milieu de la brume.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - pendant `after` (12 images), faire glisser VENOM de sa place de frappe jusqu'à l'ellipse (un `lerp` sur `smooth(progress(tick, s + 14, s + 26))`), ou le masquer (`a.hidden = true`, comme SHIN entre ses coupes) ;
+  - composer le plan gardé sur des points fixes (la cible, la place de la frappe), pas sur son corps ;
+  - le test de B-040 (caméra jamais plus de 1,5 stud d'une image à l'autre dans un plan) l'attraperait.
+- **À côté** (mêmes mesures, sans fiche à part pour l'instant ; à juger par production) :
+  - ZEPHYR, `zephyr-ge-sway` : le même nom de plan change d'angle à chaque coup esquivé (`yaws[k]`, `Finishers.luau:743-744`). La caméra saute de 6 à 14° et de 1,8 à 4 studs à t76, t122, t144 et t168. Cela se lit comme une petite coupe dans le même axe ; c'est peut-être voulu ;
+  - TARO, `taro-dr-eyes` : 13 à 17° à chaque coup, en vue subjective. C'est le coup de tête de la vue subjective, voulu.

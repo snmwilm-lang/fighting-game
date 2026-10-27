@@ -1599,6 +1599,13 @@ for k, v in {
 	["ONLY WITH ITS GAME PASS"] = "SEULEMENT AVEC SON GAME PASS",
 	["NOT FOR SALE"] = "PAS EN VENTE",
 	["YOUR SAVE IS NOT LOADED YET"] = "TA SAUVEGARDE N'EST PAS ENCORE CHARGÉE",
+	-- (B-035: the menu while the saved profile loads; an accepted challenge or a cross-server
+	-- RANKED match waiting for the other player's; the owner's !give after a failed load)
+	["LOADING YOUR SAVE…"] = "CHARGEMENT DE TA SAUVEGARDE…",
+	["YOUR OPPONENT'S SAVE IS NOT LOADED YET"] = "LA SAUVEGARDE DE TON ADVERSAIRE N'EST PAS ENCORE CHARGÉE",
+	["NOT GIVEN · SAVES UNAVAILABLE:"] = "PAS DONNÉ · SAUVEGARDES INDISPONIBLES :",
+	["GIVEN TO"] = "DONNÉ À",
+	["NOBODY READY (profile loading)"] = "PERSONNE N'EST PRÊT (profil en chargement)",
 	["NOT AVAILABLE FOR YOUR ACCOUNT"] = "PAS DISPONIBLE POUR TON COMPTE",
 	["✓ TESTER · EVERY FIGHTER"] = "✓ TESTEUR · TOUS LES PERSOS",
 	["SUPPORTER pass"] = "pass SUPPORTER",

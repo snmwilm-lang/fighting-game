@@ -48,6 +48,7 @@ local Store = require(Shared.Store)
 local storeIdx = Store.index(StoreConfig) -- (the SHOP: passes, products, cosmetics by key and id)
 local JOB = game.JobId -- (this server: the session lock and the cross-server queue)
 local arrivedForCrossMatch -- (defined with the cross-server search)
+local menuStatus -- (defined with the menu; declared here: the end of a profile load sends it, B-035)
 
 Players.CharacterAutoLoads = false
 
@@ -221,8 +222,16 @@ local function loadProfile(player, client)
 		if clients[player] == client then
 			client.checkPasses() -- (the perks still show; nothing can be bought on this session)
 			menuRemote:FireClient(player, { error = "SAVES UNAVAILABLE: this session will not be kept" })
+			menuStatus(player) -- (B-035: the load has ended, the menu stops saying LOADING YOUR SAVE…)
 		end
 	end)
+end
+-- B-035: this player's saved profile is still on its way (GameModes.saveLoading): the menu says
+-- so, and nothing that writes in the profile starts on the defaults meanwhile (start, an
+-- accepted challenge, the reserved server's RANKED match). A failed load has ended too
+-- (profileLoaded, SAVES UNAVAILABLE): that session plays unsaved, warned, as before.
+local function saveLoading(client)
+	return GameModes.saveLoading(store ~= nil, client.profileLoaded == true)
 end
 -- The rankings (CLASSEMENT): an ordered store of the ratings per RANKED category (1v1, 2v2,
 -- 3v3: Matchmaker.BOARDS), read 10 at a time. boards[1] is the 1v1 one (the champion's).
@@ -549,7 +558,6 @@ local function refreshLooks(match)
 	end
 end
 
-local menuStatus -- (defined below)
 local previewStyle -- (defined below)
 
 local function newMatch(mode, options)
@@ -818,6 +826,9 @@ function menuStatus(player, bought, unlocked)
 			return nil
 		end)(),
 		wins = profile.wins, losses = profile.losses, survivalBest = profile.survivalBest, coins = profile.coins or 0,
+		-- (B-035: the saved profile is still loading, the values above are the defaults: LOADING
+		-- YOUR SAVE… in the menu; never from `options`, also missing after a failed load)
+		loading = saveLoading(client),
 		-- (only once the saved profile is in: the defaults must not be applied in its place)
 		options = if not store or SaveQueue.isLoaded(saves, player.UserId, client)
 			then { optReduced = profile.optReduced, optSound = profile.optSound, optMusic = profile.optMusic,
@@ -1172,14 +1183,27 @@ arrivedForCrossMatch = function(player, client)
 	if GlobalQueue.arrival(pending, player.UserId, os.clock()) and not pending.started then
 		pending.started = true
 		task.spawn(function()
-			-- (both profiles in first: the rating at stake must be the saved one)
+			-- (both profiles in first: the rating at stake must be the saved one. B-035: never a
+			-- RANKED match on the defaults; still loading after GlobalQueue.PROFILE_WAIT, no match)
 			local a, b = Players:GetPlayerByUserId(pending.expect[1]), Players:GetPlayerByUserId(pending.expect[2])
 			local started = os.clock()
-			while a and b and clients[a] and clients[b] and not (clients[a].profileLoaded and clients[b].profileLoaded)
-				and os.clock() - started < 20 do
+			local verdict = "wait"
+			while a and b and clients[a] and clients[b] do
+				verdict = GlobalQueue.crossStart(saveLoading(clients[a]), saveLoading(clients[b]), os.clock() - started)
+				if verdict ~= "wait" then break end
 				task.wait(0.5)
 			end
-			if a and b and clients[a] and clients[b] then startVersus(a, b, "RANKED") end
+			if not (a and b and clients[a] and clients[b]) then return end
+			if verdict == "start" then
+				startVersus(a, b, "RANKED")
+				return
+			end
+			print(string.format("[FightingGame] cross-server RANKED %d vs %d not started: a profile still loading after %d s",
+				a.UserId, b.UserId, GlobalQueue.PROFILE_WAIT))
+			for _, p in { a, b } do
+				menuRemote:FireClient(p, { error = if saveLoading(clients[p]) then "YOUR SAVE IS NOT LOADED YET" else "YOUR OPPONENT'S SAVE IS NOT LOADED YET" })
+				menuStatus(p)
+			end
 		end)
 	end
 end
@@ -1311,10 +1335,11 @@ local function joined(player)
 			menuRemote:FireClient(player, { daily = { coins = coins, streak = streak, cycle = #Economy.DAILY } })
 			menuStatus(player)
 		end
-		if not saved then return end
-		grantChampion(player, client)
-		buildHero(player)
-		menuStatus(player)
+		if saved then
+			grantChampion(player, client)
+			buildHero(player)
+		end
+		menuStatus(player) -- (every load that ends sends the status: LOADING YOUR SAVE… goes, B-035)
 	end
 	arrivedForCrossMatch(player, client)
 	loadProfile(player, client)
@@ -1383,7 +1408,17 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 		-- (B-023: accepting is the accepter's own leave, an abandon of its own 1v1 if any; never
 		-- the challenger's: a challenger in a 1v1 between players has its challenge withdrawn)
 		local why
-		if target ~= nil then ok, why = Lobby.accept(lobby, id, target, now, inVersus(Players:GetPlayerByUserId(target))) end
+		if target ~= nil then
+			-- (B-035: a challenge is played on both saved profiles (coins, history, the accepter's
+			-- own abandon): while either one is still loading, nothing starts and it stays)
+			local from = Players:GetPlayerByUserId(target)
+			local mine = saveLoading(client)
+			local theirs = from ~= nil and clients[from] ~= nil and saveLoading(clients[from])
+			ok, why = Lobby.accept(lobby, id, target, now, inVersus(from), mine or theirs)
+			if why == "loading" then
+				menuRemote:FireClient(player, { error = if mine then "YOUR SAVE IS NOT LOADED YET" else "YOUR OPPONENT'S SAVE IS NOT LOADED YET" })
+			end
+		end
 		if why == "busy" then broadcastHub() end -- (the withdrawn challenge leaves the hub)
 		lobby.slots = {}
 		local challenger = ok and Players:GetPlayerByUserId(target)
@@ -1612,6 +1647,12 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			menuRemote:FireClient(player, { error = reason })
 			return
 		end
+		-- (B-035: every mode but TRAINING waits for the saved profile, before the fighters are
+		-- checked: a fighter bought is not in the defaults; a failed load has ended the wait)
+		if GameModes.waitsForSave(request.mode, store ~= nil, client.profileLoaded == true) then
+			menuRemote:FireClient(player, { error = "YOUR SAVE IS NOT LOADED YET" })
+			return
+		end
 		-- (a locked fighter: TRAINING only, to try it; the developer access plays them all)
 		local allowed, locked = Economy.teamAllowed(client.profile, request.team, request.mode, devOn(player, client))
 		if not allowed then
@@ -1717,11 +1758,13 @@ local function ownerCommand(player, text)
 		menuRemote:FireClient(player, { adminReply = "NO PLAYER MATCHES « " .. cmd.target .. " »" })
 		return
 	end
-	local given = {}
+	local given, unsaved = {}, {}
 	for _, t in targets do
 		local p = Players:GetPlayerByUserId(t.id)
 		local c = p and clients[p]
-		if c and c.profile and c.profileLoaded then
+		-- (B-035: only a profile THIS session loaded is ever written: a gift on the defaults, or
+		-- after a failed load (SAVES UNAVAILABLE), would be gone at the next session)
+		if c and c.profile and (not store or SaveQueue.isLoaded(saves, t.id, c)) then
 			local ok, what = Admin.apply(c.profile, cmd, adminCatalogs)
 			if not ok then
 				menuRemote:FireClient(player, { adminReply = "NOT GIVEN: " .. tostring(what) })
@@ -1733,9 +1776,14 @@ local function ownerCommand(player, text)
 			menuRemote:FireClient(p, { gift = what, from = player.DisplayName })
 			table.insert(given, p.DisplayName)
 			print(string.format("[FightingGame] %s gave %s to %s", player.Name, what, p.Name))
+		elseif c and c.profileLoaded then
+			table.insert(unsaved, p.DisplayName)
 		end
 	end
-	menuRemote:FireClient(player, { adminReply = if #given > 0 then "GIVEN TO " .. table.concat(given, ", ") else "NOBODY READY (profile loading)" })
+	local reply = {}
+	if #given > 0 then table.insert(reply, "GIVEN TO " .. table.concat(given, ", ")) end
+	if #unsaved > 0 then table.insert(reply, "NOT GIVEN · SAVES UNAVAILABLE: " .. table.concat(unsaved, ", ")) end
+	menuRemote:FireClient(player, { adminReply = if #reply > 0 then table.concat(reply, " · ") else "NOBODY READY (profile loading)" })
 end
 local function listenOwner(player)
 	if DevAccess.isOwner(player.UserId, game.CreatorId, CREATOR_IS_USER) then

@@ -329,6 +329,18 @@ test("languages: the game is in English, every move, fighter text and menu line 
 	end
 	expect(Locale.translate("NO CONTEST · UPDATE: moving you to the new version…", "FR")
 		== "MATCH ANNULÉ · MISE À JOUR : on te déplace vers la nouvelle version…", "the no contest line")
+	-- (B-035: the menu while the saved profile loads, the refusals of a challenge or of the
+	-- reserved server's RANKED match, the owner's !give after a failed load; init.server.luau,
+	-- MenuController.luau)
+	for _, line in { "LOADING YOUR SAVE…", "YOUR SAVE IS NOT LOADED YET", "YOUR OPPONENT'S SAVE IS NOT LOADED YET",
+		"NOT GIVEN · SAVES UNAVAILABLE:", "NOBODY READY (profile loading)" } do
+		need(line)
+	end
+	expect(Locale.translate("LOADING YOUR SAVE…", "FR") == "CHARGEMENT DE TA SAUVEGARDE…", "the loading banner")
+	expect(Locale.translate("NOT POSSIBLE: YOUR OPPONENT'S SAVE IS NOT LOADED YET", "FR")
+		== "IMPOSSIBLE : LA SAUVEGARDE DE TON ADVERSAIRE N'EST PAS ENCORE CHARGÉE", "the opponent's save, as the menu shows it")
+	expect(Locale.translate("GIVEN TO Ann · NOT GIVEN · SAVES UNAVAILABLE: Bob", "FR")
+		== "DONNÉ À Ann · PAS DONNÉ · SAUVEGARDES INDISPONIBLES : Bob", "the owner's reply")
 	-- whole lines, format lines and lines built from pieces
 	expect(Locale.translate("ROUTE CLEARED · CLEAN ✓", "FR") == "ROUTE RÉUSSIE · PROPRE ✓", "a whole line")
 	expect(Locale.translate("You need 3 ki bars (you have 1): turn ULTIMATES: ON at the top", "FR")
@@ -1398,6 +1410,95 @@ test("a challenge accepted during a RANKED match (B-023): never the challenger's
 	w.match.mode = "VERSUS_CPU"
 	h.start(w)
 	expect(h.accept(C, A, 105) and h.started[1] == A and w.settled == 0, "a challenger playing the CPU cannot be accepted")
+end)
+
+test("saves loading (B-035): only TRAINING before the saved profile is in; a challenge waits for both saves; the cross-server RANKED never starts on the defaults", function()
+	local G = require("../src/server/GlobalQueue")
+	local Profile = require("../src/server/Profile")
+	local Taunts = require("../src/shared/Taunts")
+	-- every mode of the menu writes in the profile (rating, coins, history, quests, an abandon),
+	-- but TRAINING; a mode the list does not know waits too
+	for _, mode in GameModes.List do
+		expect(GameModes.needsSave(mode.id) == (mode.id ~= "TRAINING"), mode.id .. ": needsSave " .. tostring(GameModes.needsSave(mode.id)))
+	end
+	expect(GameModes.needsSave(nil) and GameModes.needsSave("NEW MODE"), "an unknown mode waits for the save")
+	-- the states of a session, as the server sees them (init.server.luau: `store ~= nil`,
+	-- `client.profileLoaded`, true once the load has ended, loaded or failed)
+	local STATES = {
+		{ name = "loaded", saves = true, loaded = true, loading = false },
+		{ name = "waiting (nothing yet)", saves = true, loaded = nil, loading = true },
+		{ name = "waiting (false)", saves = true, loaded = false, loading = true },
+		{ name = "failed, SAVES UNAVAILABLE (plays unsaved, warned; never TRAINING only)", saves = true, loaded = true, loading = false },
+		{ name = "no saves (Studio)", saves = false, loaded = nil, loading = false },
+	}
+	for _, st in STATES do
+		expect(GameModes.saveLoading(st.saves, st.loaded) == st.loading, st.name .. ": saveLoading")
+		for _, mode in GameModes.List do
+			local waits = GameModes.waitsForSave(mode.id, st.saves, st.loaded)
+			expect(waits == (st.loading and mode.id ~= "TRAINING"), st.name .. " · " .. mode.id .. ": waits " .. tostring(waits))
+		end
+	end
+	-- the requests the server checks (`start`): valid in themselves, refused while loading, before
+	-- the fighters (a fighter bought is not in the defaults: it would say FIGHTER LOCKED first)
+	local function request(r) return (GameModes.validate(r, MoveData.KitOrder)) end
+	for _, r in { { mode = "VERSUS", team = { "KAI" }, queue = "RANKED" }, { mode = "VERSUS", team = { "KAI" }, queue = "NORMAL" },
+		{ mode = "VERSUS_CPU", team = { "KAI" }, level = 4 }, { mode = "SURVIVAL", team = { "KAI" } },
+		{ mode = "CHALLENGE", team = { "KAI" } }, { mode = "CHALLENGE_SHIN", team = { "KAI" } } } do
+		local valid = request(r)
+		expect(valid and GameModes.waitsForSave(valid.mode, true, nil), r.mode .. " " .. tostring(r.queue) .. " starts on the defaults")
+		expect(valid and not GameModes.waitsForSave(valid.mode, true, true), r.mode .. " refused once loaded (or failed)")
+	end
+	local training = request({ mode = "TRAINING", team = { "AKEMI" } })
+	expect(training and not GameModes.waitsForSave(training.mode, true, nil), "TRAINING refused while loading")
+	-- what is at stake: the defaults are not the save (the hunt's table: 1600 shown as 1000)
+	local deps = { startRating = Matchmaker.START_RATING, taunts = Taunts.DEFAULT, achievementSeason = GameModes.ACHIEVEMENT_SEASON }
+	local defaults = Profile.default(deps)
+	expect(Matchmaker.ratingOf(defaults, 1) == 1000 and (defaults.coins or 0) == 0, "the defaults: 1000 points, 0 coins")
+
+	-- an accepted challenge (the hub handler): either save loading, nothing starts, the
+	-- challenges stay (also the ones the accepter received from others), nobody seated
+	local A, B, C = 11, 22, 33
+	local l = Lobby.new()
+	for _, id in { A, B, C } do Lobby.join(l, id, tostring(id)) end
+	l.slots = {}
+	expect(Lobby.challenge(l, A, B, 0) and Lobby.challenge(l, C, B, 0), "two challenges to B")
+	local ok, why = Lobby.accept(l, B, A, 5, false, true)
+	expect(not ok and why == "loading", "accepted while a save loads: " .. tostring(ok) .. ", " .. tostring(why))
+	expect(l.challenges[A] and l.challenges[A].to == B and l.challenges[C] and l.challenges[C].to == B, "the challenges stay")
+	expect(l.slots[1] == nil and l.slots[2] == nil, "nobody seated while a save loads")
+	ok, why = Lobby.accept(l, B, A, 10, false, false)
+	expect(ok and why == nil and l.slots[1] == A and l.slots[2] == B, "accepted again once both saves are in")
+	expect(l.challenges[A] == nil and l.challenges[C] == nil, "then the challenges go, as before")
+	-- an expired challenge stays a plain no, a busy challenger (B-023) is still withdrawn first
+	l = Lobby.new()
+	for _, id in { A, B } do Lobby.join(l, id, tostring(id)) end
+	l.slots = {}
+	Lobby.challenge(l, A, B, 0)
+	ok, why = Lobby.accept(l, B, A, Lobby.CHALLENGE_SECONDS + 1, false, true)
+	expect(not ok and why == nil, "an expired challenge: " .. tostring(why))
+	Lobby.challenge(l, A, B, 100)
+	ok, why = Lobby.accept(l, B, A, 101, true, true)
+	expect(not ok and why == "busy" and l.challenges[A] == nil, "a busy challenger: withdrawn (B-023), " .. tostring(why))
+
+	-- the reserved server of a cross-server RANKED match: both saved profiles, or no match
+	expect(G.PROFILE_WAIT >= G.LOCK_TTL + 5, "it waits at least as long as a lock outlives a crashed server (LOCK_TTL + 5)")
+	expect(G.crossStart(false, false, 0) == "start", "both in: at once")
+	for _, t in { 0, 20, 21, 40, G.PROFILE_WAIT - 0.5 } do
+		for _, pair in { { true, false }, { false, true }, { true, true } } do
+			local v = G.crossStart(pair[1], pair[2], t)
+			expect(v == "wait", string.format("still loading (%s, %s) at %.1f s: %s (it started at 20 s before B-035)",
+				tostring(pair[1]), tostring(pair[2]), t, v))
+		end
+	end
+	for _, t in { G.PROFILE_WAIT, G.PROFILE_WAIT + 30 } do
+		for _, pair in { { true, false }, { false, true }, { true, true } } do
+			expect(G.crossStart(pair[1], pair[2], t) == "cancel", "still loading at " .. t .. " s: no match, never on the defaults")
+		end
+	end
+	expect(G.crossStart(false, false, G.PROFILE_WAIT + 30) == "start", "in at the last check: it starts")
+	-- (a failed load has ended: SAVES UNAVAILABLE plays unsaved, as `start` lets it)
+	expect(G.crossStart(GameModes.saveLoading(true, true), GameModes.saveLoading(true, true), 3) == "start", "loaded, or failed")
+	expect(G.crossStart(GameModes.saveLoading(true, true), GameModes.saveLoading(true, nil), 3) == "wait", "one still loading")
 end)
 
 test("taunts: predefined only, a slot number of the saved wheel, 5 s server cooldown, two players at once, six saved, locked ones", function()

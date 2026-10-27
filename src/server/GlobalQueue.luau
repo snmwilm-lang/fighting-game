@@ -13,7 +13,8 @@
 	    as the server's own Matchmaker: nobody waits forever).
 	  • The claim is atomic (MemoryStore UpdateAsync with `claim`): it fails when someone was
 	    faster, and the search goes on.
-	  • The reserved server waits for both (ARRIVE_TIMEOUT), then starts the RANKED match.
+	  • The reserved server waits for both (ARRIVE_TIMEOUT), then for both saved profiles
+	    (crossStart, PROFILE_WAIT), then starts the RANKED match.
 	Tests: tests/Lobby.test.luau.
 ]]
 local GlobalQueue = {}
@@ -87,6 +88,19 @@ function GlobalQueue.expired(pending, now)
 	return now - pending.created > GlobalQueue.ARRIVE_TIMEOUT
 end
 
+-- Both players are on the reserved server: the RANKED match starts only on both saved
+-- profiles (B-035), never on the defaults (1000 points, a result wiped by the merge of the
+-- save, the opponent's points counted against 1000). `loadingA`, `loadingB`: that player's
+-- profile is still on its way (GameModes.saveLoading; a failed load has ended: SAVES
+-- UNAVAILABLE, played unsaved and warned, as anywhere else). `waited`: seconds since both
+-- arrived. "start", "wait", or "cancel": still loading after PROFILE_WAIT (the longest a load
+-- waits for another server's lock), no match; both players are told and keep their menu.
+function GlobalQueue.crossStart(loadingA, loadingB, waited)
+	if not loadingA and not loadingB then return "start" end
+	if waited < GlobalQueue.PROFILE_WAIT then return "wait" end
+	return "cancel"
+end
+
 --[[
 	The session lock of a saved profile (a field `_session` = { job, t } in the saved data):
 	a server may load and write a profile only if no other server holds a fresh lock on it
@@ -97,6 +111,7 @@ end
 ]]
 GlobalQueue.LOCK_TTL = 60
 GlobalQueue.LOCK_RETRY = 3 -- (seconds between two tries while another server holds the lock)
+GlobalQueue.PROFILE_WAIT = GlobalQueue.LOCK_TTL + 5 -- (the reserved server waits this long for both saved profiles: crossStart)
 
 function GlobalQueue.canLock(saved, job, now)
 	local session = type(saved) == "table" and saved._session

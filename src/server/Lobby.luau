@@ -14,6 +14,9 @@
 	  told by the server) sends no challenge, and a challenge it sent before is withdrawn
 	  instead of accepted. Its challenges, sent and received, go when it sits in such a match
 	  (Lobby.drop).
+	- A challenge is played on both saved profiles (B-035): while either one is still loading
+	  (`waiting`, told by the server), an accept starts nothing and the challenge stays; it can
+	  be accepted again once the save is in.
 	- QUITTER LE COMBAT puts a player back in the hub (the CPU takes the place).
 	- JOUER (from the hub) takes a free slot only when no other player is fighting.
 	- When a fighter leaves the server and nobody plays any more, the first player waiting
@@ -22,7 +25,7 @@
 	  local lobby = Lobby.new()
 	  Lobby.join(lobby, id, name)            -- returns the slot taken (0 = hub)
 	  Lobby.challenge(lobby, from, to, now)  -- true when the challenge is sent
-	  Lobby.accept(lobby, to, from, now)     -- true when the 1v1 starts
+	  Lobby.accept(lobby, to, from, now, fromBusy, waiting) -- true when the 1v1 starts
 	  Lobby.drop(lobby, id)                  -- its challenges, sent and received, go
 	  lobby.slots[1], lobby.slots[2]         -- player ids (nil = CPU / dummy)
 ]]
@@ -108,7 +111,9 @@ end
 -- `fromBusy`: the challenger is in a 1v1 between players still being played. The challenge
 -- is then withdrawn and nothing starts (false, "busy"): an accept never settles the
 -- challenger's match (B-023), only the accepter's own.
-function Lobby.accept(lobby, to, from, now, fromBusy)
+-- `waiting`: the accepter's or the challenger's saved profile is still loading (B-035).
+-- Nothing starts (false, "loading") and the challenge stays, to be accepted once it is in.
+function Lobby.accept(lobby, to, from, now, fromBusy, waiting)
 	local c = lobby.challenges[from]
 	if not c or c.to ~= to or now > c.expires then return false end
 	if not lobby.players[from] or not lobby.players[to] then return false end
@@ -116,6 +121,7 @@ function Lobby.accept(lobby, to, from, now, fromBusy)
 		lobby.challenges[from] = nil
 		return false, "busy"
 	end
+	if waiting then return false, "loading" end
 	dropChallenges(lobby, from)
 	dropChallenges(lobby, to)
 	-- The challenger takes slot 1, the challenged slot 2; anyone else fighting goes to the hub.

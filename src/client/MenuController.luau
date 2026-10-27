@@ -439,6 +439,13 @@ function MenuController:buildTopBar()
 			TextSize = 13, Text = "0", TextColor3 = Theme.WHITE })
 		self.walletChips[kind] = chip
 	end
+	-- B-035: while the saved profile loads, the server sends the defaults (1000 points, 0 coins):
+	-- a banner over the wallet says so (the server's status.loading; cosmetic, the server refuses
+	-- what needs the save). Gone as soon as the load ends, loaded or not.
+	self.saveBanner = label(profile, { Name = "SaveLoading", Position = UDim2.fromOffset(266, 0), Size = UDim2.fromOffset(199, 54),
+		BackgroundTransparency = 0.05, BackgroundColor3 = Theme.INK, Font = UI_FONT, TextSize = 13, TextWrapped = true,
+		Text = "LOADING YOUR SAVE…", TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5, Visible = false })
+	Theme.rule(self.saveBanner, UDim2.new(0, 0, 1, -2), UDim2.new(1, 0, 0, 2), GOLD, 0.2)
 	-- PLAYER CARD: a click on the profile opens it.
 	local cardButton = new("TextButton", { Name = "OpenCard", Size = UDim2.fromOffset(262, 54), BackgroundTransparency = 1, Text = "",
 		AutoButtonColor = false }, profile)
@@ -1493,6 +1500,12 @@ end
 
 function MenuController:start()
 	local mode = self.mode
+	-- (B-035: only TRAINING while the saved profile loads; said at once, before the fighters
+	-- bought look locked. The server refuses it anyway: this is only the message)
+	if self.status.loading and GameModes.needsSave(mode.id) then
+		self:flash("NOT POSSIBLE: YOUR SAVE IS NOT LOADED YET", RED)
+		return
+	end
 	if #self.team < self.teamSize then
 		self:flash("PICK " .. (self.teamSize - #self.team) .. " MORE FIGHTER(S)", RED)
 		return
@@ -2625,7 +2638,19 @@ end
 
 function MenuController:refreshProfile()
 	local s = self.status
+	self.saveBanner.Visible = s.loading == true
 	if not s.rating then return end
+	if s.loading then
+		-- (B-035: the defaults, not the player's: nothing shown from them; the saved values then
+		-- come in at once, without rolling up from 0 like a reward)
+		self.profileRank.Text = "LOADING YOUR SAVE…"
+		Theme.fillTo(self.profileBar, 0)
+		for _, kind in { "coins", "crystals", "rank" } do
+			self.walletShown[kind] = nil
+			self.wallet[kind].Text = "…"
+		end
+		return
+	end
 	self.profileRank.Text = (s.rank or "BRONZE") .. (if s.nextRank then " · next rank at " .. s.nextRank else " · top rank")
 	local floor = 0
 	for _, min in { 0, 900, 1100, 1300, 1500, 1700 } do
@@ -3004,6 +3029,7 @@ function MenuController:frame(dt)
 	if self.toast.Visible and os.clock() > (self.toastUntil or 0) then self.toast.Visible = false end
 	if self.again.Visible and (os.clock() > (self.againUntil or 0) or self.page ~= "home") then self.again.Visible = false end
 	if self.inMatch then return end
+	if self.saveBanner.Visible then self.saveBanner.TextTransparency = 0.3 + 0.3 * math.sin(os.clock() * 4) end -- (B-035)
 	if self.page == "select" then self:animatePreviews(dt or 1 / 60) end
 	if self.page == "characters" then self:animateGallery(dt or 1 / 60) end
 	if self.page == "shop" then self.shop:update(dt or 1 / 60) end

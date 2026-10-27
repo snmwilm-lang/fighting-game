@@ -7,6 +7,9 @@
 	  GameModes.validate(request, kitOrder) -- sanitized request or nil, reason
 	  GameModes.survivalOpponent(wave, n)   -- the CPU kit and level of a SURVIE wave
 	  GameModes.cpuTeam(size, kitOrder, n)  -- a CPU team of `size` different kits
+	  GameModes.needsSave(mode)             -- the mode writes in the profile (all but TRAINING)
+	  GameModes.saveLoading(hasSaves, loaded) -- the saved profile is still on its way (B-035)
+	  GameModes.waitsForSave(mode, hasSaves, loaded) -- the mode may not start yet (B-035)
 ]]
 local GameModes = {}
 
@@ -38,6 +41,24 @@ local function find(id)
 	return nil
 end
 GameModes.find = find
+
+-- THE SAVED PROFILE AT THE JOIN (B-035). Until it is loaded, a player has the defaults (1000
+-- points, 0 coins, only the free fighters), and a match ending on them is lost at the merge of
+-- the save (the opponent's rating counted against 1000). Every mode but TRAINING writes in the
+-- profile (rating, coins, history, quests, titles, an abandon): it waits for the save. An
+-- unknown mode waits too.
+function GameModes.needsSave(mode)
+	return mode ~= "TRAINING"
+end
+-- `hasSaves`: the server has a DataStore (not Studio without API access); `loaded`: the load
+-- has ENDED (the server's client.profileLoaded: true when loaded, and also when it failed:
+-- SAVES UNAVAILABLE, the session then plays unsaved, warned, rather than TRAINING only).
+function GameModes.saveLoading(hasSaves, loaded)
+	return hasSaves == true and loaded ~= true
+end
+function GameModes.waitsForSave(mode, hasSaves, loaded)
+	return GameModes.needsSave(mode) and GameModes.saveLoading(hasSaves, loaded)
+end
 
 -- A menu request from a client: { mode, team = { kits }, level, queue }. Everything a
 -- client sends is checked: unknown modes and kits, locked modes, team sizes.

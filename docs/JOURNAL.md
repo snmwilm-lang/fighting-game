@@ -1,5 +1,51 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.13 — 27 octobre 2026 · Plus de match sur un profil vierge pendant le chargement (B-035)
+
+Produite et **validée du premier coup par la routine du 27 octobre**. La production a été coupée une fois par un redémarrage du conteneur, puis reprise de zéro.
+
+- **B-035, corrigé** :
+  - **le problème** : depuis la v0.36.10, le nouveau serveur attend l'écriture de départ de l'ancien, jusqu'à environ 73 s. Pendant ce temps, le menu montrait un profil vierge (1000 points, 0 pièce, persos achetés verrouillés), et un CLASSÉ, une SURVIE ou un DÉFI pouvaient se lancer avec. Le résultat était effacé pour ce joueur, et son adversaire mal compté ;
+  - **la correction** :
+    - `GameModes` (pur) : `needsSave`, qui vaut pour tout sauf TRAINING, `saveLoading` et `waitsForSave`. La garde de `start` passe avant `Economy.teamAllowed`, et lit `client.profileLoaded` : un joueur en SAVES UNAVAILABLE joue sans sauvegarde, comme avant, et Studio sans DataStore n'attend jamais ;
+    - `Lobby.accept` (pur) : un DÉFI accepté pendant le chargement de l'un des deux joueurs reste en attente, au lieu d'être lancé ou retiré ;
+    - `GlobalQueue.crossStart` (pur) : le serveur réservé du CLASSÉ entre serveurs attend les deux profils jusqu'à 65 s, puis n'en lance pas le match ;
+    - `!give` ne répond plus « GIVEN TO » quand rien n'est gardé.
+- **Ce que le joueur voit** :
+  - pendant le chargement, un bandeau doré « LOADING YOUR SAVE… » (« CHARGEMENT DE TA SAUVEGARDE… ») sur le porte-monnaie ;
+  - lancer autre chose que TRAINING affiche « YOUR SAVE IS NOT LOADED YET » ;
+  - les vraies valeurs arrivent d'un coup, sans compter depuis 0 ;
+  - un CLASSÉ entre serveurs qui ne peut pas partir le dit aux deux joueurs ;
+  - après un échec, le bandeau s'éteint tout de suite.
+- **Tests** : un test B-035 dans `Lobby.test` (6 modes, 5 états, `accept`, `crossStart`), et « languages » complété avec 5 lignes FR. Contrôles :
+  - l'ancien code donne 2 échecs ;
+  - mutations : la production en a fait 13, toutes attrapées ; la validation 18 sur les modules purs et 9 sur le serveur, toutes attrapées ;
+  - la production et la validation ont chacune un banc au texte exact du serveur ;
+  - le banc de B-023 est inchangé.
+- **Relevé par la validation, livré tel quel** :
+  - la justification des 65 s était fausse. Le chargement réussit encore jusqu'à environ 73 s, donc un profil libéré entre 65 et 73 s fait annuler le CLASSÉ pour rien, mais jamais jouer sur un profil vierge. La justification est corrigée dans `DECISIONS.md` et dans le message du test. La suite proposée, `PROFILE_WAIT` à 74 s, est à valider dans une prochaine livraison ;
+  - la fenêtre de B-039 s'allonge (de 20 à 65 s au plus) ;
+  - le menu refuse aussi DÉFIER AMI pendant le chargement (affichage seulement).
+
+**Fichiers** :
+- `src/shared/GameModes.luau`, `Locale.luau`, `CombatConfig.luau` (0.36.13) ;
+- `src/server/Lobby.luau`, `GlobalQueue.luau`, `init.server.luau` ;
+- `src/client/MenuController.luau` ;
+- `tests/Lobby.test.luau` ;
+- `docs/BUGS.md` (B-035 corrigé ; B-040 confirmé et passé en mineur ; B-041 nouveau), `docs/DECISIONS.md`.
+
+**Tests** : CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 58 (+1), Kits 130 : tout passe.
+
+**Problèmes ouverts** :
+- B-039 (serveur réservé du CLASSÉ, double place), dont la fenêtre s'allonge ;
+- `PROFILE_WAIT` à porter à 74 s ;
+- B-036, B-037 (la touche P), B-038 ;
+- B-040 (la cible qui se retourne d'un coup au sol, 19 finishers et toutes les scènes K.O.), B-041 ;
+- KUROEN SHIN sans FATAL FINISHER, avec B-033 ;
+- rien n'est vérifié dans Studio, en particulier le bandeau sur mobile.
+
+**Prochaine étape** : B-039 avec `PROFILE_WAIT` (le CLASSÉ entre serveurs), ou KUROEN SHIN avec B-033, selon la chasse.
+
 ## Version 0.36.12 — 26 octobre 2026 · Le FATAL FINISHER d'ASURA : SAMSARA
 
 Produite et **validée par la routine du 26 octobre**. Il n'y avait aucun bug bloquant ni majeur ouvert ; I-001 (les FATAL FINISHERS, une demande de Wilhem) passait donc avant les bugs mineurs.

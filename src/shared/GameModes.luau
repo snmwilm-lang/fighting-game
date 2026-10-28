@@ -10,6 +10,8 @@
 	  GameModes.needsSave(mode)             -- the mode writes in the profile (all but TRAINING)
 	  GameModes.saveLoading(hasSaves, loaded) -- the saved profile is still on its way (B-035)
 	  GameModes.waitsForSave(mode, hasSaves, loaded) -- the mode may not start yet (B-035)
+	  GameModes.saveState(hasSaves, ended, loaded) -- "loading", "loaded" or "failed" (B-039, B-042)
+	  GameModes.startRefusal(request, state, crossWaiting) -- why a request may not start now, or nil
 ]]
 local GameModes = {}
 
@@ -58,6 +60,34 @@ function GameModes.saveLoading(hasSaves, loaded)
 end
 function GameModes.waitsForSave(mode, hasSaves, loaded)
 	return GameModes.needsSave(mode) and GameModes.saveLoading(hasSaves, loaded)
+end
+-- The saved profile of a session in one word (B-035, B-039, B-042): "loading" (still on its
+-- way: saveLoading), "loaded" (this session loaded it; or the server has no saves, Studio:
+-- nothing to wait for), "failed" (the load ended without it: SAVES UNAVAILABLE, the session
+-- plays unsaved). `ended`: the server's client.profileLoaded; `loaded`: SaveQueue.isLoaded.
+function GameModes.saveState(hasSaves, ended, loaded)
+	if hasSaves ~= true then return "loaded" end
+	if ended ~= true then return "loading" end
+	return if loaded == true then "loaded" else "failed"
+end
+-- Why the server refuses a menu request now (the text the player reads), or nil: it starts.
+-- `request`: a valid request (validate); `state`: saveState (anything else counts as loading);
+-- `crossWaiting`: the player waits on the reserved server for a cross-server RANKED match
+-- about to start (GlobalQueue.waiting).
+--   • waiting for that match: nothing else, it would be left at once (B-039);
+--   • the save still loading: TRAINING only (B-035);
+--   • the load failed (SAVES UNAVAILABLE): every mode but RANKED, played unsaved; a RANKED
+--     match is played on both real ratings or not at all (B-042).
+GameModes.REFUSALS = {
+	crossWaiting = "YOUR RANKED MATCH IS ABOUT TO START",
+	loading = "YOUR SAVE IS NOT LOADED YET",
+	rankedUnsaved = "RANKED NEEDS YOUR SAVE: SAVES UNAVAILABLE",
+}
+function GameModes.startRefusal(request, state, crossWaiting)
+	if crossWaiting then return GameModes.REFUSALS.crossWaiting end
+	if state ~= "loaded" and state ~= "failed" and GameModes.needsSave(request.mode) then return GameModes.REFUSALS.loading end
+	if state == "failed" and request.mode == "VERSUS" and request.queue == "RANKED" then return GameModes.REFUSALS.rankedUnsaved end
+	return nil
 end
 
 -- A menu request from a client: { mode, team = { kits }, level, queue }. Everything a

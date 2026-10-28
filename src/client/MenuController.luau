@@ -1558,6 +1558,7 @@ function MenuController:buildSearch()
 	cancel.BorderSizePixel = 0
 	Theme.edge(cancel, Theme.RED)
 	cancel.Activated:Connect(function() self.remote:FireServer({ action = "cancel" }) end)
+	self.searchCancel = cancel
 	return page
 end
 
@@ -3036,16 +3037,29 @@ function MenuController:frame(dt)
 	if self.page == "search" then
 		local s = self.status
 		local waited = math.floor(os.clock() - self.searchStart)
+		-- (B-039: on the reserved server, the opponent found on another server is on its way and
+		-- the match starts by itself: no CANCEL; the server refuses anything else meanwhile)
+		local connecting = s.crossWaiting == true
+		if self.searchConnecting ~= connecting then
+			self.searchConnecting = connecting
+			self.searchTitle.Text = if connecting then "OPPONENT FOUND · CONNECTING…" else "SEARCHING FOR AN OPPONENT…"
+			self.searchCancel.Visible = not connecting
+		end
 		local queue = if s.queue == "RANKED" then "RANKED" else "NORMAL"
 		local count = (s.waiting or {})[s.queue or "NORMAL"] or 0
 		-- (the wait, who searches, the rank; the search widens with the wait and goes to the
 		-- other servers; a tip changes every 6 s)
 		local tips = SEARCH_TIPS
 		local tip = tips[math.floor(os.clock() / 6) % #tips + 1]
-		self.searchText.Text = string.format("Match %s · %d:%02d\n%d player(s) searching on this server · your rank: %s (%d pts)\n%s\n\nTIP: %s",
-			queue, waited // 60, waited % 60, count, s.rank or "BRONZE", s.rating or 1000,
-			if waited < 6 then "Looking on this server…" elseif waited < 20 then "Looking on every server…"
-				else "Widening the search to more ranks…", tip)
+		if connecting then
+			self.searchText.Text = string.format("RANKED · %d:%02d\nYour opponent is coming from another server: the match starts as soon as you are both here.",
+				waited // 60, waited % 60)
+		else
+			self.searchText.Text = string.format("Match %s · %d:%02d\n%d player(s) searching on this server · your rank: %s (%d pts)\n%s\n\nTIP: %s",
+				queue, waited // 60, waited % 60, count, s.rank or "BRONZE", s.rating or 1000,
+				if waited < 6 then "Looking on this server…" elseif waited < 20 then "Looking on every server…"
+					else "Widening the search to more ranks…", tip)
+		end
 		self.searchPulse.BackgroundTransparency = 0.3 + 0.3 * math.sin(os.clock() * 4)
 	end
 	-- Camera on the lobby hero: low angle, slightly to the side, like the cover art.

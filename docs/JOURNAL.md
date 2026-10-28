@@ -1,5 +1,50 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.14 — 28 octobre 2026 · Le CLASSÉ entre serveurs ne téléporte plus personne en plein match (B-039), et plus de CLASSÉ sans sauvegarde (B-042)
+
+Produite et **validée du premier coup par la routine du 28 octobre**. B-039 était le seul bug majeur ouvert.
+
+- **B-039 (majeur), corrigé** :
+  - **le problème** : sur le serveur réservé du CLASSÉ entre serveurs, le premier arrivé pouvait lancer un autre mode, ou relancer RANKED, pendant l'attente. Il se retrouvait alors assis dans deux matchs. S'il avait relancé RANKED, il restait en file pendant tout son CLASSÉ, et le serveur réservé lui-même pouvait le publier et le téléporter en plein match : il perdait toute sa cote. Celui qui restait quand l'autre partait ne recevait aucun message ;
+  - **la correction** :
+    - `startVersus` sort les deux joueurs de toute file et de tout match avant de les asseoir, pour ses trois appelants : DÉFI, REVANCHE et CLASSÉ ;
+    - `crossStep` ne publie qu'un joueur qui cherche encore, et le revérifie juste avant chaque téléportation (`GlobalQueue.publishable`) ;
+    - pendant l'attente sur le serveur réservé, tout est refusé, TRAINING compris (`GlobalQueue.waiting`, `GameModes.startRefusal`) ;
+    - `crossStart` décide selon l'état de chaque profil (chargé, en cours, échoué, parti) : il lance dès que les deux sont chargés et annule dès qu'un chargement échoue ou qu'un joueur part. La chasse avait prouvé qu'une attente fixe (65 ou 74 s) est fausse dans les deux sens. Le plafond de 120 s n'est qu'un filet ;
+    - celui qui reste reçoit un message quand l'autre part.
+- **B-042, corrigé** : après un chargement échoué (SAVES UNAVAILABLE), le CLASSÉ est refusé partout. Les autres modes restent jouables sans sauvegarde. Cette décision de la production révise celle du 27/10.
+- **Ce que le joueur voit** :
+  - en arrivant sur le serveur réservé, « OPPONENT FOUND · CONNECTING… » (« ADVERSAIRE TROUVÉ · CONNEXION… »), sans ANNULER ;
+  - le CLASSÉ part dès que les deux sauvegardes sont là, même au-delà de 65 s ;
+  - sinon, un message clair : « YOUR OPPONENT LEFT », « RANKED NEEDS YOUR SAVE », « YOUR OPPONENT'S SAVE COULD NOT BE LOADED ».
+- **Tests** :
+  - dans `Lobby.test` : la table de `crossStart` réécrite (4 × 4 états × 15 instants), un test B-039 avec le cycle entier de `loadProfile` sur le miroir `saveWorld`, et « languages » complété avec 6 lignes FR ;
+  - la cale de l'ancienne règle donne plus de 360 contrôles faux ;
+  - mutations : 34 sur les modules purs et 35 sur le texte du serveur (production et validation), toutes attrapées sauf une, jugée équivalente ;
+  - deux bancs au texte exact du serveur, avec un faux MemoryStore et une fausse TeleportService, pour plus de 30 scènes.
+- **Relevé par la validation, déjà là en v0.36.13, livré tel quel** :
+  - B-043 : des données d'arrivée `{soi, soi}`, falsifiées, permettent un CLASSÉ contre soi-même ;
+  - B-044 : le rafraîchissement par `SetAsync` efface environ 20 % des réclamations ;
+  - deux attentes bornées, notées dans B-039.
+
+**Fichiers** :
+- `src/server/GlobalQueue.luau`, `src/server/init.server.luau` ;
+- `src/shared/GameModes.luau`, `Locale.luau`, `CombatConfig.luau` (0.36.14) ;
+- `src/client/MenuController.luau` ;
+- `tests/Lobby.test.luau` ;
+- `docs/BUGS.md` (B-039 et B-042 corrigés, B-043 et B-044 nouveaux), `docs/DECISIONS.md`.
+
+**Tests** : CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 59 (+1), Kits 130 : tout passe.
+
+**Problèmes ouverts** :
+- B-043 et B-044 (CLASSÉ entre serveurs) ;
+- B-036, B-037 (la touche P), B-038 ;
+- B-040 et B-041 (sauts d'image dans les cinématiques) ;
+- KUROEN SHIN sans FATAL FINISHER, avec B-033 ;
+- rien n'est vérifié dans Studio, en particulier la page CONNECTING sur mobile.
+
+**Prochaine étape** : le FATAL FINISHER de KUROEN SHIN avec sa matière sonore (B-033), s'il ne reste aucun bug majeur. Sinon B-044 et B-043.
+
 ## Version 0.36.13 — 27 octobre 2026 · Plus de match sur un profil vierge pendant le chargement (B-035)
 
 Produite et **validée du premier coup par la routine du 27 octobre**. La production a été coupée une fois par un redémarrage du conteneur, puis reprise de zéro.

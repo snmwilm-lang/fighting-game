@@ -341,6 +341,24 @@ test("languages: the game is in English, every move, fighter text and menu line 
 		== "IMPOSSIBLE : LA SAUVEGARDE DE TON ADVERSAIRE N'EST PAS ENCORE CHARGÉE", "the opponent's save, as the menu shows it")
 	expect(Locale.translate("GIVEN TO Ann · NOT GIVEN · SAVES UNAVAILABLE: Bob", "FR")
 		== "DONNÉ À Ann · PAS DONNÉ · SAUVEGARDES INDISPONIBLES : Bob", "the owner's reply")
+	-- (B-039, B-042: the refusals of a menu request, what the reserved server says when its RANKED
+	-- match does not start, and its search page while the opponent comes; read from the modules)
+	local GlobalQueue = require("../src/server/GlobalQueue")
+	for _, line in GameModes.REFUSALS do need(line) end
+	for _, line in GlobalQueue.NOTICES do need(line) end
+	need("OPPONENT FOUND · CONNECTING…")
+	need(string.format("RANKED · %d:%02d\nYour opponent is coming from another server: the match starts as soon as you are both here.", 0, 7))
+	-- (whole lines: a line translated piece by piece, "ADVERSAIRE FOUND · CONNECTING…", is no translation)
+	for _, line in { "OPPONENT FOUND · CONNECTING…", GameModes.REFUSALS.crossWaiting, GameModes.REFUSALS.rankedUnsaved, GlobalQueue.NOTICES.gone,
+		GlobalQueue.NOTICES.theirsFailed } do
+		expect(Locale.FR[line] ~= nil, "no whole French line: " .. line)
+	end
+	expect(Locale.translate(string.format("RANKED · %d:%02d\nYour opponent is coming from another server: the match starts as soon as you are both here.", 1, 5), "FR")
+		== "CLASSÉ · 1:05\nTon adversaire arrive d'un autre serveur : la partie commence dès que vous êtes là tous les deux.", "the search page while the opponent comes")
+	expect(Locale.translate("NOT POSSIBLE: YOUR OPPONENT LEFT: search again", "FR") == "IMPOSSIBLE : TON ADVERSAIRE EST PARTI : relance la recherche",
+		"the opponent left, as the menu shows it")
+	expect(Locale.translate("NOT POSSIBLE: " .. GameModes.REFUSALS.rankedUnsaved, "FR")
+		== "IMPOSSIBLE : LE CLASSÉ DEMANDE TA SAUVEGARDE : SAUVEGARDES INDISPONIBLES", "RANKED after a failed load")
 	-- whole lines, format lines and lines built from pieces
 	expect(Locale.translate("ROUTE CLEARED · CLEAN ✓", "FR") == "ROUTE RÉUSSIE · PROPRE ✓", "a whole line")
 	expect(Locale.translate("You need 3 ki bars (you have 1): turn ULTIMATES: ON at the top", "FR")
@@ -1480,25 +1498,187 @@ test("saves loading (B-035): only TRAINING before the saved profile is in; a cha
 	ok, why = Lobby.accept(l, B, A, 101, true, true)
 	expect(not ok and why == "busy" and l.challenges[A] == nil, "a busy challenger: withdrawn (B-023), " .. tostring(why))
 
-	-- the reserved server of a cross-server RANKED match: both saved profiles, or no match
-	expect(G.PROFILE_WAIT >= G.LOCK_TTL + 5, "it waits at least as long as a lock outlives a crashed server (LOCK_TTL + 5)")
-	expect(G.crossStart(false, false, 0) == "start", "both in: at once")
-	for _, t in { 0, 20, 21, 40, G.PROFILE_WAIT - 0.5 } do
-		for _, pair in { { true, false }, { false, true }, { true, true } } do
+	-- the reserved server of a cross-server RANKED match: both saved profiles, or no match (B-035;
+	-- the three states and the whole load cycle: the B-039 test below)
+	expect(G.crossStart("loaded", "loaded", 0) == "start", "both in: at once")
+	for _, t in { 0, 20, 21, 40, 65, G.PROFILE_CAP - 0.5 } do
+		for _, pair in { { "loading", "loaded" }, { "loaded", "loading" }, { "loading", "loading" } } do
 			local v = G.crossStart(pair[1], pair[2], t)
-			expect(v == "wait", string.format("still loading (%s, %s) at %.1f s: %s (it started at 20 s before B-035)",
-				tostring(pair[1]), tostring(pair[2]), t, v))
+			expect(v == "wait", string.format("still loading (%s, %s) at %.1f s: %s (it started at 20 s before B-035)", pair[1], pair[2], t, v))
 		end
 	end
-	for _, t in { G.PROFILE_WAIT, G.PROFILE_WAIT + 30 } do
-		for _, pair in { { true, false }, { false, true }, { true, true } } do
-			expect(G.crossStart(pair[1], pair[2], t) == "cancel", "still loading at " .. t .. " s: no match, never on the defaults")
+	for _, pair in { { "loading", "loaded" }, { "loaded", "loading" }, { "loading", "loading" } } do
+		expect(G.crossStart(pair[1], pair[2], G.PROFILE_CAP) == "cancel", "still loading at PROFILE_CAP: no match, never on the defaults")
+	end
+	expect(G.crossStart("loaded", "loaded", G.PROFILE_CAP + 30) == "start", "in at the last check: it starts")
+	-- (B-042: a failed load is no save: SAVES UNAVAILABLE plays unsaved, but never RANKED)
+	expect(G.crossStart("loaded", "failed", 3) == "cancel" and G.crossStart("failed", "loaded", 3) == "cancel", "a failed load: no match")
+	expect(G.crossStart(GameModes.saveState(true, true, true), GameModes.saveState(true, nil, false), 3) == "wait", "one still loading")
+end)
+
+test("cross-server RANKED (B-039, B-042): the reserved server starts on both saves or not at all, whatever the wait; meanwhile the player waits for nothing else", function()
+	local G = require("../src/server/GlobalQueue")
+	local SaveQueue = require("../src/server/SaveQueue")
+	-- the saved profile of a session in one word (init.server.luau: `store ~= nil`,
+	-- client.profileLoaded, SaveQueue.isLoaded), the same "loading" as B-035's saveLoading
+	local S = GameModes.saveState
+	expect(S(true, nil, false) == "loading" and S(true, false, false) == "loading", "still on its way")
+	expect(S(true, true, true) == "loaded", "loaded by this session")
+	expect(S(true, true, false) == "failed" and S(true, true, nil) == "failed", "ended without the save: SAVES UNAVAILABLE")
+	expect(S(false, nil, nil) == "loaded" and S(nil, true, false) == "loaded", "no saves (Studio): nothing to wait for")
+	for _, hasSaves in { true, false } do
+		for _, ended in { true, false, nil } do
+			for _, loaded in { true, false } do
+				expect((S(hasSaves, ended, loaded) == "loading") == GameModes.saveLoading(hasSaves, ended),
+					string.format("saveState and saveLoading disagree (%s, %s, %s)", tostring(hasSaves), tostring(ended), tostring(loaded)))
+			end
 		end
 	end
-	expect(G.crossStart(false, false, G.PROFILE_WAIT + 30) == "start", "in at the last check: it starts")
-	-- (a failed load has ended: SAVES UNAVAILABLE plays unsaved, as `start` lets it)
-	expect(G.crossStart(GameModes.saveLoading(true, true), GameModes.saveLoading(true, true), 3) == "start", "loaded, or failed")
-	expect(G.crossStart(GameModes.saveLoading(true, true), GameModes.saveLoading(true, nil), 3) == "wait", "one still loading")
+
+	-- what the server refuses in the menu (`start`): every mode and queue, every state, waiting or not
+	local R = GameModes.REFUSALS
+	expect(R.crossWaiting == "YOUR RANKED MATCH IS ABOUT TO START" and R.loading == "YOUR SAVE IS NOT LOADED YET"
+		and R.rankedUnsaved == "RANKED NEEDS YOUR SAVE: SAVES UNAVAILABLE", "the texts")
+	local requests = {}
+	for _, mode in GameModes.List do
+		for _, queue in (if mode.queue then { "NORMAL", "RANKED" } else { false }) do
+			local r = GameModes.validate({ mode = mode.id, team = { "KAI" }, level = 2, queue = queue or nil }, MoveData.KitOrder)
+			expect(r ~= nil, mode.id .. ": not a valid request")
+			table.insert(requests, r)
+		end
+	end
+	for _, r in requests do
+		local name = r.mode .. (if r.queue then " " .. r.queue else "")
+		local ranked = r.mode == "VERSUS" and r.queue == "RANKED"
+		-- (B-039: waiting for the cross-server match: nothing at all, TRAINING included)
+		for _, state in { "loaded", "loading", "failed" } do
+			expect(GameModes.startRefusal(r, state, true) == R.crossWaiting, name .. " started while a cross-server RANKED match is about to start (" .. state .. ")")
+		end
+		expect(GameModes.startRefusal(r, "loaded", false) == nil, name .. " refused on a loaded save")
+		-- (B-035: only TRAINING while loading; a state the rule does not know counts as loading)
+		for _, state in { "loading", nil, "?" } do
+			local got = GameModes.startRefusal(r, state, false)
+			expect(got == (if r.mode == "TRAINING" then nil else R.loading), name .. " while loading (" .. tostring(state) .. "): " .. tostring(got))
+		end
+		-- (B-042: after a failed load everything is played unsaved but RANKED)
+		local got = GameModes.startRefusal(r, "failed", false)
+		expect(got == (if ranked then R.rankedUnsaved else nil), name .. " after a failed load: " .. tostring(got))
+	end
+
+	-- the reserved server's verdict, each player loaded, loading, failed or gone (left)
+	local STATES = { "loaded", "loading", "failed", "gone" }
+	for _, a in STATES do
+		for _, b in STATES do
+			for _, t in { 0, 3, 15, 20, 64, 65, 73, 74, 81, 82, 90, 107, G.PROFILE_CAP - 0.5, G.PROFILE_CAP, G.PROFILE_CAP + 30 } do
+				local v = G.crossStart(a, b, t)
+				local want
+				if a == "gone" or b == "gone" then
+					want = "cancel" -- (W3: the one who stays is told, never left waiting)
+				elseif a == "failed" or b == "failed" then
+					want = "cancel" -- (B-042: never on the default 1000 points; it started before)
+				elseif a == "loaded" and b == "loaded" then
+					want = "start"
+				else
+					want = if t < G.PROFILE_CAP then "wait" else "cancel" -- (a load still on its way: no fixed wait)
+				end
+				expect(v == want, string.format("crossStart(%s, %s, %s s) = %s, not %s", a, b, tostring(t), tostring(v), want))
+			end
+		end
+	end
+	-- what each player still there reads when the match does not start
+	local N = G.NOTICES
+	expect(N.failed == R.rankedUnsaved, "the reserved server and the menu say the same after a failed load")
+	local notices = {
+		{ "loaded", "gone", N.gone }, { "loading", "gone", N.gone }, { "failed", "gone", N.gone },
+		{ "failed", "loaded", N.failed }, { "failed", "loading", N.failed }, { "failed", "failed", N.failed },
+		{ "loaded", "failed", N.theirsFailed }, { "loading", "failed", N.theirsFailed },
+		{ "loading", "loaded", N.loading }, { "loading", "loading", N.loading }, { "loaded", "loading", N.theirsLoading },
+	}
+	for _, row in notices do
+		expect(G.crossNotice(row[1], row[2]) == row[3], string.format("crossNotice(%s, %s) = %s", row[1], row[2], tostring(G.crossNotice(row[1], row[2]))))
+	end
+	expect(N.gone == "YOUR OPPONENT LEFT: search again" and N.theirsFailed == "YOUR OPPONENT'S SAVE COULD NOT BE LOADED: search again", "the texts")
+
+	-- waiting on the reserved server, from the arrival until the match starts or is called off
+	expect(not G.waiting(nil), "a player of no cross-server match waits")
+	local pending = { expect = { 1, 2 }, created = 0 }
+	expect(G.waiting(pending), "arrived: not waiting")
+	pending.settled = true
+	expect(not G.waiting(pending), "started or called off: still waiting")
+	-- the search across servers publishes (and teleports) only a player still searching from here
+	local now = 5000
+	expect(G.publishable("RANKED", now - G.PUBLISH_AFTER, false, false, now), "a RANKED search of PUBLISH_AFTER s is not published")
+	expect(not G.publishable("RANKED", now - G.PUBLISH_AFTER + 1, false, false, now), "published too early")
+	expect(not G.publishable("NORMAL", now - 100, false, false, now) and not G.publishable(nil, now - 100, false, false, now), "not RANKED, published")
+	expect(not G.publishable("RANKED", nil, false, false, now), "published without a search time")
+	expect(not G.publishable("RANKED", now - 100, true, false, now), "published while in a match (W2: during its RANKED match, then teleported out of it)")
+	expect(not G.publishable("RANKED", now - 100, false, true, now), "published while waiting on the reserved server (W2: before its RANKED match)")
+
+	-- THE WHOLE LOAD CYCLE (the mirror of loadProfile, saveWorld): G arrives on the reserved
+	-- server; its profile is still locked by server B (G just left it) until B lets it go
+	-- `release` s later (math.huge: never), or the DataStore fails (`failing`). F is loaded. Every
+	-- second the reserved server decides on G's state (crossStart). The decision must follow the
+	-- load's own end: started when G's save is in, called off when the load failed, never a
+	-- fixed wait (65 s cancelled loads that ended from 66 to 73 s; 82 s or more started on 1000).
+	local function reserved(release, failing)
+		local loading, calls = true, 0
+		local w = saveWorld(SaveQueue, G, { down = function()
+			if loading then calls += 1 end -- (one UpdateAsync of the load)
+			return failing == true
+		end })
+		w.store[7] = G.stamp({ v = 5 }, "B", 0, release <= 0) -- (G's save, locked by server B)
+		local g = w.arrive(7, 0)
+		local r = { calls = 0 }
+		w.run(0, 250, function(t) -- (long enough for any load and any PROFILE_CAP worth keeping)
+			if loading and g.profileLoaded then
+				loading, r.ended, r.loaded = false, t, SaveQueue.isLoaded(w.q, 7, g)
+			end
+			if loading then -- (B renews its lock until it lets it go: its last write releases it)
+				w.store[7]._session = if t + 1 < release then { job = "B", t = t + 1 } else nil
+			end
+			if not r.verdict then
+				local v = G.crossStart("loaded", GameModes.saveState(true, g.profileLoaded, SaveQueue.isLoaded(w.q, 7, g)), t)
+				if v ~= "wait" then r.verdict, r.at = v, t end
+			end
+		end)
+		r.calls = calls
+		return r
+	end
+	-- a lock never let go: the longest load, read from the modules (they may change)
+	local tries = math.ceil((G.LOCK_TTL + 5) / G.LOCK_RETRY) -- (loadProfile: a try every LOCK_RETRY s while waited < LOCK_TTL + 5)
+	local tail = 0
+	for k = 1, SaveQueue.LOAD_TRIES do tail += SaveQueue.retryDelay(k) end
+	local longest = reserved(math.huge)
+	expect(longest.ended == tries * G.LOCK_RETRY + tail and longest.calls == tries + SaveQueue.LOAD_TRIES,
+		string.format("the mirror's longest load: %s s, %d calls (expected %d s, %d calls)", tostring(longest.ended), longest.calls,
+			tries * G.LOCK_RETRY + tail, tries + SaveQueue.LOAD_TRIES))
+	expect(not longest.loaded and longest.verdict == "cancel" and longest.at == longest.ended,
+		string.format("a lock never let go: SAVES UNAVAILABLE at %s s, then %s at %s s (never a RANKED match on 1000 points)",
+			tostring(longest.ended), tostring(longest.verdict), tostring(longest.at)))
+	-- (today 81 s and 26 DataStore calls; PROFILE_CAP is only a net above it, with 1 s per call)
+	expect(G.PROFILE_CAP > (longest.ended or math.huge) + longest.calls * 1, string.format("PROFILE_CAP %s s is not above the longest load: %s s + %d calls of 1 s",
+		tostring(G.PROFILE_CAP), tostring(longest.ended), longest.calls))
+	-- every release from 0 to 140 s (the hunt's table: 55 to 130 s): the verdict comes when the load ends
+	local lastLoaded = nil
+	for release = 0, 140 do
+		local r = reserved(release)
+		expect(r.ended ~= nil and r.at == r.ended, string.format("lock let go at %d s: load ended at %s s, verdict at %s s", release, tostring(r.ended), tostring(r.at)))
+		if r.loaded then
+			lastLoaded = release
+			expect(r.verdict == "start", string.format("lock let go at %d s: G's save loaded at %s s, but the match is %s at %s s (cancelled for nothing)",
+				release, tostring(r.ended), tostring(r.verdict), tostring(r.at)))
+		else
+			expect(r.verdict == "cancel", string.format("lock let go at %d s: SAVES UNAVAILABLE at %s s, but the match is %s at %s s on 1000 points",
+				release, tostring(r.ended), tostring(r.verdict), tostring(r.at)))
+		end
+		expect((r.at or math.huge) < G.PROFILE_CAP, string.format("lock let go at %d s: decided by PROFILE_CAP (%s s), not by the load", release, tostring(r.at)))
+	end
+	expect(lastLoaded == tries * G.LOCK_RETRY + tail - SaveQueue.retryDelay(SaveQueue.LOAD_TRIES),
+		"the last lock that still loads: " .. tostring(lastLoaded) .. " s (73 s: the last try of loadProfile)")
+	-- the DataStore down (Z2): SAVES UNAVAILABLE after the tries, the match called off then (it started on 1000 before)
+	local down = reserved(0, true)
+	expect(not down.loaded and down.ended == tail and down.verdict == "cancel" and down.at == tail,
+		string.format("DataStore down: load ended at %s s, %s at %s s", tostring(down.ended), tostring(down.verdict), tostring(down.at)))
 end)
 
 test("taunts: predefined only, a slot number of the saved wheel, 5 s server cooldown, two players at once, six saved, locked ones", function()

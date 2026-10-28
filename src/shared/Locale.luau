@@ -1606,6 +1606,16 @@ for k, v in {
 	["NOT GIVEN · SAVES UNAVAILABLE:"] = "PAS DONNÉ · SAUVEGARDES INDISPONIBLES :",
 	["GIVEN TO"] = "DONNÉ À",
 	["NOBODY READY (profile loading)"] = "PERSONNE N'EST PRÊT (profil en chargement)",
+	-- (B-039, B-042: the reserved server of a cross-server RANKED match, while it waits and when
+	-- it does not start; RANKED refused after a failed load. init.server.luau, GlobalQueue,
+	-- GameModes.startRefusal, MenuController's search page)
+	["YOUR RANKED MATCH IS ABOUT TO START"] = "TA PARTIE CLASSÉE VA COMMENCER",
+	["RANKED NEEDS YOUR SAVE: SAVES UNAVAILABLE"] = "LE CLASSÉ DEMANDE TA SAUVEGARDE : SAUVEGARDES INDISPONIBLES",
+	["YOUR OPPONENT'S SAVE COULD NOT BE LOADED: search again"] = "LA SAUVEGARDE DE TON ADVERSAIRE N'A PAS PU ÊTRE CHARGÉE : relance la recherche",
+	["YOUR OPPONENT LEFT: search again"] = "TON ADVERSAIRE EST PARTI : relance la recherche",
+	["OPPONENT FOUND · CONNECTING…"] = "ADVERSAIRE TROUVÉ · CONNEXION…",
+	["RANKED · %d:%02d\nYour opponent is coming from another server: the match starts as soon as you are both here."] =
+		"CLASSÉ · %d:%02d\nTon adversaire arrive d'un autre serveur : la partie commence dès que vous êtes là tous les deux.",
 	["NOT AVAILABLE FOR YOUR ACCOUNT"] = "PAS DISPONIBLE POUR TON COMPTE",
 	["✓ TESTER · EVERY FIGHTER"] = "✓ TESTEUR · TOUS LES PERSOS",
 	["SUPPORTER pass"] = "pass SUPPORTER",

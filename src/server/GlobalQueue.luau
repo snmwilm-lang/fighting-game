@@ -14,7 +14,9 @@
 	  • The claim is atomic (MemoryStore UpdateAsync with `claim`): it fails when someone was
 	    faster, and the search goes on.
 	  • The reserved server waits for both (ARRIVE_TIMEOUT), then for both saved profiles
-	    (crossStart, PROFILE_WAIT), then starts the RANKED match.
+	    (crossStart: loaded, loading, failed or gone), then starts the RANKED match. From the
+	    arrival until then, the player is waiting for it (`waiting`): nothing else starts and
+	    nothing publishes it (`publishable`, B-039).
 	Tests: tests/Lobby.test.luau.
 ]]
 local GlobalQueue = {}
@@ -29,6 +31,15 @@ GlobalQueue.MAX_WINDOW = 800
 
 function GlobalQueue.window(waited)
 	return math.min(GlobalQueue.MAX_WINDOW, GlobalQueue.BASE_WINDOW + GlobalQueue.WIDEN_PER_SECOND * math.max(0, waited))
+end
+
+-- May a server publish its player in the search across servers (and teleport it to a match
+-- found there)? A RANKED search of PUBLISH_AFTER s or more, from a player in no match (B-039:
+-- never out of a match it is playing) and not already waiting for a cross-server match on this
+-- reserved server (`waiting`). `queue`, `since`: the player's search (client.queue,
+-- client.queueSince); `inMatch`: seated in a match.
+function GlobalQueue.publishable(queue, since, inMatch, waiting, now)
+	return queue == "RANKED" and type(since) == "number" and now - since >= GlobalQueue.PUBLISH_AFTER and not inMatch and not waiting
 end
 
 -- The entry of a waiting player (what goes in the map).
@@ -88,17 +99,48 @@ function GlobalQueue.expired(pending, now)
 	return now - pending.created > GlobalQueue.ARRIVE_TIMEOUT
 end
 
--- Both players are on the reserved server: the RANKED match starts only on both saved
--- profiles (B-035), never on the defaults (1000 points, a result wiped by the merge of the
--- save, the opponent's points counted against 1000). `loadingA`, `loadingB`: that player's
--- profile is still on its way (GameModes.saveLoading; a failed load has ended: SAVES
--- UNAVAILABLE, played unsaved and warned, as anywhere else). `waited`: seconds since both
--- arrived. "start", "wait", or "cancel": still loading after PROFILE_WAIT (the longest a load
--- waits for another server's lock), no match; both players are told and keep their menu.
-function GlobalQueue.crossStart(loadingA, loadingB, waited)
-	if not loadingA and not loadingB then return "start" end
-	if waited < GlobalQueue.PROFILE_WAIT then return "wait" end
+-- Is a player who arrived for `pending` (client.crossPending: nil for any other player) still
+-- waiting for its match? From the arrival until the match starts or is called off (the
+-- server sets pending.settled: started, cancelled, the other one left or never came).
+-- Meanwhile nothing else starts (GameModes.startRefusal), no challenge is accepted, nothing
+-- publishes it, and the menu says OPPONENT FOUND · CONNECTING… (B-039).
+function GlobalQueue.waiting(pending)
+	return type(pending) == "table" and pending.settled ~= true
+end
+
+-- Both players arrived on the reserved server: the RANKED match starts only on both saved
+-- profiles, never on the defaults (B-035: 1000 points, a result wiped by the merge of the
+-- save) nor after a failed load (B-042: the opponent counted against 1000, the other one risks
+-- nothing). `stateA`, `stateB`: each player's GameModes.saveState ("loaded", "loading",
+-- "failed": SAVES UNAVAILABLE), or "gone" (left the server). `waited`: seconds since both
+-- arrived. "start" (both loaded), "cancel" (one left, one load failed), or "wait" (a load still
+-- on its way: it always ends, loaded or failed, before PROFILE_CAP; then "cancel"). Never a
+-- fixed wait: a load can still succeed after any fixed time, or fail before it (B-039).
+function GlobalQueue.crossStart(stateA, stateB, waited)
+	if stateA == "gone" or stateB == "gone" then return "cancel" end
+	if stateA == "failed" or stateB == "failed" then return "cancel" end
+	if stateA == "loaded" and stateB == "loaded" then return "start" end
+	if waited < GlobalQueue.PROFILE_CAP then return "wait" end
 	return "cancel"
+end
+
+-- What a player still on the reserved server reads when its RANKED match does not start
+-- (`mine`, `theirs`: the states crossStart decided on), or nil. Then it keeps its menu there.
+GlobalQueue.NOTICES = {
+	gone = "YOUR OPPONENT LEFT: search again",
+	failed = "RANKED NEEDS YOUR SAVE: SAVES UNAVAILABLE", -- (the same as GameModes.startRefusal)
+	theirsFailed = "YOUR OPPONENT'S SAVE COULD NOT BE LOADED: search again",
+	loading = "YOUR SAVE IS NOT LOADED YET",
+	theirsLoading = "YOUR OPPONENT'S SAVE IS NOT LOADED YET",
+}
+function GlobalQueue.crossNotice(mine, theirs)
+	local n = GlobalQueue.NOTICES
+	if theirs == "gone" then return n.gone end
+	if mine == "failed" then return n.failed end
+	if theirs == "failed" then return n.theirsFailed end
+	if mine == "loading" then return n.loading end
+	if theirs == "loading" then return n.theirsLoading end
+	return nil
 end
 
 --[[
@@ -111,7 +153,11 @@ end
 ]]
 GlobalQueue.LOCK_TTL = 60
 GlobalQueue.LOCK_RETRY = 3 -- (seconds between two tries while another server holds the lock)
-GlobalQueue.PROFILE_WAIT = GlobalQueue.LOCK_TTL + 5 -- (the reserved server waits this long for both saved profiles: crossStart)
+-- (crossStart: only a net for a load thread that never ends. A load always ends, loaded or
+-- failed: on a reserved server, at most 81 s after the arrival (22 tries every LOCK_RETRY s while
+-- another server holds the lock, then LOAD_TRIES tries: 1, 2, 4, 8 s apart), plus the time of
+-- its 26 DataStore calls. 120 s stays above it with 1 s per call; tests: Lobby, B-039)
+GlobalQueue.PROFILE_CAP = 120
 
 function GlobalQueue.canLock(saved, job, now)
 	local session = type(saved) == "table" and saved._session

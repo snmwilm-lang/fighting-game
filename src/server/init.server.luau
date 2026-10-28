@@ -233,6 +233,17 @@ end
 local function saveLoading(client)
 	return GameModes.saveLoading(store ~= nil, client.profileLoaded == true)
 end
+-- The same in one word (GameModes.saveState): "loading", "loaded", or "failed" (SAVES
+-- UNAVAILABLE: no RANKED match on the defaults, B-042; the reserved server, B-039).
+local function saveState(player, client)
+	return GameModes.saveState(store ~= nil, client.profileLoaded == true, store ~= nil and SaveQueue.isLoaded(saves, player.UserId, client))
+end
+-- B-039: on the reserved server of a cross-server RANKED match, from the arrival until that
+-- match starts or is called off (GlobalQueue.waiting): nothing else starts, no challenge is
+-- accepted, the search across servers never publishes the player, the menu says so.
+local function crossWaiting(client)
+	return GlobalQueue.waiting(client.crossPending)
+end
 -- The rankings (CLASSEMENT): an ordered store of the ratings per RANKED category (1v1, 2v2,
 -- 3v3: Matchmaker.BOARDS), read 10 at a time. boards[1] is the 1v1 one (the champion's).
 local boards = {}
@@ -685,6 +696,14 @@ local function startSolo(player, request)
 end
 
 local function startVersus(playerA, playerB, queue)
+	-- (B-039: out of any other match and any search first, whoever calls: the reserved
+	-- server's RANKED match too, never seated in two matches nor still searching during it;
+	-- an accepted challenge and the search already did it, this is then a no-op)
+	for _, p in { playerA, playerB } do
+		Matchmaker.leave(matchmaker, p.UserId)
+		clients[p].queue = nil
+		unseat(p)
+	end
 	local match = newMatch("VERSUS", { queue = queue })
 	seat(match, 1, playerA)
 	seat(match, 2, playerB)
@@ -811,9 +830,13 @@ function menuStatus(player, bought, unlocked)
 	local client = clients[player]
 	if not client then return end
 	local profile = client.profile or defaultProfile()
+	-- (B-039: on the reserved server, the opponent found on another server is on its way: the
+	-- search page stays up and says OPPONENT FOUND · CONNECTING…, without CANCEL)
+	local connecting = crossWaiting(client)
 	menuRemote:FireClient(player, {
-		state = if client.match then "match" elseif client.queue then "queue" else "menu",
-		mode = client.match and client.match.mode or nil, queue = client.queue,
+		state = if client.match then "match" elseif client.queue or connecting then "queue" else "menu",
+		mode = client.match and client.match.mode or nil, queue = if connecting then "RANKED" else client.queue,
+		crossWaiting = connecting,
 		rating = profile.rating, rank = Matchmaker.rankName(profile.rating), hero = profile.hero, language = profile.language,
 		-- (RANKED by category: 1v1, 2v2, 3v3)
 		ratings = { Matchmaker.ratingOf(profile, 1), Matchmaker.ratingOf(profile, 2), Matchmaker.ratingOf(profile, 3) },
@@ -1095,10 +1118,17 @@ local crossBackoff = 0 -- (seconds to wait after the MemoryStore refused a reque
 local function crossStep()
 	if not rankedMap then return end
 	local now = os.time()
+	-- (B-039: only a player still searching from this server: RANKED for long enough, in no match,
+	-- not waiting for a cross-server match here; checked again before a teleport, the requests
+	-- to the MemoryStore yield and the player may have started a match meanwhile)
+	local function searching(player)
+		local client = player and clients[player]
+		return client ~= nil and GlobalQueue.publishable(client.queue, client.queueSince, client.match ~= nil, crossWaiting(client), os.time())
+	end
 	-- publish / refresh this server's RANKED players who waited long enough
 	for player, client in clients do
 		local id = player.UserId
-		if client.queue == "RANKED" and client.queueSince and now - client.queueSince >= GlobalQueue.PUBLISH_AFTER then
+		if searching(player) then
 			local p = published[id]
 			if not p or now - p.refreshed >= GlobalQueue.REFRESH then
 				local entry = GlobalQueue.entry(id, Matchmaker.ratingOf(client.profile, #client.team), #client.team, JOB, client.queueSince,
@@ -1108,13 +1138,13 @@ local function crossStep()
 				if ok then published[id] = { entry = entry, refreshed = now } end
 			end
 		elseif published[id] then
-			unpublish(id) -- (found a local opponent, cancelled, left the menu)
+			unpublish(id) -- (found a local opponent, cancelled, left the menu, in a match)
 		end
 	end
 	for id, p in published do
 		local player = Players:GetPlayerByUserId(id)
-		if not player or not clients[player] or clients[player].queue ~= "RANKED" then
-			unpublish(id) -- (left, cancelled, or already paired on this server)
+		if not searching(player) then
+			unpublish(id) -- (left, cancelled, already paired on this server, in a match)
 			continue
 		end
 		-- 1. did another server claim us? then go to its reserved server
@@ -1123,7 +1153,8 @@ local function crossStep()
 		local okMine, mine = pcall(map.GetAsync, map, tostring(id))
 		if not okMine then crossBackoff = math.min(30, crossBackoff * 2 + 2) end
 		if okMine and type(mine) == "table" and mine.claim and mine.claim.by ~= JOB then
-			teleportToMatch(player, mine.claim.code, mine.claim.partner)
+			-- (B-039: never out of a match started meanwhile; the other one then waits ARRIVE_TIMEOUT)
+			if searching(player) then teleportToMatch(player, mine.claim.code, mine.claim.partner) end
 			continue
 		end
 		-- 2. else, as the initiator, look for an opponent near our rating
@@ -1137,7 +1168,7 @@ local function crossStep()
 			if type(item.value) == "table" and item.value.job ~= JOB then table.insert(entries, item.value) end
 		end
 		local other = GlobalQueue.pick(me, entries, now)
-		if other then
+		if other and searching(player) then
 			local okCode, code = pcall(TeleportService.ReserveServer, TeleportService, game.PlaceId)
 			if okCode and code then
 				local claimed = nil
@@ -1145,7 +1176,7 @@ local function crossStep()
 					claimed = GlobalQueue.claim(current, code, JOB, os.time(), id)
 					return claimed
 				end, GlobalQueue.STALE + 10)
-				if claimed then
+				if claimed and searching(player) then
 					teleportToMatch(player, code, other.id)
 				end
 			end
@@ -1169,40 +1200,58 @@ arrivedForCrossMatch = function(player, client)
 	local okJoin, join = pcall(player.GetJoinData, player)
 	local data = okJoin and type(join) == "table" and type(join.TeleportData) == "table" and join.TeleportData.cross
 	if type(data) ~= "table" or game.PrivateServerId == "" or type(data.code) ~= "string" or type(data.expect) ~= "table" then return end
+	-- (a pair of players, this one in it, as teleportToMatch writes it: anything else is no
+	-- cross-server match, the player keeps the plain menu and never waits for nothing)
+	local expect = {}
+	for _, id in data.expect do
+		if typeof(id) == "number" then table.insert(expect, id) end
+	end
+	if #expect ~= 2 or not table.find(expect, player.UserId) then return end
+	local pending = crossPending[data.code]
+	if pending and not table.find(pending.expect, player.UserId) then return end
 	local request = GameModes.validate({ mode = "VERSUS_CPU", team = data.team, level = 1 }, MoveData.KitOrder)
 	if request then client.team = request.team end
-	local pending = crossPending[data.code]
 	if not pending then
-		local expect = {}
-		for _, id in data.expect do
-			if typeof(id) == "number" then table.insert(expect, id) end
-		end
 		pending = { expect = expect, created = os.clock() }
 		crossPending[data.code] = pending
 	end
+	-- (B-039: waiting for this match from now on, until pending.settled: GlobalQueue.waiting)
+	client.crossPending = pending
 	if GlobalQueue.arrival(pending, player.UserId, os.clock()) and not pending.started then
 		pending.started = true
 		task.spawn(function()
-			-- (both profiles in first: the rating at stake must be the saved one. B-035: never a
-			-- RANKED match on the defaults; still loading after GlobalQueue.PROFILE_WAIT, no match)
+			-- (both saved profiles first: the rating at stake is the saved one, never the defaults
+			-- (B-035) nor a failed load's (B-042). Each player "loading", "loaded", "failed" or
+			-- "gone" (left): GlobalQueue.crossStart, until both are loaded, one failed or left,
+			-- or PROFILE_CAP, a net only: a load always ends before it, loaded or failed. B-039)
 			local a, b = Players:GetPlayerByUserId(pending.expect[1]), Players:GetPlayerByUserId(pending.expect[2])
+			local function state(p)
+				local c = p and clients[p]
+				return if c then saveState(p, c) else "gone"
+			end
 			local started = os.clock()
-			local verdict = "wait"
-			while a and b and clients[a] and clients[b] do
-				verdict = GlobalQueue.crossStart(saveLoading(clients[a]), saveLoading(clients[b]), os.clock() - started)
+			local stateA, stateB, verdict
+			while true do
+				stateA, stateB = state(a), state(b)
+				verdict = GlobalQueue.crossStart(stateA, stateB, os.clock() - started)
 				if verdict ~= "wait" then break end
 				task.wait(0.5)
 			end
-			if not (a and b and clients[a] and clients[b]) then return end
+			pending.settled = true -- (no longer waiting: the menu, the search and the challenges again)
 			if verdict == "start" then
 				startVersus(a, b, "RANKED")
 				return
 			end
-			print(string.format("[FightingGame] cross-server RANKED %d vs %d not started: a profile still loading after %d s",
-				a.UserId, b.UserId, GlobalQueue.PROFILE_WAIT))
-			for _, p in { a, b } do
-				menuRemote:FireClient(p, { error = if saveLoading(clients[p]) then "YOUR SAVE IS NOT LOADED YET" else "YOUR OPPONENT'S SAVE IS NOT LOADED YET" })
-				menuStatus(p)
+			print(string.format("[FightingGame] cross-server RANKED %d vs %d not started after %.1f s: %s / %s",
+				pending.expect[1], pending.expect[2], os.clock() - started, stateA, stateB))
+			-- (whoever is still here is told why, also when the other one left; it keeps its menu)
+			for _, side in { { a, stateA, stateB }, { b, stateB, stateA } } do
+				local p = side[1]
+				if p and clients[p] then
+					local notice = GlobalQueue.crossNotice(side[2], side[3])
+					if notice then menuRemote:FireClient(p, { error = notice }) end
+					menuStatus(p)
+				end
 			end
 		end)
 	end
@@ -1213,6 +1262,7 @@ task.spawn(function()
 		for code, pending in crossPending do
 			if not pending.started and GlobalQueue.expired(pending, os.clock()) then
 				crossPending[code] = nil
+				pending.settled = true -- (B-039: no longer waiting)
 				for id in pending.arrived or {} do
 					local p = Players:GetPlayerByUserId(id)
 					if p and clients[p] then
@@ -1414,9 +1464,13 @@ hubRemote.OnServerEvent:Connect(function(player, action, target)
 			local from = Players:GetPlayerByUserId(target)
 			local mine = saveLoading(client)
 			local theirs = from ~= nil and clients[from] ~= nil and saveLoading(clients[from])
-			ok, why = Lobby.accept(lobby, id, target, now, inVersus(from), mine or theirs)
+			-- (B-039: neither one waits on this reserved server for a RANKED match about to start;
+			-- it stays too)
+			local held = crossWaiting(client) or (from ~= nil and clients[from] ~= nil and crossWaiting(clients[from]))
+			ok, why = Lobby.accept(lobby, id, target, now, inVersus(from), mine or theirs or held)
 			if why == "loading" then
-				menuRemote:FireClient(player, { error = if mine then "YOUR SAVE IS NOT LOADED YET" else "YOUR OPPONENT'S SAVE IS NOT LOADED YET" })
+				menuRemote:FireClient(player, { error = if held then GameModes.REFUSALS.crossWaiting
+					elseif mine then "YOUR SAVE IS NOT LOADED YET" else "YOUR OPPONENT'S SAVE IS NOT LOADED YET" })
 			end
 		end
 		if why == "busy" then broadcastHub() end -- (the withdrawn challenge leaves the hub)
@@ -1648,9 +1702,12 @@ menuRemote.OnServerEvent:Connect(function(player, packet)
 			return
 		end
 		-- (B-035: every mode but TRAINING waits for the saved profile, before the fighters are
-		-- checked: a fighter bought is not in the defaults; a failed load has ended the wait)
-		if GameModes.waitsForSave(request.mode, store ~= nil, client.profileLoaded == true) then
-			menuRemote:FireClient(player, { error = "YOUR SAVE IS NOT LOADED YET" })
+		-- checked: a fighter bought is not in the defaults; a failed load has ended the wait, but
+		-- RANKED needs the save, B-042. B-039: nothing while a cross-server RANKED match is about
+		-- to start on this reserved server. GameModes.startRefusal)
+		local refusal = GameModes.startRefusal(request, saveState(player, client), crossWaiting(client))
+		if refusal then
+			menuRemote:FireClient(player, { error = refusal })
 			return
 		end
 		-- (a locked fighter: TRAINING only, to try it; the developer access plays them all)

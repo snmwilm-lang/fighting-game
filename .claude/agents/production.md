@@ -43,4 +43,5 @@ Tu es le **chef de production** de BREAKFRAMEZ, le jeu de combat Roblox de Wilhe
    - pousse ;
    - **à chaque livraison, sans exception** (demande de Wilhem : « il doit push la place à chaque fois ») : construis la place avec `python3 tools/build_place.py . <scratchpad>/BREAKFRAMEZ_vX.Y.Z.rbxlx` et vérifie qu'elle n'est pas vide. Envoie-la à Wilhem avec `SendUserFile` si tu as cet outil ; sinon, donne son chemin complet dans ton compte rendu, pour que la session principale l'envoie. Ne committe jamais le `.rbxlx`.
 3. Mets à jour le statut dans `docs/IDEES.md` ou `docs/BUGS.md` (« faite », « corrigé en vX.Y.Z »).
+   - Un travail pas encore livré (en cours, refusé, bloqué après deux refus) se garde en patch **dans le dépôt**, dans `docs/attente/` (`git diff -- src tests … > docs/attente/<nom>.patch`), et jamais seulement dans le scratchpad : le scratchpad disparaît quand le conteneur est recyclé (le patch de ZENITH a été perdu ainsi le 31/10). Le patch est retiré à la livraison.
 4. Ton compte rendu final, en français et court : ce qui a changé pour le joueur, ce qui reste à faire, la question pour Wilhem s'il y en a une.

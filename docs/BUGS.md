@@ -10,9 +10,22 @@ Gravité :
 
 Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas un bug (raison)`.
 
-Dernière chasse : 30/10, sur la v0.36.14 (HEAD c012478 : le code n'a pas bougé depuis la livraison du 28/10, déjà relue en entier par la chasse du 29/10) et sur l'arbre de travail **en validation** (le FATAL FINISHER de KUROEN SHIN, ZENITH, et B-033 ; 13 fichiers non committés). Les 8 suites rapides passent sur l'arbre de travail (1 629 tests : CombatSimulation 176, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 432, Lobby 59). Kits tournait déjà ailleurs : non relancé. Aucun fichier VFX touché : vfxcheck, vfxsmoke et vfxrun non relancés. **Le son (B-033)**, rejoué sur les modules de l'arbre de travail (script `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/hunt1030/sound_diff.luau`, l'ancien choix de `SoundController` contre `SoundPalette.materialOf`, pour chaque kit et chaque coup de `MoveData.Moves`) : pour les 20 persos jouables, **aucun son ne change** (coups de leurs rôles, coups à part comme `TaroParry` ou `GoranGrab`, `Grab` sans propriétaire, projectiles, élans, pas, temps de chope). Seuls les deux bosses changent, comme prévu : KUROEN SHIN (élans, pas et temps de chope : KAI → lui ; ses 29 coups : KUROEN → lui) et ASURA (29 coups : KAI → lui ; le projectile de `KiBlast` : KAI → lui). Aucune matière ne manque : ni KUROEN ni KUROEN SHIN n'ont de coup à projectile (le repli `MATERIALS.KAI.projectile` ne sert jamais), la chope prend la matière de l'attaquant, et la PORTE, l'ÉVEIL et les finishers sonnent avec la matière du kit de la scène (`heavyHit` des coups de cinématique, `cin.kit` pour les `sfx`). `SoundPalette` reste pur. Aucun défaut dans la correction de B-033 : sa fiche n'est pas touchée. **ZENITH** : nouveau texte « ZENITH » traduit (« ZÉNITH ») ; le mot n'est utilisé nulle part ailleurs ; la teinte `divine` existe côté client. Trois défauts trouvés en mesurant ce que les tests ne mesurent pas : la rotation des corps, et les autres cibles que KAI (le labo ne joue que KAI) : **B-046, B-047, B-048** (nouveaux). **Lignes après la livraison de l'arbre de travail** (aujourd'hui, toutes les lignes citées valent pour HEAD) : `Finishers.luau` +249 à partir de 3492 (la scène d'ELIAN, `:3514` dans B-015, devient `:3763`) ; `SoundController.luau` +4 à partir de 32 (la voix K.O., `:192` dans B-020, devient `:196`) ; `SoundPalette.luau` +9 à partir de 170 ; `MoveData.luau` +4 à partir de 1446 (la boucle de `MoveKit` : `:1467`) ; `Locale.luau` +1 à partir de 602 (« 蝕 · TOTAL ECLIPSE » de B-034 est en `:1311` sur HEAD, `:1312` ensuite). Statuts inchangés : aucun bug bloquant ni majeur ouvert.
+Dernière chasse : 31/10, sur HEAD 2d11414 (v0.36.14 : le code n'a pas bougé depuis le 28/10, seuls les carnets), joué sur une copie `git archive` dans le scratchpad. L'arbre de travail appartient à la production, qui refait ZENITH et B-033 (`Finishers`, `SoundPalette`, `SoundController`, `MoveData`, `Locale`, tests) : les fiches B-033, B-046 et B-047 ne sont pas touchées ici, et **toutes les lignes citées ce matin valent pour HEAD** (celles de `SoundController.luau` et de `Locale.luau` bougeront à la livraison).
+- **Les 8 suites rapides passent** sur HEAD : 1 617 tests (CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 59). Kits tournait déjà : non relancé. vfxcheck, vfxsmoke et vfxrun passent.
+- **La chasse large**, sur ce que les chasses récentes n'avaient pas regardé :
+  - le client : `init.client`, `MenuController`, `HubController`, `HUDController`, `ShopPage`, `TutorialController`, `InputController`, et les contrôleurs d'effets, de scène et de son ;
+  - la boutique : `Store`, `StoreConfig`, `ProcessReceipt`, les achats en pièces et en Robux ;
+  - les quêtes, les arènes (`Maps`, `ArenaBuilder`) ;
+  - les modules purs : aucun appel à Roblox.
+- **Un fuzz des modes que `Fuzz.test` ne joue pas** : les défis ASURA et KUROEN SHIN à 1, 2 ou 3 persos, les relais 2v2 et 3v3, la SURVIE qui s'allonge, la chope pressée seule. 300 matchs, 1,6 million de ticks, 1 006 cinématiques : tous finis, aucune erreur, aucun invariant cassé.
+- **La boutique et les quêtes** : rien de faux trouvé. Un reçu ne donne qu'une fois. Aucun achat sans sauvegarde chargée. Un titre ou une émote de pass part avec le pass. Les champs du profil sont bornés (historique, adversaires récents, reçus).
+- **Deux nouveaux** :
+  - **B-049** (mineur) : au retour au menu, le match continue d'un peu : les pas en boucle, les ombres au sol, un tir figé ;
+  - **B-050** (cosmétique) : cinq lignes à moitié traduites en FRANÇAIS.
+- **Aucun banc au texte exact du serveur** n'a été reconstruit (rien ne le demandait) : rien dans `tests/bench/`. Les scripts de la chasse sont dans `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/tools1031/`, perdus au recyclage du conteneur : ce qu'ils mesurent est recopié dans les fiches.
+- Statuts inchangés : aucun bug bloquant ni majeur ouvert.
 
-Ancienne chasse : 29/10, sur la v0.36.14 (HEAD 4888726), 1 617 tests ; nouveau B-045, B-043 abaissé à cosmétique, B-044 confirmé avec une deuxième cause.
+Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en validation (ZENITH, B-033) ; 1 629 tests ; le son de B-033 rejoué sur les 20 persos (aucun ne change, seuls les deux bosses) ; B-046, B-047 et B-048 nouveaux.
 
 ---
 
@@ -1567,3 +1580,70 @@ Ancienne chasse : 29/10, sur la v0.36.14 (HEAD 4888726), 1 617 tests ; nouveau B
   - une ligne : dans `init.client.luau`, faire avancer `rig.heading` vers `facing` à chaque image, aussi pendant un `lookDir` (le calcul de la branche `else`, avant le `if current.lookDir`). Le client rejoint alors le labo, que les tests jugent déjà ;
   - à vérifier après : le RUSH de SHIN et l'ÉVEIL de SHIN dans `luau tests/Storyboard.luau`, inchangés (le labo fait déjà ce calcul) ; en jeu, Wilhem n'a rien à juger de plus que d'habitude ;
   - à joindre à B-046 si production reprend ZENITH (t488 est dans ZENITH).
+
+## B-049 · Au retour au menu, le match continue d'un peu : les pas en boucle, les ombres au sol, et un tir figé avec sa lumière
+- **Date** : 31 octobre 2026.
+- **Source** : trouvé par la chasse (un piège connu : un effet client qui reste affiché), en relisant `init.client.luau` et les contrôleurs qu'il anime.
+- **Comment reproduire** :
+  - en jeu :
+    - **les pas** : en ENTRAÎNEMENT ou en 1 CONTRE 1 · IA, marcher (tenir D) et appuyer sur P, ou sur ◀ MENU. Au menu, des bruits de pas tournent en boucle jusqu'au match suivant. Même chose si l'IA marche quand on quitte, ou si l'on marche quand l'adversaire en ligne part (on est renvoyé au menu 3 s après) ;
+    - **les ombres** : finir un match, puis regarder le sol autour du héros du menu. Les taches sombres des deux persos restent où ils étaient à la fin, si c'était dans le champ du menu (environ x = −7 à 10) ;
+    - **le tir** : quitter un match pendant qu'un tir est en l'air (le piège de SYLVA, la sphère de DAICHA, un KIKOHO…), ou finir sur un K.O. pendant qu'un tir vole encore. Au menu, il reste figé dans le décor, avec sa lumière ;
+  - ici, sur les modules purs de HEAD (scripts `tools1031/StaleShots.luau`, `ShotShare.luau` et `WalkShare.luau` du scratchpad) :
+    - 100 matchs IA niveau 4, regardés 0,5 s avant la remise à zéro (le moment où le serveur renvoie au menu) : **3 sur 100 finissent avec un tir encore dans la photo** (une lame de ZEPHYR ; un séisme de RYUKEN ; un piège de SYLVA, encore 356 ticks de vie) ;
+    - un tir à soi est en vol sur 1,8 % des ticks de combat, 9,8 % avec SYLVA ;
+    - l'IA marche sur 3 à 8 % des ticks de combat (niveaux 4 à 1) ;
+  - à refaire sans les scripts : jouer `Sim.step` avec deux `FighterAI`, et lire `#world.projectiles + #world.drones` 30 ticks avant la fin de `MatchEnd`.
+- **Ce qui se passe** (prouvé dans le code) :
+  - au menu, la boucle de rendu s'arrête avant tout ce qui dessine le match (`init.client.luau:483-486`, `if currentMatch == 0 then updateHero(…) return end`). `sounds:update` (`:613`), `effects:updateProjectiles` (`:616`) et `stage:update` (`:617`) ne sont plus appelés ;
+  - `onMatchChanged` (`:254-271`) remet à zéro le monde, les rigs, la cinématique et le HUD (son commentaire le dit : « or they stay drawn over the lobby »), mais rien de ces trois contrôleurs ;
+  - **les pas** : la boucle `steps` d'un slot (`SoundController.luau:261-269` sur HEAD) n'est arrêtée que par `update`, quand le corps ne marche plus. Si un corps marchait à la dernière image, elle tourne au menu (volume 0,35, dans un groupe à 0,65), jusqu'au premier `update` du match suivant ;
+  - **les ombres** : les 2 × 3 disques de `StageController.luau:71-87` ne bougent que dans `update`. Au menu, ils restent sous les persos de la dernière image ;
+  - **les tirs** : un visuel n'est détruit que par un `updateProjectiles` qui ne voit plus son id (`EffectsController.luau:2673-2687`), donc au plus tôt à la première image du match suivant. Et le simulateur fige les tirs hors du combat :
+    - `stepProjectiles` et `PASSIVE.drones` ne tournent qu'en phase `Fight` (`CombatSimulation.luau:2654-2657`) ;
+    - la liste n'est vidée qu'à la remise à zéro (`:107-108`), et le serveur renvoie au menu 0,5 s avant elle (`init.server.luau:2242`) ;
+    - un tir en vol au K.O. final reste donc dans chaque photo jusqu'au menu (`init.server.luau:2069-2076`), figé pendant toute la scène K.O. ;
+  - **plus rare, la boule de ki de KAI** : celle qu'il charge entre ses paumes (`EffectsController.luau:1945-1962`, posée dans `ClientEffects`) n'est détruite que par `kiCharge`, sur le même rig. Or `onMatchChanged` vide `rigs` (`init.client.luau:259`) et la référence se perd. Si l'on quitte pendant les 14 images de la charge, la boule reste figée jusqu'à la fin de la session ;
+  - supposé : ce qui se voit et s'entend au menu. Le menu montre la scène 3D derrière lui, et sa caméra (`MenuController.luau:3066-3072`) voit le sol de x = −7 à 10 environ. Rien n'est vu dans Roblox Studio.
+- **Ce qui devrait se passer** : au retour au menu, plus aucun son ni effet du match.
+- **Cause** :
+  - `init.client.luau:254-271` : rien de tout cela n'est nettoyé à la sortie d'un match ;
+  - `init.client.luau:483-486` : au menu, plus rien ne met ces effets à jour ;
+  - pour les tirs figés pendant la scène K.O. : `CombatSimulation.luau:2654-2657`.
+- **Gravité** : mineur. Le son en boucle dure tout le menu, et il suffit de quitter en marchant. Les ombres restent après chaque match, si elles sont dans le champ. Le tir figé est rare. Rien de faux en combat.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - dans `onMatchChanged`, quand le match change :
+    - arrêter les pas : `loop:Stop()` sur `sounds.steps`, comme le fait déjà `setEnabled(false)` ;
+    - vider les tirs : `effects:updateProjectiles({}, 0, os.clock())` fait déjà tout le nettoyage ;
+    - détruire la boule de ki de chaque rig avant `table.clear(rigs)` (`effects:kiBallDestroy(rig.kiCharge)`) ;
+    - cacher ou détruire les ombres (un `StageController:clear()`, à écrire) ;
+  - `SoundController.luau` est en cours de retouche par la production (B-033) : faire cette piste après, ou dans la même livraison ;
+  - à vérifier en jeu : quitter en marchant, au clavier et sur téléphone ; finir un match contre SYLVA, avec un piège posé ;
+  - les tirs figés pendant la scène K.O. de fin sont un choix de mise en scène : les laisser figés, ou les effacer au K.O. final. À trancher par la production ; ce n'est pas forcément un défaut.
+
+## B-050 · Cinq lignes restent en anglais, ou à moitié, en FRANÇAIS : « TIME OVER », la victoire contre KUROEN SHIN, le « TITLE » de la victoire contre ASURA, le cadeau du propriétaire, le « L » du classement
+- **Date** : 31 octobre 2026.
+- **Source** : trouvé par la chasse (un piège connu : un texte sans sa traduction française). Les lignes du client et du serveur sont passées dans le vrai `Locale.translate(…, "FR")`.
+- **Comment reproduire** :
+  - ici : les 1 093 chaînes du client, de `init.server.luau` et de `Admin.luau` ont été balayées (scripts `tools1031/extract_texts.py` et `check_texts.luau`). Puis les lignes composées ont été traduites comme le client les écrit (`composed*.luau`). Le reste est traduit, identique en français (MENU, COMBOS, ROUND, SIMPLE…), ou pas du texte (couleurs, clés) ;
+  - en jeu : SETTINGS › LANGUAGE › FRANÇAIS, puis :
+
+    | Où | La ligne | En FRANÇAIS aujourd'hui |
+    |---|---|---|
+    | un round fini au temps (HUD, `HUDController.luau:1420`, traduit en `:1206-1207`) | « TIME OVER » | « TIME OVER » : ni dans `Locale.FR`, ni dans `Locale.SAME` |
+    | KUROEN SHIN battu (`MenuController.luau:2824`) | « KUROEN SHIN DEFEATED · RANK S · KUROEN'S DIVINE ECLIPSE STYLE UNLOCKED » | « KUROEN SHIN DEFEATED · RANK S · KUROEN'S ÉCLIPSE DIVINE STYLE DÉBLOQUÉ » |
+    | ASURA battu (`:2829-2830`) | « ASURA DEFEATED · RANK A · TITLE « ASURA'S EQUAL » · AWAKENED KAI STYLE » | « ASURA VAINCU · RANG A · TITLE « ÉGAL D'ASURA » · STYLE KAI ÉVEILLÉ » |
+    | un `!give` du propriétaire (`:250`) | « 🎁 Wilhem GAVE YOU 500 COINS » | « 🎁 Wilhem GAVE VOUS 500 COINS » (ailleurs, le jeu tutoie) |
+    | RANKING › 1v1 (`:2034`) | « YOU: GOLD · 1200 pts · 12 W / 3 L » | « TOI : OR · 1200 pts · 12 V / 3 L » |
+
+- **Ce qui se passe** : ces lignes n'ont pas de traduction entière. La traduction morceau par morceau n'en fait qu'une partie. Pour le « L », `["L"] = "D"` existe (`Locale.luau:751`), mais un morceau d'une seule lettre n'est jamais remplacé au milieu d'une ligne (`Locale.luau:1650`, `#en >= 2`, sur HEAD).
+- **Ce qui devrait se passer** : chaque ligne entière en français, comme les autres. « TIME OVER » va dans `Locale.FR` (« TEMPS ÉCOULÉ »), ou dans `Locale.SAME` si l'on garde l'anglais des jeux de combat.
+- **Cause** : le test « languages » de `Lobby.test.luau` ne lit que les coups, les persos, les modes et quelques lignes du serveur. Il ne voit ni le HUD ni les messages du menu.
+- **Gravité** : cosmétique.
+- **Statut** : `ouvert`.
+- **Piste** :
+  - des lignes de format dans `Locale.FR` : la victoire contre KUROEN SHIN (`RANK %s`), celle contre ASURA (deux formats, avec et sans « · AWAKENED KAI STYLE »), « %s GAVE YOU %s » (avec l'emoji), « %d W / %d L » (« %d V / %d D ») ; et `["TIME OVER"]` ;
+  - ajouter ces lignes au test « languages », écrites comme le client les compose ;
+  - `Locale.luau` est en cours de retouche par la production (ZENITH) : à faire après, ou dans la même livraison ;
+  - pour « TIME OVER », Wilhem choisit entre « TEMPS ÉCOULÉ » et l'anglais.

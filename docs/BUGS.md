@@ -10,22 +10,19 @@ Gravité :
 
 Statuts : `ouvert`, `à confirmer`, `en correction`, `corrigé (vX.Y.Z)`, `pas un bug (raison)`.
 
-Dernière chasse : 31/10, sur HEAD 2d11414 (v0.36.14 : le code n'a pas bougé depuis le 28/10, seuls les carnets), joué sur une copie `git archive` dans le scratchpad. L'arbre de travail appartient à la production, qui refait ZENITH et B-033 (`Finishers`, `SoundPalette`, `SoundController`, `MoveData`, `Locale`, tests) : les fiches B-033, B-046 et B-047 ne sont pas touchées ici, et **toutes les lignes citées ce matin valent pour HEAD** (celles de `SoundController.luau` et de `Locale.luau` bougeront à la livraison).
-- **Les 8 suites rapides passent** sur HEAD : 1 617 tests (CombatSimulation 175, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 421, Lobby 59). Kits tournait déjà : non relancé. vfxcheck, vfxsmoke et vfxrun passent.
-- **La chasse large**, sur ce que les chasses récentes n'avaient pas regardé :
-  - le client : `init.client`, `MenuController`, `HubController`, `HUDController`, `ShopPage`, `TutorialController`, `InputController`, et les contrôleurs d'effets, de scène et de son ;
-  - la boutique : `Store`, `StoreConfig`, `ProcessReceipt`, les achats en pièces et en Robux ;
-  - les quêtes, les arènes (`Maps`, `ArenaBuilder`) ;
-  - les modules purs : aucun appel à Roblox.
-- **Un fuzz des modes que `Fuzz.test` ne joue pas** : les défis ASURA et KUROEN SHIN à 1, 2 ou 3 persos, les relais 2v2 et 3v3, la SURVIE qui s'allonge, la chope pressée seule. 300 matchs, 1,6 million de ticks, 1 006 cinématiques : tous finis, aucune erreur, aucun invariant cassé.
-- **La boutique et les quêtes** : rien de faux trouvé. Un reçu ne donne qu'une fois. Aucun achat sans sauvegarde chargée. Un titre ou une émote de pass part avec le pass. Les champs du profil sont bornés (historique, adversaires récents, reçus).
-- **Deux nouveaux** :
-  - **B-049** (mineur) : au retour au menu, le match continue d'un peu : les pas en boucle, les ombres au sol, un tir figé ;
-  - **B-050** (cosmétique) : cinq lignes à moitié traduites en FRANÇAIS.
-- **Aucun banc au texte exact du serveur** n'a été reconstruit (rien ne le demandait) : rien dans `tests/bench/`. Les scripts de la chasse sont dans `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/tools1031/`, perdus au recyclage du conteneur : ce qu'ils mesurent est recopié dans les fiches.
-- Statuts inchangés : aucun bug bloquant ni majeur ouvert.
+Dernière chasse : 1/11, chasse courte sur HEAD 889b22a (v0.36.15 : ZENITH, le FATAL FINISHER de KUROEN SHIN, et B-033). Arbre propre ; les mesures sont jouées sur une copie `git archive` dans le scratchpad (`hunt1101/`).
+- **Les 8 suites rapides passent** : 1 630 tests (CombatSimulation 176, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 433, Lobby 59). Kits venait de passer (131) : non relancé.
+- **Relecture de la v0.36.15** (`SoundController`, `SoundPalette.materialOf`, `Finishers`, `MoveData`, `Locale`) :
+  - `material(kit, move)` ne peut pas planter : un kit `nil` ou inconnu donne `data = nil`, donc pas de boss, puis le propriétaire du coup, sinon KAI (`SoundController.luau:34-37`, `SoundPalette.luau:284-289`) ;
+  - aucun son ne manque : KUROEN SHIN n'a pas de `projectile`, comme KUROEN, et l'appel garde le repli `or MATERIALS.KAI.projectile` (`SoundController.luau:201`) ; les sons de ZENITH (`whoosh`, `heavy`, `boom`, `charge`) passent par `cin.kit`, soit KUROEN SHIN (`CinematicController.luau:760`). Le `boom` du K.O. est l'explosion, pas la voix (B-002) ;
+  - un boss ne se joue pas en ENTRAÎNEMENT : `GameModes.validate` ne prend que `MoveData.KitOrder` (`init.server.luau:1699`) ; les bosses n'y sont pas ;
+  - les modules purs restent purs ; « ZENITH » a sa traduction.
+- **B-051 rangée** (posée par la validation) : la tête de VENOM cachée à 33 % est reproduite (t168, depuis la droite, aux trois placements ; aucune autre des 20 cibles au-dessus de 25 %).
+- **Un nouveau** : **B-052** (cosmétique, à confirmer) : les images rémanentes de 9 FATAL FINISHERS d'autres persos qu'AKEMI (dont ZENITH) sont toujours son ombre violette presque noire ; la couleur demandée par la scène ne teint que leur lumière.
+- Lignes recalées après la livraison : B-049 (`SoundController.luau`), B-050 (`Locale.luau`). B-048 : ZENITH est livré sans son cas de t488.
+- Statuts : aucun bug bloquant ni majeur ouvert.
 
-Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en validation (ZENITH, B-033) ; 1 629 tests ; le son de B-033 rejoué sur les 20 persos (aucun ne change, seuls les deux bosses) ; B-046, B-047 et B-048 nouveaux.
+Ancienne chasse : 31/10, sur HEAD 2d11414 (v0.36.14) ; 1 617 tests ; chasse large du client, de la boutique, des quêtes et des arènes ; fuzz des défis, des relais et de la SURVIE (300 matchs, aucun invariant cassé) ; B-049 et B-050 nouveaux.
 
 ---
 
@@ -1091,6 +1088,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
 - **Ce qui devrait se passer** : chaque boss sonne avec sa matière à lui, du premier élan au dernier coup : KUROEN SHIN comme un KUROEN plus lourd, ASURA comme le prévoit son entrée.
 - **Gravité** : mineur. C'est du son, assez discret (même famille de fichiers, mais ni le même bus ni la même hauteur), et cela dure tout le combat des deux défis, le moment fort du jeu.
 - **Statut** : `corrigé (v0.36.15)`, à entendre en jeu (CHALLENGE · KUROEN SHIN et CHALLENGE · ASURA). Validé le 1/11 avec ZENITH : 0 différence de son pour les 20 persos jouables (13 090 paires). Historique : Le patch du 30/10, gardé dans le scratchpad, est perdu avec le recyclage du conteneur : la correction est refaite de zéro, avec les mêmes choix. `SoundPalette.luau` : une entrée `["KUROEN SHIN"]` faite de nouvelles tables (les gantelets de KUROEN plus graves : élans dans `echo`, coups `punch` 1,03 dans `hall`, un `boom` plus profond sous les gros), seulement `CLIENT_SOUNDS` et les `UPLOADS` de Wilhem ; `SoundPalette.materialOf(kit, moveOwner, isBoss)`, pure ; `SoundController` l'utilise pour les élans, les pas, les temps de chope, les coups et les projectiles (qui passent maintenant aussi par l'attaquant). ASURA corrigé du même coup. Tests : `Kits.test` (les sons des 22 kits, aucune table partagée, `materialOf` coup par coup : 0 changement pour les 20 jouables) et le test commun des finishers (`Cinematography`), qui n'accepte plus le repli sur KAI. Le travail en cours est gardé dans le dépôt, `docs/attente/zenith.patch`. Décisions du 31/10 dans `DECISIONS.md`. Reste invérifiable d'ici : l'écart à l'oreille, en jeu. Avant le 31/10 : `ouvert`, bloqué le 30/10 (la correction partait avec ZENITH, refusé deux fois ; code annulé). Avant le 29/10 : `ouvert` (mécanisme prouvé ; l'écart s'entend en jeu, à juger par Wilhem). Code inchangé au 25/10 : la v0.36.10 ne touche ni `SoundPalette`, ni `SoundController`, ni `MoveData`.
+- **1/11, relu par la chasse sur la v0.36.15** : rien de faux. `material(kit, move)` (`src/client/SoundController.luau:34-37`) ne plante ni sur un kit `nil` ni sur un kit inconnu (pas de données, donc pas de boss : le propriétaire du coup, sinon KAI, `SoundPalette.luau:284-289`). KUROEN SHIN n'a pas de `projectile`, comme KUROEN : le repli sur celui de KAI reste (`SoundController.luau:201`), comme avant. Les sons de ZENITH prennent `cin.kit` (`CinematicController.luau:760`). Un boss ne se choisit pas en ENTRAÎNEMENT (`GameModes.validate` sur `MoveData.KitOrder`, `init.server.luau:1699`). Reste à entendre en jeu.
 - **29/10, la correction en cours** (production ; décisions dans `DECISIONS.md`) :
   - `SoundPalette.luau` : une entrée `["KUROEN SHIN"]` faite de nouvelles tables (les gantelets de KUROEN plus graves : chaque élan dans `echo`, ses coups `punch` 1,03 dans `hall`, un `boom` plus profond sous les gros), seulement des fichiers de `CLIENT_SOUNDS` et des `UPLOADS` de Wilhem, aucun ID nouveau ;
   - `SoundPalette.materialOf(kit, moveOwner, isBoss)`, pure : un boss qui a sa matière sonne toujours comme lui ; les autres comme le propriétaire du coup, sinon leur kit, sinon KAI. `SoundController` l'appelle pour les élans et les pas (`view.kit`), les temps de chope, les coups (`Hit`) et les projectiles, qui passent maintenant aussi par l'attaquant ;
@@ -1502,7 +1500,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
   2. **écouter `TeleportService.TeleportInitFailed`** : pour un joueur qui a `client.teleporting`, le lever, retenter une fois (la documentation de Roblox conseille de retenter les échecs passagers), sinon envoyer « THE OPPONENT'S SERVER COULD NOT BE REACHED » (déjà traduit) et `menuStatus`, comme l'échec immédiat (`:1111-1114`). Faire de même si le délai passe sans départ ;
   3. sur le banc, H6 doit alors rendre : F reçoit `crossWaiting`, sa relance de RANKED est refusée, aucun abandon.
 
-## B-046 · ZENITH (KUROEN SHIN, en validation) : la cible fait demi-tour en une image (165°), au milieu du gros plan qui ne montre qu'elle
+## B-046 · ZENITH (KUROEN SHIN, avant la v0.36.15) : la cible fait demi-tour en une image (165°), au milieu du gros plan qui ne montre qu'elle
 - **Date** : 30 octobre 2026.
 - **Source** : trouvé par la chasse, sur l'arbre de travail du 29/10 (non livré, en validation), en relevant la rotation des corps d'une image à l'autre dans un même plan (script `/tmp/claude-0/-home-user-fighting-game/9500fc37-bfe5-5fc8-8b48-019f0348026a/scratchpad/hunt1030/tests/turns.luau`, sur une copie de `src/shared` et `tests`).
 - **Comment reproduire** :
@@ -1528,7 +1526,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
   - pour t474, fondre `a.lookDir` vers le cap du client (`dir` plus `ModelYaw`) pendant le retrait du poing, ou garder un `lookDir` jusqu'à la coupe de t488 ;
   - un test dans `Cinematography` : dans un même plan, aucun corps visible ne tourne de plus de 30 à 45° d'une image à l'autre (sauf exceptions nommées : la danse d'AKEMI). Sur ZENITH d'abord ; l'étendre aux autres scènes trouverait la liste ci-dessus.
 
-## B-047 · ZENITH (KUROEN SHIN, en validation) : contre d'autres persos que KAI, la cible le touche quand il est visible ; la lance de RAIJIN traverse son poing au plan clé
+## B-047 · ZENITH (KUROEN SHIN, avant la v0.36.15) : contre d'autres persos que KAI, la cible le touche quand il est visible ; la lance de RAIJIN traverse son poing au plan clé
 - **Date** : 30 octobre 2026.
 - **Source** : trouvé par la chasse, sur l'arbre de travail du 29/10 (en validation). Le labo des cinématiques ne joue que KAI en cible (`tests/CinematicKit.luau:90`, `Sim.setKits(world, kit, "KAI")`), et le test de ZENITH le dit (`tests/Cinematography.test.luau:1004`, « the lab's target is KAI »). En défi, la cible est le perso du joueur : n'importe lequel des 20.
 - **Comment reproduire** :
@@ -1575,11 +1573,11 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
 - **Ce qui devrait se passer** : le client montre ce que le labo montre (et ce que les tests et les planches jugent) : le corps déjà tourné à la reprise.
 - **Cause** (prouvée dans le code) : `src/client/init.client.luau:588-598`. `rig.heading` n'avance que dans la branche sans `lookDir` ; le labo l'avance toujours (`tests/CinematicKit.luau:133-134`).
 - **Gravité** : cosmétique. Un faux raccord d'un dixième de seconde, à une coupe ; mais dans 15 scènes, dont trois RUSH vus en combat, et invisible pour les tests et les planches.
-- **Statut** : `ouvert`. **31/10** : ZENITH refait (en correction, pas encore livré) n'a plus le cas de t488 : la cible garde son orientation à elle (`lookDir`) de t290 à t487, et son cap côté client est encore le bon à la coupe ; KUROEN SHIN garde la sienne de t392 à la fin. Le labo donne maintenant les deux orientations (`yaws`, et `clientYaws` selon la règle du client), et le test de ZENITH les juge toutes les deux. Les 14 autres cinématiques sont inchangées.
+- **Statut** : `ouvert`. **31/10** : ZENITH refait (en correction, pas encore livré) n'a plus le cas de t488 : la cible garde son orientation à elle (`lookDir`) de t290 à t487, et son cap côté client est encore le bon à la coupe ; KUROEN SHIN garde la sienne de t392 à la fin. Le labo donne maintenant les deux orientations (`yaws`, et `clientYaws` selon la règle du client), et le test de ZENITH les juge toutes les deux. Les 14 autres cinématiques sont inchangées. **1/11** : ZENITH est livré tel quel (v0.36.15) : son cas de t488 est réglé dans la scène, pas dans le client. La cause (`init.client.luau:588-598`, fichier inchangé) et les 14 autres cinématiques restent.
 - **Piste** :
   - une ligne : dans `init.client.luau`, faire avancer `rig.heading` vers `facing` à chaque image, aussi pendant un `lookDir` (le calcul de la branche `else`, avant le `if current.lookDir`). Le client rejoint alors le labo, que les tests jugent déjà ;
   - à vérifier après : le RUSH de SHIN et l'ÉVEIL de SHIN dans `luau tests/Storyboard.luau`, inchangés (le labo fait déjà ce calcul) ; en jeu, Wilhem n'a rien à juger de plus que d'habitude ;
-  - à joindre à B-046 si production reprend ZENITH (t488 est dans ZENITH).
+  - ~~à joindre à B-046~~ : ZENITH n'a plus ce cas (v0.36.15).
 
 ## B-049 · Au retour au menu, le match continue d'un peu : les pas en boucle, les ombres au sol, et un tir figé avec sa lumière
 - **Date** : 31 octobre 2026.
@@ -1597,7 +1595,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
 - **Ce qui se passe** (prouvé dans le code) :
   - au menu, la boucle de rendu s'arrête avant tout ce qui dessine le match (`init.client.luau:483-486`, `if currentMatch == 0 then updateHero(…) return end`). `sounds:update` (`:613`), `effects:updateProjectiles` (`:616`) et `stage:update` (`:617`) ne sont plus appelés ;
   - `onMatchChanged` (`:254-271`) remet à zéro le monde, les rigs, la cinématique et le HUD (son commentaire le dit : « or they stay drawn over the lobby »), mais rien de ces trois contrôleurs ;
-  - **les pas** : la boucle `steps` d'un slot (`SoundController.luau:261-269` sur HEAD) n'est arrêtée que par `update`, quand le corps ne marche plus. Si un corps marchait à la dernière image, elle tourne au menu (volume 0,35, dans un groupe à 0,65), jusqu'au premier `update` du match suivant ;
+  - **les pas** : la boucle `steps` d'un slot (`SoundController.luau:264-272` depuis la v0.36.15) n'est arrêtée que par `update`, quand le corps ne marche plus. Si un corps marchait à la dernière image, elle tourne au menu (volume 0,35, dans un groupe à 0,65), jusqu'au premier `update` du match suivant ;
   - **les ombres** : les 2 × 3 disques de `StageController.luau:71-87` ne bougent que dans `update`. Au menu, ils restent sous les persos de la dernière image ;
   - **les tirs** : un visuel n'est détruit que par un `updateProjectiles` qui ne voit plus son id (`EffectsController.luau:2673-2687`), donc au plus tôt à la première image du match suivant. Et le simulateur fige les tirs hors du combat :
     - `stepProjectiles` et `PASSIVE.drones` ne tournent qu'en phase `Fight` (`CombatSimulation.luau:2654-2657`) ;
@@ -1618,7 +1616,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
     - vider les tirs : `effects:updateProjectiles({}, 0, os.clock())` fait déjà tout le nettoyage ;
     - détruire la boule de ki de chaque rig avant `table.clear(rigs)` (`effects:kiBallDestroy(rig.kiCharge)`) ;
     - cacher ou détruire les ombres (un `StageController:clear()`, à écrire) ;
-  - `SoundController.luau` est en cours de retouche par la production (B-033) : faire cette piste après, ou dans la même livraison ;
+  - `SoundController.luau` n'est plus en retouche (B-033 livré en v0.36.15) : la piste peut se faire ;
   - à vérifier en jeu : quitter en marchant, au clavier et sur téléphone ; finir un match contre SYLVA, avec un piège posé ;
   - les tirs figés pendant la scène K.O. de fin sont un choix de mise en scène : les laisser figés, ou les effacer au K.O. final. À trancher par la production ; ce n'est pas forcément un défaut.
 
@@ -1637,7 +1635,7 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
     | un `!give` du propriétaire (`:250`) | « 🎁 Wilhem GAVE YOU 500 COINS » | « 🎁 Wilhem GAVE VOUS 500 COINS » (ailleurs, le jeu tutoie) |
     | RANKING › 1v1 (`:2034`) | « YOU: GOLD · 1200 pts · 12 W / 3 L » | « TOI : OR · 1200 pts · 12 V / 3 L » |
 
-- **Ce qui se passe** : ces lignes n'ont pas de traduction entière. La traduction morceau par morceau n'en fait qu'une partie. Pour le « L », `["L"] = "D"` existe (`Locale.luau:751`), mais un morceau d'une seule lettre n'est jamais remplacé au milieu d'une ligne (`Locale.luau:1650`, `#en >= 2`, sur HEAD).
+- **Ce qui se passe** : ces lignes n'ont pas de traduction entière. La traduction morceau par morceau n'en fait qu'une partie. Pour le « L », `["L"] = "D"` existe (`Locale.luau:752` depuis la v0.36.15), mais un morceau d'une seule lettre n'est jamais remplacé au milieu d'une ligne (`Locale.luau:1651`, `#en >= 2`, sur HEAD).
 - **Ce qui devrait se passer** : chaque ligne entière en français, comme les autres. « TIME OVER » va dans `Locale.FR` (« TEMPS ÉCOULÉ »), ou dans `Locale.SAME` si l'on garde l'anglais des jeux de combat.
 - **Cause** : le test « languages » de `Lobby.test.luau` ne lit que les coups, les persos, les modes et quelques lignes du serveur. Il ne voit ni le HUD ni les messages du menu.
 - **Gravité** : cosmétique.
@@ -1645,17 +1643,54 @@ Ancienne chasse : 30/10, sur HEAD c012478 et sur l'arbre de travail alors en val
 - **Piste** :
   - des lignes de format dans `Locale.FR` : la victoire contre KUROEN SHIN (`RANK %s`), celle contre ASURA (deux formats, avec et sans « · AWAKENED KAI STYLE »), « %s GAVE YOU %s » (avec l'emoji), « %d W / %d L » (« %d V / %d D ») ; et `["TIME OVER"]` ;
   - ajouter ces lignes au test « languages », écrites comme le client les compose ;
-  - `Locale.luau` est en cours de retouche par la production (ZENITH) : à faire après, ou dans la même livraison ;
+  - `Locale.luau` n'est plus en retouche (ZENITH livré en v0.36.15) : la piste peut se faire ;
   - pour « TIME OVER », Wilhem choisit entre « TEMPS ÉCOULÉ » et l'anglais.
 
-## B-051 · ZENITH (KUROEN SHIN) : remarques de la validation du 1/11, hors des critères écrits
+## B-051 · ZENITH (KUROEN SHIN) : cinq remarques de la validation du 1/11, hors des critères écrits ; contre VENOM depuis la droite, sa tête est cachée au tiers
 - **Date** : 1er novembre 2026.
-- **Source** : la validation de ZENITH (v0.36.15), livré avec ces remarques. Pas encore repris par la chasse.
+- **Source** : la validation de ZENITH (v0.36.15), livré avec ces remarques ; fiche posée par la validation, rangée par la chasse le même matin.
+- **Comment reproduire** :
+  - ici, la tête cachée : un script du scratchpad (`hunt1101/tests/zn_hidden.luau`, sur une copie `git archive` de HEAD) joue ZENITH dans le labo (`Kit.play("KUROEN SHIN", "Fatal", nil, 300, centre, …, côté, nil, cible)`) contre les 20 cibles, des deux côtés, aux placements −20, 0 et 20, et mesure `Kit.hiddenShare` du sujet de chaque plan, comme `tests/Cinematography.test.luau:602-615`. À refaire sans le script : la fonction `film` de ce test, avec la cible en dernier argument de `Kit.play` ;
+  - en jeu : CHALLENGE · KUROEN SHIN avec VENOM, gagner par le COUP FATAL, regarder la ruée de VENOM (vers 2,8 s) ;
+  - les quatre autres remarques : non remesurées ce matin, chiffres de la validation.
 - **Ce qui se passe** :
-  - **VENOM depuis la droite** (le côté du défi) : dans `kshin-zn-lunge`, sa tête est cachée par KUROEN SHIN à 33 % au pire, de t166 à t170, à tous les placements. La règle du quart n'est mesurée que sur la cible KAI ; les 19 autres cibles restent sous 25 %. Piste : retoucher l'angle du plan, ou étendre la mesure du sujet caché aux 20 cibles ;
-  - **l'image rémanente** (la copie d'ombre d'AKEMI, `shadowCopy`, 140A1E, opaque à 75 %) cache le torse de la cible au-delà de la traversée, jusqu'à t201 ou t205 (environ 0,3 s). Le choix d'une ombre presque noire pour l'empereur blanc et or est à juger par Wilhem ;
-  - **la lance de RAIJIN** atteint x = 28,19 (t40) quand la cible est près du mur droit (en combat, un RAIJIN dos au mur dépasse déjà la ligne) ;
-  - **le coup de pied tournant au ralenti** : le bassin de la cible tourne de 44° puis reste figé deux images (poses quantifiées de l'animateur) ;
-  - **le plan de recherche** : la garde de la cible (`Block`) cache son propre visage.
+  1. **VENOM depuis la droite** (le côté du défi), plan `kshin-zn-lunge` (`Finishers.luau:3546`, sujet la tête de la cible) : **reproduit**, 33 % de la tête cachée par KUROEN SHIN au pire, à t168, aux trois placements. Depuis la gauche, rien. Les 19 autres cibles restent sous 25 %, des deux côtés. La règle du quart n'est mesurée que sur la cible KAI (`film`, `Cinematography.test.luau:602-615`, `Kit.play` sans cible) ;
+  2. **l'image rémanente** cache le torse de la cible au-delà de la traversée, jusqu'à t201 ou t205 (environ 0,3 s). Prouvé dans le code : la scène la demande couleur `ki`, or pâle (`Finishers.luau:3709`), mais le client la peint toujours en 140A1E, opaque à 75 % (voir **B-052**) ;
+  3. **la lance de RAIJIN** atteint x = 28,19 (t40) quand la cible est près du mur droit (en combat, un RAIJIN dos au mur dépasse déjà la ligne, B-015). Non remesuré : le labo ne rend ici que les corps (le corps de RAIJIN reste sous |x| = 26,7) ;
+  4. **le coup de pied tournant au ralenti** : le bassin de la cible tourne de 44°, puis reste figé deux images (poses quantifiées de l'animateur). Non remesuré ;
+  5. **le plan de recherche** (`kshin-zn-search`, `Finishers.luau:3551`, sujet la tête de la cible) : sa garde (`Block`) cache son propre visage. Non remesuré ; `hiddenShare` ne compte que l'autre corps.
+- **Ce qui devrait se passer** : le sujet de chaque plan lisible, contre chaque cible (moins d'un quart caché) ; une image rémanente aux couleurs de KUROEN SHIN si c'est le choix de Wilhem.
+- **Cause probable** :
+  1. l'angle de `kshin-zn-lunge` (yaw −124°, fov 40) choisi et vérifié sur la cible KAI ; VENOM, plus large ou plus bas, passe derrière l'épaule de KUROEN SHIN (supposé : la forme du corps de VENOM n'a pas été regardée) ;
+  2. `EffectsController.luau:3049-3070`, voir B-052 ;
+  3. à 5 : supposés, d'après la validation.
+- **Gravité** : cosmétique. Un douzième de seconde pour VENOM ; le reste est à juger à l'œil.
+- **Statut** :
+  1. `ouvert` (reproduit) ;
+  2. `à confirmer` (Wilhem : une ombre presque noire pour l'empereur blanc et or ? Voir B-052) ;
+  3. à 5. `à confirmer` (rapportés par la validation, non remesurés).
+- **Piste** :
+  - 1 : retoucher `yaw` ou `fill` de `kshin-zn-lunge`, ou décaler VENOM d'un pas dans ce plan ; et faire passer `film` (Cinematography) sur les 20 cibles pour ZENITH, comme le test des contacts de B-047, pour que la règle du quart les couvre ;
+  - 2 : voir B-052 ;
+  - 4 : `luau tests/AnimPops.luau -a 50 list` sur la cible de ZENITH, ou interpoler les poses du coup au ralenti ;
+  - 5 : un angle qui passe à côté de la garde, ou un autre sujet (les yeux au-dessus des avant-bras).
+
+## B-052 · Les images rémanentes des FATAL FINISHERS sont toujours l'ombre violette d'AKEMI : la couleur que la scène demande ne teint que la lumière
+- **Date** : 1er novembre 2026.
+- **Source** : trouvé par la chasse, en rangeant B-051 (l'ombre presque noire de ZENITH).
+- **Comment reproduire** :
+  - en jeu : le FATAL FINISHER de SHIN, de ZEPHYR ou de KUROEN SHIN (ZENITH, vers 2,5 s et 3,8 s) : regarder la couleur de la copie du corps laissée sur place ;
+  - ici : lecture du code (le rendu est côté client, il ne se teste pas hors ligne).
+- **Ce qui se passe** (prouvé dans le code) :
+  - `EffectsController:shadowCopy(slot, color, life)` peint chaque partie du corps en `Color3.fromHex("140A1E")`, à 25 % de transparence. `color` ne sert qu'à la `PointLight` (`src/client/EffectsController.luau:3049-3070`, appelé par `CinematicController.luau:593` pour chaque effet `afterimage`) ;
+  - or 9 FATAL FINISHERS d'autres persos qu'AKEMI demandent une image rémanente à leur couleur : SHIN (`Finishers.luau:164`, `SHIN_BLUE`), TARO (`:344`), ZEPHYR (`:740`, `:751`), DAICHA (`:1325`), KAZAN (`:2390`), SYLVA (`:2634`), NOVA (`:2785`, sur la cible, en alternance avec l'hologramme), KUROEN (`:3202`) et KUROEN SHIN (`:3709`, `ki`, or pâle). Toutes sortent violet presque noir, la teinte des ombres d'AKEMI ;
+  - le guide du pack (`docs/VFX_PROMPT.md:341`) décrit l'image fantôme comme une « silhouette de couleur » ;
+  - supposé : l'écart se voit (une forme sombre au lieu d'une forme colorée), surtout chez les persos clairs (ELIAN n'en a pas ; KUROEN SHIN, SYLVA, ZEPHYR). Une copie sombre a pu être voulue pour certains (le journal parle d'une « copie sombre du corps » pour SHIN) : c'est à juger.
+- **Ce qui devrait se passer** : la copie prend la couleur que la scène lui donne, et les ombres d'AKEMI restent sombres.
+- **Cause** : `src/client/EffectsController.luau:3056`, la couleur du corps est écrite en dur ; la fonction a été faite pour les ombres d'AKEMI, puis reprise par les autres scènes.
 - **Gravité** : cosmétique.
-- **Statut** : `ouvert`.
+- **Statut** : `à confirmer` (Wilhem : ombre sombre pour tous, ou la couleur de chacun ?).
+- **Piste** :
+  - peindre les parties en `color` (ou un mélange de `color` et de 140A1E, pour garder l'air d'une ombre). Attention : AKEMI passe aussi sa couleur d'énergie (`Finishers.luau:895` et `:961`, son RUSH `CinematicDirector.luau:1206`, `FATAL.AKEMI` `:2917`) ; pour garder ses ombres sombres, un drapeau `dark = true` sur ses effets, ou 140A1E passé en `color` ;
+  - ou garder le sombre et le dire dans le code : enlever `color` des effets qui ne l'utilisent pas ;
+  - à vérifier après : `python3 tools/vfxrun.py` n'est pas concerné (effet du jeu, pas du pack) ; en jeu, ZENITH et le finisher de SHIN.

@@ -29,8 +29,11 @@ SoundController.__index = SoundController
 -- The kits whose guard is a blade (a blow on it rings like steel).
 local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, YUKINA = true }
 
-local function material(kit)
-	return MATERIALS[kit or "KAI"] or MATERIALS.KAI
+-- A fighter's matter (SoundPalette.materialOf, B-033): a boss with his own sounds like himself,
+-- whoever lent him his moves; anyone else like the owner of the move, else its kit, else KAI.
+local function material(kit, move)
+	local data = kit and MoveData.Kits[kit]
+	return (Palette.materialOf(kit, move and MoveData.MoveKit[move], data ~= nil and data.Boss == true))
 end
 
 function SoundController.new()
@@ -179,11 +182,11 @@ function SoundController:onEvent(event)
 	local kind = event.kind
 	if kind == "ThrowBeat" or kind == "Throw" then
 		-- (a throw: the seize, the knees or the pommel before the impact, in the thrower's matter)
-		local own = material(self.kits[event.attacker])
+		local own = material(self.kits[event.attacker], nil)
 		self:playAll(if kind == "Throw" then ACTIONS.Block else own.hit)
 	elseif kind == "Hit" then
 		-- (the GRAB's blow, its throw's impact: the thrower's own matter)
-		local own = material(MoveData.MoveKit[event.move] or self.kits[event.attacker])
+		local own = material(self.kits[event.attacker], event.move)
 		local heavy = event.heavy or event.ko or event.cinematic
 		self:playAll(if heavy then own.heavyHit else own.hit)
 		if event.tip then self:playAll(ACTIONS.Tip) end
@@ -195,7 +198,7 @@ function SoundController:onEvent(event)
 	elseif kind == "Parry" then
 		self:playAll(if event.absorbed then ACTIONS.Wall else ACTIONS.Parry)
 	elseif kind == "Projectile" then
-		self:playAll(material(MoveData.MoveKit[event.move]).projectile or MATERIALS.KAI.projectile)
+		self:playAll(material(self.kits[event.attacker], event.move).projectile or MATERIALS.KAI.projectile)
 	elseif kind == "PromptGrade" then
 		self:playAll(if event.grade == "PERFECT" then ACTIONS.Perfect else ACTIONS.Graded)
 	elseif kind == "GroundBounce" or kind == "WallBounce" then
@@ -234,7 +237,7 @@ function SoundController:update(slot, view, moves)
 	local m = view.state == "Attack" and moves[view.move]
 	local phase = if m then (if view.moveFrame <= m.startup then "S" elseif view.moveFrame <= m.startup + m.active then "A" else "R") else ""
 	local key = view.state .. ":" .. tostring(view.move) .. phase
-	local own = material(view.kit)
+	local own = material(view.kit, nil)
 	self.kits[slot] = view.kit
 	if last and last.key ~= key and self.enabled then
 		if phase == "A" and last.phase ~= "A" then

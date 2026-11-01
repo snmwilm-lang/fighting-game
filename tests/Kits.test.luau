@@ -503,9 +503,15 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 			expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
 		end
 	end
+	-- every kit, the two bosses included (B-033: a boss without a matter sounded like KAI)
+	local ALL = table.clone(MoveData.KitOrder)
+	for name, data in Kits do
+		if data.Boss then table.insert(ALL, name) end
+	end
+	expect(#ALL == 22, #ALL .. " kits, not 22: the sound checks miss some")
 	-- the fists land with his punches, the blades with his steel; the swings cut the air
 	local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, VENOM = true, YUKINA = true }
-	for _, name in MoveData.KitOrder do
+	for _, name in ALL do
 		local own = Palette.MATERIALS[name]
 		local want = if STEEL[name] then "slash" else "punch"
 		expect(own.hit[1][1] == want and own.heavyHit[1][1] == want, name .. " does not land with " .. want)
@@ -531,8 +537,22 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 			expect(spec[5] == nil or Palette.BUSES[spec[5]], label .. " goes through an unknown bus " .. tostring(spec[5]))
 		end
 	end
+	-- (each matter its own tables: SoundController names each list after its kit and part, a
+	-- table shared by two kits, or with an action, would answer to one name only)
+	local owners = {}
+	for key, list in Palette.ACTIONS do owners[list] = "action " .. key end
+	for name, own in Palette.MATERIALS do
+		expect(not owners[own], name .. " shares its matter with " .. tostring(owners[own]))
+		owners[own] = name
+		for part, list in own do
+			if type(list) == "table" then
+				expect(not owners[list], name .. "." .. part .. " is the table of " .. tostring(owners[list]))
+				owners[list] = name .. "." .. part
+			end
+		end
+	end
 	local signatures = {}
-	for _, name in MoveData.KitOrder do
+	for _, name in ALL do
 		local own = Palette.MATERIALS[name]
 		expect(own, name .. " has no sound material")
 		for _, key in { "swing", "heavySwing", "hit", "heavyHit" } do check(own and own[key], name .. " " .. key) end
@@ -540,7 +560,8 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 		local signature = own and own.hit[1][1] .. own.hit[1][3] .. tostring(own.hit[1][5])
 		expect(not signatures[signature], name .. " hits like " .. tostring(signatures[signature]))
 		signatures[signature] = name
-		-- a kit with a projectile special has its own projectile sound
+		-- a kit with a projectile special has its own projectile sound (a boss who borrows his
+		-- moves has the ones of his lender's: ASURA's ki blast)
 		for _, id in Kits[name].Roles do
 			if Moves[id].projectile and name ~= "KAI" then expect(own and own.projectile, name .. " has no projectile sound") end
 		end
@@ -550,6 +571,64 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
 		"Counter", "Revive", "RoundStart", "UiHover", "UiClick", "Rhythm", "RhythmFinisher", "ClashStep", "Resolve", "Feint", "Flow" } do
 		check(Palette.ACTIONS[kind], "action " .. kind)
 	end
+end)
+
+-- B-033: whose matter each sound of a fighter takes (SoundPalette.materialOf, what
+-- SoundController plays for swings, steps, throws' beats, blows and projectiles). Move by move
+-- for the 22 kits: the 20 playable ones exactly as before (the move's owner, else the kit, else
+-- KAI: MoveKit gives every one of their moves to its own kit); a boss always in his own matter,
+-- whoever lent him his moves (ASURA's 29 blows were KAI's, KUROEN SHIN's swings were KAI's and
+-- his blows KUROEN's). Not a palette of its own built from shared tables.
+test("sounds: each fighter strikes in its own matter, move by move; a boss always in his own (B-033)", function()
+	local function before(kit, id)
+		local owner = MoveData.MoveKit[id]
+		return Palette.MATERIALS[owner or kit] or Palette.MATERIALS.KAI
+	end
+	local moves, bosses = 0, 0
+	for name, data in Kits do
+		local ids = {}
+		for _, id in data.Roles do ids[id] = true end
+		for id, owner in MoveData.MoveKit do
+			if owner == name then ids[id] = true end
+		end
+		local own = Palette.MATERIALS[name]
+		expect(own ~= nil, name .. " has no matter of its own")
+		-- a swing, a step, a throw's beat: no move owner
+		local plain, plainName = Palette.materialOf(name, nil, data.Boss == true)
+		expect(plain == own and plainName == name, name .. "'s swings and steps sound like " .. tostring(plainName))
+		for id in ids do
+			local got, gotName = Palette.materialOf(name, MoveData.MoveKit[id], data.Boss == true)
+			moves += 1
+			if data.Boss then
+				expect(got == own and gotName == name, string.format("%s's %s sounds like %s", name, id, tostring(gotName)))
+			else
+				expect(got == before(name, id), string.format("%s's %s changed matter (%s)", name, id, tostring(gotName)))
+				-- (no playable kit plays another's move today: the owner first or the kit first give
+				-- the same matter; a shared move would make the owner's win, decide it then)
+				expect(MoveData.MoveKit[id] == nil or MoveData.MoveKit[id] == name,
+					name .. "'s " .. id .. " is " .. tostring(MoveData.MoveKit[id]) .. "'s move: its blows would sound like " .. tostring(MoveData.MoveKit[id]))
+			end
+		end
+		if data.Boss then bosses += 1 end
+	end
+	expect(bosses == 2 and moves >= 22 * 29, string.format("%d moves of %d bosses checked", moves, bosses))
+	-- the two bosses against their lenders: other matters, other first hits
+	for boss, lender in { ASURA = "KAI", ["KUROEN SHIN"] = "KUROEN" } do
+		expect(Palette.MATERIALS[boss] ~= Palette.MATERIALS[lender], boss .. " plays " .. lender .. "'s matter")
+		local cross = Kits[boss].Roles.Cross
+		expect(MoveData.MoveKit[cross] == lender, boss .. "'s STRAIGHT is not " .. lender .. "'s move any more")
+		expect(Palette.materialOf(boss, lender, true) == Palette.MATERIALS[boss], boss .. "'s blows sound like " .. lender)
+		expect(Palette.materialOf(lender, lender, false) == Palette.MATERIALS[lender], lender .. " lost his matter")
+	end
+	-- a kit with no matter at all falls back on KAI (never an error)
+	expect(Palette.materialOf("NOBODY", nil, false) == Palette.MATERIALS.KAI and Palette.materialOf(nil, nil, true) == Palette.MATERIALS.KAI,
+		"a kit without a matter does not fall back on KAI")
+	-- KUROEN SHIN: KUROEN's gauntlets, deeper, his swings in the echo, his blows in the hall
+	local shin, kuroen = Palette.MATERIALS["KUROEN SHIN"], Palette.MATERIALS.KUROEN
+	expect(shin.hit[1][1] == "punch" and shin.hit[1][3] < kuroen.hit[1][3] and shin.hit[1][5] == "hall", "KUROEN SHIN's blows are not deeper gauntlets in the hall")
+	expect(shin.swing[1][5] == "echo" and shin.heavySwing[1][5] == "echo", "KUROEN SHIN's swings are not in the echo")
+	expect(shin.heavyHit[1][3] < kuroen.heavyHit[1][3] and shin.heavyHit[2][1] == "boom" and shin.heavyHit[2][3] < kuroen.heavyHit[2][3],
+		"KUROEN SHIN's big blows have no deeper boom")
 end)
 
 test("music: a track gone silent in a fight gives way to the next one (watchdog)", function()

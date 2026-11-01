@@ -332,7 +332,8 @@ end)
 
 -- FATAL FINISHERS (Finishers.luau): each one its own scene, cut like the others, and the K.O.
 -- itself. Their sounds are the names SoundController:cinematicSound plays, each from the
--- palette (SoundPalette): the attacker's own matter for whoosh and heavy.
+-- palette (SoundPalette): the attacker's own matter for whoosh and heavy, never KAI's in its
+-- place (B-033: KUROEN SHIN had none).
 local FINISHER_SOUNDS = { whoosh = "heavySwing", heavy = "heavyHit", slash = "BlockSteel", boom = "Explosion", charge = "SuperFlash",
 	beam = "Cinematic" }
 test("every FATAL FINISHER is its own scene: own shots and name, no strobe, the K.O. with its name after the blow, the target down", function()
@@ -383,7 +384,10 @@ test("every FATAL FINISHER is its own scene: own shots and name, no strobe, the 
 		expect(koAt and koAt >= data.FinalTick and koName == data.Name,
 			string.format("%s: the K.O. (%s at %s) before its blow (%d) or without its name", kit, tostring(koName), tostring(koAt), data.FinalTick))
 		expect(lastPose == "DownFace", kit .. ": the target is not down at the end (" .. tostring(lastPose) .. ")")
-		local own = Palette.MATERIALS[kit] or Palette.MATERIALS.KAI
+		-- (its own matter: no kit falls back on KAI's any more, the bosses included, B-033)
+		local own = Palette.MATERIALS[kit]
+		expect(own ~= nil, kit .. ": no sound matter of its own (SoundPalette.MATERIALS)")
+		own = own or {}
 		for sound in sounds do
 			local key = FINISHER_SOUNDS[sound]
 			expect(key ~= nil, kit .. ": the sound " .. tostring(sound) .. " is not one of the finishers'")
@@ -936,6 +940,425 @@ for _, place in { { "in the middle, from the left", 0, false, false, true }, { "
 		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
 	end)
 end
+
+-- KUROEN SHIN 真 · ZENITH, the last FATAL FINISHER (I-001): calm, his hands low, the target
+-- strikes twice and goes twice through an afterimage of him (his DIVINE INSTINCT); it turns
+-- round into his straight, already there, stopped an inch from its chest; the blow goes
+-- through it without a touch: three waves out of its back, the deck split along the line; it
+-- lies face down at his feet, the line of gold behind it.
+-- What the last finishers and two refusals taught (30/10): his body and the target's on the
+-- deck, x in [-28, 28], every corner of every part (B-015); he reappears only on a cut, and the
+-- shot that holds while he is gone is set on fixed points (B-041); the target lies down on a cut
+-- (B-040); nothing turns more than 21 degrees a frame inside a shot, as the lab and as the
+-- client turn the bodies (B-046, B-048); against any of the 20 playable targets, weapon
+-- included, nothing of it touches him while he is shown (B-047); one light at a time (B-014),
+-- every shape marked and none jumps (B-031), no ring seen edge on, no VICTORY (B-026), his
+-- own moves and his own matter (B-033). On both sides: in the CHALLENGE he strikes from the right.
+local ZENITH_SHOTS = { "kshin-zn-calm", "kshin-zn-eyes", "kshin-zn-lunge", "kshin-zn-instinct", "kshin-zn-behind", "kshin-zn-spin",
+	"kshin-zn-miss", "kshin-zn-search", "kshin-zn-fist", "kshin-zn-through", "kshin-zn-turn", "kshin-zn-noon", "kshin-zn-last" }
+local ZENITH_CLOSE = { ["kshin-zn-eyes"] = true, ["kshin-zn-last"] = true } -- (his face, his bust: he fills the frame)
+local ZENITH_LOWER = 474 -- (he lowers his fist after the blow)
+local ZENITH_TURN = 21 -- (degrees a frame inside a shot: the turns the scene wants stay under 19.6)
+-- How far apart two parts are (Kit.boxGap), a quick bound first: most pairs are far apart.
+local function partGap(p, q)
+	local a, b = p.cframe, q.cframe
+	local d = math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2)
+	local rp = math.sqrt(p.size[1] ^ 2 + p.size[2] ^ 2 + p.size[3] ^ 2) / 2
+	local rq = math.sqrt(q.size[1] ^ 2 + q.size[2] ^ 2 + q.size[3] ^ 2) / 2
+	if d - rp - rq > 0.5 then return d - rp - rq end
+	return Kit.boxGap(p, q)
+end
+local function bodyGap(one, other)
+	local best, what = math.huge, nil
+	for n1, p in one do
+		for n2, q in other do
+			local g = partGap(p, q)
+			if g < best then best, what = g, n1 .. "/" .. n2 end
+		end
+	end
+	return best, what
+end
+local function turned(y1, y0)
+	return math.abs(((y1 - y0 + 180) % 360) - 180)
+end
+test("KUROEN SHIN's ZENITH: he goes twice through its blows (two afterimages, on the cuts), his straight stops an inch from its chest, three waves out of its back; it lies at his feet; nothing touches, nothing jumps, one light", function()
+	local data = MoveData.Kits["KUROEN SHIN"].Finisher
+	expect(data ~= nil and data.Name == "ZENITH" and data.Length == 660 and data.FinalTick == 440,
+		"KUROEN SHIN has no FATAL FINISHER of his own (MoveData: Finisher on his kit, ZENITH, 660, 440)")
+	expect(MoveData.Kits.KUROEN.Finisher.Name == "BLACK SUN", "KUROEN's finisher is not BLACK SUN any more")
+	local Director = require("../src/shared/CinematicDirector")
+	local Palette = require("../src/shared/SoundPalette")
+	expect(Director.finishers and Director.finishers["KUROEN SHIN"] ~= nil, 'no scene S["KUROEN SHIN"] in Finishers.luau')
+	expect(Palette.MATERIALS["KUROEN SHIN"] ~= nil, "KUROEN SHIN has no sound matter of his own (B-033)")
+	local roles = MoveData.Kits["KUROEN SHIN"].Roles
+	local mine = {}
+	for _, id in roles do mine[id] = true end
+	local F = data.FinalTick
+	local ALLOWED = { whoosh = true, heavy = true, boom = true, charge = true } -- (fists: no steel, no beam)
+	for _, mirror in { false, true } do
+		local side = if mirror then "from the right" else "from the left"
+		local issues, kinds = {}, {}
+		local function issue(kind, text)
+			kinds[kind] = (kinds[kind] or 0) + 1
+			if kinds[kind] <= 2 and #issues < 12 then table.insert(issues, text) end
+		end
+		local order, played, moves, itsMoves, sounds, victory = {}, false, {}, {}, {}, false
+		local ghosts, crossed, lastShot, prev = {}, {}, nil, nil
+		local inchLo, inchHi, waves, line, koAt, koName, cardEnd = math.huge, -math.huge, {}, nil, nil, nil, nil
+		local downAt, fell, atFeet, behindIt, roundCamera, lightsMax, lit, unmarked = nil, false, nil, nil, false, 0, {}, 0
+		Kit.play("KUROEN SHIN", "Fatal", nil, 300, 0, function(info)
+			local frame, A, D, tick = info.frame, info.cin.attacker, info.cin.defender, info.tick
+			local s = frame.shot
+			local me, it = info.views[A], info.views[D]
+			local body, its = info.parts[A], info.parts[D]
+			local dir = if mirror then -1 else 1
+			played = played or (info.cin.finisher == true and info.cin.kit == "KUROEN SHIN")
+			if s.name ~= lastShot then
+				table.insert(order, { name = s.name, tick = tick })
+			end
+			local cut = s.name ~= lastShot
+			if me.move then moves[me.move] = true end
+			if it.move then itsMoves[it.move] = true end
+			if me.state == "Throwing" or it.state == "Thrown" then issue("throw", "t" .. tick .. ": a throw") end
+			if me.victory or me.pose == "Victory" or me.pose == "VictoryAlt" then victory = true end
+			local over = frame.overlay or {}
+			if over.ko then
+				koAt = koAt or tick
+				koName = over.ko.sub
+				if over.ko.card then cardEnd = tick end
+				if tostring(over.ko.text):find("VICTORY") or tostring(over.ko.sub):find("VICTORY") then victory = true end
+			end
+			if frame.title and (tostring(frame.title.text):find("VICTORY") or tostring(frame.title.sub):find("VICTORY")) then victory = true end
+			-- THE AFTERIMAGES: requested on a cut, his body as it stood the frame before; he is gone
+			-- from then on, and the target goes through the copy while it lasts
+			local lights = 0
+			for _, e in frame.fx do
+				if e.kind == "sfx" then sounds[e.sound] = true end
+				if e.kind == "afterimage" and not ghosts[e.key] then
+					local copy = {}
+					for name, part in body do copy[name] = { cframe = table.clone(part.cframe), size = part.size } end
+					ghosts[e.key] = { tick = tick, ends = tick + (e.life or 1) * 60, copy = copy, shot = s.name }
+					if not cut then issue("ghost", string.format("t%d: an afterimage inside the shot %s", tick, s.name)) end
+					if e.slot ~= A then issue("ghost", "t" .. tick .. ": an afterimage of the target") end
+					if not me.hidden then issue("ghost", "t" .. tick .. ": he is still there with his afterimage") end
+					if prev and (math.abs(prev.ax - me.x) > 0.01 or prev.apose ~= me.pose) then
+						issue("ghost", "t" .. tick .. ": the afterimage is not his body as it stood")
+					end
+				end
+			end
+			for key, g in ghosts do
+				if tick <= g.ends then
+					lights += 1
+					if tick > g.tick and bodyGap(its, g.copy) < 0 then crossed[key] = true end
+				end
+			end
+			-- HIM: shown again only on a cut; never moved inside a shot; nothing of the target in him
+			if prev and not cut then
+				if not me.hidden and prev.ahidden then issue("back", string.format("t%d %s: he is back inside the shot", tick, s.name)) end
+				if not me.hidden and not prev.ahidden and math.abs(me.x - prev.ax) > 0.01 then
+					issue("moved", string.format("t%d %s: he moves %.2f studs inside the shot", tick, s.name, math.abs(me.x - prev.ax)))
+				end
+				for slot = 1, 2 do
+					local v = info.views[slot]
+					if v.facing ~= prev.facing[slot] then issue("facing", string.format("t%d %s: slot %d changes side inside the shot", tick, s.name, slot)) end
+					if not v.hidden then
+						for _, set in { info.yaws, info.clientYaws } do
+							local old = if set == info.yaws then prev.yaws[slot] else prev.clientYaws[slot]
+							local t_ = turned(set[slot], old)
+							if t_ > ZENITH_TURN then
+								issue("turn", string.format("t%d %s: slot %d turns %.1f degrees in a frame (%s)", tick, s.name, slot, t_,
+									if set == info.yaws then "lab" else "client"))
+							end
+						end
+					end
+				end
+				local cam = math.sqrt((info.cam[1] - prev.cam[1]) ^ 2 + (info.cam[2] - prev.cam[2]) ^ 2 + (info.cam[3] - prev.cam[3]) ^ 2)
+				if cam > 1.5 then issue("camera", string.format("t%d %s: the camera jumps %.2f studs", tick, s.name, cam)) end
+				for slot, head in { [A] = body.Head, [D] = its.Head } do
+					local h = prev.heads[slot]
+					local jump = math.sqrt((head.cframe[1] - h[1]) ^ 2 + (head.cframe[2] - h[2]) ^ 2 + (head.cframe[3] - h[3]) ^ 2)
+					if jump > 2 and not info.views[slot].hidden then issue("head", string.format("t%d %s: slot %d's head jumps %.2f", tick, s.name, slot, jump)) end
+				end
+			end
+			if not me.hidden then
+				local gap, what = bodyGap(body, its)
+				if gap < 0.02 then issue("contact", string.format("t%d %s: it touches him (%s, %.2f)", tick, s.name, what, gap)) end
+			end
+			-- THE STRAIGHT: his lead fist out, square to it, an inch from its chest, the nearest of him
+			if tick >= 392 and tick < ZENITH_LOWER then
+				local fist = (bodyGap({ body.LeftHand }, its))
+				inchLo, inchHi = math.min(inchLo, fist), math.max(inchHi, fist)
+				if bodyGap(body, its) < fist - 1e-6 then issue("inch", "t" .. tick .. ": something of him is nearer than his fist") end
+			end
+			-- THE FRAME: him whole when he is shown whole; no strong plunge on him; the focus in it
+			local project = Kit.projector(info.cam, info.target, s.fov, s.roll)
+			if not me.hidden and not ZENITH_CLOSE[s.name] then
+				local minX, maxX, minY, maxY = Kit.bodyBounds(project, body)
+				if not minX or minX < -1 or maxX > 1 or minY < -1 or maxY > 1 then issue("frame", string.format("t%d %s: he is not whole in the frame", tick, s.name)) end
+			end
+			if s.focus and s.focus.slot == A then
+				local horizontal = math.sqrt((info.cam[1] - info.target[1]) ^ 2 + (info.cam[3] - info.target[3]) ^ 2)
+				local plunge = math.deg(math.atan2(info.cam[2] - info.target[2], horizontal))
+				if plunge > 30 then issue("plunge", string.format("t%d %s: %.0f degrees down on him", tick, s.name, plunge)) end
+				if me.hidden then issue("focus", "t" .. tick .. ": a shot on him while he is gone") end
+			end
+			-- THE SHAPES: marked, never jumping, no sphere, no ring seen edge on
+			local marks = {}
+			for _, sh in frame.shapes or {} do
+				if sh.kind == "sphere" then
+					lights += 1
+					issue("sphere", "t" .. tick .. ": a sphere")
+				end
+				if not sh.mark then
+					unmarked += 1
+				else
+					local points = {}
+					for _, key in { "pos", "from", "to" } do
+						if sh[key] then table.insert(points, { Kit.resolve(sh[key], info.parts) }) end
+					end
+					marks[sh.mark] = { shape = sh, points = points }
+					local old = prev and not cut and prev.marks[sh.mark]
+					if old then
+						for k, p in points do
+							local d_ = math.sqrt((p[1] - old[k][1]) ^ 2 + (p[2] - old[k][2]) ^ 2 + (p[3] - old[k][3]) ^ 2)
+							if d_ > 0.5 then issue("shape", string.format("t%d %s: %s jumps %.2f", tick, s.name, sh.mark, d_)) end
+						end
+					end
+					if sh.kind == "ring" then
+						local p = points[1]
+						local c = { info.cam[1] - p[1], info.cam[2] - p[2], info.cam[3] - p[3] }
+						local l = math.sqrt(c[1] ^ 2 + c[2] ^ 2 + c[3] ^ 2)
+						local n = sh.normal
+						local nl = math.sqrt(n.x ^ 2 + n.y ^ 2 + (n.z or 0) ^ 2)
+						local face = math.deg(math.acos(math.clamp(math.abs(c[1] * n.x + c[2] * n.y + c[3] * (n.z or 0)) / (l * nl), 0, 1)))
+						if face > 70 then issue("edge", string.format("t%d %s: the ring %s seen %.0f degrees from its face", tick, s.name, sh.mark, face)) end
+					end
+				end
+			end
+			lightsMax = math.max(lightsMax, lights)
+			for _, mark in { "wave1", "wave2", "wave3" } do
+				if marks[mark] then
+					waves[mark] = waves[mark] or {}
+					waves[mark].last = marks[mark].points[1]
+					waves[mark].chest = { its.UpperTorso.cframe[1], its.UpperTorso.cframe[2], its.UpperTorso.cframe[3] }
+					waves[mark].along = math.abs(marks[mark].shape.normal.x) > 0.99
+					if tick < F then issue("wave", "t" .. tick .. ": a wave before the blow") end
+				end
+			end
+			if marks.line then
+				local l = marks.line
+				line = line or { from = tick }
+				line.to = tick
+				local ok = l.shape.kind == "slash" and l.points[1][2] < 0.2 and l.points[2][2] < 0.2 and math.abs(l.points[1][3]) < 0.05
+				if not ok then issue("line", "t" .. tick .. ": the line is not on the deck, along the line") end
+				if s.name == "kshin-zn-noon" then
+					local chest, head = its.UpperTorso.cframe, its.Head.cframe
+					local beyond = math.min((l.points[1][1] - chest[1]) * dir, (l.points[1][1] - head[1]) * dir)
+					local long = math.abs(l.points[2][1] - l.points[1][1])
+					behindIt = (behindIt == nil or behindIt) and beyond > 0 and long > 5
+				end
+			end
+			-- THE FALL: face down at his feet, laid down on a cut, never thrown or flipped
+			if it.pose == "Launched" or it.pose == "DownImpact" or it.state == "Launched" then fell = true end
+			if it.pose == "DownFace" and not downAt then
+				downAt = tick
+				if not cut then issue("down", string.format("t%d %s: it lies down inside the shot", tick, s.name)) end
+			end
+			if s.name == "kshin-zn-noon" then
+				-- (at his feet: its head toward him, its hand stretched short of his heels)
+				atFeet = math.max(atFeet or 0, (bodyGap(body, its)))
+				local h = its.Head.cframe
+				if (h[1] - its.UpperTorso.cframe[1]) * dir > 0 then issue("feet", "t" .. tick .. ": its head is not toward him") end
+			end
+			-- the search: it turns round through the camera's side
+			if tick >= 380 and tick < 392 and it.lookDir and it.lookDir.z > 0.9 then roundCamera = true end
+			local yaws, clientYaws = table.clone(info.yaws), table.clone(info.clientYaws)
+			local markPoints = {}
+			for mark, m in marks do markPoints[mark] = m.points end
+			prev = { ax = me.x, ahidden = me.hidden, apose = me.pose, cam = info.cam, yaws = yaws, clientYaws = clientYaws,
+				facing = { info.views[1].facing, info.views[2].facing }, marks = markPoints,
+				heads = { [A] = { body.Head.cframe[1], body.Head.cframe[2], body.Head.cframe[3] }, [D] = { its.Head.cframe[1], its.Head.cframe[2], its.Head.cframe[3] } } }
+			lastShot = s.name
+		end, mirror)
+		expect(played, side .. ": the killing COUP FATAL did not play ZENITH")
+		expect(#issues == 0, side .. "\n         " .. table.concat(issues, "\n         "))
+		-- the thirteen shots, in order, composed by frameOn (no other source of shots in the scene)
+		local names = {}
+		for _, o in order do table.insert(names, o.name) end
+		expect(table.concat(names, " ") == table.concat(ZENITH_SHOTS, " "), side .. ": the shots are not ZENITH's thirteen, in order: " .. table.concat(names, " "))
+		local count = 0
+		for key, g in ghosts do
+			count += 1
+			expect(crossed[key], string.format("%s: the target never goes through the afterimage of t%d (%s)", side, g.tick, g.shot))
+		end
+		expect(count == 2, side .. ": " .. count .. " afterimages, not two")
+		expect(inchLo >= 0.25 and inchHi <= 0.6, string.format("%s: his fist %.2f to %.2f studs from it, not an inch", side, inchLo, inchHi))
+		local out = 0
+		for _, mark in { "wave1", "wave2", "wave3" } do
+			local w = waves[mark]
+			if w and w.along and (w.last[1] - w.chest[1]) * (if mirror then -1 else 1) > 2 then out += 1 end
+		end
+		expect(out == 3, side .. ": " .. out .. " of the three waves go out of its back, along the line, beyond it")
+		expect(line and line.from == F and line.to >= 595, side .. ": no line of gold on the deck from the blow to the end of the zenith shot")
+		expect(behindIt == true, side .. ": the line is not behind the target lying from the zenith")
+		expect(downAt == 516 and not fell, side .. ": the target does not lie down on the cut of the zenith shot (" .. tostring(downAt) .. "), or is thrown down")
+		expect(atFeet and atFeet <= 1.8, string.format("%s: it lies %.2f studs from him, not at his feet", side, atFeet or -1))
+		expect(roundCamera, side .. ": the target does not turn round through the camera's side")
+		expect(lightsMax <= 1, side .. ": " .. lightsMax .. " lights at once (B-014: one at most)")
+		expect(unmarked == 0, side .. ": " .. unmarked .. " shapes without a mark")
+		expect(moves[roles.Jab], side .. ": he does not hold his own straight (" .. roles.Jab .. ")")
+		for id in moves do expect(mine[id], side .. ": he strikes with " .. id .. ", not one of his moves") end
+		local kai = MoveData.Kits.KAI.Roles
+		expect(itsMoves[kai.Cross] and itsMoves[kai.SpinKick], side .. ": the target does not throw its own straight and spinning kick")
+		for sound in sounds do expect(ALLOWED[sound], side .. ": the sound " .. sound .. " is not his matter") end
+		expect(sounds.whoosh and sounds.heavy and sounds.boom, side .. ": the scene's own sounds are missing")
+		expect(koAt == 520 and koName == data.Name and cardEnd == 543, string.format("%s: no K.O. %s at t520 on its card to t544 (%s at %s, card to %s)",
+			side, data.Name, tostring(koName), tostring(koAt), tostring(cardEnd)))
+		expect(not victory, side .. ": VICTORY on screen (B-026: a finisher may not end the match)")
+	end
+end)
+
+-- ZENITH near the walls (B-015, refused on 30/10: a body beyond x = 28 at the wall): his back to
+-- the left wall, to the right one, the target near the wall in front of him, the target pinned
+-- against it (0.5 from the wall: no lab places it there, CinematicKit wall = "target"), and the
+-- middle from both sides. Wherever it starts it is the film of the middle moved along the line
+-- (`room`: the whole scene stands back, never him alone); every corner of every part of both
+-- bodies on the deck while shown, the light (its rings, its line) between the walls, the camera
+-- over the floor, and never more than a quarter of a shot's subject hidden behind the other body.
+local ZENITH_MIDDLE = {}
+local function zenithFilm(center, mirror, wall)
+	local frames = {}
+	Kit.play("KUROEN SHIN", "Fatal", nil, 300, center, function(info)
+		if frames[info.tick] then return end
+		local s = info.frame.shot
+		local f = s.focus
+		local hidden = 0
+		if f and f.slot and f.part and not info.views[3 - f.slot].hidden then
+			hidden = Kit.hiddenShare(info.parts[f.slot][f.part], info.parts[3 - f.slot], info.cam)
+		end
+		-- (the farthest corner of a part shown, and of the light)
+		local corner, what = 0, nil
+		for slot, parts in info.parts do
+			if info.views[slot].hidden then continue end
+			for name, part in parts do
+				local t, z = part.cframe, part.size
+				for _, sx in { -1, 1 } do
+					for _, sy in { -1, 1 } do
+						for _, sz in { -1, 1 } do
+							local x = t[1] + t[4] * sx * z[1] / 2 + t[5] * sy * z[2] / 2 + t[6] * sz * z[3] / 2
+							if math.abs(x) > corner then corner, what = math.abs(x), slot .. " " .. name end
+						end
+					end
+				end
+			end
+		end
+		local light = 0
+		for _, sh in info.frame.shapes or {} do
+			for _, key in { "pos", "from", "to" } do
+				if sh[key] then
+					local x = Kit.resolve(sh[key], info.parts)
+					-- (a ring flat on the deck reaches its radius along the line)
+					local reach = if sh.kind == "ring" and math.abs(sh.normal.y or 0) > 0.9 then sh.radius else 0
+					light = math.max(light, math.abs(x) + reach)
+				end
+			end
+		end
+		frames[info.tick] = { shot = s.name, fov = s.fov, a = info.views[info.cin.attacker].x, d = info.views[info.cin.defender].x,
+			cam = info.cam, target = info.target, hidden = hidden, finisher = info.cin.finisher == true, corner = corner, what = what, light = light }
+	end, mirror, wall)
+	return frames
+end
+for _, place in { { "in the middle, from the left", 0, false, false, true }, { "in the middle, from the right", 0, true, false, true },
+	{ "his back to the left wall", 0, false, true }, { "his back to the right wall", 0, true, true },
+	{ "the target near the right wall", Config.ArenaMaxX - 3, false, false },
+	{ "the target near the left wall", Config.ArenaMinX + 3, true, false },
+	{ "the target pinned against the right wall", 0, false, "target" }, { "the target pinned against the left wall", 0, true, "target" } } do
+	local name = "KUROEN SHIN's ZENITH, " .. place[1]
+	test(name .. ": the film of the middle moved along the line, every corner on the deck, the light between the walls, nobody hidden", function()
+		local mirror = place[3]
+		ZENITH_MIDDLE[mirror] = ZENITH_MIDDLE[mirror] or zenithFilm(0, mirror, false)
+		local middle = ZENITH_MIDDLE[mirror]
+		local frames = if place[5] then middle else zenithFilm(place[2], mirror, place[4])
+		local kinds, order = {}, {}
+		local function fail(tick, kind, value, text)
+			local k = kinds[kind]
+			if not k then
+				k = { n = 0, first = tick, worst = value, text = text }
+				kinds[kind] = k
+				table.insert(order, kind)
+			end
+			k.n += 1
+			if value > k.worst then k.worst, k.text = value, text end
+		end
+		expect(frames[0] ~= nil and frames[0].finisher, name .. ": the finisher did not play")
+		local shift = frames[0].d - middle[0].d
+		local last = 0
+		for tick in middle do last = math.max(last, tick) end
+		for tick = 0, last do
+			local m, fr = middle[tick], frames[tick]
+			if not m then continue end
+			if not fr then
+				fail(tick, "missing", 0, "the scene stops early")
+				continue
+			end
+			if fr.shot ~= m.shot or fr.fov ~= m.fov then fail(tick, "shot", 0, fr.shot .. " in place of " .. m.shot) end
+			if fr.corner > Config.ArenaMaxX then
+				fail(tick, "deck", fr.corner - Config.ArenaMaxX, string.format("%s: a corner of %s at x = %.2f", fr.shot, fr.what, fr.corner))
+			end
+			if fr.light > Config.ArenaMaxX then fail(tick, "light", fr.light - Config.ArenaMaxX, string.format("%s: light at x = %.2f", fr.shot, fr.light)) end
+			if math.abs(fr.cam[1]) > 40 then
+				fail(tick, "floor", math.abs(fr.cam[1]) - 40, string.format("%s: the camera beyond the end of the floor (x = %.2f)", fr.shot, fr.cam[1]))
+			end
+			local moved = math.abs(fr.a - m.a - shift) + math.abs(fr.d - m.d - shift)
+			for i = 1, 3 do
+				local off = if i == 1 then shift else 0
+				moved += math.abs(fr.cam[i] - m.cam[i] - off) + math.abs(fr.target[i] - m.target[i] - off)
+			end
+			if moved > 0.01 then
+				fail(tick, "moved", moved, string.format("%s: not the staging of the middle moved by %.2f (off by %.2f)", fr.shot, shift, moved))
+			end
+			if fr.hidden > 0.25 then
+				fail(tick, "hidden", fr.hidden, string.format("%s: %.0f %% of its subject hidden by the other body", fr.shot, fr.hidden * 100))
+			end
+		end
+		local failures = {}
+		for _, kind in order do
+			local k = kinds[kind]
+			table.insert(failures, string.format("from t%d, %d ticks; worst: %s", k.first, k.n, k.text))
+		end
+		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
+	end)
+end
+
+-- ZENITH against each of the 20 playable fighters (B-047, refused on 30/10): the lab's target is
+-- KAI, the CHALLENGE's is the player's own, with its own blows, poses and weapon. On both sides,
+-- nothing of it, body or weapon (WeaponKit.pieces, as the storyboards draw it), touches him while
+-- he is shown, and his fist stops short of it: of its chest, or of its hands when they never
+-- leave its chest (RAIJIN's, both on the spear).
+test("KUROEN SHIN's ZENITH against each of the 20 playable fighters, its weapon included: nothing of it touches him, his fist stops short of it", function()
+	local WeaponKit = require("./WeaponKit")
+	local issues = {}
+	for _, foe in MoveData.KitOrder do
+		for _, mirror in { false, true } do
+			local worst, at, inch = math.huge, nil, math.huge
+			Kit.play("KUROEN SHIN", "Fatal", nil, 300, 0, function(info)
+				local A, D = info.cin.attacker, info.cin.defender
+				if info.views[A].hidden then return end
+				local its = table.clone(info.parts[D])
+				for _, piece in WeaponKit.pieces(info.views[D].kit, info.parts[D], nil, { view = info.views[D], time = info.tick / 60 }) do
+					its[piece.name] = piece
+				end
+				local gap, what = bodyGap(info.parts[A], its)
+				if gap < worst then worst, at = gap, string.format("t%d %s, %s", info.tick, info.frame.shot.name, what) end
+				if info.tick >= 392 and info.tick < ZENITH_LOWER then inch = math.min(inch, (bodyGap({ info.parts[A].LeftHand }, its))) end
+			end, mirror, nil, foe)
+			local side = if mirror then "from the right" else "from the left"
+			if worst < 0.02 then table.insert(issues, string.format("%s %s: it touches him (%.2f at %s)", foe, side, worst, tostring(at))) end
+			if inch < 0.1 or inch > 0.7 then table.insert(issues, string.format("%s %s: his fist %.2f studs from it", foe, side, inch)) end
+		end
+	end
+	expect(#issues == 0, "\n         " .. table.concat(issues, "\n         "))
+end)
 
 -- A boss's FATAL FINISHER is named like nothing else in the game. The common test above only
 -- compares it with the moves of the other kits; a boss's names live elsewhere too (his theme's

@@ -75,17 +75,32 @@ Kit.resolve = resolve
 
 --[[
 	onFrame(info) for every tick: info = { tick, frame, views, parts = { [slot] = { [part] =
-	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }
+	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z },
+	yaws = { [slot] = degrees }, clientYaws = { [slot] = degrees } }
 	(ASURA's parts also carry his second pair of arms, with their colour: addFourArms).
 	center: x where the fight happens; hp: the target's health (low = FINAL FINISH); mirror:
 	the attacker starts on the right, striking toward -x (the lab always puts it on the left);
 	wall: the attacker has its back to the wall of its side (the left one, or the right one
-	with mirror), the target in front of it, as startCinematic stages them (center unused).
+	with mirror), the target in front of it, as startCinematic stages them (center unused);
+	wall = "target": the target pinned at the wall in front of the attacker, 0.5 from it, the
+	attacker CinematicGap behind it (a COUP FATAL thrown at a fighter in the corner).
 	The lab (debugCinematic) never plays that: it keeps the fight 4 studs from the walls.
+	foe: the target's kit (KAI when nil: the lab's own target). Its weapon is not in `parts`:
+	WeaponKit.pieces(foe, parts, ...) gives it, as the storyboards draw it.
+	yaws: where each body faces in the floor plane (degrees, 0 = +X, 90 = +Z toward the
+	camera), as the lab turns it (rootFrame: the heading eases toward `facing` every frame);
+	clientYaws: as the client turns it (init.client.luau: the heading only eases while the
+	view has no lookDir, so a facing changed under a lookDir comes back late, B-048).
 ]]
-function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
+-- (the client's heading eases at dt * 25 a frame: at 60 frames per second)
+local CLIENT_TURN = math.min(1, 25 / 60)
+local function yawOf(view, heading)
+	if view.lookDir then return math.deg(math.atan2(view.lookDir.z, view.lookDir.x)) end
+	return math.deg(heading + math.rad(Config.ModelYaw) * math.cos(heading))
+end
+function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall, foe)
 	local world = Sim.newWorld(Config, MoveData, true)
-	Sim.setKits(world, kit, "KAI")
+	Sim.setKits(world, kit, foe or "KAI")
 	world.phase = "Fight"
 	world.fighters[1].x, world.fighters[2].x = center - 1.3, center + 1.3
 	Sim.debugCinematic(world, 1, kind, style, hp)
@@ -95,14 +110,19 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 			f.x, f.facing = 2 * mid - f.x, -f.facing
 		end
 	end
-	if wall then
+	if wall == "target" then
+		-- (the target held at the wall in front of the attacker, 0.5 from it)
+		local a, d = world.fighters[1], world.fighters[2]
+		d.x = if a.facing > 0 then Config.ArenaMaxX - 0.5 else Config.ArenaMinX + 0.5
+		a.x = d.x - a.facing * (Config.CinematicGap or 2.6)
+	elseif wall then
 		-- (CombatSimulation startCinematic: the attacker held at the wall, 0.5 from it, the
 		-- target CinematicGap in front of it)
 		local a, d = world.fighters[1], world.fighters[2]
 		a.x = if a.facing > 0 then Config.ArenaMinX + 0.5 else Config.ArenaMaxX - 0.5
 		d.x = a.x + a.facing * (Config.CinematicGap or 2.6)
 	end
-	local anims, headings, anchors, extra = {}, {}, {}, { {}, {} }
+	local anims, headings, clientHeadings, anchors, extra = {}, {}, {}, {}, { {}, {} }
 	for i = 1, 2 do
 		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
 			kits = MoveData.Kits, moveKit = MoveData.MoveKit })
@@ -118,11 +138,17 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views, anchors = anchors, moveData = MoveData,
 			config = Config, characters = Kit.characters or CharacterData })
 		if frame then
-			local parts, poses = {}, {}
+			local parts, poses, yaws, clientYaws = {}, {}, {}, {}
 			for i = 1, 2 do
 				local v = views[i]
 				local goal = if v.facing > 0 then 0 else math.pi
 				headings[i] = if headings[i] then headings[i] + (goal - headings[i]) * 0.4 else goal
+				if not clientHeadings[i] then
+					clientHeadings[i] = goal
+				elseif not v.lookDir then
+					clientHeadings[i] += (goal - clientHeadings[i]) * CLIENT_TURN
+				end
+				yaws[i], clientYaws[i] = yawOf(v, headings[i]), yawOf(v, clientHeadings[i])
 				local pose, lift = anims[i]:step(v, views[3 - i], 1 / 60, tick / 60, 60, true)
 				poses[i] = pose
 				local solved = K.solve(SKELETON, pose, lift)
@@ -139,7 +165,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
 			local tx, ty, tz = resolve(s.to, parts)
 			local fx, fy, fz = resolve(s.focus, parts)
 			onFrame({ tick = cin.tick, frame = frame, views = views, parts = parts, poses = poses, cin = cin,
-				cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz } })
+				cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz }, yaws = yaws, clientYaws = clientYaws })
 		end
 		tick += 1
 		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
@@ -244,6 +270,41 @@ function Kit.boxDistance(part, x, y, z)
 	local oy = math.max(0, math.abs(ly) - s[2] / 2)
 	local oz = math.max(0, math.abs(lz) - s[3] / 2)
 	return math.sqrt(ox * ox + oy * oy + oz * oz)
+end
+
+-- How far apart two parts' boxes are (separating axes: the 3 + 3 face normals and their 9
+-- cross products): positive, a lower bound of the gap between them (exact face to face);
+-- negative, how deep they overlap along the axis that parts them best. A fist an inch from a
+-- chest, a hand inside another body (B-047).
+function Kit.boxGap(p, q)
+	local a, b = p.cframe, q.cframe
+	local axesA = { { a[4], a[7], a[10] }, { a[5], a[8], a[11] }, { a[6], a[9], a[12] } }
+	local axesB = { { b[4], b[7], b[10] }, { b[5], b[8], b[11] }, { b[6], b[9], b[12] } }
+	local d = { b[1] - a[1], b[2] - a[2], b[3] - a[3] }
+	local best = -math.huge
+	local function try(l)
+		local n = math.sqrt(l[1] * l[1] + l[2] * l[2] + l[3] * l[3])
+		if n < 1e-6 then return end
+		l = { l[1] / n, l[2] / n, l[3] / n }
+		local function radius(axes, size)
+			local r = 0
+			for i = 1, 3 do
+				r += math.abs(axes[i][1] * l[1] + axes[i][2] * l[2] + axes[i][3] * l[3]) * size[i] / 2
+			end
+			return r
+		end
+		local gap = math.abs(d[1] * l[1] + d[2] * l[2] + d[3] * l[3]) - radius(axesA, p.size) - radius(axesB, q.size)
+		if gap > best then best = gap end
+	end
+	for i = 1, 3 do
+		try(axesA[i])
+		try(axesB[i])
+		for j = 1, 3 do
+			local u, w = axesA[i], axesB[j]
+			try({ u[2] * w[3] - u[3] * w[2], u[3] * w[1] - u[1] * w[3], u[1] * w[2] - u[2] * w[1] })
+		end
+	end
+	return best
 end
 
 -- Does the segment from a to b ({ x, y, z }) cross a part's box?

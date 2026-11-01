@@ -201,6 +201,14 @@ local MATERIALS = {
 		heavyHit = { { "punch", 0.82, 1.07 }, { "boom", 0.16, 1.7, 0.18, "hall" } },
 		projectile = { { "wind", 0.26, 2.4, 0.12 } },
 	},
+	-- The second boss (B-033): KUROEN's moves, his own matter. Its own tables, never KUROEN's
+	-- (SoundController names each list after its kit: a shared table would take the last one's).
+	["KUROEN SHIN"] = { -- KUROEN's gauntlets, deeper: every swing in the echo, the blows in the hall, a deeper boom under the big ones
+		swing = { { "whoosh", 0.41, 1.00, nil, "echo" } },
+		heavySwing = { { "whoosh", 0.58, 0.86, nil, "echo" } },
+		hit = { { "punch", 0.62, 1.03, nil, "hall" } },
+		heavyHit = { { "punch", 0.84, 0.90 }, { "boom", 0.2, 1.3, 0.25, "hall" } },
+	},
 }
 
 -- One sound per action, the same for every fighter.
@@ -264,6 +272,21 @@ local ACTIONS = {
 -- (ACTIONS key) or per kit material ("KAI.hit", "KAZAN.heavySwing"...). A key given here
 -- replaces the built-in sound. Empty: no asset id is ever invented.
 Palette.CUSTOM = {}
+
+--[[
+	Whose matter a sound of a fighter is played in (B-033): `kit` the fighter's kit, `moveOwner`
+	the kit that owns the move it plays (MoveData.MoveKit[move], nil for a swing without a move
+	or a throw's beats), `isBoss` its kit is a boss (MoveData.Kits[kit].Boss). A boss with a matter
+	of its own always sounds like himself, from his first swing to his last blow, whoever lent
+	him his moves (ASURA plays KAI's, KUROEN SHIN KUROEN's). Any other fighter sounds like the
+	owner of the move, else like its kit, else like KAI. Returns the matter and its name.
+]]
+function Palette.materialOf(kit, moveOwner, isBoss)
+	if isBoss and kit and MATERIALS[kit] then return MATERIALS[kit], kit end
+	if moveOwner and MATERIALS[moveOwner] then return MATERIALS[moveOwner], moveOwner end
+	if kit and MATERIALS[kit] then return MATERIALS[kit], kit end
+	return MATERIALS.KAI, "KAI"
+end
 
 Palette.FILES, Palette.BUSES, Palette.MATERIALS, Palette.ACTIONS = FILES, BUSES, MATERIALS, ACTIONS
 return Palette

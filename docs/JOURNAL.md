@@ -1,5 +1,51 @@
 # Journal du projet — état à transmettre
 
+## Version 0.36.15 — 1er novembre 2026 · Le FATAL FINISHER de KUROEN SHIN : ZENITH. Les 22 persos ont le leur ; ASURA et KUROEN SHIN ont leur son (B-033)
+
+Produite par les routines du 29 au 31 octobre, **validée le 1er novembre du premier coup**.
+- **L'histoire** :
+  - une première version a été refusée deux fois le 30/10, d'abord pour un corps au-delà du mur, puis pour des armes qui entraient dans KUROEN SHIN. Son code a été annulé, comme le veut la routine ;
+  - le patch gardé dans le scratchpad a été perdu au recyclage du conteneur. La production a tout refait le 31/10 et le 1/11, d'après les comptes rendus, avec les correctifs des deux refus ;
+  - depuis, un travail non livré se garde en patch dans le dépôt (`docs/attente/`, règle ajoutée à `.claude/agents/production.md`).
+- **KUROEN SHIN · ZENITH** (« ZÉNITH ») : 11 s, coup mortel au tick 440, 13 plans composés avec `frameOn`.
+  - **Le déroulé** :
+    - il reste debout et calme, les mains basses ;
+    - la cible frappe deux fois, son direct puis un coup de pied tournant dans son dos, et traverse chaque fois une image rémanente de lui (l'INSTINCT DIVIN, disparitions et réapparitions sur des coupes) ;
+    - elle se retourne dans son poing, déjà là, arrêté à un pouce de sa poitrine (le JAB de KUROEN) ;
+    - la couleur se vide ; au coup mortel, trois ondes sortent de son dos et une ligne d'or se grave au sol ;
+    - il lui tourne le dos, et elle tombe face contre terre à ses pieds, vue du zénith ;
+    - K.O. « ZENITH », jamais « VICTORY ».
+  - **Le nom** : le soleil au zénith ne fait pas d'ombre, il n'y a nulle part où se cacher. Le mot n'est utilisé nulle part ailleurs.
+  - **Ce qui est évité** : rien de BLACK SUN, son double en ÉCLIPSE DIVINE (ni marques, ni soleils, ni AXE OF NIGHT), et rien de SAMSARA. Une lumière à la fois. `room` près d'un mur.
+  - **Mesures** :
+    - aucun coin de corps au-delà de x = 28 (26,7 au pire) ;
+    - aucun corps ne tourne de plus de 19,6° par image dans un plan (B-046) ;
+    - **0 contact contre les 20 persos jouables en cible, armes comprises, des deux côtés** (B-047).
+- **B-033, corrigé** : `SoundPalette.materialOf` est une règle pure : un boss qui a sa matière sonne toujours comme lui. KUROEN SHIN a ses propres tables (les gantelets de KUROEN, plus graves), et ASURA prend enfin la sienne. **Rien ne change pour les 20 persos jouables** : 0 différence sur 13 090 paires (kit, coup).
+- **Tests** :
+  - Cinematography +12 : la scène des deux côtés, 8 placements avec un contrôle pièce par pièce, et la scène contre les 20 cibles ;
+  - CombatSimulation +1 : le vrai défi contre 3 persos. « Kit sans finisher » est rejoué sur des copies de `MoveData`, puisque plus aucun kit n'est sans finisher ;
+  - Kits +1 : `materialOf`, et les sons vérifiés sur les bosses, sans repli sur KAI ;
+  - le labo (`CinematicKit`) prend maintenant une cible au choix ;
+  - mutations : la production en a fait 20 (19 attrapées), la validation 13 (toutes attrapées). 194 scènes rejouées sont identiques image par image avec l'ancien labo.
+
+**Fichiers** :
+- `src/shared/Finishers.luau`, `MoveData.luau`, `Locale.luau` (ZÉNITH), `SoundPalette.luau`, `CombatConfig.luau` (0.36.15) ;
+- `src/client/SoundController.luau` ;
+- `tests/Cinematography.test.luau`, `CombatSimulation.test.luau`, `Kits.test.luau`, `CinematicKit.luau` ;
+- `docs/AUDIO.md`, `docs/BUGS.md` (B-033, B-046 et B-047 corrigés ; B-049, B-050 et B-051 ouverts), `docs/DECISIONS.md`, `docs/IDEES.md` (I-001 faite), `.claude/agents/production.md`.
+
+**Tests** : CombatSimulation 176, FighterAI 19, CinematicDirector 872, Animation 65, PressQueue 4, Fuzz 2, Cinematography 433, Lobby 59, Kits 131 : tout passe.
+
+**Problèmes ouverts** :
+- B-051 (remarques de la validation sur ZENITH : la tête de VENOM cachée à 33 %, l'ombre rémanente presque noire, la lance de RAIJIN à 28,19) ;
+- B-049 (le match qui déborde sur le menu) ;
+- B-044 (environ un CLASSÉ entre serveurs sur cinq qui ne se lance pas) ;
+- B-040, B-041, B-048, B-050 ;
+- rien n'est vérifié dans Studio, et les sons ne s'entendent qu'en jeu.
+
+**Prochaine étape** : B-049 (court, et tout joueur qui quitte en marchant le voit), puis B-044, et I-005 (les trois plans de SAMSARA).
+
 ## Version 0.36.14 — 28 octobre 2026 · Le CLASSÉ entre serveurs ne téléporte plus personne en plein match (B-039), et plus de CLASSÉ sans sauvegarde (B-042)
 
 Produite et **validée du premier coup par la routine du 28 octobre**. B-039 était le seul bug majeur ouvert.

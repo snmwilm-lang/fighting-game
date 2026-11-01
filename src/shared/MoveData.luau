@@ -1443,6 +1443,10 @@ do
 			THIRD.KUROEN.names.ThunderHeel, "WALL", THIRD.KUROEN.names.CrescentMoon },
 		GateTitle = { text = "真", sub = "TRUE EMPEROR" },
 		Colors = { TORNADO = "FFD23F", GUST = "FFFFFF", DRAGON = "FFD23F", THUNDER = "FFFFFF", WALL = "FFD23F", MOON = "FFFFFF" },
+		-- FATAL FINISHER (Finishers.luau, S["KUROEN SHIN"], on his own kit: BLACK SUN stays
+		-- KUROEN's): calm, hands low, the target strikes twice through his afterimages; it turns
+		-- round into his straight (his JAB), stopped an inch from its chest; the blow goes through it.
+		Finisher = { Name = "ZENITH", Length = 660, FinalTick = 440 },
 	})
 end
 

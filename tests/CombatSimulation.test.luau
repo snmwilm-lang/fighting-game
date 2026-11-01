@@ -1319,36 +1319,42 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
 		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
 		expect(start and not start.finish and not start.finisher and state.length == own.Length, kit .. ": a finisher on a target not low")
 	end
-	-- a kit without its finisher yet: the classic fatal, round won or not (every playable kit has
-	-- its own since KUROEN's BLACK SUN, and ASURA since SAMSARA: KUROEN SHIN is the one left;
-	-- when he has his, this check must play the rule another way, I-001)
-	local candidates = table.clone(MoveData.KitOrder)
+	-- a kit without a finisher plays the classic fatal, round won or not. Since ZENITH (KUROEN
+	-- SHIN, the last one) every kit has its line, so the rule is played on copies of MoveData
+	-- (I-001): each kit in turn loses its line on a copy of its own (MoveData and its kits are
+	-- frozen: table.clone), the simulation reads the copy (Sim.newWorld), and the real MoveData
+	-- keeps all 22 lines. The check never plays nothing: each copy really lost its line.
+	local all = table.clone(MoveData.KitOrder)
 	for name, data in MoveData.Kits do
-		if data.Boss then table.insert(candidates, name) end
+		if data.Boss then table.insert(all, name) end
 	end
-	table.sort(candidates, function(x, y)
-		local bx, by = MoveData.Kits[x].Boss == true, MoveData.Kits[y].Boss == true
-		if bx ~= by then return by end
-		return if bx then x < y else table.find(MoveData.KitOrder, x) < table.find(MoveData.KitOrder, y)
-	end)
-	local without = nil
-	for _, kit in candidates do
-		if not MoveData.Kits[kit].Finisher then
-			without = kit
-			local world = fatalWorld(3)
-			Sim.setKits(world, kit, "KAI")
-			world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
-			world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
-			world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
-			local events, state = finisherRun(world)
-			local start = find(events, "CinematicStart")
-			local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
-			expect(start and start.finish and not start.finisher and state and state.length == own.Length + own.FinishExtra,
-				kit .. ": no classic fatal for a kit without a finisher")
-			break
-		end
+	local played = 0
+	for _, kit in all do
+		local copy = table.clone(MoveData)
+		copy.Kits = table.clone(MoveData.Kits)
+		copy.Kits[kit] = table.clone(MoveData.Kits[kit])
+		copy.Kits[kit].Finisher = nil
+		expect(copy.Kits[kit].Finisher == nil and MoveData.Kits[kit].Finisher ~= nil and copy.Moves == MoveData.Moves,
+			kit .. ": the copy did not lose its line, or the real kit has none")
+		local world = Sim.newWorld(Config, copy, false)
+		Sim.setKits(world, kit, "KAI")
+		world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+		world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+		world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
+		local events, state = finisherRun(world)
+		local start = find(events, "CinematicStart")
+		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
+		expect(start and start.finish and not start.finisher and state and not state.finisher and state.length == own.Length + own.FinishExtra,
+			kit .. ": no classic fatal for a kit without a finisher")
+		expect(find(events, "RoundEnd"), kit .. ": the classic fatal without a finisher did not K.O.")
+		played += 1
 	end
-	expect(without ~= nil, "no kit left without a finisher: this check has nothing to play")
+	expect(played == 22, played .. " kits played without their finisher, not 22")
+	local lines = 0
+	for _, data in MoveData.Kits do
+		if data.Finisher then lines += 1 end
+	end
+	expect(lines == 22 and MoveData.Kits["KUROEN SHIN"].Finisher ~= nil, "the real MoveData has " .. lines .. " finishers, not 22")
 end)
 
 test("FATAL FINISHER in a relay: a fighter knocked out counts as the round won; the next fighter comes in after it", function()
@@ -1471,6 +1477,89 @@ test("ASURA's FATAL FINISHER in the CHALLENGE: after a fighter is down, his kill
 	world.fighters[1].hp = math.floor(world.fighters[1].maxHp * 0.3)
 	local events, start = bossFatal(world)
 	local roundEnd = find(events, "RoundEnd")
+	expect(start and start.finish and not start.finisher, "alone: a finisher on the K.O. that ends the challenge")
+	expect(roundEnd and roundEnd.winner == 2 and roundEnd.matchOver, "alone: the COUP FATAL did not end the challenge")
+end)
+
+-- KUROEN SHIN's FATAL FINISHER (ZENITH) in the real CHALLENGE (I-001), as ASURA's: the boss is
+-- team 2, on the right, and his "round won" is a fighter of the player's team knocked out. Then
+-- his killing COUP FATAL (KUROEN's, which he borrows) plays his own scene, under his name
+-- (KUROEN keeps BLACK SUN), with one K.O. that does not end the match, and the next fighter comes
+-- in after it; against a lone fighter his K.O. ends the challenge: never a finisher. Only he
+-- strikes (his DIVINE INSTINCT evades the first blow that reaches him).
+test("KUROEN SHIN's FATAL FINISHER in the CHALLENGE: after a fighter is down, his killing COUP FATAL plays ZENITH and the next one comes in; never against one fighter", function()
+	local own = MoveData.Kits["KUROEN SHIN"].Finisher
+	expect(own and own.Name == "ZENITH" and own.Length == 660 and own.FinalTick == 440, "KUROEN SHIN has no FATAL FINISHER of his own")
+	expect(MoveData.Kits.KUROEN.Finisher.Name == "BLACK SUN", "KUROEN's finisher is not BLACK SUN any more")
+	local Director = require("../src/shared/CinematicDirector")
+	local function challenge(team)
+		local world = Sim.newWorld(ShippedConfig, MoveData, false)
+		Sim.setTeams(world, team, { "KUROEN SHIN" })
+		return world
+	end
+	-- (both free, face to face: the player's fighter on the left, KUROEN SHIN on the right)
+	local function faceUp(world)
+		for _ = 1, 600 do
+			local free = world.cinematic == nil and world.phase ~= "KO"
+			for _, f in world.fighters do
+				if f.state == "KO" or f.move or f.stun > 0 or f.hitstop > 0 or f.knockdown > 0 or f.getUp > 0 or f.launched or f.y > 0 then free = false end
+			end
+			if free then break end
+			Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+		end
+		world.phase = "Fight"
+		local p, boss = world.fighters[1], world.fighters[2]
+		p.x, boss.x, p.facing, boss.facing = -1.5, 1.5, 1, -1
+		p.wakeInvuln, boss.wakeInvuln = 0, 0
+	end
+	local function knockOut(world, label)
+		faceUp(world)
+		world.fighters[1].hp = 1
+		local before = world.fighters[2].wins
+		local events = run(world, 200, function(t)
+			return { Sim.neutralInput(), input({ light = t == 1 }) }
+		end)
+		local roundEnd = find(events, "RoundEnd")
+		expect(roundEnd and roundEnd.winner == 2 and not roundEnd.matchOver and world.fighters[2].wins == before + 1,
+			label .. ": KUROEN SHIN did not knock the first fighter out")
+		run(world, ShippedConfig.KOTicks + 5)
+	end
+	-- his COUP FATAL (under 30 % of his health, his gauge full) on a fighter at 30 %
+	local function bossFatal(world)
+		faceUp(world)
+		local boss = world.fighters[2]
+		boss.meter, boss.hp = ShippedConfig.MaxMeter, math.floor(boss.maxHp * ShippedConfig.FatalHealth) - 10
+		world.fighters[1].hp = math.floor(world.fighters[1].maxHp * 0.3)
+		local start
+		local events = run(world, 1300, function(t)
+			if world.cinematic and not start then start = table.clone(world.cinematic) end
+			return { Sim.neutralInput(), input({ fatal = t == 1 }) }
+		end)
+		return events, start
+	end
+	-- KAI down, his COUP FATAL kills TARO: ZENITH, one K.O., SHIN comes in after it
+	local world = challenge({ "KAI", "TARO", "SHIN" })
+	knockOut(world, "the challenge")
+	expect(world.fighters[1].kit == "TARO", "TARO did not come in")
+	local events, start = bossFatal(world)
+	local roundEnd = find(events, "RoundEnd")
+	expect(start and start.type == "Fatal" and start.finisher and start.kit == "KUROEN SHIN" and start.attacker == 2,
+		"his killing COUP FATAL did not play his FATAL FINISHER")
+	expect(start.length == own.Length and start.finalTick == own.FinalTick, "not ZENITH's length and beat")
+	expect(start.move == MoveData.Kits["KUROEN SHIN"].Ultimates.Fatal, "not his own COUP FATAL (" .. tostring(start.move) .. ")")
+	local kos, final = 0, nil
+	for _, e in events do
+		if e.kind == "Hit" and e.ko then kos, final = kos + 1, e end
+	end
+	expect(kos == 1 and count(events, "RoundEnd") == 1 and roundEnd.winner == 2 and roundEnd.inCinematic, "not one K.O. on the scene's blow")
+	expect(final and final.cinematic and final.attacker == 2, "the K.O. is not the scene's blow")
+	expect(not roundEnd.matchOver and not Director.matchDecided(world, ShippedConfig, 2), "the finisher ends the challenge (VICTORY) with a fighter left")
+	run(world, ShippedConfig.KOTicks + 5)
+	expect(world.fighters[1].kit == "SHIN" and world.fighters[1].hp > 0, "SHIN did not come in after the scene")
+	-- a lone fighter: his first K.O. ends the challenge, the classic fatal
+	world = challenge({ "KAI" })
+	events, start = bossFatal(world)
+	roundEnd = find(events, "RoundEnd")
 	expect(start and start.finish and not start.finisher, "alone: a finisher on the K.O. that ends the challenge")
 	expect(roundEnd and roundEnd.winner == 2 and roundEnd.matchOver, "alone: the COUP FATAL did not end the challenge")
 end)

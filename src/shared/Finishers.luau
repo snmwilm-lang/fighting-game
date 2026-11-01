@@ -3489,6 +3489,304 @@ function Finishers.build(T)
 			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
 	end
 
+	-- ================================================================ KUROEN SHIN · ZENITH
+	-- KUROEN past every limit wins without a guard: calm, his hands low, he lets the target
+	-- strike twice and it goes twice through an afterimage of him (his DIVINE INSTINCT); it turns
+	-- round into his fist, already there, stopped an inch from its chest, and the blow goes
+	-- through it without a touch. The zenith: the highest point, where the last shot looks from.
+	-- 0:00 face to face: he stands, calm, hands low; it raises its guard · 0:01.4 his face ·
+	-- 0:02 over his shoulder: it charges, its guard up · 0:02.9 gone on the cut as it cocks its
+	-- straight: the straight goes through an afterimage of him, a wave runs on the deck where he
+	-- stood, it stumbles on · 0:03.8 back on the cut, behind it, back to back, hands low; the camera creeps
+	-- in · 0:04.8 it turns and throws a spinning kick at his back; he does not turn · 0:05.4 from
+	-- above: the kick goes through a second afterimage · 0:05.9 it looks for him, turns round,
+	-- starts, its guard open · 0:06.5 on the cut he is there: his straight (his JAB) already out,
+	-- stopped an inch from its chest, a thin gold ring round the fist; the colour drains; silence · 0:07.3
+	-- the blow: three waves out of its back, the colour back, the deck split along the line and a
+	-- line of gold left in it; he lowers his fist where he stands · 0:08.1 he has turned his back
+	-- on it; it still stands, its hands on its belly · 0:08.6 from the zenith: face down at his
+	-- feet, the line behind it; K.O. · 0:09.9 his bust, calm, under the title.
+	-- Not his throw (by the throat), not KUROEN's (knee, elbow, palm), nor BLACK SUN (the marks,
+	-- the suns, AXE OF NIGHT), nor his ultimates (pulled in, the storm of fists, the orbit, the
+	-- pillars), nor SAMSARA's wheel; no sphere: the two afterimages are its only lights, never
+	-- together. He reappears only on a cut, and the shot that holds while he is gone is set on
+	-- fixed points (B-041); the target lies down on a cut (B-040).
+	local ZEN = {
+		far = 6.8, -- (where he stands first: a katana at rest, or cocked as it charges, short of him)
+		charge = 1.2, -- (how far it charges before he is gone: its fists and blades short of him)
+		stumble = 2.4, -- (how far beyond his first place it stumbles)
+		back = 3.6, -- (back to back)
+		wind = 6.6, -- (how far from his back it winds its kick up: a blade held out short of him)
+		kick = 2.6, -- (where its spinning kick carries it, through his afterimage)
+		inch = 4.05, -- (his JAB's root to its root: the fist stops an inch from its chest)
+		away = 2.4, -- (his last place, further from it, his back to it)
+		feet = 5.4, -- (it falls forward, face down at his feet: its hips this far from his, its hand stretched short of his heels)
+		line = 6, -- (the line of gold left in the deck, behind it)
+		room = 3.4, -- (the deck kept beyond his last place: his arms as he turns on the cut, B-015)
+	}
+	-- (a target whose hands stay before its chest in every pose, both on its spear: his fist
+	-- stops an inch from them, not in them, and it lies that much further from his heels, B-047)
+	local ZEN_HANDS = { RAIJIN = 0.6 }
+	local ZEN_GOLD = "FFD23F" -- (his trims)
+	local ZEN_CARD = "0A0908"
+	local ZEN_GONE = { 172, 324 } -- (the cuts where he is gone: an afterimage stays)
+	local ZEN_BACK = 228 -- (the cut where he is back, behind it)
+	local ZEN_SPIN = 290 -- (it turns round on it)
+	local ZEN_SEARCH, ZEN_ROUND = 356, 380 -- (it looks for him; it turns round, 12 frames)
+	local ZEN_INCH = 392 -- (the cut where his fist is there)
+	local ZEN_LOWER = 474 -- (he lowers his fist where he stands)
+	local ZEN_TURN = 488 -- (the cut: his back turned on it)
+	local ZEN_DOWN = 516 -- (the cut: face down at his feet)
+	local ZEN_KO = 520
+	-- The shots, in order (to: the tick it ends; subjects: "a", "d", "ad", or the fixed points of
+	-- the shot that holds while he is gone; with: points taken into the frame; focus: slot, part)
+	local ZEN_SHOTS = {
+		{ to = 84, name = "kshin-zn-calm", subjects = "ad", yaw = 50, pitch = -4, fill = 0.7, fov = 38, focus = { "A", "Head" } },
+		{ to = 124, name = "kshin-zn-eyes", subjects = "a", band = "face", yaw = 16, pitch = -4, fill = 0.62, fov = 30, focus = { "A", "Head" } },
+		{ to = 172, name = "kshin-zn-lunge", subjects = "ad", yaw = -124, pitch = 8, fill = 0.8, fov = 40, focus = { "D", "Head" } },
+		{ to = 228, name = "kshin-zn-instinct", subjects = "fixed", yaw = 24, pitch = 30, fill = 0.74, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = 290, name = "kshin-zn-behind", subjects = "ad", yaw = 64, pitch = -2, fill = { 0.62, 0.76 }, fov = 36, focus = { "A", "Head" } },
+		{ to = 324, name = "kshin-zn-spin", subjects = "ad", yaw = 50, pitch = 4, fill = 0.84, fov = 40, focus = { "A", "Head" } },
+		{ to = 356, name = "kshin-zn-miss", subjects = "d", with = "gone", yaw = 12, pitch = 50, fill = 0.7, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = 392, name = "kshin-zn-search", subjects = "d", band = "bust", yaw = 64, pitch = 0, fill = 0.7, fov = 34, focus = { "D", "Head" } },
+		{ to = 440, name = "kshin-zn-fist", subjects = "ad", yaw = 34, pitch = -4, fill = 0.92, fov = 34, focus = { "A", "LeftHand" } },
+		{ to = 488, name = "kshin-zn-through", subjects = "ad", with = "beyond", yaw = 48, pitch = 8, fill = 0.8, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = 516, name = "kshin-zn-turn", subjects = "ad", yaw = -40, pitch = -2, fill = 0.72, fov = 38, focus = { "A", "Head" } },
+		{ to = 596, name = "kshin-zn-noon", subjects = "ad", with = "line", yaw = 0, pitch = 76, fill = 0.6, fov = 42, focus = { "D", "UpperTorso" } },
+		{ to = math.huge, name = "kshin-zn-last", subjects = "a", band = "bust", yaw = -30, pitch = -4, fill = 0.64, fov = 34, screen = { 0, -0.22 },
+			focus = { "A", "Head" } },
+	}
+	S["KUROEN SHIN"] = function(ctx, frame, a, d, tick, dir)
+		local A, D = ctx.cin.attacker, ctx.cin.defender
+		local moves = ctx.moveData.Moves
+		local ki = ctx.characters[A].Energy -- (his ki: pale gold)
+		local F = 440
+		local o = overlay(frame)
+		-- (the whole scene stands back from a wall, never him alone: it starts where the target
+		-- stands, and his last place is the farthest on his side)
+		local deep = ZEN.far + ZEN.stumble - ZEN.back + ZEN.kick + ZEN.inch + (ZEN_HANDS[d.kit or ""] or 0) + ZEN.away
+		local cx = room(ctx, T.center(ctx, d), dir, deep + ZEN.room, 2)
+		local first = cx - dir * ZEN.far -- (where he stands first)
+		local stumbled = first - dir * ZEN.stumble -- (where it stumbles to, its back to him)
+		local behind = stumbled + dir * ZEN.back -- (where he is back, behind it)
+		local wound = behind - dir * ZEN.wind -- (where it winds its kick up, turned on him)
+		local spot = behind - dir * ZEN.kick -- (where it stands from the kick on)
+		local inch = spot - dir * (ZEN.inch + (ZEN_HANDS[d.kit or ""] or 0)) -- (where his fist is there)
+		local last = inch - dir * ZEN.away -- (his back turned on it)
+		local yaw3 = math.rad(ctx.config.ModelYaw or 22) -- (the 3/4 turn toward the camera)
+		-- a direction in the floor plane, `s` radians from the attack's line toward the camera
+		-- (0: square toward dir; yaw3: dir as the client turns it; pi - yaw3: -dir, turned)
+		local function heading(s)
+			return v(dir * math.cos(s), 0, math.sin(s))
+		end
+		-- a move held at a frame (its startup, its blow, its recovery)
+		local function held(view, id, f)
+			view.state, view.move, view.moveFrame, view.pose = "Attack", id, math.max(0, math.floor(f + 0.5)), nil
+		end
+		-- (his straight: the JAB, his lead fist snapped out along the line, square to it; his
+		-- STRAIGHT turns the rear fist 2.5 studs off the line in this view)
+		local straight = T.role(ctx, "Jab")
+		local hisStraight = moves[straight]
+		local itsStraight, itsKick = theirMove(ctx, d, "Cross"), theirMove(ctx, d, "SpinKick")
+		local cross, kick = moves[itsStraight], moves[itsKick]
+		-- the shot of this tick
+		local current
+		for _, s_ in ZEN_SHOTS do
+			if tick < s_.to then
+				current = s_
+				break
+			end
+		end
+
+		-- HIM: calm, hands low; gone and back on the cuts; his straight already out, square to it
+		a.z, a.y, a.lookDir = nil, 0, nil
+		a.state, a.move, a.pose, a.facing = "Idle", nil, "StandTall", dir
+		-- (gone, he keeps his place until he is back: each afterimage is his body as it was there)
+		if tick < ZEN_BACK then
+			a.x = first
+			a.hidden = tick >= ZEN_GONE[1]
+		elseif tick < ZEN_INCH then
+			a.x = behind
+			a.hidden = tick >= ZEN_GONE[2]
+		elseif tick < ZEN_TURN then
+			a.x = inch
+			do
+				-- (the blow's clean frame, held; lowered where he stands after it)
+				local out = hisStraight.startup + hisStraight.active
+				local f = out + hisStraight.recovery * progress(tick, ZEN_LOWER, ZEN_TURN - 1)
+				held(a, straight, f)
+				a.lookDir = v(dir, 0, 0) -- (square to it: his fist goes to its chest)
+			end
+		else
+			-- (his back turned on it, upright and still; turned at once on the cut)
+			a.x, a.facing = last, -dir
+			a.lookDir = heading(math.pi - yaw3)
+		end
+
+		-- THE TARGET: its guard; the charge, the straight through him; the kick at his back; it
+		-- looks for him and turns round into his fist; it stands, then lies at his feet
+		d.z, d.y, d.hitstop, d.lookDir = nil, 0, 0, nil
+		d.state, d.move, d.pose, d.facing = "Idle", nil, nil, -dir
+		if tick < 124 then
+			d.x = cx
+			if tick >= 40 then d.pose = "Block" end
+		elseif tick < 216 then
+			-- (the charge, faster and faster; the straight thrown through his afterimage; it
+			-- stumbles on and stops beyond his first place)
+			local gone = ZEN.far + ZEN.stumble
+			local run
+			if tick < ZEN_GONE[1] then
+				local q = progress(tick, 124, ZEN_GONE[1])
+				run = ZEN.charge * q * q
+			elseif tick < 186 then
+				run = lerp(ZEN.charge, gone - 1.4, progress(tick, ZEN_GONE[1], 186))
+			else
+				local q = progress(tick, 186, 216)
+				run = gone - 1.4 + 1.4 * (1 - (1 - q) * (1 - q))
+			end
+			d.x = cx - dir * run
+			local s0 = cross.startup
+			if tick < ZEN_GONE[1] then
+				d.state, d.vx = "Walking", -dir * 8 -- (it charges, its guard up)
+			elseif tick < 178 then
+				-- (its straight cocked on the cut, as he is gone: a blade swung back as it cocks
+				-- sweeps 5 studs round its body, B-047)
+				held(d, itsStraight, s0 * progress(tick, ZEN_GONE[1], 177))
+			elseif tick < 206 then
+				held(d, itsStraight, s0 + 1 + (cross.active + cross.recovery - 1) * progress(tick, 178, 205))
+			elseif tick < 212 then
+				d.state, d.vx = "Walking", -dir * 3
+			end
+		elseif tick < ZEN_SPIN then
+			d.x, d.pose = stumbled, "Block" -- (its guard up, alone: where is he?)
+		elseif tick < ZEN_SEARCH then
+			-- it turns round on it, through the camera's side (half turned on the cut, then 10
+			-- frames: never more than 15 degrees a frame; its own direction from the cut on, so the
+			-- client never takes up a stale heading, B-048) and kicks at his back; the kick goes
+			-- through the second afterimage
+			d.facing = dir
+			d.lookDir = heading(lerp(math.rad(120), yaw3, smooth(progress(tick, ZEN_SPIN, ZEN_SPIN + 10))))
+			-- (turned on the cut, a stride back from him; carried in by the kick, through him)
+			d.x = lerp(wound, spot, smooth(progress(tick, ZEN_GONE[2], ZEN_GONE[2] + 10)))
+			local s0 = kick.startup
+			if tick < 296 then
+				d.pose = "Block"
+			elseif tick < ZEN_GONE[2] then
+				held(d, itsKick, s0 * progress(tick, 296, ZEN_GONE[2] - 1))
+			elseif tick < 350 then
+				held(d, itsKick, s0 + 1 + (kick.active + kick.recovery - 1) * progress(tick, ZEN_GONE[2], 349))
+			else
+				d.pose = "Block"
+			end
+		elseif tick < ZEN_INCH then
+			-- it looks for him, one way, the other; turns round through the camera's side, 12
+			-- frames; starts, its guard open
+			d.x, d.facing = spot, dir
+			d.pose = if tick < 386 then "Block" else "GuardBroken"
+			if tick < ZEN_ROUND then
+				d.lookDir = heading(yaw3 - math.rad(40) * math.sin(math.pi * progress(tick, ZEN_SEARCH, ZEN_ROUND)))
+			else
+				d.lookDir = heading(lerp(yaw3, math.pi, smooth(progress(tick, ZEN_ROUND, ZEN_INCH))))
+			end
+		elseif tick < ZEN_TURN then
+			-- (square to him, its guard open; time stops on the blow: it holds still, the waves go
+			-- through it)
+			d.x, d.lookDir = spot, v(-dir, 0, 0)
+			d.state, d.pose = "Hitstun", "GuardBroken"
+			if tick >= F and tick < F + 30 then d.hitstop = 1 end
+		elseif tick < ZEN_DOWN then
+			d.x, d.state, d.pose = spot, "Hitstun", "CrumpleStart" -- (still standing, its hands on its belly)
+		else
+			-- (face down at his feet, laid down on the cut)
+			d.x, d.state, d.pose = last + dir * (ZEN.feet + (ZEN_HANDS[d.kit or ""] or 0)), "Knockdown", "DownFace"
+		end
+
+		-- THE AFTERIMAGES: his body as it was, left where he stood on each cut he is gone (the
+		-- only lights of the scene, one at a time); the wave on the deck where he stood
+		for i, at in ZEN_GONE do
+			if tick == at then
+				-- (gone before the next cut: the first by the end of its shot, the second with the kick)
+				table.insert(frame.fx, { key = "zn-gone" .. i, kind = "afterimage", slot = A, color = ki, life = if i == 1 then 0.9 else 0.5 })
+				sfx(frame, "zn-gone" .. i, "whoosh")
+			end
+		end
+		if tick >= 180 and tick < 210 then
+			local q = smooth(progress(tick, 180, 210))
+			shape(frame, { kind = "ring", pos = At(v(first, 0.08, 0)), normal = v(0, 1, 0), radius = lerp(0.5, 3.4, q), width = 0.14, color = ki,
+				alpha = lerp(0.25, 1, q), mark = "instinct" })
+		end
+		-- THE FIST: a thin gold ring round it, in the line of the blow; it stays through the blow
+		-- and fades (on his fist, which does not move until he lowers it)
+		if tick >= ZEN_INCH and tick < F + 24 then
+			local q = smooth(progress(tick, ZEN_INCH, ZEN_INCH + 16))
+			shape(frame, { kind = "ring", pos = P(A, "LeftHand"), normal = v(dir, 0, 0), radius = lerp(0.9, 0.5, q), width = 0.05, color = ZEN_GOLD,
+				alpha = math.max(lerp(0.6, 0.15, q), progress(tick, F, F + 24)), mark = "fist" })
+		end
+		-- THE BLOW: three waves out of its back along the line (time stopped: its body holds
+		-- still), the deck split along the line, a line of gold left in it to the end
+		if tick >= F and tick < F + 30 then
+			for k = 1, 3 do
+				local age = tick - F - (k - 1) * 5
+				if age >= 0 and age < 20 then
+					local q = progress(age, 0, 20)
+					shape(frame, { kind = "ring", pos = P(D, "UpperTorso", v(dir * (0.55 + 5 * q), 0, 0)), normal = v(dir, 0, 0),
+						radius = lerp(0.5, 2.2 + 0.3 * k, q), width = 0.12, color = if k == 2 then "FFFFFF" else ki, alpha = lerp(0.1, 1, q),
+						mark = "wave" .. k })
+				end
+			end
+		end
+		if tick >= F then
+			local q = progress(tick, F, F + 20)
+			local alpha = math.max(0.25, progress(tick, 630, 660))
+			if alpha < 1 then
+				shape(frame, { kind = "slash", from = At(v(spot + dir * 0.6, 0.06, 0)), to = At(v(spot + dir * (0.6 + ZEN.line * q), 0.06, 0)),
+					width = 0.14, color = ZEN_GOLD, alpha = alpha, mark = "line" })
+			end
+		end
+		if tick == F then
+			T.impact(frame, "zn-blow", v(spot - dir * 0.2, 3, 0.3), ki, 1.6)
+			table.insert(frame.fx, { key = "zn-split", kind = "crack", from = v(spot + dir * 0.6, 0.05, 0), to = v(spot + dir * (0.6 + ZEN.line), 0.05, 0),
+				color = ZEN_GOLD })
+			sfx(frame, "zn-blow", "heavy")
+			sfx(frame, "zn-blow-boom", "boom")
+		end
+		if tick >= F and tick < F + 10 then frame.quake = 0.8 end
+		-- the colour drains while his fist waits; it comes back with the blow
+		if tick >= ZEN_INCH and tick < F then o.desat = 0.85 * smooth(progress(tick, ZEN_INCH, ZEN_INCH + 24)) end
+		if tick >= F and tick < F + 10 then o.white = 0.8 * (1 - progress(tick, F, F + 10)) end
+		-- the sounds (silence while the fist waits)
+		if tick == 150 then sfx(frame, "zn-charge", "whoosh") end
+		if tick == ZEN_BACK then sfx(frame, "zn-back", "charge") end
+		if tick == ZEN_TURN then sfx(frame, "zn-turn", "whoosh") end
+		if tick == ZEN_KO then sfx(frame, "zn-ko", "boom") end
+		ko(ctx, frame, tick, ZEN_KO, ZEN_GOLD, if tick < 544 then { bg = ZEN_CARD, splash = ZEN_GOLD } else nil)
+
+		-- the shot
+		local subjects
+		if current.subjects == "fixed" then
+			-- (while he is gone: where he stood and where it stumbles to, never a moving body)
+			subjects = {}
+			for _, x in { first + dir * (ZEN.far - ZEN.charge), stumbled } do
+				table.insert(subjects, { point = true, x = x, y = 0.4, z = 0 })
+				table.insert(subjects, { point = true, x = x, y = 5.4, z = 0 })
+			end
+		else
+			subjects = if current.subjects == "a" then { a } elseif current.subjects == "d" then { d } else { a, d }
+		end
+		if current.with == "gone" then
+			table.insert(subjects, { point = true, x = behind, y = 0.5, z = 0 })
+			table.insert(subjects, { point = true, x = behind, y = 5.2, z = 0 })
+		elseif current.with == "beyond" then
+			table.insert(subjects, { point = true, x = spot + dir * 5, y = 3, z = 0 })
+		elseif current.with == "line" then
+			table.insert(subjects, { point = true, x = spot + dir * (0.6 + ZEN.line), y = 0, z = 0 })
+		end
+		local fill = current.fill
+		if type(fill) == "table" then fill = lerp(fill[1], fill[2], smooth(progress(tick, ZEN_BACK, ZEN_SPIN))) end
+		frame.shot = frameOn(current.name, dir, subjects, { yaw = current.yaw, pitch = current.pitch, band = current.band, fill = fill,
+			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
+	end
+
 	-- ================================================================ ELIAN · FINAL MERCY
 	-- The healer gives too much light. 0:00 he walks to the target, calm, a halo over his head ·
 	-- 0:01 his palm on its chest: the light pours in, it glows · 0:03 the light lifts it in a

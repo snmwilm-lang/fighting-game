@@ -57,7 +57,13 @@ Un `Sound` remplace le son intégré qui porte le même nom. Les noms possibles 
 - **Coups** :
   - `hit`, `heavyHit`, `swing`, `heavySwing`, `projectile` pour tous les persos ;
   - ou bien `KAI.hit`, `KAZAN.heavyHit`, etc. pour un seul perso (prioritaire sur le nom
-    général).
+    général) ;
+  - les deux bosses ont leur propre matière, avec leurs propres noms : `ASURA.hit`,
+    `ASURA.projectile`… et `KUROEN SHIN.hit`, `KUROEN SHIN.heavySwing`… (le nom du boss avec
+    son espace, puis un point). Un boss sonne toujours comme lui, de son premier élan à son
+    dernier coup, même avec les coups qu'il emprunte : ASURA ceux de KAI, KUROEN SHIN ceux de
+    KUROEN. Un son nommé `KAI.hit` ne joue donc plus sur les coups d'ASURA, ni `KUROEN.hit`
+    sur ceux de KUROEN SHIN (B-033).
 - **Actions** : `Block`, `GuardBreak`, `Clash`, `Parry`, `Wall`, `Evade`, `Slip`, `Blink`,
   `Stance`, `SuperFlash`, `Skill`, `Prompt`, `Perfect`, `Graded`, `SuperJump`, `Bounce`, `KO`,
   `Cinematic`, `Tip`, `Knockdown`, `GetUp`, `Jump`, `Land`, `Dash`, `PassiveReady`, `Chilled`,

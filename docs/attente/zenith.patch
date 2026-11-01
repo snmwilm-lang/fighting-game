@@ -1,0 +1,1332 @@
+diff --git a/docs/AUDIO.md b/docs/AUDIO.md
+index 3eb3f65..69494e3 100644
+--- a/docs/AUDIO.md
++++ b/docs/AUDIO.md
+@@ -57,7 +57,13 @@ Un `Sound` remplace le son intégré qui porte le même nom. Les noms possibles
+ - **Coups** :
+   - `hit`, `heavyHit`, `swing`, `heavySwing`, `projectile` pour tous les persos ;
+   - ou bien `KAI.hit`, `KAZAN.heavyHit`, etc. pour un seul perso (prioritaire sur le nom
+-    général).
++    général) ;
++  - les deux bosses ont leur propre matière, avec leurs propres noms : `ASURA.hit`,
++    `ASURA.projectile`… et `KUROEN SHIN.hit`, `KUROEN SHIN.heavySwing`… (le nom du boss avec
++    son espace, puis un point). Un boss sonne toujours comme lui, de son premier élan à son
++    dernier coup, même avec les coups qu'il emprunte : ASURA ceux de KAI, KUROEN SHIN ceux de
++    KUROEN. Un son nommé `KAI.hit` ne joue donc plus sur les coups d'ASURA, ni `KUROEN.hit`
++    sur ceux de KUROEN SHIN (B-033).
+ - **Actions** : `Block`, `GuardBreak`, `Clash`, `Parry`, `Wall`, `Evade`, `Slip`, `Blink`,
+   `Stance`, `SuperFlash`, `Skill`, `Prompt`, `Perfect`, `Graded`, `SuperJump`, `Bounce`, `KO`,
+   `Cinematic`, `Tip`, `Knockdown`, `GetUp`, `Jump`, `Land`, `Dash`, `PassiveReady`, `Chilled`,
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 76738b4..a559063 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -77,3 +77,12 @@ Les décisions de Wilhem priment : on ne les défait jamais sans lui demander.
+ | 28/10/2026 | B-039 : pendant l'attente du serveur réservé, rien d'autre ne se lance, TRAINING compris, et un DÉFI accepté reste en attente (« YOUR RANKED MATCH IS ABOUT TO START »). Le serveur envoie l'état « queue » avec `crossWaiting` : la page de recherche reste ouverte et dit « OPPONENT FOUND · CONNECTING… », sans ANNULER. Seule une arrivée bien formée attend (deux ids, dont le sien, comme `teleportToMatch` les écrit) | Une seule règle, et rien à quitter quand le CLASSÉ part. Le joueur arrive de la page « SEARCHING FOR AN OPPONENT… » : la même page continue. Une donnée de téléportation mal formée ne bloque jamais un joueur | Laisser TRAINING ouvert (sans risque depuis le point 1, mais une règle de plus) ; un bandeau sur le porte-monnaie (déjà pris par « LOADING YOUR SAVE… ») | Claude (production) |
+ | 28/10/2026 | B-039 : `crossStep` vérifie à nouveau que le joueur cherche encore juste avant chaque téléportation (les appels au MemoryStore rendent la main). S'il a lancé un match entre-temps, il n'est pas téléporté ; l'autre joueur attend alors `ARRIVE_TIMEOUT` et lit « YOUR OPPONENT DID NOT ARRIVE » | Prouvé sur le banc pour la v0.36.13 : un joueur réclamé par un autre serveur pendant qu'il lance un TRAINING est téléporté hors de son match (scène W2c) | Libérer la réclamation dans le MemoryStore (plus d'écritures, à voir si le cas se présente en jeu) | Claude (production) |
+ | 28/10/2026 | B-039 : `startVersus` fait le ménage pour ses trois appelants ; le DÉFI accepté et la recherche locale gardent le leur, qui ne fait alors plus rien | Le chemin du DÉFI (B-023) reste identique à la ligne près ; le double appel est sans effet (`Matchmaker.leave` et `unseat` ne font rien la seconde fois) | Retirer les boucles des appelants | Claude (production) |
++| 31/10/2026 | ZENITH (KUROEN SHIN, I-001) refait de zéro le 31/10 (le patch du 30/10 est perdu) d'après la description de la session : 660 ticks, coup mortel au tick 440, les mêmes 13 plans `kshin-zn-*` composés avec `frameOn`, `S["KUROEN SHIN"]`, « ZENITH » / « ZÉNITH ». Les deux correctifs refusés le 30/10 sont repris (B-015 : il baisse le poing sur place, puis se tient immobile et droit sur la coupe de t488 ; B-046 : la cible se retourne en 12 images par le côté caméra, son `facing` change sur la coupe de t392) | Wilhem dort ; la scène était décrite plan par plan, refusée seulement sur des points corrigés | Reprendre une autre mise en scène | Claude (production) |
++| 31/10/2026 | ZENITH : son direct est le JAB de KUROEN (le poing avant sur la ligne, à hauteur de poitrine), pas son STRAIGHT. Carré face à la cible, le STRAIGHT envoie le poing arrière à 2,5 studs sur le côté de la ligne et met le poing avant à hauteur de tête : il ne peut pas s'arrêter « à un pouce de sa poitrine ». C'est un coup de son kit, et le test « ses seuls coups » le vérifie | Le geste de la scène (le poing tendu, arrêté devant la poitrine) se lit avec le JAB | Le STRAIGHT avec un `lookDir` tourné de 56° pour viser la poitrine (son dos face caméra d'un côté, sa poitrine de l'autre) | Claude (production) |
++| 31/10/2026 | ZENITH contre les 20 cibles jouables (B-047, refus du 30/10), sans un seul contact des deux côtés, arme comprise : il se tient à 6,8 studs au départ ; la cible fonce 1,2 stud la garde haute et n'arme son direct que sur la coupe de t172 (une lame armée balaie 5 studs autour d'elle : le katana de SHIN dans sa main) ; dos à dos à 3,6 studs, puis, sur la coupe de t290, elle est à 6,6 studs de son dos pour armer le coup de pied, que l'élan porte à travers l'image rémanente ; couchée, ses hanches à 5,4 studs des siennes (sa main tendue s'arrête avant ses talons). RAIJIN, dont les mains restent sur la lance devant la poitrine dans toutes les poses, a 0,6 stud de plus au poing et couché (`ZEN_HANDS`) | Les contacts venaient de la portée des armes et des poses des cibles, que le labo ne voyait pas ; la règle tient maintenant pour les 20, testée | Garder les distances de KAI et noter les contacts | Claude (production) |
++| 31/10/2026 | ZENITH : le demi-tour de la cible au début de `kshin-zn-spin` est une orientation à elle (`lookDir`), à moitié tournée sur la coupe (120°), puis 10 images adoucies (15° par image au plus), et non plus la piste de la validation (0,6 puissance n, 27° par image). Le test des tours descend donc à 21° par image (le plus grand tour voulu, la recherche, fait 19,6°), mesuré comme le labo et comme le client (B-048) | La validation avait noté qu'un seuil vers 21° attraperait davantage ; aucun contact n'apparaît avec ce tour (mesuré contre les 20 cibles) | Le seuil à 30° avec la piste de la validation | Claude (production) |
++| 31/10/2026 | ZENITH : la marge près du mur est de 3,4 studs au-delà de sa dernière place (et non 2,4), et 2 studs devant la cible. Pire coin d'une pièce : 26,59 dos au mur (sa main droite sur la coupe de t488, le temps que la pose se fonde), 26,69 la cible près du mur gauche | Ses bras, sur la coupe où il se retourne, passaient à 27,6 avec 2,4 ; les vrais avatars n'ont pas la taille du rig du labo (B-018) | 2,4 studs comme le 30/10 | Claude (production) |
++| 31/10/2026 | ZENITH, les angles : l'ouverture à 50°, par-dessus l'épaule à -124°, dos à dos à 64°, le coup de pied tournant à 50°, la recherche à 64°. Ils évitent l'axe des deux mains de chacun (une main cachée par l'autre, test « both hands ») et la cible devant lui (au plus 7 % du sujet caché), des deux côtés | Le rig n'est pas en miroir : les mains de la cible s'alignent vers 22-33° d'un côté, 11-23° de l'autre | Les angles de la description d'origine (22°, -146°…), qui échouaient au test des mains | Claude (production) |
++| 31/10/2026 | B-033 corrigé avec ZENITH : une matière à KUROEN SHIN faite de nouvelles tables (les gantelets de KUROEN plus graves, chaque élan dans `echo`, ses coups `punch` 1,03 dans `hall`, un `boom` plus profond sous les gros), et `SoundPalette.materialOf(kit, moveOwner, isBoss)` : un boss qui a sa matière sonne toujours comme lui ; les autres comme le propriétaire du coup, sinon leur kit, sinon KAI. `SoundController` l'utilise pour les élans, les pas, les temps de chope, les coups et les projectiles. ASURA est corrigé du même coup. Rien ne change pour les 20 jouables (vérifié coup par coup dans `Kits.test`). Le test commun des finishers n'accepte plus le repli sur KAI | La matière se règle une fois, pour la scène et le combat ; sans elle, ZENITH sonnait KAI et KUROEN | Livrer la scène seule, B-033 ouvert | Claude (production) |
++| 31/10/2026 | Le test « kit sans finisher » joue chaque kit tour à tour (les 22) sur une copie de `MoveData` (`table.clone` de `MoveData`, de `Kits` et du kit) dont il retire la ligne `Finisher`, avec deux gardes : la copie a bien perdu sa ligne, et le vrai `MoveData` en garde 22 | Depuis ZENITH, plus aucun kit n'est sans finisher : l'ancien test aurait échoué sur « nothing to play » ; la règle reste testée pour tout kit ajouté | Supprimer le test ; un seul kit tiré au sort | Claude (production) |
++| 31/10/2026 | Le labo des cinématiques (`tests/CinematicKit.luau`) prend une cible (`foe`), la cible collée au mur (`wall = "target"`), l'orientation de chaque corps (`yaws`, et `clientYaws` selon la règle du client, B-048) et l'écart entre deux pièces (`Kit.boxGap`). ZENITH est testé contre les 20 cibles des deux côtés dans `Cinematography` (environ 10 s de plus) | B-047 venait de ce que le labo ne jouait que KAI | Un script à part, hors des suites | Claude (production) |
+diff --git a/src/client/SoundController.luau b/src/client/SoundController.luau
+index 22b1400..cc066ff 100644
+--- a/src/client/SoundController.luau
++++ b/src/client/SoundController.luau
+@@ -29,8 +29,11 @@ SoundController.__index = SoundController
+ -- The kits whose guard is a blade (a blow on it rings like steel).
+ local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, YUKINA = true }
+ 
+-local function material(kit)
+-	return MATERIALS[kit or "KAI"] or MATERIALS.KAI
++-- A fighter's matter (SoundPalette.materialOf, B-033): a boss with his own sounds like himself,
++-- whoever lent him his moves; anyone else like the owner of the move, else its kit, else KAI.
++local function material(kit, move)
++	local data = kit and MoveData.Kits[kit]
++	return (Palette.materialOf(kit, move and MoveData.MoveKit[move], data ~= nil and data.Boss == true))
+ end
+ 
+ function SoundController.new()
+@@ -179,11 +182,11 @@ function SoundController:onEvent(event)
+ 	local kind = event.kind
+ 	if kind == "ThrowBeat" or kind == "Throw" then
+ 		-- (a throw: the seize, the knees or the pommel before the impact, in the thrower's matter)
+-		local own = material(self.kits[event.attacker])
++		local own = material(self.kits[event.attacker], nil)
+ 		self:playAll(if kind == "Throw" then ACTIONS.Block else own.hit)
+ 	elseif kind == "Hit" then
+ 		-- (the GRAB's blow, its throw's impact: the thrower's own matter)
+-		local own = material(MoveData.MoveKit[event.move] or self.kits[event.attacker])
++		local own = material(self.kits[event.attacker], event.move)
+ 		local heavy = event.heavy or event.ko or event.cinematic
+ 		self:playAll(if heavy then own.heavyHit else own.hit)
+ 		if event.tip then self:playAll(ACTIONS.Tip) end
+@@ -195,7 +198,7 @@ function SoundController:onEvent(event)
+ 	elseif kind == "Parry" then
+ 		self:playAll(if event.absorbed then ACTIONS.Wall else ACTIONS.Parry)
+ 	elseif kind == "Projectile" then
+-		self:playAll(material(MoveData.MoveKit[event.move]).projectile or MATERIALS.KAI.projectile)
++		self:playAll(material(self.kits[event.attacker], event.move).projectile or MATERIALS.KAI.projectile)
+ 	elseif kind == "PromptGrade" then
+ 		self:playAll(if event.grade == "PERFECT" then ACTIONS.Perfect else ACTIONS.Graded)
+ 	elseif kind == "GroundBounce" or kind == "WallBounce" then
+@@ -234,7 +237,7 @@ function SoundController:update(slot, view, moves)
+ 	local m = view.state == "Attack" and moves[view.move]
+ 	local phase = if m then (if view.moveFrame <= m.startup then "S" elseif view.moveFrame <= m.startup + m.active then "A" else "R") else ""
+ 	local key = view.state .. ":" .. tostring(view.move) .. phase
+-	local own = material(view.kit)
++	local own = material(view.kit, nil)
+ 	self.kits[slot] = view.kit
+ 	if last and last.key ~= key and self.enabled then
+ 		if phase == "A" and last.phase ~= "A" then
+diff --git a/src/shared/Finishers.luau b/src/shared/Finishers.luau
+index 8b0ba78..d844d54 100644
+--- a/src/shared/Finishers.luau
++++ b/src/shared/Finishers.luau
+@@ -3489,6 +3489,304 @@ function Finishers.build(T)
+ 			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
+ 	end
+ 
++	-- ================================================================ KUROEN SHIN · ZENITH
++	-- KUROEN past every limit wins without a guard: calm, his hands low, he lets the target
++	-- strike twice and it goes twice through an afterimage of him (his DIVINE INSTINCT); it turns
++	-- round into his fist, already there, stopped an inch from its chest, and the blow goes
++	-- through it without a touch. The zenith: the highest point, where the last shot looks from.
++	-- 0:00 face to face: he stands, calm, hands low; it raises its guard · 0:01.4 his face ·
++	-- 0:02 over his shoulder: it charges, its guard up · 0:02.9 gone on the cut as it cocks its
++	-- straight: the straight goes through an afterimage of him, a wave runs on the deck where he
++	-- stood, it stumbles on · 0:03.8 back on the cut, behind it, back to back, hands low; the camera creeps
++	-- in · 0:04.8 it turns and throws a spinning kick at his back; he does not turn · 0:05.4 from
++	-- above: the kick goes through a second afterimage · 0:05.9 it looks for him, turns round,
++	-- starts, its guard open · 0:06.5 on the cut he is there: his straight (his JAB) already out,
++	-- stopped an inch from its chest, a thin gold ring round the fist; the colour drains; silence · 0:07.3
++	-- the blow: three waves out of its back, the colour back, the deck split along the line and a
++	-- line of gold left in it; he lowers his fist where he stands · 0:08.1 he has turned his back
++	-- on it; it still stands, its hands on its belly · 0:08.6 from the zenith: face down at his
++	-- feet, the line behind it; K.O. · 0:09.9 his bust, calm, under the title.
++	-- Not his throw (by the throat), not KUROEN's (knee, elbow, palm), nor BLACK SUN (the marks,
++	-- the suns, AXE OF NIGHT), nor his ultimates (pulled in, the storm of fists, the orbit, the
++	-- pillars), nor SAMSARA's wheel; no sphere: the two afterimages are its only lights, never
++	-- together. He reappears only on a cut, and the shot that holds while he is gone is set on
++	-- fixed points (B-041); the target lies down on a cut (B-040).
++	local ZEN = {
++		far = 6.8, -- (where he stands first: a katana at rest, or cocked as it charges, short of him)
++		charge = 1.2, -- (how far it charges before he is gone: its fists and blades short of him)
++		stumble = 2.4, -- (how far beyond his first place it stumbles)
++		back = 3.6, -- (back to back)
++		wind = 6.6, -- (how far from his back it winds its kick up: a blade held out short of him)
++		kick = 2.6, -- (where its spinning kick carries it, through his afterimage)
++		inch = 4.05, -- (his JAB's root to its root: the fist stops an inch from its chest)
++		away = 2.4, -- (his last place, further from it, his back to it)
++		feet = 5.4, -- (it falls forward, face down at his feet: its hips this far from his, its hand stretched short of his heels)
++		line = 6, -- (the line of gold left in the deck, behind it)
++		room = 3.4, -- (the deck kept beyond his last place: his arms as he turns on the cut, B-015)
++	}
++	-- (a target whose hands stay before its chest in every pose, both on its spear: his fist
++	-- stops an inch from them, not in them, and it lies that much further from his heels, B-047)
++	local ZEN_HANDS = { RAIJIN = 0.6 }
++	local ZEN_GOLD = "FFD23F" -- (his trims)
++	local ZEN_CARD = "0A0908"
++	local ZEN_GONE = { 172, 324 } -- (the cuts where he is gone: an afterimage stays)
++	local ZEN_BACK = 228 -- (the cut where he is back, behind it)
++	local ZEN_SPIN = 290 -- (it turns round on it)
++	local ZEN_SEARCH, ZEN_ROUND = 356, 380 -- (it looks for him; it turns round, 12 frames)
++	local ZEN_INCH = 392 -- (the cut where his fist is there)
++	local ZEN_LOWER = 474 -- (he lowers his fist where he stands)
++	local ZEN_TURN = 488 -- (the cut: his back turned on it)
++	local ZEN_DOWN = 516 -- (the cut: face down at his feet)
++	local ZEN_KO = 520
++	-- The shots, in order (to: the tick it ends; subjects: "a", "d", "ad", or the fixed points of
++	-- the shot that holds while he is gone; with: points taken into the frame; focus: slot, part)
++	local ZEN_SHOTS = {
++		{ to = 84, name = "kshin-zn-calm", subjects = "ad", yaw = 50, pitch = -4, fill = 0.7, fov = 38, focus = { "A", "Head" } },
++		{ to = 124, name = "kshin-zn-eyes", subjects = "a", band = "face", yaw = 16, pitch = -4, fill = 0.62, fov = 30, focus = { "A", "Head" } },
++		{ to = 172, name = "kshin-zn-lunge", subjects = "ad", yaw = -124, pitch = 8, fill = 0.8, fov = 40, focus = { "D", "Head" } },
++		{ to = 228, name = "kshin-zn-instinct", subjects = "fixed", yaw = 24, pitch = 30, fill = 0.74, fov = 42, focus = { "D", "UpperTorso" } },
++		{ to = 290, name = "kshin-zn-behind", subjects = "ad", yaw = 64, pitch = -2, fill = { 0.62, 0.76 }, fov = 36, focus = { "A", "Head" } },
++		{ to = 324, name = "kshin-zn-spin", subjects = "ad", yaw = 50, pitch = 4, fill = 0.84, fov = 40, focus = { "A", "Head" } },
++		{ to = 356, name = "kshin-zn-miss", subjects = "d", with = "gone", yaw = 12, pitch = 50, fill = 0.7, fov = 42, focus = { "D", "UpperTorso" } },
++		{ to = 392, name = "kshin-zn-search", subjects = "d", band = "bust", yaw = 64, pitch = 0, fill = 0.7, fov = 34, focus = { "D", "Head" } },
++		{ to = 440, name = "kshin-zn-fist", subjects = "ad", yaw = 34, pitch = -4, fill = 0.92, fov = 34, focus = { "A", "LeftHand" } },
++		{ to = 488, name = "kshin-zn-through", subjects = "ad", with = "beyond", yaw = 48, pitch = 8, fill = 0.8, fov = 42, focus = { "D", "UpperTorso" } },
++		{ to = 516, name = "kshin-zn-turn", subjects = "ad", yaw = -40, pitch = -2, fill = 0.72, fov = 38, focus = { "A", "Head" } },
++		{ to = 596, name = "kshin-zn-noon", subjects = "ad", with = "line", yaw = 0, pitch = 76, fill = 0.6, fov = 42, focus = { "D", "UpperTorso" } },
++		{ to = math.huge, name = "kshin-zn-last", subjects = "a", band = "bust", yaw = -30, pitch = -4, fill = 0.64, fov = 34, screen = { 0, -0.22 },
++			focus = { "A", "Head" } },
++	}
++	S["KUROEN SHIN"] = function(ctx, frame, a, d, tick, dir)
++		local A, D = ctx.cin.attacker, ctx.cin.defender
++		local moves = ctx.moveData.Moves
++		local ki = ctx.characters[A].Energy -- (his ki: pale gold)
++		local F = 440
++		local o = overlay(frame)
++		-- (the whole scene stands back from a wall, never him alone: it starts where the target
++		-- stands, and his last place is the farthest on his side)
++		local deep = ZEN.far + ZEN.stumble - ZEN.back + ZEN.kick + ZEN.inch + (ZEN_HANDS[d.kit or ""] or 0) + ZEN.away
++		local cx = room(ctx, T.center(ctx, d), dir, deep + ZEN.room, 2)
++		local first = cx - dir * ZEN.far -- (where he stands first)
++		local stumbled = first - dir * ZEN.stumble -- (where it stumbles to, its back to him)
++		local behind = stumbled + dir * ZEN.back -- (where he is back, behind it)
++		local wound = behind - dir * ZEN.wind -- (where it winds its kick up, turned on him)
++		local spot = behind - dir * ZEN.kick -- (where it stands from the kick on)
++		local inch = spot - dir * (ZEN.inch + (ZEN_HANDS[d.kit or ""] or 0)) -- (where his fist is there)
++		local last = inch - dir * ZEN.away -- (his back turned on it)
++		local yaw3 = math.rad(ctx.config.ModelYaw or 22) -- (the 3/4 turn toward the camera)
++		-- a direction in the floor plane, `s` radians from the attack's line toward the camera
++		-- (0: square toward dir; yaw3: dir as the client turns it; pi - yaw3: -dir, turned)
++		local function heading(s)
++			return v(dir * math.cos(s), 0, math.sin(s))
++		end
++		-- a move held at a frame (its startup, its blow, its recovery)
++		local function held(view, id, f)
++			view.state, view.move, view.moveFrame, view.pose = "Attack", id, math.max(0, math.floor(f + 0.5)), nil
++		end
++		-- (his straight: the JAB, his lead fist snapped out along the line, square to it; his
++		-- STRAIGHT turns the rear fist 2.5 studs off the line in this view)
++		local straight = T.role(ctx, "Jab")
++		local hisStraight = moves[straight]
++		local itsStraight, itsKick = theirMove(ctx, d, "Cross"), theirMove(ctx, d, "SpinKick")
++		local cross, kick = moves[itsStraight], moves[itsKick]
++		-- the shot of this tick
++		local current
++		for _, s_ in ZEN_SHOTS do
++			if tick < s_.to then
++				current = s_
++				break
++			end
++		end
++
++		-- HIM: calm, hands low; gone and back on the cuts; his straight already out, square to it
++		a.z, a.y, a.lookDir = nil, 0, nil
++		a.state, a.move, a.pose, a.facing = "Idle", nil, "StandTall", dir
++		-- (gone, he keeps his place until he is back: each afterimage is his body as it was there)
++		if tick < ZEN_BACK then
++			a.x = first
++			a.hidden = tick >= ZEN_GONE[1]
++		elseif tick < ZEN_INCH then
++			a.x = behind
++			a.hidden = tick >= ZEN_GONE[2]
++		elseif tick < ZEN_TURN then
++			a.x = inch
++			do
++				-- (the blow's clean frame, held; lowered where he stands after it)
++				local out = hisStraight.startup + hisStraight.active
++				local f = out + hisStraight.recovery * progress(tick, ZEN_LOWER, ZEN_TURN - 1)
++				held(a, straight, f)
++				a.lookDir = v(dir, 0, 0) -- (square to it: his fist goes to its chest)
++			end
++		else
++			-- (his back turned on it, upright and still; turned at once on the cut)
++			a.x, a.facing = last, -dir
++			a.lookDir = heading(math.pi - yaw3)
++		end
++
++		-- THE TARGET: its guard; the charge, the straight through him; the kick at his back; it
++		-- looks for him and turns round into his fist; it stands, then lies at his feet
++		d.z, d.y, d.hitstop, d.lookDir = nil, 0, 0, nil
++		d.state, d.move, d.pose, d.facing = "Idle", nil, nil, -dir
++		if tick < 124 then
++			d.x = cx
++			if tick >= 40 then d.pose = "Block" end
++		elseif tick < 216 then
++			-- (the charge, faster and faster; the straight thrown through his afterimage; it
++			-- stumbles on and stops beyond his first place)
++			local gone = ZEN.far + ZEN.stumble
++			local run
++			if tick < ZEN_GONE[1] then
++				local q = progress(tick, 124, ZEN_GONE[1])
++				run = ZEN.charge * q * q
++			elseif tick < 186 then
++				run = lerp(ZEN.charge, gone - 1.4, progress(tick, ZEN_GONE[1], 186))
++			else
++				local q = progress(tick, 186, 216)
++				run = gone - 1.4 + 1.4 * (1 - (1 - q) * (1 - q))
++			end
++			d.x = cx - dir * run
++			local s0 = cross.startup
++			if tick < ZEN_GONE[1] then
++				d.state, d.vx = "Walking", -dir * 8 -- (it charges, its guard up)
++			elseif tick < 178 then
++				-- (its straight cocked on the cut, as he is gone: a blade swung back as it cocks
++				-- sweeps 5 studs round its body, B-047)
++				held(d, itsStraight, s0 * progress(tick, ZEN_GONE[1], 177))
++			elseif tick < 206 then
++				held(d, itsStraight, s0 + 1 + (cross.active + cross.recovery - 1) * progress(tick, 178, 205))
++			elseif tick < 212 then
++				d.state, d.vx = "Walking", -dir * 3
++			end
++		elseif tick < ZEN_SPIN then
++			d.x, d.pose = stumbled, "Block" -- (its guard up, alone: where is he?)
++		elseif tick < ZEN_SEARCH then
++			-- it turns round on it, through the camera's side (half turned on the cut, then 10
++			-- frames: never more than 15 degrees a frame; its own direction from the cut on, so the
++			-- client never takes up a stale heading, B-048) and kicks at his back; the kick goes
++			-- through the second afterimage
++			d.facing = dir
++			d.lookDir = heading(lerp(math.rad(120), yaw3, smooth(progress(tick, ZEN_SPIN, ZEN_SPIN + 10))))
++			-- (turned on the cut, a stride back from him; carried in by the kick, through him)
++			d.x = lerp(wound, spot, smooth(progress(tick, ZEN_GONE[2], ZEN_GONE[2] + 10)))
++			local s0 = kick.startup
++			if tick < 296 then
++				d.pose = "Block"
++			elseif tick < ZEN_GONE[2] then
++				held(d, itsKick, s0 * progress(tick, 296, ZEN_GONE[2] - 1))
++			elseif tick < 350 then
++				held(d, itsKick, s0 + 1 + (kick.active + kick.recovery - 1) * progress(tick, ZEN_GONE[2], 349))
++			else
++				d.pose = "Block"
++			end
++		elseif tick < ZEN_INCH then
++			-- it looks for him, one way, the other; turns round through the camera's side, 12
++			-- frames; starts, its guard open
++			d.x, d.facing = spot, dir
++			d.pose = if tick < 386 then "Block" else "GuardBroken"
++			if tick < ZEN_ROUND then
++				d.lookDir = heading(yaw3 - math.rad(40) * math.sin(math.pi * progress(tick, ZEN_SEARCH, ZEN_ROUND)))
++			else
++				d.lookDir = heading(lerp(yaw3, math.pi, smooth(progress(tick, ZEN_ROUND, ZEN_INCH))))
++			end
++		elseif tick < ZEN_TURN then
++			-- (square to him, its guard open; time stops on the blow: it holds still, the waves go
++			-- through it)
++			d.x, d.lookDir = spot, v(-dir, 0, 0)
++			d.state, d.pose = "Hitstun", "GuardBroken"
++			if tick >= F and tick < F + 30 then d.hitstop = 1 end
++		elseif tick < ZEN_DOWN then
++			d.x, d.state, d.pose = spot, "Hitstun", "CrumpleStart" -- (still standing, its hands on its belly)
++		else
++			-- (face down at his feet, laid down on the cut)
++			d.x, d.state, d.pose = last + dir * (ZEN.feet + (ZEN_HANDS[d.kit or ""] or 0)), "Knockdown", "DownFace"
++		end
++
++		-- THE AFTERIMAGES: his body as it was, left where he stood on each cut he is gone (the
++		-- only lights of the scene, one at a time); the wave on the deck where he stood
++		for i, at in ZEN_GONE do
++			if tick == at then
++				-- (gone before the next cut: the first by the end of its shot, the second with the kick)
++				table.insert(frame.fx, { key = "zn-gone" .. i, kind = "afterimage", slot = A, color = ki, life = if i == 1 then 0.9 else 0.5 })
++				sfx(frame, "zn-gone" .. i, "whoosh")
++			end
++		end
++		if tick >= 180 and tick < 210 then
++			local q = smooth(progress(tick, 180, 210))
++			shape(frame, { kind = "ring", pos = At(v(first, 0.08, 0)), normal = v(0, 1, 0), radius = lerp(0.5, 3.4, q), width = 0.14, color = ki,
++				alpha = lerp(0.25, 1, q), mark = "instinct" })
++		end
++		-- THE FIST: a thin gold ring round it, in the line of the blow; it stays through the blow
++		-- and fades (on his fist, which does not move until he lowers it)
++		if tick >= ZEN_INCH and tick < F + 24 then
++			local q = smooth(progress(tick, ZEN_INCH, ZEN_INCH + 16))
++			shape(frame, { kind = "ring", pos = P(A, "LeftHand"), normal = v(dir, 0, 0), radius = lerp(0.9, 0.5, q), width = 0.05, color = ZEN_GOLD,
++				alpha = math.max(lerp(0.6, 0.15, q), progress(tick, F, F + 24)), mark = "fist" })
++		end
++		-- THE BLOW: three waves out of its back along the line (time stopped: its body holds
++		-- still), the deck split along the line, a line of gold left in it to the end
++		if tick >= F and tick < F + 30 then
++			for k = 1, 3 do
++				local age = tick - F - (k - 1) * 5
++				if age >= 0 and age < 20 then
++					local q = progress(age, 0, 20)
++					shape(frame, { kind = "ring", pos = P(D, "UpperTorso", v(dir * (0.55 + 5 * q), 0, 0)), normal = v(dir, 0, 0),
++						radius = lerp(0.5, 2.2 + 0.3 * k, q), width = 0.12, color = if k == 2 then "FFFFFF" else ki, alpha = lerp(0.1, 1, q),
++						mark = "wave" .. k })
++				end
++			end
++		end
++		if tick >= F then
++			local q = progress(tick, F, F + 20)
++			local alpha = math.max(0.25, progress(tick, 630, 660))
++			if alpha < 1 then
++				shape(frame, { kind = "slash", from = At(v(spot + dir * 0.6, 0.06, 0)), to = At(v(spot + dir * (0.6 + ZEN.line * q), 0.06, 0)),
++					width = 0.14, color = ZEN_GOLD, alpha = alpha, mark = "line" })
++			end
++		end
++		if tick == F then
++			T.impact(frame, "zn-blow", v(spot - dir * 0.2, 3, 0.3), ki, 1.6)
++			table.insert(frame.fx, { key = "zn-split", kind = "crack", from = v(spot + dir * 0.6, 0.05, 0), to = v(spot + dir * (0.6 + ZEN.line), 0.05, 0),
++				color = ZEN_GOLD })
++			sfx(frame, "zn-blow", "heavy")
++			sfx(frame, "zn-blow-boom", "boom")
++		end
++		if tick >= F and tick < F + 10 then frame.quake = 0.8 end
++		-- the colour drains while his fist waits; it comes back with the blow
++		if tick >= ZEN_INCH and tick < F then o.desat = 0.85 * smooth(progress(tick, ZEN_INCH, ZEN_INCH + 24)) end
++		if tick >= F and tick < F + 10 then o.white = 0.8 * (1 - progress(tick, F, F + 10)) end
++		-- the sounds (silence while the fist waits)
++		if tick == 150 then sfx(frame, "zn-charge", "whoosh") end
++		if tick == ZEN_BACK then sfx(frame, "zn-back", "charge") end
++		if tick == ZEN_TURN then sfx(frame, "zn-turn", "whoosh") end
++		if tick == ZEN_KO then sfx(frame, "zn-ko", "boom") end
++		ko(ctx, frame, tick, ZEN_KO, ZEN_GOLD, if tick < 544 then { bg = ZEN_CARD, splash = ZEN_GOLD } else nil)
++
++		-- the shot
++		local subjects
++		if current.subjects == "fixed" then
++			-- (while he is gone: where he stood and where it stumbles to, never a moving body)
++			subjects = {}
++			for _, x in { first + dir * (ZEN.far - ZEN.charge), stumbled } do
++				table.insert(subjects, { point = true, x = x, y = 0.4, z = 0 })
++				table.insert(subjects, { point = true, x = x, y = 5.4, z = 0 })
++			end
++		else
++			subjects = if current.subjects == "a" then { a } elseif current.subjects == "d" then { d } else { a, d }
++		end
++		if current.with == "gone" then
++			table.insert(subjects, { point = true, x = behind, y = 0.5, z = 0 })
++			table.insert(subjects, { point = true, x = behind, y = 5.2, z = 0 })
++		elseif current.with == "beyond" then
++			table.insert(subjects, { point = true, x = spot + dir * 5, y = 3, z = 0 })
++		elseif current.with == "line" then
++			table.insert(subjects, { point = true, x = spot + dir * (0.6 + ZEN.line), y = 0, z = 0 })
++		end
++		local fill = current.fill
++		if type(fill) == "table" then fill = lerp(fill[1], fill[2], smooth(progress(tick, ZEN_BACK, ZEN_SPIN))) end
++		frame.shot = frameOn(current.name, dir, subjects, { yaw = current.yaw, pitch = current.pitch, band = current.band, fill = fill,
++			fov = current.fov, screen = current.screen, focus = P(if current.focus[1] == "A" then A else D, current.focus[2]) })
++	end
++
+ 	-- ================================================================ ELIAN · FINAL MERCY
+ 	-- The healer gives too much light. 0:00 he walks to the target, calm, a halo over his head ·
+ 	-- 0:01 his palm on its chest: the light pours in, it glows · 0:03 the light lifts it in a
+diff --git a/src/shared/Locale.luau b/src/shared/Locale.luau
+index 2ff2c6b..5c0b7cc 100644
+--- a/src/shared/Locale.luau
++++ b/src/shared/Locale.luau
+@@ -599,6 +599,7 @@ Locale.FR = {
+ 	["FINAL MERCY"] = "DERNIÈRE MISÉRICORDE",
+ 	["FATAL ERROR"] = "ERREUR FATALE",
+ 	["BLACK SUN"] = "SOLEIL NOIR",
++	["ZENITH"] = "ZÉNITH", -- (KUROEN SHIN's FATAL FINISHER)
+ 	["FATAL READY"] = "COUP FATAL PRÊT",
+ 	["FATAL BLOW READY · C —"] = "COUP FATAL PRÊT · C —",
+ 	["FATAL BLOW · C key (gamepad L1):"] = "COUP FATAL · touche C (manette L1) :",
+diff --git a/src/shared/MoveData.luau b/src/shared/MoveData.luau
+index 422c4d2..1630575 100644
+--- a/src/shared/MoveData.luau
++++ b/src/shared/MoveData.luau
+@@ -1443,6 +1443,10 @@ do
+ 			THIRD.KUROEN.names.ThunderHeel, "WALL", THIRD.KUROEN.names.CrescentMoon },
+ 		GateTitle = { text = "真", sub = "TRUE EMPEROR" },
+ 		Colors = { TORNADO = "FFD23F", GUST = "FFFFFF", DRAGON = "FFD23F", THUNDER = "FFFFFF", WALL = "FFD23F", MOON = "FFFFFF" },
++		-- FATAL FINISHER (Finishers.luau, S["KUROEN SHIN"], on his own kit: BLACK SUN stays
++		-- KUROEN's): calm, hands low, the target strikes twice through his afterimages; it turns
++		-- round into his straight (his JAB), stopped an inch from its chest; the blow goes through it.
++		Finisher = { Name = "ZENITH", Length = 660, FinalTick = 440 },
+ 	})
+ end
+ 
+diff --git a/src/shared/SoundPalette.luau b/src/shared/SoundPalette.luau
+index 8cf895a..2cd2da4 100644
+--- a/src/shared/SoundPalette.luau
++++ b/src/shared/SoundPalette.luau
+@@ -201,6 +201,14 @@ local MATERIALS = {
+ 		heavyHit = { { "punch", 0.82, 1.07 }, { "boom", 0.16, 1.7, 0.18, "hall" } },
+ 		projectile = { { "wind", 0.26, 2.4, 0.12 } },
+ 	},
++	-- The second boss (B-033): KUROEN's moves, his own matter. Its own tables, never KUROEN's
++	-- (SoundController names each list after its kit: a shared table would take the last one's).
++	["KUROEN SHIN"] = { -- KUROEN's gauntlets, deeper: every swing in the echo, the blows in the hall, a deeper boom under the big ones
++		swing = { { "whoosh", 0.41, 1.00, nil, "echo" } },
++		heavySwing = { { "whoosh", 0.58, 0.86, nil, "echo" } },
++		hit = { { "punch", 0.62, 1.03, nil, "hall" } },
++		heavyHit = { { "punch", 0.84, 0.90 }, { "boom", 0.2, 1.3, 0.25, "hall" } },
++	},
+ }
+ 
+ -- One sound per action, the same for every fighter.
+@@ -265,5 +273,20 @@ local ACTIONS = {
+ -- replaces the built-in sound. Empty: no asset id is ever invented.
+ Palette.CUSTOM = {}
+ 
++--[[
++	Whose matter a sound of a fighter is played in (B-033): `kit` the fighter's kit, `moveOwner`
++	the kit that owns the move it plays (MoveData.MoveKit[move], nil for a swing without a move
++	or a throw's beats), `isBoss` its kit is a boss (MoveData.Kits[kit].Boss). A boss with a matter
++	of its own always sounds like himself, from his first swing to his last blow, whoever lent
++	him his moves (ASURA plays KAI's, KUROEN SHIN KUROEN's). Any other fighter sounds like the
++	owner of the move, else like its kit, else like KAI. Returns the matter and its name.
++]]
++function Palette.materialOf(kit, moveOwner, isBoss)
++	if isBoss and kit and MATERIALS[kit] then return MATERIALS[kit], kit end
++	if moveOwner and MATERIALS[moveOwner] then return MATERIALS[moveOwner], moveOwner end
++	if kit and MATERIALS[kit] then return MATERIALS[kit], kit end
++	return MATERIALS.KAI, "KAI"
++end
++
+ Palette.FILES, Palette.BUSES, Palette.MATERIALS, Palette.ACTIONS = FILES, BUSES, MATERIALS, ACTIONS
+ return Palette
+diff --git a/tests/CinematicKit.luau b/tests/CinematicKit.luau
+index 5cf3621..8aadbe0 100644
+--- a/tests/CinematicKit.luau
++++ b/tests/CinematicKit.luau
+@@ -75,17 +75,32 @@ Kit.resolve = resolve
+ 
+ --[[
+ 	onFrame(info) for every tick: info = { tick, frame, views, parts = { [slot] = { [part] =
+-	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z } }
++	{ cframe, size } } }, cam = { x, y, z }, target = { x, y, z }, focus = { x, y, z },
++	yaws = { [slot] = degrees }, clientYaws = { [slot] = degrees } }
+ 	(ASURA's parts also carry his second pair of arms, with their colour: addFourArms).
+ 	center: x where the fight happens; hp: the target's health (low = FINAL FINISH); mirror:
+ 	the attacker starts on the right, striking toward -x (the lab always puts it on the left);
+ 	wall: the attacker has its back to the wall of its side (the left one, or the right one
+-	with mirror), the target in front of it, as startCinematic stages them (center unused).
++	with mirror), the target in front of it, as startCinematic stages them (center unused);
++	wall = "target": the target pinned at the wall in front of the attacker, 0.5 from it, the
++	attacker CinematicGap behind it (a COUP FATAL thrown at a fighter in the corner).
+ 	The lab (debugCinematic) never plays that: it keeps the fight 4 studs from the walls.
++	foe: the target's kit (KAI when nil: the lab's own target). Its weapon is not in `parts`:
++	WeaponKit.pieces(foe, parts, ...) gives it, as the storyboards draw it.
++	yaws: where each body faces in the floor plane (degrees, 0 = +X, 90 = +Z toward the
++	camera), as the lab turns it (rootFrame: the heading eases toward `facing` every frame);
++	clientYaws: as the client turns it (init.client.luau: the heading only eases while the
++	view has no lookDir, so a facing changed under a lookDir comes back late, B-048).
+ ]]
+-function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
++-- (the client's heading eases at dt * 25 a frame: at 60 frames per second)
++local CLIENT_TURN = math.min(1, 25 / 60)
++local function yawOf(view, heading)
++	if view.lookDir then return math.deg(math.atan2(view.lookDir.z, view.lookDir.x)) end
++	return math.deg(heading + math.rad(Config.ModelYaw) * math.cos(heading))
++end
++function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall, foe)
+ 	local world = Sim.newWorld(Config, MoveData, true)
+-	Sim.setKits(world, kit, "KAI")
++	Sim.setKits(world, kit, foe or "KAI")
+ 	world.phase = "Fight"
+ 	world.fighters[1].x, world.fighters[2].x = center - 1.3, center + 1.3
+ 	Sim.debugCinematic(world, 1, kind, style, hp)
+@@ -95,14 +110,19 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
+ 			f.x, f.facing = 2 * mid - f.x, -f.facing
+ 		end
+ 	end
+-	if wall then
++	if wall == "target" then
++		-- (the target held at the wall in front of the attacker, 0.5 from it)
++		local a, d = world.fighters[1], world.fighters[2]
++		d.x = if a.facing > 0 then Config.ArenaMaxX - 0.5 else Config.ArenaMinX + 0.5
++		a.x = d.x - a.facing * (Config.CinematicGap or 2.6)
++	elseif wall then
+ 		-- (CombatSimulation startCinematic: the attacker held at the wall, 0.5 from it, the
+ 		-- target CinematicGap in front of it)
+ 		local a, d = world.fighters[1], world.fighters[2]
+ 		a.x = if a.facing > 0 then Config.ArenaMinX + 0.5 else Config.ArenaMaxX - 0.5
+ 		d.x = a.x + a.facing * (Config.CinematicGap or 2.6)
+ 	end
+-	local anims, headings, anchors, extra = {}, {}, {}, { {}, {} }
++	local anims, headings, clientHeadings, anchors, extra = {}, {}, {}, {}, { {}, {} }
+ 	for i = 1, 2 do
+ 		anims[i] = Animator.new({ poses = Poses, moves = MoveData.Moves, kin = K, config = Config, skeleton = SKELETON,
+ 			kits = MoveData.Kits, moveKit = MoveData.MoveKit })
+@@ -118,11 +138,17 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
+ 		local frame = Director.cinematic({ cin = cin, tick = cin.tick, views = views, anchors = anchors, moveData = MoveData,
+ 			config = Config, characters = Kit.characters or CharacterData })
+ 		if frame then
+-			local parts, poses = {}, {}
++			local parts, poses, yaws, clientYaws = {}, {}, {}, {}
+ 			for i = 1, 2 do
+ 				local v = views[i]
+ 				local goal = if v.facing > 0 then 0 else math.pi
+ 				headings[i] = if headings[i] then headings[i] + (goal - headings[i]) * 0.4 else goal
++				if not clientHeadings[i] then
++					clientHeadings[i] = goal
++				elseif not v.lookDir then
++					clientHeadings[i] += (goal - clientHeadings[i]) * CLIENT_TURN
++				end
++				yaws[i], clientYaws[i] = yawOf(v, headings[i]), yawOf(v, clientHeadings[i])
+ 				local pose, lift = anims[i]:step(v, views[3 - i], 1 / 60, tick / 60, 60, true)
+ 				poses[i] = pose
+ 				local solved = K.solve(SKELETON, pose, lift)
+@@ -139,7 +165,7 @@ function Kit.play(kit, kind, style, hp, center, onFrame, mirror, wall)
+ 			local tx, ty, tz = resolve(s.to, parts)
+ 			local fx, fy, fz = resolve(s.focus, parts)
+ 			onFrame({ tick = cin.tick, frame = frame, views = views, parts = parts, poses = poses, cin = cin,
+-				cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz } })
++				cam = { cx, cy, cz }, target = { tx, ty, tz }, focus = { fx, fy, fz }, yaws = yaws, clientYaws = clientYaws })
+ 		end
+ 		tick += 1
+ 		Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
+@@ -246,6 +272,41 @@ function Kit.boxDistance(part, x, y, z)
+ 	return math.sqrt(ox * ox + oy * oy + oz * oz)
+ end
+ 
++-- How far apart two parts' boxes are (separating axes: the 3 + 3 face normals and their 9
++-- cross products): positive, a lower bound of the gap between them (exact face to face);
++-- negative, how deep they overlap along the axis that parts them best. A fist an inch from a
++-- chest, a hand inside another body (B-047).
++function Kit.boxGap(p, q)
++	local a, b = p.cframe, q.cframe
++	local axesA = { { a[4], a[7], a[10] }, { a[5], a[8], a[11] }, { a[6], a[9], a[12] } }
++	local axesB = { { b[4], b[7], b[10] }, { b[5], b[8], b[11] }, { b[6], b[9], b[12] } }
++	local d = { b[1] - a[1], b[2] - a[2], b[3] - a[3] }
++	local best = -math.huge
++	local function try(l)
++		local n = math.sqrt(l[1] * l[1] + l[2] * l[2] + l[3] * l[3])
++		if n < 1e-6 then return end
++		l = { l[1] / n, l[2] / n, l[3] / n }
++		local function radius(axes, size)
++			local r = 0
++			for i = 1, 3 do
++				r += math.abs(axes[i][1] * l[1] + axes[i][2] * l[2] + axes[i][3] * l[3]) * size[i] / 2
++			end
++			return r
++		end
++		local gap = math.abs(d[1] * l[1] + d[2] * l[2] + d[3] * l[3]) - radius(axesA, p.size) - radius(axesB, q.size)
++		if gap > best then best = gap end
++	end
++	for i = 1, 3 do
++		try(axesA[i])
++		try(axesB[i])
++		for j = 1, 3 do
++			local u, w = axesA[i], axesB[j]
++			try({ u[2] * w[3] - u[3] * w[2], u[3] * w[1] - u[1] * w[3], u[1] * w[2] - u[2] * w[1] })
++		end
++	end
++	return best
++end
++
+ -- Does the segment from a to b ({ x, y, z }) cross a part's box?
+ local function crosses(part, a, b)
+ 	local t, s = part.cframe, part.size
+diff --git a/tests/Cinematography.test.luau b/tests/Cinematography.test.luau
+index becc801..024a0ab 100644
+--- a/tests/Cinematography.test.luau
++++ b/tests/Cinematography.test.luau
+@@ -332,7 +332,8 @@ end)
+ 
+ -- FATAL FINISHERS (Finishers.luau): each one its own scene, cut like the others, and the K.O.
+ -- itself. Their sounds are the names SoundController:cinematicSound plays, each from the
+--- palette (SoundPalette): the attacker's own matter for whoosh and heavy.
++-- palette (SoundPalette): the attacker's own matter for whoosh and heavy, never KAI's in its
++-- place (B-033: KUROEN SHIN had none).
+ local FINISHER_SOUNDS = { whoosh = "heavySwing", heavy = "heavyHit", slash = "BlockSteel", boom = "Explosion", charge = "SuperFlash",
+ 	beam = "Cinematic" }
+ test("every FATAL FINISHER is its own scene: own shots and name, no strobe, the K.O. with its name after the blow, the target down", function()
+@@ -383,7 +384,10 @@ test("every FATAL FINISHER is its own scene: own shots and name, no strobe, the
+ 		expect(koAt and koAt >= data.FinalTick and koName == data.Name,
+ 			string.format("%s: the K.O. (%s at %s) before its blow (%d) or without its name", kit, tostring(koName), tostring(koAt), data.FinalTick))
+ 		expect(lastPose == "DownFace", kit .. ": the target is not down at the end (" .. tostring(lastPose) .. ")")
+-		local own = Palette.MATERIALS[kit] or Palette.MATERIALS.KAI
++		-- (its own matter: no kit falls back on KAI's any more, the bosses included, B-033)
++		local own = Palette.MATERIALS[kit]
++		expect(own ~= nil, kit .. ": no sound matter of its own (SoundPalette.MATERIALS)")
++		own = own or {}
+ 		for sound in sounds do
+ 			local key = FINISHER_SOUNDS[sound]
+ 			expect(key ~= nil, kit .. ": the sound " .. tostring(sound) .. " is not one of the finishers'")
+@@ -937,6 +941,425 @@ for _, place in { { "in the middle, from the left", 0, false, false, true }, { "
+ 	end)
+ end
+ 
++-- KUROEN SHIN 真 · ZENITH, the last FATAL FINISHER (I-001): calm, his hands low, the target
++-- strikes twice and goes twice through an afterimage of him (his DIVINE INSTINCT); it turns
++-- round into his straight, already there, stopped an inch from its chest; the blow goes
++-- through it without a touch: three waves out of its back, the deck split along the line; it
++-- lies face down at his feet, the line of gold behind it.
++-- What the last finishers and two refusals taught (30/10): his body and the target's on the
++-- deck, x in [-28, 28], every corner of every part (B-015); he reappears only on a cut, and the
++-- shot that holds while he is gone is set on fixed points (B-041); the target lies down on a cut
++-- (B-040); nothing turns more than 21 degrees a frame inside a shot, as the lab and as the
++-- client turn the bodies (B-046, B-048); against any of the 20 playable targets, weapon
++-- included, nothing of it touches him while he is shown (B-047); one light at a time (B-014),
++-- every shape marked and none jumps (B-031), no ring seen edge on, no VICTORY (B-026), his
++-- own moves and his own matter (B-033). On both sides: in the CHALLENGE he strikes from the right.
++local ZENITH_SHOTS = { "kshin-zn-calm", "kshin-zn-eyes", "kshin-zn-lunge", "kshin-zn-instinct", "kshin-zn-behind", "kshin-zn-spin",
++	"kshin-zn-miss", "kshin-zn-search", "kshin-zn-fist", "kshin-zn-through", "kshin-zn-turn", "kshin-zn-noon", "kshin-zn-last" }
++local ZENITH_CLOSE = { ["kshin-zn-eyes"] = true, ["kshin-zn-last"] = true } -- (his face, his bust: he fills the frame)
++local ZENITH_LOWER = 474 -- (he lowers his fist after the blow)
++local ZENITH_TURN = 21 -- (degrees a frame inside a shot: the turns the scene wants stay under 19.6)
++-- How far apart two parts are (Kit.boxGap), a quick bound first: most pairs are far apart.
++local function partGap(p, q)
++	local a, b = p.cframe, q.cframe
++	local d = math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2 + (a[3] - b[3]) ^ 2)
++	local rp = math.sqrt(p.size[1] ^ 2 + p.size[2] ^ 2 + p.size[3] ^ 2) / 2
++	local rq = math.sqrt(q.size[1] ^ 2 + q.size[2] ^ 2 + q.size[3] ^ 2) / 2
++	if d - rp - rq > 0.5 then return d - rp - rq end
++	return Kit.boxGap(p, q)
++end
++local function bodyGap(one, other)
++	local best, what = math.huge, nil
++	for n1, p in one do
++		for n2, q in other do
++			local g = partGap(p, q)
++			if g < best then best, what = g, n1 .. "/" .. n2 end
++		end
++	end
++	return best, what
++end
++local function turned(y1, y0)
++	return math.abs(((y1 - y0 + 180) % 360) - 180)
++end
++test("KUROEN SHIN's ZENITH: he goes twice through its blows (two afterimages, on the cuts), his straight stops an inch from its chest, three waves out of its back; it lies at his feet; nothing touches, nothing jumps, one light", function()
++	local data = MoveData.Kits["KUROEN SHIN"].Finisher
++	expect(data ~= nil and data.Name == "ZENITH" and data.Length == 660 and data.FinalTick == 440,
++		"KUROEN SHIN has no FATAL FINISHER of his own (MoveData: Finisher on his kit, ZENITH, 660, 440)")
++	expect(MoveData.Kits.KUROEN.Finisher.Name == "BLACK SUN", "KUROEN's finisher is not BLACK SUN any more")
++	local Director = require("../src/shared/CinematicDirector")
++	local Palette = require("../src/shared/SoundPalette")
++	expect(Director.finishers and Director.finishers["KUROEN SHIN"] ~= nil, 'no scene S["KUROEN SHIN"] in Finishers.luau')
++	expect(Palette.MATERIALS["KUROEN SHIN"] ~= nil, "KUROEN SHIN has no sound matter of his own (B-033)")
++	local roles = MoveData.Kits["KUROEN SHIN"].Roles
++	local mine = {}
++	for _, id in roles do mine[id] = true end
++	local F = data.FinalTick
++	local ALLOWED = { whoosh = true, heavy = true, boom = true, charge = true } -- (fists: no steel, no beam)
++	for _, mirror in { false, true } do
++		local side = if mirror then "from the right" else "from the left"
++		local issues, kinds = {}, {}
++		local function issue(kind, text)
++			kinds[kind] = (kinds[kind] or 0) + 1
++			if kinds[kind] <= 2 and #issues < 12 then table.insert(issues, text) end
++		end
++		local order, played, moves, itsMoves, sounds, victory = {}, false, {}, {}, {}, false
++		local ghosts, crossed, lastShot, prev = {}, {}, nil, nil
++		local inchLo, inchHi, waves, line, koAt, koName, cardEnd = math.huge, -math.huge, {}, nil, nil, nil, nil
++		local downAt, fell, atFeet, behindIt, roundCamera, lightsMax, lit, unmarked = nil, false, nil, nil, false, 0, {}, 0
++		Kit.play("KUROEN SHIN", "Fatal", nil, 300, 0, function(info)
++			local frame, A, D, tick = info.frame, info.cin.attacker, info.cin.defender, info.tick
++			local s = frame.shot
++			local me, it = info.views[A], info.views[D]
++			local body, its = info.parts[A], info.parts[D]
++			local dir = if mirror then -1 else 1
++			played = played or (info.cin.finisher == true and info.cin.kit == "KUROEN SHIN")
++			if s.name ~= lastShot then
++				table.insert(order, { name = s.name, tick = tick })
++			end
++			local cut = s.name ~= lastShot
++			if me.move then moves[me.move] = true end
++			if it.move then itsMoves[it.move] = true end
++			if me.state == "Throwing" or it.state == "Thrown" then issue("throw", "t" .. tick .. ": a throw") end
++			if me.victory or me.pose == "Victory" or me.pose == "VictoryAlt" then victory = true end
++			local over = frame.overlay or {}
++			if over.ko then
++				koAt = koAt or tick
++				koName = over.ko.sub
++				if over.ko.card then cardEnd = tick end
++				if tostring(over.ko.text):find("VICTORY") or tostring(over.ko.sub):find("VICTORY") then victory = true end
++			end
++			if frame.title and (tostring(frame.title.text):find("VICTORY") or tostring(frame.title.sub):find("VICTORY")) then victory = true end
++			-- THE AFTERIMAGES: requested on a cut, his body as it stood the frame before; he is gone
++			-- from then on, and the target goes through the copy while it lasts
++			local lights = 0
++			for _, e in frame.fx do
++				if e.kind == "sfx" then sounds[e.sound] = true end
++				if e.kind == "afterimage" and not ghosts[e.key] then
++					local copy = {}
++					for name, part in body do copy[name] = { cframe = table.clone(part.cframe), size = part.size } end
++					ghosts[e.key] = { tick = tick, ends = tick + (e.life or 1) * 60, copy = copy, shot = s.name }
++					if not cut then issue("ghost", string.format("t%d: an afterimage inside the shot %s", tick, s.name)) end
++					if e.slot ~= A then issue("ghost", "t" .. tick .. ": an afterimage of the target") end
++					if not me.hidden then issue("ghost", "t" .. tick .. ": he is still there with his afterimage") end
++					if prev and (math.abs(prev.ax - me.x) > 0.01 or prev.apose ~= me.pose) then
++						issue("ghost", "t" .. tick .. ": the afterimage is not his body as it stood")
++					end
++				end
++			end
++			for key, g in ghosts do
++				if tick <= g.ends then
++					lights += 1
++					if tick > g.tick and bodyGap(its, g.copy) < 0 then crossed[key] = true end
++				end
++			end
++			-- HIM: shown again only on a cut; never moved inside a shot; nothing of the target in him
++			if prev and not cut then
++				if not me.hidden and prev.ahidden then issue("back", string.format("t%d %s: he is back inside the shot", tick, s.name)) end
++				if not me.hidden and not prev.ahidden and math.abs(me.x - prev.ax) > 0.01 then
++					issue("moved", string.format("t%d %s: he moves %.2f studs inside the shot", tick, s.name, math.abs(me.x - prev.ax)))
++				end
++				for slot = 1, 2 do
++					local v = info.views[slot]
++					if v.facing ~= prev.facing[slot] then issue("facing", string.format("t%d %s: slot %d changes side inside the shot", tick, s.name, slot)) end
++					if not v.hidden then
++						for _, set in { info.yaws, info.clientYaws } do
++							local old = if set == info.yaws then prev.yaws[slot] else prev.clientYaws[slot]
++							local t_ = turned(set[slot], old)
++							if t_ > ZENITH_TURN then
++								issue("turn", string.format("t%d %s: slot %d turns %.1f degrees in a frame (%s)", tick, s.name, slot, t_,
++									if set == info.yaws then "lab" else "client"))
++							end
++						end
++					end
++				end
++				local cam = math.sqrt((info.cam[1] - prev.cam[1]) ^ 2 + (info.cam[2] - prev.cam[2]) ^ 2 + (info.cam[3] - prev.cam[3]) ^ 2)
++				if cam > 1.5 then issue("camera", string.format("t%d %s: the camera jumps %.2f studs", tick, s.name, cam)) end
++				for slot, head in { [A] = body.Head, [D] = its.Head } do
++					local h = prev.heads[slot]
++					local jump = math.sqrt((head.cframe[1] - h[1]) ^ 2 + (head.cframe[2] - h[2]) ^ 2 + (head.cframe[3] - h[3]) ^ 2)
++					if jump > 2 and not info.views[slot].hidden then issue("head", string.format("t%d %s: slot %d's head jumps %.2f", tick, s.name, slot, jump)) end
++				end
++			end
++			if not me.hidden then
++				local gap, what = bodyGap(body, its)
++				if gap < 0.02 then issue("contact", string.format("t%d %s: it touches him (%s, %.2f)", tick, s.name, what, gap)) end
++			end
++			-- THE STRAIGHT: his lead fist out, square to it, an inch from its chest, the nearest of him
++			if tick >= 392 and tick < ZENITH_LOWER then
++				local fist = (bodyGap({ body.LeftHand }, its))
++				inchLo, inchHi = math.min(inchLo, fist), math.max(inchHi, fist)
++				if bodyGap(body, its) < fist - 1e-6 then issue("inch", "t" .. tick .. ": something of him is nearer than his fist") end
++			end
++			-- THE FRAME: him whole when he is shown whole; no strong plunge on him; the focus in it
++			local project = Kit.projector(info.cam, info.target, s.fov, s.roll)
++			if not me.hidden and not ZENITH_CLOSE[s.name] then
++				local minX, maxX, minY, maxY = Kit.bodyBounds(project, body)
++				if not minX or minX < -1 or maxX > 1 or minY < -1 or maxY > 1 then issue("frame", string.format("t%d %s: he is not whole in the frame", tick, s.name)) end
++			end
++			if s.focus and s.focus.slot == A then
++				local horizontal = math.sqrt((info.cam[1] - info.target[1]) ^ 2 + (info.cam[3] - info.target[3]) ^ 2)
++				local plunge = math.deg(math.atan2(info.cam[2] - info.target[2], horizontal))
++				if plunge > 30 then issue("plunge", string.format("t%d %s: %.0f degrees down on him", tick, s.name, plunge)) end
++				if me.hidden then issue("focus", "t" .. tick .. ": a shot on him while he is gone") end
++			end
++			-- THE SHAPES: marked, never jumping, no sphere, no ring seen edge on
++			local marks = {}
++			for _, sh in frame.shapes or {} do
++				if sh.kind == "sphere" then
++					lights += 1
++					issue("sphere", "t" .. tick .. ": a sphere")
++				end
++				if not sh.mark then
++					unmarked += 1
++				else
++					local points = {}
++					for _, key in { "pos", "from", "to" } do
++						if sh[key] then table.insert(points, { Kit.resolve(sh[key], info.parts) }) end
++					end
++					marks[sh.mark] = { shape = sh, points = points }
++					local old = prev and not cut and prev.marks[sh.mark]
++					if old then
++						for k, p in points do
++							local d_ = math.sqrt((p[1] - old[k][1]) ^ 2 + (p[2] - old[k][2]) ^ 2 + (p[3] - old[k][3]) ^ 2)
++							if d_ > 0.5 then issue("shape", string.format("t%d %s: %s jumps %.2f", tick, s.name, sh.mark, d_)) end
++						end
++					end
++					if sh.kind == "ring" then
++						local p = points[1]
++						local c = { info.cam[1] - p[1], info.cam[2] - p[2], info.cam[3] - p[3] }
++						local l = math.sqrt(c[1] ^ 2 + c[2] ^ 2 + c[3] ^ 2)
++						local n = sh.normal
++						local nl = math.sqrt(n.x ^ 2 + n.y ^ 2 + (n.z or 0) ^ 2)
++						local face = math.deg(math.acos(math.clamp(math.abs(c[1] * n.x + c[2] * n.y + c[3] * (n.z or 0)) / (l * nl), 0, 1)))
++						if face > 70 then issue("edge", string.format("t%d %s: the ring %s seen %.0f degrees from its face", tick, s.name, sh.mark, face)) end
++					end
++				end
++			end
++			lightsMax = math.max(lightsMax, lights)
++			for _, mark in { "wave1", "wave2", "wave3" } do
++				if marks[mark] then
++					waves[mark] = waves[mark] or {}
++					waves[mark].last = marks[mark].points[1]
++					waves[mark].chest = { its.UpperTorso.cframe[1], its.UpperTorso.cframe[2], its.UpperTorso.cframe[3] }
++					waves[mark].along = math.abs(marks[mark].shape.normal.x) > 0.99
++					if tick < F then issue("wave", "t" .. tick .. ": a wave before the blow") end
++				end
++			end
++			if marks.line then
++				local l = marks.line
++				line = line or { from = tick }
++				line.to = tick
++				local ok = l.shape.kind == "slash" and l.points[1][2] < 0.2 and l.points[2][2] < 0.2 and math.abs(l.points[1][3]) < 0.05
++				if not ok then issue("line", "t" .. tick .. ": the line is not on the deck, along the line") end
++				if s.name == "kshin-zn-noon" then
++					local chest, head = its.UpperTorso.cframe, its.Head.cframe
++					local beyond = math.min((l.points[1][1] - chest[1]) * dir, (l.points[1][1] - head[1]) * dir)
++					local long = math.abs(l.points[2][1] - l.points[1][1])
++					behindIt = (behindIt == nil or behindIt) and beyond > 0 and long > 5
++				end
++			end
++			-- THE FALL: face down at his feet, laid down on a cut, never thrown or flipped
++			if it.pose == "Launched" or it.pose == "DownImpact" or it.state == "Launched" then fell = true end
++			if it.pose == "DownFace" and not downAt then
++				downAt = tick
++				if not cut then issue("down", string.format("t%d %s: it lies down inside the shot", tick, s.name)) end
++			end
++			if s.name == "kshin-zn-noon" then
++				-- (at his feet: its head toward him, its hand stretched short of his heels)
++				atFeet = math.max(atFeet or 0, (bodyGap(body, its)))
++				local h = its.Head.cframe
++				if (h[1] - its.UpperTorso.cframe[1]) * dir > 0 then issue("feet", "t" .. tick .. ": its head is not toward him") end
++			end
++			-- the search: it turns round through the camera's side
++			if tick >= 380 and tick < 392 and it.lookDir and it.lookDir.z > 0.9 then roundCamera = true end
++			local yaws, clientYaws = table.clone(info.yaws), table.clone(info.clientYaws)
++			local markPoints = {}
++			for mark, m in marks do markPoints[mark] = m.points end
++			prev = { ax = me.x, ahidden = me.hidden, apose = me.pose, cam = info.cam, yaws = yaws, clientYaws = clientYaws,
++				facing = { info.views[1].facing, info.views[2].facing }, marks = markPoints,
++				heads = { [A] = { body.Head.cframe[1], body.Head.cframe[2], body.Head.cframe[3] }, [D] = { its.Head.cframe[1], its.Head.cframe[2], its.Head.cframe[3] } } }
++			lastShot = s.name
++		end, mirror)
++		expect(played, side .. ": the killing COUP FATAL did not play ZENITH")
++		expect(#issues == 0, side .. "\n         " .. table.concat(issues, "\n         "))
++		-- the thirteen shots, in order, composed by frameOn (no other source of shots in the scene)
++		local names = {}
++		for _, o in order do table.insert(names, o.name) end
++		expect(table.concat(names, " ") == table.concat(ZENITH_SHOTS, " "), side .. ": the shots are not ZENITH's thirteen, in order: " .. table.concat(names, " "))
++		local count = 0
++		for key, g in ghosts do
++			count += 1
++			expect(crossed[key], string.format("%s: the target never goes through the afterimage of t%d (%s)", side, g.tick, g.shot))
++		end
++		expect(count == 2, side .. ": " .. count .. " afterimages, not two")
++		expect(inchLo >= 0.25 and inchHi <= 0.6, string.format("%s: his fist %.2f to %.2f studs from it, not an inch", side, inchLo, inchHi))
++		local out = 0
++		for _, mark in { "wave1", "wave2", "wave3" } do
++			local w = waves[mark]
++			if w and w.along and (w.last[1] - w.chest[1]) * (if mirror then -1 else 1) > 2 then out += 1 end
++		end
++		expect(out == 3, side .. ": " .. out .. " of the three waves go out of its back, along the line, beyond it")
++		expect(line and line.from == F and line.to >= 595, side .. ": no line of gold on the deck from the blow to the end of the zenith shot")
++		expect(behindIt == true, side .. ": the line is not behind the target lying from the zenith")
++		expect(downAt == 516 and not fell, side .. ": the target does not lie down on the cut of the zenith shot (" .. tostring(downAt) .. "), or is thrown down")
++		expect(atFeet and atFeet <= 1.8, string.format("%s: it lies %.2f studs from him, not at his feet", side, atFeet or -1))
++		expect(roundCamera, side .. ": the target does not turn round through the camera's side")
++		expect(lightsMax <= 1, side .. ": " .. lightsMax .. " lights at once (B-014: one at most)")
++		expect(unmarked == 0, side .. ": " .. unmarked .. " shapes without a mark")
++		expect(moves[roles.Jab], side .. ": he does not hold his own straight (" .. roles.Jab .. ")")
++		for id in moves do expect(mine[id], side .. ": he strikes with " .. id .. ", not one of his moves") end
++		local kai = MoveData.Kits.KAI.Roles
++		expect(itsMoves[kai.Cross] and itsMoves[kai.SpinKick], side .. ": the target does not throw its own straight and spinning kick")
++		for sound in sounds do expect(ALLOWED[sound], side .. ": the sound " .. sound .. " is not his matter") end
++		expect(sounds.whoosh and sounds.heavy and sounds.boom, side .. ": the scene's own sounds are missing")
++		expect(koAt == 520 and koName == data.Name and cardEnd == 543, string.format("%s: no K.O. %s at t520 on its card to t544 (%s at %s, card to %s)",
++			side, data.Name, tostring(koName), tostring(koAt), tostring(cardEnd)))
++		expect(not victory, side .. ": VICTORY on screen (B-026: a finisher may not end the match)")
++	end
++end)
++
++-- ZENITH near the walls (B-015, refused on 30/10: a body beyond x = 28 at the wall): his back to
++-- the left wall, to the right one, the target near the wall in front of him, the target pinned
++-- against it (0.5 from the wall: no lab places it there, CinematicKit wall = "target"), and the
++-- middle from both sides. Wherever it starts it is the film of the middle moved along the line
++-- (`room`: the whole scene stands back, never him alone); every corner of every part of both
++-- bodies on the deck while shown, the light (its rings, its line) between the walls, the camera
++-- over the floor, and never more than a quarter of a shot's subject hidden behind the other body.
++local ZENITH_MIDDLE = {}
++local function zenithFilm(center, mirror, wall)
++	local frames = {}
++	Kit.play("KUROEN SHIN", "Fatal", nil, 300, center, function(info)
++		if frames[info.tick] then return end
++		local s = info.frame.shot
++		local f = s.focus
++		local hidden = 0
++		if f and f.slot and f.part and not info.views[3 - f.slot].hidden then
++			hidden = Kit.hiddenShare(info.parts[f.slot][f.part], info.parts[3 - f.slot], info.cam)
++		end
++		-- (the farthest corner of a part shown, and of the light)
++		local corner, what = 0, nil
++		for slot, parts in info.parts do
++			if info.views[slot].hidden then continue end
++			for name, part in parts do
++				local t, z = part.cframe, part.size
++				for _, sx in { -1, 1 } do
++					for _, sy in { -1, 1 } do
++						for _, sz in { -1, 1 } do
++							local x = t[1] + t[4] * sx * z[1] / 2 + t[5] * sy * z[2] / 2 + t[6] * sz * z[3] / 2
++							if math.abs(x) > corner then corner, what = math.abs(x), slot .. " " .. name end
++						end
++					end
++				end
++			end
++		end
++		local light = 0
++		for _, sh in info.frame.shapes or {} do
++			for _, key in { "pos", "from", "to" } do
++				if sh[key] then
++					local x = Kit.resolve(sh[key], info.parts)
++					-- (a ring flat on the deck reaches its radius along the line)
++					local reach = if sh.kind == "ring" and math.abs(sh.normal.y or 0) > 0.9 then sh.radius else 0
++					light = math.max(light, math.abs(x) + reach)
++				end
++			end
++		end
++		frames[info.tick] = { shot = s.name, fov = s.fov, a = info.views[info.cin.attacker].x, d = info.views[info.cin.defender].x,
++			cam = info.cam, target = info.target, hidden = hidden, finisher = info.cin.finisher == true, corner = corner, what = what, light = light }
++	end, mirror, wall)
++	return frames
++end
++for _, place in { { "in the middle, from the left", 0, false, false, true }, { "in the middle, from the right", 0, true, false, true },
++	{ "his back to the left wall", 0, false, true }, { "his back to the right wall", 0, true, true },
++	{ "the target near the right wall", Config.ArenaMaxX - 3, false, false },
++	{ "the target near the left wall", Config.ArenaMinX + 3, true, false },
++	{ "the target pinned against the right wall", 0, false, "target" }, { "the target pinned against the left wall", 0, true, "target" } } do
++	local name = "KUROEN SHIN's ZENITH, " .. place[1]
++	test(name .. ": the film of the middle moved along the line, every corner on the deck, the light between the walls, nobody hidden", function()
++		local mirror = place[3]
++		ZENITH_MIDDLE[mirror] = ZENITH_MIDDLE[mirror] or zenithFilm(0, mirror, false)
++		local middle = ZENITH_MIDDLE[mirror]
++		local frames = if place[5] then middle else zenithFilm(place[2], mirror, place[4])
++		local kinds, order = {}, {}
++		local function fail(tick, kind, value, text)
++			local k = kinds[kind]
++			if not k then
++				k = { n = 0, first = tick, worst = value, text = text }
++				kinds[kind] = k
++				table.insert(order, kind)
++			end
++			k.n += 1
++			if value > k.worst then k.worst, k.text = value, text end
++		end
++		expect(frames[0] ~= nil and frames[0].finisher, name .. ": the finisher did not play")
++		local shift = frames[0].d - middle[0].d
++		local last = 0
++		for tick in middle do last = math.max(last, tick) end
++		for tick = 0, last do
++			local m, fr = middle[tick], frames[tick]
++			if not m then continue end
++			if not fr then
++				fail(tick, "missing", 0, "the scene stops early")
++				continue
++			end
++			if fr.shot ~= m.shot or fr.fov ~= m.fov then fail(tick, "shot", 0, fr.shot .. " in place of " .. m.shot) end
++			if fr.corner > Config.ArenaMaxX then
++				fail(tick, "deck", fr.corner - Config.ArenaMaxX, string.format("%s: a corner of %s at x = %.2f", fr.shot, fr.what, fr.corner))
++			end
++			if fr.light > Config.ArenaMaxX then fail(tick, "light", fr.light - Config.ArenaMaxX, string.format("%s: light at x = %.2f", fr.shot, fr.light)) end
++			if math.abs(fr.cam[1]) > 40 then
++				fail(tick, "floor", math.abs(fr.cam[1]) - 40, string.format("%s: the camera beyond the end of the floor (x = %.2f)", fr.shot, fr.cam[1]))
++			end
++			local moved = math.abs(fr.a - m.a - shift) + math.abs(fr.d - m.d - shift)
++			for i = 1, 3 do
++				local off = if i == 1 then shift else 0
++				moved += math.abs(fr.cam[i] - m.cam[i] - off) + math.abs(fr.target[i] - m.target[i] - off)
++			end
++			if moved > 0.01 then
++				fail(tick, "moved", moved, string.format("%s: not the staging of the middle moved by %.2f (off by %.2f)", fr.shot, shift, moved))
++			end
++			if fr.hidden > 0.25 then
++				fail(tick, "hidden", fr.hidden, string.format("%s: %.0f %% of its subject hidden by the other body", fr.shot, fr.hidden * 100))
++			end
++		end
++		local failures = {}
++		for _, kind in order do
++			local k = kinds[kind]
++			table.insert(failures, string.format("from t%d, %d ticks; worst: %s", k.first, k.n, k.text))
++		end
++		expect(#failures == 0, name .. "\n         " .. table.concat(failures, "\n         "))
++	end)
++end
++
++-- ZENITH against each of the 20 playable fighters (B-047, refused on 30/10): the lab's target is
++-- KAI, the CHALLENGE's is the player's own, with its own blows, poses and weapon. On both sides,
++-- nothing of it, body or weapon (WeaponKit.pieces, as the storyboards draw it), touches him while
++-- he is shown, and his fist stops short of it: of its chest, or of its hands when they never
++-- leave its chest (RAIJIN's, both on the spear).
++test("KUROEN SHIN's ZENITH against each of the 20 playable fighters, its weapon included: nothing of it touches him, his fist stops short of it", function()
++	local WeaponKit = require("./WeaponKit")
++	local issues = {}
++	for _, foe in MoveData.KitOrder do
++		for _, mirror in { false, true } do
++			local worst, at, inch = math.huge, nil, math.huge
++			Kit.play("KUROEN SHIN", "Fatal", nil, 300, 0, function(info)
++				local A, D = info.cin.attacker, info.cin.defender
++				if info.views[A].hidden then return end
++				local its = table.clone(info.parts[D])
++				for _, piece in WeaponKit.pieces(info.views[D].kit, info.parts[D], nil, { view = info.views[D], time = info.tick / 60 }) do
++					its[piece.name] = piece
++				end
++				local gap, what = bodyGap(info.parts[A], its)
++				if gap < worst then worst, at = gap, string.format("t%d %s, %s", info.tick, info.frame.shot.name, what) end
++				if info.tick >= 392 and info.tick < ZENITH_LOWER then inch = math.min(inch, (bodyGap({ info.parts[A].LeftHand }, its))) end
++			end, mirror, nil, foe)
++			local side = if mirror then "from the right" else "from the left"
++			if worst < 0.02 then table.insert(issues, string.format("%s %s: it touches him (%.2f at %s)", foe, side, worst, tostring(at))) end
++			if inch < 0.1 or inch > 0.7 then table.insert(issues, string.format("%s %s: his fist %.2f studs from it", foe, side, inch)) end
++		end
++	end
++	expect(#issues == 0, "\n         " .. table.concat(issues, "\n         "))
++end)
++
+ -- A boss's FATAL FINISHER is named like nothing else in the game. The common test above only
+ -- compares it with the moves of the other kits; a boss's names live elsewhere too (his theme's
+ -- ultimates, his PORTE title, his passive, his E, the challenge's titles and achievements: B-009
+diff --git a/tests/CombatSimulation.test.luau b/tests/CombatSimulation.test.luau
+index 4fd37b0..fdeaf85 100644
+--- a/tests/CombatSimulation.test.luau
++++ b/tests/CombatSimulation.test.luau
+@@ -1319,36 +1319,42 @@ test("FATAL FINISHER: only a killing COUP FATAL from a fighter who already won a
+ 		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
+ 		expect(start and not start.finish and not start.finisher and state.length == own.Length, kit .. ": a finisher on a target not low")
+ 	end
+-	-- a kit without its finisher yet: the classic fatal, round won or not (every playable kit has
+-	-- its own since KUROEN's BLACK SUN, and ASURA since SAMSARA: KUROEN SHIN is the one left;
+-	-- when he has his, this check must play the rule another way, I-001)
+-	local candidates = table.clone(MoveData.KitOrder)
++	-- a kit without a finisher plays the classic fatal, round won or not. Since ZENITH (KUROEN
++	-- SHIN, the last one) every kit has its line, so the rule is played on copies of MoveData
++	-- (I-001): each kit in turn loses its line on a copy of its own (MoveData and its kits are
++	-- frozen: table.clone), the simulation reads the copy (Sim.newWorld), and the real MoveData
++	-- keeps all 22 lines. The check never plays nothing: each copy really lost its line.
++	local all = table.clone(MoveData.KitOrder)
+ 	for name, data in MoveData.Kits do
+-		if data.Boss then table.insert(candidates, name) end
++		if data.Boss then table.insert(all, name) end
++	end
++	local played = 0
++	for _, kit in all do
++		local copy = table.clone(MoveData)
++		copy.Kits = table.clone(MoveData.Kits)
++		copy.Kits[kit] = table.clone(MoveData.Kits[kit])
++		copy.Kits[kit].Finisher = nil
++		expect(copy.Kits[kit].Finisher == nil and MoveData.Kits[kit].Finisher ~= nil and copy.Moves == MoveData.Moves,
++			kit .. ": the copy did not lose its line, or the real kit has none")
++		local world = Sim.newWorld(Config, copy, false)
++		Sim.setKits(world, kit, "KAI")
++		world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
++		world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
++		world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
++		local events, state = finisherRun(world)
++		local start = find(events, "CinematicStart")
++		local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
++		expect(start and start.finish and not start.finisher and state and not state.finisher and state.length == own.Length + own.FinishExtra,
++			kit .. ": no classic fatal for a kit without a finisher")
++		expect(find(events, "RoundEnd"), kit .. ": the classic fatal without a finisher did not K.O.")
++		played += 1
+ 	end
+-	table.sort(candidates, function(x, y)
+-		local bx, by = MoveData.Kits[x].Boss == true, MoveData.Kits[y].Boss == true
+-		if bx ~= by then return by end
+-		return if bx then x < y else table.find(MoveData.KitOrder, x) < table.find(MoveData.KitOrder, y)
+-	end)
+-	local without = nil
+-	for _, kit in candidates do
+-		if not MoveData.Kits[kit].Finisher then
+-			without = kit
+-			local world = fatalWorld(3)
+-			Sim.setKits(world, kit, "KAI")
+-			world.phase, world.fighters[1].x, world.fighters[2].x = "Fight", -1.5, 1.5
+-			world.fighters[1].meter, world.fighters[1].hp = Config.MaxMeter, math.floor(world.fighters[1].maxHp * Config.FatalHealth) - 10
+-			world.fighters[2].hp, world.fighters[1].wins = math.floor(world.fighters[2].maxHp * 0.3), 1
+-			local events, state = finisherRun(world)
+-			local start = find(events, "CinematicStart")
+-			local own = MoveData.Cinematics[MoveData.Kits[kit].Ultimates.Fatal] or cin
+-			expect(start and start.finish and not start.finisher and state and state.length == own.Length + own.FinishExtra,
+-				kit .. ": no classic fatal for a kit without a finisher")
+-			break
+-		end
+-	end
+-	expect(without ~= nil, "no kit left without a finisher: this check has nothing to play")
++	expect(played == 22, played .. " kits played without their finisher, not 22")
++	local lines = 0
++	for _, data in MoveData.Kits do
++		if data.Finisher then lines += 1 end
++	end
++	expect(lines == 22 and MoveData.Kits["KUROEN SHIN"].Finisher ~= nil, "the real MoveData has " .. lines .. " finishers, not 22")
+ end)
+ 
+ test("FATAL FINISHER in a relay: a fighter knocked out counts as the round won; the next fighter comes in after it", function()
+@@ -1475,6 +1481,89 @@ test("ASURA's FATAL FINISHER in the CHALLENGE: after a fighter is down, his kill
+ 	expect(roundEnd and roundEnd.winner == 2 and roundEnd.matchOver, "alone: the COUP FATAL did not end the challenge")
+ end)
+ 
++-- KUROEN SHIN's FATAL FINISHER (ZENITH) in the real CHALLENGE (I-001), as ASURA's: the boss is
++-- team 2, on the right, and his "round won" is a fighter of the player's team knocked out. Then
++-- his killing COUP FATAL (KUROEN's, which he borrows) plays his own scene, under his name
++-- (KUROEN keeps BLACK SUN), with one K.O. that does not end the match, and the next fighter comes
++-- in after it; against a lone fighter his K.O. ends the challenge: never a finisher. Only he
++-- strikes (his DIVINE INSTINCT evades the first blow that reaches him).
++test("KUROEN SHIN's FATAL FINISHER in the CHALLENGE: after a fighter is down, his killing COUP FATAL plays ZENITH and the next one comes in; never against one fighter", function()
++	local own = MoveData.Kits["KUROEN SHIN"].Finisher
++	expect(own and own.Name == "ZENITH" and own.Length == 660 and own.FinalTick == 440, "KUROEN SHIN has no FATAL FINISHER of his own")
++	expect(MoveData.Kits.KUROEN.Finisher.Name == "BLACK SUN", "KUROEN's finisher is not BLACK SUN any more")
++	local Director = require("../src/shared/CinematicDirector")
++	local function challenge(team)
++		local world = Sim.newWorld(ShippedConfig, MoveData, false)
++		Sim.setTeams(world, team, { "KUROEN SHIN" })
++		return world
++	end
++	-- (both free, face to face: the player's fighter on the left, KUROEN SHIN on the right)
++	local function faceUp(world)
++		for _ = 1, 600 do
++			local free = world.cinematic == nil and world.phase ~= "KO"
++			for _, f in world.fighters do
++				if f.state == "KO" or f.move or f.stun > 0 or f.hitstop > 0 or f.knockdown > 0 or f.getUp > 0 or f.launched or f.y > 0 then free = false end
++			end
++			if free then break end
++			Sim.step(world, { Sim.neutralInput(), Sim.neutralInput() })
++		end
++		world.phase = "Fight"
++		local p, boss = world.fighters[1], world.fighters[2]
++		p.x, boss.x, p.facing, boss.facing = -1.5, 1.5, 1, -1
++		p.wakeInvuln, boss.wakeInvuln = 0, 0
++	end
++	local function knockOut(world, label)
++		faceUp(world)
++		world.fighters[1].hp = 1
++		local before = world.fighters[2].wins
++		local events = run(world, 200, function(t)
++			return { Sim.neutralInput(), input({ light = t == 1 }) }
++		end)
++		local roundEnd = find(events, "RoundEnd")
++		expect(roundEnd and roundEnd.winner == 2 and not roundEnd.matchOver and world.fighters[2].wins == before + 1,
++			label .. ": KUROEN SHIN did not knock the first fighter out")
++		run(world, ShippedConfig.KOTicks + 5)
++	end
++	-- his COUP FATAL (under 30 % of his health, his gauge full) on a fighter at 30 %
++	local function bossFatal(world)
++		faceUp(world)
++		local boss = world.fighters[2]
++		boss.meter, boss.hp = ShippedConfig.MaxMeter, math.floor(boss.maxHp * ShippedConfig.FatalHealth) - 10
++		world.fighters[1].hp = math.floor(world.fighters[1].maxHp * 0.3)
++		local start
++		local events = run(world, 1300, function(t)
++			if world.cinematic and not start then start = table.clone(world.cinematic) end
++			return { Sim.neutralInput(), input({ fatal = t == 1 }) }
++		end)
++		return events, start
++	end
++	-- KAI down, his COUP FATAL kills TARO: ZENITH, one K.O., SHIN comes in after it
++	local world = challenge({ "KAI", "TARO", "SHIN" })
++	knockOut(world, "the challenge")
++	expect(world.fighters[1].kit == "TARO", "TARO did not come in")
++	local events, start = bossFatal(world)
++	local roundEnd = find(events, "RoundEnd")
++	expect(start and start.type == "Fatal" and start.finisher and start.kit == "KUROEN SHIN" and start.attacker == 2,
++		"his killing COUP FATAL did not play his FATAL FINISHER")
++	expect(start.length == own.Length and start.finalTick == own.FinalTick, "not ZENITH's length and beat")
++	expect(start.move == MoveData.Kits["KUROEN SHIN"].Ultimates.Fatal, "not his own COUP FATAL (" .. tostring(start.move) .. ")")
++	local kos, final = 0, nil
++	for _, e in events do
++		if e.kind == "Hit" and e.ko then kos, final = kos + 1, e end
++	end
++	expect(kos == 1 and count(events, "RoundEnd") == 1 and roundEnd.winner == 2 and roundEnd.inCinematic, "not one K.O. on the scene's blow")
++	expect(final and final.cinematic and final.attacker == 2, "the K.O. is not the scene's blow")
++	expect(not roundEnd.matchOver and not Director.matchDecided(world, ShippedConfig, 2), "the finisher ends the challenge (VICTORY) with a fighter left")
++	run(world, ShippedConfig.KOTicks + 5)
++	expect(world.fighters[1].kit == "SHIN" and world.fighters[1].hp > 0, "SHIN did not come in after the scene")
++	-- a lone fighter: his first K.O. ends the challenge, the classic fatal
++	world = challenge({ "KAI" })
++	events, start = bossFatal(world)
++	roundEnd = find(events, "RoundEnd")
++	expect(start and start.finish and not start.finisher, "alone: a finisher on the K.O. that ends the challenge")
++	expect(roundEnd and roundEnd.winner == 2 and roundEnd.matchOver, "alone: the COUP FATAL did not end the challenge")
++end)
++
+ test("a far player's missed QTE is judged before the final blow: the K.O. is decided once", function()
+ 	for _, kind in { "Gate", "Fatal", "Awaken" } do
+ 		for _, hp in { 200, 700 } do
+diff --git a/tests/Kits.test.luau b/tests/Kits.test.luau
+index 86532cf..fc252d4 100644
+--- a/tests/Kits.test.luau
++++ b/tests/Kits.test.luau
+@@ -503,9 +503,15 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
+ 			expect(shipped[file], "sound " .. name .. " uses " .. file .. ", which is not in the client")
+ 		end
+ 	end
++	-- every kit, the two bosses included (B-033: a boss without a matter sounded like KAI)
++	local ALL = table.clone(MoveData.KitOrder)
++	for name, data in Kits do
++		if data.Boss then table.insert(ALL, name) end
++	end
++	expect(#ALL == 22, #ALL .. " kits, not 22: the sound checks miss some")
+ 	-- the fists land with his punches, the blades with his steel; the swings cut the air
+ 	local STEEL = { SHIN = true, RAIJIN = true, KAZAN = true, VENOM = true, YUKINA = true }
+-	for _, name in MoveData.KitOrder do
++	for _, name in ALL do
+ 		local own = Palette.MATERIALS[name]
+ 		local want = if STEEL[name] then "slash" else "punch"
+ 		expect(own.hit[1][1] == want and own.heavyHit[1][1] == want, name .. " does not land with " .. want)
+@@ -531,8 +537,22 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
+ 			expect(spec[5] == nil or Palette.BUSES[spec[5]], label .. " goes through an unknown bus " .. tostring(spec[5]))
+ 		end
+ 	end
++	-- (each matter its own tables: SoundController names each list after its kit and part, a
++	-- table shared by two kits, or with an action, would answer to one name only)
++	local owners = {}
++	for key, list in Palette.ACTIONS do owners[list] = "action " .. key end
++	for name, own in Palette.MATERIALS do
++		expect(not owners[own], name .. " shares its matter with " .. tostring(owners[own]))
++		owners[own] = name
++		for part, list in own do
++			if type(list) == "table" then
++				expect(not owners[list], name .. "." .. part .. " is the table of " .. tostring(owners[list]))
++				owners[list] = name .. "." .. part
++			end
++		end
++	end
+ 	local signatures = {}
+-	for _, name in MoveData.KitOrder do
++	for _, name in ALL do
+ 		local own = Palette.MATERIALS[name]
+ 		expect(own, name .. " has no sound material")
+ 		for _, key in { "swing", "heavySwing", "hit", "heavyHit" } do check(own and own[key], name .. " " .. key) end
+@@ -540,7 +560,8 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
+ 		local signature = own and own.hit[1][1] .. own.hit[1][3] .. tostring(own.hit[1][5])
+ 		expect(not signatures[signature], name .. " hits like " .. tostring(signatures[signature]))
+ 		signatures[signature] = name
+-		-- a kit with a projectile special has its own projectile sound
++		-- a kit with a projectile special has its own projectile sound (a boss who borrows his
++		-- moves has the ones of his lender's: ASURA's ki blast)
+ 		for _, id in Kits[name].Roles do
+ 			if Moves[id].projectile and name ~= "KAI" then expect(own and own.projectile, name .. " has no projectile sound") end
+ 		end
+@@ -552,6 +573,64 @@ test("sounds: the client's own sounds and Wilhem's uploads only, one material pe
+ 	end
+ end)
+ 
++-- B-033: whose matter each sound of a fighter takes (SoundPalette.materialOf, what
++-- SoundController plays for swings, steps, throws' beats, blows and projectiles). Move by move
++-- for the 22 kits: the 20 playable ones exactly as before (the move's owner, else the kit, else
++-- KAI: MoveKit gives every one of their moves to its own kit); a boss always in his own matter,
++-- whoever lent him his moves (ASURA's 29 blows were KAI's, KUROEN SHIN's swings were KAI's and
++-- his blows KUROEN's). Not a palette of its own built from shared tables.
++test("sounds: each fighter strikes in its own matter, move by move; a boss always in his own (B-033)", function()
++	local function before(kit, id)
++		local owner = MoveData.MoveKit[id]
++		return Palette.MATERIALS[owner or kit] or Palette.MATERIALS.KAI
++	end
++	local moves, bosses = 0, 0
++	for name, data in Kits do
++		local ids = {}
++		for _, id in data.Roles do ids[id] = true end
++		for id, owner in MoveData.MoveKit do
++			if owner == name then ids[id] = true end
++		end
++		local own = Palette.MATERIALS[name]
++		expect(own ~= nil, name .. " has no matter of its own")
++		-- a swing, a step, a throw's beat: no move owner
++		local plain, plainName = Palette.materialOf(name, nil, data.Boss == true)
++		expect(plain == own and plainName == name, name .. "'s swings and steps sound like " .. tostring(plainName))
++		for id in ids do
++			local got, gotName = Palette.materialOf(name, MoveData.MoveKit[id], data.Boss == true)
++			moves += 1
++			if data.Boss then
++				expect(got == own and gotName == name, string.format("%s's %s sounds like %s", name, id, tostring(gotName)))
++			else
++				expect(got == before(name, id), string.format("%s's %s changed matter (%s)", name, id, tostring(gotName)))
++				-- (no playable kit plays another's move today: the owner first or the kit first give
++				-- the same matter; a shared move would make the owner's win, decide it then)
++				expect(MoveData.MoveKit[id] == nil or MoveData.MoveKit[id] == name,
++					name .. "'s " .. id .. " is " .. tostring(MoveData.MoveKit[id]) .. "'s move: its blows would sound like " .. tostring(MoveData.MoveKit[id]))
++			end
++		end
++		if data.Boss then bosses += 1 end
++	end
++	expect(bosses == 2 and moves >= 22 * 29, string.format("%d moves of %d bosses checked", moves, bosses))
++	-- the two bosses against their lenders: other matters, other first hits
++	for boss, lender in { ASURA = "KAI", ["KUROEN SHIN"] = "KUROEN" } do
++		expect(Palette.MATERIALS[boss] ~= Palette.MATERIALS[lender], boss .. " plays " .. lender .. "'s matter")
++		local cross = Kits[boss].Roles.Cross
++		expect(MoveData.MoveKit[cross] == lender, boss .. "'s STRAIGHT is not " .. lender .. "'s move any more")
++		expect(Palette.materialOf(boss, lender, true) == Palette.MATERIALS[boss], boss .. "'s blows sound like " .. lender)
++		expect(Palette.materialOf(lender, lender, false) == Palette.MATERIALS[lender], lender .. " lost his matter")
++	end
++	-- a kit with no matter at all falls back on KAI (never an error)
++	expect(Palette.materialOf("NOBODY", nil, false) == Palette.MATERIALS.KAI and Palette.materialOf(nil, nil, true) == Palette.MATERIALS.KAI,
++		"a kit without a matter does not fall back on KAI")
++	-- KUROEN SHIN: KUROEN's gauntlets, deeper, his swings in the echo, his blows in the hall
++	local shin, kuroen = Palette.MATERIALS["KUROEN SHIN"], Palette.MATERIALS.KUROEN
++	expect(shin.hit[1][1] == "punch" and shin.hit[1][3] < kuroen.hit[1][3] and shin.hit[1][5] == "hall", "KUROEN SHIN's blows are not deeper gauntlets in the hall")
++	expect(shin.swing[1][5] == "echo" and shin.heavySwing[1][5] == "echo", "KUROEN SHIN's swings are not in the echo")
++	expect(shin.heavyHit[1][3] < kuroen.heavyHit[1][3] and shin.heavyHit[2][1] == "boom" and shin.heavyHit[2][3] < kuroen.heavyHit[2][3],
++		"KUROEN SHIN's big blows have no deeper boom")
++end)
++
+ test("music: a track gone silent in a fight gives way to the next one (watchdog)", function()
+ 	local Music = require("../src/shared/Music")
+ 	local w = {}

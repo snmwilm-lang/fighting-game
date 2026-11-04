@@ -1,0 +1,340 @@
+Tu es un artiste VFX senior, spécialiste de Roblox et des jeux de combat anime (références : Guilty Gear Strive, Dragon Ball FighterZ, Jujutsu Kaisen, Demon Slayer Hinokami Chronicles, les meilleurs « battlegrounds » Roblox). Produis les VFX ci-dessous pour mon jeu, en respectant les règles.
+
+=== LE JEU ===
+BREAKFRAMEZ : jeu de combat 1 contre 1 (équipes de 1 à 3) sur Roblox. Caméra de côté, 60 images par seconde, persos en blocs (rig R15). 22 combattants, chacun avec un élément. Chaque perso a : coups normaux, projectile, dash, passif, 3 ultimes (R = rush, ÉVEIL, PORTE), un FATAL et un FINISHER cinématique.
+
+=== STYLE ===
+- Anime en cel-shading : formes nettes, 2 ou 3 tons, bords durs.
+- Cœur blanc + corps de couleur + liseré sombre.
+- Jamais de fumée réaliste ni de photo.
+- Rythme : anticipation (1 à 3 images), explosion (1 ou 2 images, très grande), dissipation lente (10 à 30 images).
+- Plus le coup compte, plus l'effet est gros :
+  - léger = 6 à 10 particules ;
+  - moyen = 12 à 16 + petit anneau ;
+  - lourd = 20 à 28 + onde + poussière ;
+  - fin de combo = 30 à 40 + débris ;
+  - ultime = 80 à 150 + dôme + flash blanc ;
+  - FATAL et K.O. = tout, avec la carte K.O.
+
+=== CONTRAINTES ROBLOX ===
+- Pas de shaders. Outils disponibles :
+  - ParticleEmitter (flipbooks), Beam, Trail ;
+  - MeshPart (Neon, ForceField, Glass), Highlight ;
+  - PointLight, SpotLight ;
+  - ColorCorrection, Bloom, Blur ;
+  - ScreenGui (ImageLabel) pour les effets d'écran.
+- Textures : PNG 32 bits, fond transparent, côtés en puissance de 2, 1024 × 1024 maximum.
+  - Dessiner en BLANC ou en niveaux de gris : le jeu recolore (propriété Color) selon le skin.
+  - Exception, les effets « encre » (ombre, vide, éclipse, sang) : noir avec un bord clair.
+- Flipbooks : 2×2 (512 px), 4×4 (1024 px, images de 256 px) ou 8×8 (1024 px, images de 128 px).
+  - Lecture de gauche à droite puis de haut en bas, sujet centré, dernière image vide.
+- Pas de halo noir autour des formes : étendre la couleur sous les pixels transparents (alpha bleed).
+- Meshes : FBX ou OBJ, low poly (un arc de slash fait moins de 300 triangles, un gros décor moins de 3 000).
+  - Origine au centre, UV dépliés de 0 à 1 le long de la forme (pour faire défiler une texture).
+- Budget mobile :
+  - un coup ≤ 40 particules ;
+  - un ultime ≤ 600 particules, ≤ 24 Beams, ≤ 4 lumières.
+- Effets cosmétiques, calculés côté client.
+- Aucun texte dans les images (sauf les kanji demandés), aucun logo.
+- Sang stylisé (énergie cramoisie, cristaux, pétales), jamais réaliste.
+- Flash blanc plein écran : 3 images au plus, jamais plus de 3 par seconde.
+
+=== MÉTHODES À UTILISER ===
+- Impact : ParticleEmitter avec Rate 0, puis :Emit(n).
+  - Réglages : LightEmission 1 (0 pour fumée et encre), LightInfluence 0, Brightness de 1,5 à 4.
+  - Drag de 6 à 15 (part vite, freine net).
+  - TimeScale 0 pendant le gel d'impact (les effets se figent avec les persos).
+- Étincelles allongées : Orientation VelocityParallel + Squash.
+- Charge : ShapeInOut Inward (l'énergie est aspirée).
+- Rayon ou flux : Beam avec TextureMode Wrap + TextureSpeed.
+- Éclair : une chaîne de Beams dont les points bougent au hasard toutes les 2 ou 3 images.
+- Traînée de coup : Trail entre deux Attachments (base et pointe), Lifetime de 0,08 à 0,2 s, actif seulement pendant les images actives du coup.
+- Slash : MeshPart en croissant ; échelle de 0,6 à 1,1 en 4 images ; transparence de 0 à 1 en 10 images.
+- Boucliers, dômes, coques d'énergie : MeshPart en matériau ForceField (le TextureID devient un motif lumineux).
+- Fissures, brûlures, flaques au sol : une Part fine avec un Decal, qui s'efface en 1 ou 2 s.
+- Image fantôme : clone du rig + Highlight de couleur, qui s'efface en 8 images.
+- Image d'impact : écran noir + Highlight blanc AlwaysOnTop sur les persos, pendant 2 ou 3 images.
+- Un ViewportFrame n'affiche pas les particules : les aperçus en boutique se font en flipbook UI.
+
+=== BIBLIOTHÈQUE COMMUNE (à faire d'abord, sert à tous) ===
+Nom des fichiers : VFX_COMMON_<NOM>.
+
+TEXTURES
+- Lumières et formes simples :
+  - GLOW_SOFT (256, halo radial) ; GLOW_CORE (256, disque dur + halo) ;
+  - STAR4 (étoile scintillante à 4 branches) ; STREAK (trait effilé) ;
+  - FLARE_ANAMORPHIC (1024×256, reflet horizontal) ; GLINT (reflet diagonal) ; MOTE (128, petit point lumineux).
+- Impacts :
+  - HITSPARK_LIGHT_4x4 (étincelle d'impact anime) ;
+  - HITSPARK_HEAVY_4x4 (étoile + éclats + anneau) ;
+  - IMPACT_BURST_2x2 (4 explosions de BD, sans texte).
+- Anneaux : RING_THIN (fin), RING_SOFT (onde de choc), RING_DASHED (en tirets, anneau de vitesse) ; DISTORT_RING (faux remous).
+- Fumée et poussière : SMOKE_CEL_8x8 (fumée anime 2 tons, LightEmission 0), DUST_GROUND_4x4 (poussière au sol vue de côté), PUFF_2x2 (petites bouffées).
+- Traînées et flux :
+  - SLASH_ARC (1024×256, croissant : bord vif, queue qui s'efface) ;
+  - TRAIL_GRADIENT (256×64) ; TRAIL_WISPY (traînée effilochée) ;
+  - ENERGY_FLOW (512×128, raccordable) ; LIGHTNING_A..D (4 éclairs raccordables) ;
+  - GODRAY (rayon de lumière vertical) ; CHAIN (chaîne raccordable).
+- Écran : SPEEDLINES_RADIAL_4x4 et SPEEDLINES_LINEAR_4x4 (lignes de vitesse) ; SCREEN_CRACK (vitre brisée) ; VIGNETTE.
+- Sol et matière :
+  - CRACK_2x2 (fissures au sol) ; SCORCH (trace de brûlure) ;
+  - DEBRIS_2x2 (éclats de roche) ; SHARD (éclat de cristal).
+- Sceaux et auras :
+  - SEAL_CIRCLE (cercle de sceau, sans écriture) ;
+  - AURA_FLAME_8x8 (flamme d'aura façon DBZ) ; WISP_4x4 (volute).
+- Éléments :
+  - liquides : SPLASH_4x4 (éclaboussure anime), DROPLET (goutte) ;
+  - feu : FLAME_8x8, EMBER (braise) ;
+  - nature et climat : LEAF_2x2, PETAL_2x2 (sakura), SNOWFLAKE_2x2, CLOUD_2x2 (nuages anime), MOON (lune) ;
+  - divers : BUBBLE (bulle), NOTE_2x2 (notes de musique), HEX_GRID (grille hexagonale), INK_4x4 (encre noire à bord clair), CLAW_2x2 (griffures à 3 traits), PIXEL_2x2 (glitch).
+
+MESHES
+- Slashes et ondes :
+  - SLASH_90, SLASH_180, SLASH_360 (rubans en croissant) ;
+  - SHOCK_RING (tore plat) ; SHOCK_CYLINDER (cylindre ouvert, pour piliers) ; DOME (hémisphère).
+- Formes d'énergie :
+  - SPHERE ; CONE_FLARE (bouche de rayon) ;
+  - HELIX (ruban en hélice) ; TWISTER (tornade, trombe).
+- Matière : ROCK_A..C (rochers) ; PILLAR (colonne brisée) ; ICE_SHARD_A..C (éclats de glace) ; SPIKE (pointe).
+- Formes spéciales :
+  - FIST_GIANT (poing géant) ; CLAW3 (3 griffes) ; CRESCENT_BLADE (lame de vent) ;
+  - ROOT (racine ou liane) ; FLOOR_DISC (plan) ; WING (aile).
+
+=== VFX COMMUNS DU COMBAT ===
+Couleur = l'Énergie de l'attaquant.
+- Impacts : léger, moyen, lourd, fin de combo (étincelle + traits + anneau + lumière + débris selon le niveau).
+- Garde : disque hexagonal ForceField qui flashe du côté du coup.
+- Garde brisée : le bouclier éclate en éclats + étoiles d'étourdissement.
+- Parade : reflet net + anneau blanc.
+- Choc de coups : deux étincelles dos à dos + éclair entre les deux.
+- Choc de projectiles : les deux couleurs explosent ensemble.
+- Renvoi : un miroir + reflet.
+- Super armure : flash rouge-orange sur le corps.
+- Burst : sphère d'énergie qui repousse tout.
+- Mouvement :
+  - dash au sol : poussière + image fantôme ;
+  - dash aérien : anneau de vitesse ;
+  - super saut : colonne d'air ;
+  - atterrissage : petit nuage ; chute rapide : onde + fissure ;
+  - rebond au mur : fissure verticale ; rebond au sol : cratère + débris ;
+  - chute au sol : poussière.
+- Saisie : reflet sur la main ; fin de saisie : impact lourd ; évasion de saisie : éclair horizontal.
+- Super flash (lancement d'un ultime) : écran assombri + reflet horizontal + lignes de vitesse + gel de 10 images.
+- Jauge : une aura qui grandit avec la jauge (niveaux 1, 2, 3).
+- FATAL disponible : aura rouge électrique qui crépite et pulse.
+- Soin : anneaux dorés qui montent. Retour à la vie : pilier de lumière.
+- PERFECT : anneau doré. Étourdissement : 3 étoiles qui tournent.
+- K.O. : ralenti + image d'impact + flash blanc + carte K.O.
+
+=== VFX PAR PERSO ===
+Format de chaque perso :
+aura | traînée de coup | impact | dash | projectile | passif || R | ÉVEIL | PORTE | FATAL | FINISHER
+
+KAI 開 — ki, rouge FF2A3D (skins : bleu, or, violet), cœur blanc
+- Combat : motes qui montent, flammes d'aura DBZ à jauge pleine | traînée blanche à bord rouge | petite boule de ki qui éclate | poussière + image fantôme | KIKOHO : boule 3D (cœur blanc, coque, 3 boucles de ki qui tournent, étincelles, queue de comète à 2 brins ; la boule naît entre les paumes et grossit) | RESOLVE : parade rouge et blanc.
+- R KAIEN RUSH : la boule grossit entre les paumes, puis un rayon ondulant 3D (3 brins en hélice, bouche évasée), dôme, rochers, fissures, flash.
+- ÉVEIL SCARLET AWAKENING : explosion d'aura écarlate, rochers qui se soulèvent.
+- PORTE 開天 GATE OF HEAVEN : sceau 開, porte céleste qui s'ouvre (rayons de lumière) puis se brise, dragon de ki en spirale.
+- FATAL 滅 DEAD SKY : ciel éteint, fissures rouges.
+- FINISHER MAXIMUM KAIENHA : la boule grossit dans les mains avec des crépitements, le rayon enfle et blanchit.
+
+TARO 火 — feu, orange FF6A1A, boxeur
+- Combat : braises qui montent, flammes sur les gants | traînée orange à cœur jaune | anneau de feu + gerbe | braises | boule de feu à fumée sombre | Dempsey Roll : images fantômes et arcs en ∞.
+- R DEVASTATING RUSH : cordes de ring en feu, flashs de photographes.
+- ÉVEIL HEAVENLY UPPERCUT : cratère de feu, colonne de feu, météore.
+- PORTE 火嵐 HOOK STORM : anneau de feu qui se referme puis explose.
+- FATAL 終 FINAL BELL : coup de cloche, ondes dorées, projecteur.
+- FINISHER DEMPSEY ROLL: FINAL ROUND : ∞ de flammes, image d'impact.
+
+ZEPHYR 風 — vent, cyan 5FE0D0, jambes, très transparent
+- Combat : lignes d'air qui tournent | croissant d'air sur les coups de pied | anneau en tirets + bouffée en spirale | lignes de vent | WIND BLADE : lame en croissant | Perfect Rhythm : pulsation dorée ; étincelles en orbite.
+- R CUTTING WIND : lames de vent qui se croisent en vortex, coup de pied qui fend l'air.
+- ÉVEIL RISING DRAGON : le vent s'enroule en dragon.
+- PORTE 旋風 RAGING CYCLONE : cyclone géant à 3 couches, l'œil de la tempête.
+- FATAL 嵐 MOONFALL : lune énorme, croissant qui tombe.
+- FINISHER GALE EXCALIBUR : épée de vent géante.
+
+AKEMI 影 — ombre, violet B060FF + encre noire
+- Combat : volutes noires | slash noir à bord violet (2 couches) | X + éclaboussure d'encre | silhouettes d'encre | KUNAI : kunai avec reflet | INSTINCT : image fantôme argentée, 3 orbes de charge qui tournent.
+- R MANY SHADOWS : clones d'ombre de tous les côtés.
+- ÉVEIL TIME STOP : noir et blanc, effets figés, puis toutes les coupes arrivent ensemble.
+- PORTE 幻舞 PHANTOM DANCE : lumières éteintes, sceau 影, éclairs noirs, X géant.
+- FATAL 刻 STOLEN INSTANT : l'image se brise comme du verre.
+- FINISHER THOUSAND SHADOWS : des centaines de coupes.
+
+RYUKEN 拳 — rage, rouge FF2A2A + vapeur grise
+- Combat : vapeur qui monte | traînée de chaleur | fissure rouge en étoile | trace brûlée | SEISMIC STRIKE : ligne de roche qui jaillit | RAGE : vapeur et rouge qui montent sur 10 niveaux, flammes à 10.
+- R FIST FURY : coups face caméra, poing géant de ki.
+- ÉVEIL COLLAPSE : gantelet fissuré qui brille, cratère.
+- PORTE 拳 LAST ROUND : kanji qui brûle, chaque pas fissure le sol, le sol éclate.
+- FATAL 砕 WORLD FIST : l'écran se fissure.
+- FINISHER TEN FISTS OF RAGE : dix poings géants.
+
+SHIN 流 — eau, bleu 4DA8FF, katana
+- Combat : gouttes + ondes au sol | ruban d'eau sur la lame + éclaboussure | ligne vive + gouttes | ondes | CUTTING CURRENT : croissant d'eau | PRECISION : reflet à la pointe.
+- R DANCE OF CURRENTS : sillage en 8 au sol, trombe d'eau, coupe du ciel.
+- ÉVEIL ENDLESS STORM : anneaux de courant, ligne jusqu'au ciel, croix de lumière.
+- PORTE 零 ZERO HORIZON : une ligne d'un bout à l'autre de l'horizon.
+- FATAL 一閃 ISSEN : image d'impact, la coupe arrive après.
+- FINISHER FINAL DIVISION : écran coupé en deux.
+
+DAICHA 闇 — vide, violet B060FF + matière noire, orbe
+- Combat : particules sombres en orbite | traînée noire derrière l'orbe | aspiration puis éclat d'encre | disparaît dans un trou noir et réapparaît | INVERTED SPHERE : sphère noire, anneau de distorsion | L'orbe : cœur noir + coque ForceField violette.
+- R DARK DOMAIN : sphère, puis disque, puis sphère ; elle perce et éclate.
+- ÉVEIL RIVER OF SHADOWS : rivière noire au sol, vagues.
+- PORTE 蝕 TOTAL ECLIPSE : éclipse géante (disque noir + couronne), pluie de sphères.
+- FATAL 虚 THE VOID : monde inversé.
+- FINISHER INVERTED WORLD : sphère géante.
+
+HIBECARES 崩 — pierre, poussière + braises orange FF8A1A
+- Combat : cailloux en orbite lente | arc lourd + poussière | rochers qui éclatent | le sol tremble | rocher lancé | KING OF RUINS : fissures sous lui qui grandissent quand sa vie baisse, braises.
+- R AWAKENED COLOSSUS : anneau de piliers, lignes de roche, cratère.
+- ÉVEIL PUNISHMENT : le sol se fend, anneau de pointes de roche.
+- PORTE 崩 RUIN OF THE WORLD : piliers qui s'effondrent, pluie de pierres.
+- FATAL 墓 TOMB OF KINGS : dalles qui se referment.
+- FINISHER THRONE OF RUINS : trône de roche.
+
+RAIJIN 雷 — foudre, jaune FFE85A, lance
+- Combat : arcs électriques qui sautent sur le corps | ruban électrique sur la lance | petit éclair + lumière qui clignote | étincelles | LIGHTNING SPEAR : lance de lumière entourée d'éclairs | OVERCHARGE : la lance crépite, 3 pastilles.
+- R THOUSAND BOLTS : estocs en éclairs.
+- ÉVEIL THUNDER JUDGMENT : nuages sombres, éclairs du ciel.
+- PORTE 雷神 DIVINE WRATH : piliers de foudre, anneau de tambours taiko derrière lui.
+- FATAL 天罰 HEAVENLY SENTENCE : éclairs qui convergent.
+- FINISHER SPEAR OF THE THUNDER GOD : lance géante du ciel.
+
+YUKINA 雪 — glace, bleu pâle 9FE6FF, éventails
+- Combat : flocons | arcs de givre bordés de cristaux | éclats de glace + bouffée de neige | plaque de givre au sol | ICE SHARDS : 3 éclats | DEEP FREEZE : givre sur la cible, gangue de glace aux pieds à 3 charges.
+- R ICE GARDEN : jardin de pics de glace, cible prise dans la glace.
+- ÉVEIL WINTER WALTZ : éclats tirés de loin, fleurs de givre.
+- PORTE 氷獄 ETERNAL PRISON : fils de givre, prison de piliers.
+- FATAL 絶対零度 ABSOLUTE ZERO : givre sur les bords de l'écran, tout éclate.
+- FINISHER FROZEN REQUIEM : cercueil de glace qui éclate en neige.
+
+VENOM 毒 — poison, vert acide 7CFF4A
+- Combat : bulles + vapeur | griffures vertes qui gouttent | éclaboussure verte | flaque toxique | TOXIC MIST : nuage lent | CONTAMINATION : teinte verte qui pulse, bulles, gouttes.
+- R FATAL BITE : yeux dans le noir, crocs qui se referment.
+- ÉVEIL EPIDEMIC : veines vertes qui se répandent.
+- PORTE 毒王 VENOM KING : silhouette de cobra en fumée.
+- FATAL 蝕 TOTAL CORROSION : pluie acide.
+- FINISHER TOXIC FEAST : gueule de serpent en fumée.
+
+GORAN 剛 — titan, rouge FF4A3A, lutteur
+- Combat : poussière lourde | onde au sol | fissure + débris | poussière à chaque pas | TITAN'S HUG : onde de l'étreinte | ANCHOR : flash d'armure + ancre lumineuse au sol.
+- R APOCALYPSE SUPLEX : anneau géant au sol, séisme.
+- ÉVEIL SPINE BREAKER : tout le ring saute.
+- PORTE 巨神 FALL OF THE TITAN : la cible retombe en météore.
+- FATAL 終幕 FINAL THROW : grand balancement circulaire, tornade de poussière.
+- FINISHER TITAN QUAKE : fissure à travers l'arène.
+
+ASTER 星 — gravité, violet B49CFF + noir
+- Combat : étoiles en orbite | anneaux qui se resserrent | aspiration puis éclat | poussière d'étoiles | PULL : sphère noire + disque d'accrétion | SHIFTING MASS : anneaux au-dessus ou en dessous de la cible.
+- R DEADLY ORBIT : traces d'orbite.
+- ÉVEIL STELLAR COLLAPSE : ellipses autour de la cible.
+- PORTE 重力 EVENT HORIZON : trou noir, étoiles aspirées.
+- FATAL 星葬 COSMIC FUNERAL : étoiles filantes.
+- FINISHER STELLAR COLLAPSE : supernova.
+
+HIBIKI 響 — son, rose FF6FC8
+- Combat : notes + anneaux sur le temps | ondulations | rafale d'anneaux | un anneau à chaque pas | SONIC WAVE : arcs en série | TEMPO : tout pulse en rythme.
+- R BRUTAL SYMPHONY : anneau à chaque temps.
+- ÉVEIL FORBIDDEN FREQUENCY : ondes de partout.
+- PORTE 絶響 LAST RESONANCE : mur de son qui avance.
+- FATAL 無音 ABSOLUTE SILENCE : désaturé, anneaux figés qui se brisent.
+- FINISHER RESONANCE : toute l'arène vibre.
+
+KAZAN 鎖 — acier, étincelles orange FFB04A, griffes et chaînes
+- Combat : étincelles métalliques | 3 griffures parallèles | griffures + étincelles | une chaîne qui traîne | SHACKLE HOOK : crochet + chaîne | SHACKLED : chaîne entre lui et la cible.
+- R PREDATOR'S FEAST : griffures à chaque passage.
+- ÉVEIL IRON FANGS : griffe géante.
+- PORTE 鎖獄 CLAW PRISON : cage de chaînes.
+- FATAL 断罪 FINAL VERDICT : griffure-guillotine.
+- FINISHER CAGE OF CLAWS : cage de griffes qui se referme.
+
+KUREN 血 — sang stylisé, cramoisi D0102E, vampire
+- Combat : gouttes et pétales cramoisis | croissant sombre à bord rouge | fleur cramoisie qui éclot | brume + chauves-souris | BLOOD LANCE : lance de cristal | SCARLET PACT : veines cramoisies, aura qui aspire.
+- R SCARLET RAIN : pluie cramoisie.
+- ÉVEIL FORBIDDEN PACT : lances de partout.
+- PORTE 血王 BLOOD THRONE : flaque brillante, trône de cristaux.
+- FATAL 血月 BLOOD MOON : lune rouge.
+- FINISHER CRIMSON COVENANT : sceau cramoisi + lances.
+
+SYLVA 森 — nature, vert 4AD86A (rose en BLOSSOM)
+- Combat : feuilles qui flottent | liane + feuilles | gerbe de feuilles | pétales | HUNGRY ROOTS : piège de racines | TERRITORY : anneau d'herbe et de fleurs au sol (12 studs).
+- R HOSTILE FOREST : racines qui soulèvent la proie.
+- ÉVEIL WILD GRASP : lianes qui tirent.
+- PORTE 森王 BRAMBLE DOMAIN : épines de partout.
+- FATAL 世界樹 THE LAST TREE : arbre géant.
+- FINISHER THE GREAT HUNT : bêtes spectrales faites de feuilles.
+
+ELIAN 癒 — lumière, or pâle FFE9A0
+- Combat : motes + halo au-dessus de la tête | empreinte de paume lumineuse | halo + plumes | traînée de lumière | RAY : orbe de lumière à rayons | SECOND WIND : pilier de lumière + anneaux.
+- R REBIRTH : piliers de lumière.
+- ÉVEIL PURIFICATION : sceau et chaînes de lumière.
+- PORTE 神癒 DIVINE MIRACLE : carillon, anneaux.
+- FATAL 天光 LAST LIGHT : rayon de soleil du ciel.
+- FINISHER FINAL MERCY : ailes de lumière.
+
+NOVA 機 — tech, orange FF8A2A / cyan 6FE0FF
+- Combat : lignes d'hologramme | vapeur du piston | carrés de glitch | jets de propulseurs | DRONE SHOT : drones qui tirent des lasers | ENGINEERING : drone en hologramme.
+- R SATURATION : drones de partout.
+- ÉVEIL OMEGA PROTOCOL : réticule au sol, rayon orbital.
+- PORTE 機神 MECHANICAL ARMY : barrage de missiles.
+- FATAL 終焉 PROGRAMMED EXTINCTION : mitrailleuse, écran glitché.
+- FINISHER : à inventer (un mécha).
+
+KUROEN 蝕 — éclipse, rouge E0102E + noir
+- Combat : flammes noires à bord rouge | traînée noire à bord rouge | sphère noire + couronne rouge | image fantôme rouge et noire | ECLIPSE BREAKER : disque d'éclipse | DOMINATION : 3 marques rouges dans le dos.
+- R EMPEROR RUSH : coups de plus en plus vite.
+- ÉVEIL ZERO ABSOLU: ECLIPSE : noir total, éclipse rouge.
+- PORTE 皇 EMPEROR'S GATE : tempête de poings.
+- FATAL 蝕 TOTAL ECLIPSE : dernier coup sous l'éclipse.
+- FINISHER : à inventer.
+
+ASURA (boss) — or FFD23F, quatre bras
+- Combat : flammes dorées | 4 traînées dorées | empreinte de poing dorée | image fantôme dorée + armure.
+- PORTE 阿修羅 WRATH OF THE FOUR ARMS : mille poings + roue de halo enflammée derrière lui.
+
+KUROEN SHIN (boss) — blanc et or
+- Combat : flammes blanches + motes dorés | traînée blanc-or | éclat blanc + plumes de lumière | téléportation avec images fantômes.
+- Ultimes : il tourne autour de la cible plus vite que l'œil ; pilier de lumière.
+
+=== ÉCRAN ET CINÉMATIQUES ===
+- Bandes noires, lignes de vitesse radiales et linéaires, image d'impact (silhouettes), flash blanc, teinte, vitre brisée, vignette, écran partagé.
+- Grades de couleur (ColorCorrection) par perso : crimson, void, mono, fire, sky, shadow, rage, current, inverse, ruin, storm, frost, toxic, titan, cosmos, sonic, iron, blood, wild, holy.
+- Sceaux : cercle de sceau + kanji au centre, qui apparaît, brûle sur le bord puis s'efface.
+  - Kanji : 開 火 風 影 拳 流 闇 崩 雷 雪 毒 剛 星 響 鎖 血 森 癒 機 蝕 阿修羅 真.
+  - Les faire à partir d'une police pinceau libre (par exemple Yuji Boku), pas avec une IA d'images (elles écrivent mal les kanji).
+- Carte K.O. : fond en coup de pinceau rouge et noir, sans lettres.
+- Aucun nom d'attaque crié à l'écran.
+
+=== ARÈNES (décor, ≤ 80 particules chacune) ===
+- SCARLET TEMPLE : feuilles d'érable rouges, lanternes qui vacillent, encens.
+- FROZEN LAKE : neige, buée, aurore boréale, glace qui se fissure sous les gros coups.
+- NEON ROOFTOP : pluie, éclaboussures, néons qui clignotent (sans texte), vapeur.
+- VOLCANO FORGE : braises, cendre, lueur de lave qui pulse, chaleur.
+- BAMBOO DOJO : feuilles de bambou, rayons de lumière, lucioles.
+- CLOUD PALACE : mer de nuages, rayons divins, oiseaux au loin, pétales dorés.
+
+=== INTERFACE ET BOUTIQUE (style jeu de combat, pas jeu mobile) ===
+- Auras cosmétiques, chacune avec sa texture :
+  - FROST : flocons + cristaux ;
+  - EMBER : braises + flammes ;
+  - SHADOW : encre ;
+  - SAKURA : pétales ;
+  - VOID : petits cubes + volutes ;
+  - VIP GOLD : étoiles dorées + flammes d'or.
+  - Chacune a en plus un flipbook UI 4×4 pour l'aperçu en boutique.
+- Coup de pinceau d'encre sur le portrait au choix du perso ; écran VS en diagonale avec éclair.
+- Reflet sur le badge de rang ; pièces qui volent jusqu'au compteur ; bandeau de quête.
+- Couronne du champion de la semaine ; pinceau doré pour PERFECT ; reflet discret sur les boutons.
+
+=== LIVRAISON ===
+- Nom des fichiers : VFX_<PERSO|COMMON>_<NOM>[_<GRILLE>].png ou .fbx.
+- Avec chaque fichier, une ligne : usage, taille, grille, images par seconde, LightEmission (0 ou 1).
+- Ordre de production :
+  1. La bibliothèque commune et les effets communs du combat.
+  2. Traînée, impact et dash des 8 premiers persos (KAI, TARO, ZEPHYR, AKEMI, RYUKEN, SHIN, DAICHA, HIBECARES).
+  3. Projectiles et passifs de tous les persos.
+  4. Les ultimes, les FATAL et les FINISHER.
+  5. Les arènes.
+  6. L'interface et la boutique.
